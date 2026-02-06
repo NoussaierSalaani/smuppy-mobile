@@ -401,13 +401,13 @@ const PostDetailFanFeedScreen = () => {
 
       // Check if already reported (anti-spam)
       if (hasUserReported(currentPost.id)) {
-        showError('Déjà signalé', 'Vous avez déjà signalé ce contenu. Il est en cours d\'examen.');
+        showError('Already Reported', 'You have already reported this content. It is under review.');
         return;
       }
 
       // Check if content is already under review
       if (isUnderReview(currentPost.id)) {
-        showError('Sous examen', 'Ce contenu est déjà en cours d\'examen par notre équipe.');
+        showError('Under Review', 'This content is already being reviewed by our team.');
         return;
       }
 
@@ -427,11 +427,11 @@ const PostDetailFanFeedScreen = () => {
     const result = storeSubmitReport(currentPost.id, reason);
 
     if (result.alreadyReported) {
-      showError('Déjà signalé', result.message);
+      showError('Already Reported', result.message);
     } else if (result.success) {
-      showSuccess('Signalé', result.message);
+      showSuccess('Reported', result.message);
     } else {
-      showError('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
+      showError('Error', 'Something went wrong. Please try again.');
     }
   };
 
@@ -444,22 +444,22 @@ const PostDetailFanFeedScreen = () => {
     // Check if already muted
     if (isUserMuted(userId)) {
       setShowMenu(false);
-      showError('Déjà masqué', 'Cet utilisateur est déjà masqué.');
+      showError('Already Muted', 'This user is already muted.');
       return;
     }
 
     setShowMenu(false);
     showDestructiveConfirm(
-      'Masquer cet utilisateur ?',
-      'Vous ne verrez plus ses publications dans vos feeds.',
+      'Mute this user?',
+      'You will no longer see their posts in your feeds.',
       async () => {
         setMuteLoading(true);
         try {
           const { error } = await mute(userId);
           if (error) {
-            showError('Erreur', 'Impossible de masquer cet utilisateur.');
+            showError('Error', 'Could not mute this user.');
           } else {
-            showSuccess('Utilisateur masqué', 'Vous ne verrez plus ses publications.');
+            showSuccess('User Muted', 'You will no longer see their posts.');
           }
         } finally {
           setMuteLoading(false);
@@ -477,22 +477,22 @@ const PostDetailFanFeedScreen = () => {
     // Check if already blocked
     if (isBlocked(userId)) {
       setShowMenu(false);
-      showError('Déjà bloqué', 'Cet utilisateur est déjà bloqué.');
+      showError('Already Blocked', 'This user is already blocked.');
       return;
     }
 
     setShowMenu(false);
     showDestructiveConfirm(
-      'Bloquer cet utilisateur ?',
-      'Vous ne verrez plus ses publications et il ne pourra plus interagir avec vous.',
+      'Block this user?',
+      'You will no longer see their posts and they will not be able to interact with you.',
       async () => {
         setBlockLoading(true);
         try {
           const { error } = await block(userId);
           if (error) {
-            showError('Erreur', 'Impossible de bloquer cet utilisateur.');
+            showError('Error', 'Could not block this user.');
           } else {
-            showSuccess('Utilisateur bloqué', 'Vous ne verrez plus ses publications.');
+            showSuccess('User Blocked', 'You will no longer see their posts.');
           }
         } finally {
           setBlockLoading(false);

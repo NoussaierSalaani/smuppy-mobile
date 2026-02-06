@@ -92,13 +92,13 @@ const OFFERING_TYPES = [
 ] as const;
 
 const DAYS_OF_WEEK = [
-  { key: 'mon', label: 'Lun' },
-  { key: 'tue', label: 'Mar' },
-  { key: 'wed', label: 'Mer' },
-  { key: 'thu', label: 'Jeu' },
-  { key: 'fri', label: 'Ven' },
-  { key: 'sat', label: 'Sam' },
-  { key: 'sun', label: 'Dim' },
+  { key: 'mon', label: 'Mon' },
+  { key: 'tue', label: 'Tue' },
+  { key: 'wed', label: 'Wed' },
+  { key: 'thu', label: 'Thu' },
+  { key: 'fri', label: 'Fri' },
+  { key: 'sat', label: 'Sat' },
+  { key: 'sun', label: 'Sun' },
 ];
 
 const DURATIONS = [30, 45, 60, 90];

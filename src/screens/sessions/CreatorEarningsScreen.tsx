@@ -145,10 +145,10 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
   };
 
   const periods: { key: PeriodType; label: string }[] = [
-    { key: 'week', label: 'Semaine' },
-    { key: 'month', label: 'Mois' },
-    { key: 'year', label: 'Année' },
-    { key: 'all', label: 'Tout' },
+    { key: 'week', label: 'Week' },
+    { key: 'month', label: 'Month' },
+    { key: 'year', label: 'Year' },
+    { key: 'all', label: 'All' },
   ];
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -169,7 +169,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>Mes Revenus</Text>
+        <Text style={styles.title}>My Earnings</Text>
         <TouchableOpacity style={styles.settingsButton}>
           <Ionicons name="settings-outline" size={22} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
@@ -190,21 +190,21 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
             style={styles.balanceGradient}
           >
             <View style={styles.balanceHeader}>
-              <Text style={styles.balanceLabel}>Solde disponible</Text>
+              <Text style={styles.balanceLabel}>Available balance</Text>
               <TouchableOpacity style={styles.withdrawButton}>
-                <Text style={styles.withdrawText}>Retirer</Text>
+                <Text style={styles.withdrawText}>Withdraw</Text>
                 <Ionicons name="arrow-forward" size={16} color={colors.white} />
               </TouchableOpacity>
             </View>
             <Text style={styles.balanceAmount}>{balance.available.toFixed(2)} €</Text>
             <View style={styles.balanceDetails}>
               <View style={styles.balanceItem}>
-                <Text style={styles.balanceItemLabel}>En attente</Text>
+                <Text style={styles.balanceItemLabel}>Pending</Text>
                 <Text style={styles.balanceItemValue}>{balance.pending.toFixed(2)} €</Text>
               </View>
               <View style={styles.balanceDivider} />
               <View style={styles.balanceItem}>
-                <Text style={styles.balanceItemLabel}>Total gagné</Text>
+                <Text style={styles.balanceItemLabel}>Total earned</Text>
                 <Text style={styles.balanceItemValue}>{balance.lifetime.toFixed(2)} €</Text>
               </View>
             </View>
@@ -240,7 +240,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
               <Ionicons name="cube" size={22} color="#8B5CF6" />
             </View>
             <Text style={styles.statValue}>{stats.packsActive}</Text>
-            <Text style={styles.statLabel}>Packs actifs</Text>
+            <Text style={styles.statLabel}>Active packs</Text>
           </View>
           <View style={styles.statCard}>
             <View style={[styles.statIcon, { backgroundColor: '#EC489920' }]}>
@@ -254,13 +254,13 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
               <Ionicons name="star" size={22} color="#FFA500" />
             </View>
             <Text style={styles.statValue}>{stats.avgSessionRating}</Text>
-            <Text style={styles.statLabel}>Note moy.</Text>
+            <Text style={styles.statLabel}>Avg rating</Text>
           </View>
         </View>
 
         {/* Revenue Breakdown */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Répartition des revenus</Text>
+          <Text style={styles.sectionTitle}>Revenue breakdown</Text>
           <View style={styles.breakdownCard}>
             {(() => {
               const total = (earningsData?.breakdown.sessions.total || 0) +
@@ -296,7 +296,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
                   <View style={styles.breakdownRow}>
                     <View style={styles.breakdownLeft}>
                       <View style={[styles.breakdownDot, { backgroundColor: '#EC4899' }]} />
-                      <Text style={styles.breakdownLabel}>Abonnements</Text>
+                      <Text style={styles.breakdownLabel}>Subscriptions</Text>
                     </View>
                     <Text style={styles.breakdownValue}>{subscriptionsPercent}%</Text>
                   </View>
@@ -312,16 +312,16 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
         {/* Recent Transactions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Transactions récentes</Text>
+            <Text style={styles.sectionTitle}>Recent transactions</Text>
             <TouchableOpacity>
-              <Text style={styles.seeAllText}>Voir tout</Text>
+              <Text style={styles.seeAllText}>See all</Text>
             </TouchableOpacity>
           </View>
 
           {transactions.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: 32 }}>
               <Ionicons name="receipt-outline" size={48} color={colors.gray} />
-              <Text style={{ color: colors.gray, marginTop: 12 }}>Aucune transaction</Text>
+              <Text style={{ color: colors.gray, marginTop: 12 }}>No transactions</Text>
             </View>
           ) : null}
 

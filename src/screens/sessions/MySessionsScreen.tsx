@@ -81,12 +81,12 @@ const MySessionsScreen = (): React.JSX.Element => {
 
   const getStatusLabel = (status: Session['status']): string => {
     switch (status) {
-      case 'confirmed': return 'Confirmée';
-      case 'pending': return 'En attente';
-      case 'completed': return 'Terminée';
-      case 'cancelled': return 'Annulée';
-      case 'in_progress': return 'En cours';
-      case 'no_show': return 'Absent';
+      case 'confirmed': return 'Confirmed';
+      case 'pending': return 'Pending';
+      case 'completed': return 'Completed';
+      case 'cancelled': return 'Cancelled';
+      case 'in_progress': return 'In progress';
+      case 'no_show': return 'No show';
       default: return status;
     }
   };
@@ -187,19 +187,19 @@ const MySessionsScreen = (): React.JSX.Element => {
         color={colors.gray}
       />
       <Text style={styles.emptyTitle}>
-        {activeTab === 'upcoming' ? 'Aucune session à venir' : 'Aucune session passée'}
+        {activeTab === 'upcoming' ? 'No upcoming sessions' : 'No past sessions'}
       </Text>
       <Text style={styles.emptySubtitle}>
         {activeTab === 'upcoming'
-          ? 'Réservez une session avec votre créateur préféré'
-          : 'Vos sessions terminées apparaîtront ici'}
+          ? 'Book a session with your favorite creator'
+          : 'Your completed sessions will appear here'}
       </Text>
       {activeTab === 'upcoming' && (
         <TouchableOpacity
           style={styles.exploreButton}
           onPress={() => navigation.navigate('Search')}
         >
-          <Text style={styles.exploreText}>Explorer les créateurs</Text>
+          <Text style={styles.exploreText}>Explore creators</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -222,7 +222,7 @@ const MySessionsScreen = (): React.JSX.Element => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>Mes Sessions</Text>
+        <Text style={styles.title}>My Sessions</Text>
         <View style={styles.placeholder} />
       </View>
 

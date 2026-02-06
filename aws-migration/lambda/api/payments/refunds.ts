@@ -14,6 +14,7 @@ import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments/refunds');
 
@@ -52,6 +53,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 401,
         headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 3 refund creations per minute, 20 reads per minute
+    const isWrite = event.httpMethod === 'POST';
+    const rateCheck = await checkRateLimit({
+      prefix: isWrite ? 'refund-create' : 'refund-read',
+      identifier: user.id,
+      maxRequests: isWrite ? 3 : 20,
+    });
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
       };
     }
 
@@ -433,7 +449,7 @@ async function createRefund(
        VALUES ($1, 'refund_processed', 'Refund Processed', $2, $3)`,
       [
         notifyUserId,
-        `A refund of €${(refundAmountCents / 100).toFixed(2)} has been processed`,
+        `A refund of ${(refundAmountCents / 100).toFixed(2)} ${(payment.currency || 'EUR').toUpperCase()} has been processed`,
         JSON.stringify({ paymentId, refundId: refundResult.rows[0].id }),
       ]
     );

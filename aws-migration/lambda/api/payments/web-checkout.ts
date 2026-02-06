@@ -18,6 +18,7 @@ import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments/web-checkout');
 
@@ -31,6 +32,9 @@ async function getStripe(): Promise<Stripe> {
 }
 
 const WEB_DOMAIN = process.env.WEB_DOMAIN || 'https://smuppy.com';
+
+// Default currency for all checkout sessions
+const DEFAULT_CURRENCY = process.env.DEFAULT_CURRENCY || 'eur';
 
 // Product types that can be purchased
 type ProductType = 'session' | 'pack' | 'channel_subscription' | 'platform_subscription' | 'tip';
@@ -59,6 +63,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 401,
         headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 10 checkout creations per minute, 30 status checks per minute
+    const rateLimitPrefix = event.httpMethod === 'POST' ? 'web-checkout' : 'web-checkout-status';
+    const maxReqs = event.httpMethod === 'POST' ? 10 : 30;
+    const rateCheck = await checkRateLimit({ prefix: rateLimitPrefix, identifier: user.sub, maxRequests: maxReqs });
+    if (!rateCheck.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
       };
     }
 
@@ -193,7 +209,7 @@ async function createCheckoutSession(
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
-            currency: 'eur',
+            currency: DEFAULT_CURRENCY,
             product_data: {
               name: `Session 1:1 avec ${session.creator_name}`,
               description: `${session.duration_minutes || session.duration} minutes`,
@@ -262,7 +278,7 @@ async function createCheckoutSession(
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
-            currency: 'eur',
+            currency: DEFAULT_CURRENCY,
             product_data: {
               name: pack.name,
               description: `${pack.sessions_included} sessions avec ${pack.creator_name}`,
@@ -349,7 +365,7 @@ async function createCheckoutSession(
         const price = await stripe.prices.create({
           product: product.id,
           unit_amount: priceInCents,
-          currency: 'eur',
+          currency: DEFAULT_CURRENCY,
           recurring: { interval: 'month' },
         });
 
@@ -433,7 +449,7 @@ async function createCheckoutSession(
         const price = await stripe.prices.create({
           product: product.id,
           unit_amount: plan.amount,
-          currency: 'eur',
+          currency: DEFAULT_CURRENCY,
           recurring: { interval: 'month' },
         });
 
@@ -515,7 +531,7 @@ async function createCheckoutSession(
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
-            currency: 'eur',
+            currency: DEFAULT_CURRENCY,
             product_data: {
               name: `Tip pour ${creator.full_name || creator.username}`,
               description: 'Merci pour votre soutien!',

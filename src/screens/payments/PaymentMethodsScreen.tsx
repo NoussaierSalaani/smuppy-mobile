@@ -161,11 +161,11 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         return;
       }
 
-      showSuccess('Succes', 'Carte ajoutee avec succes');
+      showSuccess('Success', 'Card added successfully');
       fetchPaymentMethods();
     } catch (error: unknown) {
       if (__DEV__) console.warn('Failed to add card:', error);
-      showError('Erreur', 'Impossible d\'ajouter la carte. Veuillez reessayer.');
+      showError('Error', 'Could not add card. Please try again.');
     } finally {
       setAddingCard(false);
     }
@@ -183,18 +183,18 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         );
         setSelectedCard(methodId);
       } else {
-        showError('Erreur', response.message || 'Impossible de definir comme defaut');
+        showError('Error', response.message || 'Could not set as default');
       }
     } catch (error: unknown) {
       if (__DEV__) console.warn('Failed to set default:', error);
-      showError('Erreur', 'Une erreur est survenue');
+      showError('Error', 'Something went wrong');
     }
   };
 
   const handleRemove = (method: PaymentMethod) => {
     showDestructiveConfirm(
-      'Supprimer la carte',
-      `Voulez-vous supprimer la carte **** ${method.card?.last4} ?`,
+      'Remove Card',
+      `Remove card ending in **** ${method.card?.last4}?`,
       async () => {
         try {
           const response = await awsAPI.removePaymentMethod(method.id);
@@ -204,11 +204,11 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               setSelectedCard(null);
             }
           } else {
-            showError('Erreur', response.message || 'Impossible de supprimer');
+            showError('Error', response.message || 'Could not remove card');
           }
         } catch (error: unknown) {
           if (__DEV__) console.warn('Failed to remove card:', error);
-          showError('Erreur', 'Une erreur est survenue');
+          showError('Error', 'Something went wrong');
         }
       }
     );
@@ -312,7 +312,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
 
         {/* Delete hint */}
         <Text style={styles.cardHint}>
-          Appui long pour supprimer
+          Long press to remove
         </Text>
       </Animated.View>
     );
@@ -328,7 +328,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           style={[styles.loadingHeader, { paddingTop: insets.top + 10 }]}
         >
           <ActivityIndicator size="large" color="white" />
-          <Text style={styles.loadingText}>Chargement...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </LinearGradient>
       </View>
     );
@@ -347,7 +347,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Moyens de paiement</Text>
+          <Text style={styles.headerTitle}>Payment Methods</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -356,7 +356,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           <BlurView intensity={20} tint="light" style={styles.statCard}>
             <Ionicons name="card" size={20} color="white" />
             <Text style={styles.statNumber}>{paymentMethods.length}</Text>
-            <Text style={styles.statLabel}>Cartes</Text>
+            <Text style={styles.statLabel}>Cards</Text>
           </BlurView>
           <BlurView intensity={20} tint="light" style={styles.statCard}>
             <Ionicons name="shield-checkmark" size={20} color="white" />
@@ -386,7 +386,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         {/* Cards Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Vos cartes</Text>
+            <Text style={styles.sectionTitle}>Your Cards</Text>
             <TouchableOpacity onPress={handleAddCard} disabled={addingCard}>
               {addingCard ? (
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -411,9 +411,9 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               >
                 <View style={styles.emptyCardContent}>
                   <Ionicons name="card-outline" size={48} color={colors.gray} />
-                  <Text style={styles.emptyTitle}>Aucune carte</Text>
+                  <Text style={styles.emptyTitle}>No cards yet</Text>
                   <Text style={styles.emptySubtitle}>
-                    Ajoutez une carte pour des paiements rapides et securises
+                    Add a card for fast and secure payments
                   </Text>
                 </View>
                 <View style={styles.emptyCardDots}>
@@ -447,7 +447,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
             ) : (
               <>
                 <Ionicons name="add-circle" size={24} color="white" />
-                <Text style={styles.addCardLargeText}>Ajouter une nouvelle carte</Text>
+                <Text style={styles.addCardLargeText}>Add a new card</Text>
               </>
             )}
           </LinearGradient>
@@ -460,8 +460,8 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
-              <Text style={styles.securityTitle}>Chiffrement SSL</Text>
-              <Text style={styles.securityDesc}>Donnees chiffrees de bout en bout</Text>
+              <Text style={styles.securityTitle}>SSL Encryption</Text>
+              <Text style={styles.securityDesc}>End-to-end encrypted data</Text>
             </View>
           </View>
           <View style={styles.securityItem}>
@@ -469,8 +469,8 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               <Ionicons name="finger-print" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
-              <Text style={styles.securityTitle}>Authentification 3DS</Text>
-              <Text style={styles.securityDesc}>Verification securisee des paiements</Text>
+              <Text style={styles.securityTitle}>3DS Authentication</Text>
+              <Text style={styles.securityDesc}>Secure payment verification</Text>
             </View>
           </View>
           <View style={styles.securityItem}>
@@ -478,15 +478,15 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               <Ionicons name="eye-off" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
-              <Text style={styles.securityTitle}>Donnees masquees</Text>
-              <Text style={styles.securityDesc}>Numeros de carte jamais stockes</Text>
+              <Text style={styles.securityTitle}>Masked Data</Text>
+              <Text style={styles.securityDesc}>Card numbers never stored</Text>
             </View>
           </View>
         </View>
 
         {/* Powered by Stripe */}
         <View style={styles.poweredBy}>
-          <Text style={styles.poweredByText}>Paiements securises par</Text>
+          <Text style={styles.poweredByText}>Secure payments by</Text>
           <Text style={styles.stripeLogo}>stripe</Text>
         </View>
 

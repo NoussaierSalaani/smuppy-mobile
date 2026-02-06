@@ -128,7 +128,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       });
     } catch (error: unknown) {
       if (__DEV__) console.warn('Payment error:', error);
-      showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
+      showError('Error', 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -139,7 +139,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.gray, marginTop: 16 }}>Chargement...</Text>
+        <Text style={{ color: colors.gray, marginTop: 16 }}>Loading...</Text>
       </View>
     );
   }
@@ -239,10 +239,10 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         <View style={styles.infoCard}>
           <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
           <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>Paiement sécurisé</Text>
+            <Text style={styles.infoTitle}>Secure Payment</Text>
             <Text style={styles.infoText}>
-              Vos informations de paiement sont protégées par Stripe.
-              Vous pouvez annuler à tout moment.
+              Your payment information is protected by Stripe.
+              You can cancel at any time.
             </Text>
           </View>
         </View>

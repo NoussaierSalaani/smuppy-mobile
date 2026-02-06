@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatNumber } from '../../utils/formatters';
 
@@ -80,6 +81,7 @@ export default function CreatorWalletScreen() {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { showAlert } = useSmuppyAlert();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -300,7 +302,7 @@ export default function CreatorWalletScreen() {
       {!dashboard?.profile.hasStripeConnect && (
         <TouchableOpacity
           style={styles.setupStripeButton}
-          onPress={() => { /* TODO: StripeConnect screen */ }}
+          onPress={() => showAlert({ title: 'Coming Soon', message: 'Stripe Connect payout setup will be available soon.', type: 'info', buttons: [{ text: 'OK' }] })}
         >
           <LinearGradient
             colors={GRADIENTS.primary}
@@ -370,7 +372,7 @@ export default function CreatorWalletScreen() {
       </View>
       <TouchableOpacity
         style={styles.viewMoreButton}
-        onPress={() => { /* TODO: WalletAnalytics screen */ }}
+        onPress={() => showAlert({ title: 'Coming Soon', message: 'Detailed analytics will be available soon.', type: 'info', buttons: [{ text: 'OK' }] })}
       >
         <Text style={styles.viewMoreText}>View detailed analytics</Text>
         <Ionicons name="arrow-forward" size={16} color={colors.primary} />

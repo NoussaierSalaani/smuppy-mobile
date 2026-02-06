@@ -126,7 +126,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
     } catch (error) {
       if (!mountedRef.current) return;
       if (__DEV__) console.warn('Payment error:', error);
-      showError('Erreur', 'Le paiement a échoué. Veuillez réessayer.');
+      showError('Error', 'Payment failed. Please try again.');
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -210,23 +210,23 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
         {/* Billing Info */}
         <View style={styles.billingCard}>
-          <Text style={styles.billingTitle}>Informations de facturation</Text>
+          <Text style={styles.billingTitle}>Billing Information</Text>
 
           <View style={styles.billingRow}>
-            <Text style={styles.billingLabel}>Abonnement mensuel</Text>
-            <Text style={styles.billingValue}>{tier.price.toFixed(2)} €/mois</Text>
+            <Text style={styles.billingLabel}>Monthly subscription</Text>
+            <Text style={styles.billingValue}>{tier.price.toFixed(2)} €/month</Text>
           </View>
 
           <View style={styles.billingRow}>
-            <Text style={styles.billingLabel}>Prochain renouvellement</Text>
+            <Text style={styles.billingLabel}>Next renewal</Text>
             <Text style={styles.billingValue}>
-              {renewalDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+              {renewalDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })}
             </Text>
           </View>
 
           <View style={styles.billingRow}>
-            <Text style={styles.billingLabel}>Annulation</Text>
-            <Text style={styles.billingValue}>À tout moment</Text>
+            <Text style={styles.billingLabel}>Cancellation</Text>
+            <Text style={styles.billingValue}>Anytime</Text>
           </View>
         </View>
 
@@ -237,8 +237,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
               <Ionicons name="lock-open" size={20} color={colors.primary} />
             </View>
             <View style={styles.benefitContent}>
-              <Text style={styles.benefitTitle}>Accès immédiat</Text>
-              <Text style={styles.benefitText}>Débloquez tout le contenu exclusif dès maintenant</Text>
+              <Text style={styles.benefitTitle}>Instant Access</Text>
+              <Text style={styles.benefitText}>Unlock all exclusive content right away</Text>
             </View>
           </View>
 
@@ -247,8 +247,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
               <Ionicons name="close-circle" size={20} color={colors.error} />
             </View>
             <View style={styles.benefitContent}>
-              <Text style={styles.benefitTitle}>Sans engagement</Text>
-              <Text style={styles.benefitText}>Annulez quand vous voulez sans frais</Text>
+              <Text style={styles.benefitTitle}>No commitment</Text>
+              <Text style={styles.benefitText}>Cancel anytime at no extra cost</Text>
             </View>
           </View>
 
@@ -257,16 +257,16 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
               <Ionicons name="shield-checkmark" size={20} color={colors.success} />
             </View>
             <View style={styles.benefitContent}>
-              <Text style={styles.benefitTitle}>Paiement sécurisé</Text>
-              <Text style={styles.benefitText}>Protégé par Stripe, le leader du paiement</Text>
+              <Text style={styles.benefitTitle}>Secure Payment</Text>
+              <Text style={styles.benefitText}>Protected by Stripe, the payment leader</Text>
             </View>
           </View>
         </View>
 
         {/* Terms */}
         <Text style={styles.terms}>
-          En vous abonnant, vous acceptez que votre abonnement se renouvelle automatiquement
-          chaque mois jusqu'à annulation. Vous pouvez annuler à tout moment depuis votre profil.
+          By subscribing, you agree that your subscription will automatically renew
+          each month until cancelled. You can cancel anytime from your profile.
         </Text>
 
         <View style={{ height: 120 }} />

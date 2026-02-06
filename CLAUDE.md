@@ -176,22 +176,182 @@
 - After writing code, mentally test: what if the user sends this twice fast? What if the DB is slow? What if the token expires mid-request?
 - Validate every code path: happy path, auth failure, validation failure, DB error, external service timeout
 
+## Development Workflow (MANDATORY — READ CAREFULLY)
+
+This is the exact process Claude MUST follow for EVERY task. No shortcuts.
+
+### Phase 1 : Understand (DO NOT write any code yet)
+
+1. **Read the user's request completely** — do not start coding after reading half the message
+2. **Identify ALL files that will be affected** — use Glob/Grep to find every file involved
+3. **Read every affected file** — understand the existing code, imports, types, styles
+4. **Identify dependencies** — if screen A calls service B which calls Lambda C, read all three
+5. **List edge cases** — empty input, null, duplicate, concurrent, unauthorized, network error
+6. **Present a plan to the user** — "Here's what I'll change: [file list]. Here's my approach: [summary]. OK?"
+
+**STOP HERE. Wait for user confirmation before writing any code.**
+
+### Phase 2 : Code (all changes at once, not piece by piece)
+
+1. **Create a feature branch FIRST** — never code on `main`
+   ```bash
+   git checkout -b feat/short-description   # or fix/ or chore/
+   ```
+2. **Make ALL changes in one pass** — frontend + backend + types + navigation + styles
+   - If adding a screen: update the screen file + `index.ts` + `types/index.ts` + `MainNavigator.tsx` simultaneously
+   - If adding a Lambda: update the handler + `lambda-stack.ts` + `api-gateway-stack.ts` simultaneously
+   - If modifying a service: update the service + all screens/hooks that call it
+3. **Never leave half-done work** — if a feature needs 5 files changed, change all 5 before moving on
+4. **Write the complete implementation** — not a skeleton to "fill in later"
+
+### Phase 3 : Verify (BEFORE any commit)
+
+Run ALL of these checks. If any fails, fix it BEFORE committing:
+
+1. **TypeScript** — `npx tsc --noEmit` must show **zero errors**
+2. **Lint** — no ESLint errors on changed files
+3. **Review the diff** — `git diff` and read every changed line yourself
+4. **Mental testing** — walk through these scenarios mentally:
+   - Happy path: does the feature work as expected?
+   - Double-tap: what if the user taps twice fast?
+   - Empty state: what if data is empty/null/undefined?
+   - Error state: what if the API returns 500?
+   - Auth state: what if the token expires mid-request?
+   - Navigation: can the user get to this screen? Can they go back?
+5. **Import check** — no unused imports, no missing imports
+6. **Type check** — no `any` types, all function params typed
+
+**If `npx tsc --noEmit` fails, DO NOT commit. Fix ALL errors first.**
+
+### Phase 4 : Commit (one clean commit per feature)
+
+```bash
+# Stage only the files for this feature
+git add src/screens/xxx.tsx src/types/index.ts ...
+
+# Commit with conventional message
+git commit -m "feat(scope): clear description of what this does"
+
+# Verify the commit is clean
+npx tsc --noEmit
+```
+
+**Rules:**
+- One commit = one complete, working feature or fix
+- Never: `fix: typo` → `fix: forgot import` → `fix: actually fix the thing` → `fix: fix the fix`
+- If you realize you missed something after committing: `git reset --soft HEAD~1`, fix everything, re-commit
+- Commit message format: `type(scope): description`
+  - Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `security`
+  - Scope: the area affected (`auth`, `chat`, `profile`, `payments`, `lambda`, `ci`)
+
+### Phase 5 : Merge to main (squash merge)
+
+```bash
+git checkout main
+git merge --squash feat/short-description
+git commit -m "feat(scope): complete description"
+git branch -d feat/short-description        # delete the feature branch
+git push origin main
+```
+
+This gives `main` exactly ONE clean commit per feature, no matter how many intermediate commits were on the branch.
+
+### Anti-Patterns — NEVER DO THESE
+
+| Anti-Pattern | Why It's Bad | Do This Instead |
+|---|---|---|
+| Commit on `main` directly | Pollutes history, can't revert cleanly | Feature branch + squash merge |
+| Commit after every small change | Creates "fix the fix" chains | One commit when everything works |
+| Push before `tsc --noEmit` | Broken code on remote | Always verify before push |
+| Fix half a feature, commit, fix the rest | Broken intermediate state | Complete the entire feature first |
+| Copy-paste code to "fix it fast" | Creates tech debt | Understand the root cause, fix properly |
+| Skip reading existing code | Breaks existing behavior | Read every file you'll modify |
+| Ignore edge cases | Bugs in production | Test empty/null/error/concurrent paths |
+
+### Parallel Development (Multiple Tasks at Once)
+
+When multiple independent tasks need to run in parallel:
+
+**Method: Git Worktrees (one terminal per task)**
+
+```bash
+# From the main repo, create worktrees for each task
+git worktree add ~/smuppy-task-1 -b fix/bug-name
+git worktree add ~/smuppy-task-2 -b feat/feature-name
+
+# Terminal 1: work on task 1
+cd ~/smuppy-task-1
+# ... make changes, test, commit ...
+
+# Terminal 2: work on task 2
+cd ~/smuppy-task-2
+# ... make changes, test, commit ...
+
+# When both are done, merge back to main
+cd ~/smuppy-mobile
+git merge --squash fix/bug-name && git commit -m "fix(scope): description"
+git merge --squash feat/feature-name && git commit -m "feat(scope): description"
+
+# Clean up
+git worktree remove ~/smuppy-task-1
+git worktree remove ~/smuppy-task-2
+git branch -d fix/bug-name feat/feature-name
+```
+
+**Rules for parallel work:**
+- Each task gets its own branch and its own worktree directory
+- Tasks that touch the SAME files cannot run in parallel — do them sequentially
+- Each task follows the full workflow (understand → code → verify → commit)
+- Merge conflicts: resolve manually on `main`, never force
+- After all merges: run `npx tsc --noEmit` on main to verify everything still works together
+
+### What to Do When Something Breaks
+
+If during development you realize something is broken:
+
+1. **STOP** — do not add more code on top of broken code
+2. **Understand the root cause** — read error messages, trace the call stack, check types
+3. **Fix the root cause** — not the symptom. If the type is wrong, fix the type, don't cast to `any`
+4. **Re-run `npx tsc --noEmit`** — confirm zero errors
+5. **Re-test mentally** — walk through all scenarios again
+6. **Only then continue** with the rest of the feature
+
+**NEVER:** "I'll fix this later" / "It works for now" / "Let me just push this and fix on the next commit"
+
+### Claude Session Handoff Protocol
+
+When starting a NEW Claude session on this project:
+
+1. Read `CLAUDE.md` (this file) completely
+2. Run `git log --oneline -20` to understand recent work
+3. Run `git status` and `git branch` to understand current state
+4. Ask the user what they want to work on
+5. Follow the full workflow above (Understand → Code → Verify → Commit → Merge)
+
 ## Git Discipline
 
-### Branching Workflow (MANDATORY)
-- **NEVER commit directly on `main`** — always create a feature branch first (`feat/xxx`, `fix/xxx`, `chore/xxx`)
-- **Squash before merge** — use `git merge --squash feature-branch` or `gh pr merge --squash` for a single clean commit
-- **One commit = one logical change** — no "fix", then "fix the fix", then "fix the fix of the fix"
-- **PR even when solo** — `gh pr create` then `gh pr merge --squash` to keep history clean
-- **Test BEFORE commit** — run `npx tsc --noEmit` + local test BEFORE each commit, not after
-- Branch naming: `feat/feature-name`, `fix/bug-name`, `security/audit-batch-N`, `chore/task-name`
+### Branch Naming
+- `feat/short-description` — new feature
+- `fix/short-description` — bug fix
+- `refactor/short-description` — code restructure
+- `chore/short-description` — deps, config, CI
+- `security/short-description` — security fixes
+- `perf/short-description` — performance improvements
 
-### Commit Hygiene
-- Atomic commits: one logical change per commit
-- Commit message format: `type(scope): description` — types: `feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `security`
-- Never commit: `.env`, secrets, `node_modules`, build artifacts, `console.log` debug statements
-- Never push broken code — every commit on `main` must leave the app in a working state
-- Group related changes into a single commit instead of scattering across many micro-commits
+### Commit Message Format
+```
+type(scope): short description (imperative mood, max 72 chars)
+
+Optional body: explain WHY, not WHAT (the diff shows WHAT).
+```
+
+### What Never Goes Into Git
+- `.env`, `.env.local`, `.env.production` — secrets
+- `node_modules/` — dependencies (use package-lock.json)
+- `build/`, `dist/`, `.expo/` — build artifacts
+- `console.log` debug statements — remove before commit
+- Commented-out code — delete it, git has history
+- `*.swp`, `.DS_Store` — editor/OS files
 
 ## Bug Prevention Rules (MANDATORY)
 

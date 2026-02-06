@@ -329,6 +329,10 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
             keyExtractor={item => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.commentsList}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            initialNumToRender={10}
           />
         </View>
 

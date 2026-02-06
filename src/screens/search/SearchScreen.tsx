@@ -416,12 +416,12 @@ const SearchScreen = (): React.JSX.Element => {
     searchInputRef.current?.focus();
   };
 
-  const handleUserPress = (userId: string): void => {
+  const handleUserPress = useCallback((userId: string): void => {
     prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
-  };
+  }, [prefetchProfile, navigation]);
 
-  const handlePostPress = (post: Post): void => {
+  const handlePostPress = useCallback((post: Post): void => {
     const transformedPosts = postResults.map(p => ({
       id: p.id,
       type: p.media_type === 'video' ? 'video' : 'image',
@@ -438,9 +438,9 @@ const SearchScreen = (): React.JSX.Element => {
       },
     }));
     navigation.navigate('PostDetailFanFeed', { postId: post.id, fanFeedPosts: transformedPosts });
-  };
+  }, [postResults, navigation]);
 
-  const handlePeakPress = (peak: Post, index: number): void => {
+  const handlePeakPress = useCallback((peak: Post, index: number): void => {
     const transformedPeaks = peakResults.map(p => ({
       id: p.id,
       thumbnail: p.media_urls?.[0] || p.media_url || '',
@@ -456,18 +456,18 @@ const SearchScreen = (): React.JSX.Element => {
       createdAt: p.created_at, // Keep as ISO string for React Navigation serialization
     }));
     navigation.navigate('PeakView', { peakData: transformedPeaks, initialIndex: index });
-  };
+  }, [peakResults, navigation]);
 
-  const handleHashtagPress = (tag: string): void => {
+  const handleHashtagPress = useCallback((tag: string): void => {
     setSearchQuery(`#${tag}`);
     setActiveTab('tags');
-  };
+  }, []);
 
   // ============================================
-  // RENDER ITEMS
+  // RENDER ITEMS (memoized to prevent re-renders)
   // ============================================
 
-  const renderProfileItem = ({ item: profile }: { item: Profile }): React.JSX.Element => (
+  const renderProfileItem = useCallback(({ item: profile }: { item: Profile }): React.JSX.Element => (
     <TouchableOpacity
       style={styles.resultItem}
       onPress={() => handleUserPress(profile.id)}
@@ -475,22 +475,22 @@ const SearchScreen = (): React.JSX.Element => {
       <AvatarImage source={profile.avatar_url || DEFAULT_AVATAR} size={50} style={styles.resultAvatar} />
       <View style={styles.resultInfo}>
         <View style={styles.usernameRow}>
-          <Text style={[styles.resultUsername, { color: colors.dark }]}>{resolveDisplayName(profile)}</Text>
+          <Text style={styles.resultUsername}>{resolveDisplayName(profile)}</Text>
           <AccountBadge
             size={16}
-            style={{ marginLeft: 4 }}
+            style={styles.badgeMargin}
             isVerified={profile.is_verified}
             accountType={profile.account_type}
           />
         </View>
         {profile.fan_count !== undefined && profile.fan_count > 0 && (
-          <Text style={[styles.resultMutual, { color: colors.primary }]}>{profile.fan_count} fans</Text>
+          <Text style={styles.resultMutual}>{profile.fan_count} fans</Text>
         )}
       </View>
     </TouchableOpacity>
-  );
+  ), [styles, handleUserPress]);
 
-  const renderPostItem = ({ item: post }: { item: Post }): React.JSX.Element => {
+  const renderPostItem = useCallback(({ item: post }: { item: Post }): React.JSX.Element => {
     const thumbnail = post.media_urls?.[0] || post.media_url;
     return (
       <TouchableOpacity
@@ -498,9 +498,9 @@ const SearchScreen = (): React.JSX.Element => {
         onPress={() => handlePostPress(post)}
       >
         {thumbnail ? (
-          <OptimizedImage source={thumbnail} style={[styles.gridImage, { backgroundColor: colors.gray100 }]} />
+          <OptimizedImage source={thumbnail} style={styles.gridImage} />
         ) : (
-          <View style={[styles.gridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+          <View style={[styles.gridImage, styles.gridPlaceholder]}>
             <Ionicons name="image-outline" size={24} color={colors.grayMuted} />
           </View>
         )}
@@ -515,9 +515,9 @@ const SearchScreen = (): React.JSX.Element => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [styles, colors.grayMuted, handlePostPress]);
 
-  const renderPeakItem = ({ item: peak, index }: { item: Post; index: number }): React.JSX.Element => {
+  const renderPeakItem = useCallback(({ item: peak, index }: { item: Post; index: number }): React.JSX.Element => {
     const thumbnail = peak.media_urls?.[0] || peak.media_url;
     return (
       <TouchableOpacity
@@ -525,9 +525,9 @@ const SearchScreen = (): React.JSX.Element => {
         onPress={() => handlePeakPress(peak, index)}
       >
         {thumbnail ? (
-          <OptimizedImage source={thumbnail} style={[styles.gridImage, { backgroundColor: colors.gray100 }]} />
+          <OptimizedImage source={thumbnail} style={styles.gridImage} />
         ) : (
-          <View style={[styles.gridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+          <View style={[styles.gridImage, styles.gridPlaceholder]}>
             <Ionicons name="videocam-outline" size={24} color={colors.grayMuted} />
           </View>
         )}
@@ -540,9 +540,9 @@ const SearchScreen = (): React.JSX.Element => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [styles, colors.grayMuted, handlePeakPress]);
 
-  const renderHashtagPost = ({ item: post }: { item: Post }): React.JSX.Element => {
+  const renderHashtagPost = useCallback(({ item: post }: { item: Post }): React.JSX.Element => {
     const thumbnail = post.media_urls?.[0] || post.media_url;
     return (
       <TouchableOpacity
@@ -550,9 +550,9 @@ const SearchScreen = (): React.JSX.Element => {
         onPress={() => handlePostPress(post)}
       >
         {thumbnail ? (
-          <OptimizedImage source={thumbnail} style={[styles.gridImage, { backgroundColor: colors.gray100 }]} />
+          <OptimizedImage source={thumbnail} style={styles.gridImage} />
         ) : (
-          <View style={[styles.gridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+          <View style={[styles.gridImage, styles.gridPlaceholder]}>
             <Ionicons name="image-outline" size={24} color={colors.grayMuted} />
           </View>
         )}
@@ -562,7 +562,7 @@ const SearchScreen = (): React.JSX.Element => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [styles, colors.grayMuted, handlePostPress]);
 
   // ============================================
   // RENDER TABS
@@ -623,7 +623,7 @@ const SearchScreen = (): React.JSX.Element => {
   // RENDER CONTENT
   // ============================================
 
-  const getCurrentResults = () => {
+  const currentResults = useMemo(() => {
     switch (activeTab) {
       case 'users': return userResults;
       case 'posts': return postResults;
@@ -631,7 +631,7 @@ const SearchScreen = (): React.JSX.Element => {
       case 'tags': return hashtagResults;
       default: return [];
     }
-  };
+  }, [activeTab, userResults, postResults, peakResults, hashtagResults]);
 
   const renderEmptyState = (): React.JSX.Element => (
     <View style={styles.emptyState}>
@@ -677,7 +677,7 @@ const SearchScreen = (): React.JSX.Element => {
                 <Text style={[styles.resultUsername, { color: colors.dark }]}>{resolveDisplayName(profile)}</Text>
                 <AccountBadge
                   size={16}
-                  style={{ marginLeft: 4 }}
+                  style={styles.badgeMargin}
                   isVerified={profile.is_verified}
                   accountType={profile.account_type}
                 />
@@ -718,7 +718,7 @@ const SearchScreen = (): React.JSX.Element => {
                   <Text style={[styles.resultUsername, { color: colors.dark }]}>{resolveDisplayName(profile)}</Text>
                   <AccountBadge
                     size={16}
-                    style={{ marginLeft: 4 }}
+                    style={styles.badgeMargin}
                     isVerified={profile.is_verified}
                     accountType={profile.account_type}
                   />
@@ -849,7 +849,7 @@ const SearchScreen = (): React.JSX.Element => {
   );
 
   const renderSearchResults = (): React.JSX.Element => {
-    const results = getCurrentResults();
+    const results = currentResults;
 
     if (isLoading && !loadingMore) {
       return <SearchSkeleton />;
@@ -876,6 +876,10 @@ const SearchScreen = (): React.JSX.Element => {
           keyExtractor={(item) => item.id}
           renderItem={renderProfileItem}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={10}
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.loadingMore}>
@@ -901,6 +905,10 @@ const SearchScreen = (): React.JSX.Element => {
         numColumns={3}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.gridContainer}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={12}
+        windowSize={5}
+        initialNumToRender={12}
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.loadingMore}>
@@ -1089,6 +1097,9 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   usernameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  badgeMargin: {
+    marginLeft: 4,
   },
   resultUsername: {
     fontSize: 15,

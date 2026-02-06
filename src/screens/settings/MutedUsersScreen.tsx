@@ -138,6 +138,10 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={10}
         />
       )}
     </View>

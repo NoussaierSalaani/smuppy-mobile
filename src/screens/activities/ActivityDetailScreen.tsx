@@ -23,8 +23,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
 import { GRADIENTS } from '../../config/theme';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
@@ -120,6 +120,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
   const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const { activityId, activityType } = route.params;
   const { formatAmount } = useCurrency();
+  const { openCheckout } = useStripeCheckout();
   const user = useUserStore((state) => state.user);
   const { colors, isDark } = useTheme();
 
@@ -268,22 +269,33 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
         currency: normalizedActivity.currency || 'eur',
       });
 
-      if (!response.success || !response.checkoutUrl) {
+      if (!response.success || !response.checkoutUrl || !response.sessionId) {
         throw new Error(response.message || 'Failed to create payment');
       }
 
-      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+      const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
-      if (result.type === 'cancel') {
+      if (checkoutResult.status === 'cancelled') {
         return;
       }
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (checkoutResult.status === 'failed') {
+        throw new Error(checkoutResult.message);
+      }
+
+      if (checkoutResult.status === 'pending') {
+        showAlert({
+          title: 'Payment Processing',
+          message: checkoutResult.message,
+          type: 'info',
+          buttons: [{ text: 'OK', onPress: loadActivityDetails }],
+        });
+        return;
+      }
+
       showAlert({
         title: 'Payment Successful!',
-        message: `You're now registered for "${normalizedActivity.title}".
-
-See you there!`,
+        message: `You're now registered for "${normalizedActivity.title}".\n\nSee you there!`,
         type: 'success',
         buttons: [{ text: 'View Details', onPress: loadActivityDetails }],
       });

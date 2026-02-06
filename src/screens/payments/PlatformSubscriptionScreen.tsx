@@ -13,7 +13,6 @@ import {
   Dimensions,
   ActivityIndicator,
   Animated,
-  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +23,7 @@ import { SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -90,6 +90,7 @@ export default function PlatformSubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
   const { showError, showSuccess } = useSmuppyAlert();
+  const { openCheckout } = useStripeCheckout();
   const { colors, isDark } = useTheme();
 
   // Filter plans based on account type
@@ -143,16 +144,22 @@ export default function PlatformSubscriptionScreen() {
       const response = await awsAPI.request('/payments/platform-subscription', {
         method: 'POST',
         body: { action: 'subscribe', planType: selectedPlan },
-      }) as { success?: boolean; checkoutUrl?: string; error?: string };
+      }) as { success?: boolean; checkoutUrl?: string; sessionId?: string; error?: string };
 
-      if (response.success && response.checkoutUrl) {
-        // Open Stripe Checkout
-        const canOpen = await Linking.canOpenURL(response.checkoutUrl);
-        if (canOpen) {
-          await Linking.openURL(response.checkoutUrl);
-        } else {
-          navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Payment' });
+      if (response.success && response.checkoutUrl && response.sessionId) {
+        const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
+
+        if (checkoutResult.status === 'success') {
+          showSuccess('Subscribed!', 'Your subscription is now active.');
+        } else if (checkoutResult.status === 'pending') {
+          showSuccess('Processing', checkoutResult.message);
+        } else if (checkoutResult.status === 'failed') {
+          showError('Payment Failed', checkoutResult.message);
         }
+        // cancelled — do nothing
+      } else if (response.success && response.checkoutUrl) {
+        // Fallback if no sessionId returned
+        navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Payment' });
       } else {
         showError('Error', response.error || 'Failed to start subscription');
       }

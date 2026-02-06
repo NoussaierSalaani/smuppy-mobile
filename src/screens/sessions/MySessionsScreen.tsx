@@ -258,6 +258,10 @@ const MySessionsScreen = (): React.JSX.Element => {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={8}
         ListEmptyComponent={renderEmptyState}
         refreshControl={
           <RefreshControl

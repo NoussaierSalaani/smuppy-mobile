@@ -7,7 +7,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { awsAPI } from '../services/aws-api';
 import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
+import { useStripeCheckout } from './useStripeCheckout';
 
 interface TipRecipient {
   id: string;
@@ -34,6 +34,7 @@ interface UseTipPaymentReturn {
 
 export function useTipPayment(): UseTipPaymentReturn {
   const { showSuccess, showError } = useSmuppyAlert();
+  const { openCheckout } = useStripeCheckout();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const processingRef = useRef(false);
@@ -65,21 +66,28 @@ export function useTipPayment(): UseTipPaymentReturn {
           throw new Error(response.message || 'Failed to create tip');
         }
 
-        // If backend returns a checkout URL, open in WebBrowser
-        if (response.checkoutUrl) {
-          const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+        // If backend returns a checkout URL, open and verify
+        if (response.checkoutUrl && response.sessionId) {
+          const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
-          if (result.type === 'cancel') {
+          if (checkoutResult.status === 'cancelled') {
             processingRef.current = false;
             setIsProcessing(false);
             return false;
           }
 
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`);
+          if (checkoutResult.status === 'failed') {
+            throw new Error(checkoutResult.message);
+          }
+
+          if (checkoutResult.status === 'success') {
+            showSuccess('Tip Sent!', `You sent ${formatDisplayAmount(amount)} to @${recipient.username}`);
+          } else {
+            showSuccess('Tip Processing', 'Your tip is being processed.');
+          }
           processingRef.current = false;
           setIsProcessing(false);
-          return true;
+          return checkoutResult.status === 'success' || checkoutResult.status === 'pending';
         }
 
         // Fallback: if backend returned clientSecret (legacy PaymentSheet flow)

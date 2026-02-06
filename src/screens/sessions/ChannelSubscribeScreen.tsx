@@ -19,9 +19,9 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface ChannelTier {
@@ -52,6 +52,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
   const { colors, isDark } = useTheme();
 
   const { showError, showSuccess } = useSmuppyAlert();
+  const { openCheckout } = useStripeCheckout();
   const { creatorId, tier } = route.params;
 
   const [creator, setCreator] = useState<Creator>({
@@ -101,25 +102,26 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
       const response = await awsAPI.subscribeToChannel(creatorId);
       if (!mountedRef.current) return;
 
-      if (!response.success || !response.checkoutUrl) {
-        showError('Erreur', 'Impossible de créer l\'abonnement. Veuillez réessayer.');
+      if (!response.success || !response.checkoutUrl || !response.sessionId) {
+        showError('Error', 'Could not create subscription. Please try again.');
         return;
       }
 
-      // Open Stripe Checkout in browser
-      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl, {
-        dismissButtonStyle: 'cancel',
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
-      });
+      // Open Stripe Checkout and verify payment
+      const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
       if (!mountedRef.current) return;
 
-      if (result.type === 'cancel') {
+      if (checkoutResult.status === 'cancelled') {
         // User dismissed — do nothing
-      } else {
-        // Assume success if browser closed normally (webhook handles the rest)
-        showSuccess('Abonnement en cours', 'Votre paiement est en cours de traitement.');
+      } else if (checkoutResult.status === 'success') {
+        showSuccess('Subscription Active', 'Your payment has been confirmed.');
         navigation.goBack();
+      } else if (checkoutResult.status === 'pending') {
+        showSuccess('Payment Processing', checkoutResult.message);
+        navigation.goBack();
+      } else {
+        showError('Payment Failed', checkoutResult.message);
       }
     } catch (error) {
       if (!mountedRef.current) return;

@@ -12,7 +12,6 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +22,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { formatNumber } from '../../utils/formatters';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
@@ -66,7 +66,8 @@ export default function ChannelSubscriptionScreen() {
   const [subscribing, setSubscribing] = useState(false);
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const { showError } = useSmuppyAlert();
+  const { showError, showSuccess } = useSmuppyAlert();
+  const { openCheckout } = useStripeCheckout();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -117,18 +118,26 @@ export default function ChannelSubscriptionScreen() {
 
     setSubscribing(true);
     try {
-      const response = await awsAPI.request<{ success: boolean; checkoutUrl?: string; error?: string }>('/payments/channel-subscription', {
+      const response = await awsAPI.request<{ success: boolean; checkoutUrl?: string; sessionId?: string; error?: string }>('/payments/channel-subscription', {
         method: 'POST',
         body: { action: 'subscribe', creatorId: params.creatorId },
       });
 
-      if (response.success && response.checkoutUrl) {
-        const canOpen = await Linking.canOpenURL(response.checkoutUrl);
-        if (canOpen) {
-          await Linking.openURL(response.checkoutUrl);
-        } else {
-          navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Subscription' });
+      if (response.success && response.checkoutUrl && response.sessionId) {
+        const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
+
+        if (checkoutResult.status === 'success') {
+          showSuccess('Subscribed!', 'Your subscription is now active.');
+          await checkSubscription();
+        } else if (checkoutResult.status === 'pending') {
+          showSuccess('Processing', checkoutResult.message);
+        } else if (checkoutResult.status === 'failed') {
+          showError('Payment Failed', checkoutResult.message);
         }
+        // cancelled — do nothing
+      } else if (response.success && response.checkoutUrl) {
+        // Fallback if no sessionId returned
+        navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Subscription' });
       } else {
         showError('Error', response.error || 'Failed to start subscription');
       }

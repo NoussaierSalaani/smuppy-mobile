@@ -1132,7 +1132,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                           color={interest.color}
                         />
                         <Text style={styles.filterChipText}>{interest.name}</Text>
-                        <Ionicons name="close" size={12} color={colors.dark} style={{ marginLeft: 2 }} />
+                        <Ionicons name="close" size={12} color={colors.dark} style={styles.closeIconMargin} />
                       </View>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -1444,6 +1444,9 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     fontFamily: 'Poppins-Medium',
     fontSize: 12,
     color: colors.dark,
+  },
+  closeIconMargin: {
+    marginLeft: 2,
   },
   addInterestButton: {
     width: 32,

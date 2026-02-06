@@ -19,9 +19,9 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Pack {
@@ -54,6 +54,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
   const { colors, isDark } = useTheme();
 
   const { showError } = useSmuppyAlert();
+  const { openCheckout } = useStripeCheckout();
   const { creatorId, pack } = route.params;
 
   const [creator, setCreator] = useState<Creator | null>(null);
@@ -100,19 +101,27 @@ const PackPurchaseScreen = (): React.JSX.Element => {
         description: `Pack: ${pack.name}`,
       });
 
-      if (!response.success || !response.checkoutUrl) {
+      if (!response.success || !response.checkoutUrl || !response.sessionId) {
         throw new Error(response.message || 'Failed to create payment intent');
       }
 
-      // Open checkout in browser
-      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+      const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
-      if (result.type === 'cancel') {
+      if (checkoutResult.status === 'cancelled') {
         setLoading(false);
         return;
       }
 
-      // Payment successful
+      if (checkoutResult.status === 'failed') {
+        throw new Error(checkoutResult.message);
+      }
+
+      if (checkoutResult.status === 'pending') {
+        showError('Payment Processing', checkoutResult.message);
+        return;
+      }
+
+      // Payment verified — navigate to success
       navigation.replace('PackPurchaseSuccess', {
         pack,
         creator,

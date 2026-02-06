@@ -15,9 +15,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatFullDateShort } from '../../utils/dateFormatters';
 
@@ -27,6 +27,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
   const { colors, gradients, isDark } = useTheme();
 
   const { showError } = useSmuppyAlert();
+  const { openCheckout } = useStripeCheckout();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -57,18 +58,27 @@ export default function SessionPaymentScreen(): React.JSX.Element {
         description: `Session with ${creator.name} - ${duration} min`,
       });
 
-      if (!response.success || !response.checkoutUrl) {
+      if (!response.success || !response.checkoutUrl || !response.sessionId) {
         throw new Error(response.message || 'Failed to create payment');
       }
 
-      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+      const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
-      if (result.type === 'cancel') {
+      if (checkoutResult.status === 'cancelled') {
         setIsProcessing(false);
         return;
       }
 
-      // After checkout, create booking
+      if (checkoutResult.status === 'failed') {
+        throw new Error(checkoutResult.message);
+      }
+
+      if (checkoutResult.status === 'pending') {
+        showError('Payment Processing', checkoutResult.message);
+        return;
+      }
+
+      // Payment verified — now create booking
       const bookingResponse = await awsAPI.bookSession({
         creatorId: creator.id,
         scheduledAt: route.params?.datetime || new Date(date.fullDate!.setHours(

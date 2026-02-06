@@ -22,8 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
 import { GRADIENTS } from '../../config/theme';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores';
@@ -97,6 +97,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const { eventId } = route.params;
   const { formatAmount, currency: _currency } = useCurrency();
+  const { openCheckout } = useStripeCheckout();
   const _user = useUserStore((state) => state.user);
   const { colors, isDark } = useTheme();
 
@@ -192,25 +193,35 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
         currency: event.currency || 'eur',
       });
 
-      if (!response.success || !response.checkoutUrl) {
+      if (!response.success || !response.checkoutUrl || !response.sessionId) {
         throw new Error(response.message || 'Failed to create payment');
       }
 
-      // 2. Open Stripe Checkout in browser
-      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl);
+      // 2. Open Stripe Checkout and verify payment
+      const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
-      if (result.type === 'cancel') {
-        // User cancelled - do nothing
+      if (checkoutResult.status === 'cancelled') {
         return;
       }
 
-      // 3. Payment successful
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (checkoutResult.status === 'failed') {
+        throw new Error(checkoutResult.message);
+      }
+
+      if (checkoutResult.status === 'pending') {
+        showAlert({
+          title: 'Payment Processing',
+          message: checkoutResult.message,
+          type: 'info',
+          buttons: [{ text: 'OK', onPress: loadEventDetails }],
+        });
+        return;
+      }
+
+      // 3. Payment verified
       showAlert({
         title: 'Payment Successful!',
-        message: `You're now registered for "${event.title}".
-
-See you there!`,
+        message: `You're now registered for "${event.title}".\n\nSee you there!`,
         type: 'success',
         buttons: [{ text: 'View Details', onPress: loadEventDetails }],
       });

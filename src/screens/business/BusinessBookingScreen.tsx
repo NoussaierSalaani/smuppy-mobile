@@ -20,8 +20,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { GRADIENTS } from '../../config/theme';
@@ -64,6 +64,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
   const { showError } = useSmuppyAlert();
   const { businessId, serviceId } = route.params;
   const { formatAmount } = useCurrency();
+  const { openCheckout } = useStripeCheckout();
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -191,23 +192,27 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         slotId: selectedSlot.id,
       });
 
-      if (!response.success || !response.checkoutUrl) {
+      if (!response.success || !response.checkoutUrl || !response.sessionId) {
         throw new Error('Failed to create checkout session');
       }
 
-      // Open Stripe Checkout in browser
-      const result = await WebBrowser.openBrowserAsync(response.checkoutUrl, {
-        dismissButtonStyle: 'cancel',
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-      });
+      // Open Stripe Checkout and verify payment status
+      const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
-      // User returned from browser
-      if (result.type === 'cancel') {
+      if (checkoutResult.status === 'cancelled') {
         return;
       }
 
-      // Navigate to success (webhook handles DB updates)
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (checkoutResult.status === 'failed') {
+        throw new Error(checkoutResult.message);
+      }
+
+      if (checkoutResult.status === 'pending') {
+        showError('Payment Processing', checkoutResult.message);
+        return;
+      }
+
+      // Payment verified — navigate to success
       (navigation as unknown as { replace: (screen: string, params?: Record<string, unknown>) => void }).replace('BusinessBookingSuccess', {
         businessName: business?.name || 'Business',
         serviceName: selectedService.name,

@@ -14,15 +14,14 @@ import {
   Animated,
   Dimensions,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
 import { awsAPI } from '../../services/aws-api';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useUserStore } from '../../stores';
 import { useCurrentProfile } from '../../hooks';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -113,6 +112,7 @@ const FEATURES: Feature[] = [
 export default function UpgradeToProScreen() {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const { showDestructiveConfirm, showWarning, showAlert, showError } = useSmuppyAlert();
+  const { openCheckout } = useStripeCheckout();
   const _user = useUserStore((state) => state.user);
   const _setUser = useUserStore((state) => state.setUser);
 
@@ -177,26 +177,26 @@ export default function UpgradeToProScreen() {
         { method: 'POST', body: { action: 'subscribe', planType: 'pro_creator' } }
       );
 
-      if (!response.checkoutUrl) {
+      if (!response.checkoutUrl || !response.sessionId) {
         throw new Error('No checkout URL received');
       }
 
-      // Open Stripe Checkout in browser
-      const canOpen = await Linking.canOpenURL(response.checkoutUrl);
-      if (canOpen) {
-        await WebBrowser.openBrowserAsync(response.checkoutUrl, {
-          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-          dismissButtonStyle: 'cancel',
-        });
-      } else {
-        await Linking.openURL(response.checkoutUrl);
+      // Open Stripe Checkout and verify payment
+      const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
+
+      if (checkoutResult.status === 'cancelled') {
+        return;
       }
 
-      // After returning from checkout, refresh profile to check if upgrade went through
+      if (checkoutResult.status === 'failed') {
+        throw new Error(checkoutResult.message);
+      }
+
+      // Refresh profile to check if upgrade went through via webhook
       await refetchProfile();
       const updatedUser = useUserStore.getState().user;
 
-      if (updatedUser?.accountType === 'pro_creator') {
+      if (updatedUser?.accountType === 'pro_creator' || checkoutResult.status === 'success') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         showAlert({
           title: 'Welcome, Pro Creator!',

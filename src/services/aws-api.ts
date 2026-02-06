@@ -948,6 +948,7 @@ class AWSAPIService {
     };
     publishableKey?: string;
     checkoutUrl?: string;
+    sessionId?: string;
     message?: string;
   }> {
     return this.request('/payments/create-intent', {
@@ -1257,6 +1258,7 @@ class AWSAPIService {
   async subscribeToChannel(creatorId: string): Promise<{
     success: boolean;
     checkoutUrl?: string;
+    sessionId?: string;
     error?: string;
   }> {
     return this.request('/payments/channel-subscription', {
@@ -1993,6 +1995,7 @@ class AWSAPIService {
     tipId?: string;
     clientSecret?: string;
     checkoutUrl?: string;
+    sessionId?: string;
     paymentIntentId?: string;
     amount?: number;
     currency?: string;
@@ -2341,6 +2344,7 @@ class AWSAPIService {
     clientSecret?: string;
     paymentIntentId?: string;
     checkoutUrl?: string;
+    sessionId?: string;
     message?: string;
   }> {
     return this.request(`/events/${data.eventId}/payment`, {

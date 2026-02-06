@@ -42,26 +42,41 @@ const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenPr
 
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULTS);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
+  const loadPreferences = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
+    awsAPI.getNotificationPreferences()
+      .then(data => {
+        if (mountedRef.current) setPrefs(data);
+      })
+      .catch(() => {
+        if (mountedRef.current) setLoadError(true);
+      })
+      .finally(() => {
+        if (mountedRef.current) setLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
-    awsAPI.getNotificationPreferences()
-      .then(setPrefs)
-      .catch(() => {
-        // Keep defaults on error
-      })
-      .finally(() => setLoading(false));
+    mountedRef.current = true;
+    loadPreferences();
 
     return () => {
+      mountedRef.current = false;
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, []);
+  }, [loadPreferences]);
 
   const persistPreferences = useCallback((updated: Partial<NotificationPreferences>) => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
     debounceTimerRef.current = setTimeout(() => {
+      if (!mountedRef.current) return;
       awsAPI.updateNotificationPreferences(updated).catch(() => {
         // Optimistic — silently fail; user can retry
       });
@@ -123,6 +138,28 @@ const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenPr
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={colors.dark} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.dark }]}>Notifications</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={40} color={colors.gray} />
+          <Text style={[styles.errorText, { color: colors.gray }]}>Failed to load preferences</Text>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={loadPreferences}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -198,6 +235,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 15,
+    fontFamily: 'Poppins-Regular',
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#FFF',
   },
 });
 

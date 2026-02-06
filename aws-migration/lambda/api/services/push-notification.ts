@@ -21,12 +21,18 @@ const snsClient = new SNSClient({});
 const secretsClient = new SecretsManagerClient({});
 
 let firebaseInitialized = false;
+let firebaseInitFailed = false;
 
 /**
  * Initialize Firebase Admin SDK
+ * Tracks failure state to avoid retrying indefinitely on persistent errors.
  */
 async function initializeFirebase(): Promise<void> {
   if (firebaseInitialized) return;
+  if (firebaseInitFailed) {
+    log.warn('Firebase init previously failed — skipping retry');
+    return;
+  }
 
   try {
     const secretArn = process.env.FCM_SECRET_ARN || 'smuppy/staging/fcm-credentials';
@@ -40,9 +46,13 @@ async function initializeFirebase(): Promise<void> {
       });
       firebaseInitialized = true;
       log.info('Firebase Admin SDK initialized');
+    } else {
+      firebaseInitFailed = true;
+      log.warn('Firebase credentials missing project_id — Android push disabled');
     }
   } catch (error) {
-    log.error('Failed to initialize Firebase', error);
+    firebaseInitFailed = true;
+    log.error('Failed to initialize Firebase — Android push disabled until next cold start', error);
   }
 }
 
@@ -116,7 +126,7 @@ async function sendToAndroid(
     await initializeFirebase();
 
     if (!firebaseInitialized) {
-      log.error('Firebase not initialized', null);
+      log.warn('Firebase not available — Android push skipped', { token: token.substring(0, 20) });
       return false;
     }
 

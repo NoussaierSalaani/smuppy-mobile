@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as backend from '../../services/backend';
 import { awsAPI } from '../../services/aws-api';
+import { unregisterPushToken } from '../../services/notifications';
 import { useCurrentProfile, useUpdateProfile } from '../../hooks';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -168,6 +169,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
+      // Unregister push token before clearing auth (best-effort, don't block logout)
+      await unregisterPushToken(user?.id || '').catch(() => {});
+
       // Clear SecureStore auth keys (remember me, tokens, etc.)
       await storage.clear([
         STORAGE_KEYS.REMEMBER_ME,
@@ -204,6 +208,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         showError('Error', 'User not found');
         return;
       }
+
+      // Unregister push token before deleting account (best-effort)
+      await unregisterPushToken(user?.id || '').catch(() => {});
 
       // Delete account via AWS Lambda
       await awsAPI.deleteAccount();

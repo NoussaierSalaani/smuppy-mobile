@@ -174,16 +174,18 @@ export default function NotificationsScreen(): React.JSX.Element {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [followRequestsCount, setFollowRequestsCount] = useState(0);
-  const [_hasMore, setHasMore] = useState(true);
   const cursorRef = useRef<string | null>(null);
+  const togglingRef = useRef<Set<number | string>>(new Set());
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Fetch notifications from API — uses ref for cursor to avoid stale closure
   const fetchNotifications = useCallback(async (isRefresh = false) => {
     try {
+      setError(null);
       const response = await awsAPI.getNotifications({
         limit: 20,
         cursor: isRefresh ? undefined : cursorRef.current || undefined,
@@ -199,16 +201,20 @@ export default function NotificationsScreen(): React.JSX.Element {
       }
 
       cursorRef.current = response.nextCursor || null;
-      setHasMore(response.hasMore || false);
-    } catch (error) {
-      if (__DEV__) console.warn('Error fetching notifications:', error);
+    } catch (err) {
+      if (__DEV__) console.warn('Error fetching notifications:', err);
+      setError('Unable to load notifications. Please try again.');
     }
   }, []);
 
   // Load follow requests count
   const loadFollowRequestsCount = useCallback(async () => {
-    const count = await getPendingFollowRequestsCount();
-    setFollowRequestsCount(count);
+    try {
+      const count = await getPendingFollowRequestsCount();
+      setFollowRequestsCount(count);
+    } catch (err) {
+      if (__DEV__) console.warn('Error loading follow requests count:', err);
+    }
   }, []);
 
   // Initial load
@@ -231,11 +237,12 @@ export default function NotificationsScreen(): React.JSX.Element {
     useCallback(() => {
       loadFollowRequestsCount();
       fetchNotifications(true);
-      // Optimistically clear badge, then mark all read on server
-      useAppStore.getState().setUnreadNotifications(0);
+      // Mark all read on server, then sync badge from server
       awsAPI.markAllNotificationsRead()
         .then(() => {
-          // Confirm accurate count from server (catches race with new notifications)
+          // Set badge to 0 only after server confirms mark-all-read
+          useAppStore.getState().setUnreadNotifications(0);
+          // Re-fetch to catch any new notifications that arrived during the mark-all-read call
           awsAPI.getUnreadCount()
             .then(({ unreadCount }) => useAppStore.getState().setUnreadNotifications(unreadCount ?? 0))
             .catch(() => { /* best-effort */ });
@@ -268,9 +275,14 @@ export default function NotificationsScreen(): React.JSX.Element {
   };
 
   const toggleFollow = useCallback(async (id: number | string): Promise<void> => {
+    // Guard against double-tap
+    if (togglingRef.current.has(id)) return;
+
     const notif = notifications.find(n => n.id === id);
     if (!notif || !('isFollowing' in notif)) return;
     const userNotif = notif as UserNotification;
+
+    togglingRef.current.add(id);
 
     // Optimistic update
     setNotifications(prev =>
@@ -289,6 +301,8 @@ export default function NotificationsScreen(): React.JSX.Element {
         prev.map(n => n.id === id && 'isFollowing' in n ? { ...n, isFollowing: userNotif.isFollowing } : n)
       );
       if (__DEV__) console.warn('Follow toggle error:', err);
+    } finally {
+      togglingRef.current.delete(id);
     }
   }, [notifications]);
 
@@ -419,6 +433,7 @@ export default function NotificationsScreen(): React.JSX.Element {
           <TouchableOpacity
             style={styles.followButtonContainer}
             onPress={() => toggleFollow(item.id)}
+            disabled={togglingRef.current.has(item.id)}
           >
             {(item as UserNotification).isFollowing ? (
               <View style={styles.followingButton}>
@@ -521,6 +536,20 @@ export default function NotificationsScreen(): React.JSX.Element {
           />
         }
       >
+        {/* Error Banner */}
+        {error && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={20} color="#FF3B30" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => fetchNotifications(true)}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Follow Requests Banner */}
         {followRequestsCount > 0 && (
           <TouchableOpacity
@@ -558,7 +587,7 @@ export default function NotificationsScreen(): React.JSX.Element {
           <NotificationsSkeleton />
         )}
 
-        {!loading && filteredNotifications.length === 0 && (
+        {!loading && !error && filteredNotifications.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="notifications-off-outline" size={60} color={colors.grayLight} />
             <Text style={styles.emptyTitle}>No notifications</Text>
@@ -787,6 +816,35 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     color: colors.gray,
     textAlign: 'center',
     marginTop: SPACING.sm,
+  },
+  // Error Banner
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    backgroundColor: isDark ? 'rgba(60,20,20,0.3)' : 'rgba(254,226,226,1)',
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderRadius: 12,
+    gap: SPACING.sm,
+  },
+  errorText: {
+    flex: 1,
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    color: '#FF3B30',
+  },
+  retryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: isDark ? 'rgba(60,20,20,0.5)' : 'rgba(254,200,200,1)',
+  },
+  retryButtonText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 12,
+    color: '#FF3B30',
   },
   // Follow Requests Banner
   followRequestsBanner: {

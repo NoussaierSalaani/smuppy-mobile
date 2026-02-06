@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import {
   registerPushToken,
@@ -18,10 +18,17 @@ import {
   NotificationData,
 } from '../services/notifications';
 import { useUserStore } from '../stores';
+import type { MainStackParamList } from '../types';
 
 // ============================================
 // TYPES
 // ============================================
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isValidUUID = (value: string | undefined): value is string => {
+  return typeof value === 'string' && UUID_REGEX.test(value);
+};
 
 interface UseNotificationsOptions {
   onNotificationReceived?: (notification: Notifications.Notification) => void;
@@ -45,7 +52,7 @@ export const useNotifications = (
   options: UseNotificationsOptions = {}
 ): UseNotificationsReturn => {
   const { onNotificationReceived, onNotificationTapped } = options;
-  const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void }>();
+  const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const user = useUserStore((state) => state.user);
   const [hasPermission, setHasPermission] = useState(false);
 
@@ -55,6 +62,7 @@ export const useNotifications = (
 
   /**
    * Handle navigation based on notification data
+   * Validates UUIDs before navigating to prevent malformed data injection
    */
   const handleNotificationNavigation = useCallback(
     (data: NotificationData) => {
@@ -64,23 +72,30 @@ export const useNotifications = (
         case 'like':
         case 'comment':
         case 'post_tag':
-          if (data.postId) {
+          if (isValidUUID(data.postId)) {
             navigation.navigate('PostDetailFanFeed', { postId: data.postId });
+          } else if (data.postId && __DEV__) {
+            console.warn('[Push] Invalid postId UUID:', data.postId);
           }
           break;
 
         case 'peak_like':
         case 'peak_comment':
-          if (data.peakId) {
+        case 'peak_reply':
+          if (isValidUUID(data.peakId)) {
             navigation.navigate('PeakView', { peakId: data.peakId });
+          } else if (data.peakId && __DEV__) {
+            console.warn('[Push] Invalid peakId UUID:', data.peakId);
           }
           break;
 
         case 'follow_request':
         case 'new_follower':
         case 'follow_accepted':
-          if (data.userId) {
+          if (isValidUUID(data.userId)) {
             navigation.navigate('UserProfile', { userId: data.userId });
+          } else if (data.userId && __DEV__) {
+            console.warn('[Push] Invalid userId UUID:', data.userId);
           }
           break;
 
@@ -89,7 +104,7 @@ export const useNotifications = (
           break;
 
         case 'live':
-          if (data.userId) {
+          if (isValidUUID(data.userId)) {
             navigation.navigate('UserProfile', { userId: data.userId });
           }
           break;
@@ -230,15 +245,26 @@ export const useAutoRegisterPushNotifications = (): void => {
         const delay = RETRY_DELAYS[attempt + 1];
         if (__DEV__) console.log(`[Push] Will retry in ${delay / 1000}s`);
         timerRef.current = setTimeout(() => attemptRegistration(attempt + 1), delay);
-      } else {
-        if (__DEV__) console.warn('[Push] All registration attempts failed');
-        try {
-          const { captureMessage } = require('../lib/sentry');
-          captureMessage('Push registration failed after all attempts', 'warning', {
-            userId: user.id,
-            attempts: RETRY_DELAYS.length,
-          });
-        } catch { /* Sentry not available */ }
+      } else if (!cancelled) {
+        // All retries exhausted — schedule one final attempt after 60s
+        if (__DEV__) console.warn('[Push] All initial attempts failed, scheduling final retry in 60s');
+        timerRef.current = setTimeout(async () => {
+          if (cancelled || hasRegistered.current) return;
+          const lastChance = await registerPushToken(user.id);
+          if (lastChance) {
+            hasRegistered.current = true;
+            if (__DEV__) console.log('[Push] Final retry succeeded');
+          } else {
+            if (__DEV__) console.warn('[Push] All registration attempts exhausted');
+            try {
+              const { captureMessage } = require('../lib/sentry');
+              captureMessage('Push registration failed after all attempts', 'warning', {
+                userId: user.id,
+                attempts: RETRY_DELAYS.length + 1,
+              });
+            } catch { /* Sentry not available */ }
+          }
+        }, 60000);
       }
     };
 

@@ -48,8 +48,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Build query — join with profiles to enrich actor user data
     // Actor ID is stored in the JSONB data column under different keys
-    // Use regex guard to avoid ::uuid cast errors on malformed data
-    const UUID_REGEX = `'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'`;
+    // UUID regex is a constant SQL pattern (not user input) used to guard ::uuid casts
+    // against malformed JSONB data. Kept as a SQL literal since it's a hardcoded constant.
+    const UUID_PATTERN = `'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'`;
     let query = `
       SELECT
         n.id,
@@ -68,11 +69,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         CASE WHEN f.id IS NOT NULL THEN true ELSE false END AS is_following_actor
       FROM notifications n
       LEFT JOIN profiles p ON p.id = COALESCE(
-        CASE WHEN n.data->>'followerId' ~ ${UUID_REGEX} THEN (n.data->>'followerId')::uuid END,
-        CASE WHEN n.data->>'likerId' ~ ${UUID_REGEX} THEN (n.data->>'likerId')::uuid END,
-        CASE WHEN n.data->>'commenterId' ~ ${UUID_REGEX} THEN (n.data->>'commenterId')::uuid END,
-        CASE WHEN n.data->>'requesterId' ~ ${UUID_REGEX} THEN (n.data->>'requesterId')::uuid END,
-        CASE WHEN n.data->>'senderId' ~ ${UUID_REGEX} THEN (n.data->>'senderId')::uuid END
+        CASE WHEN n.data->>'followerId' ~ ${UUID_PATTERN} THEN (n.data->>'followerId')::uuid END,
+        CASE WHEN n.data->>'likerId' ~ ${UUID_PATTERN} THEN (n.data->>'likerId')::uuid END,
+        CASE WHEN n.data->>'commenterId' ~ ${UUID_PATTERN} THEN (n.data->>'commenterId')::uuid END,
+        CASE WHEN n.data->>'requesterId' ~ ${UUID_PATTERN} THEN (n.data->>'requesterId')::uuid END,
+        CASE WHEN n.data->>'senderId' ~ ${UUID_PATTERN} THEN (n.data->>'senderId')::uuid END
       )
       LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
       WHERE n.user_id = $1

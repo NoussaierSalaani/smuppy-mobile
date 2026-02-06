@@ -20,7 +20,7 @@ export interface NotificationData {
   type:
     | 'like' | 'comment' | 'message'
     | 'follow_request' | 'new_follower' | 'follow_accepted'
-    | 'peak_like' | 'peak_comment'
+    | 'peak_like' | 'peak_comment' | 'peak_reply'
     | 'post_tag'
     | 'live';
   postId?: string;

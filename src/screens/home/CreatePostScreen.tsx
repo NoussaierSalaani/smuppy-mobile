@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GRADIENTS, SPACING } from '../../config/theme';
+import { GRADIENTS, SPACING, HIT_SLOP } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -488,7 +488,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
                         setSelectedPreview(mediaAssets[0] || null);
                       }
                     }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={HIT_SLOP.small}
                   >
                     <Ionicons name="close-circle" size={18} color="#FF3B30" />
                   </TouchableOpacity>

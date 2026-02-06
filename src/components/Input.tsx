@@ -11,7 +11,7 @@ import {
   TextInputProps,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SIZES, SHADOWS, BORDERS } from '../config/theme';
+import { SIZES, SHADOWS, BORDERS, HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 type InputState = 'default' | 'focus' | 'error' | 'disabled';
@@ -145,7 +145,7 @@ export default function Input({
           accessibilityRole="button"
           accessibilityLabel={isSecure ? 'Show password' : 'Hide password'}
           accessibilityHint="Double-tap to toggle password visibility"
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
         >
           <Ionicons
             name={isSecure ? 'eye-off-outline' : 'eye-outline'}
@@ -163,7 +163,7 @@ export default function Input({
           style={styles.iconButton}
           accessible={true}
           accessibilityRole="button"
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
         >
           <Ionicons
             name={rightIcon}

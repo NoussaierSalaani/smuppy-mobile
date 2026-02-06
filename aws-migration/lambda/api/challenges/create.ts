@@ -197,24 +197,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         params
       );
 
-      // Create notifications for tagged users
-      for (const taggedUserId of taggedUserIds) {
-        await client.query(
-          `INSERT INTO notifications (
-            user_id, type, title, message, data, from_user_id
-          ) VALUES ($1, 'challenge_tag', 'Challenge Invitation',
-            'You have been challenged!', $2, $3)`,
-          [
-            taggedUserId,
-            JSON.stringify({
-              challengeId: challenge.id,
-              peakId,
-              title,
-            }),
-            profileId,
-          ]
-        );
+      // Batch insert notifications for all tagged users (single query instead of N queries)
+      const notifData = JSON.stringify({ challengeId: challenge.id, peakId, title });
+      const notifPlaceholders: string[] = [];
+      const notifParams: string[] = [];
+      for (let i = 0; i < taggedUserIds.length; i++) {
+        const base = i * 3 + 1;
+        notifPlaceholders.push(`($${base}, 'challenge_tag', 'Challenge Invitation', 'You have been challenged!', $${base + 1}, $${base + 2})`);
+        notifParams.push(taggedUserIds[i], notifData, profileId);
       }
+      await client.query(
+        `INSERT INTO notifications (user_id, type, title, message, data, from_user_id) VALUES ${notifPlaceholders.join(', ')}`,
+        notifParams
+      );
     }
 
     await client.query('COMMIT');

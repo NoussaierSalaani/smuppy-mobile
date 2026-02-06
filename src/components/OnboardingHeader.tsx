@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SPACING, GRADIENTS } from '../config/theme';
+import { SPACING, GRADIENTS, HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 const SEGMENT_GAP = 4;
@@ -50,7 +50,7 @@ export default function OnboardingHeader({
           onPress={onBack}
           disabled={disabled}
           activeOpacity={0.6}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
         >
           <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>

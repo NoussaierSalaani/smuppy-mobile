@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { Prescription, PrescriptionCategory } from '../../services/prescriptionEngine';
-import { SPACING } from '../../config/theme';
+import { SPACING, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores';
 
@@ -79,11 +79,11 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={handleBack} hitSlop={HIT_SLOP.medium}>
           <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Vibe Prescriptions</Text>
-        <TouchableOpacity onPress={handleSettings} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={handleSettings} hitSlop={HIT_SLOP.medium}>
           <Ionicons name="settings-outline" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>

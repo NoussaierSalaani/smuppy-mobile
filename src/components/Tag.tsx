@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GRADIENTS, SIZES, BORDERS } from '../config/theme';
+import { GRADIENTS, SIZES, BORDERS, HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 type TagVariant = 'default' | 'filled' | 'outline' | 'filter';
@@ -169,7 +169,7 @@ export default function Tag({
       {removable && (
         <TouchableOpacity
           onPress={onRemove}
-          hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+          hitSlop={HIT_SLOP.small}
           style={styles.removeButton}
         >
           <Ionicons

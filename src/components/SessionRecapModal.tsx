@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { SessionRecap } from '../services/vibeGuardian';
 import { getMoodDisplay } from '../hooks/useMoodAI';
-import { SPACING } from '../config/theme';
+import { SPACING, HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface SessionRecapModalProps {
@@ -48,7 +48,7 @@ const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, o
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Session Recap</Text>
-            <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity onPress={onDismiss} hitSlop={HIT_SLOP.medium}>
               <Ionicons name="close" size={24} color={colors.gray} />
             </TouchableOpacity>
           </View>

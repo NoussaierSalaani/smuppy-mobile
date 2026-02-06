@@ -115,13 +115,13 @@ const PeaksFeedScreen = (): React.JSX.Element => {
     fetchPeaks(true);
   }, [fetchPeaks]);
 
-  const handlePeakPress = (peak: Peak): void => {
+  const handlePeakPress = useCallback((peak: Peak): void => {
     const index = peaks.findIndex(p => p.id === peak.id);
     navigation.navigate('PeakView', {
       peaks: peaks,
       initialIndex: index,
     });
-  };
+  }, [peaks, navigation]);
 
   const handleCreatePeak = (): void => {
     navigation.navigate('CreatePeak');
@@ -130,6 +130,8 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const handleGoBack = (): void => {
     navigation.goBack();
   };
+
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const { leftColumn, rightColumn } = useMemo(() => {
     const left: Peak[] = [];
@@ -141,10 +143,10 @@ const PeaksFeedScreen = (): React.JSX.Element => {
     return { leftColumn: left, rightColumn: right };
   }, [peaks]);
 
-  const renderColumn = (columnPeaks: Peak[]): React.JSX.Element => (
+  const renderColumn = useCallback((columnPeaks: Peak[]): React.JSX.Element => (
     <View style={styles.column}>
       {columnPeaks.map((peak) => (
-        <View key={peak.id} style={{ position: 'relative' }}>
+        <View key={peak.id} style={styles.peakCardWrapper}>
           <PeakCard
             peak={peak}
             onPress={handlePeakPress}
@@ -157,16 +159,14 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         </View>
       ))}
     </View>
-  );
+  ), [handlePeakPress, styles.column, styles.peakCardWrapper, styles.challengeBadge]);
 
-  const renderItem: ListRenderItem<number> = () => (
+  const renderItem: ListRenderItem<number> = useCallback(() => (
     <View style={styles.masonryContainer}>
       {renderColumn(leftColumn)}
       {renderColumn(rightColumn)}
     </View>
-  );
-
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  ), [styles.masonryContainer, renderColumn, leftColumn, rightColumn]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -295,6 +295,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   column: {
     width: COLUMN_WIDTH,
+  },
+  peakCardWrapper: {
+    position: 'relative',
   },
   challengeBadge: {
     position: 'absolute',

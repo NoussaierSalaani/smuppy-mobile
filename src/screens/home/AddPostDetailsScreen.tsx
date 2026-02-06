@@ -34,6 +34,7 @@ import {
   GRADIENTS,
   SPACING,
   SIZES,
+  HIT_SLOP,
 } from '../../config/theme';
 import {
   searchNominatim,
@@ -947,7 +948,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     >
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={handleBack} hitSlop={HIT_SLOP.medium}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add details</Text>

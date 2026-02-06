@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { GRADIENTS, FORM } from '../../config/theme';
+import { GRADIENTS, FORM, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import {
   createAuthStyles,
@@ -371,7 +371,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                   />
                   <TouchableOpacity
                     onPress={togglePassword}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    hitSlop={HIT_SLOP.medium}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}

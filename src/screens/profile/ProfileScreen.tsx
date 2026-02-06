@@ -41,6 +41,7 @@ import { getGrade } from '../../utils/gradeSystem';
 import { useVibeStore } from '../../stores/vibeStore';
 import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
 import { useTheme } from '../../hooks/useTheme';
+import { HIT_SLOP } from '../../config/theme';
 import { ProfileSkeleton } from '../../components/skeleton';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
@@ -589,7 +590,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {(user.bio.length > 80 || user.bio.split('\n').length > BIO_MAX_LINES) && (
             <TouchableOpacity
               onPress={() => setBioExpanded(!bioExpanded)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={HIT_SLOP.medium}
               style={styles.seeMoreBtn}
               accessibilityLabel={bioExpanded ? "Show less bio" : "Show more bio"}
               accessibilityRole="button"

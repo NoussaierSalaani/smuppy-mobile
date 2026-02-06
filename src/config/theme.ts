@@ -370,6 +370,14 @@ export function getThemeColors(mode: ThemeMode): typeof COLORS {
   export const ANIMATION = { fast: 150, normal: 200, slow: 300, verySlow: 500 };
   
   export const Z_INDEX = { base: 0, dropdown: 10, sticky: 20, fixed: 30, modal: 40, popover: 50, tooltip: 60 };
+
+// Hit slop constants - use these instead of inline objects to prevent re-renders
+export const HIT_SLOP = {
+  small: { top: 8, bottom: 8, left: 8, right: 8 },
+  medium: { top: 10, bottom: 10, left: 10, right: 10 },
+  large: { top: 15, bottom: 15, left: 15, right: 15 },
+  xlarge: { top: 20, bottom: 20, left: 20, right: 20 },
+} as const;
   
 export const DARK_GRADIENTS = {
     primary: ['#008A94', '#0A9E72', '#4BA888'] as const,

@@ -8,6 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface ErrorModalProps {
@@ -38,7 +39,7 @@ export default function ErrorModal({
           <TouchableWithoutFeedback>
             <View style={styles.container}>
               {/* Close button */}
-              <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={HIT_SLOP.medium}>
                 <Ionicons name="close" size={24} color={colors.grayMuted} />
               </TouchableOpacity>
 

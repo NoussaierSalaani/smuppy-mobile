@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { HIT_SLOP } from '../../config/theme';
 import { AccountBadge } from '../../components/Badge';
 import OptimizedImage from '../../components/OptimizedImage';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -926,7 +927,7 @@ const SearchScreen = (): React.JSX.Element => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleGoBack}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
         >
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>

@@ -2,7 +2,7 @@ import React, { ReactNode, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SIZES } from '../config/theme';
+import { SIZES, HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface HeaderProps {
@@ -49,7 +49,7 @@ export default function Header({
         <TouchableOpacity
           onPress={onBack}
           style={styles.backButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel="Go back"
@@ -71,7 +71,7 @@ export default function Header({
         <TouchableOpacity
           onPress={onRightPress}
           style={styles.rightTextButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={rightText}
@@ -86,7 +86,7 @@ export default function Header({
         <TouchableOpacity
           onPress={onRightPress}
           style={styles.rightButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={rightIcon.replace(/-/g, ' ').replace('outline', '').trim()}

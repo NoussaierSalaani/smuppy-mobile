@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingVi
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GRADIENTS, FORM } from '../../config/theme';
+import { GRADIENTS, FORM, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
@@ -168,7 +168,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                   autoCorrect={false}
                 />
                 {email.length > 0 && (
-                  <TouchableOpacity onPress={handleClearEmail} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <TouchableOpacity onPress={handleClearEmail} hitSlop={HIT_SLOP.medium}>
                     <Ionicons name="close-circle" size={20} color={colors.grayMuted} />
                   </TouchableOpacity>
                 )}
@@ -195,7 +195,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                     autoCorrect={false}
                   />
                   {email.length > 0 && (
-                    <TouchableOpacity onPress={handleClearEmail} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <TouchableOpacity onPress={handleClearEmail} hitSlop={HIT_SLOP.medium}>
                       <Ionicons name="close-circle" size={20} color={colors.grayMuted} />
                     </TouchableOpacity>
                   )}

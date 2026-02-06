@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { PrescriptionCategory } from '../../services/prescriptionEngine';
-import { SPACING } from '../../config/theme';
+import { SPACING, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -80,7 +80,7 @@ export default function PrescriptionPreferencesScreen({ navigation }: Prescripti
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={handleBack} hitSlop={HIT_SLOP.medium}>
           <Ionicons name="chevron-back" size={28} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Prescription Preferences</Text>

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Keyboa
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GRADIENTS, FORM, SPACING } from '../../config/theme';
+import { GRADIENTS, FORM, SPACING, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
@@ -203,7 +203,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                 onFocus={() => setIsFocusedPassword(true)}
                 onBlur={() => setIsFocusedPassword(false)}
               />
-              <TouchableOpacity onPress={togglePassword} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity onPress={togglePassword} hitSlop={HIT_SLOP.medium}>
                 <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
               </TouchableOpacity>
             </View>
@@ -254,7 +254,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                 onFocus={() => setIsFocusedConfirm(true)}
                 onBlur={() => setIsFocusedConfirm(false)}
               />
-              <TouchableOpacity onPress={toggleConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity onPress={toggleConfirm} hitSlop={HIT_SLOP.medium}>
                 <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
               </TouchableOpacity>
             </View>
@@ -279,7 +279,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                   onFocus={() => setIsFocusedConfirm(true)}
                   onBlur={() => setIsFocusedConfirm(false)}
                 />
-                <TouchableOpacity onPress={toggleConfirm} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity onPress={toggleConfirm} hitSlop={HIT_SLOP.medium}>
                   <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
                 </TouchableOpacity>
               </View>

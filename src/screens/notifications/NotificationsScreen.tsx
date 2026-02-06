@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NavigationProp, useNavigation, useFocusEffect } from '@react-navigation/native';
-import { GRADIENTS, SIZES, SPACING } from '../../config/theme';
+import { GRADIENTS, SIZES, SPACING, HIT_SLOP } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -459,7 +459,7 @@ export default function NotificationsScreen(): React.JSX.Element {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
         >
           <Ionicons name="chevron-back" size={24} color={colors.dark} />
         </TouchableOpacity>
@@ -473,7 +473,7 @@ export default function NotificationsScreen(): React.JSX.Element {
               if (__DEV__) console.warn('Mark all read error:', err);
             }
           }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
         >
           <Ionicons name="checkmark-done-outline" size={22} color={colors.primary} />
         </TouchableOpacity>

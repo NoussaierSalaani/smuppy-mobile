@@ -18,6 +18,7 @@ import { useTabBar } from '../context/TabBarContext';
 import { useTheme } from '../hooks/useTheme';
 import { useUserStore, useAppStore } from '../stores';
 import { LiquidTabs } from './LiquidTabs';
+import { HIT_SLOP } from '../config/theme';
 
 // Constants for tab bar calculations (kept for reference, LiquidTabs handles rendering now)
 
@@ -125,7 +126,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 <TouchableOpacity
                   style={[styles.compactIconButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(10,37,47,0.04)' }]}
                   onPress={handleSearchPress}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  hitSlop={HIT_SLOP.medium}
                   testID="search-button"
                   accessibilityLabel="Search"
                   accessibilityRole="button"
@@ -150,7 +151,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
                 <TouchableOpacity
                   style={[styles.compactIconButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(10,37,47,0.04)' }]}
                   onPress={handleNotificationsPress}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  hitSlop={HIT_SLOP.medium}
                   testID="notifications-button"
                   accessibilityLabel="Notifications"
                   accessibilityRole="button"
@@ -184,7 +185,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={handleSearchPress}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                hitSlop={HIT_SLOP.medium}
                 testID="search-button"
                 accessibilityLabel="Search"
                 accessibilityRole="button"
@@ -200,7 +201,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={handleNotificationsPress}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                hitSlop={HIT_SLOP.medium}
                 testID="notifications-button"
                 accessibilityLabel="Notifications"
                 accessibilityRole="button"

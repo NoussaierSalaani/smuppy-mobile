@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import OptimizedImage from './OptimizedImage';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { HIT_SLOP } from '../config/theme';
 import { formatShortDateTime } from '../utils/dateFormatters';
 
 interface EventGroupCardProps {
@@ -72,7 +73,7 @@ const EventGroupCard = memo(({
       </View>
 
       {isOwner && (
-        <TouchableOpacity style={styles.menuBtn} onPress={onMenuPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity style={styles.menuBtn} onPress={onMenuPress} hitSlop={HIT_SLOP.medium}>
           <Ionicons name="ellipsis-vertical" size={18} color="#8E8E93" />
         </TouchableOpacity>
       )}

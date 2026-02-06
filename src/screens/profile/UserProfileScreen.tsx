@@ -20,6 +20,7 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { HIT_SLOP } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks';
 import { queryKeys } from '../../lib/queryClient';
@@ -1018,7 +1019,7 @@ const UserProfileScreen = () => {
           {profile.bio.length > 80 && (
             <TouchableOpacity
               onPress={() => setBioExpanded(!bioExpanded)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={HIT_SLOP.medium}
               style={styles.seeMoreBtn}
             >
               <Text style={styles.seeMoreText}>

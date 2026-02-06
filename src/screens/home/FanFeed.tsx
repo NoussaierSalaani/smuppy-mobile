@@ -15,7 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
-import { GRADIENTS, SPACING } from '../../config/theme';
+import { GRADIENTS, SPACING, HIT_SLOP } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { AccountBadge } from '../../components/Badge';
@@ -175,7 +175,7 @@ const PostItem = memo<PostItemProps>(({
           <TouchableOpacity
             style={styles.postActionLike}
             onPress={() => onLike(post.id)}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            hitSlop={HIT_SLOP.large}
             activeOpacity={0.7}
             accessibilityLabel={post.isLiked ? 'Unlike this post' : 'Like this post'}
             accessibilityRole="button"
@@ -191,7 +191,7 @@ const PostItem = memo<PostItemProps>(({
           <TouchableOpacity
             style={styles.postAction}
             onPress={() => onShare(post)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={HIT_SLOP.medium}
             accessibilityLabel="Share this post"
             accessibilityRole="button"
             accessibilityHint="Opens share options"
@@ -201,7 +201,7 @@ const PostItem = memo<PostItemProps>(({
         </View>
         <TouchableOpacity
           onPress={() => onSave(post.id)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.medium}
           accessibilityLabel={post.isSaved ? 'Remove from saved' : 'Save this post'}
           accessibilityRole="button"
           accessibilityState={{ selected: post.isSaved }}

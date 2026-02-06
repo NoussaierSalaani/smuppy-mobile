@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('conversations-list');
 
@@ -20,6 +21,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 30 requests per minute for list operations
+    // Per CLAUDE.md: rate limit ALL endpoints
+    const { allowed } = await checkRateLimit({
+      prefix: 'conversations-list',
+      identifier: userId,
+      windowSeconds: 60,
+      maxRequests: 30,
+    });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 

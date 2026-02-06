@@ -2046,12 +2046,21 @@ export const markConversationAsRead = async (conversationId: string): Promise<{ 
 
 /**
  * Upload a voice message
- * Per CLAUDE.md: validate all user input including file size
+ * Per CLAUDE.md: validate all user input including file size and format
  */
 const MAX_VOICE_MESSAGE_SIZE = 5 * 1024 * 1024; // 5 MB max
+const VALID_AUDIO_EXTENSIONS = ['.m4a', '.mp4', '.mp3', '.wav', '.aac', '.caf', '.webm', '.ogg'];
 
 export const uploadVoiceMessage = async (audioUri: string, conversationId: string): Promise<DbResponse<string>> => {
   try {
+    // Validate audio file extension/format
+    const uriLower = audioUri.toLowerCase();
+    const hasValidExtension = VALID_AUDIO_EXTENSIONS.some(ext => uriLower.endsWith(ext));
+    if (!hasValidExtension) {
+      if (__DEV__) console.warn('[uploadVoiceMessage] Invalid audio format:', audioUri);
+      return { data: null, error: 'Invalid audio format' };
+    }
+
     // Step 1: Verify audio file exists, is non-empty, and within size limit
     const fs = await import('expo-file-system/legacy');
     const fileCheckResult = await fs.getInfoAsync(audioUri);

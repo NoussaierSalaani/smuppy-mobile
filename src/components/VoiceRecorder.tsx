@@ -77,7 +77,16 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
   };
 
   const startRecording = async () => {
-    if (!permissionGranted) {
+    // Re-check permission if not granted (allows retry without app restart)
+    // Per CLAUDE.md: proper auth and permission handling
+    let hasPermission = permissionGranted;
+    if (!hasPermission) {
+      const { granted } = await Audio.requestPermissionsAsync();
+      hasPermission = granted;
+      setPermissionGranted(granted);
+    }
+
+    if (!hasPermission) {
       showError('Permission Denied', 'Please enable microphone access in settings.');
       return;
     }

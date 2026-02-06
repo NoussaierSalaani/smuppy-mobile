@@ -41,9 +41,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profileId = userResult.rows[0].id;
 
-    // Get pagination params
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+    // Get pagination params with validation
+    // Per CLAUDE.md: validate all input - parseInt('invalid') returns NaN
+    const rawLimit = event.queryStringParameters?.limit;
+    const parsedLimit = rawLimit ? parseInt(rawLimit, 10) : 20;
+    const limit = Number.isNaN(parsedLimit) ? 20 : Math.max(1, Math.min(parsedLimit, 50));
+
     const cursor = event.queryStringParameters?.cursor;
+
+    // Validate cursor is a valid ISO date if provided
+    // Per CLAUDE.md: validate all user input
+    if (cursor) {
+      const cursorDate = new Date(cursor);
+      if (Number.isNaN(cursorDate.getTime())) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Invalid cursor format' }),
+        };
+      }
+    }
 
     // Build query for conversations with last message
     let query = `

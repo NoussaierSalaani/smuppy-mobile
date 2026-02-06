@@ -2046,26 +2046,38 @@ export const markConversationAsRead = async (conversationId: string): Promise<{ 
 
 /**
  * Upload a voice message
+ * Per CLAUDE.md: validate all user input including file size
  */
+const MAX_VOICE_MESSAGE_SIZE = 5 * 1024 * 1024; // 5 MB max
+
 export const uploadVoiceMessage = async (audioUri: string, conversationId: string): Promise<DbResponse<string>> => {
   try {
-    // Step 1: Verify audio file exists and is non-empty + get presigned URL in parallel
-    const [fileCheckResult, presignedResult] = await Promise.all([
-      import('expo-file-system/legacy').then(fs => fs.getInfoAsync(audioUri)),
-      awsAPI.request<{ url: string; key: string; cdnUrl?: string; fileUrl?: string }>('/media/upload-voice', {
-        method: 'POST',
-        body: { conversationId },
-      }),
-    ]);
+    // Step 1: Verify audio file exists, is non-empty, and within size limit
+    const fs = await import('expo-file-system/legacy');
+    const fileCheckResult = await fs.getInfoAsync(audioUri);
 
     if (!fileCheckResult.exists) {
       if (__DEV__) console.warn('[uploadVoiceMessage] Audio file does not exist:', audioUri);
       return { data: null, error: 'Recording file not found' };
     }
-    if ('size' in fileCheckResult && typeof fileCheckResult.size === 'number' && fileCheckResult.size === 0) {
-      if (__DEV__) console.warn('[uploadVoiceMessage] Audio file is empty (0 bytes):', audioUri);
-      return { data: null, error: 'Recording file is empty' };
+
+    // Validate file size before upload
+    if ('size' in fileCheckResult && typeof fileCheckResult.size === 'number') {
+      if (fileCheckResult.size === 0) {
+        if (__DEV__) console.warn('[uploadVoiceMessage] Audio file is empty (0 bytes):', audioUri);
+        return { data: null, error: 'Recording file is empty' };
+      }
+      if (fileCheckResult.size > MAX_VOICE_MESSAGE_SIZE) {
+        if (__DEV__) console.warn('[uploadVoiceMessage] Audio file too large:', fileCheckResult.size);
+        return { data: null, error: 'Voice message too large (max 5MB)' };
+      }
     }
+
+    // Step 2: Get presigned URL (after file validation passes)
+    const presignedResult = await awsAPI.request<{ url: string; key: string; cdnUrl?: string; fileUrl?: string }>('/media/upload-voice', {
+      method: 'POST',
+      body: { conversationId },
+    });
 
     // Step 2: Upload the audio file to S3
     const { uploadWithFileSystem } = await import('./mediaUpload');

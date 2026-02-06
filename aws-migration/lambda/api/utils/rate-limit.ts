@@ -57,9 +57,10 @@ export const checkRateLimit = async (options: RateLimitOptions): Promise<RateLim
 
     return { allowed: true };
   } catch (error) {
-    // Fail open: if rate limit check fails (e.g. DynamoDB permission/connectivity issue),
-    // allow the request through rather than blocking all traffic
-    log.error('Rate limit check failed, allowing request (fail-open)', error);
-    return { allowed: true };
+    // Fail-closed: if rate limit check fails (e.g. DynamoDB permission/connectivity issue),
+    // block the request to prevent potential abuse during outages.
+    // Per CLAUDE.md: rate limit ALL endpoints that create resources or cost money
+    log.error('Rate limit check failed, blocking request (fail-closed)', error);
+    return { allowed: false, retryAfter: 60 };
   }
 };

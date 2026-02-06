@@ -76,7 +76,7 @@ interface Peak {
 
 type RootStackParamList = {
   PeakView: { peaks?: Peak[]; peakData?: Peak[]; peakId?: string; initialIndex?: number };
-  CreatePeak: { replyTo: string; originalPeak: Peak };
+  CreatePeak: { replyTo?: string; originalPeak?: Peak; challengeId?: string; challengeTitle?: string };
   UserProfile: { userId: string };
   [key: string]: object | undefined;
 };
@@ -636,6 +636,14 @@ const PeakViewScreen = (): React.JSX.Element => {
     });
   };
 
+  const handleAcceptChallenge = (): void => {
+    if (isBusiness) return;
+    navigation.navigate('CreatePeak', {
+      challengeId: currentPeak.id,
+      challengeTitle: currentPeak.challengeTitle,
+    });
+  };
+
   const isLiked = likedPeaks.has(currentPeak.id);
   const isSaved = savedPeaks.has(currentPeak.id);
   const likesCount = currentPeak.likes ?? 0;
@@ -872,7 +880,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             <View style={styles.userTextInfo}>
               <Text style={styles.userName}>{currentPeak.user?.name}</Text>
               <Text style={styles.viewsText}>
-                {formatCount(currentPeak.views || 0)} vues
+                {formatCount(currentPeak.views || 0)} views
               </Text>
             </View>
           </TouchableOpacity>
@@ -898,7 +906,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               {!isBusiness && (
                 <TouchableOpacity
                   style={styles.acceptChallengeButton}
-                  onPress={handleCreatePeak}
+                  onPress={handleAcceptChallenge}
                 >
                   <Ionicons name="flame" size={16} color={colors.dark} />
                   <Text style={styles.acceptChallengeText}>Accept Challenge</Text>
@@ -962,8 +970,8 @@ const PeakViewScreen = (): React.JSX.Element => {
       {isInChain && (
         <View style={styles.chainOverlay}>
           <View style={[styles.chainHeader, { paddingTop: insets.top + 10 }]}>
-            <Text style={styles.chainTitle}>Réponses</Text>
-            <Text style={styles.chainHint}>Double tap pour revenir</Text>
+            <Text style={styles.chainTitle}>Replies</Text>
+            <Text style={styles.chainHint}>Double tap to go back</Text>
           </View>
         </View>
       )}
@@ -972,7 +980,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         <View style={styles.onboardingOverlay}>
           <View style={styles.onboardingContent}>
             <Text style={styles.onboardingText}>
-              Swipe UP pour voir les réponses{'\n'}ou relever le défi ! 🔥
+              Swipe UP to see replies{'\n'}or accept the challenge! 🔥
             </Text>
           </View>
         </View>
@@ -1005,7 +1013,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               onPress={() => handleMenuAction('not_interested')}
             >
               <Ionicons name="eye-off-outline" size={24} color={isDark ? colors.white : colors.dark} />
-              <Text style={styles.menuItemText}>Pas intéressé</Text>
+              <Text style={styles.menuItemText}>Not interested</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1013,14 +1021,14 @@ const PeakViewScreen = (): React.JSX.Element => {
               onPress={() => handleMenuAction('report')}
             >
               <Ionicons name="flag-outline" size={24} color="#FF453A" />
-              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Signaler</Text>
+              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.menuCancelButton}
               onPress={closeMenu}
             >
-              <Text style={styles.menuCancelText}>Annuler</Text>
+              <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </Pressable>

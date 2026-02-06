@@ -17,8 +17,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const client = await pool.connect();
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const filter = event.queryStringParameters?.filter || 'trending'; // trending, created, tagged, responded
+
+    // Resolve cognito sub to profile ID for user-specific filters
+    let userId: string | undefined;
+    if (cognitoSub && ['created', 'tagged', 'responded'].includes(filter)) {
+      const profileResult = await client.query(
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
+        [cognitoSub]
+      );
+      userId = profileResult.rows[0]?.id;
+    } else {
+      userId = cognitoSub;
+    }
     const creatorId = event.queryStringParameters?.creatorId;
     const category = event.queryStringParameters?.category;
     const status = event.queryStringParameters?.status || 'active';
@@ -129,13 +141,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const result = await client.query(query, params);
 
     // Check if current user has responded (if logged in)
+    // Resolve profile ID for response check if not already resolved
+    let profileIdForResponseCheck = userId;
+    if (cognitoSub && !['created', 'tagged', 'responded'].includes(filter)) {
+      const pResult = await client.query(
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
+        [cognitoSub]
+      );
+      profileIdForResponseCheck = pResult.rows[0]?.id;
+    }
     let userResponses: Record<string, boolean> = {};
-    if (userId && result.rows.length > 0) {
+    if (profileIdForResponseCheck && result.rows.length > 0) {
       const challengeIds = result.rows.map((r: Record<string, unknown>) => r.id);
       const responseCheck = await client.query(
         `SELECT challenge_id FROM challenge_responses
          WHERE challenge_id = ANY($1) AND user_id = $2`,
-        [challengeIds, userId]
+        [challengeIds, profileIdForResponseCheck]
       );
       userResponses = responseCheck.rows.reduce((acc: Record<string, boolean>, r: Record<string, unknown>) => {
         acc[r.challenge_id as string] = true;

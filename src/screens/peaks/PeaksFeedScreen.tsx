@@ -213,14 +213,14 @@ const PeaksFeedScreen = (): React.JSX.Element => {
             <View style={styles.emptyIconContainer}>
               <Ionicons name="videocam-outline" size={56} color={colors.primary} />
             </View>
-            <Text style={styles.emptyTitle}>Aucun Peak pour l'instant</Text>
+            <Text style={styles.emptyTitle}>No Peaks yet</Text>
             <Text style={styles.emptySubtitle}>
-              Les Peaks sont des vidéos courtes de 6 à 60 secondes pour partager tes moments fitness
+              Peaks are short videos from 6 to 60 seconds to share your fitness moments
             </Text>
             {!isBusiness && (
               <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
                 <Ionicons name="add-circle" size={22} color={colors.white} />
-                <Text style={styles.emptyButtonText}>Créer mon premier Peak</Text>
+                <Text style={styles.emptyButtonText}>Create my first Peak</Text>
               </TouchableOpacity>
             )}
           </View>

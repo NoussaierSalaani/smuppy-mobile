@@ -59,6 +59,8 @@ type RootStackParamList = {
     duration: number;
     replyTo?: string;
     originalPeak?: OriginalPeak;
+    challengeId?: string;
+    challengeTitle?: string;
   };
   Tabs: { screen: string };
   [key: string]: object | undefined;
@@ -72,7 +74,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const { showError: errorAlert } = useSmuppyAlert();
   const alert = { error: errorAlert };
 
-  const { videoUri, duration, replyTo, originalPeak } = route.params || {};
+  const { videoUri, duration, replyTo, originalPeak, challengeId, challengeTitle: challengeTitleParam } = route.params || {};
 
   const videoRef = useRef<Video>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -139,7 +141,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
   // Publish
   const handlePublish = async (): Promise<void> => {
-    if (isChallenge && !challengeTitle.trim()) {
+    if (isChallenge && !challengeId && !challengeTitle.trim()) {
       alert.error('Challenge Title Required', 'Please enter a title for your challenge');
       return;
     }
@@ -192,6 +194,16 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         } catch (challengeError) {
           if (__DEV__) console.warn('Challenge creation error:', challengeError);
           // Peak was published but challenge failed — still show success
+        }
+      }
+
+      // Respond to challenge if this peak was created as a challenge response
+      if (challengeId) {
+        try {
+          await awsAPI.respondToChallenge(challengeId, { peakId: peakResult.peak.id });
+        } catch (respondError) {
+          if (__DEV__) console.warn('Challenge response error:', respondError);
+          // Peak was published but challenge response failed — still show success
         }
       }
 
@@ -327,6 +339,14 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Challenge response info */}
+            {challengeId && challengeTitleParam ? (
+              <View style={styles.replyInfo}>
+                <Ionicons name="trophy" size={14} color="#FFD700" />
+                <Text style={styles.replyText}>Challenge: {challengeTitleParam}</Text>
+              </View>
+            ) : null}
+
             {/* Reply info */}
             {replyTo && originalPeak && (
               <View style={styles.replyInfo}>
@@ -486,20 +506,22 @@ const PeakPreviewScreen = (): React.JSX.Element => {
               />
             </View>
 
-            {/* Challenge Toggle */}
-            <View style={styles.optionRow}>
-              <View style={styles.optionLeft}>
-                <Ionicons name="trophy-outline" size={18} color="#FFD700" />
-                <Text style={styles.optionLabel}>Challenge</Text>
+            {/* Challenge Toggle - hidden when responding to a challenge */}
+            {!challengeId && (
+              <View style={styles.optionRow}>
+                <View style={styles.optionLeft}>
+                  <Ionicons name="trophy-outline" size={18} color="#FFD700" />
+                  <Text style={styles.optionLabel}>Challenge</Text>
+                </View>
+                <Switch
+                  value={isChallenge}
+                  onValueChange={setIsChallenge}
+                  trackColor={{ false: isDark ? '#3A3A3C' : colors.gray300, true: '#FFD700' }}
+                  thumbColor={colors.white}
+                  ios_backgroundColor={isDark ? '#3A3A3C' : colors.gray300}
+                />
               </View>
-              <Switch
-                value={isChallenge}
-                onValueChange={setIsChallenge}
-                trackColor={{ false: isDark ? '#3A3A3C' : colors.gray300, true: '#FFD700' }}
-                thumbColor={colors.white}
-                ios_backgroundColor={isDark ? '#3A3A3C' : colors.gray300}
-              />
-            </View>
+            )}
 
             {isChallenge && (
               <View style={styles.challengeFields}>
@@ -569,9 +591,15 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             >
               <Ionicons name="checkmark" size={50} color={colors.white} />
             </LinearGradient>
-            <Text style={styles.successTitle}>Peak Published! 🎉</Text>
+            <Text style={styles.successTitle}>
+              {challengeId ? 'Challenge Response Published!' : 'Peak Published!'} 🎉
+            </Text>
             <Text style={styles.successDesc}>
-              {replyTo ? 'Your reply has been posted' : 'Your Peak is now live and ready to go viral!'}
+              {challengeId
+                ? 'Your challenge response is now live!'
+                : replyTo
+                ? 'Your reply has been posted'
+                : 'Your Peak is now live and ready to go viral!'}
             </Text>
             <TouchableOpacity
               style={styles.successButton}

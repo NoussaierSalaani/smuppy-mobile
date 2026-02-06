@@ -25,13 +25,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const client = await pool.connect();
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+    if (!cognitoSub) {
       return cors({
         statusCode: 401,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
     }
+
+    // Resolve cognito sub to profile ID
+    const profileResult = await client.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [cognitoSub]
+    );
+    if (profileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      });
+    }
+    const userId = profileResult.rows[0].id;
 
     const body: RespondChallengeRequest = JSON.parse(event.body || '{}');
     const { challengeId, peakId, score, timeSeconds } = body;
@@ -55,7 +68,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get challenge details
     const challengeResult = await client.query(
-      `SELECT pc.*, p.user_id as creator_user_id
+      `SELECT pc.*, p.author_id as creator_user_id
        FROM peak_challenges pc
        JOIN peaks p ON pc.peak_id = p.id
        WHERE pc.id = $1`,
@@ -143,11 +156,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Verify peak belongs to user
     const peakCheck = await client.query(
-      `SELECT id, user_id FROM peaks WHERE id = $1`,
+      `SELECT id, author_id FROM peaks WHERE id = $1`,
       [peakId]
     );
 
-    if (peakCheck.rows.length === 0 || peakCheck.rows[0].user_id !== userId) {
+    if (peakCheck.rows.length === 0 || peakCheck.rows[0].author_id !== userId) {
       return cors({
         statusCode: 403,
         body: JSON.stringify({

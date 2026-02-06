@@ -691,8 +691,21 @@ export type MainStackParamList = {
 
   // Peaks
   PeakView: { peaks?: Peak[]; peakId?: string; peakData?: Peak[]; initialIndex?: number };
-  CreatePeak: { replyToPeak?: Peak } | undefined;
-  PeakPreview: { mediaUri: string; mediaType: 'image' | 'video'; duration?: number; replyToPeakId?: string };
+  CreatePeak: {
+    replyTo?: string;
+    originalPeak?: { id: string; user?: { id: string; name: string; avatar: string } };
+    challengeId?: string;
+    challengeTitle?: string;
+  } | undefined;
+  PeakPreview: {
+    videoUri: string;
+    duration: number;
+    replyTo?: string;
+    originalPeak?: { id: string; user?: { id: string; name: string; avatar: string } };
+    challengeId?: string;
+    challengeTitle?: string;
+  };
+  Challenges: undefined;
 
   // Vibe
   Prescriptions: undefined;

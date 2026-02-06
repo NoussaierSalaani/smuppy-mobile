@@ -63,8 +63,8 @@ interface RecordedVideo {
 }
 
 type RootStackParamList = {
-  CreatePeak: { replyTo?: string; originalPeak?: OriginalPeak };
-  PeakPreview: { videoUri: string; duration: number; replyTo?: string; originalPeak?: OriginalPeak };
+  CreatePeak: { replyTo?: string; originalPeak?: OriginalPeak; challengeId?: string; challengeTitle?: string };
+  PeakPreview: { videoUri: string; duration: number; replyTo?: string; originalPeak?: OriginalPeak; challengeId?: string; challengeTitle?: string };
   [key: string]: object | undefined;
 };
 
@@ -75,7 +75,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'CreatePeak'>>();
 
-  const { replyTo, originalPeak } = route.params || {};
+  const { replyTo, originalPeak, challengeId, challengeTitle } = route.params || {};
   const { showAlert: showSmuppyAlert } = useSmuppyAlert();
 
   const cameraRef = useRef<CameraView>(null);
@@ -280,7 +280,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     navigation.goBack();
   };
 
-  // Refaire le peak
+  // Retake the peak
   const handleRetake = async (): Promise<void> => {
     if (videoPreviewRef.current) {
       try {
@@ -290,7 +290,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     resetCamera();
   };
 
-  // Valider et aller à l'écran suivant
+  // Confirm and go to next screen
   const handleConfirm = async (): Promise<void> => {
     if (videoPreviewRef.current) {
       try {
@@ -304,6 +304,8 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         duration: selectedDuration,
         replyTo,
         originalPeak,
+        challengeId,
+        challengeTitle,
       });
       setRecordedVideo(null);
       setIsPreviewPlaying(false);
@@ -357,7 +359,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     <View style={styles.container}>
       <StatusBar hidden />
 
-      {/* CAMERA VIEW (quand pas de vidéo enregistrée) */}
+      {/* CAMERA VIEW (when no recorded video) */}
       {!recordedVideo && (
         <>
           <CameraView
@@ -380,7 +382,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             </TouchableOpacity>
 
             <Text style={styles.headerTitle}>
-              {replyTo ? 'Reply' : 'Peak'}
+              {challengeId ? 'Challenge Response' : replyTo ? 'Reply' : 'Peak'}
             </Text>
 
             <View style={{ width: 44 }} />
@@ -449,7 +451,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             </View>
           )}
 
-          {/* Info réponse */}
+          {/* Reply info */}
           {replyTo && originalPeak && !isRecording && (
             <View style={[styles.replyInfo, { top: insets.top + 70 }]}>
               <Text style={styles.replyText}>
@@ -487,9 +489,9 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             </Animated.View>
           )}
 
-          {/* Zone du bas - Record */}
+          {/* Bottom zone - Record */}
           <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
-            {/* Sélecteur de durée */}
+            {/* Duration selector */}
             {!isRecording && (
               <View style={styles.durationSelector}>
                 {DURATION_OPTIONS.map((option) => (
@@ -512,7 +514,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               </View>
             )}
 
-            {/* Bouton d'enregistrement */}
+            {/* Record button */}
             <View style={styles.recordButtonContainer}>
               <RecordButton
                 maxDuration={selectedDuration}
@@ -531,10 +533,10 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         </>
       )}
 
-      {/* VIDEO PREVIEW (après enregistrement) */}
+      {/* VIDEO PREVIEW (after recording) */}
       {recordedVideo && (
         <View style={styles.previewContainer}>
-          {/* Video plein écran */}
+          {/* Fullscreen video */}
           <TouchableOpacity
             style={styles.videoTouchable}
             activeOpacity={1}
@@ -576,7 +578,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             <View style={{ width: 44 }} />
           </View>
 
-          {/* Boutons en bas */}
+          {/* Bottom buttons */}
           <View style={[styles.previewBottomSection, { paddingBottom: insets.bottom + 20 }]}>
             <TouchableOpacity
               style={styles.retakeButton}

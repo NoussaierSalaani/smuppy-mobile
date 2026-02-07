@@ -10,6 +10,7 @@ const CreateGroupScreen: React.FC<{ navigation: { replace: (screen: string, para
   useEffect(() => {
     navigation.replace('CreateActivity', {
       ...route?.params,
+      initialMode: 'group',
     });
   }, [navigation, route?.params]);
 

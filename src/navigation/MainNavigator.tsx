@@ -153,8 +153,8 @@ const EventManageScreen = lazyScreen(() => import('../screens/events/EventManage
 const CreateGroupScreen = lazyScreen(() => import('../screens/groups/CreateGroupScreen'));
 const GroupDetailScreen = lazyScreen(() => import('../screens/groups/GroupDetailScreen'));
 
-// Activity Screens (unified)
-const CreateActivityScreen = lazyScreen(() => import('../screens/activities/CreateActivityScreen'));
+// Activity Screens (unified — CreateEventScreen is the final version with Event/Group toggle)
+const CreateActivityScreen = lazyScreen(() => import('../screens/events/CreateEventScreen'));
 const ActivityDetailScreen = lazyScreen(() => import('../screens/activities/ActivityDetailScreen'));
 
 // Spot Screens

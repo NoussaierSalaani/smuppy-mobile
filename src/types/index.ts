@@ -789,7 +789,7 @@ export type MainStackParamList = {
   GroupDetail: { groupId: string };
 
   // Activities (unified)
-  CreateActivity: { lockedLocation?: { lat: number; lng: number } } | undefined;
+  CreateActivity: { lockedLocation?: { lat: number; lng: number }; initialMode?: 'event' | 'group' } | undefined;
   ActivityDetail: { activityId: string; activityType: 'event' | 'group' };
 
   // Spots

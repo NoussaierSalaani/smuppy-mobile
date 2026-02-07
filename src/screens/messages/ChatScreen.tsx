@@ -264,7 +264,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       // Smart polling: only update state if messages actually changed
       const prev = messagesRef.current;
       const changed = merged.length !== prev.length ||
-        merged.some((msg, i) => msg.id !== prev[i]?.id || msg.is_deleted !== prev[i]?.is_deleted || msg.content !== prev[i]?.content || msg.media_url !== prev[i]?.media_url);
+        merged.some((msg, i) => msg.id !== prev[i]?.id || msg.is_deleted !== prev[i]?.is_deleted || msg.content !== prev[i]?.content || msg.media_url !== prev[i]?.media_url || msg.media_type !== prev[i]?.media_type);
       if (changed) {
         messagesRef.current = merged;
         setMessages(merged);

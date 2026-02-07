@@ -43,10 +43,14 @@ export function useExpiredPeaks(): UseExpiredPeaksReturn {
     }
   }, [fetchExpired]);
 
-  // Re-fetch when app returns to foreground
+  // Re-fetch when app returns to foreground (debounced to avoid rapid re-fetches)
   useEffect(() => {
+    let lastFetch = 0;
+    const DEBOUNCE_MS = 10000; // 10s minimum between foreground fetches
     const handleAppState = (nextState: AppStateStatus) => {
-      if (nextState === 'active') {
+      const now = Date.now();
+      if (nextState === 'active' && now - lastFetch > DEBOUNCE_MS) {
+        lastFetch = now;
         fetchExpired();
       }
     };

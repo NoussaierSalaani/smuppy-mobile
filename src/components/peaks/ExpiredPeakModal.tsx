@@ -3,7 +3,7 @@
  * User must choose: save to profile, download, or dismiss for each expired peak.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,13 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState<string | null>(null);
 
+  // Clamp index when peaks array shrinks (e.g., after a peak is handled)
+  useEffect(() => {
+    if (currentIdx >= peaks.length && peaks.length > 0) {
+      setCurrentIdx(0);
+    }
+  }, [currentIdx, peaks.length]);
+
   const currentPeak = peaks[currentIdx];
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -63,11 +70,9 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
         await onDismiss(currentPeak.id);
       }
 
-      // Move to next peak or finish
+      // If this was the last peak, close the modal
       if (peaks.length <= 1) {
         onAllDone();
-      } else if (currentIdx >= peaks.length - 1) {
-        setCurrentIdx(0);
       }
     } catch (error) {
       if (__DEV__) console.warn('[ExpiredPeakModal] Action failed:', error);

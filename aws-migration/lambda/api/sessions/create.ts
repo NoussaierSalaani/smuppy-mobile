@@ -210,10 +210,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // Send notification to creator
       await client.query(
         `INSERT INTO notifications (user_id, type, title, body, data)
-         VALUES ($1, 'session_request', 'Nouvelle demande de session', $2, $3)`,
+         VALUES ($1, 'session_request', 'New session request', $2, $3)`,
         [
           creatorId,
-          `Vous avez une nouvelle demande de session`,
+          `You have a new session request`,
           JSON.stringify({
             sessionId: session.id,
             fanId: profileId,

@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { cors, handleOptions } from '../utils/cors';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+import { createLogger } from '../utils/logger';
 
 interface CreateBattleRequest {
   title?: string;
@@ -19,6 +20,8 @@ interface CreateBattleRequest {
   scheduledAt?: string;
   invitedUserIds: string[];
 }
+
+const log = createLogger('battles-create');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
@@ -255,7 +258,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     });
   } catch (error: unknown) {
     await client.query('ROLLBACK');
-    console.error('Create battle error:', error);
+    log.error('Create battle error:', error);
     return cors({
       statusCode: 500,
       body: JSON.stringify({

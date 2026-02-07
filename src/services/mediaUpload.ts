@@ -21,7 +21,7 @@ import {
 // ============================================
 
 export interface UploadOptions {
-  folder?: 'avatars' | 'covers' | 'posts' | 'messages' | 'thumbnails';
+  folder?: 'avatars' | 'covers' | 'posts' | 'peaks' | 'messages' | 'thumbnails';
   compress?: boolean;
   compressionOptions?: CompressionOptions;
   onProgress?: (progress: number) => void;
@@ -641,6 +641,17 @@ export const uploadPostMedia = (
   return type === 'video'
     ? uploadVideo(userId, mediaUri, { folder: 'posts', onProgress })
     : uploadImage(userId, mediaUri, { folder: 'posts', compress: true, onProgress });
+};
+
+/**
+ * Upload peak video (stored in peaks/{userId}/ on S3)
+ */
+export const uploadPeakMedia = (
+  userId: string,
+  videoUri: string,
+  onProgress?: (progress: number) => void
+): Promise<UploadResult> => {
+  return uploadVideo(userId, videoUri, { folder: 'peaks', onProgress });
 };
 
 // ============================================

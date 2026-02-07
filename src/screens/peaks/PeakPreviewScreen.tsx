@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAuth } from '../../services/aws-auth';
-import { uploadPostMedia } from '../../services/mediaUpload';
+import { uploadPeakMedia } from '../../services/mediaUpload';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, isValidCoordinate, NominatimSearchResult, formatNominatimResult } from '../../config/api';
@@ -168,7 +168,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
       }
 
       // Upload video
-      const uploadResult = await uploadPostMedia(user.id, videoUri, 'video');
+      const uploadResult = await uploadPeakMedia(user.id, videoUri);
 
       if (!uploadResult.success) {
         throw new Error(uploadResult.error || 'Failed to upload video');

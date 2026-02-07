@@ -94,16 +94,19 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
         awsAPI.getEventParticipants(eventId),
       ]);
 
-      if (eventResponse.success) {
-        setEvent(eventResponse.event);
-        setEditTitle(eventResponse.event.title);
-        setEditDescription(eventResponse.event.description || '');
-        setEditPrice(eventResponse.event.price_cents ? (eventResponse.event.price_cents / 100).toString() : '');
-        setEditMaxParticipants(eventResponse.event.max_participants?.toString() || '');
+      if (eventResponse.success && eventResponse.event) {
+        const evt = eventResponse.event as unknown as Record<string, unknown>;
+        setEvent(evt as unknown as EventData);
+        setEditTitle((evt.title as string) || '');
+        setEditDescription((evt.description as string) || '');
+        const priceCents = (evt.price_cents ?? evt.priceCents) as number | undefined;
+        setEditPrice(priceCents ? (priceCents / 100).toString() : '');
+        const maxPart = (evt.max_participants ?? evt.maxParticipants) as number | undefined;
+        setEditMaxParticipants(maxPart?.toString() || '');
       }
 
       if (participantsResponse.success) {
-        setParticipants(participantsResponse.participants || []);
+        setParticipants((participantsResponse.participants || []) as unknown as Participant[]);
       }
     } catch (error) {
       if (__DEV__) console.warn('Load event data error:', error);

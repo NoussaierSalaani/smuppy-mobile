@@ -271,21 +271,24 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         const markers: MapMarker[] = [];
 
         if (eventsRes.success && eventsRes.events) {
-          for (const evt of eventsRes.events) {
-            if (evt.latitude != null && evt.longitude != null) {
+          for (const rawEvt of eventsRes.events) {
+            const evt = rawEvt as unknown as Record<string, unknown>;
+            const lat = evt.latitude as number | undefined;
+            const lng = evt.longitude as number | undefined;
+            if (lat != null && lng != null) {
               markers.push({
-                id: `event_${evt.id}`,
+                id: `event_${evt.id as string}`,
                 type: 'events',
-                subcategory: evt.category_slug || evt.categorySlug || 'Other',
+                subcategory: (evt.category_slug || evt.categorySlug || 'Other') as string,
                 category: 'event',
-                name: evt.title,
-                avatar: evt.cover_image_url || '',
-                bio: evt.description,
-                fans: evt.current_participants || 0,
-                posts: evt.max_participants || 0,
-                coordinate: { latitude: evt.latitude, longitude: evt.longitude },
-                coverImage: evt.cover_image_url,
-                address: evt.location_name || evt.locationName,
+                name: evt.title as string,
+                avatar: (evt.cover_image_url || evt.coverImageUrl || '') as string,
+                bio: evt.description as string | undefined,
+                fans: (evt.current_participants || evt.currentParticipants || 0) as number,
+                posts: (evt.max_participants || evt.maxParticipants || 0) as number,
+                coordinate: { latitude: lat, longitude: lng },
+                coverImage: (evt.cover_image_url || evt.coverImageUrl) as string | undefined,
+                address: (evt.location_name || evt.locationName) as string | undefined,
               });
             }
           }

@@ -14,7 +14,7 @@ import { ScreenSkeleton } from '../components/skeleton';
 
 // Type helper to cast screen components for React Navigation compatibility
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- React Navigation requires ComponentType<any> for screen components with diverse prop shapes
 const asScreen = <T,>(component: T): ComponentType<any> => component as ComponentType<any>;
 
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
@@ -47,7 +47,7 @@ const fetchBadgeCounts = (): void => {
 // Visible fallback — shows shimmer skeleton matching typical screen layout
 const LazyFallback = () => <ScreenSkeleton />;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- React.lazy requires ComponentType<any> for dynamic imports
 function lazyScreen(importFn: () => Promise<{ default: ComponentType<any> }>) {
   const Lazy = React.lazy(importFn);
   return (props: Record<string, unknown>) => (

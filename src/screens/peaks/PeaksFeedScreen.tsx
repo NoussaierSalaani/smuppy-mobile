@@ -43,13 +43,18 @@ interface Peak {
   duration: number;
   user: PeakUser;
   views: number;
-  reactions: number;
+  likes: number;
   repliesCount?: number;
   createdAt: string; // ISO string for React Navigation serialization
   isLiked?: boolean;
   isChallenge?: boolean;
   challengeId?: string;
   challengeTitle?: string;
+  textOverlay?: string;
+  filterId?: string;
+  filterIntensity?: number;
+  overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
+  expiresAt?: string;
 }
 
 type RootStackParamList = {
@@ -94,13 +99,18 @@ const PeaksFeedScreen = (): React.JSX.Element => {
           avatar: toCdn(p.author?.avatarUrl) || '',
         },
         views: p.viewsCount ?? 0,
-        reactions: p.likesCount ?? 0,
+        likes: p.likesCount ?? 0,
         repliesCount: p.commentsCount ?? 0,
         createdAt: p.createdAt || new Date().toISOString(),
         isLiked: p.isLiked || false,
         isChallenge: !!p.challenge?.id,
         challengeId: p.challenge?.id,
         challengeTitle: p.challenge?.title,
+        textOverlay: p.caption || undefined,
+        filterId: p.filterId || undefined,
+        filterIntensity: p.filterIntensity ?? undefined,
+        overlays: p.overlays || undefined,
+        expiresAt: p.expiresAt || undefined,
       }));
       setPeaks(reset ? mapped : (prev) => [...prev, ...mapped]);
       setCursor(response.nextCursor);

@@ -173,23 +173,23 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
       if (activityType === 'event') {
         response = await awsAPI.getEventDetail(activityId);
         if (response.success && response.event) {
-          setActivity(response.event);
-          setHasJoined(response.event.is_participating || false);
+          setActivity(response.event as unknown as Activity);
+          setHasJoined((response.event as unknown as Activity & { is_participating?: boolean }).is_participating || false);
         } else {
           throw new Error(response.message || 'Failed to load event');
         }
       } else {
         response = await awsAPI.getGroup(activityId);
         if (response.success && response.group) {
-          const group = response.group;
+          const group = response.group as unknown as Record<string, unknown>;
           // Normalize group to activity format
           setActivity({
-            ...group,
-            title: group.name,
-            category: group.category || { id: '0', name: 'Activity', slug: group.subcategory || 'other', icon: 'people', color: '#0EBF8A' },
-            organizer: group.creator,
+            ...(group as unknown as Activity),
+            title: (group.name as string) || '',
+            category: (group.category as Activity['category']) || { id: '0', name: 'Activity', slug: (group.subcategory as string) || 'other', icon: 'people', color: '#0EBF8A' },
+            organizer: group.creator as Activity['organizer'],
           });
-          setHasJoined(group.participants?.some((p: { id: string }) => p.id === user?.id) || false);
+          setHasJoined(((group.participants as Array<{ id: string }>) || []).some((p) => p.id === user?.id));
         } else {
           throw new Error('Failed to load activity');
         }

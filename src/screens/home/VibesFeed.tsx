@@ -90,6 +90,16 @@ interface PeakCardData {
   createdAt?: string;
   isLiked?: boolean;
   likes?: number;
+  views?: number;
+  repliesCount?: number;
+  textOverlay?: string;
+  filterId?: string;
+  filterIntensity?: number;
+  overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
+  isChallenge?: boolean;
+  challengeId?: string;
+  challengeTitle?: string;
+  expiresAt?: string;
 }
 
 // Build unified lookup from interests + expertise + business categories (icon + color per name)
@@ -535,6 +545,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         const thumbnail = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER;
         const videoUrl = toCdn(p.videoUrl) || undefined;
         const createdAt = p.createdAt || new Date().toISOString();
+        const hasNew = (Date.now() - new Date(createdAt).getTime()) < 60 * 60 * 1000;
         return {
           id: p.id,
           videoUrl,
@@ -544,7 +555,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           createdAt,
           isLiked: !!p.isLiked,
           likes: p.likesCount ?? 0,
-          hasNew: true,
+          views: p.viewsCount ?? 0,
+          repliesCount: p.commentsCount ?? 0,
+          textOverlay: p.caption || undefined,
+          filterId: p.filterId || undefined,
+          filterIntensity: p.filterIntensity ?? undefined,
+          overlays: p.overlays || undefined,
+          isChallenge: !!p.challenge?.id,
+          challengeId: p.challenge?.id || undefined,
+          challengeTitle: p.challenge?.title || undefined,
+          expiresAt: p.expiresAt || undefined,
+          hasNew,
         };
       }));
     }).catch((err) => {
@@ -594,7 +615,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     }
   }, [navigation, modalVisible, selectedPost, trackPostExit, currentUserId, prefetchProfile]);
 
-  // Navigate to Peak view
+  // Navigate to Peak view — PeakCardData fields match PeakViewScreen's local Peak shape
   const goToPeakView = useCallback((_peak: PeakCardData, index: number) => {
     navigation.navigate('PeakView', {
       peaks: peaksData as unknown as Peak[],

@@ -73,10 +73,10 @@ const ChallengesScreen = (): React.JSX.Element => {
       });
 
       if (trendingRes.challenges) {
-        setTrendingChallenges(trendingRes.challenges.map(mapChallenge));
+        setTrendingChallenges((trendingRes.challenges as unknown as Record<string, unknown>[]).map(mapChallenge));
       }
       if (newRes.challenges) {
-        setNewChallenges(newRes.challenges.map(mapChallenge));
+        setNewChallenges((newRes.challenges as unknown as Record<string, unknown>[]).map(mapChallenge));
       }
     } catch (error) {
       if (__DEV__) console.warn('Failed to fetch challenges:', error);

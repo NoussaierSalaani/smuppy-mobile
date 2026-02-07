@@ -118,8 +118,8 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
     try {
       const response = await awsAPI.getMyBusinessProgram();
       if (response.success) {
-        setActivities(response.activities || []);
-        setSchedule(response.schedule || []);
+        setActivities((response.activities || []) as unknown as Activity[]);
+        setSchedule((response.schedule || []) as unknown as ScheduleSlot[]);
         setTags(response.tags || []);
       }
     } catch (error) {
@@ -286,8 +286,8 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
       } else {
         // Add tag
         const response = await awsAPI.addBusinessTag({ name: tagName, category: 'general' });
-        if (response.success) {
-          setTags([...tags, response.tag]);
+        if (response.success && response.tag) {
+          setTags([...tags, response.tag as unknown as Tag]);
         }
       }
     } catch (error) {

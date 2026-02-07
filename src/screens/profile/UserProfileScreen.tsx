@@ -18,7 +18,8 @@ import { useUserStore, useUserSafetyStore } from '../../stores';
 import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, NavigationProp } from '@react-navigation/native';
+import type { MainStackParamList } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { HIT_SLOP } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -96,7 +97,7 @@ const getCoverImage = (_interests: string[] = []): string | null => {
 
 
 const UserProfileScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -676,8 +677,7 @@ const UserProfileScreen = () => {
         style={styles.postCard}
         onPress={() => navigation.navigate('PostDetailProfile', {
           postId: post.id,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          profilePosts: transformedPosts as any,
+          profilePosts: transformedPosts as never,
         })}
       >
         {/* Full image */}
@@ -1090,8 +1090,8 @@ const UserProfileScreen = () => {
               {FEATURES.PRIVATE_SESSIONS && (
                 <LiquidButton
                   label="Book 1:1"
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  onPress={() => (navigation as any).navigate('BookSession', {
+                  onPress={() => navigation.navigate('BookSession', {
+                    creatorId: profile.id,
                     creator: {
                       id: profile.id,
                       name: profile.displayName,
@@ -1162,8 +1162,7 @@ const UserProfileScreen = () => {
                 <Text style={styles.liveTitle}>{creatorLiveStatus.liveTitle}</Text>
                 <TouchableOpacity
                   style={styles.joinLiveButton}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  onPress={() => (navigation as any).navigate('ViewerLiveStream', {
+                  onPress={() => navigation.navigate('ViewerLiveStream', {
                     channelName: `live_${profile.id}`,
                     creatorId: profile.id,
                     creatorName: profile.displayName,

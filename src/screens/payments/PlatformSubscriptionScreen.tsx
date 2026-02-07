@@ -24,6 +24,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
+import { useCurrency } from '../../hooks/useCurrency';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -92,6 +93,7 @@ export default function PlatformSubscriptionScreen() {
   const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
   const { colors, isDark } = useTheme();
+  const { formatAmount } = useCurrency();
 
   // Filter plans based on account type
   // pro_creator users can only subscribe to pro_creator premium, not pro_business
@@ -260,7 +262,7 @@ export default function PlatformSubscriptionScreen() {
 
                 <Text style={styles.planName}>{plan.name}</Text>
                 <View style={styles.priceContainer}>
-                  <Text style={styles.planPrice}>{plan.priceText}</Text>
+                  <Text style={styles.planPrice}>{formatAmount(plan.price)}</Text>
                   <Text style={styles.planPeriod}>/month</Text>
                 </View>
                 <Text style={styles.planDescription}>{plan.description}</Text>
@@ -324,7 +326,7 @@ export default function PlatformSubscriptionScreen() {
             ) : (
               <>
                 <Text style={styles.subscribeText}>
-                  {currentPlan === selectedPlan ? 'Current Plan' : `Subscribe for ${selectedPlanData.priceText}/mo`}
+                  {currentPlan === selectedPlan ? 'Current Plan' : `Subscribe for ${formatAmount(selectedPlanData.price)}/mo`}
                 </Text>
                 {currentPlan !== selectedPlan && (
                   <Ionicons name="arrow-forward" size={20} color="white" />

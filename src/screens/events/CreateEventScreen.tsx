@@ -400,7 +400,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
     if (response.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const eventId = response.event.id;
+      const eventId = response.event?.id;
       const shareUrl = `https://smuppy.app/events/${eventId}`;
       const shareEvent = async (audience: 'fans' | 'public') => {
         try {

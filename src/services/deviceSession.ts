@@ -83,7 +83,7 @@ export async function registerDeviceSession(): Promise<{
 export async function getUserDevices(): Promise<Record<string, unknown>[]> {
   try {
     const devices = await awsAPI.getUserDevices();
-    return devices || [];
+    return (devices || []) as unknown as Record<string, unknown>[];
   } catch (error) {
     if (__DEV__) console.warn('[DeviceSession] Get devices error:', error);
     return [];

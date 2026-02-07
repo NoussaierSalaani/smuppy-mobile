@@ -752,7 +752,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     try {
       const result = await awsAPI.getChallengeResponses(cId, { limit: 30 });
       if (result.responses) {
-        setChallengeResponses(result.responses as typeof challengeResponses);
+        setChallengeResponses(result.responses as unknown as typeof challengeResponses);
       }
     } catch (error) {
       if (__DEV__) console.warn('Failed to fetch challenge responses:', error);
@@ -852,8 +852,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             />
           ) : (
             <OptimizedImage
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              source={currentPeak.thumbnail || (placeholder as any)}
+              source={currentPeak.thumbnail || placeholder}
               style={styles.media}
             />
           )}

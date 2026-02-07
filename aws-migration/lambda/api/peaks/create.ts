@@ -51,7 +51,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};
-    const { videoUrl, thumbnailUrl, caption, duration, replyToPeakId, hashtags, filterId, filterIntensity, overlays } = body;
+    const { videoUrl, thumbnailUrl, caption, duration, replyToPeakId, hashtags, filterId, filterIntensity, overlays, feedDuration } = body;
 
     // Validate required fields
     if (!videoUrl || typeof videoUrl !== 'string') {
@@ -94,6 +94,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const validFilterId = typeof filterId === 'string' && filterId.length <= 50 ? filterId : null;
     const validFilterIntensity = typeof filterIntensity === 'number' && filterIntensity >= 0 && filterIntensity <= 1 ? filterIntensity : null;
     const validOverlays = Array.isArray(overlays) ? JSON.stringify(overlays) : null;
+    const validFeedDuration = (feedDuration === 24 || feedDuration === 48) ? feedDuration : 48;
 
     // Validate hashtags if provided (max 30 hashtags, each max 100 chars)
     const validHashtags: string[] = [];
@@ -146,10 +147,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Create peak
     const result = await db.query(
-      `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, likes_count, comments_count, views_count, created_at`,
-      [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration, replyToPeakId || null, validFilterId, validFilterIntensity, validOverlays]
+      `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + $10 * INTERVAL '1 hour')
+       RETURNING id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, likes_count, comments_count, views_count, created_at, expires_at`,
+      [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration, replyToPeakId || null, validFilterId, validFilterIntensity, validOverlays, validFeedDuration]
     );
 
     const peak = result.rows[0];
@@ -227,6 +228,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           filterIntensity: peak.filter_intensity ?? null,
           overlays: peak.overlays || null,
           createdAt: peak.created_at,
+          expiresAt: peak.expires_at || null,
           isLiked: false,
           author: {
             id: profile.id,

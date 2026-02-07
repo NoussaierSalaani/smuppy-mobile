@@ -34,6 +34,16 @@ export interface LiveViewer {
   avatarUrl: string;
 }
 
+interface LiveStreamEventData {
+  type: 'viewerJoined' | 'viewerLeft' | 'liveComment' | 'liveReaction' | 'joinedLive';
+  channelName: string;
+  viewerCount: number;
+  user: LiveViewer;
+  userId: string;
+  comment: LiveComment;
+  reaction: LiveReaction;
+}
+
 interface UseLiveStreamOptions {
   channelName: string;
   isHost?: boolean;
@@ -69,8 +79,7 @@ export function useLiveStream({
   // Handle incoming WebSocket messages
   useEffect(() => {
     const handleMessage = (message: WebSocketMessage) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = (message.data || message) as any;
+      const data = (message.data || message) as unknown as LiveStreamEventData;
 
       switch (data.type) {
         case 'viewerJoined':

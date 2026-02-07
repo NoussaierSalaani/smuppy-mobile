@@ -84,7 +84,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
     try {
       const response = await awsAPI.getMyBusinessSubscriptions();
       if (response.success) {
-        setSubscriptions(response.subscriptions || []);
+        setSubscriptions((response.subscriptions || []) as unknown as Subscription[]);
       }
     } catch (error) {
       if (__DEV__) console.warn('Load subscriptions error:', error);

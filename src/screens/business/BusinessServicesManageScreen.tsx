@@ -106,7 +106,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       const response = await awsAPI.getBusinessServices('current');
 
       if (response.success) {
-        setServices(response.services || []);
+        setServices((response.services || []) as unknown as Service[]);
       } else {
         // Demo data
         setServices([
@@ -257,7 +257,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       } else {
         const response = await awsAPI.createBusinessService(serviceData);
         if (response.success && response.service) {
-          setServices((prev) => [...prev, response.service]);
+          setServices((prev) => [...prev, response.service as unknown as Service]);
         } else {
           // Demo: add locally
           setServices((prev) => [

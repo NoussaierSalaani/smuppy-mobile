@@ -15,6 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import type { MainStackParamList } from '../../types';
 import { GRADIENTS, SPACING, HIT_SLOP } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -281,8 +282,7 @@ export interface FanFeedRef {
 const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref) => {
   const { colors, isDark } = useTheme();
   const { showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const navigation = useNavigation<NavigationProp<any>>();
+  const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const { handleScroll, showBars } = useTabBar();
   const listRef = useRef<React.ElementRef<typeof FlashList<UIPost>>>(null);
 

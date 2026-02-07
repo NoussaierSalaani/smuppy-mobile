@@ -129,8 +129,8 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const loadEventDetails = async () => {
     try {
       const response = await awsAPI.getEventDetail(eventId);
-      if (response.success) {
-        setEvent(response.event);
+      if (response.success && response.event) {
+        setEvent(response.event as unknown as Event);
       } else {
         throw new Error(response.message || 'Failed to load event');
       }

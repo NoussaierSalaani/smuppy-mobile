@@ -25,6 +25,7 @@ import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useUserStore } from '../../stores';
 import { useCurrentProfile } from '../../hooks';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useCurrency } from '../../hooks/useCurrency';
 
 const { width: _width } = Dimensions.get('window');
 
@@ -113,6 +114,7 @@ export default function UpgradeToProScreen() {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const { showDestructiveConfirm, showWarning, showAlert, showError } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
+  const { formatAmount } = useCurrency();
   const _user = useUserStore((state) => state.user);
   const _setUser = useUserStore((state) => state.setUser);
 
@@ -426,7 +428,7 @@ export default function UpgradeToProScreen() {
               <Text style={styles.upgradeButtonText}>Upgrade to Pro Creator</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <Text style={styles.freeText}>$99/month • Cancel anytime</Text>
+          <Text style={styles.freeText}>{formatAmount(9900)}/month • Cancel anytime</Text>
         </View>
       </SafeAreaView>
     </View>

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- API response types use `any` intentionally; these dynamic shapes are cast by consumers */
 /**
  * AWS API Service
  * AWS API Gateway client for Smuppy backend
@@ -7,6 +6,7 @@
 import { AWS_CONFIG } from '../config/aws-config';
 import { awsAuth } from './aws-auth';
 import { secureFetch } from '../utils/certificatePinning';
+import type { Spot, SpotReview, GroupActivity, MapMarker, LivePin, Subcategory } from '../types';
 
 const API_BASE_URL = AWS_CONFIG.api.restEndpoint;
 const API_BASE_URL_2 = AWS_CONFIG.api.restEndpoint2;
@@ -48,6 +48,285 @@ interface PaginatedResponse<T> {
   nextCursor: string | null;
   hasMore: boolean;
   total: number;
+}
+
+interface ApiPagination {
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  total?: number;
+}
+
+interface DeviceSession {
+  id: string;
+  deviceType: string;
+  platform: string;
+  lastActiveAt: string;
+  createdAt: string;
+}
+
+interface TipEntry {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  amount: number;
+  currency: string;
+  contextType: string;
+  contextId?: string;
+  message?: string;
+  createdAt: string;
+  sender?: { id: string; username: string; displayName?: string; avatarUrl?: string };
+  receiver?: { id: string; username: string; displayName?: string; avatarUrl?: string };
+}
+
+interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  displayName?: string;
+  avatarUrl?: string;
+  totalAmount: number;
+  tipCount: number;
+}
+
+interface ApiChallenge {
+  id: string;
+  peakId: string;
+  creatorId: string;
+  title: string;
+  description?: string;
+  rules?: string;
+  endsAt?: string;
+  isPublic?: boolean;
+  maxParticipants?: number;
+  responseCount?: number;
+  status?: string;
+  createdAt: string;
+  creator?: { id: string; username: string; displayName?: string; avatarUrl?: string; isVerified?: boolean };
+}
+
+interface ChallengeResponseEntry {
+  id: string;
+  challengeId: string;
+  userId: string;
+  peakId: string;
+  score?: number;
+  timeSeconds?: number;
+  createdAt: string;
+  user?: { id: string; username: string; displayName?: string; avatarUrl?: string };
+}
+
+interface ApiBattle {
+  id: string;
+  hostId: string;
+  title?: string;
+  description?: string;
+  battleType: string;
+  status: string;
+  maxParticipants?: number;
+  durationMinutes?: number;
+  scheduledAt?: string;
+  startedAt?: string;
+  endedAt?: string;
+  createdAt: string;
+  agoraChannelName?: string;
+  participants?: BattleParticipant[];
+}
+
+interface BattleParticipant {
+  id: string;
+  userId: string;
+  username: string;
+  displayName?: string;
+  avatarUrl?: string;
+  isVerified?: boolean;
+  tipsReceived: number;
+  tipCount: number;
+  isHost: boolean;
+  status?: string;
+}
+
+interface BattleTip {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  amount: number;
+  senderUsername?: string;
+  createdAt: string;
+}
+
+interface BattleComment {
+  id: string;
+  userId: string;
+  text: string;
+  username?: string;
+  createdAt: string;
+}
+
+interface ApiEvent {
+  id: string;
+  creatorId: string;
+  title: string;
+  description?: string;
+  categorySlug: string;
+  locationName: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  startsAt: string;
+  endsAt?: string;
+  maxParticipants?: number;
+  currentParticipants?: number;
+  isFree: boolean;
+  price?: number;
+  currency?: string;
+  isPublic?: boolean;
+  coverImageUrl?: string;
+  status?: string;
+  createdAt: string;
+  creator?: { id: string; username: string; displayName?: string; avatarUrl?: string; isVerified?: boolean };
+}
+
+interface EventParticipant {
+  id: string;
+  userId: string;
+  username: string;
+  displayName?: string;
+  avatarUrl?: string;
+  isVerified?: boolean;
+  joinedAt: string;
+}
+
+interface BusinessSummary {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  coverImageUrl?: string;
+  avatarUrl?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  rating?: number;
+  reviewCount?: number;
+  isOpen?: boolean;
+  distance?: number;
+}
+
+interface BusinessProfileData {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  category: string;
+  coverImageUrl?: string;
+  avatarUrl?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  phone?: string;
+  website?: string;
+  email?: string;
+  rating?: number;
+  reviewCount?: number;
+  followerCount?: number;
+  isFollowing?: boolean;
+  hours?: Record<string, unknown>;
+  createdAt: string;
+}
+
+interface BusinessServiceData {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  priceCents: number;
+  durationMinutes?: number;
+  isSubscription: boolean;
+  subscriptionPeriod?: string;
+  trialDays?: number;
+  maxCapacity?: number;
+  isActive: boolean;
+}
+
+interface BusinessActivityData {
+  id: string;
+  name: string;
+  description?: string;
+  dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+  category?: string;
+  maxCapacity?: number;
+  createdAt?: string;
+}
+
+interface BusinessReviewData {
+  id: string;
+  userId: string;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+  user?: { id: string; username: string; displayName?: string; avatarUrl?: string };
+}
+
+interface BookingSlotData {
+  id: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+}
+
+interface BusinessBookingData {
+  id: string;
+  businessId: string;
+  userId: string;
+  serviceId: string;
+  date: string;
+  slotId: string;
+  status: string;
+  amount: number;
+  currency: string;
+  createdAt: string;
+}
+
+interface SubscriptionPlanData {
+  id: string;
+  name: string;
+  description?: string;
+  priceCents: number;
+  period: string;
+  trialDays?: number;
+  features?: string[];
+  isActive: boolean;
+}
+
+interface BusinessSubscriptionData {
+  id: string;
+  businessId: string;
+  userId: string;
+  planId: string;
+  status: string;
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  cancelledAt?: string;
+  createdAt: string;
+}
+
+interface BusinessScheduleSlotData {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  activityId?: string;
+  maxCapacity?: number;
+}
+
+interface BusinessTagData {
+  id: string;
+  name: string;
+  category: string;
+  createdAt?: string;
 }
 
 class AWSAPIService {
@@ -626,7 +905,7 @@ class AWSAPIService {
     });
   }
 
-  async getUserDevices(): Promise<any[]> {
+  async getUserDevices(): Promise<DeviceSession[]> {
     return this.request('/devices');
   }
 
@@ -2020,7 +2299,7 @@ class AWSAPIService {
   }): Promise<{
     success: boolean;
     type?: string;
-    tips?: any[];
+    tips?: TipEntry[];
     totals?: { count: number; totalAmount: number; monthAmount: number };
     pagination?: { limit: number; offset: number; hasMore: boolean };
   }> {
@@ -2038,7 +2317,7 @@ class AWSAPIService {
   async getTipsLeaderboard(creatorId: string, period?: 'all_time' | 'monthly' | 'weekly'): Promise<{
     success: boolean;
     period?: string;
-    leaderboard?: any[];
+    leaderboard?: LeaderboardEntry[];
     stats?: { uniqueTippers: number; totalAmount: number; creatorTotal: number };
   }> {
     const query = period ? `?period=${period}` : '';
@@ -2068,7 +2347,7 @@ class AWSAPIService {
     prizeDescription?: string;
     prizeAmount?: number;
     tipsEnabled?: boolean;
-  }): Promise<{ success: boolean; challenge?: any; message?: string }> {
+  }): Promise<{ success: boolean; challenge?: ApiChallenge; message?: string }> {
     return this.request('/challenges', {
       method: 'POST',
       body: data,
@@ -2086,7 +2365,7 @@ class AWSAPIService {
     limit?: number;
     offset?: number;
     page?: number;
-  }): Promise<{ success: boolean; challenges?: any[]; pagination?: any }> {
+  }): Promise<{ success: boolean; challenges?: ApiChallenge[]; pagination?: ApiPagination }> {
     const query = new URLSearchParams();
     if (params?.filter) query.append('filter', params.filter);
     if (params?.creatorId) query.append('creatorId', params.creatorId);
@@ -2099,7 +2378,7 @@ class AWSAPIService {
 
   async getChallengeDetail(challengeId: string): Promise<{
     success: boolean;
-    challenge?: any;
+    challenge?: ApiChallenge;
     message?: string;
   }> {
     return this.request(`/challenges/${challengeId}`, { method: 'GET' });
@@ -2111,8 +2390,8 @@ class AWSAPIService {
     offset?: number;
   }): Promise<{
     success: boolean;
-    responses?: any[];
-    pagination?: any;
+    responses?: ChallengeResponseEntry[];
+    pagination?: ApiPagination;
   }> {
     const query = new URLSearchParams();
     if (params?.sortBy) query.append('sortBy', params.sortBy);
@@ -2128,7 +2407,7 @@ class AWSAPIService {
     peakId: string;
     score?: number;
     timeSeconds?: number;
-  }): Promise<{ success: boolean; response?: any; message?: string }> {
+  }): Promise<{ success: boolean; response?: ChallengeResponseEntry; message?: string }> {
     return this.request(`/challenges/${challengeId}/respond`, {
       method: 'POST',
       body: data,
@@ -2150,7 +2429,7 @@ class AWSAPIService {
     durationMinutes?: number;
     scheduledAt?: string;
     invitedUserIds: string[];
-  }): Promise<{ success: boolean; battle?: any; message?: string }> {
+  }): Promise<{ success: boolean; battle?: ApiBattle; message?: string }> {
     return this.request('/battles', {
       method: 'POST',
       body: data,
@@ -2186,7 +2465,7 @@ class AWSAPIService {
 
   async getBattle(battleId: string): Promise<{
     success: boolean;
-    battle?: any;
+    battle?: ApiBattle;
     agora_token?: string;
     agora_uid?: number;
     message?: string;
@@ -2197,11 +2476,11 @@ class AWSAPIService {
   async getBattleState(battleId: string): Promise<{
     success: boolean;
     status?: string;
-    participants?: any[];
+    participants?: BattleParticipant[];
     viewer_count?: number;
-    new_tips?: any[];
-    new_comments?: any[];
-    winner?: any;
+    new_tips?: BattleTip[];
+    new_comments?: BattleComment[];
+    winner?: BattleParticipant;
     message?: string;
   }> {
     return this.request(`/battles/${battleId}/state`, { method: 'GET' });
@@ -2240,7 +2519,7 @@ class AWSAPIService {
     routeDifficulty?: 'easy' | 'moderate' | 'hard' | 'expert';
     routePolyline?: string;
     routeWaypoints?: { lat: number; lng: number; name?: string }[];
-  }): Promise<{ success: boolean; event?: any; message?: string }> {
+  }): Promise<{ success: boolean; event?: ApiEvent; message?: string }> {
     return this.request('/events', {
       method: 'POST',
       body: data,
@@ -2262,7 +2541,7 @@ class AWSAPIService {
     hasRoute?: boolean;
     limit?: number;
     offset?: number;
-  }): Promise<{ success: boolean; events?: any[]; pagination?: any }> {
+  }): Promise<{ success: boolean; events?: ApiEvent[]; pagination?: ApiPagination }> {
     const query = new URLSearchParams();
     if (params?.filter) query.append('filter', params.filter);
     if (params?.latitude) query.append('latitude', params.latitude.toString());
@@ -2283,7 +2562,7 @@ class AWSAPIService {
    */
   async getEventDetail(eventId: string): Promise<{
     success: boolean;
-    event?: any;
+    event?: ApiEvent;
     message?: string;
   }> {
     return this.request(`/events/${eventId}`);
@@ -2297,7 +2576,7 @@ class AWSAPIService {
     offset?: number;
   }): Promise<{
     success: boolean;
-    participants?: any[];
+    participants?: EventParticipant[];
     total?: number;
     message?: string;
   }> {
@@ -2381,7 +2660,7 @@ class AWSAPIService {
     address?: string;
   }): Promise<{
     success: boolean;
-    event?: any;
+    event?: ApiEvent;
     message?: string;
   }> {
     return this.request(`/events/${eventId}`, {
@@ -2484,7 +2763,7 @@ class AWSAPIService {
     offset?: number;
   }): Promise<{
     success: boolean;
-    businesses?: any[];
+    businesses?: BusinessSummary[];
     total?: number;
   }> {
     const queryParams = new URLSearchParams();
@@ -2507,7 +2786,7 @@ class AWSAPIService {
    */
   async getBusinessProfile(businessId: string): Promise<{
     success: boolean;
-    business?: any;
+    business?: BusinessProfileData;
     message?: string;
   }> {
     return this.request(`/businesses/${businessId}`);
@@ -2518,7 +2797,7 @@ class AWSAPIService {
    */
   async getBusinessServices(businessId: string): Promise<{
     success: boolean;
-    services?: any[];
+    services?: BusinessServiceData[];
   }> {
     return this.request(`/businesses/${businessId}/services`);
   }
@@ -2528,7 +2807,7 @@ class AWSAPIService {
    */
   async getBusinessSchedule(businessId: string): Promise<{
     success: boolean;
-    activities?: any[];
+    activities?: BusinessActivityData[];
   }> {
     return this.request(`/businesses/${businessId}/schedule`);
   }
@@ -2538,7 +2817,7 @@ class AWSAPIService {
    */
   async getBusinessReviews(businessId: string, params?: { limit?: number; offset?: number }): Promise<{
     success: boolean;
-    reviews?: any[];
+    reviews?: BusinessReviewData[];
     total?: number;
   }> {
     const queryParams = new URLSearchParams();
@@ -2552,7 +2831,7 @@ class AWSAPIService {
    */
   async getBusinessAvailability(businessId: string, params: { serviceId: string; date: string }): Promise<{
     success: boolean;
-    slots?: any[];
+    slots?: BookingSlotData[];
   }> {
     return this.request(`/businesses/${businessId}/availability?serviceId=${params.serviceId}&date=${params.date}`);
   }
@@ -2603,7 +2882,7 @@ class AWSAPIService {
     paymentIntentId: string;
   }): Promise<{
     success: boolean;
-    booking?: any;
+    booking?: BusinessBookingData;
     message?: string;
   }> {
     return this.request('/businesses/bookings/confirm', {
@@ -2617,7 +2896,7 @@ class AWSAPIService {
    */
   async getMyBusinessBookings(params?: { status?: string; limit?: number }): Promise<{
     success: boolean;
-    bookings?: any[];
+    bookings?: BusinessBookingData[];
   }> {
     const queryParams = new URLSearchParams();
     if (params?.status) queryParams.append('status', params.status);
@@ -2645,7 +2924,7 @@ class AWSAPIService {
    */
   async getBusinessSubscriptionPlans(businessId: string): Promise<{
     success: boolean;
-    plans?: any[];
+    plans?: SubscriptionPlanData[];
   }> {
     return this.request(`/businesses/${businessId}/subscription-plans`);
   }
@@ -2655,7 +2934,7 @@ class AWSAPIService {
    */
   async getUserBusinessSubscription(businessId: string): Promise<{
     success: boolean;
-    subscription?: any;
+    subscription?: BusinessSubscriptionData;
   }> {
     return this.request(`/businesses/${businessId}/my-subscription`);
   }
@@ -2688,7 +2967,7 @@ class AWSAPIService {
     paymentIntentId: string;
   }): Promise<{
     success: boolean;
-    subscription?: any;
+    subscription?: BusinessSubscriptionData;
     message?: string;
   }> {
     return this.request('/businesses/subscriptions/confirm', {
@@ -2702,7 +2981,7 @@ class AWSAPIService {
    */
   async getMyBusinessSubscriptions(): Promise<{
     success: boolean;
-    subscriptions?: any[];
+    subscriptions?: BusinessSubscriptionData[];
   }> {
     return this.request('/businesses/subscriptions/my');
   }
@@ -2736,9 +3015,9 @@ class AWSAPIService {
    */
   async getMyBusinessProgram(): Promise<{
     success: boolean;
-    activities?: any[];
-    schedule?: any[];
-    tags?: any[];
+    activities?: BusinessActivityData[];
+    schedule?: BusinessScheduleSlotData[];
+    tags?: BusinessTagData[];
   }> {
     return this.request('/businesses/my/program');
   }
@@ -2748,7 +3027,7 @@ class AWSAPIService {
    */
   async createBusinessActivity(data: Record<string, unknown>): Promise<{
     success: boolean;
-    activity?: any;
+    activity?: BusinessActivityData;
     message?: string;
   }> {
     return this.request('/businesses/my/activities', {
@@ -2762,7 +3041,7 @@ class AWSAPIService {
    */
   async updateBusinessActivity(activityId: string, data: Record<string, unknown>): Promise<{
     success: boolean;
-    activity?: any;
+    activity?: BusinessActivityData;
     message?: string;
   }> {
     return this.request(`/businesses/my/activities/${activityId}`, {
@@ -2786,7 +3065,7 @@ class AWSAPIService {
    */
   async createBusinessScheduleSlot(data: Record<string, unknown>): Promise<{
     success: boolean;
-    slot?: any;
+    slot?: BusinessScheduleSlotData;
     message?: string;
   }> {
     return this.request('/businesses/my/schedule', {
@@ -2810,7 +3089,7 @@ class AWSAPIService {
    */
   async addBusinessTag(data: { name: string; category: string }): Promise<{
     success: boolean;
-    tag?: any;
+    tag?: BusinessTagData;
     message?: string;
   }> {
     return this.request('/businesses/my/tags', {
@@ -2943,7 +3222,7 @@ class AWSAPIService {
     is_active: boolean;
   }): Promise<{
     success: boolean;
-    service?: any;
+    service?: BusinessServiceData;
     message?: string;
   }> {
     return this.request('/businesses/my/services', {
@@ -2968,7 +3247,7 @@ class AWSAPIService {
     is_active: boolean;
   }>): Promise<{
     success: boolean;
-    service?: any;
+    service?: BusinessServiceData;
     message?: string;
   }> {
     return this.request(`/businesses/my/services/${serviceId}`, {
@@ -3112,7 +3391,7 @@ class AWSAPIService {
     route_duration_min?: number;
     route_elevation_gain?: number;
     difficulty?: string;
-  }): Promise<{ success: boolean; group?: any; message?: string }> {
+  }): Promise<{ success: boolean; group?: GroupActivity; message?: string }> {
     return this.request('/groups', { method: 'POST', body: data });
   }
 
@@ -3124,13 +3403,13 @@ class AWSAPIService {
     category?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ success: boolean; groups?: any[]; pagination?: any }> {
+  }): Promise<{ success: boolean; groups?: GroupActivity[]; pagination?: ApiPagination }> {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
     return this.request(`/groups?${query.toString()}`);
   }
 
-  async getGroup(groupId: string): Promise<{ success: boolean; group?: any }> {
+  async getGroup(groupId: string): Promise<{ success: boolean; group?: GroupActivity }> {
     return this.request(`/groups/${groupId}`);
   }
 
@@ -3171,11 +3450,11 @@ class AWSAPIService {
     difficulty?: string;
     initial_rating?: number;
     initial_review?: string;
-  }): Promise<{ success: boolean; spot?: any; message?: string }> {
+  }): Promise<{ success: boolean; spot?: Spot; message?: string }> {
     return this.request('/spots', { method: 'POST', body: data });
   }
 
-  async getSpot(spotId: string): Promise<{ success: boolean; spot?: any }> {
+  async getSpot(spotId: string): Promise<{ success: boolean; spot?: Spot }> {
     return this.request(`/spots/${spotId}`);
   }
 
@@ -3187,7 +3466,7 @@ class AWSAPIService {
     subcategory?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ success: boolean; spots?: any[]; pagination?: any }> {
+  }): Promise<{ success: boolean; spots?: Spot[]; pagination?: ApiPagination }> {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
     return this.request(`/spots?${query.toString()}`);
@@ -3204,7 +3483,7 @@ class AWSAPIService {
     comment?: string;
     photos?: string[];
     qualities?: string[];
-  }): Promise<{ success: boolean; review?: any; message?: string }> {
+  }): Promise<{ success: boolean; review?: SpotReview; message?: string }> {
     return this.request('/reviews', { method: 'POST', body: data });
   }
 
@@ -3213,7 +3492,7 @@ class AWSAPIService {
     target_type: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ success: boolean; reviews?: any[]; pagination?: any }> {
+  }): Promise<{ success: boolean; reviews?: SpotReview[]; pagination?: ApiPagination }> {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
     return this.request(`/reviews?${query.toString()}`);
@@ -3223,14 +3502,14 @@ class AWSAPIService {
   // DYNAMIC CATEGORIES
   // ============================================
 
-  async getCategories(): Promise<{ success: boolean; categories?: any[] }> {
+  async getCategories(): Promise<{ success: boolean; categories?: Subcategory[] }> {
     return this.request('/categories');
   }
 
   async suggestSubcategory(data: {
     parent_category: string;
     name: string;
-  }): Promise<{ success: boolean; subcategory?: any; message?: string }> {
+  }): Promise<{ success: boolean; subcategory?: Subcategory; message?: string }> {
     return this.request('/categories/suggest', { method: 'POST', body: data });
   }
 
@@ -3243,7 +3522,7 @@ class AWSAPIService {
     title?: string;
     latitude: number;
     longitude: number;
-  }): Promise<{ success: boolean; livePin?: any }> {
+  }): Promise<{ success: boolean; livePin?: LivePin }> {
     return this.request('/map/live-pin', { method: 'POST', body: data });
   }
 
@@ -3271,7 +3550,7 @@ class AWSAPIService {
     latitude: number;
     longitude: number;
     radiusKm?: number;
-  }): Promise<{ success: boolean; livePins?: any[] }> {
+  }): Promise<{ success: boolean; livePins?: LivePin[] }> {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
     return this.request(`/map/live-pins?${query.toString()}`);
@@ -3288,7 +3567,7 @@ class AWSAPIService {
     filters?: string;       // comma-separated: "coaches,gyms,events"
     subcategories?: string; // comma-separated: "CrossFit,Boxing"
     limit?: number;
-  }): Promise<{ success: boolean; markers?: any[] }> {
+  }): Promise<{ success: boolean; markers?: MapMarker[] }> {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
     return this.request(`/map/markers?${query.toString()}`);
@@ -3304,7 +3583,7 @@ class AWSAPIService {
     longitude?: number;
     radiusKm?: number;
     limit?: number;
-  }): Promise<{ success: boolean; results?: any[] }> {
+  }): Promise<{ success: boolean; results?: MapMarker[] }> {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) queryParams.set(k, String(v)); });
     return this.request(`/search/map?${queryParams.toString()}`);
@@ -3404,6 +3683,10 @@ export interface Peak {
   commentsCount: number;
   viewsCount: number;
   createdAt: string;
+  filterId: string | null;
+  filterIntensity: number | null;
+  overlays: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }> | null;
+  expiresAt: string | null;
   isLiked?: boolean;
   author: Profile;
   challenge: PeakChallenge | null;
@@ -3457,6 +3740,7 @@ export interface CreatePeakInput {
   filterId?: string;
   filterIntensity?: number;
   overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
+  feedDuration?: 24 | 48;
 }
 
 export interface UpdateProfileInput {

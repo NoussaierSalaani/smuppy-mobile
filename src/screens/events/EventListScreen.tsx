@@ -204,7 +204,7 @@ export default function EventListScreen() {
       const response = await awsAPI.getEvents(params);
 
       if (response.success) {
-        setEvents(response.events || []);
+        setEvents((response.events || []) as unknown as Event[]);
       }
     } catch (error) {
       if (__DEV__) console.warn('Load events error:', error);

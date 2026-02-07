@@ -179,7 +179,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
       const response = await awsAPI.discoverBusinesses(params);
 
       if (response.success) {
-        setBusinesses(response.businesses || []);
+        setBusinesses((response.businesses || []) as unknown as Business[]);
       }
     } catch (error) {
       if (__DEV__) console.warn('Load businesses error:', error);

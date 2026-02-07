@@ -134,16 +134,17 @@ export default function BattleLobbyScreen() {
   const loadBattle = async () => {
     try {
       const response = await awsAPI.getBattle(battleId);
-      if (response.success) {
-        setBattle(response.battle);
+      if (response.success && response.battle) {
+        const battleData = response.battle as unknown as Battle;
+        setBattle(battleData);
 
         // Initialize scale anims for participants
-        while (scaleAnims.length < response.battle.participants.length) {
+        while (scaleAnims.length < battleData.participants.length) {
           scaleAnims.push(new Animated.Value(0));
         }
 
         // Animate in participants
-        response.battle.participants.forEach((_: Participant, i: number) => {
+        battleData.participants.forEach((_: Participant, i: number) => {
           Animated.spring(scaleAnims[i], {
             toValue: 1,
             useNativeDriver: true,
@@ -152,7 +153,7 @@ export default function BattleLobbyScreen() {
         });
 
         // If battle is live, go to battle screen
-        if (response.battle.status === 'live') {
+        if (battleData.status === 'live') {
           navigation.replace('BattleStream', {
             battleId,
             agoraToken: response.agora_token,

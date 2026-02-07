@@ -52,6 +52,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pk.comments_count,
         pk.views_count,
         pk.created_at,
+        pk.filter_id,
+        pk.filter_intensity,
+        pk.overlays,
+        pk.expires_at,
         p.username as author_username,
         p.full_name as author_full_name,
         p.avatar_url as author_avatar_url,
@@ -79,6 +83,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       JOIN profiles p ON pk.author_id = p.id
       LEFT JOIN peak_challenges pc ON pc.peak_id = pk.id
       WHERE 1=1
+        AND (
+          (pk.expires_at IS NOT NULL AND pk.expires_at > NOW())
+          OR
+          (pk.expires_at IS NULL AND pk.created_at > NOW() - INTERVAL '48 hours')
+        )
     `;
 
     const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];
@@ -133,6 +142,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       commentsCount: peak.comments_count,
       viewsCount: peak.views_count,
       createdAt: peak.created_at,
+      filterId: peak.filter_id || null,
+      filterIntensity: peak.filter_intensity ?? null,
+      overlays: peak.overlays || null,
+      expiresAt: peak.expires_at || null,
       isLiked: currentProfileId ? peak.is_liked : false,
       author: {
         id: peak.author_id,

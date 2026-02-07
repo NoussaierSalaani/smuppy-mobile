@@ -110,23 +110,23 @@ export default function BattleStreamScreen() {
     try {
       const response = await awsAPI.getBattleState(battleId);
       if (response.success) {
-        setParticipants(response.participants || []);
+        setParticipants((response.participants || []) as unknown as Participant[]);
         setViewerCount(response.viewer_count || 0);
 
         // Handle new tips
         if (response.new_tips && response.new_tips.length > 0) {
-          handleNewTips(response.new_tips);
+          handleNewTips(response.new_tips as unknown as TipEvent[]);
         }
 
         // Handle new comments
         if (response.new_comments && response.new_comments.length > 0) {
-          const newComments = response.new_comments as Comment[];
+          const newComments = response.new_comments as unknown as Comment[];
           setComments((prev) => [...prev, ...newComments].slice(-50));
         }
 
         // Check if battle ended
         if (response.status === 'ended') {
-          handleBattleEnded(response.winner);
+          handleBattleEnded(response.winner as unknown as Participant | undefined);
         }
       }
     } catch (error) {

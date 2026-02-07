@@ -73,8 +73,10 @@ const GroupDetailScreen: React.FC<{ navigation: { navigate: (screen: string, par
     try {
       const response = await awsAPI.getGroup(groupId);
       if (response.success && response.group) {
-        setGroup(response.group);
-        setHasJoined(response.group.participants?.some((p: { id: string }) => p.id === userId) || false);
+        setGroup(response.group as unknown as GroupData);
+        const groupData = response.group as unknown as Record<string, unknown>;
+        const participants = groupData.participants as Array<{ id: string }> | undefined;
+        setHasJoined(participants?.some((p) => p.id === userId) || false);
       }
     } catch (err) {
       if (__DEV__) console.warn('Failed to load group:', err);

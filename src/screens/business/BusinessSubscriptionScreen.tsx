@@ -94,24 +94,26 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
         awsAPI.getUserBusinessSubscription(businessId),
       ]);
 
-      if (profileRes.success) {
+      if (profileRes.success && profileRes.business) {
+        const biz = profileRes.business;
         setBusiness({
-          id: profileRes.business.id,
-          name: profileRes.business.name,
-          logo_url: profileRes.business.logo_url,
-          category: profileRes.business.category,
+          id: biz.id,
+          name: biz.name,
+          logo_url: (biz as unknown as { logo_url?: string }).logo_url ?? biz.avatarUrl,
+          category: biz.category as unknown as Business['category'],
         });
       }
 
       if (plansRes.success) {
-        setPlans(plansRes.plans || []);
+        const castPlans = (plansRes.plans || []) as unknown as SubscriptionPlan[];
+        setPlans(castPlans);
 
         // Auto-select service if provided or popular plan
         if (serviceId) {
-          const preselected = (plansRes.plans || []).find((p: SubscriptionPlan) => p.id === serviceId);
+          const preselected = castPlans.find((p) => p.id === serviceId);
           if (preselected) setSelectedPlan(preselected);
         } else {
-          const popular = (plansRes.plans || []).find((p: SubscriptionPlan) => p.is_popular);
+          const popular = castPlans.find((p) => p.is_popular);
           if (popular) setSelectedPlan(popular);
         }
       }

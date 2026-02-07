@@ -797,8 +797,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         style={styles.postCard}
         onPress={() => navigation.navigate('PostDetailProfile', {
           postId: post.id,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          profilePosts: transformPostsForDetail(posts) as any,
+          profilePosts: transformPostsForDetail(posts) as unknown,
         })}
         accessibilityLabel={`Post with ${post.likes_count || 0} likes`}
         accessibilityRole="button"
@@ -941,8 +940,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           });
           navigation.navigate('PostDetailProfile', {
             postId: post.id,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            profilePosts: collectionForDetail as any,
+            profilePosts: collectionForDetail as unknown,
           });
         }}
       >

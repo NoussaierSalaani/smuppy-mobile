@@ -30,7 +30,7 @@ interface Peak {
   duration: number;
   user: PeakUser;
   views: number;
-  reactions: number;
+  likes: number;
   createdAt: string; // ISO string for React Navigation serialization
 }
 

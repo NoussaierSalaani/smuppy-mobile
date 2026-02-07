@@ -152,13 +152,13 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
         awsAPI.getBusinessReviews(businessId, { limit: 10 }),
       ]);
 
-      if (profileRes.success) {
-        setBusiness(profileRes.business);
-        setIsFollowing(profileRes.business.is_following);
+      if (profileRes.success && profileRes.business) {
+        setBusiness(profileRes.business as unknown as BusinessProfile);
+        setIsFollowing((profileRes.business as unknown as { is_following?: boolean }).is_following ?? false);
       }
-      if (servicesRes.success) setServices(servicesRes.services || []);
-      if (scheduleRes.success) setSchedule(scheduleRes.activities || []);
-      if (reviewsRes.success) setReviews(reviewsRes.reviews || []);
+      if (servicesRes.success) setServices((servicesRes.services || []) as unknown as Service[]);
+      if (scheduleRes.success) setSchedule((scheduleRes.activities || []) as unknown as Activity[]);
+      if (reviewsRes.success) setReviews((reviewsRes.reviews || []) as unknown as Review[]);
     } catch (error) {
       if (__DEV__) console.warn('Load business profile error:', error);
     } finally {

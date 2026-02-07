@@ -85,8 +85,8 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
         awsAPI.getSpot(spotId),
         awsAPI.getReviews({ target_id: spotId, target_type: 'spot', limit: 20 }),
       ]);
-      if (spotRes.success) setSpot(spotRes.spot);
-      if (reviewsRes.success) setReviews(reviewsRes.reviews || []);
+      if (spotRes.success) setSpot((spotRes.spot || null) as unknown as SpotData | null);
+      if (reviewsRes.success) setReviews((reviewsRes.reviews || []) as unknown as SpotReview[]);
     } catch (err) {
       if (__DEV__) console.warn('Failed to load spot:', err);
     } finally {

@@ -91,23 +91,25 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         awsAPI.getBusinessServices(businessId),
       ]);
 
-      if (profileRes.success) {
+      if (profileRes.success && profileRes.business) {
+        const biz = profileRes.business as unknown as Record<string, unknown>;
         setBusiness({
-          id: profileRes.business.id,
-          name: profileRes.business.name,
-          logo_url: profileRes.business.logo_url,
-          category_color: profileRes.business.category.color,
+          id: biz.id as string,
+          name: biz.name as string,
+          logo_url: (biz.logo_url ?? biz.avatarUrl) as string | undefined,
+          category_color: ((biz.category as Record<string, unknown>)?.color as string) ?? undefined,
         });
       }
 
       if (servicesRes.success) {
-        const bookableServices = (servicesRes.services || []).filter(
-          (s: Service & { is_subscription?: boolean }) => !s.is_subscription
-        );
+        const allServices = (servicesRes.services || []) as unknown as (Service & { is_subscription?: boolean; isSubscription?: boolean })[];
+        const bookableServices = allServices.filter(
+          (s) => !s.is_subscription && !s.isSubscription
+        ) as Service[];
         setServices(bookableServices);
 
         if (serviceId) {
-          const preselected = bookableServices.find((s: Service) => s.id === serviceId);
+          const preselected = bookableServices.find((s) => s.id === serviceId);
           if (preselected) {
             setSelectedService(preselected);
             setStep('date');
@@ -133,7 +135,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
       });
 
       if (response.success) {
-        setTimeSlots(response.slots || []);
+        setTimeSlots((response.slots || []) as unknown as TimeSlot[]);
       }
     } catch (error) {
       if (__DEV__) console.warn('Load time slots error:', error);

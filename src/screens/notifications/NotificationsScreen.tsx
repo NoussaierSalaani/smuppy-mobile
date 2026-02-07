@@ -21,6 +21,13 @@ import { useAppStore } from '../../stores';
 import { NotificationsSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks';
 import { formatTimeAgo } from '../../utils/dateFormatters';
+import { isValidUUID } from '../../utils/formatters';
+
+/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
+const sanitizeText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+};
 
 // ============================================
 // TYPES
@@ -143,11 +150,11 @@ function transformNotification(apiNotif: ApiNotification): Notification {
     type: mappedType,
     user: {
       id: userData.id || apiNotif.data?.actorId || '',
-      name: userData.name || userData.username || 'User',
+      name: sanitizeText(userData.name || userData.username) || 'User',
       avatar: userData.avatar || userData.avatarUrl || null,
       isVerified: userData.isVerified || false,
     },
-    message: apiNotif.body || getDefaultMessage(mappedType),
+    message: sanitizeText(apiNotif.body) || getDefaultMessage(mappedType),
     isFollowing: apiNotif.data?.isFollowing,
     postImage: apiNotif.data?.postImage || apiNotif.data?.thumbnailUrl,
   } as UserNotification;
@@ -258,9 +265,13 @@ export default function NotificationsScreen(): React.JSX.Element {
     { key: 'peak_reply', label: 'Peak Replies' },
   ];
 
-  // Prefetch + navigate to user profile
+  // Prefetch + navigate to user profile with UUID validation
   const prefetchProfile = usePrefetchProfile();
   const goToUserProfile = useCallback((userId: string): void => {
+    if (!isValidUUID(userId)) {
+      if (__DEV__) console.warn('[NotificationsScreen] Invalid userId:', userId);
+      return;
+    }
     prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
   }, [prefetchProfile, navigation]);

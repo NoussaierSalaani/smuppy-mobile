@@ -20,6 +20,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useCurrency } from '../../hooks/useCurrency';
 import { awsAPI, SessionPack } from '../../services/aws-api';
 
 type TabType = 'sessions' | 'packs' | 'channel';
@@ -108,6 +109,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const route = useRoute<RouteProp<RouteParams, 'CreatorOfferings'>>();
   const { colors, isDark } = useTheme();
+  const { formatAmount } = useCurrency();
   const [activeTab, setActiveTab] = useState<TabType>('sessions');
   const [loading, setLoading] = useState(true);
   const [creator, setCreator] = useState<Creator | null>(null);
@@ -253,7 +255,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
               <Ionicons name="time" size={16} color={colors.primary} />
               <Text style={styles.durationText}>{offering.duration} min</Text>
             </View>
-            <Text style={styles.offeringPrice}>{offering.price.toFixed(2)} €</Text>
+            <Text style={styles.offeringPrice}>{formatAmount(Math.round(offering.price * 100))}</Text>
           </View>
           <Text style={styles.offeringDescription}>{offering.description}</Text>
           <View style={styles.offeringFooter}>
@@ -311,9 +313,9 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           </View>
           <View style={styles.packFooter}>
             <View>
-              <Text style={styles.packPrice}>{pack.price.toFixed(2)} €</Text>
+              <Text style={styles.packPrice}>{formatAmount(Math.round(pack.price * 100))}</Text>
               <Text style={styles.perSessionPrice}>
-                {(pack.price / pack.sessionsIncluded).toFixed(2)} €/session
+                {formatAmount(Math.round((pack.price / pack.sessionsIncluded) * 100))}/session
               </Text>
             </View>
             <TouchableOpacity style={styles.buyButton} onPress={() => handleBuyPack(pack)}>
@@ -349,7 +351,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           <View style={styles.tierHeader}>
             <Text style={styles.tierName}>{tier.name}</Text>
             <View style={styles.tierPriceContainer}>
-              <Text style={styles.tierPrice}>{tier.price.toFixed(2)} €</Text>
+              <Text style={styles.tierPrice}>{formatAmount(Math.round(tier.price * 100))}</Text>
               <Text style={styles.tierPeriod}>/mo</Text>
             </View>
           </View>

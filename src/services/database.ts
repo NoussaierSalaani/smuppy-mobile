@@ -1,6 +1,6 @@
 // ============================================
 // SMUPPY - DATABASE SERVICES
-// Connexion frontend <-> AWS Backend
+// Frontend <-> AWS Backend connection
 // ============================================
 
 import { awsAuth } from './aws-auth';

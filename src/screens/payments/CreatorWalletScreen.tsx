@@ -24,6 +24,7 @@ import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useCurrency } from '../../hooks/useCurrency';
 import { formatNumber } from '../../utils/formatters';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
@@ -81,6 +82,7 @@ export default function CreatorWalletScreen() {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { formatAmount } = useCurrency();
   const { showAlert } = useSmuppyAlert();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -135,11 +137,6 @@ export default function CreatorWalletScreen() {
     loadData();
   }, [loadData]);
 
-  const formatCurrency = (cents: number) => {
-    return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
-
 
   const tierColors = dashboard?.tier ? TIER_COLORS[dashboard.tier.name as keyof typeof TIER_COLORS] || TIER_COLORS.Bronze : TIER_COLORS.Bronze;
 
@@ -182,11 +179,11 @@ export default function CreatorWalletScreen() {
             <BlurView intensity={20} tint="light" style={styles.balanceBlur}>
               <Text style={styles.balanceLabel}>Available Balance</Text>
               <Text style={styles.balanceAmount}>
-                {dashboard.balance ? formatCurrency(dashboard.balance.available) : '$0.00'}
+                {dashboard.balance ? formatAmount(dashboard.balance.available) : formatAmount(0)}
               </Text>
               {dashboard.balance && dashboard.balance.pending > 0 && (
                 <Text style={styles.pendingAmount}>
-                  +{formatCurrency(dashboard.balance.pending)} pending
+                  +{formatAmount(dashboard.balance.pending)} pending
                 </Text>
               )}
             </BlurView>
@@ -239,14 +236,14 @@ export default function CreatorWalletScreen() {
         <View style={styles.statIconContainer}>
           <Ionicons name="trending-up" size={20} color={colors.primary} />
         </View>
-        <Text style={styles.statValue}>{formatCurrency(dashboard?.earnings.thisMonth.total || 0)}</Text>
+        <Text style={styles.statValue}>{formatAmount(dashboard?.earnings.thisMonth.total || 0)}</Text>
         <Text style={styles.statLabel}>This Month</Text>
       </View>
       <View style={styles.statCard}>
         <View style={styles.statIconContainer}>
           <Ionicons name="wallet" size={20} color={colors.primary} />
         </View>
-        <Text style={styles.statValue}>{formatCurrency(dashboard?.earnings.lifetime.total || 0)}</Text>
+        <Text style={styles.statValue}>{formatAmount(dashboard?.earnings.lifetime.total || 0)}</Text>
         <Text style={styles.statLabel}>Lifetime</Text>
       </View>
       <View style={styles.statCard}>
@@ -295,7 +292,7 @@ export default function CreatorWalletScreen() {
               <Text style={styles.breakdownCount}>{item.count} transactions</Text>
             </View>
           </View>
-          <Text style={styles.breakdownAmount}>{formatCurrency(item.earnings)}</Text>
+          <Text style={styles.breakdownAmount}>{formatAmount(item.earnings)}</Text>
         </View>
       ))}
 
@@ -346,7 +343,7 @@ export default function CreatorWalletScreen() {
               </View>
             </View>
             <View style={styles.transactionRight}>
-              <Text style={styles.transactionAmount}>+{formatCurrency(tx.amounts.creatorAmount)}</Text>
+              <Text style={styles.transactionAmount}>+{formatAmount(tx.amounts.creatorAmount)}</Text>
               <Text style={styles.transactionStatus}>{tx.status}</Text>
             </View>
           </View>
@@ -362,8 +359,8 @@ export default function CreatorWalletScreen() {
         <Text style={styles.analyticsLabel}>Average per transaction</Text>
         <Text style={styles.analyticsValue}>
           {dashboard?.earnings.lifetime.transactions
-            ? formatCurrency(dashboard.earnings.lifetime.total / dashboard.earnings.lifetime.transactions)
-            : '$0.00'}
+            ? formatAmount(Math.round(dashboard.earnings.lifetime.total / dashboard.earnings.lifetime.transactions))
+            : formatAmount(0)}
         </Text>
       </View>
       <View style={styles.analyticsCard}>

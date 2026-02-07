@@ -1175,7 +1175,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderRadius: 16,
     borderWidth: 1,
     borderColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-    // Shadow 3D effet extérieur prononcé
+    // Pronounced outer 3D shadow effect
     shadowColor: isDark ? '#fff' : '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,

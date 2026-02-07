@@ -99,7 +99,7 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
   if (isProCreator) {
     return (
       <View style={styles.wrapper} pointerEvents="box-none">
-        {/* Spacer pour le safe area */}
+        {/* Spacer for safe area */}
         <View style={{ height: topPadding, backgroundColor: 'transparent' }} />
 
         <Animated.View
@@ -167,10 +167,10 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
     );
   }
 
-  // ===== REGULAR USER: Header + TabBar séparés =====
+  // ===== REGULAR USER: Header + TabBar separated =====
   return (
     <View style={styles.wrapper} pointerEvents="box-none">
-      {/* Header animé - disparaît au scroll */}
+      {/* Animated header - hides on scroll */}
       <Animated.View
         style={[
           {
@@ -259,20 +259,20 @@ const styles = StyleSheet.create({
     height: 44,
   },
 
-  // Icône gauche
+  // Left icon
   leftIconContainer: {
     width: 44,
     alignItems: 'flex-start',
   },
 
-  // Logo centré
+  // Centered logo
   logoContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  // Icône droite
+  // Right icon
   rightIconContainer: {
     width: 44,
     alignItems: 'flex-end',
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   gradientBorder: {
-    borderRadius: 28, // Même que bottom nav
+    borderRadius: 28, // Same as bottom nav
     padding: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },

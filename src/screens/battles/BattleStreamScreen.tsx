@@ -100,6 +100,8 @@ export default function BattleStreamScreen() {
       if (durationInterval.current) {
         clearInterval(durationInterval.current);
       }
+      // Clear animation references to prevent memory leak
+      tipAnimations.length = 0;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -136,7 +138,10 @@ export default function BattleStreamScreen() {
     newTips.forEach((tip) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Animate tip
+      // Animate tip — cap array size to prevent unbounded growth
+      if (tipAnimations.length > 20) {
+        tipAnimations.splice(0, tipAnimations.length - 10);
+      }
       const anim = new Animated.Value(0);
       tipAnimations.push(anim);
 

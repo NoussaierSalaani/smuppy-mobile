@@ -262,7 +262,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
       <SafeAreaView style={styles.container}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
           <View style={styles.content}>
-            {/* Spacer pour remplacer le bouton Back (même hauteur que LoginScreen) */}
+            {/* Spacer to replace Back button (same height as LoginScreen) */}
             <View style={styles.backBtnSpacer} />
 
             {/* Header */}

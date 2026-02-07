@@ -106,7 +106,7 @@ const PostDetailFanFeedScreen = () => {
   const [muteLoading, setMuteLoading] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
   
-  // Index minimum (ne peut pas remonter plus haut que le post initial)
+  // Minimum index (cannot scroll above the initial post)
   const minIndex = initialIndex >= 0 ? initialIndex : 0;
   
   // Refs
@@ -236,12 +236,12 @@ const PostDetailFanFeedScreen = () => {
     ]).start(() => setShowLikeAnimation(false));
   };
   
-  // Handle scroll - bloque le scroll vers le haut au-delà du post initial
+  // Handle scroll - prevents scrolling above the initial post
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     const newIndex = Math.round(offsetY / height);
 
-    // Empêcher de remonter plus haut que le post initial
+    // Prevent scrolling above the initial post
     if (newIndex < minIndex) {
       flatListRef.current?.scrollToIndex({
         index: minIndex,
@@ -255,7 +255,7 @@ const PostDetailFanFeedScreen = () => {
     if (viewableItems.length > 0) {
       const newIndex = viewableItems[0].index;
 
-      // Ne pas aller plus haut que minIndex
+      // Do not go above minIndex
       if (newIndex !== null && newIndex !== undefined && newIndex >= minIndex) {
         setCurrentIndex(newIndex);
         setIsPaused(false);

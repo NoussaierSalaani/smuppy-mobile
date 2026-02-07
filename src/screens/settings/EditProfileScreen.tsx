@@ -70,7 +70,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
     interests: profileData?.interests || user?.interests || [],
   };
 
-  // Form state - initialisé avec les données fusionnées
+  // Form state - initialized with merged data
   const [avatar, setAvatar] = useState(mergedProfile.avatar || '');
   const [firstName, setFirstName] = useState(mergedProfile.firstName || mergedProfile.fullName?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(mergedProfile.lastName || mergedProfile.fullName?.split(' ').slice(1).join(' ') || '');

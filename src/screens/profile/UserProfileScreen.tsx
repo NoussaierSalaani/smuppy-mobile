@@ -103,7 +103,7 @@ const UserProfileScreen = () => {
   const { showAlert, showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
   const queryClient = useQueryClient();
 
-  // Déterminer si c'est notre profil ou celui d'un autre
+  // Determine if this is our profile or another user's
   const params = route?.params as { userId?: string } || {};
   const userId = params.userId;
   const currentUser = useUserStore((state) => state.user);

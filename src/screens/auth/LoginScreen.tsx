@@ -45,7 +45,7 @@ const createLocalStyles = (colors: ThemeColors, authColors: ReturnType<typeof cr
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 24 },
 
-  // Header - sans flèche retour
+  // Header - no back arrow
   header: { alignItems: 'center', marginBottom: 24 },
   title: { fontFamily: 'WorkSans-Bold', fontSize: 26, color: colors.dark, textAlign: 'center', marginBottom: 6 },
   subtitle: { fontSize: 13, color: colors.gray, textAlign: 'center', lineHeight: 18 },
@@ -163,7 +163,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     setSocialLoading(null);
   };
 
-  // Navigation - remplace l'écran pour éviter l'empilement
+  // Navigation - replaces screen to prevent stacking
   const handleGoToSignup = useCallback(() => {
     navigation.replace('Signup');
   }, [navigation]);
@@ -312,7 +312,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             
-            {/* Header - PAS de flèche retour */}
+            {/* Header - NO back arrow */}
             <View style={styles.header}>
               <Text style={styles.title}>Login to Smuppy</Text>
               <Text style={styles.subtitle}>Together for personalized well-being!</Text>
@@ -471,7 +471,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               )}
             </View>
 
-            {/* Forgot Password - PAS de cooldown */}
+            {/* Forgot Password - NO cooldown */}
             <TouchableOpacity
               onPress={handleForgotPassword}
               style={styles.forgotBtn}

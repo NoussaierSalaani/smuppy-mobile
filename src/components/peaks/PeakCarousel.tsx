@@ -54,7 +54,7 @@ const PeakCarousel = ({
     }).start();
   }, [visible, fadeAnim]);
 
-  // Auto-scroll vers l'élément actif
+  // Auto-scroll to the active item
   useEffect(() => {
     if (scrollViewRef.current && peaks.length > 0) {
       const scrollX = currentIndex * (ITEM_SIZE + ITEM_SPACING) - (width / 2) + (ACTIVE_ITEM_SIZE / 2);

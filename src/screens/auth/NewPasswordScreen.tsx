@@ -60,7 +60,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
   // Callback from context to signal recovery is complete
   const { onRecoveryComplete } = useAuthCallbacks();
 
-  // Validation avec PASSWORD_RULES centralisées
+  // Validation using centralized PASSWORD_RULES
   const passwordChecks = useMemo(() => PASSWORD_RULES.map(rule => ({
     ...rule,
     passed: rule.test(password),
@@ -71,7 +71,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
   const strengthLevel = getPasswordStrengthLevel(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
-  // Form valide seulement si TOUS les critères sont remplis
+  // Form valid only if ALL criteria are met
   const isValid = passwordValid && passwordsMatch;
 
   const handleSubmit = useCallback(async () => {

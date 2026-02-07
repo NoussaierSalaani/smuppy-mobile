@@ -22,11 +22,11 @@ const ITEM_HEIGHT = 50;
 const VISIBLE_ITEMS = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
 
-// Générer les années (1920 - année actuelle)
+// Generate years (1920 - current year)
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: currentYear - 1920 + 1 }, (_, i) => currentYear - i);
 
-// Mois
+// Months
 const MONTHS = [
   { value: '01', label: 'January' },
   { value: '02', label: 'February' },
@@ -42,22 +42,22 @@ const MONTHS = [
   { value: '12', label: 'December' },
 ];
 
-// Générer les jours (1-31)
+// Generate days (1-31)
 const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
 
 /**
- * DatePickerModal - Sélecteur de date style carousel
- * 
- * @param {boolean} visible - Afficher/cacher le modal
- * @param {function} onClose - Callback quand on ferme
- * @param {function} onConfirm - Callback avec la date sélectionnée (YYYY-MM-DD)
- * @param {string} initialDate - Date initiale (YYYY-MM-DD)
+ * DatePickerModal - Carousel-style date picker
+ *
+ * @param {boolean} visible - Show/hide the modal
+ * @param {function} onClose - Callback when closed
+ * @param {function} onConfirm - Callback with selected date (YYYY-MM-DD)
+ * @param {string} initialDate - Initial date (YYYY-MM-DD)
  */
 export default function DatePickerModal({ visible, onClose, onConfirm, initialDate }: DatePickerModalProps) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  // Parser la date initiale ou utiliser des valeurs par défaut
+  // Parse initial date or use default values
   const parseInitialDate = () => {
     if (initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate)) {
       const [year, month, day] = initialDate.split('-');
@@ -75,7 +75,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
   const monthListRef = useRef<FlatList<{ value: string; label: string }>>(null);
   const dayListRef = useRef<FlatList<string>>(null);
 
-  // Scroll vers les valeurs initiales quand le modal s'ouvre
+  // Scroll to initial values when modal opens
   useEffect(() => {
     if (visible) {
       setTimeout(() => {

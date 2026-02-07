@@ -98,7 +98,7 @@ export const SmuppyIcon: React.FC<SmuppyIconProps> = ({ size = 80, variant = 'gr
         </LinearGradient>
       </Defs>
       
-      {/* Background - carré arrondi */}
+      {/* Background - rounded square */}
       <Path
         d="M55.578 0H17.8914C8.01027 0 0 8.01027 0 17.8914V55.578C0 65.4591 8.01027 73.4694 17.8914 73.4694H55.578C65.4591 73.4694 73.4694 65.4591 73.4694 55.578V17.8914C73.4694 8.01027 65.4591 0 55.578 0Z"
         fill={getBgFill()}

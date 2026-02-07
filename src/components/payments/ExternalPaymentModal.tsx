@@ -111,7 +111,7 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
               onPress={onCancel}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelButtonText}>Annuler</Text>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

@@ -10,6 +10,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 import Stripe from 'stripe';
 
 const log = createLogger('business/subscription-reactivate');
@@ -29,6 +30,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const user = getUserFromEvent(event);
     if (!user) {
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
+    }
+
+    const { allowed } = await checkRateLimit({ prefix: 'biz-sub-reactivate', identifier: user.sub, windowSeconds: 60, maxRequests: 5 });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
     }
 
     const subscriptionId = event.pathParameters?.subscriptionId;

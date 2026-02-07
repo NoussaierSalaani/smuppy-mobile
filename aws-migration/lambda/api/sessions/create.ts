@@ -7,6 +7,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('sessions-create');
 
@@ -30,6 +31,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers: corsHeaders,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
+  }
+
+  const { allowed } = await checkRateLimit({ prefix: 'session-create', identifier: userId, windowSeconds: 60, maxRequests: 5 });
+  if (!allowed) {
+    return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
   }
 
   try {

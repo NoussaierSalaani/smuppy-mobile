@@ -7,6 +7,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('events-create');
 
@@ -52,6 +53,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 401,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
+    }
+
+    const { allowed } = await checkRateLimit({ prefix: 'event-create', identifier: userId, windowSeconds: 60, maxRequests: 5 });
+    if (!allowed) {
+      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
     }
 
     // Resolve cognito_sub to profile ID

@@ -132,7 +132,7 @@ const UserProfileScreen = () => {
     };
   }, [profileData, userId]);
   
-  // États
+  // State
   // Initialize isFan from React Query cache so remounts show correct state instantly
   const cachedProfile = queryClient.getQueryData<ProfileApiData>(queryKeys.user.profile(userId || ''));
   const [isFan, setIsFan] = useState(cachedProfile?.is_following ?? false);
@@ -195,7 +195,9 @@ const UserProfileScreen = () => {
           setCreatorLiveStatus({ isLive: true, liveTitle: live.title, channelName: live.channelName });
         }
       }
-    }).catch(() => {});
+    }).catch((err) => {
+      if (__DEV__) console.warn('[UserProfile] Live stream check failed:', err);
+    });
   }, [profile.id, profile.accountType]);
 
   // Sync local fan count with profile data from server

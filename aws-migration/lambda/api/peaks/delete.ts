@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-delete');
 
@@ -17,6 +18,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
+
+    const { allowed } = await checkRateLimit({ prefix: 'peak-delete', identifier: userId, windowSeconds: 60, maxRequests: 10 });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
+    }
 
     const peakId = validateUUIDParam(event, headers, 'id', 'Peak');
     if (isErrorResponse(peakId)) return peakId;

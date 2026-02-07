@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { v4 as uuidv4 } from 'uuid';
 import { cors, handleOptions } from '../utils/cors';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 interface CreateBattleRequest {
   title?: string;
@@ -32,6 +33,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 401,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
+    }
+
+    const { allowed } = await checkRateLimit({ prefix: 'battle-create', identifier: userId, windowSeconds: 60, maxRequests: 3 });
+    if (!allowed) {
+      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
     }
 
     // Resolve cognito_sub to profile ID

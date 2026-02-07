@@ -24,6 +24,12 @@ import { awsAPI } from '../../services/aws-api';
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
 
+/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
+const sanitizeText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+};
+
 interface PeakUser {
   id: string;
   name: string;
@@ -84,7 +90,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         duration: p.duration || 0,
         user: {
           id: p.author?.id || p.authorId,
-          name: p.author?.fullName || p.author?.username || 'User',
+          name: sanitizeText(p.author?.fullName || p.author?.username) || 'User',
           avatar: toCdn(p.author?.avatarUrl) || '',
         },
         views: p.viewsCount ?? 0,
@@ -120,9 +126,11 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 
   const handlePeakPress = useCallback((peak: Peak): void => {
     const index = peaks.findIndex(p => p.id === peak.id);
+    // Bounds check: if not found (-1), default to 0
+    const safeIndex = index >= 0 ? index : 0;
     navigation.navigate('PeakView', {
       peaks: peaks,
-      initialIndex: index,
+      initialIndex: safeIndex,
     });
   }, [peaks, navigation]);
 

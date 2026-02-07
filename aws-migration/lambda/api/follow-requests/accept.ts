@@ -9,6 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('follow-requests-accept');
 

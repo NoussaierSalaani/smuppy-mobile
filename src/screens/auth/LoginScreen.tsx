@@ -133,7 +133,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   // Check Apple Sign-In availability
   useEffect(() => {
-    isAppleSignInAvailable().then(setAppleAvailable);
+    isAppleSignInAvailable().then(setAppleAvailable).catch(() => {
+      if (__DEV__) console.warn('[Login] Apple Sign-In check failed');
+    });
   }, []);
 
   // Handle Google OAuth response

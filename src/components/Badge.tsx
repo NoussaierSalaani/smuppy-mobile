@@ -17,7 +17,7 @@ const BADGE_COLORS = {
 };
 
 /**
- * ShutterBadge — Outline variant (fond blanc, segments + checkmark colorés)
+ * ShutterBadge — Outline variant (white background, colored segments + checkmark)
  * Light mode: white bg, colored shutter blades + checkmark
  */
 const ShutterBadgeOutline: React.FC<BadgeProps & { color: string }> = ({ size = 20, style, color }) => {
@@ -42,7 +42,7 @@ const ShutterBadgeOutline: React.FC<BadgeProps & { color: string }> = ({ size = 
 };
 
 /**
- * ShutterBadgeFilled — Filled variant (fond coloré, segments légèrement transparents, checkmark blanc)
+ * ShutterBadgeFilled — Filled variant (colored background, slightly transparent segments, white checkmark)
  * Dark mode: colored bg, semi-transparent white shutter blades, white checkmark
  */
 const ShutterBadgeFilled: React.FC<BadgeProps & { color: string }> = ({ size = 16, style, color }) => {

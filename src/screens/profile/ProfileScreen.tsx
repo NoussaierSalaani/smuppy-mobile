@@ -47,6 +47,12 @@ import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BIO_MAX_LINES = 2;
+
+/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
+const sanitizeText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+};
 const BIO_EXPANDED_MAX_LINES = 6;
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
 
@@ -414,6 +420,11 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   const handleRemoveFromCollection = async () => {
     if (!selectedCollectionPost) return;
+    // UUID validation per CLAUDE.md
+    if (!UUID_REGEX.test(selectedCollectionPost.id)) {
+      if (__DEV__) console.warn('[ProfileScreen] Invalid collection post ID');
+      return;
+    }
 
     setCollectionMenuVisible(false);
 
@@ -557,7 +568,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       {/* Name & Actions */}
       <View style={styles.nameRow}>
         <View style={styles.nameWithBadges}>
-          <Text style={styles.displayName}>{user.displayName}</Text>
+          <Text style={styles.displayName}>{sanitizeText(user.displayName)}</Text>
           <AccountBadge
             size={18}
             style={styles.badge}
@@ -585,7 +596,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             style={styles.bioText}
             numberOfLines={bioExpanded ? BIO_EXPANDED_MAX_LINES : BIO_MAX_LINES}
           >
-            {user.bio}
+            {sanitizeText(user.bio)}
           </Text>
           {(user.bio.length > 80 || user.bio.split('\n').length > BIO_MAX_LINES) && (
             <TouchableOpacity
@@ -604,7 +615,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {user.location ? (
             <View style={styles.locationRow}>
               <Text style={styles.locationPin}>📍</Text>
-              <Text style={styles.locationText}>{user.location}</Text>
+              <Text style={styles.locationText}>{sanitizeText(user.location)}</Text>
             </View>
           ) : null}
         </View>
@@ -1211,7 +1222,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </View>
           </View>
 
-          <Text style={styles.qrUsername}>{user.displayName}</Text>
+          <Text style={styles.qrUsername}>{sanitizeText(user.displayName)}</Text>
           <Text style={styles.qrHint}>Scan to be my fan!</Text>
 
           {/* Profile Link */}
@@ -1238,6 +1249,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== GROUP/EVENT HANDLERS ====================
   const handleEventGroupCardPress = useCallback((type: 'event' | 'group', id: string) => {
+    if (!UUID_REGEX.test(id)) {
+      if (__DEV__) console.warn('[ProfileScreen] Invalid activity ID:', id);
+      return;
+    }
     navigation.navigate('ActivityDetail', { activityId: id, activityType: type });
   }, [navigation]);
 

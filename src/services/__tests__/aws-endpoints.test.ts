@@ -1,6 +1,6 @@
 /**
  * AWS Endpoints Test
- * Vérifie que tous les endpoints AWS sont accessibles avant migration
+ * Verify that all AWS endpoints are accessible before migration
  */
 
 import { AWS_CONFIG } from '../../config/aws-config';

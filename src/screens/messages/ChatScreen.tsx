@@ -40,8 +40,14 @@ import {
 } from '../../services/database';
 import * as FileSystem from 'expo-file-system/legacy';
 import { formatTime } from '../../utils/dateFormatters';
+import { isValidUUID } from '../../utils/formatters';
 
 const { width } = Dimensions.get('window');
+
+/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
+const sanitizeText = (text: string): string => {
+  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+};
 
 interface MessageItemProps {
   item: Message;
@@ -303,11 +309,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   }, [conversationId, loadMessages]);
 
   const goToUserProfile = useCallback((profileUserId: string) => {
+    if (!isValidUUID(profileUserId)) {
+      if (__DEV__) console.warn('[ChatScreen] Invalid profileUserId:', profileUserId);
+      return;
+    }
     navigation.navigate('UserProfile', { userId: profileUserId });
   }, [navigation]);
 
   const handleSendMessage = useCallback(async () => {
-    if (!inputText.trim()) return;
+    const messageText = sanitizeText(inputText);
+    if (!messageText) return;
 
     if (!conversationId) {
       showError('Error', 'Conversation not initialized. Please go back and try again.');
@@ -315,8 +326,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
 
     if (sending) return;
-
-    const messageText = inputText.trim();
     setInputText('');
     setSending(true);
 

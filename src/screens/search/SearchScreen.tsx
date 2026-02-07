@@ -46,6 +46,12 @@ import { isValidUUID } from '../../utils/formatters';
 
 const PAGE_SIZE = 15;
 
+/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
+const sanitizeText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+};
+
 // Smuppy URL patterns
 const SMUPPY_URL_PATTERNS = {
   post: __DEV__
@@ -417,6 +423,10 @@ const SearchScreen = (): React.JSX.Element => {
   };
 
   const handleUserPress = useCallback((userId: string): void => {
+    if (!isValidUUID(userId)) {
+      if (__DEV__) console.warn('[SearchScreen] Invalid userId:', userId);
+      return;
+    }
     prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
   }, [prefetchProfile, navigation]);
@@ -567,26 +577,6 @@ const SearchScreen = (): React.JSX.Element => {
   // ============================================
   // RENDER TABS
   // ============================================
-
-  const _getTabLabel = (tab: SearchTab): string => {
-    switch (tab) {
-      case 'all': return 'All';
-      case 'users': return 'Users';
-      case 'posts': return 'Posts';
-      case 'peaks': return 'Peaks';
-      case 'tags': return 'Tags';
-    }
-  };
-
-  const _getTabCount = (tab: SearchTab): number => {
-    switch (tab) {
-      case 'all': return userResults.length + postResults.length + peakResults.length + hashtagResults.length;
-      case 'users': return userResults.length;
-      case 'posts': return postResults.length;
-      case 'peaks': return peakResults.length;
-      case 'tags': return hashtagResults.length;
-    }
-  };
 
   // Tabs configuration for LiquidTabs
   const searchTabs = [
@@ -951,6 +941,7 @@ const SearchScreen = (): React.JSX.Element => {
             onChangeText={setSearchQuery}
             returnKeyType="search"
             autoFocus={true}
+            maxLength={200}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={handleClearSearch}>

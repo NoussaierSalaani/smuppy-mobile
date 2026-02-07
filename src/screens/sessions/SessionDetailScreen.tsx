@@ -23,6 +23,7 @@ import * as Calendar from 'expo-calendar';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
+import { useCurrency } from '../../hooks/useCurrency';
 import { formatFullDate, formatTime } from '../../utils/dateFormatters';
 
 interface Session {
@@ -52,6 +53,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
   const { session } = route.params;
   const { showError, showSuccess, showAlert } = useSmuppyAlert();
   const { colors, gradients, isDark } = useTheme();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -255,7 +257,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Price paid</Text>
-                <Text style={styles.infoValue}>${session.price.toFixed(2)}</Text>
+                <Text style={styles.infoValue}>{formatCurrencyAmount(Math.round(session.price * 100))}</Text>
               </View>
             </View>
           )}

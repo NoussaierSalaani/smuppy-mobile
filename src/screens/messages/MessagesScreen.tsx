@@ -26,6 +26,7 @@ import { useAppStore } from '../../stores';
 import { ConversationListSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks';
 import { formatRelativeTimeShort } from '../../utils/dateFormatters';
+import { isValidUUID } from '../../utils/formatters';
 
 interface MessagesScreenProps {
   navigation: {
@@ -199,9 +200,13 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
     loadConversations();
   }, [loadConversations]);
 
-  // Prefetch + navigate to user profile
+  // Prefetch + navigate to user profile with UUID validation
   const prefetchProfile = usePrefetchProfile();
   const goToUserProfile = useCallback((userId: string) => {
+    if (!isValidUUID(userId)) {
+      if (__DEV__) console.warn('[MessagesScreen] Invalid userId:', userId);
+      return;
+    }
     prefetchProfile(userId);
     navigation.navigate('UserProfile', { userId });
   }, [navigation, prefetchProfile]);
@@ -258,6 +263,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
             placeholderTextColor={colors.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            maxLength={100}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>

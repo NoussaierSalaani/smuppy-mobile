@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Haptics from 'expo-haptics';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface ChannelTier {
   id: string;
@@ -46,6 +47,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
   const route = useRoute<RouteProp<RouteParams, 'SubscriptionSuccess'>>();
   const { tier, creator } = route.params;
   const { colors, isDark } = useTheme();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -135,7 +137,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
           <View style={styles.tierCard}>
             <View style={styles.tierHeader}>
               <Text style={styles.tierName}>{tier.name}</Text>
-              <Text style={styles.tierPrice}>${tier.price.toFixed(2)}/mo</Text>
+              <Text style={styles.tierPrice}>{formatCurrencyAmount(Math.round(tier.price * 100))}/mo</Text>
             </View>
 
             <View style={styles.perksContainer}>

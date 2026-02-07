@@ -77,7 +77,9 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
   // Check Apple Sign-In availability
   useEffect(() => {
-    isAppleSignInAvailable().then(setAppleAvailable);
+    isAppleSignInAvailable().then(setAppleAvailable).catch(() => {
+      if (__DEV__) console.warn('[Signup] Apple Sign-In check failed');
+    });
   }, []);
 
   // Handle Google OAuth response

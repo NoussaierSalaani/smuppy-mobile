@@ -271,7 +271,9 @@ export default function AppNavigator(): React.JSX.Element {
           const { state, email } = await resolveAppState();
           setAppState(state);
           setUserEmail(email);
-          registerDeviceSession().catch(() => {});
+          registerDeviceSession().catch((err) => {
+            if (__DEV__) console.warn('[AppNavigator] registerDeviceSession failed:', err);
+          });
         } finally {
           resolvingRef.current = false;
         }

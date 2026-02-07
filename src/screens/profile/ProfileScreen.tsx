@@ -196,12 +196,16 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           const mapped = mapPeaks(allRes.data || []);
           const filtered = mapped.filter(p => p.author_id === targetUserId);
           setPeaks(filtered.length > 0 ? filtered : mapped); // last resort: show whatever we have
-        }).catch(() => {});
+        }).catch((err) => {
+          if (__DEV__) console.warn('[Profile] Peaks fallback fetch failed:', err);
+        });
         return;
       }
 
       setPeaks(list);
-    }).catch(() => { /* silent */ });
+    }).catch((err) => {
+      if (__DEV__) console.warn('[Profile] Peaks fetch failed:', err);
+    });
 
     return () => { isMounted = false; };
   }, [userId, peaksUserId]);

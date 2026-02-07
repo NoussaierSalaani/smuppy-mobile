@@ -274,8 +274,12 @@ const PeakViewScreen = (): React.JSX.Element => {
     setVideoDuration(0);
     if (videoRef.current) {
       videoRef.current.setPositionAsync(0).then(() => {
-        videoRef.current?.playAsync().catch(() => {});
-      }).catch(() => {});
+        videoRef.current?.playAsync().catch((err) => {
+          if (__DEV__) console.warn('[PeakView] playAsync failed:', err);
+        });
+      }).catch((err) => {
+        if (__DEV__) console.warn('[PeakView] setPositionAsync failed:', err);
+      });
     }
 
     // Count a view locally (once per peak in this session)
@@ -815,7 +819,9 @@ const PeakViewScreen = (): React.JSX.Element => {
         setCurrentIndex(currentIndex + 1);
       } else {
         setIsPaused(true);
-        videoRef.current?.pauseAsync().catch(() => {});
+        videoRef.current?.pauseAsync().catch((err) => {
+          if (__DEV__) console.warn('[PeakView] pauseAsync failed:', err);
+        });
       }
     }
   };

@@ -83,15 +83,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       JOIN profiles p ON pk.author_id = p.id
       LEFT JOIN peak_challenges pc ON pc.peak_id = pk.id
       WHERE 1=1
+    `;
+
+    const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];
+    let paramIndex = currentProfileId ? 2 : 1;
+
+    // Only apply expiration filter on the global feed (no authorId/username = feed mode)
+    // When viewing a specific user's profile, show all their peaks regardless of expiration
+    if (!authorIdParam && !usernameParam) {
+      query += `
         AND (
           (pk.expires_at IS NOT NULL AND pk.expires_at > NOW())
           OR
           (pk.expires_at IS NULL AND pk.created_at > NOW() - INTERVAL '48 hours')
         )
-    `;
-
-    const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];
-    let paramIndex = currentProfileId ? 2 : 1;
+      `;
+    }
 
     // Filter by author if provided
     if (authorIdParam) {

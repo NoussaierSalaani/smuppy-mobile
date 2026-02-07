@@ -161,9 +161,9 @@ export default function LiveStreamingScreen(): React.JSX.Element {
       if (__DEV__) console.warn('[LiveStreaming] Failed to end stream:', err);
       return null;
     });
-    await leaveStream().catch(() => {});
-    await leaveChannel().catch(() => {});
-    await destroy().catch(() => {});
+    await leaveStream().catch((err) => { if (__DEV__) console.warn('[LiveStreaming] leaveStream cleanup failed:', err); });
+    await leaveChannel().catch((err) => { if (__DEV__) console.warn('[LiveStreaming] leaveChannel cleanup failed:', err); });
+    await destroy().catch((err) => { if (__DEV__) console.warn('[LiveStreaming] destroy cleanup failed:', err); });
     navigation.replace('LiveEnded', {
       duration: result?.data?.durationSeconds || duration,
       viewerCount: result?.data?.maxViewers || viewerCount,

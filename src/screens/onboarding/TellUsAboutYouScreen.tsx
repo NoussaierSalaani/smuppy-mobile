@@ -14,6 +14,12 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDDMMYYYY } from '../../utils/dateFormatters';
 
 const MIN_AGE = 16;
+const NAME_MAX_LENGTH = 100;
+
+/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
+const sanitizeText = (text: string): string => {
+  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
+};
 const GENDERS = [
   { id: 'male', icon: 'male' as const, label: 'Male', color: '#007AFF' },
   { id: 'female', icon: 'female' as const, label: 'Female', color: '#FF2D92' },
@@ -160,9 +166,10 @@ export default function TellUsAboutYouScreen({ navigation, route }: TellUsAboutY
                 placeholder="Your name"
                 placeholderTextColor={colors.grayMuted}
                 value={name}
-                onChangeText={setName}
+                onChangeText={(text) => setName(sanitizeText(text))}
                 returnKeyType="done"
                 autoCapitalize="words"
+                maxLength={NAME_MAX_LENGTH}
                 onFocus={() => setFocusedField('name')}
                 onBlur={() => setFocusedField(null)}
               />

@@ -33,6 +33,7 @@ import {
   OverlayPosition,
 } from '../../filters';
 import { useUserStore } from '../../stores';
+import { isValidUUID } from '../../utils/formatters';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -78,7 +79,10 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'CreatePeak'>>();
 
-  const { replyTo, originalPeak, challengeId, challengeTitle } = route.params || {};
+  const { replyTo: rawReplyTo, originalPeak, challengeId: rawChallengeId, challengeTitle } = route.params || {};
+  // Validate UUIDs per CLAUDE.md - ignore invalid IDs
+  const replyTo = rawReplyTo && isValidUUID(rawReplyTo) ? rawReplyTo : undefined;
+  const challengeId = rawChallengeId && isValidUUID(rawChallengeId) ? rawChallengeId : undefined;
   const { showAlert: showSmuppyAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const isBusiness = user?.accountType === 'pro_business';

@@ -104,7 +104,8 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       }
     } catch (err: unknown) {
       if (__DEV__) console.warn('Payment error:', err);
-      showError('Error', err instanceof Error ? err.message : 'Something went wrong');
+      // SECURITY: Never expose raw error messages to users
+      showError('Error', 'Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }

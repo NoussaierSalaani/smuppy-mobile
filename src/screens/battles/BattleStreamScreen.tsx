@@ -23,6 +23,7 @@ import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { isValidUUID } from '../../utils/formatters';
 import { useCurrency } from '../../hooks/useCurrency';
 import TipModal from '../../components/tips/TipModal';
 
@@ -72,6 +73,14 @@ export default function BattleStreamScreen() {
 
   // agoraToken and agoraUid will be used when integrating Agora RTC
   const { battleId, agoraToken: _agoraToken, agoraUid: _agoraUid } = route.params;
+
+  // SECURITY: Validate UUID on mount
+  useEffect(() => {
+    if (!battleId || !isValidUUID(battleId)) {
+      if (__DEV__) console.warn('[BattleStreamScreen] Invalid battleId:', battleId);
+      navigation.goBack();
+    }
+  }, [battleId, navigation]);
 
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [viewerCount, setViewerCount] = useState(0);

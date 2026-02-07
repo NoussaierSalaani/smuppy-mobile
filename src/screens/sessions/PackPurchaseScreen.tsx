@@ -24,6 +24,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
+import { isValidUUID } from '../../utils/formatters';
 
 interface Pack {
   id: string;
@@ -58,6 +59,15 @@ const PackPurchaseScreen = (): React.JSX.Element => {
   const { openCheckout } = useStripeCheckout();
   const { formatAmount: formatCurrencyAmount } = useCurrency();
   const { creatorId, pack } = route.params;
+
+  // SECURITY: Validate UUID on mount
+  useEffect(() => {
+    if (!creatorId || !isValidUUID(creatorId)) {
+      if (__DEV__) console.warn('[PackPurchaseScreen] Invalid creatorId:', creatorId);
+      showError('Error', 'Invalid creator');
+      navigation.goBack();
+    }
+  }, [creatorId, showError, navigation]);
 
   const [creator, setCreator] = useState<Creator | null>(null);
   const [loading, setLoading] = useState(true);

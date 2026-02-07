@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Calendar from 'expo-calendar';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { isValidUUID } from '../../utils/formatters';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { formatFullDate, formatTime } from '../../utils/dateFormatters';
@@ -138,6 +139,11 @@ const SessionDetailScreen = (): React.JSX.Element => {
   };
 
   const handleJoinSession = () => {
+    if (!isValidUUID(session.creatorId) || !isValidUUID(session.id)) {
+      if (__DEV__) console.warn('[SessionDetailScreen] Invalid session or creator ID');
+      showError('Error', 'Invalid session data');
+      return;
+    }
     navigation.navigate('WaitingRoom', {
       creatorId: session.creatorId,
       creatorName: session.creatorName,
@@ -147,10 +153,18 @@ const SessionDetailScreen = (): React.JSX.Element => {
   };
 
   const handleMessageCreator = () => {
+    if (!isValidUUID(session.creatorId)) {
+      if (__DEV__) console.warn('[SessionDetailScreen] Invalid creatorId:', session.creatorId);
+      return;
+    }
     navigation.navigate('Chat', { userId: session.creatorId });
   };
 
   const handleViewCreatorProfile = () => {
+    if (!isValidUUID(session.creatorId)) {
+      if (__DEV__) console.warn('[SessionDetailScreen] Invalid creatorId:', session.creatorId);
+      return;
+    }
     navigation.navigate('UserProfile', { userId: session.creatorId });
   };
 

@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { AvatarImage } from '../../components/OptimizedImage';
+import { isValidUUID } from '../../utils/formatters';
 import { AccountBadge } from '../../components/Badge';
 import TipLeaderboard from '../../components/tips/TipLeaderboard';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -126,6 +127,10 @@ export default function BattleResultsScreen() {
   };
 
   const handleViewProfile = (userId: string) => {
+    if (!isValidUUID(userId)) {
+      if (__DEV__) console.warn('[BattleResultsScreen] Invalid userId:', userId);
+      return;
+    }
     navigation.navigate('UserProfile', { userId });
   };
 

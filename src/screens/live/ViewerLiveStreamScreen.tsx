@@ -215,11 +215,12 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
 
   // Error state
   if (error && !isJoined) {
+    if (__DEV__) console.warn('[ViewerLiveStreamScreen] Stream error:', error);
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="light-content" />
         <Ionicons name="alert-circle" size={48} color="#FF3B30" />
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>Unable to join stream. Please try again.</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
           <Text style={styles.retryText}>Go Back</Text>
         </TouchableOpacity>

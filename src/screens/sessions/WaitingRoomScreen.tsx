@@ -18,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
+import { isValidUUID } from '../../utils/formatters';
 
 const POLL_INTERVAL = 3000; // Poll every 3 seconds
 
@@ -30,7 +31,16 @@ export default function WaitingRoomScreen(): React.JSX.Element {
   const sessionId = routeParams.sessionId;
   const creator = useMemo(() => routeParams.creator ?? { id: '', name: 'Creator', avatar: null as string | null }, [routeParams.creator]);
 
-  const { showAlert } = useSmuppyAlert();
+  const { showAlert, showError } = useSmuppyAlert();
+
+  // SECURITY: Validate UUID if sessionId is provided
+  useEffect(() => {
+    if (sessionId && !isValidUUID(sessionId)) {
+      if (__DEV__) console.warn('[WaitingRoomScreen] Invalid sessionId:', sessionId);
+      showError('Error', 'Invalid session');
+      navigation.goBack();
+    }
+  }, [sessionId, showError, navigation]);
   const [isPolling, setIsPolling] = useState(true);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);

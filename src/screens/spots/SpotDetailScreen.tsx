@@ -27,6 +27,8 @@ import { formatDistance, formatDuration } from '../../services/mapbox-directions
 import AddReviewSheet from '../../components/AddReviewSheet';
 import type { ReviewData } from '../../components/AddReviewSheet';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { isValidUUID } from '../../utils/formatters';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -68,6 +70,16 @@ interface SpotReview {
 const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }; route: { params: { spotId: string } } }> = ({ navigation, route }) => {
   const { spotId } = route.params;
   const { colors, isDark } = useTheme();
+  const { showError } = useSmuppyAlert();
+
+  // SECURITY: Validate UUID on mount
+  useEffect(() => {
+    if (!spotId || !isValidUUID(spotId)) {
+      if (__DEV__) console.warn('[SpotDetailScreen] Invalid spotId:', spotId);
+      showError('Error', 'Invalid spot');
+      navigation.goBack();
+    }
+  }, [spotId, showError, navigation]);
   const accountType = useUserStore((s) => s.user?.accountType);
   const isVerified = useUserStore((s) => s.user?.isVerified);
   const isPremium = useUserStore((s) => s.user?.isPremium);
@@ -208,7 +220,7 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
           </View>
 
           {/* Creator */}
-          {spot.creator && (
+          {spot.creator && spot.creator_id && isValidUUID(spot.creator_id) && (
             <TouchableOpacity
               style={styles.creatorRow}
               onPress={() => navigation.navigate('UserProfile', { userId: spot.creator_id })}

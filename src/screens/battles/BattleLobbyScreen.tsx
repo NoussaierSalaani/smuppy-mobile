@@ -23,6 +23,7 @@ import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { isValidUUID } from '../../utils/formatters';
 
 const { width: _width } = Dimensions.get('window');
 
@@ -55,6 +56,15 @@ export default function BattleLobbyScreen() {
   const user = useUserStore((state) => state.user);
 
   const battleId = route.params?.battleId;
+
+  // SECURITY: Validate UUID on mount
+  useEffect(() => {
+    if (!battleId || !isValidUUID(battleId)) {
+      if (__DEV__) console.warn('[BattleLobbyScreen] Invalid battleId:', battleId);
+      showError('Error', 'Invalid battle');
+      navigation.goBack();
+    }
+  }, [battleId, showError, navigation]);
 
   const [battle, setBattle] = useState<Battle | null>(null);
   const [isLoading, setIsLoading] = useState(true);

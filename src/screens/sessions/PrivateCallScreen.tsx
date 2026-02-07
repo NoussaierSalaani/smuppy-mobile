@@ -181,9 +181,10 @@ export default function PrivateCallScreen(): React.JSX.Element {
     if (success) {
       setCallState('ringing');
     } else {
+      if (__DEV__ && error) console.warn('[PrivateCallScreen] Join error:', error);
       showAlert({
         title: 'Error',
-        message: error || 'Failed to start call',
+        message: 'Failed to start call. Please try again.',
         type: 'error',
         buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
       });
@@ -207,9 +208,10 @@ export default function PrivateCallScreen(): React.JSX.Element {
 
     const success = await joinChannel(agoraToken || undefined);
     if (!success) {
+      if (__DEV__ && error) console.warn('[PrivateCallScreen] Accept call error:', error);
       showAlert({
         title: 'Error',
-        message: error || 'Failed to join call',
+        message: 'Failed to join call. Please try again.',
         type: 'error',
         buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
       });

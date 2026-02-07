@@ -25,6 +25,7 @@ import { searchProfiles, getFollowers, Profile } from '../../services/database';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { resolveDisplayName } from '../../types/profile';
+import { isValidUUID } from '../../utils/formatters';
 
 interface Creator {
   id: string;
@@ -51,6 +52,15 @@ export default function InviteToBattleScreen() {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const { battleId } = (route.params || {}) as RouteParams;
+
+  // SECURITY: Validate UUID on mount
+  useEffect(() => {
+    if (!battleId || !isValidUUID(battleId)) {
+      if (__DEV__) console.warn('[InviteToBattleScreen] Invalid battleId:', battleId);
+      showAlert({ title: 'Error', message: 'Invalid battle', type: 'error' });
+      navigation.goBack();
+    }
+  }, [battleId, showAlert, navigation]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [creators, setCreators] = useState<Creator[]>([]);
@@ -230,6 +240,7 @@ export default function InviteToBattleScreen() {
               onChangeText={setSearchQuery}
               autoCapitalize="none"
               autoCorrect={false}
+              maxLength={100}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>

@@ -31,6 +31,7 @@ import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
+import { isValidUUID } from '../../utils/formatters';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { formatLongDateTime } from '../../utils/dateFormatters';
 
@@ -160,7 +161,14 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
     };
   }, [activity]);
 
+  // SECURITY: Validate UUID on mount
   useEffect(() => {
+    if (!activityId || !isValidUUID(activityId)) {
+      if (__DEV__) console.warn('[ActivityDetailScreen] Invalid activityId:', activityId);
+      showError('Error', 'Invalid activity');
+      navigation.goBack();
+      return;
+    }
     loadActivityDetails().catch((err) => {
       if (__DEV__) console.warn('loadActivityDetails error:', err);
     });
@@ -251,8 +259,8 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
       }
     } catch (error: unknown) {
       if (__DEV__) console.warn('Join activity error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to join activity';
-      showError('Error', message);
+      // SECURITY: Never expose raw error to users
+      showError('Error', 'Failed to join activity. Please try again.');
     } finally {
       setIsJoining(false);
     }
@@ -304,8 +312,8 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
     } catch (error: unknown) {
       if (__DEV__) console.warn('Activity payment error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const message = error instanceof Error ? error.message : 'Please try again';
-      showError('Payment Failed', message);
+      // SECURITY: Never expose raw error to users
+      showError('Payment Failed', 'Something went wrong. Please try again.');
     } finally {
       setIsJoining(false);
     }
@@ -332,8 +340,9 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
             throw new Error(response.message);
           }
         } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Failed to leave activity';
-          showError('Error', message);
+          if (__DEV__) console.warn('Leave activity error:', error);
+          // SECURITY: Never expose raw error to users
+          showError('Error', 'Failed to leave activity. Please try again.');
         } finally {
           setIsJoining(false);
         }

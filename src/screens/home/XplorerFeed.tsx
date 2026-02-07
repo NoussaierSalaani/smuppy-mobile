@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Dimensions, ScrollView, TextInput, StatusBar, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Dimensions, ScrollView, TextInput, StatusBar, Pressable, Keyboard } from 'react-native';
 import { AvatarImage } from '../../components/OptimizedImage';
 import Mapbox, { MapView, Camera, PointAnnotation, LocationPuck } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
@@ -16,6 +16,7 @@ import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme } from '../../hooks/useTheme';
+import { searchNominatim, NominatimSearchResult, isValidCoordinate } from '../../config/api';
 
 // UUID validation regex for API calls
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -167,6 +168,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<NominatimSearchResult[]>([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [subFilterSheet, setSubFilterSheet] = useState<string | null>(null);
   const [fabOpen, setFabOpen] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -413,9 +417,66 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
   }, [isActive, setBottomBarHidden, setXplorerFullscreen, showBars, requestLocation]);
 
+  // Debounced geocoding search for addresses
+  useEffect(() => {
+    const query = searchQuery.trim();
+
+    // Only search if query looks like an address (3+ chars, contains letters)
+    if (query.length < 3 || !/[a-zA-Z]/.test(query)) {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      return;
+    }
+
+    setIsSearchingAddress(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const results = await searchNominatim(query, { limit: 5 });
+        // Filter to only valid coordinates
+        const validResults = results.filter(r => {
+          const lat = parseFloat(r.lat);
+          const lon = parseFloat(r.lon);
+          return isValidCoordinate(lat, lon);
+        });
+        setAddressSuggestions(validResults);
+        setShowAddressSuggestions(validResults.length > 0);
+      } catch (error) {
+        console.error('Address search error:', error);
+        setAddressSuggestions([]);
+        setShowAddressSuggestions(false);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
   // ============================================
   // ACTIONS
   // ============================================
+
+  const handleAddressSelect = useCallback((result: NominatimSearchResult) => {
+    const lat = parseFloat(result.lat);
+    const lon = parseFloat(result.lon);
+
+    if (!isValidCoordinate(lat, lon) || !cameraRef.current) return;
+
+    // Dismiss keyboard
+    Keyboard.dismiss();
+
+    // Move camera to selected location
+    cameraRef.current.setCamera({
+      centerCoordinate: [lon, lat],
+      zoomLevel: 15,
+      animationDuration: 800,
+    });
+
+    // Clear search and suggestions
+    setSearchQuery('');
+    setAddressSuggestions([]);
+    setShowAddressSuggestions(false);
+  }, []);
 
   const centerOnUser = useCallback(() => {
     if (!cameraRef.current) return;
@@ -967,6 +1028,10 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         attributionEnabled={false}
         scaleBarEnabled={false}
         onDidFailLoadingMap={() => setMapError(true)}
+        onPress={() => {
+          Keyboard.dismiss();
+          setShowAddressSuggestions(false);
+        }}
       >
         <Camera
           ref={cameraRef}
@@ -1013,17 +1078,50 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           <Ionicons name="search" size={normalize(18)} color={colors.primary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Coaches, gyms, wellness..."
+            placeholder="Search places or type an address..."
             placeholderTextColor={colors.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onFocus={() => addressSuggestions.length > 0 && setShowAddressSuggestions(true)}
           />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+          {isSearchingAddress && (
+            <View style={styles.searchLoading}>
+              <Ionicons name="ellipsis-horizontal" size={normalize(18)} color={colors.grayMuted} />
+            </View>
+          )}
+          {searchQuery.length > 0 && !isSearchingAddress && (
+            <TouchableOpacity onPress={() => {
+              setSearchQuery('');
+              setAddressSuggestions([]);
+              setShowAddressSuggestions(false);
+            }}>
               <Ionicons name="close-circle" size={normalize(18)} color={colors.grayMuted} />
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Address Suggestions Dropdown */}
+        {showAddressSuggestions && addressSuggestions.length > 0 && (
+          <View style={styles.suggestionsContainer}>
+            {addressSuggestions.map((result, index) => (
+              <TouchableOpacity
+                key={result.place_id}
+                style={[
+                  styles.suggestionRow,
+                  index < addressSuggestions.length - 1 && styles.suggestionRowBorder
+                ]}
+                onPress={() => handleAddressSelect(result)}
+              >
+                <Ionicons name="location-outline" size={normalize(18)} color={colors.primary} />
+                <View style={styles.suggestionTextContainer}>
+                  <Text style={styles.suggestionText} numberOfLines={2}>
+                    {result.display_name}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* HORIZONTAL FILTER CHIPS - Below search bar */}
@@ -1171,8 +1269,6 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     position: 'absolute',
     left: wp(4),
     right: wp(4),
-    flexDirection: 'row',
-    alignItems: 'center',
     zIndex: 10,
   },
   searchBar: {
@@ -1197,6 +1293,43 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     fontSize: normalize(15),
     color: colors.dark,
     paddingVertical: 0,
+  },
+  searchLoading: {
+    marginLeft: wp(2),
+  },
+
+  // Address Suggestions
+  suggestionsContainer: {
+    marginTop: normalize(4),
+    backgroundColor: colors.background,
+    borderRadius: normalize(14),
+    shadowColor: isDark ? '#fff' : '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.04)',
+    overflow: 'hidden',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: wp(3.5),
+    paddingVertical: hp(1.5),
+    gap: wp(2.5),
+  },
+  suggestionRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+  },
+  suggestionTextContainer: {
+    flex: 1,
+  },
+  suggestionText: {
+    fontSize: normalize(13),
+    color: colors.dark,
+    lineHeight: normalize(18),
   },
 
   // Horizontal filter chips

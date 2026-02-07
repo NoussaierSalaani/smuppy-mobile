@@ -20,6 +20,7 @@ import {
   FollowRequest,
 } from '../../services/database';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { isValidUUID } from '../../utils/formatters';
 
 interface FollowRequestsScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -98,7 +99,13 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
       <View style={styles.requestItem}>
         <TouchableOpacity
           style={styles.userInfo}
-          onPress={() => navigation.navigate('UserProfile', { userId: user.id })}
+          onPress={() => {
+            if (!isValidUUID(user.id)) {
+              if (__DEV__) console.warn('[FollowRequestsScreen] Invalid userId:', user.id);
+              return;
+            }
+            navigation.navigate('UserProfile', { userId: user.id });
+          }}
         >
           <AvatarImage source={user.avatar_url} size={50} style={styles.avatar} />
           <View style={styles.userDetails}>

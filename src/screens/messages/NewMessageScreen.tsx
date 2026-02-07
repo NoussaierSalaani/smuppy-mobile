@@ -21,6 +21,7 @@ import {
   getOrCreateConversation,
   Profile,
 } from '../../services/database';
+import { isValidUUID } from '../../utils/formatters';
 
 interface NewMessageScreenProps {
   navigation: {
@@ -61,6 +62,13 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
 
   // Navigate to chat with user
   const handleSelectUser = useCallback(async (user: Profile) => {
+    // SECURITY: Validate UUID before using
+    if (!isValidUUID(user.id)) {
+      if (__DEV__) console.warn('[NewMessageScreen] Invalid userId:', user.id);
+      showError('Error', 'Invalid user');
+      return;
+    }
+
     setNavigating(user.id);
 
     // Get or create conversation
@@ -68,7 +76,8 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
 
     if (error || !conversationId) {
       setNavigating(null);
-      showError('Unable to start conversation', error || 'Please try again later.');
+      if (__DEV__) console.warn('[NewMessageScreen] Failed to create conversation:', error);
+      showError('Error', 'Unable to start conversation. Please try again.');
       return;
     }
 
@@ -127,6 +136,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus
+            maxLength={100}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>

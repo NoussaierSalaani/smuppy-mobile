@@ -134,6 +134,21 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { conversationId: initialConversationId, otherUser, userId, unreadCount: routeUnreadCount } = route.params;
   const insets = useSafeAreaInsets();
+
+  // SECURITY: Validate UUID params on mount
+  useEffect(() => {
+    if (initialConversationId && !isValidUUID(initialConversationId)) {
+      if (__DEV__) console.warn('[ChatScreen] Invalid conversationId:', initialConversationId);
+      showError('Error', 'Invalid conversation');
+      navigation.goBack();
+      return;
+    }
+    if (userId && !isValidUUID(userId)) {
+      if (__DEV__) console.warn('[ChatScreen] Invalid userId:', userId);
+      showError('Error', 'Invalid user');
+      navigation.goBack();
+    }
+  }, [initialConversationId, userId, showError, navigation]);
   const flatListRef = useRef<typeof FlashList.prototype | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -525,7 +540,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         <View style={styles.centered}>
           <Ionicons name="alert-circle-outline" size={64} color={colors.gray} />
           <Text style={styles.errorTitle}>Unable to start conversation</Text>
-          <Text style={styles.errorMessage}>{initError}</Text>
+          <Text style={styles.errorMessage}>Something went wrong. Please try again.</Text>
           <TouchableOpacity
             style={styles.retryButton}
             onPress={() => {
@@ -744,7 +759,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={styles.menuItem}
               onPress={() => {
                 setChatMenuVisible(false);
-                if (otherUserProfile?.id) {
+                if (otherUserProfile?.id && isValidUUID(otherUserProfile.id)) {
                   navigation.navigate('UserProfile', { userId: otherUserProfile.id });
                 }
               }}

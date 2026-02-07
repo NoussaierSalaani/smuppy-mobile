@@ -61,13 +61,13 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>Paiement sur smuppy.com</Text>
+          <Text style={styles.title}>Payment on smuppy.com</Text>
 
           {/* Product Info */}
           <View style={styles.productCard}>
             <Text style={styles.productName}>{productName}</Text>
             {creatorName && (
-              <Text style={styles.creatorName}>avec {creatorName}</Text>
+              <Text style={styles.creatorName}>with {creatorName}</Text>
             )}
             <Text style={styles.price}>{price}</Text>
           </View>
@@ -76,9 +76,9 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
           <View style={styles.disclosureBox}>
             <Ionicons name="information-circle" size={20} color={colors.gray} />
             <Text style={styles.disclosureText}>
-              Vous allez etre redirige vers smuppy.com pour finaliser votre paiement.
-              Cette transaction sera traitee en dehors de l'App Store par notre
-              prestataire de paiement securise (Stripe).
+              You will be redirected to smuppy.com to complete your payment.
+              This transaction will be processed outside the App Store by our
+              secure payment provider (Stripe).
             </Text>
           </View>
 
@@ -86,22 +86,22 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
           <View style={styles.infoSection}>
             <View style={styles.infoRow}>
               <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
-              <Text style={styles.infoText}>Paiement securise SSL 256-bit</Text>
+              <Text style={styles.infoText}>SSL 256-bit secure payment</Text>
             </View>
             <View style={styles.infoRow}>
               <Ionicons name="card" size={18} color={colors.primary} />
-              <Text style={styles.infoText}>Apple Pay, Google Pay, Carte acceptes</Text>
+              <Text style={styles.infoText}>Apple Pay, Google Pay, Cards accepted</Text>
             </View>
             <View style={styles.infoRow}>
               <Ionicons name="receipt" size={18} color={colors.primary} />
-              <Text style={styles.infoText}>Recu envoye par email</Text>
+              <Text style={styles.infoText}>Receipt sent by email</Text>
             </View>
           </View>
 
           {/* Apple Required Notice */}
           <Text style={styles.appleNotice}>
-            Apple n'est pas responsable de la confidentialite ou de la securite
-            des transactions effectuees en dehors de l'App Store.
+            Apple is not responsible for the privacy or security
+            of transactions made outside the App Store.
           </Text>
 
           {/* Buttons */}
@@ -126,7 +126,7 @@ const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
                 style={styles.confirmGradient}
               >
                 <Ionicons name="open-outline" size={18} color={colors.white} />
-                <Text style={styles.confirmButtonText}>Continuer</Text>
+                <Text style={styles.confirmButtonText}>Continue</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>

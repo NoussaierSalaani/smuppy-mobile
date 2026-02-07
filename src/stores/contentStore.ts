@@ -70,7 +70,7 @@ export const useContentStore = create<ContentState>()(
       if (reportedPosts.includes(postId)) {
         return {
           success: false,
-          message: 'Vous avez déjà signalé ce contenu',
+          message: 'You have already reported this content',
           alreadyReported: true,
         };
       }
@@ -85,7 +85,7 @@ export const useContentStore = create<ContentState>()(
         });
         return {
           success: false,
-          message: 'Vous avez déjà signalé ce contenu',
+          message: 'You have already reported this content',
           alreadyReported: true,
         };
       }
@@ -107,7 +107,7 @@ export const useContentStore = create<ContentState>()(
 
       return {
         success: true,
-        message: 'Signalé — sous examen',
+        message: 'Reported — under review',
         alreadyReported: false,
       };
     },
@@ -119,7 +119,7 @@ export const useContentStore = create<ContentState>()(
       if (reportedUsers.includes(userId)) {
         return {
           success: false,
-          message: 'Vous avez déjà signalé cet utilisateur',
+          message: 'You have already reported this user',
           alreadyReported: true,
         };
       }
@@ -134,7 +134,7 @@ export const useContentStore = create<ContentState>()(
         });
         return {
           success: false,
-          message: 'Vous avez déjà signalé cet utilisateur',
+          message: 'You have already reported this user',
           alreadyReported: true,
         };
       }
@@ -155,7 +155,7 @@ export const useContentStore = create<ContentState>()(
 
       return {
         success: true,
-        message: 'Utilisateur signalé — sous examen',
+        message: 'User reported — under review',
         alreadyReported: false,
       };
     },
@@ -167,7 +167,7 @@ export const useContentStore = create<ContentState>()(
       if (reportedPosts.includes(contentId)) {
         return {
           success: false,
-          message: 'Vous avez déjà signalé ce contenu',
+          message: 'You have already reported this content',
           alreadyReported: true,
         };
       }
@@ -184,7 +184,7 @@ export const useContentStore = create<ContentState>()(
 
       return {
         success: true,
-        message: 'Signalé — sous examen',
+        message: 'Reported — under review',
         alreadyReported: false,
       };
     },

@@ -218,52 +218,6 @@ export const formatDateRelative = (input: Date | string): string => {
 };
 
 // ============================================
-// FRENCH LOCALE (deprecated — use English equivalents above)
-// ============================================
-
-/**
- * "lundi 15 septembre 2024" — French long date
- */
-export const formatLongDateFrench = (input: Date | string): string =>
-  toDate(input).toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-
-/**
- * "À l'instant", "Il y a 3h", "Hier", "Il y a 3 jours" — French relative time (past only)
- */
-export const formatRelativeTimeFrench = (input: Date | string): string => {
-  const diffMs = Date.now() - toDate(input).getTime();
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffHours < 1) return "À l'instant";
-  if (diffHours < 24) return `Il y a ${diffHours}h`;
-  if (diffDays === 1) return 'Hier';
-  if (diffDays < 7) return `Il y a ${diffDays} jours`;
-  return toDate(input).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-};
-
-/**
- * "Aujourd'hui", "Demain", "Hier", "Il y a X jours", "Dans X jours" — French relative date (past + future)
- */
-export const formatDateRelativeFrench = (input: Date | string): string => {
-  const date = toDate(input);
-  const diffMs = date.getTime() - Date.now();
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffDays === 0) return "Aujourd'hui";
-  if (diffDays === 1) return 'Demain';
-  if (diffDays === -1) return 'Hier';
-  if (diffDays < 0) return `Il y a ${Math.abs(diffDays)} jours`;
-  if (diffDays < 7) return `Dans ${diffDays} jours`;
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-};
-
-// ============================================
 // DATE HELPERS
 // ============================================
 

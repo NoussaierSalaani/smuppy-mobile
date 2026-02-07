@@ -557,7 +557,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         navigation.navigate('GoLiveIntro');
         break;
     }
-  }, [navigation, accountType, isVerified, businessLatitude, businessLongitude, businessAddress, showAlert]);
+  }, [navigation, accountType, isVerified, businessLatitude, businessLongitude, showAlert]);
 
   const allMarkers = useMemo(() => {
     return [...liveMarkers, ...eventGroupMarkers];

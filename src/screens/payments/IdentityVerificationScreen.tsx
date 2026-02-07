@@ -275,12 +275,14 @@ export default function IdentityVerificationScreen() {
             navigation.navigate('WebView', { url: sessionResponse.url, title: 'Verify Identity' });
           }
         } else {
-          showError('Error', sessionResponse.error || 'Failed to start verification');
+          // Generic error message per CLAUDE.md - never expose response.error to client
+          showError('Error', 'Failed to start verification. Please try again.');
         }
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Something went wrong';
-      showError('Error', message);
+      if (__DEV__) console.warn('[IdentityVerification] Error:', error);
+      // Generic error message per CLAUDE.md - never expose error.message to client
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setProcessing(false);
     }

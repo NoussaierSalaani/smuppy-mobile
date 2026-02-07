@@ -118,6 +118,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
 
   useEffect(() => {
     getUserLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

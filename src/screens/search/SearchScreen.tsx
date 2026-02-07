@@ -46,12 +46,6 @@ import { isValidUUID } from '../../utils/formatters';
 
 const PAGE_SIZE = 15;
 
-/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
-const sanitizeText = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-};
-
 // Smuppy URL patterns
 const SMUPPY_URL_PATTERNS = {
   post: __DEV__

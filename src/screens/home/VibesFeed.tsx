@@ -550,7 +550,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     }).catch((err) => {
       if (__DEV__) console.warn('[VibesFeed] Error loading peaks:', err);
     });
-  }, []);
+  }, [isBusiness]);
 
   // Passive daily login streak tracking
   useEffect(() => {

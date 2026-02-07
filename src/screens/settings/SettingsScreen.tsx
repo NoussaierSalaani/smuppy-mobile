@@ -60,7 +60,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [displayName, setDisplayName] = useState('');
-  const [username, setUsername] = useState('');
+  const [_username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [interests, setInterests] = useState<string[]>([]);

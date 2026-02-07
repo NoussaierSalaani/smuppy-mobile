@@ -124,7 +124,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
     } finally {
       setIsLoadingLocation(false);
     }
-  }, []);
+  }, [showError]);
 
   const handleNext = useCallback(() => {
     if (!isFormValid) return;

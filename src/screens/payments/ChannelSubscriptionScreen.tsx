@@ -23,7 +23,7 @@ import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
-import { formatNumber } from '../../utils/formatters';
+import { formatNumber, isValidUUID } from '../../utils/formatters';
 import { useCurrency } from '../../hooks/useCurrency';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
@@ -74,6 +74,12 @@ export default function ChannelSubscriptionScreen() {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const fetchChannelInfo = useCallback(async () => {
+    // Validate creatorId per CLAUDE.md
+    if (!isValidUUID(params.creatorId)) {
+      if (__DEV__) console.warn('[ChannelSubscription] Invalid creatorId:', params.creatorId);
+      setLoading(false);
+      return;
+    }
     try {
       const response = await awsAPI.request<{ success: boolean; channel?: ChannelInfo }>('/payments/channel-subscription', {
         method: 'POST',
@@ -141,7 +147,8 @@ export default function ChannelSubscriptionScreen() {
         // Fallback if no sessionId returned
         navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Subscription' });
       } else {
-        showError('Error', response.error || 'Failed to start subscription');
+        // Generic error message per CLAUDE.md - never expose response.error to client
+        showError('Error', 'Failed to start subscription. Please try again.');
       }
     } catch (_error: unknown) {
       showError('Error', 'Something went wrong. Please try again.');

@@ -161,7 +161,8 @@ export default function PlatformSubscriptionScreen() {
         // Fallback if no sessionId returned
         navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Payment' });
       } else {
-        showError('Error', response.error || 'Failed to start subscription');
+        // Generic error message per CLAUDE.md - never expose response.error to client
+        showError('Error', 'Failed to start subscription. Please try again.');
       }
     } catch (_error: unknown) {
       showError('Error', 'Something went wrong. Please try again.');

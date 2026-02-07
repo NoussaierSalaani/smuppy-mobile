@@ -343,6 +343,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
                     testID="email-input"
+                    maxLength={254}
                   />
                 </View>
               </LinearGradient>
@@ -370,6 +371,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
                     testID="password-input"
+                    maxLength={128}
                   />
                   <TouchableOpacity
                     onPress={togglePassword}

@@ -108,6 +108,8 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
   prev.item.id === next.item.id &&
   prev.item.is_deleted === next.item.is_deleted &&
   prev.item.content === next.item.content &&
+  prev.item.media_url === next.item.media_url &&
+  prev.item.media_type === next.item.media_type &&
   prev.isFromMe === next.isFromMe &&
   prev.showAvatar === next.showAvatar &&
   prev.styles === next.styles
@@ -262,7 +264,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       // Smart polling: only update state if messages actually changed
       const prev = messagesRef.current;
       const changed = merged.length !== prev.length ||
-        merged.some((msg, i) => msg.id !== prev[i]?.id || msg.is_deleted !== prev[i]?.is_deleted || msg.content !== prev[i]?.content);
+        merged.some((msg, i) => msg.id !== prev[i]?.id || msg.is_deleted !== prev[i]?.is_deleted || msg.content !== prev[i]?.content || msg.media_url !== prev[i]?.media_url);
       if (changed) {
         messagesRef.current = merged;
         setMessages(merged);
@@ -412,6 +414,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       media_type: 'audio',
       created_at: new Date().toISOString(),
       is_deleted: false,
+      shared_post_id: undefined,
     };
     pendingOptimisticIdsRef.current.add(optimisticId);
     setMessages(prev => {

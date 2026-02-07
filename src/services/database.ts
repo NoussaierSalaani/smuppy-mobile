@@ -2098,8 +2098,8 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
       return { data: null, error: 'Failed to upload voice message' };
     }
 
-    // Step 3: Return the best playback URL available
-    const resolvedUrl = presignedResult.cdnUrl || presignedResult.fileUrl || awsAPI.getCDNUrl(presignedResult.key);
+    // Step 3: Return the best playback URL available (prefer CDN over S3 direct URL)
+    const resolvedUrl = presignedResult.cdnUrl ?? awsAPI.getCDNUrl(presignedResult.key) ?? presignedResult.fileUrl ?? null;
     return { data: resolvedUrl, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };

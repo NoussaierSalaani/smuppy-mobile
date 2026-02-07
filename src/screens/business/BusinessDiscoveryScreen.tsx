@@ -33,6 +33,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { MapListSkeleton } from '../../components/skeleton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { isValidUUID } from '../../utils/formatters';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -213,6 +214,11 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
   };
 
   const handleBusinessPress = (business: Business) => {
+    // Validate business ID per CLAUDE.md
+    if (!isValidUUID(business.id)) {
+      if (__DEV__) console.warn('[BusinessDiscoveryScreen] Invalid businessId:', business.id);
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate('BusinessProfile', { businessId: business.id });
   };
@@ -579,6 +585,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
               placeholderTextColor={colors.gray}
               returnKeyType="search"
               onSubmitEditing={handleSearch}
+              maxLength={100}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>

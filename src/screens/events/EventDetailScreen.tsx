@@ -30,6 +30,7 @@ import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatLongDateTime } from '../../utils/dateFormatters';
+import { isValidUUID } from '../../utils/formatters';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -112,6 +113,13 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
+    // Validate eventId per CLAUDE.md - must be valid UUID
+    if (!isValidUUID(eventId)) {
+      if (__DEV__) console.warn('[EventDetailScreen] Invalid eventId:', eventId);
+      showError('Error', 'Invalid event ID');
+      navigation.goBack();
+      return;
+    }
     loadEventDetails().catch((err) => {
       if (__DEV__) console.warn('loadEventDetails error:', err);
     });
@@ -174,8 +182,8 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
       }
     } catch (error: unknown) {
       if (__DEV__) console.warn('Join event error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to join event';
-      showError('Error', message);
+      // Generic error message per CLAUDE.md - never expose error.message to client
+      showError('Error', 'Failed to join event. Please try again.');
     } finally {
       setIsJoining(false);
     }
@@ -229,8 +237,8 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
     } catch (error: unknown) {
       if (__DEV__) console.warn('Event payment error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const message = error instanceof Error ? error.message : 'Please try again';
-      showError('Payment Failed', message);
+      // Generic error message per CLAUDE.md - never expose error.message to client
+      showError('Payment Failed', 'Please try again.');
     } finally {
       setIsJoining(false);
     }
@@ -253,8 +261,9 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
             throw new Error(response.message);
           }
         } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Failed to leave event';
-          showError('Error', message);
+          if (__DEV__) console.warn('Leave event error:', error);
+          // Generic error message per CLAUDE.md - never expose error.message to client
+          showError('Error', 'Failed to leave event. Please try again.');
         } finally {
           setIsJoining(false);
         }

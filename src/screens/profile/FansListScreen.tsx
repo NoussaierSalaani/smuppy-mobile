@@ -28,6 +28,7 @@ import {
   getCurrentProfile,
   Profile,
 } from '../../services/database';
+import { isValidUUID } from '../../utils/formatters';
 
 // Types
 interface User {
@@ -348,7 +349,14 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
     ({ item }: { item: User }) => (
       <TouchableOpacity
         style={styles.userItem}
-        onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+        onPress={() => {
+          // Validate userId per CLAUDE.md
+          if (!isValidUUID(item.id)) {
+            if (__DEV__) console.warn('[FansListScreen] Invalid userId:', item.id);
+            return;
+          }
+          navigation.navigate('UserProfile', { userId: item.id });
+        }}
         activeOpacity={0.7}
       >
         <AvatarImage source={item.avatar} size={50} />
@@ -363,7 +371,7 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
               accountType={item.accountType}
             />
           </View>
-          <Text style={styles.userUsername} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.userUsername} numberOfLines={1}>{item.username}</Text>
         </View>
 
         {renderBadge(item)}
@@ -480,6 +488,7 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
             placeholderTextColor={colors.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            maxLength={100}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>

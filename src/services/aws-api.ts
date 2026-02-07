@@ -462,7 +462,7 @@ class AWSAPIService {
         const errorData = await response.json().catch(() => ({}));
         if (__DEV__) console.warn(`[AWS API] ERROR ${response.status}:`, JSON.stringify(errorData).substring(0, 200));
         throw new APIError(
-          errorData.message || `Request failed with status ${response.status}`,
+          errorData.message || errorData.error || `Request failed with status ${response.status}`,
           response.status,
           errorData
         );

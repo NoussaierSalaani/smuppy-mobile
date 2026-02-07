@@ -287,6 +287,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  maxLength={254}
                   onFocus={() => setEmailFocused(true)}
                   onBlur={() => setEmailFocused(false)}
                 />
@@ -309,6 +310,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
+                    maxLength={254}
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
                   />
@@ -349,6 +351,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
+                    maxLength={128}
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
                   />

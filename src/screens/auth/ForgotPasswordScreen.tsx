@@ -166,6 +166,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  maxLength={254}
                 />
                 {email.length > 0 && (
                   <TouchableOpacity onPress={handleClearEmail} hitSlop={HIT_SLOP.medium}>
@@ -193,6 +194,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
+                    maxLength={254}
                   />
                   {email.length > 0 && (
                     <TouchableOpacity onPress={handleClearEmail} hitSlop={HIT_SLOP.medium}>

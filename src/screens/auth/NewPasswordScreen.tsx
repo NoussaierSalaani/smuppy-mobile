@@ -200,6 +200,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                 secureTextEntry={!showPassword}
                 autoComplete="off"
                 textContentType="none"
+                maxLength={128}
                 onFocus={() => setIsFocusedPassword(true)}
                 onBlur={() => setIsFocusedPassword(false)}
               />
@@ -251,6 +252,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                 secureTextEntry={!showConfirm}
                 autoComplete="off"
                 textContentType="none"
+                maxLength={128}
                 onFocus={() => setIsFocusedConfirm(true)}
                 onBlur={() => setIsFocusedConfirm(false)}
               />
@@ -276,6 +278,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
                   secureTextEntry={!showConfirm}
                   autoComplete="off"
                   textContentType="none"
+                  maxLength={128}
                   onFocus={() => setIsFocusedConfirm(true)}
                   onBlur={() => setIsFocusedConfirm(false)}
                 />

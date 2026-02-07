@@ -67,8 +67,29 @@ export const clearVibesFeedCache = () => {
   vibesFeedCache = { posts: [], timestamp: 0, page: 0 };
 };
 
-const _PEAKS_DATA: { id: string; videoUrl?: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
+
+// UUID validation regex (CLAUDE.md compliance)
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Sanitize text for display: strip HTML tags and control characters
+const sanitizeText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+};
+
+// Peak data type for carousel
+interface PeakCardData {
+  id: string;
+  videoUrl?: string;
+  thumbnail: string;
+  user: { id: string; name: string; avatar: string | null };
+  duration: number;
+  hasNew: boolean;
+  createdAt?: string;
+  isLiked?: boolean;
+  likes?: number;
+}
 
 // Build unified lookup from interests + expertise + business categories (icon + color per name)
 const INTEREST_DATA: Record<string, { icon: string; color: string }> = (() => {
@@ -236,7 +257,7 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
 
     <View style={styles.vibeOverlayContainer}>
       <BlurView intensity={20} tint="dark" style={styles.vibeBlurOverlay}>
-        <Text style={styles.vibeTitle} numberOfLines={2}>{post.title}</Text>
+        <Text style={styles.vibeTitle} numberOfLines={2}>{sanitizeText(post.title)}</Text>
         <TouchableOpacity
           style={styles.vibeMeta}
           onPress={(e) => {
@@ -245,7 +266,7 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
           }}
         >
           <AvatarImage source={post.user.avatar} size={20} style={styles.vibeAvatar} />
-          <Text style={styles.vibeUserName} numberOfLines={1}>{post.user.name}</Text>
+          <Text style={styles.vibeUserName} numberOfLines={1}>{sanitizeText(post.user.name)}</Text>
           <View style={styles.vibeLikes}>
             <SmuppyHeartIcon
               size={12}
@@ -343,7 +364,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [peaksData, setPeaksData] = useState<typeof _PEAKS_DATA>([]);
+  const [peaksData, setPeaksData] = useState<PeakCardData[]>([]);
   const [hasMore, setHasMore] = useState(true);
 
   // Share modal state (using shared hook)
@@ -541,6 +562,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Navigate to user profile (or Profile tab if it's current user)
   const goToUserProfile = useCallback((userId: string) => {
+    // Validate UUID format (CLAUDE.md compliance)
+    if (!userId || !UUID_REGEX.test(userId)) {
+      if (__DEV__) console.warn('[VibesFeed] Invalid user UUID:', userId);
+      return;
+    }
+
     // Close modal properly with engagement tracking
     if (modalVisible && selectedPost) {
       const timeSpent = (Date.now() - postViewStartRef.current) / 1000;
@@ -568,7 +595,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   }, [navigation, modalVisible, selectedPost, trackPostExit, currentUserId, prefetchProfile]);
 
   // Navigate to Peak view
-  const goToPeakView = useCallback((_peak: typeof _PEAKS_DATA[number], index: number) => {
+  const goToPeakView = useCallback((_peak: PeakCardData, index: number) => {
     navigation.navigate('PeakView', {
       peaks: peaksData as unknown as Peak[],
       initialIndex: index,
@@ -720,8 +747,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Check follow status when modal opens
   useEffect(() => {
     const checkFollowStatus = async () => {
-      if (selectedPost?.user?.id && modalVisible) {
-        const { following } = await isFollowing(selectedPost.user.id);
+      const userId = selectedPost?.user?.id;
+      // Validate UUID format before API call (CLAUDE.md compliance)
+      if (userId && UUID_REGEX.test(userId) && modalVisible) {
+        const { following } = await isFollowing(userId);
         setIsFollowingUser(following);
       }
     };
@@ -753,10 +782,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Become a fan from modal
   const becomeFan = useCallback(async () => {
-    if (followLoading || !selectedPost?.user?.id) return;
+    const userId = selectedPost?.user?.id;
+    // Validate UUID format (CLAUDE.md compliance)
+    if (followLoading || !userId || !UUID_REGEX.test(userId)) {
+      if (__DEV__ && userId && !UUID_REGEX.test(userId)) {
+        console.warn('[VibesFeed] Invalid user UUID for follow:', userId);
+      }
+      return;
+    }
     setFollowLoading(true);
     try {
-      const { error } = await followUser(selectedPost.user.id);
+      const { error } = await followUser(userId);
       if (!error) {
         setIsFollowingUser(true);
       }
@@ -818,8 +854,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const { leftColumn, rightColumn } = useMemo(() => getColumns(), [getColumns]);
 
   // Render Peak card
-  type PeakData = typeof _PEAKS_DATA[0];
-  const renderPeakCard = useCallback((peak: PeakData, index: number) => (
+  const renderPeakCard = useCallback((peak: PeakCardData, index: number) => (
     <TouchableOpacity
       key={`peak-${index}-${peak.id}`}
       style={styles.peakCard}
@@ -838,7 +873,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         <AvatarImage source={peak.user.avatar} size={36} style={styles.peakAvatar} />
       </View>
       
-      <Text style={styles.peakUserName} numberOfLines={1}>{peak.user.name}</Text>
+      <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeText(peak.user.name)}</Text>
     </TouchableOpacity>
   ), [goToPeakView, styles]);
 
@@ -933,8 +968,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   >
                     <AvatarImage source={selectedPost.user.avatar} size={44} style={styles.modalAvatar} />
                     <View style={styles.modalUserInfo}>
-                      <Text style={styles.modalUserName}>{selectedPost.user.name}</Text>
-                      <Text style={styles.modalCategory}>{selectedPost.category}</Text>
+                      <Text style={styles.modalUserName}>{sanitizeText(selectedPost.user.name)}</Text>
+                      <Text style={styles.modalCategory}>{sanitizeText(selectedPost.category)}</Text>
                     </View>
                   </TouchableOpacity>
                   {!isFollowingUser && (
@@ -950,7 +985,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   )}
                 </View>
 
-                <Text style={styles.modalTitle}>{selectedPost.title}</Text>
+                <Text style={styles.modalTitle}>{sanitizeText(selectedPost.title)}</Text>
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity
@@ -1102,7 +1137,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           <TouchableOpacity
             style={styles.addInterestButton}
             onPress={() => {
-              const screen = accountType === 'personal' ? 'EditInterests' : 'EditExpertise';
+              // Navigate to correct edit screen based on account type
+              const screen = accountType === 'personal'
+                ? 'EditInterests'
+                : accountType === 'pro_business'
+                  ? 'EditBusinessCategory'
+                  : 'EditExpertise';
               navigation.navigate(screen, { returnTo: 'VibesFeed' });
             }}
             activeOpacity={0.7}

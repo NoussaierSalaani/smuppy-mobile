@@ -27,7 +27,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useFilters } from '../../stores/filterStore';
-import { OverlayType, OverlayConfig, OverlayPosition } from '../types';
+import { OverlayType, OverlayConfig, OverlayPosition, WorkoutTimerParams, RepCounterParams, DayChallengeParams, CalorieBurnParams, HeartRatePulseParams } from '../types';
 import { WorkoutTimer } from '../overlays/WorkoutTimer';
 import { RepCounter } from '../overlays/RepCounter';
 import { DayChallenge } from '../overlays/DayChallenge';
@@ -499,21 +499,19 @@ export function DraggableOverlay({
 
   // Render overlay content
   const renderContent = () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const params = overlay.params as any;
     const size = 80;
 
     switch (overlay.type) {
       case 'workout_timer':
-        return <WorkoutTimer params={params} size={size} />;
+        return <WorkoutTimer params={overlay.params as unknown as WorkoutTimerParams} size={size} />;
       case 'rep_counter':
-        return <RepCounter params={params} size={size} />;
+        return <RepCounter params={overlay.params as unknown as RepCounterParams} size={size} />;
       case 'day_challenge':
-        return <DayChallenge params={params} size={size} />;
+        return <DayChallenge params={overlay.params as unknown as DayChallengeParams} size={size} />;
       case 'calorie_burn':
-        return <CalorieBurn params={params} size={size} />;
+        return <CalorieBurn params={overlay.params as unknown as CalorieBurnParams} size={size} />;
       case 'heart_rate_pulse':
-        return <HeartRatePulse params={params} size={size} />;
+        return <HeartRatePulse params={overlay.params as unknown as HeartRatePulseParams} size={size} />;
       default:
         return null;
     }

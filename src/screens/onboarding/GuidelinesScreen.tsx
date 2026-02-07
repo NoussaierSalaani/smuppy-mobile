@@ -61,12 +61,9 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
         displayName, bio, website, socialLinks, expertise,
         businessCategory, businessCategoryCustom, locationsMode,
         businessName, businessAddress,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } = params as Record<string, any>;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const businessLatitude = (params as Record<string, any>).businessLatitude;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const businessLongitude = (params as Record<string, any>).businessLongitude;
+      } = params as Record<string, unknown>;
+      const businessLatitude = (params as Record<string, unknown>).businessLatitude;
+      const businessLongitude = (params as Record<string, unknown>).businessLongitude;
 
       const baseUsername = currentUser.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
       const generatedUsername = `${baseUsername}_${Math.floor(Math.random() * 1000000)}`;
@@ -81,9 +78,9 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       if (displayName) profileData.display_name = displayName;
       if (bio) profileData.bio = bio;
       if (website) profileData.website = website;
-      if (socialLinks && Object.keys(socialLinks).length > 0) profileData.social_links = socialLinks;
-      if (interests && interests.length > 0) profileData.interests = interests;
-      if (expertise && expertise.length > 0) profileData.expertise = expertise;
+      if (socialLinks && typeof socialLinks === 'object' && Object.keys(socialLinks).length > 0) profileData.social_links = socialLinks;
+      if (interests && Array.isArray(interests) && interests.length > 0) profileData.interests = interests;
+      if (expertise && Array.isArray(expertise) && expertise.length > 0) profileData.expertise = expertise;
       if (businessName) profileData.business_name = businessName;
       if (businessCategory) profileData.business_category = businessCategory === 'other' ? businessCategoryCustom : businessCategory;
       if (businessAddress) profileData.business_address = businessAddress;

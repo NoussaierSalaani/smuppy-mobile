@@ -20,6 +20,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import type { MainStackParamList } from '../../types';
 import * as Haptics from 'expo-haptics';
 import { SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
@@ -300,8 +301,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const { colors, isDark } = useTheme();
   const { showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const navigation = useNavigation<NavigationProp<any>>();
+  const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const { handleScroll, showBars } = useTabBar();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -1138,12 +1138,13 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             style={styles.addInterestButton}
             onPress={() => {
               // Navigate to correct edit screen based on account type
-              const screen = accountType === 'personal'
-                ? 'EditInterests'
-                : accountType === 'pro_business'
-                  ? 'EditBusinessCategory'
-                  : 'EditExpertise';
-              navigation.navigate(screen, { returnTo: 'VibesFeed' });
+              if (accountType === 'personal') {
+                navigation.navigate('EditInterests', { returnTo: 'VibesFeed' });
+              } else if (accountType === 'pro_business') {
+                navigation.navigate('EditBusinessCategory', { returnTo: 'VibesFeed' });
+              } else {
+                navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' });
+              }
             }}
             activeOpacity={0.7}
           >

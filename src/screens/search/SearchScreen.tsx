@@ -286,53 +286,56 @@ const SearchScreen = (): React.JSX.Element => {
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let newData: any[] = [];
+    let newDataLength = 0;
 
     switch (tabType) {
       case 'users': {
         const { data } = await searchProfiles(query, PAGE_SIZE, offset);
-        newData = (data || []).filter(p => p.id !== currentUserId);
+        const newUsers = (data || []).filter(p => p.id !== currentUserId);
+        newDataLength = newUsers.length;
         if (append) {
-          setUserResults(prev => [...prev, ...newData]);
+          setUserResults(prev => [...prev, ...newUsers]);
         } else {
-          setUserResults(newData);
+          setUserResults(newUsers);
         }
         break;
       }
       case 'posts': {
         const { data } = await searchPosts(query, PAGE_SIZE, offset);
-        newData = data || [];
+        const newPosts = data || [];
+        newDataLength = newPosts.length;
         if (append) {
-          setPostResults(prev => [...prev, ...newData]);
+          setPostResults(prev => [...prev, ...newPosts]);
         } else {
-          setPostResults(newData);
+          setPostResults(newPosts);
         }
         break;
       }
       case 'peaks': {
         const { data } = await searchPeaks(query, PAGE_SIZE, offset);
-        newData = data || [];
+        const newPeaks = data || [];
+        newDataLength = newPeaks.length;
         if (append) {
-          setPeakResults(prev => [...prev, ...newData]);
+          setPeakResults(prev => [...prev, ...newPeaks]);
         } else {
-          setPeakResults(newData);
+          setPeakResults(newPeaks);
         }
         break;
       }
       case 'tags': {
         const { data } = await searchByHashtag(query, PAGE_SIZE, offset);
-        newData = data || [];
+        const newHashtags = data || [];
+        newDataLength = newHashtags.length;
         if (append) {
-          setHashtagResults(prev => [...prev, ...newData]);
+          setHashtagResults(prev => [...prev, ...newHashtags]);
         } else {
-          setHashtagResults(newData);
+          setHashtagResults(newHashtags);
         }
         break;
       }
     }
 
-    setHasMore(newData.length >= PAGE_SIZE);
+    setHasMore(newDataLength >= PAGE_SIZE);
     setIsLoading(false);
     setLoadingMore(false);
   }, [currentUserId]);

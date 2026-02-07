@@ -673,7 +673,7 @@ export type MainStackParamList = {
 
   // Details
   UserProfile: { userId: string };
-  PostDetailFanFeed: { postId: string; post?: Post; fanFeedPosts?: Post[] };
+  PostDetailFanFeed: { postId: string; post?: Post; fanFeedPosts?: Array<{ id: string; type: 'video' | 'image' | 'carousel'; media: string; allMedia?: string[]; thumbnail: string; description: string; likes: number; views?: number; comments?: number; location?: string | null; taggedUsers?: Array<{ id: string; username: string; fullName?: string | null; avatarUrl?: string | null }>; user: { id: string; name: string; avatar: string; followsMe?: boolean } }> };
   PostDetailVibesFeed: { postId: string; post?: unknown; startCondensed?: boolean };
   PostDetailProfile: { postId: string; post?: Post; profilePosts?: Post[] };
   FansList: { userId?: string; fansCount?: number; type?: 'fans' | 'following' };
@@ -723,9 +723,9 @@ export type MainStackParamList = {
   // Settings
   Settings: undefined;
   EditProfile: undefined;
-  EditInterests: { currentInterests?: string[] } | undefined;
+  EditInterests: { currentInterests?: string[]; returnTo?: string } | undefined;
   EditExpertise: { currentExpertise?: string[]; returnTo?: string } | undefined;
-  EditBusinessCategory: { currentCategory?: string } | undefined;
+  EditBusinessCategory: { currentCategory?: string; returnTo?: string } | undefined;
   PasswordManager: undefined;
   NotificationSettings: undefined;
   ReportProblem: undefined;
@@ -744,7 +744,7 @@ export type MainStackParamList = {
   // Private Sessions - Fan
   MySessions: undefined;
   SessionDetail: { sessionId: string };
-  BookSession: { creatorId: string; fromPack?: boolean };
+  BookSession: { creatorId: string; fromPack?: boolean; creator?: { id: string; name: string; avatar: string; specialty?: string } };
   SessionPayment: { creatorId: string; sessionId?: string; date: string; time: string; duration: number; price: number };
   SessionBooked: { sessionId: string; creatorName: string; date: string; time: string };
   WaitingRoom: { sessionId: string };
@@ -770,7 +770,7 @@ export type MainStackParamList = {
   GoLive: { title?: string } | undefined;
   LiveStreaming: { channelName?: string; title?: string; audience?: string; isPrivate?: boolean; hostId?: string; hostName?: string; hostAvatar?: string | null } | undefined;
   LiveEnded: { duration?: number; viewerCount?: number; peakViewers?: number } | undefined;
-  ViewerLiveStream: { channelName: string; hostUserId: string; hostName?: string; hostAvatar?: string | null };
+  ViewerLiveStream: { channelName: string; hostUserId?: string; creatorId?: string; hostName?: string; creatorName?: string; hostAvatar?: string | null; creatorAvatar?: string | null; liveTitle?: string; viewerCount?: number };
 
   // Live Battles
   BattleLobby: { battleId: string };

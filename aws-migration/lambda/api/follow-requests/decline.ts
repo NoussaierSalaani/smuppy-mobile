@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('follow-requests-decline');
 
@@ -22,6 +23,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
+    }
+
+    const { allowed } = await checkRateLimit({ prefix: 'follow-decline', identifier: userId, windowSeconds: 30, maxRequests: 10 });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
     }
 
     const requestId = event.pathParameters?.id;

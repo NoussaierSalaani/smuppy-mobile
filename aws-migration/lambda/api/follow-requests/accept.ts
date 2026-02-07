@@ -26,6 +26,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    const { allowed } = await checkRateLimit({ prefix: 'follow-accept', identifier: userId, windowSeconds: 30, maxRequests: 10 });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
+    }
+
     const requestId = event.pathParameters?.id;
     if (!requestId) {
       return {

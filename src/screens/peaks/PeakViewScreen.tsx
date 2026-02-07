@@ -14,6 +14,8 @@ import {
   PanResponderGestureState,
   Modal,
   Pressable,
+  FlatList,
+  ActivityIndicator,
   BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -149,6 +151,7 @@ interface Peak {
   isOwnPeak?: boolean; // To show tag count only to creator
   // Challenge fields
   isChallenge?: boolean;
+  challengeId?: string;
   challengeTitle?: string;
   challengeRules?: string;
   challengeEndsAt?: string;
@@ -209,6 +212,15 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [showReactions, setShowReactions] = useState(false);
   const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
   const [_hiddenPeaks, setHiddenPeaks] = useState<Set<string>>(new Set()); // Not interested peaks
+  const [showResponsesModal, setShowResponsesModal] = useState(false);
+  const [challengeResponses, setChallengeResponses] = useState<Array<{
+    id: string;
+    peakId: string;
+    user: { id: string; username: string; displayName: string; avatarUrl: string; isVerified: boolean };
+    peak: { id: string; thumbnailUrl: string; videoUrl: string; duration: number; viewsCount: number };
+    createdAt: string;
+  }>>([]);
+  const [responsesLoading, setResponsesLoading] = useState(false);
 
   // Content store for reporting
   const { submitPostReport } = useContentStore();
@@ -728,6 +740,43 @@ const PeakViewScreen = (): React.JSX.Element => {
     });
   };
 
+  const handleViewResponses = useCallback(async (): Promise<void> => {
+    const cId = currentPeak.challengeId;
+    if (!cId) return;
+    setShowResponsesModal(true);
+    setResponsesLoading(true);
+    try {
+      const result = await awsAPI.getChallengeResponses(cId, { limit: 30 });
+      if (result.responses) {
+        setChallengeResponses(result.responses as typeof challengeResponses);
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('Failed to fetch challenge responses:', error);
+    } finally {
+      setResponsesLoading(false);
+    }
+  }, [currentPeak.challengeId]);
+
+  const handleResponsePress = useCallback((peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string) => {
+    setShowResponsesModal(false);
+    const toCdn = (url?: string | null) => {
+      if (!url) return '';
+      return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+    };
+    navigation.navigate('PeakView', {
+      peaks: [{
+        id: peakId,
+        thumbnail: toCdn(thumbnailUrl),
+        videoUrl: toCdn(thumbnailUrl), // Will be replaced by actual video
+        duration: 0,
+        user: { id: userId, name: displayName, avatar: toCdn(avatarUrl) },
+        views: 0,
+        createdAt: new Date().toISOString(),
+      }],
+      initialIndex: 0,
+    });
+  }, [navigation]);
+
   const isLiked = likedPeaks.has(currentPeak.id);
   const isSaved = savedPeaks.has(currentPeak.id);
   const likesCount = currentPeak.likes ?? 0;
@@ -1052,9 +1101,11 @@ const PeakViewScreen = (): React.JSX.Element => {
               ) : null}
               <View style={styles.challengeMetaRow}>
                 {currentPeak.challengeResponseCount != null && (
-                  <Text style={styles.challengeMetaText}>
-                    {currentPeak.challengeResponseCount} responses
-                  </Text>
+                  <TouchableOpacity onPress={handleViewResponses} activeOpacity={0.7}>
+                    <Text style={[styles.challengeMetaText, styles.challengeMetaLink]}>
+                      {currentPeak.challengeResponseCount} responses
+                    </Text>
+                  </TouchableOpacity>
                 )}
                 {currentPeak.challengeEndsAt ? (
                   <Text style={styles.challengeMetaText}>
@@ -1214,6 +1265,85 @@ const PeakViewScreen = (): React.JSX.Element => {
         }}
         currentReaction={peakReactions.get(currentPeak.id) || null}
       />
+
+      {/* Challenge Responses Modal */}
+      <Modal
+        visible={showResponsesModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowResponsesModal(false)}
+      >
+        <Pressable style={styles.responsesOverlay} onPress={() => setShowResponsesModal(false)}>
+          <Pressable style={styles.responsesContainer} onPress={() => {}}>
+            <View style={styles.responsesHeader}>
+              <View style={styles.menuHandle} />
+              <View style={styles.responsesTitleRow}>
+                <Ionicons name="trophy" size={18} color="#FFD700" />
+                <Text style={styles.responsesTitle}>Challenge Responses</Text>
+              </View>
+            </View>
+            {responsesLoading ? (
+              <View style={styles.responsesLoading}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : challengeResponses.length === 0 ? (
+              <View style={styles.responsesEmpty}>
+                <Ionicons name="videocam-outline" size={40} color={colors.gray} />
+                <Text style={styles.responsesEmptyText}>No responses yet</Text>
+                <Text style={styles.responsesEmptySubtext}>Be the first to accept this challenge!</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={challengeResponses}
+                keyExtractor={(item) => item.id}
+                style={styles.responsesList}
+                renderItem={({ item }) => {
+                  const toCdn = (url?: string | null) => {
+                    if (!url) return '';
+                    return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+                  };
+                  return (
+                    <TouchableOpacity
+                      style={styles.responseItem}
+                      onPress={() => handleResponsePress(
+                        item.peakId,
+                        item.user.id,
+                        item.user.displayName || item.user.username,
+                        item.user.avatarUrl,
+                        item.peak.thumbnailUrl,
+                      )}
+                      activeOpacity={0.7}
+                    >
+                      <OptimizedImage
+                        source={{ uri: toCdn(item.peak.thumbnailUrl) }}
+                        style={styles.responseThumbnail}
+                      />
+                      <View style={styles.responseInfo}>
+                        <View style={styles.responseUserRow}>
+                          <AvatarImage
+                            source={{ uri: toCdn(item.user.avatarUrl) }}
+                            style={styles.responseAvatar}
+                          />
+                          <Text style={styles.responseUserName} numberOfLines={1}>
+                            {item.user.displayName || item.user.username}
+                          </Text>
+                          {item.user.isVerified && (
+                            <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
+                          )}
+                        </View>
+                        <Text style={styles.responseDate}>
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <Ionicons name="play-circle" size={28} color={colors.primary} />
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -1650,6 +1780,100 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 17,
     fontWeight: '600',
     color: isDark ? colors.white : colors.dark,
+  },
+  // Challenge Responses Modal
+  responsesOverlay: {
+    flex: 1,
+    backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  responsesContainer: {
+    backgroundColor: isDark ? '#1C1C1E' : colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 34,
+  },
+  responsesHeader: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: isDark ? '#2C2C2E' : colors.grayBorder,
+  },
+  responsesTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  responsesTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: isDark ? colors.white : colors.dark,
+  },
+  responsesLoading: {
+    paddingVertical: 60,
+    alignItems: 'center',
+  },
+  responsesEmpty: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 8,
+  },
+  responsesEmptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: isDark ? colors.white : colors.dark,
+  },
+  responsesEmptySubtext: {
+    fontSize: 14,
+    color: colors.gray,
+  },
+  responsesList: {
+    maxHeight: 400,
+  },
+  responseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: isDark ? '#2C2C2E' : colors.grayBorder,
+  },
+  responseThumbnail: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
+  },
+  responseInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  responseUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  responseAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  responseUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: isDark ? colors.white : colors.dark,
+    flex: 1,
+  },
+  responseDate: {
+    fontSize: 12,
+    color: colors.gray,
+  },
+  challengeMetaLink: {
+    textDecorationLine: 'underline',
   },
 });
 

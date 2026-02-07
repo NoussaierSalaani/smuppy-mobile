@@ -628,6 +628,7 @@ export interface Peak {
   isLiked?: boolean;
   // Challenge fields (a Peak can optionally be a Challenge)
   isChallenge?: boolean;
+  challengeId?: string;
   challengeTitle?: string;
   challengeRules?: string;
   challengeEndsAt?: string;

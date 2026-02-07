@@ -170,6 +170,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly challengesCreateFn: NodejsFunction;
   public readonly challengesListFn: NodejsFunction;
   public readonly challengesRespondFn: NodejsFunction;
+  public readonly challengesResponsesFn: NodejsFunction;
 
   // Battles
   public readonly battlesCreateFn: NodejsFunction;
@@ -458,6 +459,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.challengesCreateFn = createLambda('ChallengesCreateFunction', 'challenges/create');
     this.challengesListFn = createLambda('ChallengesListFunction', 'challenges/list');
     this.challengesRespondFn = createLambda('ChallengesRespondFunction', 'challenges/respond');
+    this.challengesResponsesFn = createLambda('ChallengesResponsesFunction', 'challenges/responses');
 
     // ========================================
     // Live Battles Lambda Functions

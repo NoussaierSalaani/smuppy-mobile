@@ -42,6 +42,7 @@ interface Peak {
   createdAt: string; // ISO string for React Navigation serialization
   isLiked?: boolean;
   isChallenge?: boolean;
+  challengeId?: string;
   challengeTitle?: string;
 }
 
@@ -92,6 +93,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         createdAt: p.createdAt || new Date().toISOString(),
         isLiked: p.isLiked || false,
         isChallenge: !!p.challenge?.id,
+        challengeId: p.challenge?.id,
         challengeTitle: p.challenge?.title,
       }));
       setPeaks(reset ? mapped : (prev) => [...prev, ...mapped]);

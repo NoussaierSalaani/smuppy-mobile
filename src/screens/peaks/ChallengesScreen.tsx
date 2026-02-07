@@ -30,6 +30,7 @@ type RootStackParamList = {
     views: number;
     createdAt: string;
     isChallenge?: boolean;
+    challengeId?: string;
     challengeTitle?: string;
   }>; initialIndex: number };
   CreatePeak: { challengeId: string; challengeTitle: string };
@@ -111,6 +112,7 @@ const ChallengesScreen = (): React.JSX.Element => {
         views: challenge.viewCount,
         createdAt: challenge.createdAt,
         isChallenge: true,
+        challengeId: challenge.id,
         challengeTitle: challenge.title,
       }],
       initialIndex: 0,

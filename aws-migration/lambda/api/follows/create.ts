@@ -204,17 +204,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Note: fan_count and following_count are updated automatically by database triggers
       // (see migration-015-counter-triggers-indexes.sql)
 
+      // Get follower name for notification body
+      const followerProfileResult = await client.query(
+        'SELECT full_name, username FROM profiles WHERE id = $1',
+        [followerId]
+      );
+      const followerDisplayName = followerProfileResult.rows[0]?.full_name || followerProfileResult.rows[0]?.username || 'Someone';
+
       if (status === 'accepted') {
         await client.query(
           `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
-           VALUES ($1, $2, 'new_follower', 'New Follower', 'Someone started following you', $3, NOW())`,
-          [uuidv4(), followingId, JSON.stringify({ followerId })]
+           VALUES ($1, $2, 'new_follower', 'New Follower', $3, $4, NOW())`,
+          [uuidv4(), followingId, `${followerDisplayName} started following you`, JSON.stringify({ followerId })]
         );
       } else {
         await client.query(
           `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
-           VALUES ($1, $2, 'follow_request', 'Follow Request', 'Someone wants to follow you', $3, NOW())`,
-          [uuidv4(), followingId, JSON.stringify({ requesterId: followerId })]
+           VALUES ($1, $2, 'follow_request', 'Follow Request', $3, $4, NOW())`,
+          [uuidv4(), followingId, `${followerDisplayName} wants to follow you`, JSON.stringify({ requesterId: followerId })]
         );
       }
 

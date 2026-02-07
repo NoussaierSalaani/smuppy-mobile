@@ -52,6 +52,14 @@ interface UserNotification extends BaseNotification {
   message: string;
   isFollowing?: boolean;
   postImage?: string;
+  // Content IDs for navigation
+  peakId?: string;
+  postId?: string;
+  eventId?: string;
+  sessionId?: string;
+  challengeId?: string;
+  battleId?: string;
+  streamId?: string;
 }
 
 interface SystemNotification extends BaseNotification {
@@ -72,6 +80,13 @@ type RootStackParamList = {
   UserProfile: { userId: string };
   NotificationSettings: undefined;
   FollowRequests: undefined;
+  PeakView: { peakId: string };
+  PostDetail: { postId: string };
+  EventDetail: { eventId: string };
+  SessionDetail: { sessionId: string };
+  ChallengeDetail: { challengeId: string };
+  BattleLobby: { battleId: string };
+  LiveStream: { streamId: string };
   [key: string]: object | undefined;
 };
 
@@ -121,6 +136,15 @@ interface ApiNotification {
     isFollowing?: boolean;
     postImage?: string;
     thumbnailUrl?: string;
+    // Content IDs for navigation
+    peakId?: string;
+    postId?: string;
+    commentId?: string;
+    eventId?: string;
+    sessionId?: string;
+    challengeId?: string;
+    battleId?: string;
+    streamId?: string;
   };
 }
 
@@ -145,18 +169,32 @@ function transformNotification(apiNotif: ApiNotification): Notification {
   // User notifications (follow, like, comment, peak_comment, peak_reply, live, etc.)
   const userData = apiNotif.data?.user || {};
   const mappedType = mapNotificationType(apiNotif.type);
+  const userName = sanitizeText(userData.name || userData.username) || '';
+
+  // Build message dynamically using the user's name (fixes "USER" placeholder bug)
+  // Only fall back to apiNotif.body if we have no user name
+  const dynamicMessage = userName ? getDefaultMessage(mappedType) : (sanitizeText(apiNotif.body) || getDefaultMessage(mappedType));
+
   return {
     ...baseNotif,
     type: mappedType,
     user: {
       id: userData.id || apiNotif.data?.actorId || '',
-      name: sanitizeText(userData.name || userData.username) || 'User',
+      name: userName || 'User',
       avatar: userData.avatar || userData.avatarUrl || null,
       isVerified: userData.isVerified || false,
     },
-    message: sanitizeText(apiNotif.body) || getDefaultMessage(mappedType),
+    message: dynamicMessage,
     isFollowing: apiNotif.data?.isFollowing,
     postImage: apiNotif.data?.postImage || apiNotif.data?.thumbnailUrl,
+    // Include content IDs for navigation
+    peakId: apiNotif.data?.peakId,
+    postId: apiNotif.data?.postId,
+    eventId: apiNotif.data?.eventId,
+    sessionId: apiNotif.data?.sessionId,
+    challengeId: apiNotif.data?.challengeId,
+    battleId: apiNotif.data?.battleId,
+    streamId: apiNotif.data?.streamId,
   } as UserNotification;
 }
 
@@ -276,6 +314,43 @@ export default function NotificationsScreen(): React.JSX.Element {
     navigation.navigate('UserProfile', { userId });
   }, [prefetchProfile, navigation]);
 
+  // Navigate to notification content (peak, post, event, etc.)
+  const navigateToContent = useCallback((notif: UserNotification): void => {
+    // Navigate based on notification type and available content IDs
+    if (notif.peakId && isValidUUID(notif.peakId)) {
+      navigation.navigate('PeakView', { peakId: notif.peakId });
+      return;
+    }
+    if (notif.postId && isValidUUID(notif.postId)) {
+      navigation.navigate('PostDetail', { postId: notif.postId });
+      return;
+    }
+    if (notif.eventId && isValidUUID(notif.eventId)) {
+      navigation.navigate('EventDetail', { eventId: notif.eventId });
+      return;
+    }
+    if (notif.sessionId && isValidUUID(notif.sessionId)) {
+      navigation.navigate('SessionDetail', { sessionId: notif.sessionId });
+      return;
+    }
+    if (notif.challengeId && isValidUUID(notif.challengeId)) {
+      navigation.navigate('ChallengeDetail', { challengeId: notif.challengeId });
+      return;
+    }
+    if (notif.battleId && isValidUUID(notif.battleId)) {
+      navigation.navigate('BattleLobby', { battleId: notif.battleId });
+      return;
+    }
+    if (notif.streamId && isValidUUID(notif.streamId)) {
+      navigation.navigate('LiveStream', { streamId: notif.streamId });
+      return;
+    }
+    // Fallback: navigate to user profile if no content ID
+    if (notif.user?.id) {
+      goToUserProfile(notif.user.id);
+    }
+  }, [navigation, goToUserProfile]);
+
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
     await Promise.all([
@@ -378,8 +453,9 @@ export default function NotificationsScreen(): React.JSX.Element {
         style={[styles.notificationItem, !item.isRead && styles.notificationUnread]}
         onPress={() => {
           markAsRead(item.id);
-          if (!isSystem && (item as UserNotification).user?.id) {
-            goToUserProfile((item as UserNotification).user.id);
+          if (!isSystem) {
+            // Navigate to the content (peak, post, etc.) or user profile
+            navigateToContent(item as UserNotification);
           }
         }}
         activeOpacity={0.7}
@@ -477,7 +553,7 @@ export default function NotificationsScreen(): React.JSX.Element {
         )}
       </TouchableOpacity>
     );
-  }, [styles, colors, markAsRead, goToUserProfile, toggleFollow, getNotificationIcon]);
+  }, [styles, colors, markAsRead, navigateToContent, goToUserProfile, toggleFollow, getNotificationIcon]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

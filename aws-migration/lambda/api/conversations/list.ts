@@ -84,7 +84,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       SELECT
         c.id,
         c.created_at,
-        COALESCE(c.last_message_at, c.created_at),
+        COALESCE(c.last_message_at, c.created_at) AS last_message_at,
         (
           SELECT json_build_object(
             'id', m.id,

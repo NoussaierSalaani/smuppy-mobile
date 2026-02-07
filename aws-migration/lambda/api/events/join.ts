@@ -180,13 +180,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
         // Notify creator
         if (eventData.creator_id !== userId) {
+          // Get registrant name for notification
+          const registrantResult = await client.query(
+            'SELECT full_name, username FROM profiles WHERE cognito_sub = $1',
+            [userId]
+          );
+          const registrantName = registrantResult.rows[0]?.full_name || registrantResult.rows[0]?.username || 'Someone';
           await client.query(
             `INSERT INTO notifications (
               user_id, type, title, message, data, from_user_id
             ) VALUES ($1, 'event_registration', 'New Registration',
-              'Someone registered for your event!', $2, $3)`,
+              $2, $3, $4)`,
             [
               eventData.creator_id,
+              `${registrantName} registered for your event!`,
               JSON.stringify({ eventId, eventTitle: eventData.title }),
               userId,
             ]

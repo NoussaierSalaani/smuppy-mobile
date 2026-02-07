@@ -111,11 +111,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Create notification for post author (if not self-like)
       const post = postResult.rows[0];
+      const likerUsername = userResult.rows[0].username;
       if (post.author_id !== profileId) {
         await client.query(
           `INSERT INTO notifications (user_id, type, title, body, data)
-           VALUES ($1, 'like', 'New Like', 'Someone liked your post', $2)`,
-          [post.author_id, JSON.stringify({ postId, likerId: profileId })]
+           VALUES ($1, 'like', 'New Like', $2, $3)`,
+          [post.author_id, `${likerUsername} liked your post`, JSON.stringify({ postId, likerId: profileId })]
         );
       }
 

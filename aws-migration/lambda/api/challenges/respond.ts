@@ -191,14 +191,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [response.id, challengeId, userId]
     );
 
+    // Get responder info for notification (inside transaction for atomicity)
+    const userResult = await client.query(
+      `SELECT username, display_name, avatar_url FROM profiles WHERE id = $1`,
+      [userId]
+    );
+    const responderName = userResult.rows[0]?.display_name || userResult.rows[0]?.username || 'Someone';
+
     // Notify challenge creator
     await client.query(
       `INSERT INTO notifications (
         user_id, type, title, message, data, from_user_id
       ) VALUES ($1, 'challenge_response', 'New Challenge Response',
-        'Someone responded to your challenge!', $2, $3)`,
+        $2, $3, $4)`,
       [
         challenge.creator_id,
+        `${responderName} responded to your challenge!`,
         JSON.stringify({
           challengeId,
           responseId: response.id,
@@ -209,12 +217,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     await client.query('COMMIT');
-
-    // Get responder info
-    const userResult = await client.query(
-      `SELECT username, display_name, avatar_url FROM profiles WHERE id = $1`,
-      [userId]
-    );
 
     return cors({
       statusCode: 201,

@@ -103,6 +103,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const otherParticipant = participantResult.rows[0];
 
+    // Check if either user has blocked the other
+    const blockCheck = await db.query(
+      `SELECT 1 FROM blocks
+       WHERE (user_id = $1 AND blocked_user_id = $2)
+          OR (user_id = $2 AND blocked_user_id = $1)
+       LIMIT 1`,
+      [profileId, participantId]
+    );
+    if (blockCheck.rows.length > 0) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Cannot create conversation with this user' }),
+      };
+    }
+
     // Check if conversation already exists (order doesn't matter)
     const existingConversation = await db.query(
       `SELECT id, created_at, last_message_at

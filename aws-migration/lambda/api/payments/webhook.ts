@@ -809,7 +809,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
              VALUES ($1, 'dispute_created', 'Payment Disputed', $2, $3)`,
             [
               payment.creator_id,
-              `A payment of €${(dispute.amount / 100).toFixed(2)} has been disputed. Reason: ${(dispute.reason || 'unknown').replace(/<[^>]*>/g, '').substring(0, 100)}`,
+              `A payment of ${(dispute.amount / 100).toFixed(2)} ${(dispute.currency || 'eur').toUpperCase()} has been disputed. Reason: ${(dispute.reason || 'unknown').replace(/<[^>]*>/g, '').substring(0, 100)}`,
               JSON.stringify({
                 disputeId: dispute.id,
                 chargeId,
@@ -898,7 +898,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               won ? 'Dispute Won!' : 'Dispute Lost',
               won
                 ? 'The dispute has been resolved in your favor. The funds have been returned.'
-                : `The dispute was lost. €${(dispute.amount / 100).toFixed(2)} has been deducted.`,
+                : `The dispute was lost. ${(dispute.amount / 100).toFixed(2)} ${(dispute.currency || 'eur').toUpperCase()} has been deducted.`,
               JSON.stringify({ disputeId: dispute.id, status: dispute.status }),
             ]
           );
@@ -927,7 +927,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                VALUES ($1, 'payout_received', 'Payout Received!', $2, $3)`,
               [
                 creatorResult.rows[0].id,
-                `€${(payout.amount / 100).toFixed(2)} has been sent to your bank account`,
+                `${(payout.amount / 100).toFixed(2)} ${(payout.currency || 'eur').toUpperCase()} has been sent to your bank account`,
                 JSON.stringify({ payoutId: payout.id, amount: payout.amount }),
               ]
             );
@@ -957,7 +957,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                VALUES ($1, 'payout_failed', 'Payout Failed', $2, $3)`,
               [
                 creatorResult.rows[0].id,
-                `Your payout of €${(payout.amount / 100).toFixed(2)} failed. Please check your bank details.`,
+                `Your payout of ${(payout.amount / 100).toFixed(2)} ${(payout.currency || 'eur').toUpperCase()} failed. Please check your bank details.`,
                 JSON.stringify({
                   payoutId: payout.id,
                   failureCode: payout.failure_code,

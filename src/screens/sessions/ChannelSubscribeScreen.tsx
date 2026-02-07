@@ -23,6 +23,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface ChannelTier {
   id: string;
@@ -53,6 +54,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
   const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
   const { creatorId, tier } = route.params;
 
   const [creator, setCreator] = useState<Creator>({
@@ -189,7 +191,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
             <View style={styles.tierTitleContainer}>
               <Text style={styles.tierName}>{tier.name}</Text>
               <View style={styles.tierPriceRow}>
-                <Text style={styles.tierPrice}>{tier.price.toFixed(2)} €</Text>
+                <Text style={styles.tierPrice}>{formatCurrencyAmount(Math.round(tier.price * 100))}</Text>
                 <Text style={styles.tierPeriod}>/month</Text>
               </View>
             </View>
@@ -214,7 +216,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
           <View style={styles.billingRow}>
             <Text style={styles.billingLabel}>Monthly subscription</Text>
-            <Text style={styles.billingValue}>{tier.price.toFixed(2)} €/month</Text>
+            <Text style={styles.billingValue}>{formatCurrencyAmount(Math.round(tier.price * 100))}/month</Text>
           </View>
 
           <View style={styles.billingRow}>
@@ -291,7 +293,7 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
               <>
                 <Ionicons name="heart" size={20} color={colors.white} />
                 <Text style={styles.subscribeButtonText}>
-                  Subscribe for {tier.price.toFixed(2)} €/month
+                  Subscribe for {formatCurrencyAmount(Math.round(tier.price * 100))}/month
                 </Text>
               </>
             )}

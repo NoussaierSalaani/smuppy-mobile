@@ -27,6 +27,7 @@ import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment, LiveReaction } from '../../hooks';
 import { RemoteVideoView } from '../../components/AgoraVideoView';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useCurrency } from '../../hooks/useCurrency';
 
 const { width, height: _height } = Dimensions.get('window');
 
@@ -57,6 +58,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const params = (route.params || {}) as RouteParams;
   const { colors, isDark } = useTheme();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const {
@@ -461,7 +463,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
                 >
                   <Text style={styles.giftEmoji}>{gift.emoji}</Text>
                   <Text style={styles.giftName}>{gift.name}</Text>
-                  <Text style={styles.giftPrice}>${gift.price}</Text>
+                  <Text style={styles.giftPrice}>{formatCurrencyAmount(Math.round(gift.price * 100))}</Text>
                 </TouchableOpacity>
               ))}
             </View>

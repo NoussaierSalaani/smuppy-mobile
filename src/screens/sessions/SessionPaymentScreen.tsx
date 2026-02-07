@@ -20,6 +20,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatFullDateShort } from '../../utils/dateFormatters';
+import { useCurrency } from '../../hooks/useCurrency';
 
 export default function SessionPaymentScreen(): React.JSX.Element {
   const navigation = useNavigation<{ goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
@@ -28,6 +29,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
 
   const { showError, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -127,22 +129,22 @@ export default function SessionPaymentScreen(): React.JSX.Element {
               {formatDate()} • {time} • {duration} min
             </Text>
           </View>
-          <Text style={styles.price}>${price}</Text>
+          <Text style={styles.price}>{formatCurrencyAmount(Math.round(price * 100))}</Text>
         </View>
 
         {/* Payment Info */}
         <View style={styles.paymentInfo}>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Session fee</Text>
-            <Text style={styles.paymentValue}>${price.toFixed(2)}</Text>
+            <Text style={styles.paymentValue}>{formatCurrencyAmount(Math.round(price * 100))}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Service fee</Text>
-            <Text style={styles.paymentValue}>$0.00</Text>
+            <Text style={styles.paymentValue}>{formatCurrencyAmount(0)}</Text>
           </View>
           <View style={[styles.paymentRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>${price.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>{formatCurrencyAmount(Math.round(price * 100))}</Text>
           </View>
         </View>
 
@@ -192,7 +194,7 @@ export default function SessionPaymentScreen(): React.JSX.Element {
               </>
             ) : (
               <>
-                <Text style={styles.payButtonText}>Pay ${price.toFixed(2)}</Text>
+                <Text style={styles.payButtonText}>Pay {formatCurrencyAmount(Math.round(price * 100))}</Text>
                 <Ionicons name="arrow-forward" size={20} color="white" />
               </>
             )}

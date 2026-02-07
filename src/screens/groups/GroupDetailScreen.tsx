@@ -246,7 +246,7 @@ const GroupDetailScreen: React.FC<{ navigation: { navigate: (screen: string, par
             <View style={styles.detailRow}>
               <Ionicons name="cash-outline" size={normalize(18)} color={colors.primary} />
               <Text style={styles.detailText}>
-                {group.is_free ? 'Free' : `$${group.price} ${group.currency || 'CAD'}`}
+                {group.is_free ? 'Free' : `${group.price} ${(group.currency || 'CAD').toUpperCase()}`}
               </Text>
             </View>
           </View>

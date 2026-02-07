@@ -19,6 +19,7 @@ import { awsAPI, SessionPack } from '../../services/aws-api';
 import OptimizedImage from '../../components/OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { ScreenSkeleton } from '../../components/skeleton';
+import { useCurrency } from '../../hooks/useCurrency';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -53,6 +54,7 @@ export default function BookSessionScreen(): React.JSX.Element {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const route = useRoute<{ key: string; name: string; params: { creatorId?: string; creator?: CreatorInfo } }>();
   const { colors, isDark } = useTheme();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
 
   const { creatorId, creator: routeCreator } = route.params || {};
 
@@ -381,7 +383,7 @@ export default function BookSessionScreen(): React.JSX.Element {
                       {duration.label}
                     </Text>
                     <Text style={[styles.durationPrice, isSelected && styles.durationPriceSelected]}>
-                      ${duration.price}
+                      {formatCurrencyAmount(duration.price * 100)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -436,7 +438,7 @@ export default function BookSessionScreen(): React.JSX.Element {
                       <Text style={styles.packDescription}>{pack.description}</Text>
                     )}
 
-                    <Text style={styles.packPrice}>${pack.price}</Text>
+                    <Text style={styles.packPrice}>{formatCurrencyAmount(pack.price * 100)}</Text>
                   </TouchableOpacity>
                 );
               })
@@ -452,9 +454,9 @@ export default function BookSessionScreen(): React.JSX.Element {
         <View style={styles.priceInfo}>
           <Text style={styles.priceLabel}>Total</Text>
           <Text style={styles.priceValue}>
-            ${bookingMode === 'single'
+            {formatCurrencyAmount((bookingMode === 'single'
               ? (selectedDurationInfo?.price || 25)
-              : (packs.find(p => p.id === selectedPack)?.price || 0)}
+              : (packs.find(p => p.id === selectedPack)?.price || 0)) * 100)}
           </Text>
         </View>
         <TouchableOpacity

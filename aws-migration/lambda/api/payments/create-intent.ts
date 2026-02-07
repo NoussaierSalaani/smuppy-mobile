@@ -13,6 +13,7 @@ import { getPool } from '../../shared/db';
 import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments/create-intent');
 
@@ -76,6 +77,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 10 payment intents per minute
+    const { allowed } = await checkRateLimit({ prefix: 'payment-create', identifier: userId, windowSeconds: 60, maxRequests: 10 });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 

@@ -6,6 +6,15 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 
+// Revenue share tiers (must match wallet.ts and webhook.ts)
+function getCreatorSharePercent(fanCount: number): number {
+  if (fanCount >= 1000000) return 80; // Diamond
+  if (fanCount >= 100000) return 75;  // Platinum
+  if (fanCount >= 10000) return 70;   // Gold
+  if (fanCount >= 1000) return 65;    // Silver
+  return 60;                          // Bronze
+}
+
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
@@ -25,7 +34,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Verify user is a creator
     const userResult = await pool.query(
-      `SELECT account_type, stripe_account_id FROM profiles WHERE id = $1`,
+      `SELECT account_type, stripe_account_id,
+              (SELECT COUNT(*) FROM follows WHERE following_id = $1 AND status = 'accepted') AS fan_count
+       FROM profiles WHERE id = $1`,
       [userId]
     );
 
@@ -36,6 +47,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         body: JSON.stringify({ success: false, message: 'Creator account required' }),
       };
     }
+
+    const fanCount = parseInt(userResult.rows[0].fan_count || '0');
+    const creatorShare = getCreatorSharePercent(fanCount) / 100; // e.g. 0.60 – 0.80
 
     const period = event.queryStringParameters?.period || 'month'; // 'week', 'month', 'year', 'all'
     const limit = parseInt(event.queryStringParameters?.limit || '20');
@@ -57,41 +71,41 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         startDate = new Date(0); // All time
     }
 
-    // Get earnings from completed sessions
+    // Get earnings from completed sessions (tier-based creator share)
     const sessionsEarnings = await pool.query(
       `SELECT
         COUNT(*) as session_count,
-        COALESCE(SUM(price * 0.80), 0) as sessions_total
+        COALESCE(SUM(price * $3), 0) as sessions_total
        FROM private_sessions
        WHERE creator_id = $1 AND status = 'completed'
        AND created_at >= $2`,
-      [userId, startDate.toISOString()]
+      [userId, startDate.toISOString(), creatorShare]
     );
 
-    // Get earnings from pack purchases
+    // Get earnings from pack purchases (tier-based creator share)
     const packsEarnings = await pool.query(
       `SELECT
         COUNT(*) as pack_count,
-        COALESCE(SUM(amount * 0.80), 0) as packs_total
+        COALESCE(SUM(amount * $3), 0) as packs_total
        FROM pending_pack_purchases
        WHERE creator_id = $1 AND status = 'completed'
        AND created_at >= $2`,
-      [userId, startDate.toISOString()]
+      [userId, startDate.toISOString(), creatorShare]
     );
 
-    // Get earnings from subscriptions
+    // Get earnings from subscriptions (tier-based creator share)
     const subscriptionsEarnings = await pool.query(
       `SELECT
         COUNT(DISTINCT subscriber_id) as subscriber_count,
-        COALESCE(SUM(p.amount * 0.80), 0) as subscriptions_total
+        COALESCE(SUM(p.amount * $3), 0) as subscriptions_total
        FROM channel_subscriptions cs
        LEFT JOIN payments p ON p.subscription_id = cs.id
        WHERE cs.creator_id = $1
        AND p.created_at >= $2`,
-      [userId, startDate.toISOString()]
+      [userId, startDate.toISOString(), creatorShare]
     );
 
-    // Get recent transactions
+    // Get recent transactions (tier-based creator share, currency from payment record)
     const transactions = await pool.query(
       `SELECT
         id, type, amount, currency, status, description,
@@ -99,27 +113,31 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        FROM (
          -- Sessions
          SELECT
-           ps.id, 'session' as type, ps.price * 0.80 as amount, 'EUR' as currency,
+           ps.id, 'session' as type, ps.price * $3 as amount,
+           COALESCE(py.currency, 'eur') as currency,
            ps.status, CONCAT('Session with ', fp.full_name) as description,
            ps.fan_id as buyer_id, ps.created_at
          FROM private_sessions ps
          JOIN profiles fp ON ps.fan_id = fp.id
+         LEFT JOIN payments py ON py.session_id = ps.id
          WHERE ps.creator_id = $1 AND ps.status = 'completed'
 
          UNION ALL
 
          -- Pack purchases
          SELECT
-           ppp.id, 'pack' as type, ppp.amount * 0.80 as amount, 'EUR' as currency,
+           ppp.id, 'pack' as type, ppp.amount * $3 as amount,
+           COALESCE(py.currency, 'eur') as currency,
            ppp.status, CONCAT('Pack: ', sp.name) as description,
            ppp.user_id as buyer_id, ppp.created_at
          FROM pending_pack_purchases ppp
          JOIN session_packs sp ON ppp.pack_id = sp.id
+         LEFT JOIN payments py ON py.pack_id = ppp.id
          WHERE ppp.creator_id = $1 AND ppp.status = 'completed'
        ) combined
        ORDER BY created_at DESC
        LIMIT $2`,
-      [userId, limit]
+      [userId, limit, creatorShare]
     );
 
     // Get buyer info for transactions

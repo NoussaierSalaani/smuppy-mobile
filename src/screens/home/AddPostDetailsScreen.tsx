@@ -130,9 +130,12 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
   // Dynamic visibility options based on account type
   // Pro creators can restrict content to paid subscribers
-  const VISIBILITY_OPTIONS = user?.accountType === 'pro_creator'
-    ? [...BASE_VISIBILITY_OPTIONS.slice(0, 2), SUBSCRIBERS_OPTION, BASE_VISIBILITY_OPTIONS[2]]
-    : BASE_VISIBILITY_OPTIONS;
+  // Business accounts can only post publicly
+  const VISIBILITY_OPTIONS = user?.accountType === 'pro_business'
+    ? [BASE_VISIBILITY_OPTIONS[0]] // public only
+    : user?.accountType === 'pro_creator'
+      ? [...BASE_VISIBILITY_OPTIONS.slice(0, 2), SUBSCRIBERS_OPTION, BASE_VISIBILITY_OPTIONS[2]]
+      : BASE_VISIBILITY_OPTIONS;
 
   // State
   const [description, setDescription] = useState('');

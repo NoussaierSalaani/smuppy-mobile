@@ -328,7 +328,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
     }
   };
 
-  // Si sur Xplorer, ne pas afficher le BottomNav
+  // If on Xplorer, don't show the BottomNav
   if (bottomBarHidden) {
     return null;
   }

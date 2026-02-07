@@ -27,6 +27,7 @@ import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI, Session, SessionPack as APISessionPack } from '../../services/aws-api';
+import { useCurrency } from '../../hooks/useCurrency';
 
 type TabType = 'calendar' | 'requests' | 'packs';
 type SessionMode = 'unique' | 'range';
@@ -109,6 +110,8 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const { colors, isDark } = useTheme();
   const { showAlert, showSuccess, showError, showDestructiveConfirm, showConfirm } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
+
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -657,7 +660,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             </View>
           )}
 
-          <Text style={styles.packPrice}>${pack.price}/month</Text>
+          <Text style={styles.packPrice}>{formatCurrencyAmount(Math.round(pack.price * 100))}/month</Text>
           <View style={styles.packActions}>
             <TouchableOpacity style={styles.packEditBtn}>
               <Ionicons name="pencil-outline" size={16} color={colors.dark} />

@@ -502,8 +502,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     fetchPosts(0, true).finally(() => setIsLoading(false));
   }, [fetchPosts]);
 
-  // Fetch peaks for carousel
+  // Fetch peaks for carousel (skip for business accounts — they don't see the carousel)
   useEffect(() => {
+    if (isBusiness) return;
     const toCdn = (url?: string | null) => {
       if (!url) return null;
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
@@ -1202,11 +1203,13 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         onClose={shareModal.close}
       />
 
-      {/* Vibe Guardian Overlay — anti-doom-scroll */}
-      <VibeGuardianOverlay
-        visible={isGuardianAlert}
-        onDismiss={dismissGuardianAlert}
-      />
+      {/* Vibe Guardian Overlay — anti-doom-scroll (not for business accounts) */}
+      {!isBusiness && (
+        <VibeGuardianOverlay
+          visible={isGuardianAlert}
+          onDismiss={dismissGuardianAlert}
+        />
+      )}
 
       {/* Session Recap Modal (not for business accounts) */}
       {accountType !== 'pro_business' && (

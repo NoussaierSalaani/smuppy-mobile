@@ -1,6 +1,6 @@
 /**
- * CooldownModal - Modal de countdown avec timer
- * 
+ * CooldownModal - Countdown modal with timer
+ *
  * Usage:
  *   import CooldownModal, { useCooldown } from '../components/CooldownModal';
  *   const { canAction, remainingTime, showModal, setShowModal, tryAction } = useCooldown(30);
@@ -188,8 +188,8 @@ export default function CooldownModal({
 // ============================================
 
 /**
- * Hook pour gérer le cooldown
- * @param {number} cooldownSeconds - Durée du cooldown en secondes
+ * Hook to manage cooldown
+ * @param {number} cooldownSeconds - Cooldown duration in seconds
  * @returns {Object} - { canAction, startCooldown, remainingTime, showModal, setShowModal, tryAction }
  */
 export function useCooldown(cooldownSeconds = 30) {

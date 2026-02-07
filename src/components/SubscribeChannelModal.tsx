@@ -14,6 +14,7 @@ import { AvatarImage } from './OptimizedImage';
 import { GRADIENTS } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
+import { useCurrency } from '../hooks/useCurrency';
 
 interface SubscriptionTier {
   id: string;
@@ -83,6 +84,7 @@ export default function SubscribeChannelModal({
 }: SubscribeChannelModalProps): React.JSX.Element {
   const { showSuccess, showConfirm } = useSmuppyAlert();
   const { colors, isDark } = useTheme();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [selectedTier, setSelectedTier] = useState<string>('premium');
 
@@ -91,7 +93,7 @@ export default function SubscribeChannelModal({
     if (tier) {
       showConfirm(
         'Confirm Subscription',
-        `Subscribe to ${creatorName}'s ${tier.name} plan for $${tier.price}/${tier.period}?`,
+        `Subscribe to ${creatorName}'s ${tier.name} plan for ${formatCurrencyAmount(Math.round(tier.price * 100))}/${tier.period}?`,
         () => {
           onSubscribe?.(selectedTier);
           onClose();
@@ -152,7 +154,7 @@ export default function SubscribeChannelModal({
                       styles.tierPrice,
                       selectedTier === tier.id && styles.tierPriceSelected,
                     ]}>
-                      ${tier.price}
+                      {formatCurrencyAmount(Math.round(tier.price * 100))}
                     </Text>
                     <Text style={styles.tierPeriod}>/{tier.period}</Text>
                   </View>
@@ -199,7 +201,7 @@ export default function SubscribeChannelModal({
               style={styles.subscribeButton}
             >
               <Text style={styles.subscribeButtonText}>
-                Subscribe for ${SUBSCRIPTION_TIERS.find(t => t.id === selectedTier)?.price}/month
+                Subscribe for {formatCurrencyAmount(Math.round((SUBSCRIPTION_TIERS.find(t => t.id === selectedTier)?.price || 0) * 100))}/month
               </Text>
             </LinearGradient>
           </TouchableOpacity>

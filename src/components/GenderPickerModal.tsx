@@ -29,12 +29,12 @@ const GENDER_OPTIONS: GenderOption[] = [
 ];
 
 /**
- * GenderPickerModal - Modal custom pour sélectionner le genre
- * 
- * @param {boolean} visible - Afficher/cacher le modal
- * @param {function} onClose - Callback quand on ferme
- * @param {function} onSelect - Callback avec le genre sélectionné
- * @param {string} selectedGender - Genre actuellement sélectionné
+ * GenderPickerModal - Custom modal to select gender
+ *
+ * @param {boolean} visible - Show/hide the modal
+ * @param {function} onClose - Callback when closing
+ * @param {function} onSelect - Callback with selected gender
+ * @param {string} selectedGender - Currently selected gender
  */
 export default function GenderPickerModal({ visible, onClose, onSelect, selectedGender }: GenderPickerModalProps) {
   const { colors, isDark } = useTheme();

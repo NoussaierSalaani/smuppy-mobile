@@ -24,6 +24,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { formatNumber } from '../../utils/formatters';
+import { useCurrency } from '../../hooks/useCurrency';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -68,6 +69,7 @@ export default function ChannelSubscriptionScreen() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -108,7 +110,7 @@ export default function ChannelSubscriptionScreen() {
   }, [fetchChannelInfo, checkSubscription]);
 
   const formatCurrency = (cents: number) => {
-    return `$${(cents / 100).toFixed(2)}`;
+    return formatCurrencyAmount(cents);
   };
 
 

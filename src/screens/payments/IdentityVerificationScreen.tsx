@@ -112,7 +112,7 @@ export default function IdentityVerificationScreen() {
         maximumFractionDigits: 2,
       }).format(amountCents / 100);
     } catch {
-      return `$${(amountCents / 100).toFixed(2)}`;
+      return `${(amountCents / 100).toFixed(2)} ${(currency || 'USD').toUpperCase()}`;
     }
   }, []);
 

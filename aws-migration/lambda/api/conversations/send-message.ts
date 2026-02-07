@@ -125,6 +125,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? conversation.participant_2_id
       : conversation.participant_1_id;
 
+    // Check if either user has blocked the other
+    const blockCheck = await db.query(
+      `SELECT 1 FROM blocks
+       WHERE (user_id = $1 AND blocked_user_id = $2)
+          OR (user_id = $2 AND blocked_user_id = $1)
+       LIMIT 1`,
+      [profile.id, recipientId]
+    );
+    if (blockCheck.rows.length > 0) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Cannot send message to this user' }),
+      };
+    }
+
     // Insert message and update conversation in a transaction
     const client = await db.connect();
     let message;

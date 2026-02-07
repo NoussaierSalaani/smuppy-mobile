@@ -60,10 +60,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profileId = userResult.rows[0].id;
 
-    // Delete message only if user is the sender
+    // Soft-delete message only if user is the sender
     const result = await db.query(
-      `DELETE FROM messages
-       WHERE id = $1 AND sender_id = $2
+      `UPDATE messages
+       SET is_deleted = true, content = '', media_url = NULL, updated_at = NOW()
+       WHERE id = $1 AND sender_id = $2 AND is_deleted = false
        RETURNING id`,
       [messageId, profileId]
     );

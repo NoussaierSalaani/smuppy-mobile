@@ -97,6 +97,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (type === 'following' && requesterId) {
       // FanFeed: posts from people I follow OR people who follow me (mutual fan relationship)
+      // Exclude business account posts — they belong in Xplorer, not FanFeed
       query = `
         SELECT DISTINCT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
@@ -112,6 +113,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = p.author_id AND f.following_id = $1 AND f.status = 'accepted')
         )
         AND p.author_id != $1
+        AND u.account_type != 'pro_business'
         ${cursor ? 'AND p.created_at < $3' : ''}
         ORDER BY p.created_at DESC LIMIT $2
       `;

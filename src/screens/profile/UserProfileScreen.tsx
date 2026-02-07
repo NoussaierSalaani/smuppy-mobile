@@ -1319,7 +1319,7 @@ const UserProfileScreen = () => {
         </View>
       </Modal>
 
-      {/* Modal Fan Required (pour commenter) */}
+      {/* Modal Fan Required (to comment) */}
       <Modal
         visible={showFanRequiredModal}
         transparent

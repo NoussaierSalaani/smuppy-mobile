@@ -781,7 +781,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const handleAcceptChallenge = (): void => {
     if (isBusiness) return;
     navigation.navigate('CreatePeak', {
-      challengeId: currentPeak.id,
+      challengeId: currentPeak.challengeId,
       challengeTitle: currentPeak.challengeTitle,
     });
   };

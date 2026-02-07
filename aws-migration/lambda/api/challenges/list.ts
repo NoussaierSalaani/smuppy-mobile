@@ -20,16 +20,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const filter = event.queryStringParameters?.filter || 'trending'; // trending, created, tagged, responded
 
-    // Resolve cognito sub to profile ID for user-specific filters
+    // Resolve cognito sub to profile ID (needed for all filters)
     let userId: string | undefined;
-    if (cognitoSub && ['created', 'tagged', 'responded'].includes(filter)) {
+    if (cognitoSub) {
       const profileResult = await client.query(
         'SELECT id FROM profiles WHERE cognito_sub = $1',
         [cognitoSub]
       );
       userId = profileResult.rows[0]?.id;
-    } else {
-      userId = cognitoSub;
     }
     const creatorId = event.queryStringParameters?.creatorId;
     const category = event.queryStringParameters?.category;
@@ -141,15 +139,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const result = await client.query(query, params);
 
     // Check if current user has responded (if logged in)
-    // Resolve profile ID for response check if not already resolved
-    let profileIdForResponseCheck = userId;
-    if (cognitoSub && !['created', 'tagged', 'responded'].includes(filter)) {
-      const pResult = await client.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      profileIdForResponseCheck = pResult.rows[0]?.id;
-    }
+    const profileIdForResponseCheck = userId;
     let userResponses: Record<string, boolean> = {};
     if (profileIdForResponseCheck && result.rows.length > 0) {
       const challengeIds = result.rows.map((r: Record<string, unknown>) => r.id);

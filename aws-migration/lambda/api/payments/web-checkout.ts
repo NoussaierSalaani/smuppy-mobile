@@ -69,7 +69,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Rate limit: 10 checkout creations per minute, 30 status checks per minute
     const rateLimitPrefix = event.httpMethod === 'POST' ? 'web-checkout' : 'web-checkout-status';
     const maxReqs = event.httpMethod === 'POST' ? 10 : 30;
-    const rateCheck = await checkRateLimit({ prefix: rateLimitPrefix, identifier: user.sub, maxRequests: maxReqs });
+    const isCheckoutCreation = event.httpMethod === 'POST';
+    const rateCheck = await checkRateLimit({ prefix: rateLimitPrefix, identifier: user.sub, maxRequests: maxReqs, ...(isCheckoutCreation && { failOpen: false }) });
     if (!rateCheck.allowed) {
       return {
         statusCode: 429,

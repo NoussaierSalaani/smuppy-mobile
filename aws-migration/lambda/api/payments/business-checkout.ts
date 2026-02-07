@@ -64,7 +64,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit: 5 requests per minute per user
-    const rateCheck = await checkRateLimit({ prefix: 'biz-checkout', identifier: user.id, maxRequests: 5 });
+    const rateCheck = await checkRateLimit({ prefix: 'biz-checkout', identifier: user.id, maxRequests: 5, failOpen: false });
     if (!rateCheck.allowed) {
       return {
         statusCode: 429,

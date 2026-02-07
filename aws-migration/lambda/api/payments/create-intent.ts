@@ -81,7 +81,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 10 payment intents per minute
-    const { allowed } = await checkRateLimit({ prefix: 'payment-create', identifier: userId, windowSeconds: 60, maxRequests: 10 });
+    const { allowed } = await checkRateLimit({ prefix: 'payment-create', identifier: userId, windowSeconds: 60, maxRequests: 10, failOpen: false });
     if (!allowed) {
       return {
         statusCode: 429,

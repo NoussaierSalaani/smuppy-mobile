@@ -32,7 +32,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'biz-sub-cancel', identifier: user.sub, windowSeconds: 60, maxRequests: 5 });
+    const { allowed } = await checkRateLimit({ prefix: 'biz-sub-cancel', identifier: user.sub, windowSeconds: 60, maxRequests: 5, failOpen: false });
     if (!allowed) {
       return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
     }

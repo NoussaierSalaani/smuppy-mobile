@@ -62,6 +62,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       prefix: isWrite ? 'refund-create' : 'refund-read',
       identifier: user.id,
       maxRequests: isWrite ? 3 : 20,
+      ...(isWrite && { failOpen: false }),
     });
     if (!rateCheck.allowed) {
       return {

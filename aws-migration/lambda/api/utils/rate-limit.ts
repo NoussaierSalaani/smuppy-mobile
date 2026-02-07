@@ -1,7 +1,10 @@
 /**
  * Shared Rate Limiting Utility
  * Uses DynamoDB atomic counters with TTL for distributed rate limiting.
- * Fail-closed: blocks requests if DynamoDB is unavailable.
+ *
+ * Default: fail-open — if DynamoDB is unavailable, allow the request
+ * (WAF provides baseline protection). Set failOpen: false for
+ * payment/financial endpoints that must fail-closed.
  */
 
 import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
@@ -26,10 +29,12 @@ interface RateLimitOptions {
   windowSeconds?: number;
   /** Max requests per window (default: 10) */
   maxRequests?: number;
+  /** If true (default), allow requests when DynamoDB is unavailable. Set false for payment endpoints. */
+  failOpen?: boolean;
 }
 
 export const checkRateLimit = async (options: RateLimitOptions): Promise<RateLimitResult> => {
-  const { prefix, identifier, windowSeconds = 60, maxRequests = 10 } = options;
+  const { prefix, identifier, windowSeconds = 60, maxRequests = 10, failOpen = true } = options;
   const now = Math.floor(Date.now() / 1000);
   const windowKey = `${prefix}#${identifier}#${Math.floor(now / windowSeconds)}`;
   const windowEnd = (Math.floor(now / windowSeconds) + 1) * windowSeconds;
@@ -57,9 +62,12 @@ export const checkRateLimit = async (options: RateLimitOptions): Promise<RateLim
 
     return { allowed: true };
   } catch (error) {
-    // Fail-closed: if rate limit check fails (e.g. DynamoDB permission/connectivity issue),
-    // block the request to prevent potential abuse during outages.
-    // Per CLAUDE.md: rate limit ALL endpoints that create resources or cost money
+    if (failOpen) {
+      // Fail-open: allow the request but log the error. WAF provides baseline protection.
+      log.error('Rate limit check failed, allowing request (fail-open)', error);
+      return { allowed: true };
+    }
+    // Fail-closed: block the request (used for payment/financial endpoints)
     log.error('Rate limit check failed, blocking request (fail-closed)', error);
     return { allowed: false, retryAfter: 60 };
   }

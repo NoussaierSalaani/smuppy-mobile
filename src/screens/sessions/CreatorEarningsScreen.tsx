@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
 import { formatRelativeTime } from '../../utils/dateFormatters';
+import { useCurrency } from '../../hooks/useCurrency';
 
 const { width } = Dimensions.get('window');
 
@@ -62,6 +63,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const { colors, isDark } = useTheme();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('month');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -139,9 +141,9 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
     }
   };
 
-  const formatAmount = (amount: number): string => {
+  const formatEarningsAmount = (amount: number): string => {
     const sign = amount >= 0 ? '+' : '';
-    return `${sign}${amount.toFixed(2)} €`;
+    return `${sign}${formatCurrencyAmount(Math.round(amount * 100))}`;
   };
 
   const periods: { key: PeriodType; label: string }[] = [
@@ -196,16 +198,16 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
                 <Ionicons name="arrow-forward" size={16} color={colors.white} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.balanceAmount}>{balance.available.toFixed(2)} €</Text>
+            <Text style={styles.balanceAmount}>{formatCurrencyAmount(Math.round(balance.available * 100))}</Text>
             <View style={styles.balanceDetails}>
               <View style={styles.balanceItem}>
                 <Text style={styles.balanceItemLabel}>Pending</Text>
-                <Text style={styles.balanceItemValue}>{balance.pending.toFixed(2)} €</Text>
+                <Text style={styles.balanceItemValue}>{formatCurrencyAmount(Math.round(balance.pending * 100))}</Text>
               </View>
               <View style={styles.balanceDivider} />
               <View style={styles.balanceItem}>
                 <Text style={styles.balanceItemLabel}>Total earned</Text>
-                <Text style={styles.balanceItemValue}>{balance.lifetime.toFixed(2)} €</Text>
+                <Text style={styles.balanceItemValue}>{formatCurrencyAmount(Math.round(balance.lifetime * 100))}</Text>
               </View>
             </View>
           </LinearGradient>
@@ -246,7 +248,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
             <View style={[styles.statIcon, { backgroundColor: '#EC489920' }]}>
               <Ionicons name="heart" size={22} color="#EC4899" />
             </View>
-            <Text style={styles.statValue}>{stats.tipsReceived.toFixed(0)}€</Text>
+            <Text style={styles.statValue}>{formatCurrencyAmount(Math.round(stats.tipsReceived * 100))}</Text>
             <Text style={styles.statLabel}>Tips</Text>
           </View>
           <View style={styles.statCard}>
@@ -340,7 +342,7 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
                 styles.transactionAmount,
                 { color: transaction.amount >= 0 ? colors.primary : '#FF4444' }
               ]}>
-                {formatAmount(transaction.amount)}
+                {formatEarningsAmount(transaction.amount)}
               </Text>
             </View>
           ))}

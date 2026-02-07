@@ -23,6 +23,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface Pack {
   id: string;
@@ -55,6 +56,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
 
   const { showError, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
+  const { formatAmount: formatCurrencyAmount } = useCurrency();
   const { creatorId, pack } = route.params;
 
   const [creator, setCreator] = useState<Creator | null>(null);
@@ -215,7 +217,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>{pack.name}</Text>
-            <Text style={styles.summaryValue}>{pack.price.toFixed(2)} €</Text>
+            <Text style={styles.summaryValue}>{formatCurrencyAmount(Math.round(pack.price * 100))}</Text>
           </View>
 
           <View style={styles.summaryRow}>
@@ -223,7 +225,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
               Price per session
             </Text>
             <Text style={styles.summaryValueMuted}>
-              {(pack.price / pack.sessionsIncluded).toFixed(2)} €
+              {formatCurrencyAmount(Math.round((pack.price / pack.sessionsIncluded) * 100))}
             </Text>
           </View>
 
@@ -231,7 +233,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
 
           <View style={styles.summaryRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{pack.price.toFixed(2)} €</Text>
+            <Text style={styles.totalValue}>{formatCurrencyAmount(Math.round(pack.price * 100))}</Text>
           </View>
         </View>
 
@@ -262,7 +264,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.priceDisplay}>
           <Text style={styles.priceLabel}>Total</Text>
-          <Text style={styles.priceValue}>{pack.price.toFixed(2)} €</Text>
+          <Text style={styles.priceValue}>{formatCurrencyAmount(Math.round(pack.price * 100))}</Text>
         </View>
         <TouchableOpacity
           style={[styles.payButton, loading && styles.payButtonDisabled]}

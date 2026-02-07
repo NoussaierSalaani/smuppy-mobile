@@ -62,6 +62,11 @@ let vibesFeedCache: { posts: UIVibePost[]; timestamp: number; page: number } = {
   page: 0,
 };
 
+/** Clear the module-level feed cache (call on logout/account switch) */
+export const clearVibesFeedCache = () => {
+  vibesFeedCache = { posts: [], timestamp: 0, page: 0 };
+};
+
 const _PEAKS_DATA: { id: string; videoUrl?: string; thumbnail: string; user: { id: string; name: string; avatar: string | null }; duration: number; hasNew: boolean }[] = [];
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
 

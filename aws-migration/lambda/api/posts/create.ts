@@ -17,14 +17,14 @@ const MAX_CONTENT_LENGTH = 5000;
 const MAX_MEDIA_URLS = 10;
 const MAX_MEDIA_URL_LENGTH = 2048;
 const MAX_TAGGED_USERS = 20;
-const ALLOWED_VISIBILITIES = new Set(['public', 'followers', 'fans', 'private', 'subscribers']);
+const ALLOWED_VISIBILITIES = new Set(['public', 'fans', 'private', 'subscribers']);
 const ALLOWED_MEDIA_TYPES = new Set(['image', 'video', 'multiple']);
 
 interface CreatePostInput {
   content?: string;
   mediaUrls?: string[];
   mediaType?: 'image' | 'video' | 'multiple';
-  visibility?: 'public' | 'followers' | 'fans' | 'private' | 'subscribers';
+  visibility?: 'public' | 'fans' | 'private' | 'subscribers';
   location?: string;
   taggedUsers?: string[];
 }
@@ -128,7 +128,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getPool();
 
     const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
       [cognitoSub]
     );
 
@@ -141,6 +141,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const userId = userResult.rows[0].id;
+    const accountType = userResult.rows[0].account_type;
+
+    // Only pro_creator accounts can use 'subscribers' visibility
+    if (body.visibility === 'subscribers' && accountType !== 'pro_creator') {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Subscribers visibility requires a creator account' }),
+      };
+    }
+
     const postId = uuidv4();
 
     const validTaggedIds = (Array.isArray(body.taggedUsers) ? body.taggedUsers : [])

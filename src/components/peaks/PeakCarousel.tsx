@@ -45,7 +45,7 @@ const PeakCarousel = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Animation de fade in/out
+  // Fade in/out animation
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: visible ? 1 : 0,

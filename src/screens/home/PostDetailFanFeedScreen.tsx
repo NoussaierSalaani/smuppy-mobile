@@ -698,11 +698,11 @@ const PostDetailFanFeedScreen = () => {
                 <Text style={styles.userName}>{item.user.name}</Text>
               </TouchableOpacity>
               
-              {/* Bouton Fan - logique:
-                  - Si on vérifie le statut → pas de bouton (évite le clignotement)
-                  - Si déjà fan → pas de bouton (rien)
-                  - Si pas fan + ils me suivent → "Track"
-                  - Si pas fan + ils me suivent pas → "+ Fan"
+              {/* Fan button logic:
+                  - Checking fan status → no button (prevents flicker)
+                  - Already a fan → no button
+                  - Not a fan + they follow me → "Track"
+                  - Not a fan + they don't follow me → "+ Fan"
               */}
               {!isOwnPost && !isCheckingFanStatus && !isFanOfUser && (
                 <TouchableOpacity

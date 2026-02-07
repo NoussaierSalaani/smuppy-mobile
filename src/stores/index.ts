@@ -437,6 +437,14 @@ export const resetAllStores = async () => {
   vibeStore.reset();
   themeStore.reset();
 
+  // Clear module-level feed caches to prevent cross-user data leaks
+  try {
+    const { clearVibesFeedCache } = await import('../screens/home/VibesFeed');
+    clearVibesFeedCache();
+  } catch {
+    // Best-effort cleanup
+  }
+
   // Clear React Query cache to prevent cross-user data leaks
   try {
     const { clearQueryCache } = await import('../lib/queryClient');

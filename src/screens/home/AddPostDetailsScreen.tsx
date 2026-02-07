@@ -1,10 +1,6 @@
 /**
- * AddPostDetailsScreen - Ecran d'ajout des details d'un post
- *
- * Corrections appliquees:
- * - setTimeout avec cleanup proper via useRef
- * - Toutes les couleurs utilisent le theme
- * - Code optimise et clean
+ * AddPostDetailsScreen
+ * Screen for adding details to a post before publishing.
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';

@@ -217,13 +217,13 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
               </TouchableOpacity>
             </View>
 
-            {/* Spacer invisible - DANS le scroll, pousse le contenu */}
+            {/* Invisible spacer — pushes content inside scroll */}
             <View style={styles.spacer} />
 
           </ScrollView>
         </KeyboardAvoidingView>
 
-        {/* Footer - HORS du KeyboardAvoidingView, ne bouge JAMAIS */}
+        {/* Footer — outside KeyboardAvoidingView, never moves */}
         <View style={styles.footer}>
         </View>
 
@@ -274,9 +274,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   resendLink: { fontSize: 14, fontWeight: '600', color: colors.primary },
   resendDisabled: { color: colors.gray },
 
-  // Spacer invisible - garde l'espace dans le scroll
+  // Invisible spacer — keeps space in scroll
   spacer: { flex: 1, minHeight: 200 },
 
-  // Footer - HORS du KeyboardAvoidingView
+  // Footer — outside KeyboardAvoidingView
   footer: { alignItems: 'center', paddingTop: 8, paddingBottom: 8 },
 });

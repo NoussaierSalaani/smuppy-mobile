@@ -414,7 +414,7 @@ const UserProfileScreen = () => {
     );
   };
 
-  // Gestion du bouton Fan
+  // Fan button handler
   const handleFanPress = () => {
     // Guard: don't allow on own profile or while loading
     if (isOwnProfile || isLoadingFollow) return;
@@ -631,7 +631,7 @@ const UserProfileScreen = () => {
     }
   };
 
-  // Formater la date de déblocage
+  // Format the unblock date
   const formatBlockDate = () => {
     if (!blockEndDate) return '';
     const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };

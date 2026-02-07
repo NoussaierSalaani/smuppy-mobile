@@ -55,6 +55,7 @@ interface Peak {
   filterIntensity?: number;
   overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
   expiresAt?: string;
+  isOwnPeak?: boolean;
 }
 
 type RootStackParamList = {
@@ -111,6 +112,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         filterIntensity: p.filterIntensity ?? undefined,
         overlays: p.overlays || undefined,
         expiresAt: p.expiresAt || undefined,
+        isOwnPeak: (p.author?.id || p.authorId) === user?.id,
       }));
       setPeaks(reset ? mapped : (prev) => [...prev, ...mapped]);
       setCursor(response.nextCursor);

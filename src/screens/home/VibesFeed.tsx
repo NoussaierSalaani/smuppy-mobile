@@ -45,8 +45,9 @@ import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing } from '../../services/database';
 import type { Peak } from '../../types';
 import { awsAPI } from '../../services/aws-api';
-import { usePrefetchProfile } from '../../hooks';
+import { usePrefetchProfile, useExpiredPeaks } from '../../hooks';
 import { formatNumber } from '../../utils/formatters';
+import ExpiredPeakModal from '../../components/peaks/ExpiredPeakModal';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 8; // SPACING.sm
@@ -100,6 +101,7 @@ interface PeakCardData {
   challengeId?: string;
   challengeTitle?: string;
   expiresAt?: string;
+  isOwnPeak?: boolean;
 }
 
 // Build unified lookup from interests + expertise + business categories (icon + color per name)
@@ -331,6 +333,16 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const accountType = useUserStore((state) => state.user?.accountType);
   const currentUserId = useUserStore((state) => state.user?.id);
   const isBusiness = accountType === 'pro_business';
+
+  // Expired peaks modal
+  const { expiredPeaks, savePeakToProfile, dismissPeak, downloadPeak } = useExpiredPeaks();
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+
+  useEffect(() => {
+    if (expiredPeaks.length > 0) {
+      setShowExpiredModal(true);
+    }
+  }, [expiredPeaks.length]);
 
   // Advanced Mood AI System (disabled for business accounts)
   const {
@@ -565,6 +577,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           challengeId: p.challenge?.id || undefined,
           challengeTitle: p.challenge?.title || undefined,
           expiresAt: p.expiresAt || undefined,
+          isOwnPeak: (p.author?.id || p.authorId) === currentUserId,
           hasNew,
         };
       }));
@@ -1281,6 +1294,16 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           onDismiss={dismissSessionRecap}
         />
       )}
+
+      {/* Expired Peaks Decision Modal */}
+      <ExpiredPeakModal
+        visible={showExpiredModal && expiredPeaks.length > 0}
+        peaks={expiredPeaks}
+        onSaveToProfile={savePeakToProfile}
+        onDownload={downloadPeak}
+        onDismiss={dismissPeak}
+        onAllDone={() => setShowExpiredModal(false)}
+      />
     </View>
   );
 });

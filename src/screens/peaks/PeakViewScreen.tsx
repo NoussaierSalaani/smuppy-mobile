@@ -24,6 +24,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode, AVPlaybackStatus, AVPlaybackStatusSuccess } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import OptimizedImage from '../../components/OptimizedImage';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
@@ -680,6 +682,46 @@ const PeakViewScreen = (): React.JSX.Element => {
           currentPeak.user.name
         );
         break;
+      case 'delete':
+        showDestructiveConfirm(
+          'Delete Peak',
+          'This peak will be permanently deleted.',
+          async () => {
+            try {
+              await awsAPI.deletePeak(currentPeak.id);
+              if (peaks.length <= 1) {
+                navigation.goBack();
+              } else if (currentIndex < peaks.length - 1) {
+                setCurrentIndex(currentIndex + 1);
+              } else {
+                setCurrentIndex(currentIndex - 1);
+              }
+              showSuccess('Deleted', 'Peak deleted successfully');
+            } catch (error) {
+              if (__DEV__) console.warn('[Peak] Failed to delete:', error);
+              showError('Error', 'Failed to delete peak');
+            }
+          },
+          'Delete'
+        );
+        break;
+      case 'download':
+        try {
+          const { status } = await MediaLibrary.requestPermissionsAsync();
+          if (status !== 'granted') {
+            showError('Permission required', 'Allow access to save videos');
+            return;
+          }
+          const fileUri = FileSystem.documentDirectory + 'peak_' + currentPeak.id + '.mov';
+          await FileSystem.downloadAsync(currentPeak.videoUrl!, fileUri);
+          await MediaLibrary.saveToLibraryAsync(fileUri);
+          await FileSystem.deleteAsync(fileUri, { idempotent: true });
+          showSuccess('Saved!', 'Video saved to your camera roll');
+        } catch (error) {
+          if (__DEV__) console.warn('[Peak] Failed to download:', error);
+          showError('Error', 'Failed to save video');
+        }
+        break;
     }
   };
 
@@ -1225,21 +1267,43 @@ const PeakViewScreen = (): React.JSX.Element => {
               <View style={styles.menuHandle} />
             </View>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => handleMenuAction('not_interested')}
-            >
-              <Ionicons name="eye-off-outline" size={24} color={isDark ? colors.white : colors.dark} />
-              <Text style={styles.menuItemText}>Not interested</Text>
-            </TouchableOpacity>
+            {_isOwnPeak ? (
+              <>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => handleMenuAction('download')}
+                >
+                  <Ionicons name="download-outline" size={24} color={isDark ? colors.white : colors.dark} />
+                  <Text style={styles.menuItemText}>Save to phone</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemDanger]}
-              onPress={() => handleMenuAction('report')}
-            >
-              <Ionicons name="flag-outline" size={24} color="#FF453A" />
-              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.menuItem, styles.menuItemDanger]}
+                  onPress={() => handleMenuAction('delete')}
+                >
+                  <Ionicons name="trash-outline" size={24} color="#FF453A" />
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => handleMenuAction('not_interested')}
+                >
+                  <Ionicons name="eye-off-outline" size={24} color={isDark ? colors.white : colors.dark} />
+                  <Text style={styles.menuItemText}>Not interested</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.menuItem, styles.menuItemDanger]}
+                  onPress={() => handleMenuAction('report')}
+                >
+                  <Ionicons name="flag-outline" size={24} color="#FF453A" />
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             <TouchableOpacity
               style={styles.menuCancelButton}

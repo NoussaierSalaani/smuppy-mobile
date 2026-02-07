@@ -56,6 +56,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pk.filter_intensity,
         pk.overlays,
         pk.expires_at,
+        pk.saved_to_profile,
         p.username as author_username,
         p.full_name as author_full_name,
         p.avatar_url as author_avatar_url,
@@ -153,6 +154,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       filterIntensity: peak.filter_intensity ?? null,
       overlays: peak.overlays || null,
       expiresAt: peak.expires_at || null,
+      savedToProfile: peak.saved_to_profile ?? null,
       isLiked: currentProfileId ? peak.is_liked : false,
       author: {
         id: peak.author_id,

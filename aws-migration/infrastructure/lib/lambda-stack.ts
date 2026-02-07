@@ -140,6 +140,8 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly peaksTagFn: NodejsFunction;
   public readonly peaksHideFn: NodejsFunction;
   public readonly peaksRepliesFn: NodejsFunction;
+  public readonly peaksExpiredFn: NodejsFunction;
+  public readonly peaksSaveDecisionFn: NodejsFunction;
 
   // Sessions
   public readonly sessionsListFn: NodejsFunction;
@@ -417,6 +419,8 @@ export class LambdaStack extends cdk.NestedStack {
     this.peaksTagFn = createLambda('PeaksTagFunction', 'peaks/tag');
     this.peaksHideFn = createLambda('PeaksHideFunction', 'peaks/hide');
     this.peaksRepliesFn = createLambda('PeaksRepliesFunction', 'peaks/replies');
+    this.peaksExpiredFn = createLambda('PeaksExpiredFunction', 'peaks/expired');
+    this.peaksSaveDecisionFn = createLambda('PeaksSaveDecisionFunction', 'peaks/save-decision');
 
     // ========================================
     // Sessions Lambda Functions

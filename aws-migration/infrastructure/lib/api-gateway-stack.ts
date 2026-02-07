@@ -262,6 +262,12 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const peaksHidden = peaks.addResource('hidden');
     peaksHidden.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksHideFn), authMethodOptions);
 
+    const peaksExpired = peaks.addResource('expired');
+    peaksExpired.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksExpiredFn), authMethodOptions);
+
+    const peakSaveDecision = peakById.addResource('save-decision');
+    peakSaveDecision.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksSaveDecisionFn), authWithBodyValidation);
+
     const peakReplies = peakById.addResource('replies');
     peakReplies.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksRepliesFn), authMethodOptions);
     peakReplies.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksRepliesFn), authWithBodyValidation);

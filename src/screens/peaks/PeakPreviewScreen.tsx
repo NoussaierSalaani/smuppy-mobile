@@ -187,6 +187,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         filterIntensity: filterIntensity ?? undefined,
         overlays: overlayData && overlayData.length > 0 ? overlayData : undefined,
         feedDuration: feedDuration as 24 | 48,
+        saveToProfile: saveToProfile,
       }) as unknown as { success?: boolean; peak?: { id: string }; message?: string };
 
       if (!peakResult || peakResult.success === false || !peakResult.peak?.id) {

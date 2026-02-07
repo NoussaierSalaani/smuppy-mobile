@@ -98,3 +98,6 @@ export { useAnalytics } from './useAnalytics';
 
 // Theme
 export { useTheme } from './useTheme';
+
+// Expired Peaks
+export { useExpiredPeaks } from './useExpiredPeaks';

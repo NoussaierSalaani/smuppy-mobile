@@ -807,6 +807,29 @@ class AWSAPIService {
     });
   }
 
+  /**
+   * Delete a peak (author only)
+   */
+  async deletePeak(id: string): Promise<{ success: boolean }> {
+    return this.request(`/peaks/${id}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Get expired peaks awaiting user decision
+   */
+  async getExpiredPeaks(): Promise<{ data: Peak[]; total: number }> {
+    return this.request('/peaks/expired');
+  }
+
+  /**
+   * Record save decision for an expired peak
+   */
+  async savePeakDecision(id: string, action: 'save_to_profile' | 'dismiss'): Promise<{ success: boolean }> {
+    return this.request(`/peaks/${id}/save-decision`, {
+      method: 'POST',
+      body: { action },
+    });
+  }
 
   // ==========================================
   // Comments API
@@ -3687,6 +3710,7 @@ export interface Peak {
   filterIntensity: number | null;
   overlays: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }> | null;
   expiresAt: string | null;
+  savedToProfile: boolean | null;
   isLiked?: boolean;
   author: Profile;
   challenge: PeakChallenge | null;
@@ -3741,6 +3765,7 @@ export interface CreatePeakInput {
   filterIntensity?: number;
   overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
   feedDuration?: 24 | 48;
+  saveToProfile?: boolean;
 }
 
 export interface UpdateProfileInput {

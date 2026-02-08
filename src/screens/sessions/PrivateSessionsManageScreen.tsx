@@ -82,7 +82,7 @@ interface _ScheduledSession {
   fanName?: string;
 }
 
-// No more mock data - we'll fetch from API
+// Calendar data is fetched from API via getCreatorAvailability + session requests
 
 const OFFERING_TYPES = [
   { key: 'training_program', label: 'Training Program', icon: 'barbell-outline' },
@@ -129,6 +129,8 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const [sessionRequests, setSessionRequests] = useState<SessionRequest[]>([]);
   const [creatorPacks, setCreatorPacks] = useState<SessionPack[]>([]);
   const [availableSlots, _setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [availabilityDates, setAvailabilityDates] = useState<string[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Protect route - only pro_creator can manage sessions
   useEffect(() => {
@@ -193,11 +195,34 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
     fetchData();
   }, [fetchData]);
 
+  // Fetch creator's availability slots for calendar display
+  const fetchAvailability = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth();
+      const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const response = await awsAPI.getCreatorAvailability(user.id, { startDate, days: daysInMonth });
+      if (response.success && response.availableSlots) {
+        setAvailabilityDates(response.availableSlots.map(s => s.date));
+      } else {
+        setAvailabilityDates([]);
+      }
+    } catch {
+      // Non-critical: calendar shows no availability on error
+    }
+  }, [user?.id, currentMonth]);
+
+  useEffect(() => {
+    fetchAvailability();
+  }, [fetchAvailability]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([fetchData(), fetchAvailability()]);
     setRefreshing(false);
-  }, [fetchData]);
+  }, [fetchData, fetchAvailability]);
 
   // Pack offerings state
   const [packOfferings, setPackOfferings] = useState<PackOffering[]>([]);
@@ -223,19 +248,42 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
   // Calendar data
   const [calendarView, setCalendarView] = useState<'month' | 'week'>('month');
-  const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const handleBack = () => navigation.goBack();
+  const handleBack = useCallback(() => navigation.goBack(), [navigation]);
 
-  const toggleDay = (day: string) => {
-    if (selectedDays.includes(day)) {
-      setSelectedDays(selectedDays.filter(d => d !== day));
-    } else {
-      setSelectedDays([...selectedDays, day]);
-    }
-  };
+  const toggleDay = useCallback((day: string) => {
+    setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  }, []);
 
-  const handleSaveSession = async () => {
+  // Calendar view toggle handlers
+  const handleCalendarMonth = useCallback(() => setCalendarView('month'), []);
+  const handleCalendarWeek = useCallback(() => setCalendarView('week'), []);
+
+  // Modal open/close handlers
+  const handleShowAddModal = useCallback(() => setShowAddModal(true), []);
+  const handleCloseAddModal = useCallback(() => setShowAddModal(false), []);
+  const handleShowAddPackModal = useCallback(() => {
+    setPackOfferings([]);
+    setShowAddPackModal(true);
+  }, []);
+  const handleCloseAddPackModal = useCallback(() => setShowAddPackModal(false), []);
+  const handleShowAddOfferingModal = useCallback(() => setShowAddOfferingModal(true), []);
+  const handleCloseAddOfferingModal = useCallback(() => setShowAddOfferingModal(false), []);
+  const handleCloseDateSlotsModal = useCallback(() => setShowDateSlotsModal(false), []);
+
+  // Month navigation handlers
+  const handlePrevMonth = useCallback(() => {
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1));
+  }, []);
+  const handleNextMonth = useCallback(() => {
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1));
+  }, []);
+
+  // Session mode toggle handlers
+  const handleSessionModeUnique = useCallback(() => setSessionMode('unique'), []);
+  const handleSessionModeRange = useCallback(() => setSessionMode('range'), []);
+
+  const handleSaveSession = useCallback(async () => {
     try {
       // Build availability object from selected days and times
       const availability: { [day: string]: { start: string; end: string }[] } = {};
@@ -272,6 +320,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       if (response.success) {
         setShowAddModal(false);
         showSuccess('Success', 'Session availability saved!');
+        fetchAvailability();
       } else {
         showError('Error', response.message || 'Failed to save session settings');
       }
@@ -279,9 +328,9 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       if (__DEV__) console.warn('Failed to save session:', error);
       showError('Error', 'Failed to save session settings. Please try again.');
     }
-  };
+  }, [selectedDays, sessionTime, sessionPrice, sessionDuration, showSuccess, showError, fetchAvailability]);
 
-  const handleSavePack = async () => {
+  const handleSavePack = useCallback(async () => {
     if (!packName.trim() || !packPrice) {
       showError('Error', 'Please fill in all required fields');
       return;
@@ -317,9 +366,9 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       if (__DEV__) console.warn('Failed to create pack:', error);
       showError('Error', 'Failed to create pack. Please try again.');
     }
-  };
+  }, [packName, packPrice, packSessions, packDuration, packValidity, showSuccess, showError, fetchData]);
 
-  const handleTogglePackActive = async (packId: string, currentActive: boolean) => {
+  const handleTogglePackActive = useCallback(async (packId: string, currentActive: boolean) => {
     try {
       const response = await awsAPI.updatePack(packId, { isActive: !currentActive });
       if (response.success) {
@@ -332,9 +381,9 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       if (__DEV__) console.warn('Failed to update pack:', error);
       showError('Error', 'Failed to update pack');
     }
-  };
+  }, [showError]);
 
-  const handleDeletePack = async (packId: string) => {
+  const handleDeletePack = useCallback(async (packId: string) => {
     showDestructiveConfirm(
       'Delete Pack',
       'Are you sure you want to delete this pack?',
@@ -354,9 +403,9 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       },
       'Delete',
     );
-  };
+  }, [showDestructiveConfirm, showSuccess, showError]);
 
-  const handleRequestAction = async (id: string, action: 'accept' | 'reject') => {
+  const handleRequestAction = useCallback(async (id: string, action: 'accept' | 'reject') => {
     const onConfirm = async () => {
       try {
         const response = action === 'accept'
@@ -392,18 +441,45 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         'Accept',
       );
     }
-  };
+  }, [showDestructiveConfirm, showConfirm, showSuccess, showError]);
 
-  const handleDateClick = (day: number) => {
-    // Only allow clicking on available dates
-    const isAvailable = [2, 3, 4, 5, 9, 17, 21, 22, 23, 24].includes(day);
-    if (isAvailable) {
+  // Compute available/booked days for calendar from real API data
+  const availableDaysSet = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const days = new Set<number>();
+    for (const dateStr of availabilityDates) {
+      const d = new Date(dateStr);
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        days.add(d.getDate());
+      }
+    }
+    return days;
+  }, [availabilityDates, currentMonth]);
+
+  const bookedDaysSet = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const days = new Set<number>();
+    for (const request of sessionRequests) {
+      if (request.status === 'confirmed') {
+        const d = new Date(request.date);
+        if (!isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month) {
+          days.add(d.getDate());
+        }
+      }
+    }
+    return days;
+  }, [sessionRequests, currentMonth]);
+
+  const handleDateClick = useCallback((day: number) => {
+    if (availableDaysSet.has(day)) {
       setSelectedDate(day);
       setShowDateSlotsModal(true);
     }
-  };
+  }, [availableDaysSet]);
 
-  const handleAddOffering = () => {
+  const handleAddOffering = useCallback(() => {
     if (!newOfferingTitle.trim()) {
       showError('Error', 'Please enter a title for the offering');
       return;
@@ -414,23 +490,23 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       title: newOfferingTitle,
       description: newOfferingDesc,
     };
-    setPackOfferings([...packOfferings, newOffering]);
+    setPackOfferings(prev => [...prev, newOffering]);
     setNewOfferingTitle('');
     setNewOfferingDesc('');
     setShowAddOfferingModal(false);
-  };
+  }, [newOfferingTitle, newOfferingType, newOfferingDesc, showError]);
 
-  const handleRemoveOffering = (id: string) => {
-    setPackOfferings(packOfferings.filter(o => o.id !== id));
-  };
+  const handleRemoveOffering = useCallback((id: string) => {
+    setPackOfferings(prev => prev.filter(o => o.id !== id));
+  }, []);
 
-  const getOfferingIcon = (type: PackOffering['type']) => {
+  const getOfferingIcon = useCallback((type: PackOffering['type']) => {
     const found = OFFERING_TYPES.find(t => t.key === type);
     return found?.icon || 'add-circle-outline';
-  };
+  }, []);
 
-  // Generate calendar days
-  const generateCalendarDays = () => {
+  // Generate calendar days (memoized — recomputes only when month changes)
+  const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDay = new Date(year, month, 1);
@@ -448,7 +524,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
     }
 
     return days;
-  };
+  }, [currentMonth]);
 
   const renderCalendarTab = () => (
     <View style={styles.tabContent}>
@@ -457,18 +533,18 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         <View style={styles.viewToggle}>
           <TouchableOpacity
             style={[styles.viewToggleBtn, calendarView === 'month' && styles.viewToggleBtnActive]}
-            onPress={() => setCalendarView('month')}
+            onPress={handleCalendarMonth}
           >
             <Text style={[styles.viewToggleText, calendarView === 'month' && styles.viewToggleTextActive]}>Month</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.viewToggleBtn, calendarView === 'week' && styles.viewToggleBtnActive]}
-            onPress={() => setCalendarView('week')}
+            onPress={handleCalendarWeek}
           >
             <Text style={[styles.viewToggleText, calendarView === 'week' && styles.viewToggleTextActive]}>Week</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.addNewBtn} onPress={() => setShowAddModal(true)}>
+        <TouchableOpacity style={styles.addNewBtn} onPress={handleShowAddModal}>
           <Ionicons name="add" size={16} color={colors.primary} />
           <Text style={styles.addNewText}>New</Text>
         </TouchableOpacity>
@@ -476,13 +552,13 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
       {/* Month Navigation */}
       <View style={styles.monthNav}>
-        <TouchableOpacity onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}>
+        <TouchableOpacity onPress={handlePrevMonth}>
           <Ionicons name="chevron-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.monthTitle}>
           {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </Text>
-        <TouchableOpacity onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}>
+        <TouchableOpacity onPress={handleNextMonth}>
           <Ionicons name="chevron-forward" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
@@ -495,9 +571,9 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         ))}
 
         {/* Days */}
-        {generateCalendarDays().map((day, index) => {
-          const isAvailable = day && [2, 3, 4, 5, 9, 17, 21, 22, 23, 24].includes(day);
-          const isBooked = day && [9, 22].includes(day);
+        {calendarDays.map((day, index) => {
+          const isAvailable = day && availableDaysSet.has(day);
+          const isBooked = day && bookedDaysSet.has(day);
           return (
             <TouchableOpacity
               key={index}
@@ -530,11 +606,11 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       {/* Legend */}
       <View style={styles.calendarLegend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: 'rgba(14, 191, 138, 0.15)' }]} />
+          <View style={[styles.legendDot, styles.legendDotAvailable]} />
           <Text style={styles.legendText}>Available</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+          <View style={[styles.legendDot, styles.legendDotBooked]} />
           <Text style={styles.legendText}>Booked</Text>
         </View>
       </View>
@@ -545,9 +621,9 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
     <View style={styles.tabContent}>
       <Text style={styles.sectionTitle}>Reservation requests</Text>
       {sessionRequests.length === 0 ? (
-        <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+        <View style={styles.emptyStateContainer}>
           <Ionicons name="calendar-outline" size={48} color="#CCCCCC" />
-          <Text style={{ color: '#8E8E93', marginTop: 12 }}>No requests yet</Text>
+          <Text style={styles.emptyStateText}>No requests yet</Text>
         </View>
       ) : null}
       {sessionRequests.map(request => (
@@ -600,20 +676,17 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
     <View style={styles.tabContent}>
       <View style={styles.packsHeader}>
         <Text style={styles.sectionTitle}>My Packs</Text>
-        <TouchableOpacity style={styles.createPackBtn} onPress={() => {
-          setPackOfferings([]);
-          setShowAddPackModal(true);
-        }}>
+        <TouchableOpacity style={styles.createPackBtn} onPress={handleShowAddPackModal}>
           <Ionicons name="add" size={16} color={colors.primary} />
           <Text style={styles.createPackText}>Create a pack</Text>
         </TouchableOpacity>
       </View>
 
       {creatorPacks.length === 0 ? (
-        <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+        <View style={styles.emptyStateContainer}>
           <Ionicons name="cube-outline" size={48} color="#CCCCCC" />
-          <Text style={{ color: '#8E8E93', marginTop: 12 }}>No packs created yet</Text>
-          <Text style={{ color: '#AAAAAA', fontSize: 13, marginTop: 4 }}>Create your first pack to get started</Text>
+          <Text style={styles.emptyStateText}>No packs created yet</Text>
+          <Text style={styles.emptyStateSubtext}>Create your first pack to get started</Text>
         </View>
       ) : null}
 
@@ -678,10 +751,10 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView style={styles.loadingContainer}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: '#8E8E93', marginTop: 16 }}>Loading...</Text>
+        <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
   }
@@ -724,23 +797,23 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         {activeTab === 'calendar' && renderCalendarTab()}
         {activeTab === 'requests' && renderRequestsTab()}
         {activeTab === 'packs' && renderPacksTab()}
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Add Session Modal */}
       <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
         <KeyboardAvoidingView
-          style={{ flex: 1 }}
+          style={styles.flex1}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+            <TouchableOpacity onPress={handleCloseAddModal}>
               <Ionicons name="arrow-back" size={24} color={colors.dark} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Add a session</Text>
-            <View style={{ width: 24 }} />
+            <View style={styles.modalHeaderSpacer} />
           </View>
 
           <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -748,7 +821,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             <View style={styles.modeToggle}>
               <TouchableOpacity
                 style={[styles.modeBtn, sessionMode === 'unique' && styles.modeBtnActive]}
-                onPress={() => setSessionMode('unique')}
+                onPress={handleSessionModeUnique}
               >
                 <Text style={[styles.modeBtnText, sessionMode === 'unique' && styles.modeBtnTextActive]}>
                   Unique session
@@ -756,7 +829,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modeBtn, sessionMode === 'range' && styles.modeBtnActive]}
-                onPress={() => setSessionMode('range')}
+                onPress={handleSessionModeRange}
               >
                 <Text style={[styles.modeBtnText, sessionMode === 'range' && styles.modeBtnTextActive]}>
                   Session range
@@ -871,7 +944,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
                 <Ionicons name="save-outline" size={18} color="white" />
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseAddModal}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
               <Ionicons name="close" size={16} color={colors.dark} />
             </TouchableOpacity>
@@ -883,17 +956,17 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       {/* Add Pack Modal */}
       <Modal visible={showAddPackModal} animationType="slide" presentationStyle="pageSheet">
         <KeyboardAvoidingView
-          style={{ flex: 1 }}
+          style={styles.flex1}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowAddPackModal(false)}>
+            <TouchableOpacity onPress={handleCloseAddPackModal}>
               <Ionicons name="arrow-back" size={24} color={colors.dark} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Create a pack</Text>
-            <View style={{ width: 24 }} />
+            <View style={styles.modalHeaderSpacer} />
           </View>
 
           <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -945,7 +1018,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             <View style={styles.offeringsSection}>
               <View style={styles.offeringsHeader}>
                 <Text style={styles.inputLabel}>What's Included</Text>
-                <TouchableOpacity style={styles.addOfferingBtn} onPress={() => setShowAddOfferingModal(true)}>
+                <TouchableOpacity style={styles.addOfferingBtn} onPress={handleShowAddOfferingModal}>
                   <Ionicons name="add" size={18} color={colors.primary} />
                   <Text style={styles.addOfferingText}>Add</Text>
                 </TouchableOpacity>
@@ -995,7 +1068,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
                 <Ionicons name="checkmark" size={18} color="white" />
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddPackModal(false)}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseAddPackModal}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
               <Ionicons name="close" size={16} color={colors.dark} />
             </TouchableOpacity>
@@ -1012,16 +1085,16 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               <Text style={styles.slotsModalTitle}>
                 Available Slots - {currentMonth.toLocaleDateString('en-US', { month: 'short' })} {selectedDate}
               </Text>
-              <TouchableOpacity onPress={() => setShowDateSlotsModal(false)}>
+              <TouchableOpacity onPress={handleCloseDateSlotsModal}>
                 <Ionicons name="close" size={24} color={colors.dark} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.slotsModalBody} showsVerticalScrollIndicator={false}>
               {availableSlots.length === 0 ? (
-                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                <View style={styles.emptyStateContainer}>
                   <Ionicons name="time-outline" size={48} color="#CCCCCC" />
-                  <Text style={{ color: '#8E8E93', marginTop: 12 }}>No slots available</Text>
+                  <Text style={styles.emptyStateText}>No slots available</Text>
                 </View>
               ) : null}
               {availableSlots.map((slot, index) => (
@@ -1048,7 +1121,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               ))}
             </ScrollView>
 
-            <TouchableOpacity style={styles.slotsModalClose} onPress={() => setShowDateSlotsModal(false)}>
+            <TouchableOpacity style={styles.slotsModalClose} onPress={handleCloseDateSlotsModal}>
               <Text style={styles.slotsModalCloseText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -1061,7 +1134,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
           <View style={styles.offeringModalContent}>
             <View style={styles.offeringModalHeader}>
               <Text style={styles.offeringModalTitle}>Add Offering</Text>
-              <TouchableOpacity onPress={() => setShowAddOfferingModal(false)}>
+              <TouchableOpacity onPress={handleCloseAddOfferingModal}>
                 <Ionicons name="close" size={24} color={colors.dark} />
               </TouchableOpacity>
             </View>
@@ -1301,4 +1374,16 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   offeringModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#F0F0F0' },
   addOfferingConfirmBtn: { backgroundColor: colors.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   addOfferingConfirmText: { fontSize: 16, fontWeight: '600', color: 'white' },
+
+  // Shared utility styles (extracted from inline)
+  emptyStateContainer: { alignItems: 'center' as const, paddingVertical: 32 },
+  emptyStateText: { color: '#8E8E93', marginTop: 12 },
+  emptyStateSubtext: { color: '#AAAAAA', fontSize: 13, marginTop: 4 },
+  loadingContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, alignItems: 'center' as const },
+  loadingText: { color: '#8E8E93', marginTop: 16 },
+  bottomSpacer: { height: 40 },
+  flex1: { flex: 1 },
+  modalHeaderSpacer: { width: 24 },
+  legendDotAvailable: { backgroundColor: 'rgba(14, 191, 138, 0.15)' },
+  legendDotBooked: { backgroundColor: colors.primary },
 });

@@ -158,18 +158,17 @@ async function createSubscription(
       },
     });
 
-    // Record in database
+    // Record in database (use channel_subscriptions table - same as webhook)
+    const priceAmount = subscription.items.data[0]?.price?.unit_amount || 0;
     await client.query(
-      `INSERT INTO subscriptions (
-        id, subscriber_id, creator_id, stripe_subscription_id,
-        stripe_price_id, status, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      `INSERT INTO channel_subscriptions (
+        fan_id, creator_id, stripe_subscription_id, price_cents, status, created_at
+      ) VALUES ($1, $2, $3, $4, $5, NOW())`,
       [
-        `sub_${Date.now()}`,
         subscriberId,
         creatorId,
         subscription.id,
-        priceId,
+        priceAmount,
         subscription.status,
       ]
     );
@@ -201,7 +200,7 @@ async function cancelSubscription(
   try {
     // Verify ownership
     const result = await client.query(
-      'SELECT stripe_subscription_id FROM subscriptions WHERE id = $1 AND subscriber_id = $2',
+      'SELECT stripe_subscription_id FROM channel_subscriptions WHERE id = $1 AND fan_id = $2',
       [subscriptionId, userId]
     );
 
@@ -221,7 +220,7 @@ async function cancelSubscription(
     });
 
     await client.query(
-      'UPDATE subscriptions SET status = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE channel_subscriptions SET status = $1, updated_at = NOW() WHERE id = $2',
       ['canceling', subscriptionId]
     );
 
@@ -244,12 +243,12 @@ async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult>
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT s.id, s.subscriber_id, s.creator_id, s.stripe_subscription_id,
-              s.stripe_price_id, s.status, s.created_at,
+      `SELECT s.id, s.fan_id as subscriber_id, s.creator_id, s.stripe_subscription_id,
+              s.price_cents as stripe_price_id, s.status, s.created_at,
               p.username, p.full_name, p.avatar_url
-       FROM subscriptions s
+       FROM channel_subscriptions s
        JOIN profiles p ON s.creator_id = p.id
-       WHERE s.subscriber_id = $1 AND s.status IN ('active', 'canceling')
+       WHERE s.fan_id = $1 AND s.status IN ('active', 'canceling')
        ORDER BY s.created_at DESC
        LIMIT 50`,
       [userId]

@@ -168,8 +168,10 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
                 <View style={[styles.actionIconContainer, { backgroundColor: `${action.color}20` }]}>
                   <Ionicons name={action.icon} size={32} color={action.color} />
                 </View>
-                <Text style={styles.actionLabel}>{action.label}</Text>
-                <Text style={styles.actionDescription}>{action.description}</Text>
+                <View style={styles.actionTextContainer}>
+                  <Text style={styles.actionLabel}>{action.label}</Text>
+                  <Text style={styles.actionDescription}>{action.description}</Text>
+                </View>
                 <Ionicons
                   name="chevron-forward"
                   size={18}
@@ -277,14 +279,19 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'center',
     marginRight: 16,
   },
+  actionTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   actionLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.white,
-    flex: 1,
+    color: isDark ? colors.white : colors.dark,
   },
   actionDescription: {
-    display: 'none',
+    fontSize: 13,
+    color: colors.gray,
+    marginTop: 2,
   },
   actionChevron: {
     marginLeft: 8,
@@ -308,7 +315,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   statValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   statLabel: {
     fontSize: 12,

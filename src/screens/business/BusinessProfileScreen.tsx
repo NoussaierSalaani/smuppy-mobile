@@ -3,7 +3,8 @@
  * Public profile view for Pro Business accounts (gyms, stores, studios, etc.)
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import {
   View,
   Text,
@@ -14,7 +15,6 @@ import {
   Dimensions,
   ActivityIndicator,
   Animated,
-  FlatList,
   Linking,
   Platform,
 } from 'react-native';
@@ -138,12 +138,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  useEffect(() => {
-    loadBusinessProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessId]);
-
-  const loadBusinessProfile = async () => {
+  const loadBusinessProfile = useCallback(async () => {
     try {
       const [profileRes, servicesRes, scheduleRes, reviewsRes] = await Promise.all([
         awsAPI.getBusinessProfile(businessId),
@@ -164,9 +159,13 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [businessId]);
 
-  const handleFollow = async () => {
+  useEffect(() => {
+    loadBusinessProfile();
+  }, [loadBusinessProfile]);
+
+  const handleFollow = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const newFollowing = !isFollowing;
     setIsFollowing(newFollowing);
@@ -180,24 +179,24 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
     } catch (_error) {
       setIsFollowing(!newFollowing); // Revert on error
     }
-  };
+  }, [businessId, isFollowing]);
 
-  const handleBookService = (service: Service) => {
+  const handleBookService = useCallback((service: Service) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (service.is_subscription) {
       navigation.navigate('BusinessSubscription', { businessId, serviceId: service.id });
     } else {
       navigation.navigate('BusinessBooking', { businessId, serviceId: service.id });
     }
-  };
+  }, [businessId, navigation]);
 
-  const handleCallBusiness = () => {
+  const handleCallBusiness = useCallback(() => {
     if (business?.contact.phone) {
       Linking.openURL(`tel:${business.contact.phone}`);
     }
-  };
+  }, [business?.contact.phone]);
 
-  const handleOpenMaps = () => {
+  const handleOpenMaps = useCallback(() => {
     if (business?.location.coordinates) {
       const { lat, lng } = business.location.coordinates;
       const url = Platform.select({
@@ -206,13 +205,13 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
       });
       if (url) Linking.openURL(url);
     }
-  };
+  }, [business?.location.coordinates, business?.name]);
 
-  const handleOpenWebsite = () => {
+  const handleOpenWebsite = useCallback(() => {
     if (business?.contact.website) {
       Linking.openURL(business.contact.website);
     }
-  };
+  }, [business?.contact.website]);
 
   const getTodayActivities = () => {
     return schedule.filter((a) => a.day_of_week === selectedDay);
@@ -344,6 +343,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   }
 
   return (
+    <ErrorBoundary name="BusinessProfileScreen" title="Error loading business profile">
     <View style={styles.container}>
       <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
 
@@ -597,13 +597,11 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
                   <Text style={styles.emptyTitle}>No services available</Text>
                 </View>
               ) : (
-                <FlatList
-                  data={services}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderServiceCard}
-                  scrollEnabled={false}
-                  contentContainerStyle={styles.servicesList}
-                />
+                <View style={styles.servicesList}>
+                  {services.map((service) => (
+                    <View key={service.id}>{renderServiceCard({ item: service })}</View>
+                  ))}
+                </View>
               )}
             </View>
           )}
@@ -637,13 +635,11 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
                   <Text style={styles.emptySubtitle}>Check another day</Text>
                 </View>
               ) : (
-                <FlatList
-                  data={getTodayActivities()}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderActivityItem}
-                  scrollEnabled={false}
-                  contentContainerStyle={styles.activitiesList}
-                />
+                <View style={styles.activitiesList}>
+                  {getTodayActivities().map((activity) => (
+                    <View key={activity.id}>{renderActivityItem({ item: activity })}</View>
+                  ))}
+                </View>
               )}
             </View>
           )}
@@ -664,13 +660,11 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
                   <Text style={styles.emptyTitle}>No reviews yet</Text>
                 </View>
               ) : (
-                <FlatList
-                  data={reviews}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderReviewItem}
-                  scrollEnabled={false}
-                  contentContainerStyle={styles.reviewsList}
-                />
+                <View style={styles.reviewsList}>
+                  {reviews.map((review) => (
+                    <View key={review.id}>{renderReviewItem({ item: review })}</View>
+                  ))}
+                </View>
               )}
             </View>
           )}
@@ -696,6 +690,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
         </View>
       )}
     </View>
+    </ErrorBoundary>
   );
 }
 

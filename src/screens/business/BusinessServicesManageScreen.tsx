@@ -108,50 +108,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       if (response.success) {
         setServices((response.services || []) as unknown as Service[]);
       } else {
-        // Demo data
-        setServices([
-          {
-            id: '1',
-            name: 'Drop-in Session',
-            description: 'Single gym access session',
-            category: 'session',
-            price_cents: 1500,
-            duration_minutes: 120,
-            is_subscription: false,
-            is_active: true,
-          },
-          {
-            id: '2',
-            name: 'Monthly Membership',
-            description: 'Unlimited access to all facilities',
-            category: 'membership',
-            price_cents: 4900,
-            is_subscription: true,
-            subscription_period: 'monthly',
-            trial_days: 7,
-            is_active: true,
-          },
-          {
-            id: '3',
-            name: 'Yoga Class',
-            description: '1-hour guided yoga session',
-            category: 'class',
-            price_cents: 2000,
-            duration_minutes: 60,
-            is_subscription: false,
-            is_active: true,
-            max_capacity: 15,
-          },
-          {
-            id: '4',
-            name: '10-Session Pack',
-            description: 'Pack of 10 gym sessions',
-            category: 'pack',
-            price_cents: 12000,
-            is_subscription: false,
-            is_active: true,
-          },
-        ]);
+        setServices([]);
       }
     } catch (error) {
       if (__DEV__) console.warn('Load services error:', error);
@@ -258,12 +215,6 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         const response = await awsAPI.createBusinessService(serviceData);
         if (response.success && response.service) {
           setServices((prev) => [...prev, response.service as unknown as Service]);
-        } else {
-          // Demo: add locally
-          setServices((prev) => [
-            ...prev,
-            { id: Date.now().toString(), ...serviceData } as Service,
-          ]);
         }
       }
 

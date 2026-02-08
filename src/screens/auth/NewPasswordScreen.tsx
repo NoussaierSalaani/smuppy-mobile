@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -59,6 +59,19 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
 
   // Callback from context to signal recovery is complete
   const { onRecoveryComplete } = useAuthCallbacks();
+  const isMountedRef = useRef(true);
+  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track mount state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Validation using centralized PASSWORD_RULES
   const passwordChecks = useMemo(() => PASSWORD_RULES.map(rule => ({
@@ -89,14 +102,20 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
       // Confirm password reset with AWS Cognito
       await backend.confirmForgotPassword(email, code, password);
 
+      if (!isMountedRef.current) return;
+
       // Success - show inline success UI
       setShowSuccess(true);
 
       // Brief delay to show success, then signal recovery complete
-      setTimeout(() => {
-        onRecoveryComplete();
+      successTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          onRecoveryComplete();
+        }
       }, 1500);
     } catch (err: unknown) {
+      if (!isMountedRef.current) return;
+      
       if (__DEV__) console.warn('[NewPassword] Update error:', err);
       const errorMessage = (err as Error)?.message || '';
 
@@ -108,7 +127,9 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
         setErrorMessage('Unable to update password. Please try again.');
       }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [isValid, isLoading, password, email, code, onRecoveryComplete]);
 

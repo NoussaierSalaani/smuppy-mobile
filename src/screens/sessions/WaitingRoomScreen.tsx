@@ -41,7 +41,9 @@ export default function WaitingRoomScreen(): React.JSX.Element {
       navigation.goBack();
     }
   }, [sessionId, showError, navigation]);
-  const [isPolling, setIsPolling] = useState(true);
+  const [_isPolling, setIsPolling] = useState(true);
+  // Use ref to track polling state to avoid stale closure issues
+  const isPollingRef = useRef(true);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -85,6 +87,7 @@ export default function WaitingRoomScreen(): React.JSX.Element {
   }, []);
 
   const handleCancel = () => {
+    isPollingRef.current = false;
     setIsPolling(false);
     navigation.goBack();
   };
@@ -102,11 +105,11 @@ export default function WaitingRoomScreen(): React.JSX.Element {
         const { status } = response.session;
 
         if (status === 'confirmed') {
-          // Creator accepted - go to call
+          isPollingRef.current = false;
           setIsPolling(false);
           navigation.replace('PrivateCall', { sessionId, creator });
         } else if (status === 'cancelled') {
-          // Creator declined or session cancelled
+          isPollingRef.current = false;
           setIsPolling(false);
           showAlert({
             title: 'Session Declined',
@@ -124,26 +127,37 @@ export default function WaitingRoomScreen(): React.JSX.Element {
 
   // Poll for session status
   useEffect(() => {
+    // Reset polling state on mount
+    isPollingRef.current = true;
+
     if (!sessionId) {
-      // Demo mode - auto-transition after 5 seconds
       const timer = setTimeout(() => {
-        navigation.replace('PrivateCall', { creator });
+        if (isPollingRef.current) {
+          navigation.replace('PrivateCall', { creator });
+        }
       }, 5000);
       return () => clearTimeout(timer);
     }
 
-    // Real mode - poll for status
     const pollInterval = setInterval(() => {
-      if (isPolling) {
+      // Use ref to check polling state (avoids stale closure)
+      if (isPollingRef.current) {
         checkSessionStatus();
       }
     }, POLL_INTERVAL);
 
-    // Initial check
-    checkSessionStatus();
+    // Initial check with slight delay
+    const initialCheckTimeout = setTimeout(() => {
+      if (isPollingRef.current) {
+        checkSessionStatus();
+      }
+    }, 500);
 
-    return () => clearInterval(pollInterval);
-  }, [sessionId, isPolling, checkSessionStatus, creator, navigation]);
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(initialCheckTimeout);
+    };
+  }, [sessionId, checkSessionStatus, creator, navigation]);
 
   const ringScale = pulseAnim.interpolate({
     inputRange: [0, 1],

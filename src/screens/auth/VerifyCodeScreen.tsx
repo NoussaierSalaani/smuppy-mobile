@@ -48,6 +48,8 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
   const inputs = useRef<(TextInput | null)[]>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const isCreatingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const createAccountTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     email, password,
@@ -75,17 +77,24 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
     setCode(['', '', '', '', '', '']);
     setError('');
     if (shouldFocus) {
-      setTimeout(() => inputs.current[0]?.focus(), 100);
+      createAccountTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          inputs.current[0]?.focus();
+        }
+      }, 100);
     }
   }, []);
 
   // Create account and send OTP
   const createAccountAndSendOTP = useCallback(async () => {
+    // Double-check guard: synchronous check + ref check
     if (accountCreated || isCreatingRef.current) return;
 
     isCreatingRef.current = true;
-    setIsCreatingAccount(true);
-    setError('');
+    if (isMountedRef.current) {
+      setIsCreatingAccount(true);
+      setError('');
+    }
 
     try {
       const result = await backend.signUp({
@@ -95,12 +104,16 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         fullName: '',
       });
 
+      if (!isMountedRef.current) return;
+
       if (result.confirmationRequired || result.user) {
         setAccountCreated(true);
       } else {
         setError('Unable to create account. Please try again.');
       }
     } catch (err: unknown) {
+      if (!isMountedRef.current) return;
+
       const errorMessage = (err as Error)?.message || '';
       const errorName = (err as Error)?.name || '';
 
@@ -117,31 +130,48 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       }
     } finally {
       isCreatingRef.current = false;
-      setIsCreatingAccount(false);
+      if (isMountedRef.current) {
+        setIsCreatingAccount(false);
+      }
     }
   }, [email, password, accountCreated]);
 
   // Create account on mount
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (!email || !password) {
-      setError('Missing credentials. Please go back and try again.');
+      if (isMountedRef.current) {
+        setError('Missing credentials. Please go back and try again.');
+      }
       return;
     }
-    if (!accountCreated) {
+    if (!accountCreated && !isCreatingRef.current) {
       createAccountAndSendOTP();
     }
+    
+    return () => {
+      isMountedRef.current = false;
+      if (createAccountTimeoutRef.current) {
+        clearTimeout(createAccountTimeoutRef.current);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Verify code: confirm OTP, sign in, persist REMEMBER_ME — that's it.
   // onAuthStateChange in AppNavigator will detect user + no profile → Onboarding
   const verifyCode = useCallback(async (fullCode: string) => {
+    if (!isMountedRef.current) return;
+    
     setIsVerifying(true);
     setError('');
     Keyboard.dismiss();
 
     try {
       const confirmed = await awsAuth.confirmSignUp(email || '', fullCode);
+      if (!isMountedRef.current) return;
+      
       if (!confirmed) {
         setError('Verification failed. Please try again.');
         triggerShake();
@@ -151,6 +181,8 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
 
       // Sign in
       const user = await backend.signIn({ email: email || '', password: password || '' });
+      if (!isMountedRef.current) return;
+      
       if (!user) {
         setError('Account verified but login failed. Please try logging in.');
         triggerShake();
@@ -166,6 +198,8 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
         routes: [{ name: 'AccountType' }],
       });
     } catch (err: unknown) {
+      if (!isMountedRef.current) return;
+      
       const msg = (err as Error)?.message || '';
 
       if (msg.includes('expired') || msg.includes('ExpiredCode')) {
@@ -180,7 +214,9 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
       triggerShake();
       clearCode(true);
     } finally {
-      setIsVerifying(false);
+      if (isMountedRef.current) {
+        setIsVerifying(false);
+      }
     }
   }, [email, password, rememberMe, triggerShake, clearCode, navigation]);
 

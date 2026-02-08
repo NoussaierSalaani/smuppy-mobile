@@ -113,6 +113,8 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
   const mapRef = useRef<MapView>(null);
   const flatListRef = useRef<FlatList>(null);
   const cardScrollX = useRef(new Animated.Value(0)).current;
+  const isMountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -125,6 +127,12 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
     loadBusinesses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, userLocation, filterOpen, filterRating, filterPriceRange]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const getUserLocation = async () => {
     try {
@@ -145,6 +153,8 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
   };
 
   const loadBusinesses = async () => {
+    const currentRequestId = ++requestIdRef.current;
+
     try {
       const params: Record<string, unknown> = {
         limit: 30,
@@ -178,14 +188,35 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
 
       const response = await awsAPI.discoverBusinesses(params);
 
+      // Check if this is a stale request
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      // Check if component is still mounted before updating state
+      if (!isMountedRef.current) {
+        return;
+      }
+
       if (response.success) {
         setBusinesses((response.businesses || []) as unknown as Business[]);
+      } else {
+        showError('Error', 'Failed to load businesses. Please try again.');
       }
     } catch (error) {
+      // Check if component is still mounted before updating state or showing errors
+      if (!isMountedRef.current) {
+        return;
+      }
+
       if (__DEV__) console.warn('Load businesses error:', error);
+      showError('Error', 'Failed to load businesses. Please check your connection and try again.');
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      // Check if component is still mounted before updating state
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
@@ -206,13 +237,46 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
     setIsLoading(true);
   };
 
-  const handleMarkerPress = (business: Business) => {
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+
+  const handleToggleViewMode = useCallback(() => {
+    setViewMode(prev => prev === 'list' ? 'map' : 'list');
+  }, []);
+
+  const handleClearSearchQuery = useCallback(() => setSearchQuery(''), []);
+  const handleShowFilters = useCallback(() => setShowFilters(true), []);
+  const handleCloseFilters = useCallback(() => setShowFilters(false), []);
+
+  const handleClearAllFilters = useCallback(() => {
+    setFilterOpen(null);
+    setFilterRating(0);
+    setFilterPriceRange([]);
+  }, []);
+
+  const handleFilterOpenAll = useCallback(() => setFilterOpen(null), []);
+  const handleFilterOpenNow = useCallback(() => setFilterOpen(true), []);
+
+  const handleApplyFilters = useCallback(() => {
+    setShowFilters(false);
+    setIsLoading(true);
+    loadBusinesses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleClearActiveFilters = useCallback(() => {
+    setFilterOpen(null);
+    setFilterRating(0);
+    setFilterPriceRange([]);
+    setIsLoading(true);
+  }, []);
+
+  const handleMarkerPress = useCallback((business: Business) => {
     setSelectedBusiness(business);
     const index = businesses.findIndex((b) => b.id === business.id);
     if (index !== -1 && flatListRef.current) {
       flatListRef.current.scrollToIndex({ index, animated: true });
     }
-  };
+  }, [businesses]);
 
   const handleBusinessPress = (business: Business) => {
     // Validate business ID per CLAUDE.md
@@ -256,7 +320,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
     );
   };
 
-  const renderBusinessCard = ({ item, index }: { item: Business; index: number }) => {
+  const renderBusinessCard = useCallback(({ item, index }: { item: Business; index: number }) => {
     const inputRange = [(index - 1) * CARD_WIDTH, index * CARD_WIDTH, (index + 1) * CARD_WIDTH];
 
     const scale = viewMode === 'map' ? cardScrollX.interpolate({
@@ -377,9 +441,10 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, cardScrollX, styles, colors.gray, handleBusinessPress]);
 
-  const renderMapMarker = (business: Business) => (
+  const renderMapMarker = useCallback((business: Business) => (
     <MarkerView
       key={business.id}
       coordinate={[business.location.coordinates.lng, business.location.coordinates.lat]}
@@ -396,22 +461,18 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
         </View>
       </TouchableOpacity>
     </MarkerView>
-  );
+  ), [styles.mapMarker, styles.mapMarkerSelected, selectedBusiness, handleMarkerPress]);
 
   const renderFiltersModal = () => (
     <Modal visible={showFilters} animationType="slide" transparent>
       <View style={styles.filtersOverlay}>
-        <TouchableOpacity style={styles.filtersBackdrop} onPress={() => setShowFilters(false)} />
+        <TouchableOpacity style={styles.filtersBackdrop} onPress={handleCloseFilters} />
         <View style={styles.filtersSheet}>
           <BlurView intensity={80} tint="dark" style={styles.filtersBlur}>
             <View style={styles.filtersHandle} />
             <View style={styles.filtersHeader}>
               <Text style={styles.filtersTitle}>Filters</Text>
-              <TouchableOpacity onPress={() => {
-                setFilterOpen(null);
-                setFilterRating(0);
-                setFilterPriceRange([]);
-              }}>
+              <TouchableOpacity onPress={handleClearAllFilters}>
                 <Text style={styles.filtersClear}>Clear All</Text>
               </TouchableOpacity>
             </View>
@@ -423,7 +484,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
                 <View style={styles.filterOptions}>
                   <TouchableOpacity
                     style={[styles.filterOption, filterOpen === null && styles.filterOptionActive]}
-                    onPress={() => setFilterOpen(null)}
+                    onPress={handleFilterOpenAll}
                   >
                     <Text style={[styles.filterOptionText, filterOpen === null && styles.filterOptionTextActive]}>
                       All
@@ -431,7 +492,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.filterOption, filterOpen === true && styles.filterOptionActive]}
-                    onPress={() => setFilterOpen(true)}
+                    onPress={handleFilterOpenNow}
                   >
                     <Text style={[styles.filterOptionText, filterOpen === true && styles.filterOptionTextActive]}>
                       Open Now
@@ -536,11 +597,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
             <View style={styles.filtersFooter}>
               <TouchableOpacity
                 style={styles.applyButton}
-                onPress={() => {
-                  setShowFilters(false);
-                  setIsLoading(true);
-                  loadBusinesses();
-                }}
+                onPress={handleApplyFilters}
               >
                 <LinearGradient colors={GRADIENTS.primary} style={styles.applyGradient}>
                   <Text style={styles.applyButtonText}>Apply Filters</Text>
@@ -560,14 +617,14 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Discover</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.viewToggle, viewMode === 'map' && styles.viewToggleActive]}
-              onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
+              onPress={handleToggleViewMode}
             >
               <Ionicons name={viewMode === 'list' ? 'map' : 'list'} size={20} color="#fff" />
             </TouchableOpacity>
@@ -589,14 +646,14 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
               maxLength={100}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <TouchableOpacity onPress={handleClearSearchQuery}>
                 <Ionicons name="close-circle" size={18} color={colors.gray} />
               </TouchableOpacity>
             )}
           </View>
           <TouchableOpacity
             style={[styles.filterButton, (filterOpen !== null || filterRating > 0 || filterPriceRange.length > 0) && styles.filterButtonActive]}
-            onPress={() => setShowFilters(true)}
+            onPress={handleShowFilters}
           >
             <Ionicons name="options" size={20} color={filterOpen !== null || filterRating > 0 || filterPriceRange.length > 0 ? colors.primary : '#fff'} />
           </TouchableOpacity>
@@ -609,7 +666,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
           contentContainerStyle={styles.categoriesScroll}
         >
           {BUSINESS_CATEGORIES.slice(0, 6).map(renderCategoryChip)}
-          <TouchableOpacity style={styles.moreChip} onPress={() => setShowFilters(true)}>
+          <TouchableOpacity style={styles.moreChip} onPress={handleShowFilters}>
             <Ionicons name="ellipsis-horizontal" size={16} color={colors.primary} />
             <Text style={styles.moreChipText}>More</Text>
           </TouchableOpacity>
@@ -625,12 +682,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
                 filterPriceRange.length > 0 && filterPriceRange.map(p => p === 'budget' ? '€' : p === 'moderate' ? '€€' : p === 'premium' ? '€€€' : '€€€€').join(', '),
               ].filter(Boolean).join(' • ')}
             </Text>
-            <TouchableOpacity onPress={() => {
-              setFilterOpen(null);
-              setFilterRating(0);
-              setFilterPriceRange([]);
-              setIsLoading(true);
-            }}>
+            <TouchableOpacity onPress={handleClearActiveFilters}>
               <Ionicons name="close-circle" size={18} color={colors.gray} />
             </TouchableOpacity>
           </View>

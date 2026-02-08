@@ -10,6 +10,7 @@ import { getPool } from '../../shared/db';
 import { createCorsResponse } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-hide');
 
@@ -20,6 +21,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   if (!userId) {
     return createCorsResponse(401, { error: 'Unauthorized' });
+  }
+
+  const rateLimit = await checkRateLimit({
+    prefix: 'peak-hide',
+    identifier: userId,
+    windowSeconds: 60,
+    maxRequests: 20,
+  });
+  if (!rateLimit.allowed) {
+    return createCorsResponse(429, { error: 'Too many requests. Please wait.' });
   }
 
   try {

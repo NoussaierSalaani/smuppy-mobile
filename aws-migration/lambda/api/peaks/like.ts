@@ -9,6 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { sendPushToUser } from '../services/push-notification';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-like');
 
@@ -18,6 +19,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
+
+    const rateLimit = await checkRateLimit({
+      prefix: 'peak-like',
+      identifier: userId,
+      windowSeconds: 60,
+      maxRequests: 30,
+    });
+    if (!rateLimit.allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please wait.' }) };
+    }
 
     const peakId = validateUUIDParam(event, headers, 'id', 'Peak');
     if (isErrorResponse(peakId)) return peakId;

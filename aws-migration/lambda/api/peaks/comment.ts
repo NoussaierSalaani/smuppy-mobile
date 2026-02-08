@@ -1,12 +1,14 @@
 /**
- * Comment on Peak Lambda Handler
- * Adds a comment to a peak
+ * Peak Comments Lambda Handler
+ * GET  /peaks/{id}/comments - List comments on a peak
+ * POST /peaks/{id}/comments - Add a comment to a peak
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
+import { getPool, getReaderPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID } from '../utils/security';
 
@@ -15,168 +17,266 @@ const log = createLogger('peaks-comment');
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
 
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
     const peakId = event.pathParameters?.id;
-    if (!peakId) {
+    if (!peakId || !isValidUUID(peakId)) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: 'Peak ID is required' }),
+        body: JSON.stringify({ message: 'Valid Peak ID is required' }),
       };
     }
 
-    // Validate UUID format
-    if (!isValidUUID(peakId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid peak ID format' }),
-      };
+    if (event.httpMethod === 'GET') {
+      return handleListComments(event, headers, peakId);
     }
 
-    // Parse body
-    const body = event.body ? JSON.parse(event.body) : {};
-    const { text } = body;
-
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Comment text is required' }),
-      };
+    if (event.httpMethod === 'POST') {
+      return handleCreateComment(event, headers, peakId);
     }
 
-    const sanitizedText = sanitizeText(text, 1000);
-
-    if (sanitizedText.length === 0) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Comment text cannot be empty' }),
-      };
-    }
-
-    const db = await getPool();
-
-    // Get user's profile
-    const userResult = await db.query(
-      'SELECT id, username, full_name, avatar_url, is_verified FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    const profile = userResult.rows[0];
-
-    // Check if peak exists
-    const peakResult = await db.query(
-      'SELECT id, author_id FROM peaks WHERE id = $1',
-      [peakId]
-    );
-
-    if (peakResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'Peak not found' }),
-      };
-    }
-
-    const peak = peakResult.rows[0];
-
-    // Create comment in transaction
-    // CRITICAL: Use dedicated client for transaction isolation with connection pooling
-    const client = await db.connect();
-
-    try {
-      await client.query('BEGIN');
-
-      // Insert comment
-      const commentResult = await client.query(
-        `INSERT INTO peak_comments (user_id, peak_id, text)
-         VALUES ($1, $2, $3)
-         RETURNING id, text, created_at`,
-        [profile.id, peakId, sanitizedText]
-      );
-
-      const comment = commentResult.rows[0];
-
-      // Update comments count on peak
-      await client.query(
-        'UPDATE peaks SET comments_count = comments_count + 1 WHERE id = $1',
-        [peakId]
-      );
-
-      // Create notification for peak author (if not self-comment)
-      if (peak.author_id !== profile.id) {
-        await client.query(
-          `INSERT INTO notifications (user_id, type, title, body, data)
-           VALUES ($1, 'peak_comment', 'New Comment', $2, $3)`,
-          [
-            peak.author_id,
-            `${profile.username} commented on your peak`,
-            JSON.stringify({ peakId, commentId: comment.id, commenterId: profile.id }),
-          ]
-        );
-      }
-
-      await client.query('COMMIT');
-
-      // Send push notification to peak author (non-blocking)
-      if (peak.author_id !== profile.id) {
-        sendPushToUser(db, peak.author_id, {
-          title: 'New Comment',
-          body: `${profile.username} commented on your peak`,
-          data: { type: 'peak_comment', peakId },
-        }).catch(err => log.error('Push notification failed', err));
-      }
-
-      return {
-        statusCode: 201,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          comment: {
-            id: comment.id,
-            text: comment.text,
-            createdAt: comment.created_at,
-            author: {
-              id: profile.id,
-              username: profile.username,
-              fullName: profile.full_name,
-              avatarUrl: profile.avatar_url,
-              isVerified: profile.is_verified || false,
-            },
-          },
-        }),
-      };
-    } catch (error: unknown) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ message: 'Method not allowed' }),
+    };
   } catch (error: unknown) {
-    log.error('Error creating peak comment', error);
+    log.error('Peak comment error', error);
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({ message: 'Internal server error' }),
     };
+  }
+}
+
+async function handleListComments(
+  event: APIGatewayProxyEvent,
+  headers: Record<string, string>,
+  peakId: string
+): Promise<APIGatewayProxyResult> {
+  const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+  const cursor = event.queryStringParameters?.cursor;
+
+  const pool = await getReaderPool();
+
+  // Verify peak exists
+  const peakCheck = await pool.query('SELECT id FROM peaks WHERE id = $1', [peakId]);
+  if (peakCheck.rows.length === 0) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ message: 'Peak not found' }),
+    };
+  }
+
+  let query: string;
+  let params: (string | number)[];
+
+  if (cursor) {
+    if (!isValidUUID(cursor)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid cursor format' }),
+      };
+    }
+    query = `
+      SELECT pc.id, pc.text, pc.created_at,
+             p.id as author_id, p.username, p.full_name, p.avatar_url, p.is_verified
+      FROM peak_comments pc
+      JOIN profiles p ON pc.user_id = p.id
+      WHERE pc.peak_id = $1
+        AND pc.created_at < (SELECT created_at FROM peak_comments WHERE id = $2)
+      ORDER BY pc.created_at DESC
+      LIMIT $3
+    `;
+    params = [peakId, cursor, limit];
+  } else {
+    query = `
+      SELECT pc.id, pc.text, pc.created_at,
+             p.id as author_id, p.username, p.full_name, p.avatar_url, p.is_verified
+      FROM peak_comments pc
+      JOIN profiles p ON pc.user_id = p.id
+      WHERE pc.peak_id = $1
+      ORDER BY pc.created_at DESC
+      LIMIT $2
+    `;
+    params = [peakId, limit];
+  }
+
+  const result = await pool.query(query, params);
+
+  const comments = result.rows.map((row: Record<string, unknown>) => ({
+    id: row.id,
+    text: row.text,
+    createdAt: row.created_at,
+    author: {
+      id: row.author_id,
+      username: row.username,
+      fullName: row.full_name,
+      avatarUrl: row.avatar_url,
+      isVerified: row.is_verified || false,
+    },
+  }));
+
+  const nextCursor = comments.length === limit ? comments[comments.length - 1].id : null;
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({
+      success: true,
+      data: comments,
+      nextCursor,
+      hasMore: comments.length === limit,
+    }),
+  };
+}
+
+async function handleCreateComment(
+  event: APIGatewayProxyEvent,
+  headers: Record<string, string>,
+  peakId: string
+): Promise<APIGatewayProxyResult> {
+  const userId = event.requestContext.authorizer?.claims?.sub;
+  if (!userId) {
+    return {
+      statusCode: 401,
+      headers,
+      body: JSON.stringify({ message: 'Unauthorized' }),
+    };
+  }
+
+  // Rate limit: 20 comments per minute
+  const rateLimit = await checkRateLimit({
+    prefix: 'peak-comment',
+    identifier: userId,
+    windowSeconds: 60,
+    maxRequests: 20,
+  });
+  if (!rateLimit.allowed) {
+    return {
+      statusCode: 429,
+      headers,
+      body: JSON.stringify({ message: 'Too many comments. Please wait.' }),
+    };
+  }
+
+  const body = event.body ? JSON.parse(event.body) : {};
+  const { text } = body;
+
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Comment text is required' }),
+    };
+  }
+
+  const sanitizedText = sanitizeText(text, 1000);
+  if (sanitizedText.length === 0) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Comment text cannot be empty' }),
+    };
+  }
+
+  const db = await getPool();
+
+  const userResult = await db.query(
+    'SELECT id, username, full_name, avatar_url, is_verified FROM profiles WHERE cognito_sub = $1',
+    [userId]
+  );
+  if (userResult.rows.length === 0) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ message: 'User profile not found' }),
+    };
+  }
+  const profile = userResult.rows[0];
+
+  const peakResult = await db.query(
+    'SELECT id, author_id FROM peaks WHERE id = $1',
+    [peakId]
+  );
+  if (peakResult.rows.length === 0) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ message: 'Peak not found' }),
+    };
+  }
+  const peak = peakResult.rows[0];
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const commentResult = await client.query(
+      `INSERT INTO peak_comments (user_id, peak_id, text)
+       VALUES ($1, $2, $3)
+       RETURNING id, text, created_at`,
+      [profile.id, peakId, sanitizedText]
+    );
+    const comment = commentResult.rows[0];
+
+    await client.query(
+      'UPDATE peaks SET comments_count = comments_count + 1 WHERE id = $1',
+      [peakId]
+    );
+
+    if (peak.author_id !== profile.id) {
+      await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'peak_comment', 'New Comment', $2, $3)`,
+        [
+          peak.author_id,
+          `${profile.username} commented on your peak`,
+          JSON.stringify({ peakId, commentId: comment.id, commenterId: profile.id }),
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    if (peak.author_id !== profile.id) {
+      sendPushToUser(db, peak.author_id, {
+        title: 'New Comment',
+        body: `${profile.username} commented on your peak`,
+        data: { type: 'peak_comment', peakId },
+      }).catch(err => log.error('Push notification failed', err));
+    }
+
+    return {
+      statusCode: 201,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        comment: {
+          id: comment.id,
+          text: comment.text,
+          createdAt: comment.created_at,
+          author: {
+            id: profile.id,
+            username: profile.username,
+            fullName: profile.full_name,
+            avatarUrl: profile.avatar_url,
+            isVerified: profile.is_verified || false,
+          },
+        },
+      }),
+    };
+  } catch (error: unknown) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 }

@@ -242,6 +242,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
     peakLike.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.peaksUnlikeFn), authMethodOptions);
 
     const peakComments = peakById.addResource('comments');
+    peakComments.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.peaksCommentFn));
     peakComments.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.peaksCommentFn), authWithBodyValidation);
 
     const peakReact = peakById.addResource('react');

@@ -808,6 +808,45 @@ class AWSAPIService {
   }
 
   /**
+   * Get comments on a peak
+   */
+  async getPeakComments(peakId: string, params?: { limit?: number; cursor?: string }): Promise<{
+    success: boolean;
+    data: Array<{
+      id: string;
+      text: string;
+      createdAt: string;
+      author: { id: string; username: string; fullName: string; avatarUrl: string; isVerified: boolean };
+    }>;
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.cursor) query.set('cursor', params.cursor);
+    const qs = query.toString();
+    return this.request(`/peaks/${peakId}/comments${qs ? `?${qs}` : ''}`);
+  }
+
+  /**
+   * Post a comment on a peak
+   */
+  async commentOnPeak(peakId: string, text: string): Promise<{
+    success: boolean;
+    comment: {
+      id: string;
+      text: string;
+      createdAt: string;
+      author: { id: string; username: string; fullName: string; avatarUrl: string; isVerified: boolean };
+    };
+  }> {
+    return this.request(`/peaks/${peakId}/comments`, {
+      method: 'POST',
+      body: { text },
+    });
+  }
+
+  /**
    * Delete a peak (author only)
    */
   async deletePeak(id: string): Promise<{ success: boolean }> {

@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-unlike');
 
@@ -22,6 +23,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
+    }
+
+    const rateLimit = await checkRateLimit({
+      prefix: 'peak-unlike',
+      identifier: userId,
+      windowSeconds: 60,
+      maxRequests: 30,
+    });
+    if (!rateLimit.allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please wait.' }) };
     }
 
     const peakId = event.pathParameters?.id;

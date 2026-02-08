@@ -9,6 +9,7 @@ import { getPool } from '../../shared/db';
 import { createCorsResponse } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-replies');
 
@@ -19,6 +20,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   if (!userId) {
     return createCorsResponse(401, { error: 'Unauthorized' });
+  }
+
+  // Only rate limit POST (creating replies), not GET (listing)
+  if (event.httpMethod === 'POST') {
+    const rateLimit = await checkRateLimit({
+      prefix: 'peak-replies',
+      identifier: userId,
+      windowSeconds: 60,
+      maxRequests: 10,
+    });
+    if (!rateLimit.allowed) {
+      return createCorsResponse(429, { error: 'Too many requests. Please wait.' });
+    }
   }
 
   if (!peakId) {

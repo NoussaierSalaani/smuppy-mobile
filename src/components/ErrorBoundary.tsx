@@ -1,5 +1,5 @@
 import React, { Component, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING } from '../config/theme';
 import { captureException, addBreadcrumb } from '../lib/sentry';
@@ -74,9 +74,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   };
 
   handleReportFeedback = () => {
-    // Could open a feedback modal or link to support
-    addBreadcrumb('User wants to report feedback', 'user');
-    // TODO: Integrate with feedback system (e.g., open support link)
+    addBreadcrumb('User tapped Report Issue', 'user');
+    const subject = encodeURIComponent('Bug Report - App Error');
+    const body = encodeURIComponent(
+      `Error: ${this.state.error?.toString() || 'Unknown'}\n\nTimestamp: ${new Date().toISOString()}\n\nPlease describe what you were doing:\n`
+    );
+    Linking.openURL(`mailto:support@smuppy.com?subject=${subject}&body=${body}`).catch(() => {});
   };
 
   render() {

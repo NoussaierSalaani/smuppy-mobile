@@ -3,7 +3,7 @@
  * Shows battle results with winner, stats, and tip leaderboard
  */
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,6 +25,8 @@ import { AccountBadge } from '../../components/Badge';
 import TipLeaderboard from '../../components/tips/TipLeaderboard';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useUserStore } from '../../stores';
+import { awsAPI } from '../../services/aws-api';
 import { GRADIENTS } from '../../config/theme';
 
 const { width } = Dimensions.get('window');
@@ -52,6 +55,7 @@ export default function BattleResultsScreen() {
   const route = useRoute<{ key: string; name: string; params: RouteParams }>();
   const { colors, isDark } = useTheme();
   const { formatAmount } = useCurrency();
+  const currentUserId = useUserStore((s) => s.user?.id);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -134,10 +138,26 @@ export default function BattleResultsScreen() {
     navigation.navigate('UserProfile', { userId });
   };
 
-  const handleRematch = () => {
-    // TODO: Implement rematch functionality
+  const handleRematch = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
+    const opponents = participants
+      .filter(p => p.user_id !== currentUserId)
+      .map(p => p.user_id);
+    if (opponents.length === 0) return;
+    try {
+      const result = await awsAPI.createBattle({
+        battleType: 'tips',
+        invitedUserIds: opponents,
+      });
+      if (result.success && result.battle) {
+        navigation.navigate('BattleLobby', { battleId: result.battle.id });
+      } else {
+        Alert.alert('Rematch Failed', 'Could not create a rematch. Please try again.');
+      }
+    } catch {
+      Alert.alert('Rematch Failed', 'Something went wrong. Please try again.');
+    }
+  }, [participants, currentUserId, navigation]);
 
   const totalTips = useMemo(() => {
     return participants.reduce((sum, p) => sum + p.tips_received, 0);

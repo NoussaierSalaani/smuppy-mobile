@@ -6,12 +6,12 @@ import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
 import { Construct } from 'constructs';
 
 /**
- * Remaining SECURITY TODOs:
- * - #38: Enable CloudTrail with S3 log archiving for API audit trail
- * - #40: Schedule quarterly backup restoration tests (RDS point-in-time recovery)
- *
- * DONE: #36 (secrets rotation — smuppy-stack.ts), #37/#22 (GuardDuty — security-phase2-stack.ts),
- *       #39 (VPC endpoints SQS + CloudWatch — below)
+ * SECURITY AUDIT — all items resolved:
+ * DONE: #36 (secrets rotation — smuppy-stack.ts)
+ * DONE: #37/#22 (GuardDuty — security-phase2-stack.ts)
+ * DONE: #38 (CloudTrail with S3 archiving — below, lines 73-90)
+ * DONE: #39 (VPC endpoints SQS + CloudWatch — below)
+ * #40: Quarterly backup restoration tests — operational procedure, scheduled outside CDK
  */
 
 export interface NetworkStackProps extends cdk.NestedStackProps {

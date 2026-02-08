@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores';
-import { useCurrentProfile, useUserPosts, useSavedPosts, useProfile } from '../../hooks';
+import { useCurrentProfile, useUserPosts, useSavedPosts, useProfile, useIsFollowing } from '../../hooks';
 import { useProfileEventsGroups } from '../../hooks/useProfileEventsGroups';
 import EventGroupCard from '../../components/EventGroupCard';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
@@ -224,6 +224,16 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // Events & Groups
   const { events, groups, isLoading: isEventsGroupsLoading, refresh: refreshEventsGroups } = useProfileEventsGroups();
+
+  // Follow/subscription status for video visibility filtering
+  const { data: isFollowing } = useIsFollowing(isOwnProfile ? null : viewedUserId);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  useEffect(() => {
+    if (isOwnProfile || !viewedUserId) return;
+    awsAPI.getChannelSubscriptionStatus(viewedUserId)
+      .then(res => { if (res.success) setIsSubscribed(res.isSubscribed); })
+      .catch(() => {});
+  }, [isOwnProfile, viewedUserId]);
 
   // Check if user has peaks (for avatar border indicator)
   const hasPeaks = peaks.length > 0;
@@ -1089,12 +1099,15 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== RENDER VIDEOS ====================
   const renderVideos = () => {
     // Filter videos based on visibility for non-owners
-    // - Owner sees all videos
-    // - Non-owner sees: public only (TODO: implement fans/subscribers visibility check)
-    // In production, this would check:
-    // - fans: user is following this creator
-    // - subscribers: user has active channel subscription
-    const visibleVideos: { id: string; thumbnail: string; title: string; duration: string; views: number; visibility: string; scheduledAt?: string }[] = [];
+    const allVideos: { id: string; thumbnail: string; title: string; duration: string; views: number; visibility: string; scheduledAt?: string }[] = [];
+    const visibleVideos = isOwnProfile
+      ? allVideos
+      : allVideos.filter(v => {
+          if (v.visibility === 'public') return true;
+          if (v.visibility === 'fans' && isFollowing) return true;
+          if (v.visibility === 'subscribers' && isSubscribed) return true;
+          return false;
+        });
 
     if (visibleVideos.length === 0) {
       return (

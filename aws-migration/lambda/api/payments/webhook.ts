@@ -10,11 +10,14 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { getStripeKey, getStripeWebhookSecret } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+
+const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
 const log = createLogger('payments/webhook');
 
@@ -178,21 +181,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  updated_at = NOW()
              WHERE id = $1`,
             [sessionId]
-          );
-        }
-
-        // If there's a pack, update its status
-        // TODO: monthly_packs is legacy (migration-008). sessions/create.ts reads
-        // from user_session_packs (migration-010). Needs pack flow unification.
-        const packId = paymentIntent.metadata?.pack_id;
-        if (packId && isValidUUID(packId)) {
-          await client.query(
-            `UPDATE monthly_packs
-             SET payment_status = 'paid',
-                 status = 'active',
-                 updated_at = NOW()
-             WHERE id = $1`,
-            [packId]
           );
         }
 
@@ -821,12 +809,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             ]
           );
 
-          // Also notify admins (TODO: implement admin notification system)
-          log.warn('ADMIN ALERT: Dispute created', {
-            disputeId: dispute.id,
-            amount: dispute.amount,
-            creatorId: payment.creator_id.substring(0, 8) + '***',
-          });
+          // Notify admins via SNS
+          if (process.env.SECURITY_ALERTS_TOPIC_ARN) {
+            await snsClient.send(new PublishCommand({
+              TopicArn: process.env.SECURITY_ALERTS_TOPIC_ARN,
+              Subject: `DISPUTE: ${dispute.reason} - ${(dispute.amount / 100).toFixed(2)} ${(dispute.currency || 'EUR').toUpperCase()}`,
+              Message: JSON.stringify({
+                type: 'payment_dispute',
+                disputeId: dispute.id,
+                amount: dispute.amount,
+                reason: dispute.reason,
+                paymentIntentId: typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id,
+                creatorId: payment.creator_id.substring(0, 8) + '***',
+                timestamp: new Date().toISOString(),
+              }),
+            })).catch(err => log.error('Failed to send dispute admin alert', err));
+          }
         }
         break;
       }

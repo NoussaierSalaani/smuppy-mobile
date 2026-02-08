@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,8 +41,14 @@ export default function LiveEndedScreen(): React.JSX.Element {
     });
   };
 
-  const handleShareHighlights = () => {
-    // TODO: Implement share highlights functionality
+  const handleShareHighlights = async () => {
+    try {
+      await Share.share({
+        message: `I just went live on Smuppy! ${formatDuration(duration)} stream with ${viewerCount} viewers and ${peakViewers || viewerCount} peak viewers.`,
+      });
+    } catch {
+      // User cancelled or share failed — continue
+    }
     navigation.reset({
       index: 0,
       routes: [{ name: 'Tabs' }],

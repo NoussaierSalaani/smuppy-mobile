@@ -718,6 +718,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         STRIPE_SECRET_ARN: stripeSecret.secretArn,
+        SECURITY_ALERTS_TOPIC_ARN: cdk.Fn.importValue(`smuppy-security-alerts-arn-${props.environment}`),
       },
       deadLetterQueue: criticalDlq,
       retryAttempts: 2,
@@ -729,6 +730,10 @@ export class LambdaStack extends cdk.NestedStack {
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
     dbCredentials.grantRead(this.paymentWebhookFn);
+    this.paymentWebhookFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['sns:Publish'],
+      resources: [cdk.Fn.importValue(`smuppy-security-alerts-arn-${props.environment}`)],
+    }));
 
     // Subscriptions Lambda - Monthly subscriptions with revenue share
     this.paymentSubscriptionsFn = new NodejsFunction(this, 'PaymentSubscriptionsFunction', {

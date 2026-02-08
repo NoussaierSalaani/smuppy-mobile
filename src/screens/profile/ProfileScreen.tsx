@@ -482,6 +482,26 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return options;
   }, [imageSheetType, user.avatar, user.coverImage, handleTakePhoto, handleChooseLibrary, handleRemovePhoto]);
 
+  // --- Extracted inline handlers ---
+  const handleShowQRModal = useCallback(() => setShowQRModal(true), []);
+  const handleCloseQRModal = useCallback(() => setShowQRModal(false), []);
+  const handleBioToggle = useCallback(() => setBioExpanded(prev => !prev), []);
+  const handleCloseMoreTabs = useCallback(() => setShowMoreTabs(false), []);
+  const handleCloseImageSheet = useCallback(() => setShowImageSheet(false), []);
+  const handleCloseMenuItem = useCallback(() => setMenuItem(null), []);
+  const handleCloseCollectionMenu = useCallback(() => setCollectionMenuVisible(false), []);
+  const handleNavigateSettings = useCallback(() => navigation.navigate('Settings'), [navigation]);
+  const handleNavigateEditProfile = useCallback(() => navigation.navigate('EditProfile'), [navigation]);
+  const handleNavigatePrescriptions = useCallback(() => navigation.navigate('Prescriptions'), [navigation]);
+  const handleNavigateCreatePost = useCallback(() => navigation.navigate('CreatePost', { fromProfile: true }), [navigation]);
+  const handleNavigateCreatePeak = useCallback(() => navigation.navigate('CreatePeak'), [navigation]);
+  const handleNavigateGoLive = useCallback(() => navigation.navigate('GoLive'), [navigation]);
+  const handleCoverPress = useCallback(() => { if (isOwnProfile) showImageOptions('cover'); }, [isOwnProfile, showImageOptions]);
+  const handleAvatarPress = useCallback(() => { if (isOwnProfile) showImageOptions('avatar'); }, [isOwnProfile, showImageOptions]);
+
+  // Dynamic style for settings button position
+  const settingsBtnFixedStyle = useMemo(() => ({ top: insets.top + 8 }), [insets.top]);
+
   // ==================== COPY PROFILE LINK ====================
   const getProfileUrl = useCallback(() => {
     const username = user.username || user.displayName.toLowerCase().replace(/\s+/g, '');
@@ -580,7 +600,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       <View style={styles.coverAbsolute}>
         <TouchableOpacity
           activeOpacity={0.95}
-          onPress={() => isOwnProfile && showImageOptions('cover')}
+          onPress={handleCoverPress}
           style={styles.coverTouchable}
           accessibilityLabel={isOwnProfile ? "Change cover photo" : "Cover photo"}
           accessibilityRole={isOwnProfile ? "button" : "image"}
@@ -611,7 +631,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       <View style={styles.avatarRow}>
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => isOwnProfile && showImageOptions('avatar')}
+          onPress={handleAvatarPress}
           accessibilityLabel={isOwnProfile ? "Change profile photo" : `${user.displayName}'s profile photo`}
           accessibilityRole={isOwnProfile ? "button" : "image"}
           accessibilityHint={isOwnProfile ? "Opens options to change your profile photo" : undefined}
@@ -642,7 +662,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 <View style={styles.statGlassDivider} />
                 <TouchableOpacity
                   style={styles.statGlassItem}
-                  onPress={() => navigation.navigate('Prescriptions')}
+                  onPress={handleNavigatePrescriptions}
                   accessibilityLabel={`Vibe score ${vibeScore}`}
                   accessibilityRole="button"
                   accessibilityHint="View your prescriptions and vibe details"
@@ -671,7 +691,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </View>
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => setShowQRModal(true)}
+          onPress={handleShowQRModal}
           accessibilityLabel="Show QR code"
           accessibilityRole="button"
           accessibilityHint="Opens your profile QR code to share"
@@ -691,7 +711,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           </Text>
           {(user.bio.length > 80 || user.bio.split('\n').length > BIO_MAX_LINES) && (
             <TouchableOpacity
-              onPress={() => setBioExpanded(!bioExpanded)}
+              onPress={handleBioToggle}
               hitSlop={HIT_SLOP.medium}
               style={styles.seeMoreBtn}
               accessibilityLabel={bioExpanded ? "Show less bio" : "Show more bio"}
@@ -713,7 +733,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       ) : isOwnProfile ? (
         <TouchableOpacity
           style={styles.addBioBtn}
-          onPress={() => navigation.navigate('EditProfile')}
+          onPress={handleNavigateEditProfile}
           accessibilityLabel="Add Bio"
           accessibilityRole="button"
           accessibilityHint="Opens your profile editor to add a bio"
@@ -783,12 +803,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           visible={showMoreTabs}
           transparent
           animationType="fade"
-          onRequestClose={() => setShowMoreTabs(false)}
+          onRequestClose={handleCloseMoreTabs}
         >
           <TouchableOpacity
             style={styles.moreTabsOverlay}
             activeOpacity={1}
-            onPress={() => setShowMoreTabs(false)}
+            onPress={handleCloseMoreTabs}
           >
             <View style={styles.moreTabsContainer}>
               <Text style={styles.moreTabsTitle}>More</Text>
@@ -843,7 +863,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       {isOwnProfile && (
         <TouchableOpacity
           style={styles.createBtn}
-          onPress={() => navigation.navigate('CreatePost', { fromProfile: true })}
+          onPress={handleNavigateCreatePost}
           accessibilityLabel="Create a post"
           accessibilityRole="button"
           accessibilityHint="Opens the post creator"
@@ -932,7 +952,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {isOwnProfile && storeUser?.accountType !== 'pro_business' && (
             <TouchableOpacity
               style={styles.createBtn}
-              onPress={() => navigation.navigate('CreatePeak')}
+              onPress={handleNavigateCreatePeak}
               accessibilityLabel="Create a Peak"
               accessibilityRole="button"
               accessibilityHint="Opens the peak video creator"
@@ -1256,7 +1276,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </Text>
         <TouchableOpacity
           style={styles.createBtn}
-          onPress={() => navigation.navigate('GoLive')}
+          onPress={handleNavigateGoLive}
           accessibilityLabel="Go Live"
           accessibilityRole="button"
           accessibilityHint="Start a live video broadcast"
@@ -1299,13 +1319,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       visible={showQRModal}
       animationType="fade"
       transparent
-      onRequestClose={() => setShowQRModal(false)}
+      onRequestClose={handleCloseQRModal}
     >
       <View style={styles.qrModalOverlay}>
         <View style={styles.qrModalContent}>
           <TouchableOpacity
             style={styles.qrCloseBtn}
-            onPress={() => setShowQRModal(false)}
+            onPress={handleCloseQRModal}
             accessibilityLabel="Close QR code"
             accessibilityRole="button"
           >
@@ -1520,8 +1540,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       {/* Settings Button - Fixed on top */}
       {isOwnProfile && (
         <TouchableOpacity
-          style={[styles.settingsBtnFixed, { top: insets.top + 8 }]}
-          onPress={() => navigation.navigate('Settings')}
+          style={[styles.settingsBtnFixed, settingsBtnFixedStyle]}
+          onPress={handleNavigateSettings}
           testID="settings-button"
           accessibilityLabel="Settings"
           accessibilityRole="button"
@@ -1557,7 +1577,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       {/* Image Picker Action Sheet */}
       <SmuppyActionSheet
         visible={showImageSheet}
-        onClose={() => setShowImageSheet(false)}
+        onClose={handleCloseImageSheet}
         title={imageSheetType === 'avatar' ? 'Profile Photo' : 'Cover Photo'}
         subtitle={imageSheetType === 'avatar'
           ? 'Choose how you want to update your profile picture'
@@ -1569,7 +1589,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       {/* Event/Group Menu */}
       <SmuppyActionSheet
         visible={!!menuItem}
-        onClose={() => setMenuItem(null)}
+        onClose={handleCloseMenuItem}
         title={menuItem?.type === 'event' ? 'Event Options' : 'Group Options'}
         options={[
           {
@@ -1591,12 +1611,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         visible={collectionMenuVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setCollectionMenuVisible(false)}
+        onRequestClose={handleCloseCollectionMenu}
       >
         <TouchableOpacity
           style={styles.collectionMenuOverlay}
           activeOpacity={1}
-          onPress={() => setCollectionMenuVisible(false)}
+          onPress={handleCloseCollectionMenu}
         >
           <View style={styles.collectionMenuContainer}>
             <TouchableOpacity
@@ -1610,12 +1630,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.collectionMenuItem, styles.collectionMenuItemLast]}
-              onPress={() => setCollectionMenuVisible(false)}
+              onPress={handleCloseCollectionMenu}
               accessibilityLabel="Cancel"
               accessibilityRole="button"
             >
               <Ionicons name="close" size={22} color={colors.grayMuted} />
-              <Text style={[styles.collectionMenuText, { color: colors.grayMuted }]}>Cancel</Text>
+              <Text style={[styles.collectionMenuText, styles.collectionMenuTextCancel]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

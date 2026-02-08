@@ -682,6 +682,9 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.gray900,
     marginLeft: 16,
   },
+  collectionMenuTextCancel: {
+    color: colors.grayMuted,
+  },
 
   // ===== LIVES GRID =====
   livesGrid: {

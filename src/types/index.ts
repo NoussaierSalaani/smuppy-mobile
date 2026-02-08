@@ -455,15 +455,15 @@ export interface GroupActivity {
   is_public: boolean;
   is_fans_only: boolean;
   // Route (for running, cycling, hiking groups)
-  is_route: boolean;
-  route_start?: { lat: number; lng: number };
-  route_end?: { lat: number; lng: number };
-  route_waypoints?: { lat: number; lng: number }[];
-  route_geojson?: object;
-  route_profile?: RouteProfile;
-  route_distance_km?: number;
-  route_duration_min?: number;
-  route_elevation_gain?: number;
+  isRoute: boolean;
+  routeStart?: { lat: number; lng: number };
+  routeEnd?: { lat: number; lng: number };
+  routeWaypoints?: { lat: number; lng: number }[];
+  routeGeojson?: object;
+  routeProfile?: RouteProfile;
+  routeDistanceKm?: number;
+  routeDurationMin?: number;
+  routeElevationGain?: number;
   difficulty?: DifficultyLevel;
   // Status
   status: 'upcoming' | 'active' | 'ended' | 'cancelled';
@@ -584,9 +584,9 @@ export interface MapMarker {
   rating?: number;
   review_count?: number;
   // Route info
-  is_route?: boolean;
-  route_geojson?: object;
-  route_distance_km?: number;
+  isRoute?: boolean;
+  routeGeojson?: object;
+  routeDistanceKm?: number;
   difficulty?: DifficultyLevel;
   // Live specific
   viewer_count?: number;

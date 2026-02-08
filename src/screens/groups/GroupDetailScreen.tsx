@@ -51,10 +51,10 @@ interface GroupData {
   is_free?: boolean;
   price?: number;
   currency?: string;
-  is_route?: boolean;
-  route_geojson?: { type: string; coordinates: number[][] };
-  route_distance_km?: number;
-  route_duration_min?: number;
+  isRoute?: boolean;
+  routeGeojson?: { type: string; coordinates: number[][] };
+  routeDistanceKm?: number;
+  routeDurationMin?: number;
   difficulty?: string;
 }
 
@@ -73,16 +73,8 @@ const GroupDetailScreen: React.FC<{ navigation: { navigate: (screen: string, par
     try {
       const response = await awsAPI.getGroup(groupId);
       if (response.success && response.group) {
+        setGroup(response.group as unknown as GroupData);
         const groupData = response.group as unknown as Record<string, unknown>;
-        // Map camelCase backend response to snake_case GroupData
-        setGroup({
-          ...(groupData as unknown as GroupData),
-          route_geojson: (groupData.routeGeojson || groupData.route_geojson) as GroupData['route_geojson'],
-          route_distance_km: (groupData.routeDistanceKm || groupData.route_distance_km) as number | undefined,
-          route_duration_min: (groupData.routeDurationMin || groupData.route_duration_min) as number | undefined,
-          is_route: (groupData.isRoute || groupData.is_route) as boolean | undefined,
-          difficulty: (groupData.difficulty) as string | undefined,
-        });
         const participants = groupData.participants as Array<{ id: string }> | undefined;
         setHasJoined(participants?.some((p) => p.id === userId) || false);
       }
@@ -145,12 +137,12 @@ const GroupDetailScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
   const startsAt = new Date(group.starts_at);
   const isCreator = group.creator_id === userId;
-  const routeGeoJSON = group.route_geojson ? {
+  const routeGeoJSON = group.routeGeojson ? {
     type: 'FeatureCollection' as const,
     features: [{
       type: 'Feature' as const,
       properties: {},
-      geometry: group.route_geojson as GeoJSON.Geometry,
+      geometry: group.routeGeojson as GeoJSON.Geometry,
     }],
   } : null;
 
@@ -262,17 +254,17 @@ const GroupDetailScreen: React.FC<{ navigation: { navigate: (screen: string, par
           </View>
 
           {/* Route info */}
-          {group.is_route && group.route_distance_km && (
+          {group.isRoute && group.routeDistanceKm && (
             <View style={styles.routeCard}>
               <Text style={styles.routeCardTitle}>Route Info</Text>
               <View style={styles.routeStatsRow}>
                 <View style={styles.routeStat}>
-                  <Text style={styles.routeStatValue}>{formatDistance(group.route_distance_km)}</Text>
+                  <Text style={styles.routeStatValue}>{formatDistance(group.routeDistanceKm)}</Text>
                   <Text style={styles.routeStatLabel}>Distance</Text>
                 </View>
                 <View style={styles.routeStatDivider} />
                 <View style={styles.routeStat}>
-                  <Text style={styles.routeStatValue}>{formatDuration(group.route_duration_min || 0)}</Text>
+                  <Text style={styles.routeStatValue}>{formatDuration(group.routeDurationMin || 0)}</Text>
                   <Text style={styles.routeStatLabel}>Est. Time</Text>
                 </View>
                 <View style={styles.routeStatDivider} />

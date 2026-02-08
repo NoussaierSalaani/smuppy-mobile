@@ -1,6 +1,6 @@
 // src/screens/live/ViewerLiveStreamScreen.tsx
 // Screen for users to watch a live stream as a viewer
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -89,6 +89,32 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
 
   const floatingReactions = useRef<{ id: string; emoji: string; anim: Animated.Value }[]>([]);
   const [, forceUpdate] = useState({});
+  const isMountedRef = useRef(true);
+  const joinStreamPromiseRef = useRef<Promise<void> | null>(null);
+  const reactionIdCounterRef = useRef(0);
+
+  // Trigger floating reaction animation
+  const triggerFloatingReaction = useCallback((emoji: string) => {
+    if (!isMountedRef.current) return;
+    
+    reactionIdCounterRef.current += 1;
+    const id = `${Date.now()}_${reactionIdCounterRef.current}`;
+    
+    const anim = new Animated.Value(0);
+    floatingReactions.current.push({ id, emoji, anim });
+    forceUpdate({});
+
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 2000,
+      useNativeDriver: true,
+    }).start(() => {
+      if (isMountedRef.current) {
+        floatingReactions.current = floatingReactions.current.filter(r => r.id !== id);
+        forceUpdate({});
+      }
+    });
+  }, []);
 
   // Real-time live stream hook
   const {
@@ -115,29 +141,28 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     text: c.content,
   }));
 
-  // Trigger floating reaction animation
-  const triggerFloatingReaction = (emoji: string) => {
-    const id = Date.now().toString();
-    const anim = new Animated.Value(0);
-    floatingReactions.current.push({ id, emoji, anim });
-    forceUpdate({});
-
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 2000,
-      useNativeDriver: true,
-    }).start(() => {
-      floatingReactions.current = floatingReactions.current.filter(r => r.id !== id);
-      forceUpdate({});
-    });
-  };
-
   // Join stream on mount and cleanup on unmount
   useEffect(() => {
-    joinStream();
+    isMountedRef.current = true;
+    
+    joinStreamPromiseRef.current = joinStream();
+    
     return () => {
-      leaveStream();
-      destroy();
+      isMountedRef.current = false;
+      floatingReactions.current.forEach(r => r.anim.stopAnimation());
+      floatingReactions.current = [];
+      
+      if (joinStreamPromiseRef.current) {
+        joinStreamPromiseRef.current
+          .catch(() => {})
+          .finally(() => {
+            leaveStream().catch(() => {});
+            destroy().catch(() => {});
+          });
+      } else {
+        leaveStream().catch(() => {});
+        destroy().catch(() => {});
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -179,9 +204,13 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
 
   const handleLeave = async () => {
     setShowLeaveModal(false);
-    await leaveStream();
-    await leaveChannel();
-    await destroy();
+    try {
+      await leaveStream();
+      await leaveChannel();
+      await destroy();
+    } catch (err) {
+      if (__DEV__) console.warn('[ViewerLiveStream] Cleanup error:', err);
+    }
     navigation.goBack();
   };
 

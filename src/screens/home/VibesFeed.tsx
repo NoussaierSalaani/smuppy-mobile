@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Dimensions,
   Modal,
   Animated,
@@ -14,8 +13,9 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AvatarImage } from '../../components/OptimizedImage';
+import OptimizedImage, { AvatarImage, ThumbnailImage } from '../../components/OptimizedImage';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -253,7 +253,7 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
     showAnimation={!post.isLiked}
     style={[styles.vibeCard, { height: post.height }]}
   >
-    <Image source={{ uri: post.media || undefined }} style={styles.vibeImage} />
+    <OptimizedImage source={post.media} style={styles.vibeImage} recyclingKey={post.id} />
 
     {post.type === 'video' && (
       <View style={styles.videoIndicator}>
@@ -315,14 +315,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const { handleScroll, showBars } = useTabBar();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<any>(null);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Expose scrollToTop method to parent
   useImperativeHandle(ref, () => ({
     scrollToTop: () => {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
       showBars();
     },
   }));
@@ -881,36 +881,19 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     setLoadingMore(false);
   }, [loadingMore, hasMore, page, fetchPosts]);
 
-  // Handle scroll end for infinite loading
-  const handleScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 200;
-    if (isNearBottom && hasMore) {
-      onLoadMore();
-    }
-  }, [hasMore, onLoadMore]);
+  // FlashList renderItem for virtualized grid
+  const renderGridItem = useCallback(({ item }: { item: UIVibePost }) => (
+    <VibeCard
+      post={item}
+      colors={colors}
+      styles={styles}
+      onLike={toggleLike}
+      onTap={openPostModal}
+      onUserPress={goToUserProfile}
+    />
+  ), [toggleLike, openPostModal, goToUserProfile, colors, styles]);
 
-  // Get columns for masonry
-  const getColumns = useCallback(() => {
-    const leftColumn: UIVibePost[] = [];
-    const rightColumn: UIVibePost[] = [];
-    let leftHeight = 0;
-    let rightHeight = 0;
-
-    filteredPosts.forEach((post) => {
-      if (leftHeight <= rightHeight) {
-        leftColumn.push(post);
-        leftHeight += post.height + 16;
-      } else {
-        rightColumn.push(post);
-        rightHeight += post.height + 16;
-      }
-    });
-
-    return { leftColumn, rightColumn };
-  }, [filteredPosts]);
-
-  const { leftColumn, rightColumn } = useMemo(() => getColumns(), [getColumns]);
+  const keyExtractor = useCallback((item: UIVibePost) => item.id, []);
 
   // Render Peak card
   const renderPeakCard = useCallback((peak: PeakCardData, index: number) => (
@@ -920,7 +903,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       onPress={() => goToPeakView(peak, index)}
       activeOpacity={0.9}
     >
-      <Image source={{ uri: peak.thumbnail || PEAK_PLACEHOLDER }} style={styles.peakThumbnail} />
+      <ThumbnailImage source={peak.thumbnail || PEAK_PLACEHOLDER} style={styles.peakThumbnail} />
       
       {peak.hasNew && <View style={styles.peakNewIndicator} />}
       
@@ -935,19 +918,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeText(peak.user.name)}</Text>
     </TouchableOpacity>
   ), [goToPeakView, styles]);
-
-  // Render vibe card — delegates to memoized VibeCard
-  const renderVibeCard = useCallback((post: UIVibePost) => (
-    <VibeCard
-      key={post.id}
-      post={post}
-      colors={colors}
-      styles={styles}
-      onLike={toggleLike}
-      onTap={openPostModal}
-      onUserPress={goToUserProfile}
-    />
-  ), [toggleLike, openPostModal, goToUserProfile, colors, styles]);
 
   // Render modal - Full screen post
   const renderModal = () => (
@@ -978,11 +948,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                       }}
                     >
                       {selectedPost.allMedia.map((mediaUrl, mediaIndex) => (
-                        <Image
+                        <OptimizedImage
                           key={`${selectedPost.id}-media-${mediaIndex}`}
-                          source={{ uri: mediaUrl }}
+                          source={mediaUrl}
                           style={styles.modalImage}
-                          resizeMode="cover"
+                          contentFit="cover"
                         />
                       ))}
                     </ScrollView>
@@ -999,10 +969,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                     </View>
                   </>
                 ) : (
-                  <Image
-                    source={{ uri: selectedPost.media || undefined }}
+                  <OptimizedImage
+                    source={selectedPost.media}
                     style={styles.modalImage}
-                    resizeMode="cover"
+                    contentFit="cover"
                   />
                 )}
 
@@ -1115,7 +1085,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                           setSelectedPost(post);
                         }}
                       >
-                        <Image source={{ uri: post.media || undefined }} style={[styles.relatedImage, { height: 100 }]} />
+                        <OptimizedImage source={post.media} style={[styles.relatedImage, { height: 100 }]} />
                         <View style={styles.relatedOverlay}>
                           <SmuppyHeartIcon size={10} color="#fff" filled={post.isLiked} />
                           <Text style={styles.relatedLikes}>{formatNumber(post.likes)}</Text>
@@ -1137,19 +1107,22 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   return (
     <View style={styles.container}>
-      <Animated.ScrollView
+      <FlashList
         ref={scrollRef}
+        data={filteredPosts}
+        renderItem={renderGridItem}
+        keyExtractor={keyExtractor}
+        numColumns={2}
+        {...{ estimatedItemSize: 200 } as any}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          headerHeight > 0 && { paddingTop: headerHeight }
-        ]}
-        onScroll={(event) => {
+        contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight } : undefined}
+        onScroll={(event: any) => {
           handleScroll(event);
           handleMoodScroll(event);
         }}
         scrollEventThrottle={16}
-        onMomentumScrollEnd={handleScrollEnd}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.3}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1159,140 +1132,130 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             progressViewOffset={headerHeight}
           />
         }
-      >
-        {/* SMUPPY MOOD INDICATOR - AI-powered personalization (not for business accounts) */}
-        {accountType !== 'pro_business' && (
-          <MoodIndicator
-            mood={mood}
-            onRefresh={refreshMood}
-            onVibePress={() => navigation.navigate('Prescriptions')}
-          />
-        )}
+        ListHeaderComponent={
+          <>
+            {/* SMUPPY MOOD INDICATOR */}
+            {accountType !== 'pro_business' && (
+              <MoodIndicator
+                mood={mood}
+                onRefresh={refreshMood}
+                onVibePress={() => navigation.navigate('Prescriptions')}
+              />
+            )}
 
-        {/* PEAKS SECTION — hidden for business accounts */}
-        {!isBusiness && <View style={styles.peaksSection}>
-          <View style={styles.peaksSectionHeader}>
-            <Text style={styles.peaksSectionTitle}>Peaks</Text>
-            <TouchableOpacity
-              style={styles.peaksSeeAll}
-              onPress={() => navigation.navigate('Peaks')}
-            >
-              <Text style={styles.peaksSeeAllText}>See all</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.peaksScrollContent}
-          >
-            {peaksData.map((peak, index) => renderPeakCard(peak, index))}
-          </ScrollView>
-        </View>}
-
-        {/* Filters with animated chips */}
-        <View style={styles.filtersRow}>
-          {/* Fixed add button */}
-          <TouchableOpacity
-            style={styles.addInterestButton}
-            onPress={() => {
-              // Navigate to correct edit screen based on account type
-              if (accountType === 'personal') {
-                navigation.navigate('EditInterests', { returnTo: 'VibesFeed' });
-              } else if (accountType === 'pro_business') {
-                navigation.navigate('EditBusinessCategory', { returnTo: 'VibesFeed' });
-              } else {
-                navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' });
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add" size={16} color={colors.primary} />
-          </TouchableOpacity>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filtersContainer}
-            contentContainerStyle={styles.filtersContent}
-          >
-            {interests.map((interest) => (
-              <Animated.View
-                key={interest.id}
-                style={{ transform: [{ scale: getChipAnimation(interest.id) }] }}
+            {/* PEAKS SECTION */}
+            {!isBusiness && <View style={styles.peaksSection}>
+              <View style={styles.peaksSectionHeader}>
+                <Text style={styles.peaksSectionTitle}>Peaks</Text>
+                <TouchableOpacity
+                  style={styles.peaksSeeAll}
+                  onPress={() => navigation.navigate('Peaks')}
+                >
+                  <Text style={styles.peaksSeeAllText}>See all</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.peaksScrollContent}
               >
-                {interest.active ? (
-                  <TouchableOpacity
-                    onPress={() => toggleInterest(interest.id)}
-                    activeOpacity={0.7}
+                {peaksData.map((peak, index) => renderPeakCard(peak, index))}
+              </ScrollView>
+            </View>}
+
+            {/* Filters */}
+            <View style={styles.filtersRow}>
+              <TouchableOpacity
+                style={styles.addInterestButton}
+                onPress={() => {
+                  if (accountType === 'personal') {
+                    navigation.navigate('EditInterests', { returnTo: 'VibesFeed' });
+                  } else if (accountType === 'pro_business') {
+                    navigation.navigate('EditBusinessCategory', { returnTo: 'VibesFeed' });
+                  } else {
+                    navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' });
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={16} color={colors.primary} />
+              </TouchableOpacity>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filtersContainer}
+                contentContainerStyle={styles.filtersContent}
+              >
+                {interests.map((interest) => (
+                  <Animated.View
+                    key={interest.id}
+                    style={{ transform: [{ scale: getChipAnimation(interest.id) }] }}
                   >
-                    <LinearGradient
-                      colors={GRADIENTS.button}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.filterChipGradientBorder}
-                    >
-                      <View style={styles.filterChipSelectedInner}>
+                    {interest.active ? (
+                      <TouchableOpacity
+                        onPress={() => toggleInterest(interest.id)}
+                        activeOpacity={0.7}
+                      >
+                        <LinearGradient
+                          colors={GRADIENTS.button}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.filterChipGradientBorder}
+                        >
+                          <View style={styles.filterChipSelectedInner}>
+                            <Ionicons
+                              name={interest.icon}
+                              size={14}
+                              color={interest.color}
+                            />
+                            <Text style={styles.filterChipText}>{interest.name}</Text>
+                            <Ionicons name="close" size={12} color={colors.dark} style={styles.closeIconMargin} />
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.filterChip}
+                        onPress={() => toggleInterest(interest.id)}
+                        activeOpacity={0.7}
+                      >
                         <Ionicons
                           name={interest.icon}
                           size={14}
                           color={interest.color}
                         />
                         <Text style={styles.filterChipText}>{interest.name}</Text>
-                        <Ionicons name="close" size={12} color={colors.dark} style={styles.closeIconMargin} />
-                      </View>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.filterChip}
-                    onPress={() => toggleInterest(interest.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={interest.icon}
-                      size={14}
-                      color={interest.color}
-                    />
-                    <Text style={styles.filterChipText}>{interest.name}</Text>
-                  </TouchableOpacity>
-                )}
-              </Animated.View>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Grid */}
-        <View style={styles.gridContainer}>
-          <View style={styles.masonryContainer}>
-            <View style={styles.column}>
-              {leftColumn.map(renderVibeCard)}
+                      </TouchableOpacity>
+                    )}
+                  </Animated.View>
+                ))}
+              </ScrollView>
             </View>
-            <View style={styles.column}>
-              {rightColumn.map(renderVibeCard)}
+          </>
+        }
+        ListEmptyComponent={
+          isLoading ? (
+            <PeakGridSkeleton />
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="images-outline" size={64} color={colors.gray} />
+              <Text style={styles.emptyTitle}>No vibes found</Text>
+              <Text style={styles.emptySubtitle}>Try selecting different interests</Text>
             </View>
-          </View>
-
-          {filteredPosts.length === 0 && (
-            isLoading ? (
-              <PeakGridSkeleton />
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="images-outline" size={64} color={colors.gray} />
-                <Text style={styles.emptyTitle}>No vibes found</Text>
-                <Text style={styles.emptySubtitle}>Try selecting different interests</Text>
+          )
+        }
+        ListFooterComponent={
+          <>
+            {loadingMore && (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
-            )
-          )}
-
-          {loadingMore && (
-            <View style={styles.loadingMore}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          )}
-
-          <View style={{ height: 100 }} />
-        </View>
-      </Animated.ScrollView>
+            )}
+            <View style={{ height: 100 }} />
+          </>
+        }
+      />
 
       {renderModal()}
 

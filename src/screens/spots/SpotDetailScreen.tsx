@@ -48,10 +48,10 @@ interface SpotData {
   sport_type?: string;
   latitude: number;
   longitude: number;
-  is_route?: boolean;
-  route_geojson?: { type: string; coordinates: number[][] };
-  route_distance_km?: number;
-  route_duration_min?: number;
+  isRoute?: boolean;
+  routeGeojson?: { type: string; coordinates: number[][] };
+  routeDistanceKm?: number;
+  routeDurationMin?: number;
   difficulty?: string;
   qualities?: string[];
   rating_average?: number;
@@ -156,12 +156,12 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
     );
   }
 
-  const routeGeoJSON = spot.route_geojson ? {
+  const routeGeoJSON = spot.routeGeojson ? {
     type: 'FeatureCollection' as const,
     features: [{
       type: 'Feature' as const,
       properties: {},
-      geometry: spot.route_geojson as GeoJSON.Geometry,
+      geometry: spot.routeGeojson as GeoJSON.Geometry,
     }],
   } : null;
 
@@ -186,7 +186,7 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
             scaleBarEnabled={false}
           >
             <Camera
-              zoomLevel={spot.is_route ? 12 : 14}
+              zoomLevel={spot.isRoute ? 12 : 14}
               centerCoordinate={[spot.longitude, spot.latitude]}
               animationDuration={0}
             />
@@ -231,16 +231,16 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
           )}
 
           {/* Route info */}
-          {spot.is_route && spot.route_distance_km && (
+          {spot.isRoute && spot.routeDistanceKm && (
             <View style={styles.routeCard}>
               <View style={styles.routeStatsRow}>
                 <View style={styles.routeStat}>
-                  <Text style={styles.routeStatValue}>{formatDistance(spot.route_distance_km)}</Text>
+                  <Text style={styles.routeStatValue}>{formatDistance(spot.routeDistanceKm)}</Text>
                   <Text style={styles.routeStatLabel}>Distance</Text>
                 </View>
                 <View style={styles.routeStatDivider} />
                 <View style={styles.routeStat}>
-                  <Text style={styles.routeStatValue}>{formatDuration(spot.route_duration_min || 0)}</Text>
+                  <Text style={styles.routeStatValue}>{formatDuration(spot.routeDurationMin || 0)}</Text>
                   <Text style={styles.routeStatLabel}>Est. Time</Text>
                 </View>
                 <View style={styles.routeStatDivider} />

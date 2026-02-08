@@ -1,5 +1,5 @@
 // src/screens/live/LiveStreamingScreen.tsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
@@ -89,6 +89,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const [isStarting, setIsStarting] = useState(true);
 
   const fadeAnims = useRef<{ [key: string]: Animated.Value }>({}).current;
+  const isMountedRef = useRef(true);
+  const startAttemptedRef = useRef(false);
 
   // Real-time live stream hook
   const {
@@ -113,25 +115,50 @@ export default function LiveStreamingScreen(): React.JSX.Element {
 
   // Initialize and join on mount
   useEffect(() => {
-    startStream();
+    isMountedRef.current = true;
+
+    if (!startAttemptedRef.current) {
+      startAttemptedRef.current = true;
+      startStream();
+    }
+
     return () => {
-      destroy();
+      isMountedRef.current = false;
+      leaveStream().catch(() => {});
+      destroy().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const startStream = async () => {
+  const startStream = useCallback(async () => {
+    if (!isMountedRef.current) return;
     setIsStarting(true);
-    const success = await joinChannel(channelName, null);
-    if (!success) {
-      showError('Error', 'Failed to start stream. Please try again.');
-      navigation.goBack();
-      return;
+
+    try {
+      const success = await joinChannel(channelName, null);
+      if (!success) {
+        if (isMountedRef.current) {
+          showError('Error', 'Failed to start stream. Please try again.');
+          navigation.goBack();
+        }
+        return;
+      }
+
+      if (!isMountedRef.current) return;
+
+      await joinStream();
+
+      if (isMountedRef.current) {
+        setIsStarting(false);
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[LiveStreaming] startStream error:', err);
+      if (isMountedRef.current) {
+        showError('Error', 'Failed to start stream. Please try again.');
+        navigation.goBack();
+      }
     }
-    // Join WebSocket channel for real-time comments/reactions
-    await joinStream();
-    setIsStarting(false);
-  };
+  }, [channelName, joinChannel, joinStream, showError, navigation]);
 
   // Timer for duration
   useEffect(() => {

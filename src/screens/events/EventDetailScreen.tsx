@@ -63,9 +63,9 @@ interface Event {
   location_name: string;
   address?: string;
   coordinates: { lat: number; lng: number };
-  route_waypoints?: { lat: number; lng: number }[];
-  route_distance_km?: number;
-  route_difficulty?: 'easy' | 'moderate' | 'hard' | 'expert';
+  routeWaypoints?: { lat: number; lng: number }[];
+  routeDistanceKm?: number;
+  routeDifficulty?: 'easy' | 'moderate' | 'hard' | 'expert';
   starts_at: string;
   ends_at?: string;
   is_free: boolean;
@@ -375,7 +375,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
               >
                 <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: event.category.color, borderWidth: 2, borderColor: '#fff' }} />
               </MarkerView>
-              {event.route_waypoints && event.route_waypoints.length > 1 && (
+              {event.routeWaypoints && event.routeWaypoints.length > 1 && (
                 <ShapeSource
                   id="routeLine"
                   shape={{
@@ -383,7 +383,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
                     properties: {},
                     geometry: {
                       type: 'LineString',
-                      coordinates: event.route_waypoints.map((p) => [p.lng, p.lat]),
+                      coordinates: event.routeWaypoints.map((p) => [p.lng, p.lat]),
                     },
                   }}
                 >
@@ -487,7 +487,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
               </View>
             </View>
 
-            {event.route_distance_km && (
+            {event.routeDistanceKm && (
               <>
                 <View style={styles.detailDivider} />
                 <View style={styles.detailRow}>
@@ -497,10 +497,10 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
                   <View style={styles.detailText}>
                     <Text style={styles.detailLabel}>Route</Text>
                     <Text style={styles.detailValue}>
-                      {event.route_distance_km.toFixed(1)} km
-                      {event.route_difficulty && (
-                        <Text style={{ color: DIFFICULTY_COLORS[event.route_difficulty] }}>
-                          {' • '}{event.route_difficulty.charAt(0).toUpperCase() + event.route_difficulty.slice(1)}
+                      {event.routeDistanceKm.toFixed(1)} km
+                      {event.routeDifficulty && (
+                        <Text style={{ color: DIFFICULTY_COLORS[event.routeDifficulty] }}>
+                          {' • '}{event.routeDifficulty.charAt(0).toUpperCase() + event.routeDifficulty.slice(1)}
                         </Text>
                       )}
                     </Text>

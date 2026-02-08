@@ -82,12 +82,13 @@ export default function PrivateCallScreen(): React.JSX.Element {
   const [agoraChannelName, setAgoraChannelName] = useState<string | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const isMountedRef = useRef(true);
 
-  // Fetch Agora token from backend
-  const fetchAgoraToken = useCallback(async (): Promise<boolean> => {
+  // Fetch Agora token from backend — returns token directly to avoid stale state
+  const fetchAgoraToken = useCallback(async (): Promise<string | null> => {
     if (!sessionId) {
       if (__DEV__) console.warn('No sessionId provided, using fallback channel');
-      return true; // Continue with fallback
+      return null;
     }
 
     try {
@@ -95,34 +96,41 @@ export default function PrivateCallScreen(): React.JSX.Element {
       if (response.success && response.token) {
         setAgoraToken(response.token);
         setAgoraChannelName(response.channelName || `private_${sessionId}`);
-        return true;
+        return response.token;
       } else {
         if (__DEV__) console.warn('Failed to get Agora token:', response.message);
-        return false;
+        return null;
       }
     } catch (err) {
       if (__DEV__) console.warn('Error fetching Agora token:', err);
-      return false;
+      return null;
     }
   }, [sessionId]);
 
   // Start call on mount (if not incoming)
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (!isIncoming) {
-      startCall();
+      startCall().catch((err) => {
+        if (__DEV__) console.warn('[PrivateCallScreen] startCall error:', err);
+      });
     }
+    
     return () => {
-      destroy();
+      isMountedRef.current = false;
+      destroy().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle connection state changes
   useEffect(() => {
+    if (!isMountedRef.current) return;
+    
     if (isJoined && remoteUsers.length > 0) {
       setCallState('connected');
     } else if (isJoined && remoteUsers.length === 0 && callState === 'connected') {
-      // Other user disconnected
       handleCallEnded('The other person left the call');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,22 +170,17 @@ export default function PrivateCallScreen(): React.JSX.Element {
   }, [callState]);
 
   const startCall = async () => {
+    if (!isMountedRef.current) return;
     setCallState('connecting');
 
-    // First fetch the Agora token from backend
-    const tokenFetched = await fetchAgoraToken();
-    if (!tokenFetched) {
-      showAlert({
-        title: 'Error',
-        message: 'Failed to initialize video call. Please try again.',
-        type: 'error',
-        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
-      });
-      return;
-    }
+    const token = await fetchAgoraToken();
 
-    // Then join the channel with the token
-    const success = await joinChannel(agoraToken || undefined);
+    if (!isMountedRef.current) return;
+
+    const success = await joinChannel(token || undefined);
+    
+    if (!isMountedRef.current) return;
+    
     if (success) {
       setCallState('ringing');
     } else {
@@ -192,21 +195,17 @@ export default function PrivateCallScreen(): React.JSX.Element {
   };
 
   const acceptCall = async () => {
+    if (!isMountedRef.current) return;
     setCallState('connecting');
 
-    // First fetch the Agora token from backend
-    const tokenFetched = await fetchAgoraToken();
-    if (!tokenFetched) {
-      showAlert({
-        title: 'Error',
-        message: 'Failed to initialize video call. Please try again.',
-        type: 'error',
-        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
-      });
-      return;
-    }
+    const token = await fetchAgoraToken();
 
-    const success = await joinChannel(agoraToken || undefined);
+    if (!isMountedRef.current) return;
+
+    const success = await joinChannel(token || undefined);
+    
+    if (!isMountedRef.current) return;
+    
     if (!success) {
       if (__DEV__ && error) console.warn('[PrivateCallScreen] Accept call error:', error);
       showAlert({
@@ -222,10 +221,11 @@ export default function PrivateCallScreen(): React.JSX.Element {
     navigation.goBack();
   };
 
-  const handleCallEnded = (_message: string) => {
+  const handleCallEnded = useCallback((_message: string) => {
+    if (!isMountedRef.current) return;
     setCallState('ended');
     navigation.replace('SessionEnded', { duration, creator });
-  };
+  }, [duration, creator, navigation]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -238,8 +238,12 @@ export default function PrivateCallScreen(): React.JSX.Element {
   };
 
   const confirmEndCall = async () => {
-    await leaveChannel();
-    await destroy();
+    try {
+      await leaveChannel();
+      await destroy();
+    } catch (err) {
+      if (__DEV__) console.warn('[PrivateCallScreen] Cleanup error:', err);
+    }
     navigation.replace('SessionEnded', { duration, creator });
   };
 

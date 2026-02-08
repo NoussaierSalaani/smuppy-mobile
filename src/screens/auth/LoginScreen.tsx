@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, TouchableWithoutFeedback, Keyboard, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -128,41 +128,63 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
 
+  // Refs for mount tracking and preventing race conditions
+  const isMountedRef = useRef(true);
+  const loadingRef = useRef(false);
+
   // Google OAuth hook
   const [googleRequest, googleResponse, googlePromptAsync] = useGoogleAuth();
 
   // Check Apple Sign-In availability
   useEffect(() => {
-    isAppleSignInAvailable().then(setAppleAvailable).catch(() => {
+    let cancelled = false;
+    isAppleSignInAvailable().then((available) => {
+      if (!cancelled) setAppleAvailable(available);
+    }).catch(() => {
       if (__DEV__) console.warn('[Login] Apple Sign-In check failed');
     });
+    return () => { cancelled = true; };
   }, []);
 
   // Handle Google OAuth response
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (googleResponse) {
       handleGoogleAuthResponse().catch((err) => {
         if (__DEV__) console.warn('[Login] Google auth error:', err);
       });
     }
+    
+    return () => {
+      isMountedRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse]);
 
   const handleGoogleAuthResponse = async () => {
+    if (!isMountedRef.current) return;
     setSocialLoading('google');
-    const result = await handleGoogleSignIn(googleResponse);
+    
+    try {
+      const result = await handleGoogleSignIn(googleResponse);
 
-    if (result.success) {
-      // Fire-and-forget — onAuthStateChange handles navigation
-      storage.set(STORAGE_KEYS.REMEMBER_ME, 'true').catch(() => {});
-    } else if (result.error && result.error !== 'cancelled') {
-      setErrorModal({
-        visible: true,
-        title: 'Google Sign-In Failed',
-        message: result.error,
-      });
+      if (!isMountedRef.current) return;
+
+      if (result.success) {
+        storage.set(STORAGE_KEYS.REMEMBER_ME, 'true').catch(() => {});
+      } else if (result.error && result.error !== 'cancelled') {
+        setErrorModal({
+          visible: true,
+          title: 'Google Sign-In Failed',
+          message: result.error,
+        });
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setSocialLoading(null);
+      }
     }
-    setSocialLoading(null);
   };
 
   // Navigation - replaces screen to prevent stacking
@@ -186,14 +208,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       return;
     }
 
-    // Prevent double-tap: set loading BEFORE any async operation
-    if (loading) return;
+    // Prevent double-tap: use ref for synchronous check
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
 
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
-      // Check AWS rate limit
       const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-login');
       if (!awsCheck.allowed) {
         setErrorModal({
@@ -201,23 +223,20 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           title: 'Too Many Attempts',
           message: `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`,
         });
-        setLoading(false);
         return;
       }
 
-      // Progressive delay: if too many attempts, slow down the attacker
       if (awsCheck.shouldDelay && awsCheck.delayMs) {
         await new Promise(resolve => setTimeout(resolve, awsCheck.delayMs));
       }
 
-      // Persist remember me flag (fire-and-forget, non-blocking)
       storage.set(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false').catch(() => {});
 
-      // Use backend service which routes to AWS Cognito
       const user = await backend.signIn({ email: normalizedEmail, password });
 
+      if (!isMountedRef.current) return;
+
       if (!user) {
-        // signIn failed — clean up the flag we just wrote
         await storage.delete(STORAGE_KEYS.REMEMBER_ME);
         setErrorModal({
           visible: true,
@@ -229,8 +248,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       const profileResult = await getCurrentProfile(false).catch(() => ({ data: null }));
 
-      // Check if user has a profile - if not, navigate to onboarding
-      // (onAuthStateChange handles Main navigation for users WITH profiles)
+      if (!isMountedRef.current) return;
+
       if (!profileResult.data) {
         navigation.reset({
           index: 0,
@@ -238,12 +257,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         });
       }
     } catch (error: unknown) {
+      if (!isMountedRef.current) return;
+      
       const errorMessage = (error as Error)?.message || '';
 
-      // SECURITY: Generic message for ALL auth errors to prevent information leakage
-      // Don't reveal if email exists, if account is unconfirmed, etc.
       if (errorMessage.includes('Too many') || errorMessage.includes('rate') || errorMessage.includes('limit')) {
-        // Only exception: rate limiting (user needs to know to wait)
         setErrorModal({
           visible: true,
           title: 'Too Many Attempts',
@@ -257,10 +275,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         });
       }
     } finally {
-      setLoading(false);
+      loadingRef.current = false;
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email, password, rememberMe, loading]);
+  }, [email, password, rememberMe]);
 
   const togglePassword = useCallback(() => {
     setShowPassword(prev => !prev);
@@ -303,9 +324,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       });
       return;
     }
-    setSocialLoading('google');
-    await googlePromptAsync();
-    // Response will be handled by the useEffect
+    try {
+      setSocialLoading('google');
+      await googlePromptAsync();
+    } catch (err) {
+      if (__DEV__) console.warn('[Login] Google prompt error:', err);
+      setSocialLoading(null);
+    }
   }, [googleRequest, googlePromptAsync]);
 
   return (

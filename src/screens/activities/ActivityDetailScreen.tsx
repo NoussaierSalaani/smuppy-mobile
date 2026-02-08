@@ -80,11 +80,11 @@ interface Activity {
   latitude?: number;
   longitude?: number;
   coordinates?: { lat: number; lng: number };
-  route_waypoints?: { lat: number; lng: number }[];
-  route_geojson?: { type: string; coordinates: number[][] };
-  route_distance_km?: number;
-  route_duration_min?: number;
-  route_difficulty?: 'easy' | 'medium' | 'moderate' | 'hard' | 'expert';
+  routeWaypoints?: { lat: number; lng: number }[];
+  routeGeojson?: { type: string; coordinates: number[][] };
+  routeDistanceKm?: number;
+  routeDurationMin?: number;
+  routeDifficulty?: 'easy' | 'medium' | 'moderate' | 'hard' | 'expert';
   difficulty?: 'easy' | 'medium' | 'moderate' | 'hard' | 'expert';
   starts_at: string;
   ends_at?: string;
@@ -106,7 +106,7 @@ interface Activity {
   created_at: string;
   is_participating?: boolean;
   is_organizer?: boolean;
-  is_route?: boolean;
+  isRoute?: boolean;
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -139,7 +139,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
   // Determine if this is a route-based activity
   const isRouteActivity = useMemo(() => {
     if (!activity) return false;
-    if (activity.is_route) return true;
+    if (activity.isRoute) return true;
     const categorySlug = activity.category?.slug?.toLowerCase() || '';
     return ROUTE_CATEGORIES.includes(categorySlug);
   }, [activity]);
@@ -157,7 +157,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
         : null),
       participantCount: activity.participant_count ?? activity.current_participants ?? 0,
       priceAmount: activity.price_cents ?? (activity.price ? activity.price * 100 : 0),
-      difficulty: activity.route_difficulty || activity.difficulty,
+      difficulty: activity.routeDifficulty || activity.difficulty,
     };
   }, [activity]);
 
@@ -196,12 +196,12 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
             title: (group.name as string) || '',
             category: (group.category as Activity['category']) || { id: '0', name: 'Activity', slug: (group.subcategory as string) || 'other', icon: 'people', color: '#0EBF8A' },
             organizer: group.creator as Activity['organizer'],
-            route_geojson: (group.routeGeojson || group.route_geojson) as Activity['route_geojson'],
-            route_waypoints: (group.routeWaypoints || group.route_waypoints) as Activity['route_waypoints'],
-            route_distance_km: (group.routeDistanceKm || group.route_distance_km) as number | undefined,
-            route_duration_min: (group.routeDurationMin || group.route_duration_min) as number | undefined,
-            route_difficulty: (group.difficulty || group.route_difficulty) as Activity['route_difficulty'],
-            is_route: (group.isRoute || group.is_route) as boolean,
+            routeGeojson: group.routeGeojson as Activity['routeGeojson'],
+            routeWaypoints: group.routeWaypoints as Activity['routeWaypoints'],
+            routeDistanceKm: group.routeDistanceKm as number | undefined,
+            routeDurationMin: group.routeDurationMin as number | undefined,
+            routeDifficulty: (group.difficulty as Activity['routeDifficulty']),
+            isRoute: group.isRoute as boolean,
           });
           setHasJoined(((group.participants as Array<{ id: string }>) || []).some((p) => p.id === user?.id));
         } else {
@@ -407,21 +407,21 @@ ${shareUrl}`;
   const categoryColor = normalizedActivity.category?.color || '#0EBF8A';
 
   // Build route GeoJSON if available
-  const routeGeoJSON = normalizedActivity.route_geojson ? {
+  const routeGeoJSON = normalizedActivity.routeGeojson ? {
     type: 'FeatureCollection' as const,
     features: [{
       type: 'Feature' as const,
       properties: {},
-      geometry: normalizedActivity.route_geojson as { type: 'LineString'; coordinates: number[][] },
+      geometry: normalizedActivity.routeGeojson as { type: 'LineString'; coordinates: number[][] },
     }],
-  } : normalizedActivity.route_waypoints && normalizedActivity.route_waypoints.length > 1 ? {
+  } : normalizedActivity.routeWaypoints && normalizedActivity.routeWaypoints.length > 1 ? {
     type: 'FeatureCollection' as const,
     features: [{
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: normalizedActivity.route_waypoints.map((p) => [p.lng, p.lat]),
+        coordinates: normalizedActivity.routeWaypoints.map((p) => [p.lng, p.lat]),
       },
     }],
   } : null;
@@ -620,20 +620,20 @@ ${shareUrl}`;
             </View>
 
             {/* Route Info (for route activities) */}
-            {isRouteActivity && normalizedActivity.route_distance_km && (
+            {isRouteActivity && normalizedActivity.routeDistanceKm && (
               <>
                 <View style={[styles.detailDivider, { backgroundColor: colors.grayBorder }]} />
                 <View style={styles.routeStatsRow}>
                   <View style={styles.routeStat}>
                     <Text style={[styles.routeStatValue, { color: colors.dark }]}>
-                      {formatDistance(normalizedActivity.route_distance_km)}
+                      {formatDistance(normalizedActivity.routeDistanceKm)}
                     </Text>
                     <Text style={[styles.routeStatLabel, { color: colors.gray }]}>Distance</Text>
                   </View>
                   <View style={[styles.routeStatDivider, { backgroundColor: colors.grayBorder }]} />
                   <View style={styles.routeStat}>
                     <Text style={[styles.routeStatValue, { color: colors.dark }]}>
-                      {formatDuration(normalizedActivity.route_duration_min || 0)}
+                      {formatDuration(normalizedActivity.routeDurationMin || 0)}
                     </Text>
                     <Text style={[styles.routeStatLabel, { color: colors.gray }]}>Est. Time</Text>
                   </View>

@@ -33,6 +33,9 @@ export class LambdaStack2 extends cdk.NestedStack {
   public readonly notificationsPreferencesGetFn: NodejsFunction;
   public readonly notificationsPreferencesUpdateFn: NodejsFunction;
 
+  // Reports - Extended (moved from LambdaStack to stay under 500 resource limit)
+  public readonly reportsPeakFn: NodejsFunction;
+
   // Peaks - Extended (moved from LambdaStack to stay under 500 resource limit)
   public readonly peaksExpiredFn: NodejsFunction;
   public readonly peaksSaveDecisionFn: NodejsFunction;
@@ -126,6 +129,12 @@ export class LambdaStack2 extends cdk.NestedStack {
     // ========================================
     this.notificationsPreferencesGetFn = createLambda('NotificationsPreferencesGetFunction', 'notifications/preferences-get');
     this.notificationsPreferencesUpdateFn = createLambda('NotificationsPreferencesUpdateFunction', 'notifications/preferences-update');
+
+    // ========================================
+    // Reports Extended Lambda Functions
+    // (moved from LambdaStack to stay under CloudFormation 500 resource limit)
+    // ========================================
+    this.reportsPeakFn = createLambda('ReportsPeakFunction', 'reports/report-peak');
 
     // ========================================
     // Peaks Extended Lambda Functions

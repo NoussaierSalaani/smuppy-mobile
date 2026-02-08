@@ -122,11 +122,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // If tips enabled, verify user is a verified Pro Creator
+    // If tips enabled, verify user is a verified Pro Creator with an active subscription tier
     if (tipsEnabled) {
       const userResult = await client.query(
-        `SELECT account_type, is_verified, subscription_tier
-         FROM profiles WHERE id = $1`,
+        `SELECT account_type, is_verified FROM profiles WHERE id = $1`,
         [profileId]
       );
 
@@ -134,14 +133,28 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (
         !user ||
         (user.account_type !== 'pro_creator' && user.account_type !== 'pro_business') ||
-        !user.is_verified ||
-        !user.subscription_tier
+        !user.is_verified
       ) {
         return cors({
           statusCode: 403,
           body: JSON.stringify({
             success: false,
             message: 'Tips are only available for verified Pro Creators',
+          }),
+        });
+      }
+
+      // Verify creator has at least one active subscription tier
+      const tierCheck = await client.query(
+        `SELECT EXISTS(SELECT 1 FROM subscription_tiers WHERE creator_id = $1 AND is_active = true) AS has_tier`,
+        [profileId]
+      );
+      if (!tierCheck.rows[0]?.has_tier) {
+        return cors({
+          statusCode: 403,
+          body: JSON.stringify({
+            success: false,
+            message: 'You must set up a subscription tier before enabling tips',
           }),
         });
       }

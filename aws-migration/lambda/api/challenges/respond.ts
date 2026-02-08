@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('challenges-respond');
 
@@ -31,6 +32,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 401,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
+    }
+
+    const { allowed } = await checkRateLimit({ prefix: 'challenge-respond', identifier: cognitoSub, windowSeconds: 60, maxRequests: 20 });
+    if (!allowed) {
+      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
     }
 
     // Resolve cognito sub to profile ID
@@ -68,7 +74,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get challenge details
     const challengeResult = await client.query(
-      `SELECT pc.*, p.author_id as creator_user_id
+      `SELECT pc.id, pc.creator_id, pc.status, pc.ends_at, pc.allow_anyone,
+              pc.max_participants, pc.response_count,
+              p.author_id as creator_user_id
        FROM peak_challenges pc
        JOIN peaks p ON pc.peak_id = p.id
        WHERE pc.id = $1`,

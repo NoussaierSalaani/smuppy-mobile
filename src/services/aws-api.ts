@@ -112,8 +112,12 @@ interface ChallengeResponseEntry {
   peakId: string;
   score?: number;
   timeSeconds?: number;
+  rank?: number;
+  voteCount?: number;
+  status?: string;
   createdAt: string;
-  user?: { id: string; username: string; displayName?: string; avatarUrl?: string };
+  user?: { id: string; username: string; displayName?: string; avatarUrl?: string; isVerified?: boolean };
+  peak?: { id: string; thumbnailUrl?: string; videoUrl?: string; duration?: number; viewsCount?: number };
 }
 
 interface ApiBattle {

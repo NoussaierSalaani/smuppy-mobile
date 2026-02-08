@@ -7,6 +7,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getReaderPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('challenges-list');
 
@@ -30,6 +31,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       userId = profileResult.rows[0]?.id;
     }
     const creatorId = event.queryStringParameters?.creatorId;
+    if (creatorId && !isValidUUID(creatorId)) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid creator ID format' }),
+      });
+    }
     const category = event.queryStringParameters?.category;
     const status = event.queryStringParameters?.status || 'active';
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);

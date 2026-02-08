@@ -234,8 +234,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [challengeResponses, setChallengeResponses] = useState<Array<{
     id: string;
     peakId: string;
-    user: { id: string; username: string; displayName: string; avatarUrl: string; isVerified: boolean };
-    peak: { id: string; thumbnailUrl: string; videoUrl: string; duration: number; viewsCount: number };
+    user?: { id: string; username: string; displayName?: string; avatarUrl?: string; isVerified?: boolean };
+    peak?: { id: string; thumbnailUrl?: string; videoUrl?: string; duration?: number; viewsCount?: number };
     createdAt: string;
   }>>([]);
   const [responsesLoading, setResponsesLoading] = useState(false);
@@ -796,7 +796,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     try {
       const result = await awsAPI.getChallengeResponses(cId, { limit: 30 });
       if (result.responses) {
-        setChallengeResponses(result.responses as unknown as typeof challengeResponses);
+        setChallengeResponses(result.responses);
       }
     } catch (error) {
       if (__DEV__) console.warn('Failed to fetch challenge responses:', error);
@@ -1440,27 +1440,27 @@ const PeakViewScreen = (): React.JSX.Element => {
                       style={styles.responseItem}
                       onPress={() => handleResponsePress(
                         item.peakId,
-                        item.user.id,
-                        item.user.displayName || item.user.username,
-                        item.user.avatarUrl,
-                        item.peak.thumbnailUrl,
+                        item.user?.id || '',
+                        item.user?.displayName || item.user?.username || '',
+                        item.user?.avatarUrl || '',
+                        item.peak?.thumbnailUrl || '',
                       )}
                       activeOpacity={0.7}
                     >
                       <OptimizedImage
-                        source={{ uri: toCdn(item.peak.thumbnailUrl) }}
+                        source={{ uri: toCdn(item.peak?.thumbnailUrl) }}
                         style={styles.responseThumbnail}
                       />
                       <View style={styles.responseInfo}>
                         <View style={styles.responseUserRow}>
                           <AvatarImage
-                            source={{ uri: toCdn(item.user.avatarUrl) }}
+                            source={{ uri: toCdn(item.user?.avatarUrl) }}
                             style={styles.responseAvatar}
                           />
                           <Text style={styles.responseUserName} numberOfLines={1}>
-                            {item.user.displayName || item.user.username}
+                            {item.user?.displayName || item.user?.username || 'Unknown'}
                           </Text>
-                          {item.user.isVerified && (
+                          {item.user?.isVerified && (
                             <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
                           )}
                         </View>

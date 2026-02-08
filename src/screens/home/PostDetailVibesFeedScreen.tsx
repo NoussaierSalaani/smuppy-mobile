@@ -150,6 +150,12 @@ const PostDetailVibesFeedScreen = () => {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  // Dynamic styles depending on insets
+  const headerPaddingStyle = useMemo(() => ({ paddingTop: insets.top + 10 }), [insets.top]);
+  const bottomContentPaddingStyle = useMemo(() => ({ paddingBottom: insets.bottom + 20 }), [insets.bottom]);
+  const condensedPaddingStyle = useMemo(() => ({ paddingTop: insets.top }), [insets.top]);
+  const gridOnlyPaddingStyle = useMemo(() => ({ paddingTop: insets.top + 10 }), [insets.top]);
+
   // Like animation
   const triggerLikeAnimation = useCallback(() => {
     setShowLikeAnimation(true);
@@ -396,6 +402,52 @@ const PostDetailVibesFeedScreen = () => {
     }
   }, [currentPost, storeSubmitReport, showError, showSuccess]);
 
+  // --- Extracted inline handlers ---
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleShowMenu = useCallback(() => setShowMenu(true), []);
+  const handleCloseMenu = useCallback(() => setShowMenu(false), []);
+  const handleToggleAudioMute = useCallback(() => setIsAudioMuted(prev => !prev), []);
+  const handleToggleDescription = useCallback(() => setExpandedDescription(prev => !prev), []);
+  const handleExpandFullscreen = useCallback(() => setViewState(VIEW_STATES.FULLSCREEN), []);
+  const handleBackToCondensed = useCallback(() => setViewState(VIEW_STATES.CONDENSED), []);
+  const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
+
+  const handleUserPress = useCallback(() => {
+    if (!currentPost) return;
+    if (currentPost.user.id === currentUserId) {
+      navigation.navigate('ProfileTab' as never);
+    } else {
+      navigation.navigate('UserProfile', { userId: currentPost.user.id });
+    }
+  }, [currentPost, currentUserId, navigation]);
+
+  const handleViewLikers = useCallback(() => {
+    if (currentPost?.id) {
+      navigation.navigate('PostLikers', { postId: currentPost.id });
+    }
+  }, [currentPost?.id, navigation]);
+
+  const handleViewProfile = useCallback(() => {
+    setShowMenu(false);
+    if (!currentPost) return;
+    if (currentPost.user.id === currentUserId) {
+      navigation.navigate('ProfileTab' as never);
+    } else {
+      navigation.navigate('UserProfile', { userId: currentPost.user.id });
+    }
+  }, [currentPost, currentUserId, navigation]);
+
+  const handleCarouselScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number } } }) => {
+    const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+    setCarouselIndex(slideIndex);
+  }, []);
+
+  const handleReportSpam = useCallback(() => submitReport('spam'), [submitReport]);
+  const handleReportInappropriate = useCallback(() => submitReport('inappropriate'), [submitReport]);
+  const handleReportHarassment = useCallback(() => submitReport('harassment'), [submitReport]);
+  const handleReportViolence = useCallback(() => submitReport('violence'), [submitReport]);
+  const handleReportOther = useCallback(() => submitReport('other'), [submitReport]);
+
   // Mute user with anti spam-click
   const handleMute = useCallback(async () => {
     if (muteLoading || !currentPost) return;
@@ -599,7 +651,7 @@ const PostDetailVibesFeedScreen = () => {
         {/* FULLSCREEN VIEW */}
         {viewState === VIEW_STATES.FULLSCREEN && (
           <TouchableWithoutFeedback onPress={handleDoubleTap}>
-            <View style={[styles.fullscreenContainer, { height: height }]}>
+            <View style={[styles.fullscreenContainer, styles.fullscreenHeight]}>
               {/* Media */}
               {currentPost.type === 'video' ? (
                 <Video
@@ -619,10 +671,7 @@ const PostDetailVibesFeedScreen = () => {
                     horizontal
                     pagingEnabled
                     showsHorizontalScrollIndicator={false}
-                    onMomentumScrollEnd={(e) => {
-                      const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
-                      setCarouselIndex(slideIndex);
-                    }}
+                    onMomentumScrollEnd={handleCarouselScroll}
                   >
                     {currentPost.allMedia.map((mediaUrl, mediaIndex) => (
                       <OptimizedImage
@@ -680,10 +729,10 @@ const PostDetailVibesFeedScreen = () => {
               )}
 
               {/* Header */}
-              <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+              <View style={[styles.header, headerPaddingStyle]}>
                 <TouchableOpacity
                   style={styles.headerBtn}
-                  onPress={() => navigation.goBack()}
+                  onPress={handleGoBack}
                 >
                   <BlurView intensity={30} tint="dark" style={styles.headerBtnBlur}>
                     <Ionicons name="close" size={24} color="#FFF" />
@@ -692,7 +741,7 @@ const PostDetailVibesFeedScreen = () => {
 
                 <TouchableOpacity
                   style={styles.headerBtn}
-                  onPress={() => setShowMenu(true)}
+                  onPress={handleShowMenu}
                 >
                   <BlurView intensity={30} tint="dark" style={styles.headerBtnBlur}>
                     <Ionicons name="ellipsis-vertical" size={20} color="#FFF" />
@@ -749,7 +798,7 @@ const PostDetailVibesFeedScreen = () => {
                 {currentPost.type === 'video' && (
                   <TouchableOpacity
                     style={styles.actionBtnSimple}
-                    onPress={() => setIsAudioMuted(prev => !prev)}
+                    onPress={handleToggleAudioMute}
                   >
                     <Ionicons
                       name={isAudioMuted ? 'volume-mute' : 'volume-high'}
@@ -761,18 +810,12 @@ const PostDetailVibesFeedScreen = () => {
               </View>
 
               {/* Bottom content */}
-              <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 20 }]}>
+              <View style={[styles.bottomContent, bottomContentPaddingStyle]}>
                 {/* User info */}
                 <View style={styles.userRow}>
                   <TouchableOpacity
                     style={styles.userInfo}
-                    onPress={() => {
-                      if (currentPost.user.id === currentUserId) {
-                        navigation.navigate('ProfileTab' as never);
-                      } else {
-                        navigation.navigate('UserProfile', { userId: currentPost.user.id });
-                      }
-                    }}
+                    onPress={handleUserPress}
                   >
                     <AvatarImage source={currentPost.user.avatar} size={44} style={styles.avatar} />
                     <View>
@@ -809,7 +852,7 @@ const PostDetailVibesFeedScreen = () => {
 
                 {/* Description */}
                 <TouchableOpacity
-                  onPress={() => setExpandedDescription(!expandedDescription)}
+                  onPress={handleToggleDescription}
                   activeOpacity={0.8}
                 >
                   <Text
@@ -824,7 +867,7 @@ const PostDetailVibesFeedScreen = () => {
                 <View style={styles.statsBar}>
                   <TouchableOpacity
                     style={styles.statItem}
-                    onPress={() => navigation.navigate('PostLikers', { postId: currentPost.id })}
+                    onPress={handleViewLikers}
                     activeOpacity={0.7}
                   >
                     <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
@@ -849,12 +892,12 @@ const PostDetailVibesFeedScreen = () => {
 
         {/* CONDENSED VIEW */}
         {viewState === VIEW_STATES.CONDENSED && (
-          <View style={{ paddingTop: insets.top }}>
+          <View style={condensedPaddingStyle}>
             {/* Condensed post at top */}
             <TouchableOpacity
               style={styles.condensedPost}
               activeOpacity={0.95}
-              onPress={() => setViewState(VIEW_STATES.FULLSCREEN)}
+              onPress={handleExpandFullscreen}
             >
               <OptimizedImage source={currentPost.thumbnail} style={styles.condensedMedia} />
               <LinearGradient
@@ -865,7 +908,7 @@ const PostDetailVibesFeedScreen = () => {
               <View style={styles.condensedHeader}>
                 <TouchableOpacity
                   style={styles.condensedBackBtn}
-                  onPress={() => navigation.goBack()}
+                  onPress={handleGoBack}
                 >
                   <BlurView intensity={30} tint="dark" style={styles.condensedBtnBlur}>
                     <Ionicons name="close" size={22} color="#FFF" />
@@ -888,7 +931,7 @@ const PostDetailVibesFeedScreen = () => {
                 </View>
                 <TouchableOpacity
                   style={styles.condensedStats}
-                  onPress={() => navigation.navigate('PostLikers', { postId: currentPost.id })}
+                  onPress={handleViewLikers}
                   activeOpacity={0.7}
                 >
                   <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
@@ -922,17 +965,17 @@ const PostDetailVibesFeedScreen = () => {
 
         {/* GRID ONLY VIEW */}
         {viewState === VIEW_STATES.GRID_ONLY && (
-          <View style={{ paddingTop: insets.top + 10 }}>
+          <View style={gridOnlyPaddingStyle}>
             {/* Header */}
             <View style={styles.gridOnlyHeader}>
               <TouchableOpacity
                 style={styles.gridBackBtn}
-                onPress={() => setViewState(VIEW_STATES.CONDENSED)}
+                onPress={handleBackToCondensed}
               >
                 <Ionicons name="chevron-up" size={24} color="#FFF" />
               </TouchableOpacity>
               <Text style={styles.gridOnlyTitle}>Explore</Text>
-              <View style={{ width: 40 }} />
+              <View style={styles.spacer40} />
             </View>
 
             {/* Grid posts (Pinterest style) */}
@@ -955,12 +998,12 @@ const PostDetailVibesFeedScreen = () => {
         visible={showMenu}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowMenu(false)}
+        onRequestClose={handleCloseMenu}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setShowMenu(false)}
+          onPress={handleCloseMenu}
         >
           <BlurView intensity={20} tint="dark" style={styles.menuBlur}>
             <View style={styles.menuContent}>
@@ -985,14 +1028,7 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  if (currentPost.user.id === currentUserId) {
-                    navigation.navigate('ProfileTab' as never);
-                  } else {
-                    navigation.navigate('UserProfile', { userId: currentPost.user.id });
-                  }
-                }}
+                onPress={handleViewProfile}
               >
                 <View style={styles.menuIconBg}>
                   <Ionicons name="person-outline" size={22} color="#FFF" />
@@ -1029,7 +1065,7 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity
                 style={styles.menuCancel}
-                onPress={() => setShowMenu(false)}
+                onPress={handleCloseMenu}
               >
                 <Text style={styles.menuCancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -1043,12 +1079,12 @@ const PostDetailVibesFeedScreen = () => {
         visible={showReportModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowReportModal(false)}
+        onRequestClose={handleCloseReportModal}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setShowReportModal(false)}
+          onPress={handleCloseReportModal}
         >
           <BlurView intensity={20} tint="dark" style={styles.menuBlur}>
             <View style={styles.menuContent}>
@@ -1058,7 +1094,7 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity
                 style={styles.reportOption}
-                onPress={() => submitReport('spam')}
+                onPress={handleReportSpam}
               >
                 <Text style={styles.reportOptionText}>Spam or misleading</Text>
                 <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
@@ -1066,7 +1102,7 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity
                 style={styles.reportOption}
-                onPress={() => submitReport('inappropriate')}
+                onPress={handleReportInappropriate}
               >
                 <Text style={styles.reportOptionText}>Inappropriate content</Text>
                 <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
@@ -1074,7 +1110,7 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity
                 style={styles.reportOption}
-                onPress={() => submitReport('harassment')}
+                onPress={handleReportHarassment}
               >
                 <Text style={styles.reportOptionText}>Harassment or bullying</Text>
                 <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
@@ -1082,7 +1118,7 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity
                 style={styles.reportOption}
-                onPress={() => submitReport('violence')}
+                onPress={handleReportViolence}
               >
                 <Text style={styles.reportOptionText}>Violence or dangerous</Text>
                 <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
@@ -1090,7 +1126,7 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity
                 style={styles.reportOption}
-                onPress={() => submitReport('other')}
+                onPress={handleReportOther}
               >
                 <Text style={styles.reportOptionText}>Other</Text>
                 <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
@@ -1098,7 +1134,7 @@ const PostDetailVibesFeedScreen = () => {
 
               <TouchableOpacity
                 style={styles.menuCancel}
-                onPress={() => setShowReportModal(false)}
+                onPress={handleCloseReportModal}
               >
                 <Text style={styles.menuCancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -1123,6 +1159,9 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   fullscreenContainer: {
     width: width,
     position: 'relative',
+  },
+  fullscreenHeight: {
+    height: height,
   },
   fullscreenMedia: {
     width: '100%',
@@ -1614,6 +1653,9 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     fontSize: 20,
     fontWeight: '700',
     color: '#FFF',
+  },
+  spacer40: {
+    width: 40,
   },
 
   // Modal handle

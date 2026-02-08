@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
 import { View, AppState as RNAppState } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 SplashScreen.preventAutoHideAsync();
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -219,9 +220,9 @@ export default function App() {
           <CachePersistence />
           <PushNotificationHandler />
           <SmuppyAlertProvider>
-            <View style={{ flex: 1 }}>
+            <GestureHandlerRootView style={{ flex: 1 }}>
               <AppNavigator />
-            </View>
+            </GestureHandlerRootView>
           </SmuppyAlertProvider>
         </QueryClientProvider>
       </ErrorBoundary>

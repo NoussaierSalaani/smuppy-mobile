@@ -1023,10 +1023,15 @@ const PeakViewScreen = (): React.JSX.Element => {
   const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
 
   // Menu action handlers
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleShareAction = useCallback(() => handleMenuAction('share'), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMenuDownload = useCallback(() => handleMenuAction('download'), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMenuDelete = useCallback(() => handleMenuAction('delete'), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMenuNotInterested = useCallback(() => handleMenuAction('not_interested'), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMenuReport = useCallback(() => handleMenuAction('report'), []);
 
   const handleNavigateToUser = useCallback(() => {
@@ -1326,7 +1331,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           </TouchableOpacity>
 
           {/* More Options */}
-          <TouchableOpacity style={styles.actionButton} onPress={() => setShowMenu(true)}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleShowMenu}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="ellipsis-horizontal" size={24} color={colors.white} />
             </View>
@@ -1336,10 +1341,10 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       {/* Bottom Info - User Info & Progress Bar */}
       {carouselVisible && (
-        <View style={[styles.bottomInfo, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.bottomInfo, bottomInfoPaddingStyle]}>
           <TouchableOpacity
             style={styles.userInfo}
-            onPress={() => navigation.navigate('UserProfile', { userId: currentPeak.user?.id })}
+            onPress={handleNavigateToUser}
           >
             <View style={styles.userTextInfo}>
               <Text style={styles.userName}>{currentPeak.user?.name}</Text>
@@ -1449,7 +1454,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       {isInChain && (
         <View style={styles.chainOverlay}>
-          <View style={[styles.chainHeader, { paddingTop: insets.top + 10 }]}>
+          <View style={[styles.chainHeader, chainHeaderPaddingStyle]}>
             <Text style={styles.chainTitle}>Replies</Text>
             <Text style={styles.chainHint}>Double tap to go back</Text>
           </View>
@@ -1492,7 +1497,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               <>
                 <TouchableOpacity
                   style={styles.menuItem}
-                  onPress={() => handleMenuAction('download')}
+                  onPress={handleMenuDownload}
                 >
                   <Ionicons name="download-outline" size={24} color={isDark ? colors.white : colors.dark} />
                   <Text style={styles.menuItemText}>Save to phone</Text>
@@ -1500,7 +1505,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
                 <TouchableOpacity
                   style={[styles.menuItem, styles.menuItemDanger]}
-                  onPress={() => handleMenuAction('delete')}
+                  onPress={handleMenuDelete}
                 >
                   <Ionicons name="trash-outline" size={24} color="#FF453A" />
                   <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete</Text>
@@ -1510,7 +1515,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               <>
                 <TouchableOpacity
                   style={styles.menuItem}
-                  onPress={() => handleMenuAction('not_interested')}
+                  onPress={handleMenuNotInterested}
                 >
                   <Ionicons name="eye-off-outline" size={24} color={isDark ? colors.white : colors.dark} />
                   <Text style={styles.menuItemText}>Not interested</Text>
@@ -1518,7 +1523,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
                 <TouchableOpacity
                   style={[styles.menuItem, styles.menuItemDanger]}
-                  onPress={() => handleMenuAction('report')}
+                  onPress={handleMenuReport}
                 >
                   <Ionicons name="flag-outline" size={24} color="#FF453A" />
                   <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
@@ -1539,7 +1544,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       {/* Tag Friend Modal */}
       <TagFriendModal
         visible={showTagModal}
-        onClose={() => setShowTagModal(false)}
+        onClose={handleCloseTagModal}
         onTagFriend={handleTagFriend}
         peakId={currentPeak.id}
         existingTags={existingTags}
@@ -1549,10 +1554,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       <PeakReactions
         visible={showReactions}
         onReact={handleReaction}
-        onClose={() => {
-          setShowReactions(false);
-          setIsPaused(false);
-        }}
+        onClose={handleCloseReactions}
         currentReaction={peakReactions.get(currentPeak.id) || null}
       />
 
@@ -1561,10 +1563,10 @@ const PeakViewScreen = (): React.JSX.Element => {
         visible={showResponsesModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowResponsesModal(false)}
+        onRequestClose={handleCloseResponsesModal}
       >
-        <Pressable style={styles.responsesOverlay} onPress={() => setShowResponsesModal(false)}>
-          <Pressable style={styles.responsesContainer} onPress={() => {}}>
+        <Pressable style={styles.responsesOverlay} onPress={handleCloseResponsesModal}>
+          <Pressable style={styles.responsesContainer} onPress={NOOP}>
             <View style={styles.responsesHeader}>
               <View style={styles.menuHandle} />
               <View style={styles.responsesTitleRow}>
@@ -1599,14 +1601,14 @@ const PeakViewScreen = (): React.JSX.Element => {
         visible={showCommentsModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowCommentsModal(false)}
+        onRequestClose={handleCloseCommentsModal}
       >
-        <Pressable style={styles.responsesOverlay} onPress={() => setShowCommentsModal(false)}>
+        <Pressable style={styles.responsesOverlay} onPress={handleCloseCommentsModal}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.commentsKeyboardView}
           >
-            <Pressable style={styles.responsesContainer} onPress={() => {}}>
+            <Pressable style={styles.responsesContainer} onPress={NOOP}>
               <View style={styles.responsesHeader}>
                 <View style={styles.menuHandle} />
                 <View style={styles.responsesTitleRow}>
@@ -1665,10 +1667,10 @@ const PeakViewScreen = (): React.JSX.Element => {
         visible={showReportModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowReportModal(false)}
+        onRequestClose={handleCloseReportModal}
       >
-        <Pressable style={styles.responsesOverlay} onPress={() => setShowReportModal(false)}>
-          <Pressable style={styles.responsesContainer} onPress={() => {}}>
+        <Pressable style={styles.responsesOverlay} onPress={handleCloseReportModal}>
+          <Pressable style={styles.responsesContainer} onPress={NOOP}>
             <View style={styles.responsesHeader}>
               <View style={styles.menuHandle} />
               <View style={styles.responsesTitleRow}>
@@ -1680,7 +1682,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             {reportingPeak ? (
               <View style={styles.responsesLoading}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.responsesEmptySubtext, { marginTop: 12 }]}>Submitting report...</Text>
+                <Text style={[styles.responsesEmptySubtext, styles.reportSubmittingMargin]}>Submitting report...</Text>
               </View>
             ) : (
               <View style={styles.reportReasonList}>
@@ -1708,7 +1710,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             )}
             <TouchableOpacity
               style={styles.menuCancelButton}
-              onPress={() => setShowReportModal(false)}
+              onPress={handleCloseReportModal}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -2335,6 +2337,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 16,
     color: isDark ? colors.white : colors.dark,
     fontWeight: '500',
+  },
+  reportSubmittingMargin: {
+    marginTop: 12,
   },
 });
 

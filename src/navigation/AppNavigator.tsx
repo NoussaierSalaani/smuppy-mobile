@@ -19,6 +19,7 @@ import { useTheme } from '../hooks/useTheme';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { sentryNavigationIntegration } from '../lib/sentry';
 import { isValidUUID } from '../utils/formatters';
+import { FEATURES } from '../config/featureFlags';
 
 /**
  * Root Stack Param List
@@ -30,6 +31,69 @@ export type RootStackParamList = {
 };
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
+
+// Build deep link screen map conditionally based on feature flags
+const buildMainScreens = () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- React Navigation linking config uses dynamic screen map
+  const screens: Record<string, any> = {
+    Tabs: {
+      screens: {
+        HomeTab: { screens: { Feed: 'home' } },
+        MessagesTab: { screens: { Messages: 'messages' } },
+        ProfileTab: { screens: { Profile: 'my-profile' } },
+      },
+    },
+    UserProfile: {
+      path: 'profile/:userId',
+      parse: { userId: (userId: string) => isValidUUID(userId) ? userId : '' },
+    },
+    PostDetailFanFeed: {
+      path: 'post/:postId',
+      parse: { postId: (postId: string) => isValidUUID(postId) ? postId : '' },
+    },
+    PeakView: {
+      path: 'peak/:peakId',
+      parse: { peakId: (peakId: string) => isValidUUID(peakId) ? peakId : '' },
+    },
+    ActivityDetail: {
+      path: 'activity/:activityId/:activityType',
+      parse: {
+        activityId: (activityId: string) => isValidUUID(activityId) ? activityId : '',
+        activityType: (activityType: string) => activityType === 'group' ? 'group' : 'event',
+      },
+    },
+    EventList: { path: 'events' },
+  };
+
+  if (FEATURES.BUSINESS_DISCOVERY) {
+    screens.BusinessProfile = {
+      path: 'business/:businessId',
+      parse: { businessId: (businessId: string) => isValidUUID(businessId) ? businessId : '' },
+    };
+  }
+
+  if (FEATURES.CHANNEL_SUBSCRIBE) {
+    screens.CreatorOfferings = {
+      path: 'creator/:creatorId/offerings',
+      parse: { creatorId: (creatorId: string) => isValidUUID(creatorId) ? creatorId : '' },
+    };
+    screens.PackPurchase = {
+      path: 'packs/:packId',
+      parse: { packId: (packId: string) => isValidUUID(packId) ? packId : '' },
+    };
+    screens.SubscriptionSuccess = 'checkout/subscription-success';
+  }
+
+  if (FEATURES.PRIVATE_SESSIONS) {
+    screens.SessionBooked = 'checkout/session-booked';
+  }
+
+  if (FEATURES.BUSINESS_BOOKING) {
+    screens.BusinessSubscriptionSuccess = 'checkout/business-subscription-success';
+  }
+
+  return screens;
+};
 
 // Deep linking configuration for React Navigation
 const linking = {
@@ -48,77 +112,7 @@ const linking = {
         },
       },
       Main: {
-        screens: {
-          Tabs: {
-            screens: {
-              HomeTab: {
-                screens: {
-                  Feed: 'home',
-                },
-              },
-              MessagesTab: {
-                screens: {
-                  Messages: 'messages',
-                },
-              },
-              ProfileTab: {
-                screens: {
-                  Profile: 'my-profile',
-                },
-              },
-            },
-          },
-          UserProfile: {
-            path: 'profile/:userId',
-            parse: {
-              userId: (userId: string) => isValidUUID(userId) ? userId : '',
-            },
-          },
-          PostDetailFanFeed: {
-            path: 'post/:postId',
-            parse: {
-              postId: (postId: string) => isValidUUID(postId) ? postId : '',
-            },
-          },
-          PeakView: {
-            path: 'peak/:peakId',
-            parse: {
-              peakId: (peakId: string) => isValidUUID(peakId) ? peakId : '',
-            },
-          },
-          ActivityDetail: {
-            path: 'activity/:activityId/:activityType',
-            parse: {
-              activityId: (activityId: string) => isValidUUID(activityId) ? activityId : '',
-              activityType: (activityType: string) => activityType === 'group' ? 'group' : 'event',
-            },
-          },
-          BusinessProfile: {
-            path: 'business/:businessId',
-            parse: {
-              businessId: (businessId: string) => isValidUUID(businessId) ? businessId : '',
-            },
-          },
-          EventList: {
-            path: 'events',
-          },
-          CreatorOfferings: {
-            path: 'creator/:creatorId/offerings',
-            parse: {
-              creatorId: (creatorId: string) => isValidUUID(creatorId) ? creatorId : '',
-            },
-          },
-          PackPurchase: {
-            path: 'packs/:packId',
-            parse: {
-              packId: (packId: string) => isValidUUID(packId) ? packId : '',
-            },
-          },
-          // Checkout success screens
-          SessionBooked: 'checkout/session-booked',
-          SubscriptionSuccess: 'checkout/subscription-success',
-          BusinessSubscriptionSuccess: 'checkout/business-subscription-success',
-        },
+        screens: buildMainScreens(),
       },
     },
   },

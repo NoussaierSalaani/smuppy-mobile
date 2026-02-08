@@ -10,7 +10,15 @@ declare const __DEV__: boolean;
  * In production builds, only flags set to `true` below are enabled.
  */
 
-/** Production flags — only these matter in release builds */
+/**
+ * Production flags — only these matter in release builds.
+ *
+ * V1 Store Submission Strategy:
+ * - Keep content creation, social, discovery, peaks — the core value prop
+ * - Disable ALL Stripe-dependent monetization (Apple requires IAP for digital goods)
+ * - Disable live streaming & battles (require robust moderation for App Store)
+ * - Re-enable in V2/V3 updates once IAP is implemented or Apple entitlement granted
+ */
 const PROD_FEATURES = {
   // ─── Content Creation ────────────────────────────
   CREATE_POST: true,
@@ -29,36 +37,36 @@ const PROD_FEATURES = {
   SPOTS: true,
 
   // ─── Live Streaming ──────────────────────────────
-  GO_LIVE: true,
-  VIEWER_LIVE_STREAM: true,
+  GO_LIVE: false,              // V4: requires content moderation for App Store
+  VIEWER_LIVE_STREAM: false,   // V4: requires content moderation for App Store
 
   // ─── Challenges & Battles ────────────────────────
-  CHALLENGES: true,         // Merged into Peaks — challenge toggle on peak creation
-  BATTLES: false,
+  CHALLENGES: true,            // Merged into Peaks — no payment involved
+  BATTLES: false,              // V4: requires content moderation + live infra
 
   // ─── Monetization / Sessions ─────────────────────
-  PRIVATE_SESSIONS: true,   // Backend ready: sessions handlers + Stripe Connect
-  CHANNEL_SUBSCRIBE: true,  // Backend ready: channel-subscription handler
-  TIPPING: true,            // Backend ready: tips handlers + PaymentIntents
-  CREATOR_WALLET: false,    // Needs backend: balance, transactions, withdrawals
-  GIFTING: false,
+  PRIVATE_SESSIONS: false,     // V3: Stripe direct — needs Apple IAP
+  CHANNEL_SUBSCRIBE: false,    // V3: Stripe direct — needs Apple IAP
+  TIPPING: false,              // V3: Stripe direct — needs Apple IAP
+  CREATOR_WALLET: false,       // V3: needs backend + IAP
+  GIFTING: false,              // V3: needs backend + IAP
 
   // ─── Business Features ───────────────────────────
-  BUSINESS_DISCOVERY: true,
-  BUSINESS_DASHBOARD: true,
-  BUSINESS_BOOKING: false,   // Needs backend: Stripe Connect verified
-  BUSINESS_SCANNER: true,
+  BUSINESS_DISCOVERY: true,    // V1: browsing is free, no payment
+  BUSINESS_DASHBOARD: true,    // V1: owner management, no payment
+  BUSINESS_BOOKING: false,     // V3: Stripe Connect — needs Apple IAP
+  BUSINESS_SCANNER: true,      // V1: QR scanner, no payment
 
   // ─── Account / Settings ──────────────────────────
-  UPGRADE_TO_PRO: true,     // Backend ready: platform-subscription + webhook handles account_type change
-  IDENTITY_VERIFICATION: true,  // Backend ready: identity verification via Stripe Checkout
-  PLATFORM_SUBSCRIPTION: true,
+  UPGRADE_TO_PRO: false,       // V3: Stripe platform subscription — needs Apple IAP
+  IDENTITY_VERIFICATION: false, // V3: Stripe Identity — tied to monetization
+  PLATFORM_SUBSCRIPTION: false, // V3: Stripe subscription — needs Apple IAP
 
   // ─── Vibe Ecosystem ────────────────────────────
-  VIBE_GUARDIAN: true,            // Anti-doom-scroll breathing overlay
-  EMOTIONAL_RIPPLE: true,         // Positive interaction ripple on profile
-  VIBE_PRESCRIPTIONS: true,       // Context-aware wellness missions
-  VIBE_SCORE: true,               // Passive vibe score + levels + badges
+  VIBE_GUARDIAN: true,            // V1: anti-doom-scroll breathing overlay
+  EMOTIONAL_RIPPLE: true,         // V1: positive interaction ripple on profile
+  VIBE_PRESCRIPTIONS: true,       // V1: context-aware wellness missions
+  VIBE_SCORE: true,               // V1: passive vibe score + levels + badges
 } as const;
 
 export type FeatureKey = keyof typeof PROD_FEATURES;

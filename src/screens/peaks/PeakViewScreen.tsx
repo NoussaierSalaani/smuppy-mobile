@@ -44,6 +44,107 @@ import { awsAPI } from '../../services/aws-api';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
+// Utility: Convert URL to CDN URL
+const toCdn = (url?: string | null): string => {
+  if (!url) return '';
+  return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+};
+
+// ============================================
+// Memoized List Item Components
+// ============================================
+
+interface ChallengeResponseItemProps {
+  item: {
+    id: string;
+    peakId: string;
+    user?: { id: string; username: string; displayName?: string; avatarUrl?: string; isVerified?: boolean };
+    peak?: { id: string; thumbnailUrl?: string; videoUrl?: string; duration?: number; viewsCount?: number };
+    createdAt: string;
+  };
+  onPress: (peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string) => void;
+  colors: { primary: string; gray: string };
+  styles: ReturnType<typeof createStyles>;
+}
+
+const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, onPress, colors, styles }) => {
+  const handlePress = useCallback(() => {
+    onPress(
+      item.peakId,
+      item.user?.id || '',
+      item.user?.displayName || item.user?.username || '',
+      item.user?.avatarUrl || '',
+      item.peak?.thumbnailUrl || ''
+    );
+  }, [item, onPress]);
+
+  return (
+    <TouchableOpacity
+      style={styles.responseItem}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <OptimizedImage
+        source={{ uri: toCdn(item.peak?.thumbnailUrl) }}
+        style={styles.responseThumbnail}
+      />
+      <View style={styles.responseInfo}>
+        <View style={styles.responseUserRow}>
+          <AvatarImage
+            source={{ uri: toCdn(item.user?.avatarUrl) }}
+            style={styles.responseAvatar}
+          />
+          <Text style={styles.responseUserName} numberOfLines={1}>
+            {item.user?.displayName || item.user?.username || 'Unknown'}
+          </Text>
+          {item.user?.isVerified && (
+            <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
+          )}
+        </View>
+        <Text style={styles.responseDate}>
+          {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
+      </View>
+      <Ionicons name="play-circle" size={28} color={colors.primary} />
+    </TouchableOpacity>
+  );
+});
+
+interface CommentItemProps {
+  item: {
+    id: string;
+    text: string;
+    createdAt: string;
+    author: { id: string; username: string; fullName?: string; avatarUrl: string; isVerified: boolean };
+  };
+  colors: { primary: string; gray: string };
+  styles: ReturnType<typeof createStyles>;
+}
+
+const CommentItem = React.memo<CommentItemProps>(({ item, colors, styles }) => {
+  const avatarUri = useMemo(() => toCdn(item.author.avatarUrl), [item.author.avatarUrl]);
+
+  return (
+    <View style={styles.commentItem}>
+      <AvatarImage source={{ uri: avatarUri }} style={styles.commentAvatar} />
+      <View style={styles.commentContent}>
+        <View style={styles.commentHeader}>
+          <Text style={styles.commentUsername} numberOfLines={1}>
+            {item.author.fullName || item.author.username}
+          </Text>
+          {item.author.isVerified && (
+            <Ionicons name="checkmark-circle" size={12} color={colors.primary} />
+          )}
+          <Text style={styles.commentDate}>
+            {new Date(item.createdAt).toLocaleDateString()}
+          </Text>
+        </View>
+        <Text style={styles.commentText}>{item.text}</Text>
+      </View>
+    </View>
+  );
+});
+
 // Filter color overlay mapping — approximates GPU shader effects with gradient overlays
 const FILTER_COLOR_MAP: Record<string, { colors: [string, string]; start: { x: number; y: number }; end: { x: number; y: number } }> = {
   gym_lighting:   { colors: ['rgba(255,248,240,0.18)', 'rgba(255,240,220,0.08)'], start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } },
@@ -805,17 +906,17 @@ const PeakViewScreen = (): React.JSX.Element => {
 
   const handleResponsePress = useCallback((peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string) => {
     setShowResponsesModal(false);
-    const toCdn = (url?: string | null) => {
+    const toCdnLocal = (url?: string | null): string => {
       if (!url) return '';
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
     };
     navigation.navigate('PeakView', {
       peaks: [{
         id: peakId,
-        thumbnail: toCdn(thumbnailUrl),
-        videoUrl: toCdn(thumbnailUrl), // Will be replaced by actual video
+        thumbnail: toCdnLocal(thumbnailUrl),
+        videoUrl: toCdnLocal(thumbnailUrl), // Will be replaced by actual video
         duration: 0,
-        user: { id: userId, name: displayName, avatar: toCdn(avatarUrl) },
+        user: { id: userId, name: displayName, avatar: toCdnLocal(avatarUrl) },
         views: 0,
         createdAt: new Date().toISOString(),
       }],
@@ -899,6 +1000,24 @@ const PeakViewScreen = (): React.JSX.Element => {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const placeholder = useMemo(() => require('../../../assets/images/bg.png'), []);
+
+  // Memoized render functions for FlatLists
+  const renderChallengeResponse = useCallback(({ item }: { item: ChallengeResponseItemProps['item'] }) => (
+    <ChallengeResponseItem
+      item={item}
+      onPress={handleResponsePress}
+      colors={colors}
+      styles={styles}
+    />
+  ), [handleResponsePress, colors, styles]);
+
+  const renderComment = useCallback(({ item }: { item: CommentItemProps['item'] }) => (
+    <CommentItem
+      item={item}
+      colors={colors}
+      styles={styles}
+    />
+  ), [colors, styles]);
 
   const onVideoStatus = useCallback((status: AVPlaybackStatus) => {
     const s = status as AVPlaybackStatusSuccess;
@@ -1434,48 +1553,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                 data={challengeResponses}
                 keyExtractor={(item) => item.id}
                 style={styles.responsesList}
-                renderItem={({ item }) => {
-                  const toCdn = (url?: string | null) => {
-                    if (!url) return '';
-                    return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
-                  };
-                  return (
-                    <TouchableOpacity
-                      style={styles.responseItem}
-                      onPress={() => handleResponsePress(
-                        item.peakId,
-                        item.user?.id || '',
-                        item.user?.displayName || item.user?.username || '',
-                        item.user?.avatarUrl || '',
-                        item.peak?.thumbnailUrl || '',
-                      )}
-                      activeOpacity={0.7}
-                    >
-                      <OptimizedImage
-                        source={{ uri: toCdn(item.peak?.thumbnailUrl) }}
-                        style={styles.responseThumbnail}
-                      />
-                      <View style={styles.responseInfo}>
-                        <View style={styles.responseUserRow}>
-                          <AvatarImage
-                            source={{ uri: toCdn(item.user?.avatarUrl) }}
-                            style={styles.responseAvatar}
-                          />
-                          <Text style={styles.responseUserName} numberOfLines={1}>
-                            {item.user?.displayName || item.user?.username || 'Unknown'}
-                          </Text>
-                          {item.user?.isVerified && (
-                            <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
-                          )}
-                        </View>
-                        <Text style={styles.responseDate}>
-                          {new Date(item.createdAt).toLocaleDateString()}
-                        </Text>
-                      </View>
-                      <Ionicons name="play-circle" size={28} color={colors.primary} />
-                    </TouchableOpacity>
-                  );
-                }}
+                renderItem={renderChallengeResponse}
               />
             )}
           </Pressable>
@@ -1517,33 +1595,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                   data={comments}
                   keyExtractor={(item) => item.id}
                   style={styles.responsesList}
-                  renderItem={({ item }) => {
-                    const avatarUri = item.author.avatarUrl
-                      ? (item.author.avatarUrl.startsWith('http') ? item.author.avatarUrl : awsAPI.getCDNUrl(item.author.avatarUrl))
-                      : '';
-                    return (
-                      <View style={styles.commentItem}>
-                        <AvatarImage
-                          source={{ uri: avatarUri }}
-                          style={styles.commentAvatar}
-                        />
-                        <View style={styles.commentContent}>
-                          <View style={styles.commentHeader}>
-                            <Text style={styles.commentUsername} numberOfLines={1}>
-                              {item.author.fullName || item.author.username}
-                            </Text>
-                            {item.author.isVerified && (
-                              <Ionicons name="checkmark-circle" size={12} color={colors.primary} />
-                            )}
-                            <Text style={styles.commentDate}>
-                              {new Date(item.createdAt).toLocaleDateString()}
-                            </Text>
-                          </View>
-                          <Text style={styles.commentText}>{item.text}</Text>
-                        </View>
-                      </View>
-                    );
-                  }}
+                  renderItem={renderComment}
                 />
               )}
               {/* Comment Input */}

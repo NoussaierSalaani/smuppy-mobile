@@ -86,11 +86,11 @@ export default function WaitingRoomScreen(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     isPollingRef.current = false;
     setIsPolling(false);
     navigation.goBack();
-  };
+  }, [navigation]);
 
   // Poll for session status to check if creator accepted
   const checkSessionStatus = useCallback(async () => {

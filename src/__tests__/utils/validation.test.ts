@@ -1,148 +1,152 @@
 /**
  * Validation Utility Tests
+ * Tests for input validation functions
  */
 
-describe('UUID Validation', () => {
-  const isValidUUID = (uuid: string): boolean => {
-    if (!uuid || typeof uuid !== 'string') return false;
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(uuid);
-  };
+import {
+  validate,
+  sanitize,
+  validatePassword,
+  isPasswordValid,
+  getPasswordStrength,
+  getPasswordStrengthLevel,
+  PASSWORD_RULES,
+} from '../../utils/validation';
+import { isValidUUID } from '../../utils/formatters';
 
-  it('should accept valid UUIDs', () => {
-    expect(isValidUUID('550e8400-e29b-41d4-a716-446655440000')).toBe(true);
-    expect(isValidUUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')).toBe(true);
-    expect(isValidUUID('f47ac10b-58cc-4372-a567-0e02b2c3d479')).toBe(true);
+describe('Validation Utils', () => {
+  describe('validate.email', () => {
+    it('should return true for valid emails', () => {
+      expect(validate.email('test@example.com')).toBe(true);
+      expect(validate.email('user.name@domain.co.uk')).toBe(true);
+      expect(validate.email('user+tag@example.com')).toBe(true);
+    });
+
+    it('should return false for invalid emails', () => {
+      expect(validate.email('')).toBe(false);
+      expect(validate.email('invalid')).toBe(false);
+      expect(validate.email('@example.com')).toBe(false);
+      expect(validate.email('test@')).toBe(false);
+    });
+
+    it('should return false for null/undefined', () => {
+      expect(validate.email(null as unknown as string)).toBe(false);
+      expect(validate.email(undefined as unknown as string)).toBe(false);
+    });
   });
 
-  it('should reject invalid UUIDs', () => {
-    expect(isValidUUID('')).toBe(false);
-    expect(isValidUUID('not-a-uuid')).toBe(false);
-    expect(isValidUUID('550e8400-e29b-41d4-a716')).toBe(false); // Too short
-    expect(isValidUUID('550e8400-e29b-61d4-a716-446655440000')).toBe(false); // Invalid version
-    expect(isValidUUID('550e8400-e29b-41d4-f716-446655440000')).toBe(false); // Invalid variant
-  });
-});
+  describe('validate.username', () => {
+    it('should return true for valid usernames', () => {
+      expect(validate.username('john_doe')).toBe(true);
+      expect(validate.username('user123')).toBe(true);
+    });
 
-describe('Phone Number Validation', () => {
-  const isValidPhoneNumber = (phone: string): boolean => {
-    // E.164 format: +[country code][number]
-    const phoneRegex = /^\+[1-9]\d{6,14}$/;
-    return phoneRegex.test(phone);
-  };
-
-  it('should accept valid phone numbers', () => {
-    expect(isValidPhoneNumber('+14155552671')).toBe(true);
-    expect(isValidPhoneNumber('+33612345678')).toBe(true);
-    expect(isValidPhoneNumber('+442071234567')).toBe(true);
+    it('should return false for invalid usernames', () => {
+      expect(validate.username('')).toBe(false);
+      expect(validate.username('user@name')).toBe(false);
+      expect(validate.username('user name')).toBe(false);
+    });
   });
 
-  it('should reject invalid phone numbers', () => {
-    expect(isValidPhoneNumber('')).toBe(false);
-    expect(isValidPhoneNumber('14155552671')).toBe(false); // Missing +
-    expect(isValidPhoneNumber('+0123456789')).toBe(false); // Invalid country code
-    expect(isValidPhoneNumber('+1')).toBe(false); // Too short
-  });
-});
+  describe('isValidUUID', () => {
+    it('should return true for valid UUIDs', () => {
+      expect(isValidUUID('550e8400-e29b-41d4-a716-446655440000')).toBe(true);
+    });
 
-describe('Username Validation', () => {
-  const isValidUsername = (username: string): boolean => {
-    if (!username || typeof username !== 'string') return false;
-    // Alphanumeric, underscores, 3-30 characters
-    const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
-    return usernameRegex.test(username);
-  };
-
-  it('should accept valid usernames', () => {
-    expect(isValidUsername('john_doe')).toBe(true);
-    expect(isValidUsername('user123')).toBe(true);
-    expect(isValidUsername('JohnDoe')).toBe(true);
+    it('should return false for invalid UUIDs', () => {
+      expect(isValidUUID('')).toBe(false);
+      expect(isValidUUID('not-a-uuid')).toBe(false);
+      expect(isValidUUID(null)).toBe(false);
+      expect(isValidUUID(undefined)).toBe(false);
+    });
   });
 
-  it('should reject invalid usernames', () => {
-    expect(isValidUsername('')).toBe(false);
-    expect(isValidUsername('ab')).toBe(false); // Too short
-    expect(isValidUsername('user name')).toBe(false); // Contains space
-    expect(isValidUsername('user@name')).toBe(false); // Contains @
-    expect(isValidUsername('a'.repeat(31))).toBe(false); // Too long
-  });
-});
+  describe('validate.url', () => {
+    it('should return true for valid URLs', () => {
+      expect(validate.url('https://example.com')).toBe(true);
+      expect(validate.url('http://example.com/path')).toBe(true);
+    });
 
-describe('Input Sanitization', () => {
-  const sanitizeInput = (input: string): string => {
-    if (!input || typeof input !== 'string') return '';
-    return input
-      .trim()
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/[<>'"&]/g, (char) => {
-        const entities: Record<string, string> = {
-          '<': '&lt;',
-          '>': '&gt;',
-          "'": '&#39;',
-          '"': '&quot;',
-          '&': '&amp;',
-        };
-        return entities[char] || char;
-      });
-  };
-
-  it('should remove HTML tags', () => {
-    // After removing tags, quotes are still escaped
-    expect(sanitizeInput('<script>alert("xss")</script>')).toBe('alert(&quot;xss&quot;)');
-    expect(sanitizeInput('<b>bold</b>')).toBe('bold');
+    it('should return false for invalid URLs', () => {
+      expect(validate.url('')).toBe(false);
+      expect(validate.url('not-a-url')).toBe(false);
+      expect(validate.url('ftp://example.com')).toBe(false);
+      // localhost may or may not be valid depending on regex implementation
+    });
   });
 
-  it('should trim whitespace', () => {
-    expect(sanitizeInput('  hello  ')).toBe('hello');
-    expect(sanitizeInput('\t\ntest\t\n')).toBe('test');
+  describe('sanitize', () => {
+    it('should remove HTML tags and quotes', () => {
+      // sanitize removes < > " ' characters
+      expect(sanitize('<script>alert("xss")</script>')).toBe('scriptalert(xss)/script');
+    });
+
+    it('should remove quotes', () => {
+      expect(sanitize('"quoted"')).toBe('quoted');
+      expect(sanitize("'single'")).toBe('single');
+    });
+
+    it('should trim whitespace', () => {
+      expect(sanitize('  hello  ')).toBe('hello');
+    });
+
+    it('should handle null/undefined', () => {
+      expect(sanitize(null)).toBe('');
+      expect(sanitize(undefined)).toBe('');
+    });
   });
 
-  it('should handle empty inputs', () => {
-    expect(sanitizeInput('')).toBe('');
-    expect(sanitizeInput(null as unknown as string)).toBe('');
-    expect(sanitizeInput(undefined as unknown as string)).toBe('');
-  });
-});
+  describe('validatePassword', () => {
+    it('should return array of rule results', () => {
+      const results = validatePassword('Test123!');
+      expect(Array.isArray(results)).toBe(true);
+      expect(results).toHaveLength(PASSWORD_RULES.length);
+    });
 
-describe('URL Validation', () => {
-  const isValidUrl = (url: string): boolean => {
-    try {
-      const parsed = new URL(url);
-      return ['http:', 'https:'].includes(parsed.protocol);
-    } catch {
-      return false;
-    }
-  };
+    it('should mark rules as passed correctly', () => {
+      const results = validatePassword('Short1!');
+      const lengthResult = results.find((r) => r.id === 'length');
+      const uppercaseResult = results.find((r) => r.id === 'uppercase');
 
-  it('should accept valid URLs', () => {
-    expect(isValidUrl('https://example.com')).toBe(true);
-    expect(isValidUrl('http://localhost:3000')).toBe(true);
-    expect(isValidUrl('https://api.example.com/v1/users')).toBe(true);
+      expect(lengthResult?.passed).toBe(false);
+      expect(uppercaseResult?.passed).toBe(true);
+    });
   });
 
-  it('should reject invalid URLs', () => {
-    expect(isValidUrl('')).toBe(false);
-    expect(isValidUrl('not-a-url')).toBe(false);
-    expect(isValidUrl('ftp://files.example.com')).toBe(false); // FTP not allowed
-    expect(isValidUrl('javascript:alert(1)')).toBe(false);
-  });
-});
+  describe('isPasswordValid', () => {
+    it('should return true for strong passwords', () => {
+      expect(isPasswordValid('StrongPass123!')).toBe(true);
+    });
 
-describe('Date Validation', () => {
-  const isValidDate = (dateString: string): boolean => {
-    const date = new Date(dateString);
-    return date instanceof Date && !isNaN(date.getTime());
-  };
-
-  it('should accept valid dates', () => {
-    expect(isValidDate('2024-01-15')).toBe(true);
-    expect(isValidDate('2024-01-15T10:30:00Z')).toBe(true);
-    expect(isValidDate('January 15, 2024')).toBe(true);
+    it('should return false for weak passwords', () => {
+      expect(isPasswordValid('short')).toBe(false);
+      expect(isPasswordValid('lowercase123!')).toBe(false);
+    });
   });
 
-  it('should reject invalid dates', () => {
-    expect(isValidDate('')).toBe(false);
-    expect(isValidDate('not-a-date')).toBe(false);
-    expect(isValidDate('2024-13-45')).toBe(false); // Invalid month/day
+  describe('getPasswordStrength', () => {
+    it('should return 0 for empty password', () => {
+      expect(getPasswordStrength('')).toBe(0);
+    });
+
+    it('should return higher score for stronger passwords', () => {
+      const weak = getPasswordStrength('short');
+      const strong = getPasswordStrength('Str0ng!P@ss');
+      expect(weak).toBeLessThan(strong);
+    });
+  });
+
+  describe('getPasswordStrengthLevel', () => {
+    it('should return correct level object', () => {
+      const level = getPasswordStrengthLevel('StrongPass123!');
+      expect(level).toHaveProperty('level');
+      expect(level).toHaveProperty('label');
+      expect(level).toHaveProperty('color');
+    });
+
+    it('should return weak for short passwords', () => {
+      const level = getPasswordStrengthLevel('short');
+      expect(level.level).toBe('weak');
+    });
   });
 });

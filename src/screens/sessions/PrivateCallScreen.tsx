@@ -169,7 +169,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callState]);
 
-  const startCall = async () => {
+  const startCall = useCallback(async () => {
     if (!isMountedRef.current) return;
     setCallState('connecting');
 
@@ -192,9 +192,9 @@ export default function PrivateCallScreen(): React.JSX.Element {
         buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
       });
     }
-  };
+  }, [fetchAgoraToken, joinChannel, error, showAlert, navigation]);
 
-  const acceptCall = async () => {
+  const acceptCall = useCallback(async () => {
     if (!isMountedRef.current) return;
     setCallState('connecting');
 
@@ -215,11 +215,11 @@ export default function PrivateCallScreen(): React.JSX.Element {
         buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
       });
     }
-  };
+  }, [fetchAgoraToken, joinChannel, error, showAlert, navigation]);
 
-  const declineCall = () => {
+  const declineCall = useCallback(() => {
     navigation.goBack();
-  };
+  }, [navigation]);
 
   const handleCallEnded = useCallback((_message: string) => {
     if (!isMountedRef.current) return;
@@ -227,17 +227,17 @@ export default function PrivateCallScreen(): React.JSX.Element {
     navigation.replace('SessionEnded', { duration, creator });
   }, [duration, creator, navigation]);
 
-  const formatDuration = (seconds: number) => {
+  const formatDuration = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
-  const handleEndCall = () => {
+  const handleEndCall = useCallback(() => {
     setShowEndConfirm(true);
-  };
+  }, []);
 
-  const confirmEndCall = async () => {
+  const confirmEndCall = useCallback(async () => {
     try {
       await leaveChannel();
       await destroy();
@@ -245,11 +245,11 @@ export default function PrivateCallScreen(): React.JSX.Element {
       if (__DEV__) console.warn('[PrivateCallScreen] Cleanup error:', err);
     }
     navigation.replace('SessionEnded', { duration, creator });
-  };
+  }, [leaveChannel, destroy, navigation, duration, creator]);
 
-  const swapVideos = () => {
-    setLocalVideoLarge(!localVideoLarge);
-  };
+  const swapVideos = useCallback(() => {
+    setLocalVideoLarge(prev => !prev);
+  }, []);
 
   const remoteUid = remoteUsers[0];
   const channelId = agoraChannelName || `private_${[myUserId, creator.id].sort().join('_')}`;

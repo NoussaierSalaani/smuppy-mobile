@@ -186,23 +186,23 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     }
   }, [isJoined, remoteUsers.length, creatorName, navigation, showAlert]);
 
-  const handleSendComment = () => {
+  const handleSendComment = useCallback(() => {
     // Sanitize: strip HTML tags and control characters
     const sanitized = newComment.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
     if (!sanitized) return;
     sendLiveComment(sanitized);
     setNewComment('');
-  };
+  }, [newComment, sendLiveComment]);
 
-  const handleReaction = (emoji: string) => {
+  const handleReaction = useCallback((emoji: string) => {
     // Trigger local animation
     triggerFloatingReaction(emoji);
     // Send to other viewers via WebSocket
     sendLiveReaction(emoji);
     setShowReactions(false);
-  };
+  }, [triggerFloatingReaction, sendLiveReaction]);
 
-  const handleLeave = async () => {
+  const handleLeave = useCallback(async () => {
     setShowLeaveModal(false);
     try {
       await leaveStream();
@@ -212,9 +212,9 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
       if (__DEV__) console.warn('[ViewerLiveStream] Cleanup error:', err);
     }
     navigation.goBack();
-  };
+  }, [leaveStream, leaveChannel, destroy, navigation]);
 
-  const renderComment = ({ item }: { item: Comment }) => {
+  const renderComment = useCallback(({ item }: { item: Comment }) => {
     return (
       <View style={styles.commentItem}>
         <AvatarImage source={item.avatar} size={28} />
@@ -226,7 +226,9 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
         </View>
       </View>
     );
-  };
+    // Styles are memoized and stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Get the host's UID (first remote user is typically the host)
   const hostUid = remoteUsers[0];

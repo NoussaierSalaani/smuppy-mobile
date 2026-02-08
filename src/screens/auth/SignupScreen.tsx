@@ -105,7 +105,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse]);
 
-  const handleGoogleAuthResponse = async () => {
+  const handleGoogleAuthResponse = useCallback(async () => {
     if (!isMountedRef.current) return;
     setSocialLoading('google');
     
@@ -128,7 +128,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         setSocialLoading(null);
       }
     }
-  };
+  }, [googleResponse]);
 
   // Handle Apple Sign-In
   const handleAppleSignIn = useCallback(async () => {
@@ -162,6 +162,19 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     // Response will be handled by the useEffect
   }, [googleRequest, googlePromptAsync]);
 
+  // Memoized toggle handlers to prevent inline arrow functions
+  const toggleRememberMe = useCallback(() => {
+    setRememberMe(prev => !prev);
+  }, []);
+
+  const toggleAgreeTerms = useCallback(() => {
+    setAgreeTerms(prev => !prev);
+  }, []);
+
+  const handleGoToLogin = useCallback(() => {
+    navigation.navigate('Login');
+  }, [navigation]);
+
   const passwordValid = isPasswordValid(password);
   const strengthLevel = getPasswordStrengthLevel(password);
   const emailValid = validate.email(email);
@@ -177,7 +190,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
   const allChecksPassed = passwordChecks.every((check) => check.passed);
 
-  const handleSignup = async () => {
+  const handleSignup = useCallback(async () => {
     if (!isFormValid || loading) return;
 
     setLoading(true);
@@ -276,7 +289,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         setLoading(false);
       }
     }
-  };
+  }, [isFormValid, loading, email, password, rememberMe, navigation]);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -426,7 +439,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             {/* Remember Me */}
             <View style={styles.rememberRow}>
               <TouchableOpacity
-                onPress={() => setRememberMe(!rememberMe)}
+                onPress={toggleRememberMe}
                 activeOpacity={0.7}
                 accessibilityLabel="Remember me"
                 accessibilityRole="checkbox"
@@ -512,7 +525,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             <View style={styles.loginRow}>
               <Text style={styles.loginText}>Already have an account? </Text>
               <TouchableOpacity
-                onPress={() => navigation.navigate('Login')}
+                onPress={handleGoToLogin}
                 style={styles.loginLinkRow}
                 accessibilityLabel="Log In"
                 accessibilityRole="link"
@@ -526,7 +539,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             {/* Terms */}
             <View style={styles.termsRow}>
               <TouchableOpacity
-                onPress={() => setAgreeTerms(!agreeTerms)}
+                onPress={toggleAgreeTerms}
                 activeOpacity={0.7}
                 accessibilityLabel="I agree to the Terms and Conditions, Privacy Policy, and Content Policy"
                 accessibilityRole="checkbox"

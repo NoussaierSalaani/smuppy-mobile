@@ -90,32 +90,43 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       if (lon != null) profileData.business_longitude = lon;
       if (locationsMode) profileData.locations_mode = locationsMode;
 
-      // Create profile with retries
+      // Create profile with retries (idempotent: PATCH /profiles/me is an upsert,
+      // so retries are safe even if a previous request succeeded but response was lost)
       let profileCreated = false;
       let retryCount = 0;
-      let _lastError = '';
-      const maxRetries = 2;
+      const maxRetries = 3;
 
       while (!profileCreated && retryCount < maxRetries) {
         try {
           const { error: profileError } = await createProfile(profileData);
           if (profileError) {
             if (__DEV__) console.warn('[Guidelines] Profile creation error:', profileError);
-            _lastError = profileError;
             retryCount++;
             if (retryCount < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
             }
           } else {
             profileCreated = true;
           }
         } catch (retryErr: unknown) {
           if (__DEV__) console.warn('[Guidelines] Profile creation exception:', retryErr);
-          _lastError = (retryErr as Error)?.message || String(retryErr);
           retryCount++;
           if (retryCount < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
           }
+        }
+      }
+
+      // If all retries failed, verify if profile was actually created
+      // (handles edge case: request succeeded but response was lost)
+      if (!profileCreated) {
+        try {
+          const { error: verifyError } = await createProfile(profileData);
+          if (!verifyError) {
+            profileCreated = true;
+          }
+        } catch {
+          // Profile truly not created
         }
       }
 

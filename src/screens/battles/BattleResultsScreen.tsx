@@ -3,7 +3,7 @@
  * Shows battle results with winner, stats, and tip leaderboard
  */
 
-import React, { useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -56,6 +56,7 @@ export default function BattleResultsScreen() {
   const { colors, isDark } = useTheme();
   const { formatAmount } = useCurrency();
   const currentUserId = useUserStore((s) => s.user?.id);
+  const [rematchLoading, setRematchLoading] = useState(false);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -139,11 +140,13 @@ export default function BattleResultsScreen() {
   };
 
   const handleRematch = useCallback(async () => {
+    if (rematchLoading) return;
+    setRematchLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const opponents = participants
       .filter(p => p.user_id !== currentUserId)
       .map(p => p.user_id);
-    if (opponents.length === 0) return;
+    if (opponents.length === 0) { setRematchLoading(false); return; }
     try {
       const result = await awsAPI.createBattle({
         battleType: 'tips',
@@ -156,8 +159,10 @@ export default function BattleResultsScreen() {
       }
     } catch {
       Alert.alert('Rematch Failed', 'Something went wrong. Please try again.');
+    } finally {
+      setRematchLoading(false);
     }
-  }, [participants, currentUserId, navigation]);
+  }, [participants, currentUserId, navigation, rematchLoading]);
 
   const totalTips = useMemo(() => {
     return participants.reduce((sum, p) => sum + p.tips_received, 0);
@@ -349,9 +354,10 @@ export default function BattleResultsScreen() {
           {/* Actions */}
           <View style={styles.actionsSection}>
             <TouchableOpacity
-              style={styles.primaryButton}
+              style={[styles.primaryButton, rematchLoading && { opacity: 0.6 }]}
               onPress={handleRematch}
               activeOpacity={0.8}
+              disabled={rematchLoading}
             >
               <LinearGradient
                 colors={GRADIENTS.primary}

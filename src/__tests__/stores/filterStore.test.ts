@@ -12,7 +12,7 @@ jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid-1234'),
 }));
 
-import { useFilterStore, FILTER_DEFINITIONS } from '../../stores/filterStore';
+import { useFilterStore, FILTER_DEFINITIONS, getBodyPose } from '../../stores/filterStore';
 import type { PoseLandmarks } from '../../filters/types';
 
 describe('FilterStore', () => {
@@ -130,7 +130,7 @@ describe('FilterStore', () => {
     it('should update body pose', () => {
       const mockPose: PoseLandmarks = { landmarks: [], worldLandmarks: [], timestamp: 0 };
       useFilterStore.getState().updateBodyPose(mockPose);
-      expect(useFilterStore.getState().bodyPose).toBe(mockPose);
+      expect(getBodyPose()).toBe(mockPose);
     });
   });
 

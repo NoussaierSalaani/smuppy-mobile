@@ -187,6 +187,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Create notification for creator
         const creatorId = paymentIntent.metadata?.creator_id;
         const buyerId = paymentIntent.metadata?.buyer_id;
+        const packId = paymentIntent.metadata?.pack_id || null;
         if (creatorId && buyerId && isValidUUID(creatorId) && isValidUUID(buyerId)) {
           const buyerResult = await client.query(
             'SELECT full_name, username FROM profiles WHERE id = $1',

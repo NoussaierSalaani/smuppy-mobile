@@ -4,6 +4,8 @@
  * Migrated from FilterContext.tsx for consistency
  */
 
+declare const __DEV__: boolean;
+
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { useShallow } from 'zustand/react/shallow';

@@ -13,8 +13,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
+import { SkeletonBase, SkeletonLine } from '../../components/skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -173,7 +173,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
       try {
         const packsResponse = await awsAPI.listCreatorPacks(creatorId);
         if (packsResponse.success && packsResponse.packs) {
-          setPacks(packsResponse.packs.map((pack: SessionPack, index: number) => ({
+          setPacks(packsResponse.packs.map((pack: SessionPack) => ({
             id: pack.id,
             name: pack.name,
             description: pack.description || '',
@@ -182,7 +182,6 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
             validityDays: pack.validityDays,
             price: pack.price,
             savings: pack.savings || 0,
-            popular: index === 1, // Mark second pack as popular by default
           })));
         }
       } catch (err) {
@@ -389,9 +388,29 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.gray, marginTop: 16 }}>Loading...</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <SkeletonBase width={40} height={40} borderRadius={20} />
+          <SkeletonBase width={100} height={20} borderRadius={10} />
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 20, padding: 16 }}>
+          <SkeletonBase width={64} height={64} borderRadius={32} />
+          <View style={{ marginLeft: 14, flex: 1 }}>
+            <SkeletonLine width="60%" height={18} />
+            <SkeletonLine width="40%" height={13} style={{ marginTop: 8 }} />
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 20, gap: 8 }}>
+          <SkeletonBase width={100} height={44} borderRadius={10} />
+          <SkeletonBase width={100} height={44} borderRadius={10} />
+          <SkeletonBase width={100} height={44} borderRadius={10} />
+        </View>
+        <View style={{ paddingHorizontal: 16 }}>
+          <SkeletonLine width="70%" height={14} />
+          <SkeletonBase width={340} height={120} borderRadius={16} style={{ marginTop: 16 }} />
+          <SkeletonBase width={340} height={120} borderRadius={16} style={{ marginTop: 12 }} />
+        </View>
       </View>
     );
   }
@@ -545,7 +564,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   creatorName: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   creatorUsername: {
     fontSize: 14,
@@ -624,7 +643,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   offeringPrice: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   offeringDescription: {
     fontSize: 14,
@@ -678,7 +697,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   packName: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   savingsBadge: {
     backgroundColor: '#22C55E20',
@@ -722,7 +741,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   packPrice: {
     fontSize: 22,
     fontWeight: '800',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   perSessionPrice: {
     fontSize: 12,
@@ -772,7 +791,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   tierName: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   tierPriceContainer: {
     flexDirection: 'row',

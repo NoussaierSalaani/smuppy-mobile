@@ -162,7 +162,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse]);
 
-  const handleGoogleAuthResponse = async () => {
+  const handleGoogleAuthResponse = useCallback(async () => {
     if (!isMountedRef.current) return;
     setSocialLoading('google');
     
@@ -185,7 +185,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         setSocialLoading(null);
       }
     }
-  };
+  }, [googleResponse]);
 
   // Navigation - replaces screen to prevent stacking
   const handleGoToSignup = useCallback(() => {

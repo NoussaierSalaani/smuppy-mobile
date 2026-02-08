@@ -91,6 +91,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const fadeAnims = useRef<{ [key: string]: Animated.Value }>({}).current;
   const isMountedRef = useRef(true);
   const startAttemptedRef = useRef(false);
+  const activeCommentIds = useRef<Set<string>>(new Set());
 
   // Real-time live stream hook
   const {
@@ -172,17 +173,17 @@ export default function LiveStreamingScreen(): React.JSX.Element {
 
   // Note: viewerCount now comes from useLiveStream hook (WebSocket)
 
-  const formatDuration = (seconds: number) => {
+  const formatDuration = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setShowEndConfirm(true);
-  };
+  }, []);
 
-  const endStream = async () => {
+  const endStream = useCallback(async () => {
     // End stream on backend (records stats)
     const result = await awsAPI.endLiveStream().catch((err) => {
       if (__DEV__) console.warn('[LiveStreaming] Failed to end stream:', err);
@@ -198,18 +199,34 @@ export default function LiveStreamingScreen(): React.JSX.Element {
       totalReactions: result?.data?.totalReactions || 0,
       channelName,
     });
-  };
+  }, [duration, viewerCount, channelName, leaveStream, leaveChannel, destroy, navigation]);
 
-  const sendComment = () => {
+  const sendComment = useCallback(() => {
     // Sanitize: strip HTML tags and control characters
     const sanitized = newComment.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
     if (sanitized) {
       sendLiveComment(sanitized);
       setNewComment('');
     }
-  };
+  }, [newComment, sendLiveComment]);
 
-  const renderComment = ({ item }: { item: UIComment }) => {
+  // Cleanup old fade animations when comments change
+  useEffect(() => {
+    const currentIds = new Set(comments.map(c => c.id));
+    const oldIds = activeCommentIds.current;
+    
+    // Stop and remove animations for comments that are no longer visible
+    oldIds.forEach(id => {
+      if (!currentIds.has(id) && fadeAnims[id]) {
+        fadeAnims[id].stopAnimation();
+        delete fadeAnims[id];
+      }
+    });
+    
+    activeCommentIds.current = currentIds;
+  }, [comments, fadeAnims]);
+
+  const renderComment = useCallback(({ item }: { item: UIComment }) => {
     if (!fadeAnims[item.id]) {
       fadeAnims[item.id] = new Animated.Value(item.isNew ? 0 : 1);
       if (item.isNew) {
@@ -235,7 +252,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
         </View>
       </Animated.View>
     );
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fadeAnims]);
 
   // Show loading state
   if (isStarting || isLoading) {
@@ -279,7 +297,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
             <Text style={styles.liveText}>LIVE</Text>
             <Text style={styles.durationText}>{formatDuration(duration)}</Text>
           </View>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
         </View>
@@ -290,6 +308,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
         <TouchableOpacity
           style={[styles.controlButton, isMuted && styles.controlButtonActive]}
           onPress={toggleMute}
+          accessibilityLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+          accessibilityRole="button"
         >
           <Ionicons
             name={isMuted ? 'mic-off' : 'mic'}
@@ -301,6 +321,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
         <TouchableOpacity
           style={[styles.controlButton, isVideoOff && styles.controlButtonActive]}
           onPress={toggleVideo}
+          accessibilityLabel={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
+          accessibilityRole="button"
         >
           <Ionicons
             name={isVideoOff ? 'videocam-off' : 'videocam'}
@@ -312,6 +334,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
         <TouchableOpacity
           style={styles.controlButton}
           onPress={switchCamera}
+          accessibilityLabel="Switch camera"
+          accessibilityRole="button"
         >
           <Ionicons name="camera-reverse" size={20} color="white" />
         </TouchableOpacity>
@@ -347,7 +371,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
             onSubmitEditing={sendComment}
             maxLength={500}
           />
-          <TouchableOpacity onPress={sendComment} style={styles.sendButton}>
+          <TouchableOpacity onPress={sendComment} style={styles.sendButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="send" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>

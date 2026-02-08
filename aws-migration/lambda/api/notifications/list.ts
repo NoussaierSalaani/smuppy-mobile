@@ -77,7 +77,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         CASE WHEN n.data->>'authorId' ~ ${UUID_PATTERN} THEN (n.data->>'authorId')::uuid END,
         CASE WHEN n.data->>'taggedById' ~ ${UUID_PATTERN} THEN (n.data->>'taggedById')::uuid END,
         CASE WHEN n.data->>'fanId' ~ ${UUID_PATTERN} THEN (n.data->>'fanId')::uuid END,
-        CASE WHEN n.data->>'creatorId' ~ ${UUID_PATTERN} THEN (n.data->>'creatorId')::uuid END
+        CASE WHEN n.data->>'creatorId' ~ ${UUID_PATTERN} THEN (n.data->>'creatorId')::uuid END,
+        CASE WHEN n.data->>'buyerId' ~ ${UUID_PATTERN} THEN (n.data->>'buyerId')::uuid END,
+        CASE WHEN n.data->>'userId' ~ ${UUID_PATTERN} THEN (n.data->>'userId')::uuid END,
+        CASE WHEN n.data->>'actor_id' ~ ${UUID_PATTERN} THEN (n.data->>'actor_id')::uuid END
       )
       LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
       WHERE n.user_id = $1

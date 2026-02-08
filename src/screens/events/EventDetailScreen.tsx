@@ -76,6 +76,7 @@ interface Event {
   participants: Array<{
     id: string;
     username: string;
+    full_name?: string;
     avatar_url?: string;
   }>;
   is_public: boolean;
@@ -443,7 +444,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
             <Image
               source={{
                 uri: event.organizer.avatar_url ||
-                  `https://ui-avatars.com/api/?name=${event.organizer.username}&background=random`,
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(event.organizer.full_name || event.organizer.username)}&background=random`,
               }}
               style={styles.organizerAvatar}
             />
@@ -558,7 +559,7 @@ export default function EventDetailScreen({ route, navigation }: EventDetailScre
                     <Image
                       source={{
                         uri: participant.avatar_url ||
-                          `https://ui-avatars.com/api/?name=${participant.username}&background=random`,
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.full_name || participant.username)}&background=random`,
                       }}
                       style={styles.participantImage}
                     />

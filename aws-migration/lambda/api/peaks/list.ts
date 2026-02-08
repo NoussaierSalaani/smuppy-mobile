@@ -89,8 +89,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];
     let paramIndex = currentProfileId ? 2 : 1;
 
-    // Only apply expiration filter on the global feed (no authorId/username = feed mode)
-    // When viewing a specific user's profile, show all their peaks regardless of expiration
+    // Feed mode: only show active (non-expired) peaks
+    // Profile mode: show active peaks + expired peaks the user chose to keep (saved_to_profile = true)
+    // Always exclude dismissed peaks (saved_to_profile = false)
     if (!authorIdParam && !usernameParam) {
       query += `
         AND (
@@ -98,6 +99,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           OR
           (pk.expires_at IS NULL AND pk.created_at > NOW() - INTERVAL '48 hours')
         )
+      `;
+    } else {
+      query += `
+        AND (
+          (pk.expires_at IS NULL OR pk.expires_at > NOW())
+          OR pk.saved_to_profile = true
+        )
+        AND (pk.saved_to_profile IS DISTINCT FROM false)
       `;
     }
 

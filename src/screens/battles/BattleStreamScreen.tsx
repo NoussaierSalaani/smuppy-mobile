@@ -234,7 +234,7 @@ export default function BattleStreamScreen() {
             source={{
               uri:
                 participant.profile_picture_url ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.username)}&background=random`,
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.full_name || participant.username)}&background=random`,
             }}
             style={styles.streamAvatar}
           />

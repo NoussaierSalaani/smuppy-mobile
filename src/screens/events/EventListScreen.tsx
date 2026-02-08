@@ -447,7 +447,7 @@ export default function EventListScreen() {
                 source={{
                   uri:
                     item.organizer.profile_picture_url ||
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(item.organizer.username)}&background=random`,
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(item.organizer.full_name || item.organizer.username)}&background=random`,
                 }}
                 style={styles.organizerAvatar}
               />

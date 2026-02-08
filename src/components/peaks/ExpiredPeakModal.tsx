@@ -1,6 +1,6 @@
 /**
  * ExpiredPeakModal — Full-screen modal for expired peak decisions.
- * User must choose: save to profile, download, or dismiss for each expired peak.
+ * User can: save to profile, download, delete, or close (skip for now).
  */
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,8 +28,8 @@ interface ExpiredPeakModalProps {
   peaks: Peak[];
   onSaveToProfile: (peakId: string) => Promise<void>;
   onDownload: (peakId: string, videoUrl: string) => Promise<boolean>;
-  onDismiss: (peakId: string) => Promise<void>;
-  onAllDone: () => void;
+  onDelete: (peakId: string) => Promise<void>;
+  onClose: () => void;
 }
 
 const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
@@ -36,8 +37,8 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
   peaks,
   onSaveToProfile,
   onDownload,
-  onDismiss,
-  onAllDone,
+  onDelete,
+  onClose,
 }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -54,32 +55,72 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
   const currentPeak = peaks[currentIdx];
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const handleAction = useCallback(async (action: 'save' | 'download' | 'dismiss') => {
+  const handleSave = useCallback(async () => {
     if (!currentPeak || loading) return;
-    setLoading(action);
+    setLoading('save');
     try {
-      if (action === 'save') {
-        await onSaveToProfile(currentPeak.id);
-      } else if (action === 'download') {
-        const videoUrl = currentPeak.videoUrl;
-        if (videoUrl) {
-          await onDownload(currentPeak.id, videoUrl);
-        }
-        await onDismiss(currentPeak.id);
-      } else {
-        await onDismiss(currentPeak.id);
-      }
-
-      // If this was the last peak, close the modal
+      await onSaveToProfile(currentPeak.id);
       if (peaks.length <= 1) {
-        onAllDone();
+        onClose();
       }
-    } catch (error) {
-      if (__DEV__) console.warn('[ExpiredPeakModal] Action failed:', error);
+    } catch {
+      Alert.alert('Error', 'Could not save peak to profile. Please try again.');
     } finally {
       setLoading(null);
     }
-  }, [currentPeak, currentIdx, peaks.length, loading, onSaveToProfile, onDownload, onDismiss, onAllDone]);
+  }, [currentPeak, peaks.length, loading, onSaveToProfile, onClose]);
+
+  const handleDownload = useCallback(async () => {
+    if (!currentPeak || loading) return;
+
+    const videoUrl = currentPeak.videoUrl;
+    if (!videoUrl) {
+      Alert.alert('Error', 'This peak has no video to download.');
+      return;
+    }
+
+    setLoading('download');
+    try {
+      await onDownload(currentPeak.id, videoUrl);
+      Alert.alert('Saved', 'Peak saved to your camera roll.', [{ text: 'OK' }]);
+    } catch (error: unknown) {
+      const message = error instanceof Error && error.message === 'PERMISSION_DENIED'
+        ? 'Please allow photo library access in Settings to download peaks.'
+        : 'Could not download peak. Please try again.';
+      Alert.alert('Download Failed', message);
+    } finally {
+      setLoading(null);
+    }
+  }, [currentPeak, loading, onDownload]);
+
+  const handleDelete = useCallback(async () => {
+    if (!currentPeak || loading) return;
+
+    Alert.alert(
+      'Delete Peak',
+      'This will permanently delete this peak. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading('delete');
+            try {
+              await onDelete(currentPeak.id);
+              if (peaks.length <= 1) {
+                onClose();
+              }
+            } catch {
+              Alert.alert('Error', 'Could not delete peak. Please try again.');
+            } finally {
+              setLoading(null);
+            }
+          },
+        },
+      ],
+    );
+  }, [currentPeak, peaks.length, loading, onDelete, onClose]);
 
   if (!currentPeak) return null;
 
@@ -103,9 +144,21 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
         <View style={styles.dimOverlay} />
 
         <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+          {/* Close button */}
+          <TouchableOpacity
+            style={[styles.closeButton, { top: insets.top + 12 }]}
+            onPress={onClose}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <View style={styles.closeButtonBg}>
+              <Ionicons name="close" size={22} color="#fff" />
+            </View>
+          </TouchableOpacity>
+
           {/* Counter */}
           {peaks.length > 1 && (
-            <View style={styles.counter}>
+            <View style={[styles.counter, { top: insets.top + 16 }]}>
               <Text style={styles.counterText}>
                 {currentIdx + 1} of {peaks.length}
               </Text>
@@ -156,7 +209,7 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
             {/* Save to profile */}
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => handleAction('save')}
+              onPress={handleSave}
               disabled={loading !== null}
               activeOpacity={0.8}
             >
@@ -178,7 +231,7 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
             {/* Download */}
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => handleAction('download')}
+              onPress={handleDownload}
               disabled={loading !== null}
               activeOpacity={0.8}
             >
@@ -194,15 +247,15 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
               </View>
             </TouchableOpacity>
 
-            {/* Dismiss */}
+            {/* Delete */}
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => handleAction('dismiss')}
+              onPress={handleDelete}
               disabled={loading !== null}
               activeOpacity={0.8}
             >
               <View style={styles.actionDestructive}>
-                {loading === 'dismiss' ? (
+                {loading === 'delete' ? (
                   <ActivityIndicator color="#FF453A" size="small" />
                 ) : (
                   <>
@@ -234,9 +287,21 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  closeButton: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 10,
+  },
+  closeButtonBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   counter: {
     position: 'absolute',
-    top: 60,
     right: 24,
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,

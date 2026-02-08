@@ -26,6 +26,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
 import { formatNumber } from '../../utils/formatters';
+import { triggerHaptic } from '../../utils/haptics';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -138,10 +139,14 @@ export default function CreatorWalletScreen() {
   }, [loadData]);
 
 
-  const tierColors = dashboard?.tier ? TIER_COLORS[dashboard.tier.name as keyof typeof TIER_COLORS] || TIER_COLORS.Bronze : TIER_COLORS.Bronze;
+  const tierColors = useMemo(() => 
+    dashboard?.tier ? TIER_COLORS[dashboard.tier.name as keyof typeof TIER_COLORS] || TIER_COLORS.Bronze : TIER_COLORS.Bronze,
+    [dashboard?.tier]
+  );
 
-  const openStripeDashboard = async () => {
+  const openStripeDashboard = useCallback(async () => {
     try {
+      triggerHaptic('medium');
       const response = await awsAPI.request('/payments/wallet', {
         method: 'POST',
         body: { action: 'get-stripe-dashboard-link' },
@@ -153,7 +158,7 @@ export default function CreatorWalletScreen() {
     } catch (error) {
       if (__DEV__) console.warn('Failed to get Stripe dashboard link:', (error as Error).message);
     }
-  };
+  }, [navigation]);
 
   const renderHeader = () => (
     <LinearGradient

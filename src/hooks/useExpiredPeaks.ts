@@ -1,6 +1,6 @@
 /**
  * Hook that checks for expired peaks when app comes to foreground.
- * Returns expired peaks + actions (save, dismiss, download).
+ * Returns expired peaks + actions (save, dismiss, download, delete).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -14,6 +14,7 @@ interface UseExpiredPeaksReturn {
   isLoading: boolean;
   savePeakToProfile: (peakId: string) => Promise<void>;
   dismissPeak: (peakId: string) => Promise<void>;
+  deletePeak: (peakId: string) => Promise<void>;
   downloadPeak: (peakId: string, videoUrl: string) => Promise<boolean>;
   refresh: () => Promise<void>;
 }
@@ -68,20 +69,22 @@ export function useExpiredPeaks(): UseExpiredPeaksReturn {
     setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
   }, []);
 
-  const downloadPeak = useCallback(async (peakId: string, videoUrl: string): Promise<boolean> => {
-    try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') return false;
+  const deletePeak = useCallback(async (peakId: string) => {
+    await awsAPI.deletePeak(peakId);
+    setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
+  }, []);
 
-      const fileUri = FileSystem.documentDirectory + 'peak_' + peakId + '.mov';
-      await FileSystem.downloadAsync(videoUrl, fileUri);
-      await MediaLibrary.saveToLibraryAsync(fileUri);
-      await FileSystem.deleteAsync(fileUri, { idempotent: true });
-      return true;
-    } catch (error) {
-      if (__DEV__) console.warn('[useExpiredPeaks] Download failed:', error);
-      return false;
+  const downloadPeak = useCallback(async (peakId: string, videoUrl: string): Promise<boolean> => {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== 'granted') {
+      throw new Error('PERMISSION_DENIED');
     }
+
+    const fileUri = FileSystem.documentDirectory + 'peak_' + peakId + '.mov';
+    await FileSystem.downloadAsync(videoUrl, fileUri);
+    await MediaLibrary.saveToLibraryAsync(fileUri);
+    await FileSystem.deleteAsync(fileUri, { idempotent: true });
+    return true;
   }, []);
 
   return {
@@ -89,6 +92,7 @@ export function useExpiredPeaks(): UseExpiredPeaksReturn {
     isLoading,
     savePeakToProfile,
     dismissPeak,
+    deletePeak,
     downloadPeak,
     refresh: fetchExpired,
   };

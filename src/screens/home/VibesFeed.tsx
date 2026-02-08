@@ -335,12 +335,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const isBusiness = accountType === 'pro_business';
 
   // Expired peaks modal
-  const { expiredPeaks, savePeakToProfile, dismissPeak, downloadPeak } = useExpiredPeaks();
+  const { expiredPeaks, savePeakToProfile, deletePeak, downloadPeak } = useExpiredPeaks();
   const [showExpiredModal, setShowExpiredModal] = useState(false);
 
   useEffect(() => {
     if (expiredPeaks.length > 0) {
       setShowExpiredModal(true);
+    } else {
+      setShowExpiredModal(false);
     }
   }, [expiredPeaks.length]);
 
@@ -1301,8 +1303,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         peaks={expiredPeaks}
         onSaveToProfile={savePeakToProfile}
         onDownload={downloadPeak}
-        onDismiss={dismissPeak}
-        onAllDone={() => setShowExpiredModal(false)}
+        onDelete={deletePeak}
+        onClose={() => setShowExpiredModal(false)}
       />
     </View>
   );

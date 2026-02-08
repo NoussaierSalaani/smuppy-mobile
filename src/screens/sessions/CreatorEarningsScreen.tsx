@@ -22,6 +22,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
 import { formatRelativeTime } from '../../utils/dateFormatters';
 import { useCurrency } from '../../hooks/useCurrency';
+import { triggerHaptic } from '../../utils/haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -219,7 +220,10 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
             <TouchableOpacity
               key={period.key}
               style={[styles.periodButton, selectedPeriod === period.key && styles.periodButtonActive]}
-              onPress={() => setSelectedPeriod(period.key)}
+              onPress={() => {
+                triggerHaptic('light');
+                setSelectedPeriod(period.key);
+              }}
             >
               <Text style={[styles.periodText, selectedPeriod === period.key && styles.periodTextActive]}>
                 {period.label}
@@ -503,7 +507,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   statValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
     marginBottom: 2,
   },
   statLabel: {
@@ -524,7 +528,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
     marginBottom: 12,
   },
   seeAllText: {
@@ -560,7 +564,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   breakdownValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
   },
   breakdownBar: {
     height: 6,
@@ -595,7 +599,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   transactionDescription: {
     fontSize: 15,
     fontWeight: '500',
-    color: colors.white,
+    color: isDark ? colors.white : colors.dark,
     marginBottom: 2,
   },
   transactionMeta: {

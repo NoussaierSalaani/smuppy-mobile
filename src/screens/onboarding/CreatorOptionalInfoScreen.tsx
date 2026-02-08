@@ -12,6 +12,7 @@ import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { triggerHaptic } from '../../utils/haptics';
 
 interface CreatorOptionalInfoScreenProps {
   navigation: {
@@ -28,11 +29,24 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
   const { colors, isDark } = useTheme();
   const [bio, setBio] = useState('');
   const [website, setWebsite] = useState('');
+  const [websiteError, setWebsiteError] = useState('');
   const [socialFields, setSocialFields] = useState<{ id: string; value: string }[]>([
     { id: 'instagram', value: '' },
   ]);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
+
+  // Sanitize text input per CLAUDE.md security rules
+  const sanitizeText = useCallback((text: string): string => {
+    return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+  }, []);
+
+  // Validate URL format
+  const isValidUrl = useCallback((url: string): boolean => {
+    if (!url) return true; // Empty is valid (optional field)
+    const urlPattern = /^https?:\/\/.+/i;
+    return urlPattern.test(url);
+  }, []);
 
   const socialScrollRef = useRef<ScrollView>(null);
   const params = useMemo(() => route?.params || {}, [route?.params]);
@@ -41,22 +55,31 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handleNext = useCallback(() => {
+    // Validate website URL
+    if (website && !isValidUrl(website)) {
+      setWebsiteError('Please enter a valid URL starting with http:// or https://');
+      triggerHaptic('error');
+      return;
+    }
+
     const socialLinks: Record<string, string> = {};
     socialFields.forEach(field => {
       if (field.value.trim()) {
-        socialLinks[field.id] = field.value.trim();
+        socialLinks[field.id] = sanitizeText(field.value);
       }
     });
 
+    triggerHaptic('medium');
     navigate('Expertise', {
       ...params,
-      bio: bio.trim(),
-      website: website.trim(),
+      bio: sanitizeText(bio),
+      website: sanitizeText(website),
       socialLinks,
     });
-  }, [navigate, params, bio, website, socialFields]);
+  }, [navigate, params, bio, website, socialFields, isValidUrl, sanitizeText]);
 
   const handleSkip = useCallback(() => {
+    triggerHaptic('light');
     navigate('Expertise', {
       ...params,
       bio: '',
@@ -66,25 +89,28 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
   }, [navigate, params]);
 
   const updateSocialField = useCallback((index: number, value: string) => {
+    const sanitized = sanitizeText(value);
     setSocialFields(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], value };
+      updated[index] = { ...updated[index], value: sanitized };
       return updated;
     });
-  }, []);
+  }, [sanitizeText]);
 
   const addSocialField = useCallback(() => {
     const usedIds = socialFields.map(f => f.id);
     const available = SOCIAL_NETWORKS.filter(n => !usedIds.includes(n.id));
     if (available.length > 0) {
       setSocialFields(prev => [...prev, { id: available[0].id, value: '' }]);
+      triggerHaptic('light');
     }
   }, [socialFields]);
 
   const removeSocialField = useCallback((index: number) => {
     // Keep at least one social link field
     setSocialFields(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev);
-  }, []);
+    triggerHaptic('light');
+  }, [])
 
   const getNetworkInfo = (id: string) => SOCIAL_NETWORKS.find(n => n.id === id) || SOCIAL_NETWORKS[0];
 
@@ -151,19 +177,22 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
           {/* Website */}
           <Text style={styles.label}>Website</Text>
           <LinearGradient
-            colors={(website.length > 0 || focusedField === 'website') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
+            colors={websiteError ? [colors.error, colors.error] : (website.length > 0 || focusedField === 'website') ? GRADIENTS.button : GRADIENTS.buttonDisabled}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
-            <View style={[styles.inputInner, website.length > 0 && styles.inputInnerValid]}>
-              <Ionicons name="globe-outline" size={18} color={(website.length > 0 || focusedField === 'website') ? colors.primary : colors.grayMuted} />
+            <View style={[styles.inputInner, website.length > 0 && !websiteError && styles.inputInnerValid]}>
+              <Ionicons name="globe-outline" size={18} color={websiteError ? colors.error : (website.length > 0 || focusedField === 'website') ? colors.primary : colors.grayMuted} />
               <TextInput
                 style={styles.input}
                 placeholder="https://yourwebsite.com"
                 placeholderTextColor={colors.grayMuted}
                 value={website}
-                onChangeText={setWebsite}
+                onChangeText={(text) => {
+                  setWebsite(text);
+                  if (websiteError) setWebsiteError('');
+                }}
                 onFocus={() => setFocusedField('website')}
                 onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
@@ -171,6 +200,12 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
               />
             </View>
           </LinearGradient>
+          {websiteError ? (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle" size={14} color={colors.error} />
+              <Text style={styles.errorText}>{websiteError}</Text>
+            </View>
+          ) : null}
 
           {/* Social Links */}
           <View style={styles.sectionHeader}>
@@ -287,6 +322,8 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   bioInner: { flex: 1, borderRadius: SIZES.radiusInput - 2, paddingHorizontal: SPACING.base - 2, paddingVertical: SPACING.sm, backgroundColor: colors.background },
   bioInput: { flex: 1, ...TYPOGRAPHY.body, fontSize: 14, textAlignVertical: 'top', width: '100%', color: colors.dark },
   charCount: { fontSize: 11, color: colors.grayMuted, textAlign: 'right', marginTop: -SPACING.xs, marginBottom: SPACING.md },
+  errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: -SPACING.sm, marginBottom: SPACING.md, gap: 4 },
+  errorText: { fontSize: 12, color: colors.error },
   // Social links with scroll indicator
   socialContainer: { flexDirection: 'row', minHeight: 180, maxHeight: 240 },
   scrollIndicatorContainer: { width: 6, marginRight: SPACING.xs, justifyContent: 'center' },

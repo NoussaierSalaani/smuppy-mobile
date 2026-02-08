@@ -281,7 +281,7 @@ export default function BattleLobbyScreen() {
               source={{
                 uri:
                   participant.profile_picture_url ||
-                  `https://ui-avatars.com/api/?name=${participant.username}&background=random`,
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.full_name || participant.username)}&background=random`,
               }}
               style={styles.participantAvatar}
             />

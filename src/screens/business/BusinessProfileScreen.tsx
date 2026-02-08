@@ -306,7 +306,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
         <Image
           source={{
             uri: item.user.avatar_url ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(item.user.username)}&background=random`,
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(item.user.full_name || item.user.username)}&background=random`,
           }}
           style={styles.reviewAvatar}
         />

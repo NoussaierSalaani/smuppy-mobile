@@ -224,7 +224,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     id: string;
     text: string;
     createdAt: string;
-    author: { id: string; username: string; fullName: string; avatarUrl: string; isVerified: boolean };
+    author: { id: string; username: string; fullName?: string; avatarUrl: string; isVerified: boolean };
   }>>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -850,7 +850,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         setComments(prev => [result.comment, ...prev]);
         setCommentText('');
       }
-    } catch (error) {
+    } catch (_error) {
       showError('Error', 'Failed to post comment');
     } finally {
       setPostingComment(false);
@@ -1530,7 +1530,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                         <View style={styles.commentContent}>
                           <View style={styles.commentHeader}>
                             <Text style={styles.commentUsername} numberOfLines={1}>
-                              {item.author.username}
+                              {item.author.fullName || item.author.username}
                             </Text>
                             {item.author.isVerified && (
                               <Ionicons name="checkmark-circle" size={12} color={colors.primary} />

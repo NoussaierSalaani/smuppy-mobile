@@ -24,6 +24,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import RecordButton from '../../components/peaks/RecordButton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { HIT_SLOP } from '../../config/theme';
+import { hapticButtonPress, hapticSubmit, hapticDestructive } from '../../utils/haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   useFilters,
@@ -139,6 +141,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const filterPanelProgress = useSharedValue(0);
 
   const toggleFilters = useCallback(() => {
+    hapticButtonPress();
     const newValue = !showFilters;
     setShowFilters(newValue);
     filterPanelProgress.value = withSpring(newValue ? 1 : 0, {
@@ -167,6 +170,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   }, [updateOverlay]);
 
   const toggleCameraFacing = (): void => {
+    hapticButtonPress();
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
@@ -276,6 +280,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Close screen
   const handleClose = async (): Promise<void> => {
+    hapticButtonPress();
     if (cameraRef.current && isRecording) {
       try {
         cameraRef.current.stopRecording();
@@ -291,6 +296,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Retake the peak
   const handleRetake = async (): Promise<void> => {
+    hapticButtonPress();
     if (videoPreviewRef.current) {
       try {
         await videoPreviewRef.current.stopAsync();
@@ -301,6 +307,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Confirm and go to next screen
   const handleConfirm = async (): Promise<void> => {
+    hapticSubmit();
     if (videoPreviewRef.current) {
       try {
         await videoPreviewRef.current.stopAsync();
@@ -407,6 +414,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             <TouchableOpacity
               style={styles.headerButton}
               onPress={handleClose}
+              hitSlop={HIT_SLOP.medium}
             >
               <Ionicons name="close" size={28} color={colors.white} />
             </TouchableOpacity>
@@ -425,6 +433,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               <TouchableOpacity
                 style={styles.toolbarButton}
                 onPress={toggleCameraFacing}
+                hitSlop={HIT_SLOP.medium}
               >
                 <Ionicons name="camera-reverse" size={26} color={colors.white} />
                 <Text style={styles.toolbarLabel}>Flip</Text>
@@ -437,6 +446,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                   showFilters && styles.toolbarButtonActive,
                 ]}
                 onPress={toggleFilters}
+                hitSlop={HIT_SLOP.medium}
               >
                 <Ionicons
                   name="color-wand"
@@ -457,7 +467,8 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                   styles.toolbarButton,
                   activeOverlays.length > 0 && styles.toolbarButtonActive,
                 ]}
-                onPress={() => setShowOverlayEditor(true)}
+                onPress={() => { hapticButtonPress(); setShowOverlayEditor(true); }}
+                hitSlop={HIT_SLOP.medium}
               >
                 <View>
                   <Ionicons
@@ -597,6 +608,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             <TouchableOpacity
               style={styles.headerButton}
               onPress={handleClose}
+              hitSlop={HIT_SLOP.medium}
             >
               <Ionicons name="close" size={28} color={colors.white} />
             </TouchableOpacity>
@@ -613,6 +625,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             <TouchableOpacity
               style={styles.retakeButton}
               onPress={handleRetake}
+              activeOpacity={0.7}
             >
               <Ionicons name="refresh" size={24} color={colors.white} />
               <Text style={styles.retakeButtonText}>Retake</Text>
@@ -621,6 +634,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             <TouchableOpacity
               style={styles.confirmButton}
               onPress={handleConfirm}
+              activeOpacity={0.7}
             >
               <Ionicons name="checkmark" size={24} color={colors.dark} />
               <Text style={styles.confirmButtonText}>Next</Text>

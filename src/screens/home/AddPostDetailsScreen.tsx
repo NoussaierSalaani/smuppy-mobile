@@ -32,6 +32,7 @@ import {
   SIZES,
   HIT_SLOP,
 } from '../../config/theme';
+import { hapticButtonPress, hapticSubmit, hapticDestructive } from '../../utils/haptics';
 import {
   searchNominatim,
   formatNominatimResult,
@@ -446,6 +447,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // ============================================
 
   const handlePost = useCallback(async () => {
+    hapticSubmit();
     if (isPosting) return;
 
     setIsPosting(true);
@@ -575,10 +577,12 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   }, [isPosting, navigation, media, postType, description, visibility, location, taggedPeople, fromProfile, showError]);
 
   const handleBack = useCallback(() => {
+    hapticButtonPress();
     navigation.goBack();
   }, [navigation]);
 
   const handleSelectVisibility = useCallback((optionId: 'public' | 'private' | 'fans' | 'subscribers') => {
+    hapticButtonPress();
     setVisibility(optionId);
     setShowVisibilityModal(false);
   }, []);
@@ -751,7 +755,8 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             {/* Current Location Button */}
             <TouchableOpacity
               style={styles.currentLocationButton}
-              onPress={getCurrentLocation}
+              onPress={() => { hapticButtonPress(); getCurrentLocation(); }}
+              activeOpacity={0.7}
             >
               <View style={styles.currentLocationIcon}>
                 <Ionicons name="navigate" size={20} color={colors.primary} />
@@ -790,6 +795,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                 key={prediction.place_id}
                 style={styles.locationOption}
                 onPress={() => {
+                  hapticButtonPress();
                   setLocation(prediction.main_text);
                   // Also update map coordinates if available
                   if (prediction.lat && prediction.lon) {
@@ -907,13 +913,16 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
               <TouchableOpacity
                 key={user.id}
                 style={styles.userOption}
-                onPress={() => handleToggleTag({
-                  id: user.id,
-                  name: user.full_name,
-                  full_name: user.full_name,
-                  avatar: user.avatar_url,
-                  avatar_url: user.avatar_url,
-                })}
+                onPress={() => {
+                  hapticButtonPress();
+                  handleToggleTag({
+                    id: user.id,
+                    name: user.full_name,
+                    full_name: user.full_name,
+                    avatar: user.avatar_url,
+                    avatar_url: user.avatar_url,
+                  });
+                }}
               >
                 <AvatarImage source={user.avatar_url} size={44} />
                 <View style={styles.userInfo}>
@@ -951,7 +960,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add details</Text>
-        <TouchableOpacity onPress={handlePost} disabled={isPosting}>
+        <TouchableOpacity onPress={handlePost} disabled={isPosting} hitSlop={HIT_SLOP.medium}>
           <LinearGradient colors={GRADIENTS.primary} style={styles.postButton}>
             {isPosting ? (
               <View style={styles.postingContainer}>

@@ -18,6 +18,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GRADIENTS, SPACING, HIT_SLOP } from '../../config/theme';
+import { hapticButtonPress, hapticSubmit, hapticDestructive } from '../../utils/haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -75,11 +76,26 @@ const MediaGridItem = React.memo(function MediaGridItem({
 }: MediaGridItemProps) {
   const isSelected = selectionIndex !== null;
 
+  const handlePress = useCallback(() => {
+    hapticButtonPress();
+    onPress(item);
+  }, [onPress, item]);
+
+  const handleLongPress = useCallback(() => {
+    hapticButtonPress();
+    onSelectionToggle(item);
+  }, [onSelectionToggle, item]);
+
+  const handleSelectionPress = useCallback(() => {
+    hapticButtonPress();
+    onSelectionToggle(item);
+  }, [onSelectionToggle, item]);
+
   return (
     <TouchableOpacity
       style={[styles.mediaItem, isPreview && styles.mediaItemPreview]}
-      onPress={() => onPress(item)}
-      onLongPress={() => onSelectionToggle(item)}
+      onPress={handlePress}
+      onLongPress={handleLongPress}
       activeOpacity={0.8}
     >
       <OptimizedImage source={item.uri} style={styles.mediaThumbnail} />
@@ -95,7 +111,8 @@ const MediaGridItem = React.memo(function MediaGridItem({
 
       <TouchableOpacity
         style={[styles.selectionCircle, isSelected && styles.selectionCircleActive]}
-        onPress={() => onSelectionToggle(item)}
+        onPress={handleSelectionPress}
+        hitSlop={HIT_SLOP.small}
       >
         {isSelected ? (
           <Text style={styles.selectionNumber}>{selectionIndex}</Text>
@@ -299,6 +316,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
 
   // Handle next - MEDIA IS REQUIRED
   const handleNext = () => {
+    hapticSubmit();
     if (selectedMedia.length === 0) {
       warningAlert(
         'Select Media',
@@ -316,6 +334,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
 
   // Handle close - GO BACK instead of navigate to Home
   const handleClose = () => {
+    hapticButtonPress();
     if (selectedMedia.length > 0) {
       setShowDiscardModal(true);
     } else {
@@ -324,6 +343,17 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   };
 
   // Render custom discard modal - Smuppy branded
+  const handleKeepEditing = useCallback(() => {
+    hapticButtonPress();
+    setShowDiscardModal(false);
+  }, []);
+
+  const handleDiscard = useCallback(() => {
+    hapticDestructive();
+    setShowDiscardModal(false);
+    navigation.goBack();
+  }, [navigation]);
+
   const renderDiscardModal = () => (
     <Modal
       visible={showDiscardModal}
@@ -343,16 +373,13 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={styles.keepEditingButton}
-              onPress={() => setShowDiscardModal(false)}
+              onPress={handleKeepEditing}
             >
               <Text style={styles.keepEditingText}>Keep editing</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.discardButton}
-              onPress={() => {
-                setShowDiscardModal(false);
-                navigation.goBack();
-              }}
+              onPress={handleDiscard}
             >
               <Text style={styles.discardButtonText}>Discard</Text>
             </TouchableOpacity>
@@ -381,7 +408,8 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         {/* Close button */}
         <TouchableOpacity
           style={[styles.permissionCloseButton, { top: insets.top + 10 }]}
-          onPress={() => navigation.goBack()}
+          onPress={() => { hapticButtonPress(); navigation.goBack(); }}
+          hitSlop={HIT_SLOP.medium}
         >
           <Ionicons name="close" size={28} color={colors.dark} />
         </TouchableOpacity>
@@ -414,11 +442,11 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.background, zIndex: 5 }]}>
-        <TouchableOpacity onPress={handleClose}>
+        <TouchableOpacity onPress={handleClose} hitSlop={HIT_SLOP.medium}>
           <Ionicons name="close" size={28} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create post</Text>
-        <TouchableOpacity onPress={handleNext}>
+        <TouchableOpacity onPress={handleNext} hitSlop={HIT_SLOP.medium}>
           <LinearGradient
             colors={selectedMedia.length > 0 ? GRADIENTS.primary : [colors.grayBorder, colors.grayBorder]}
             style={styles.nextButton}
@@ -541,7 +569,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       {/* Bottom Actions */}
       <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 20 }]}>
         {/* Camera Button */}
-        <TouchableOpacity style={styles.cameraButton} onPress={openCamera}>
+        <TouchableOpacity style={styles.cameraButton} onPress={() => { hapticButtonPress(); openCamera(); }} hitSlop={HIT_SLOP.medium}>
           <Ionicons name="camera" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>

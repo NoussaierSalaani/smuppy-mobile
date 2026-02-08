@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -57,6 +57,9 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
 
+  // Ref for mount tracking
+  const isMountedRef = useRef(true);
+
   // Google OAuth hook
   const [googleRequest, googleResponse, googlePromptAsync] = useGoogleAuth();
 
@@ -77,35 +80,54 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
   // Check Apple Sign-In availability
   useEffect(() => {
-    isAppleSignInAvailable().then(setAppleAvailable).catch(() => {
+    let cancelled = false;
+    isAppleSignInAvailable().then((available) => {
+      if (!cancelled) setAppleAvailable(available);
+    }).catch(() => {
       if (__DEV__) console.warn('[Signup] Apple Sign-In check failed');
     });
+    return () => { cancelled = true; };
   }, []);
 
   // Handle Google OAuth response
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (googleResponse) {
       handleGoogleAuthResponse().catch((err) => {
         if (__DEV__) console.warn('[Signup] Google auth error:', err);
       });
     }
+    
+    return () => {
+      isMountedRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse]);
 
   const handleGoogleAuthResponse = async () => {
+    if (!isMountedRef.current) return;
     setSocialLoading('google');
-    const result = await handleGoogleSignIn(googleResponse);
+    
+    try {
+      const result = await handleGoogleSignIn(googleResponse);
 
-    if (result.success) {
-      // onAuthStateChange handles navigation
-    } else if (result.error && result.error !== 'cancelled') {
-      setErrorModal({
-        visible: true,
-        title: 'Google Sign-Up Failed',
-        message: result.error,
-      });
+      if (!isMountedRef.current) return;
+
+      if (result.success) {
+        // onAuthStateChange handles navigation
+      } else if (result.error && result.error !== 'cancelled') {
+        setErrorModal({
+          visible: true,
+          title: 'Google Sign-Up Failed',
+          message: result.error,
+        });
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setSocialLoading(null);
+      }
     }
-    setSocialLoading(null);
   };
 
   // Handle Apple Sign-In
@@ -162,7 +184,6 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
-      // Client-side validation only - AWS Cognito handles server-side validation
       if (isDisposableEmail(normalizedEmail)) {
         setErrorModal({
           visible: true,
@@ -172,7 +193,6 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         return;
       }
 
-      // Check for common typos
       const typoCheck = detectDomainTypo(normalizedEmail);
       if (typoCheck.isTypo && typoCheck.suggestion) {
         setErrorModal({
@@ -183,16 +203,15 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         return;
       }
 
-      // Run email validation and user existence check in parallel
       const [validationResult, userCheckResult] = await Promise.allSettled([
         awsAPI.validateEmail(normalizedEmail),
         awsAPI.checkUserExists(normalizedEmail),
       ]);
 
-      // Check email validation result
+      if (!isMountedRef.current) return;
+
       if (validationResult.status === 'fulfilled') {
         if (!validationResult.value.valid) {
-          setLoading(false);
           setErrorModal({
             visible: true,
             title: 'Invalid Email',
@@ -201,7 +220,6 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
           return;
         }
       } else {
-        setLoading(false);
         setErrorModal({
           visible: true,
           title: 'Email Verification Failed',
@@ -210,10 +228,8 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         return;
       }
 
-      // Check if user already exists
       if (userCheckResult.status === 'fulfilled') {
         if (userCheckResult.value.exists && userCheckResult.value.confirmed) {
-          setLoading(false);
           setErrorModal({
             visible: true,
             title: 'Unable to Continue',
@@ -222,15 +238,15 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
           return;
         }
       }
-      // If user check fails, let user continue (will fail later if needed)
 
-      // Create account before navigating — sends OTP as a side effect
       const signUpResult = await backend.signUp({
         email: normalizedEmail,
         password,
         username: normalizedEmail.split('@')[0],
         fullName: '',
       });
+
+      if (!isMountedRef.current) return;
 
       if (!signUpResult.confirmationRequired && !signUpResult.user) {
         setErrorModal({
@@ -241,7 +257,6 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         return;
       }
 
-      // Navigate with accountCreated flag so VerifyCode skips signUp
       navigation.navigate('VerifyCode', {
         email: normalizedEmail,
         password,
@@ -249,13 +264,17 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         accountCreated: true,
       });
     } catch {
+      if (!isMountedRef.current) return;
+      
       setErrorModal({
         visible: true,
         title: 'Error',
         message: 'An unexpected error occurred. Please try again.'
       });
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

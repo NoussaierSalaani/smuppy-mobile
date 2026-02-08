@@ -24,6 +24,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { resetAllStores, useUserStore } from '../../stores';
 import type { ThemePreference } from '../../stores/themeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { HIT_SLOP } from '../../config/theme';
+import { hapticButtonPress, hapticSubmit, hapticDestructive } from '../../utils/haptics';
 import { VerifiedBadge } from '../../components/Badge';
 
 const COVER_HEIGHT = 160;
@@ -173,6 +175,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   ];
 
   const handleLogout = async () => {
+    hapticDestructive();
     setLoggingOut(true);
     try {
       // Unregister push token before clearing auth (best-effort, don't block logout)
@@ -207,6 +210,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   };
 
   const handleDeleteAccount = async () => {
+    hapticDestructive();
     setDeleting(true);
     try {
       const currentUser = await backend.getCurrentUser();
@@ -249,11 +253,16 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     }
   };
 
+  const handleMenuItemPress = (item: { screen: string; params?: Record<string, unknown> }) => {
+    hapticButtonPress();
+    navigation.navigate(item.screen, item.params);
+  };
+
   const renderMenuItem = (item: { id: string; icon: React.ComponentProps<typeof Ionicons>['name']; label: string; screen: string; params?: Record<string, unknown> }, index: number) => (
     <TouchableOpacity
       key={item.id}
       style={[styles.menuItem, index === 0 && styles.menuItemFirst]}
-      onPress={() => navigation.navigate(item.screen, item.params)}
+      onPress={() => handleMenuItemPress(item)}
       activeOpacity={0.7}
     >
       <View style={styles.menuItemIcon}>
@@ -274,10 +283,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <Text style={styles.modalTitle}>Log out</Text>
           <Text style={styles.modalMessage}>Are you sure you want to log out of your account?</Text>
           <View style={styles.modalButtons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowLogoutModal(false)} disabled={loggingOut}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => { hapticButtonPress(); setShowLogoutModal(false); }} disabled={loggingOut}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} disabled={loggingOut}>
+            <TouchableOpacity style={styles.logoutButton} onPress={() => { hapticDestructive(); handleLogout(); }} disabled={loggingOut}>
               {loggingOut ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Yes, Logout</Text>}
             </TouchableOpacity>
           </View>
@@ -296,10 +305,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <Text style={styles.modalTitle}>Delete Account</Text>
           <Text style={styles.modalMessage}>This action is permanent and cannot be undone. All your data, posts, and connections will be deleted.</Text>
           <View style={styles.modalButtons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowDeleteModal(false)} disabled={deleting}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => { hapticButtonPress(); setShowDeleteModal(false); }} disabled={deleting}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleDeleteAccount} disabled={deleting}>
+            <TouchableOpacity style={styles.logoutButton} onPress={() => { hapticDestructive(); handleDeleteAccount(); }} disabled={deleting}>
               {deleting ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Delete</Text>}
             </TouchableOpacity>
           </View>
@@ -341,7 +350,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           {/* Back Button */}
           <TouchableOpacity
             style={[styles.backButton, { top: insets.top + 10 }]}
-            onPress={() => navigation.goBack()}
+            onPress={() => { hapticButtonPress(); navigation.goBack(); }}
+            hitSlop={HIT_SLOP.medium}
           >
             <Ionicons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
@@ -477,7 +487,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             {user?.accountType !== 'personal' && (
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemFirst]}
-              onPress={() => navigation.navigate('CreatorWallet')}
+              onPress={() => { hapticButtonPress(); navigation.navigate('CreatorWallet'); }}
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, { backgroundColor: '#E8F5E9' }]}>
@@ -492,7 +502,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             {user?.accountType !== 'personal' && (
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => navigation.navigate('PlatformSubscription')}
+              onPress={() => { hapticButtonPress(); navigation.navigate('PlatformSubscription'); }}
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, { backgroundColor: '#EDE7F6' }]}>
@@ -505,7 +515,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => navigation.navigate('IdentityVerification')}
+              onPress={() => { hapticButtonPress(); navigation.navigate('IdentityVerification'); }}
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, { backgroundColor: '#E3F2FD' }]}>
@@ -527,7 +537,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             {/* Payment Methods - All users */}
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => navigation.navigate('PaymentMethods')}
+              onPress={() => { hapticButtonPress(); navigation.navigate('PaymentMethods'); }}
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, { backgroundColor: '#F3E5F5' }]}>
@@ -541,7 +551,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             {isProCreator && (
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => navigation.navigate('PrivateSessionsManage')}
+              onPress={() => { hapticButtonPress(); navigation.navigate('PrivateSessionsManage'); }}
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, { backgroundColor: '#FFF3E0' }]}>
@@ -559,7 +569,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <View style={styles.menuCard}>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemFirst]}
-              onPress={() => setShowLogoutModal(true)}
+              onPress={() => { hapticDestructive(); setShowLogoutModal(true); }}
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, styles.dangerIcon]}>
@@ -571,7 +581,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => setShowDeleteModal(true)}
+              onPress={() => { hapticDestructive(); setShowDeleteModal(true); }}
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, styles.dangerIcon]}>

@@ -64,6 +64,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pk.comments_count,
         pk.views_count,
         pk.created_at,
+        pk.filter_id,
+        pk.filter_intensity,
+        pk.overlays,
         p.username as author_username,
         p.full_name as author_full_name,
         p.avatar_url as author_avatar_url,
@@ -140,6 +143,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           commentsCount: peak.comments_count,
           viewsCount: peak.views_count + 1, // Include the current view
           createdAt: peak.created_at,
+          filterId: peak.filter_id || null,
+          filterIntensity: peak.filter_intensity ?? null,
+          overlays: peak.overlays || null,
           isLiked: currentProfileId ? peak.is_liked : false,
           author: {
             id: peak.author_id,

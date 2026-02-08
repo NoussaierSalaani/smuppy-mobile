@@ -75,6 +75,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                p.thumbnail_url as "thumbnailUrl", p.duration,
                p.likes_count as "likesCount", p.comments_count as "commentsCount",
                p.views_count as "viewsCount", p.created_at as "createdAt",
+               p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType"
                ${likedSelect}
@@ -102,6 +103,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  p.thumbnail_url as "thumbnailUrl", p.duration,
                  p.likes_count as "likesCount", p.comments_count as "commentsCount",
                  p.views_count as "viewsCount", p.created_at as "createdAt",
+                 p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
                  pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                  pr.is_verified as "isVerified", pr.account_type as "accountType"
                  ${likedSelectText}
@@ -124,6 +126,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  p.thumbnail_url as "thumbnailUrl", p.duration,
                  p.likes_count as "likesCount", p.comments_count as "commentsCount",
                  p.views_count as "viewsCount", p.created_at as "createdAt",
+                 p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
                  pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                  pr.is_verified as "isVerified", pr.account_type as "accountType"
                  ${likedSelectText}
@@ -152,6 +155,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       commentsCount: parseInt(String(peak.commentsCount)) || 0,
       viewsCount: parseInt(String(peak.viewsCount)) || 0,
       createdAt: peak.createdAt,
+      filterId: (peak.filterId as string) || null,
+      filterIntensity: (peak.filterIntensity as number) ?? null,
+      overlays: peak.overlays || null,
       isLiked: (peak.isLiked as boolean) || false,
       author: {
         id: peak.authorId,

@@ -80,6 +80,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         SELECT p.id, p.author_id, p.video_url, p.thumbnail_url, p.caption,
                p.likes_count, p.comments_count, p.views_count, p.peak_replies_count,
                p.duration, p.created_at,
+               p.filter_id, p.filter_intensity, p.overlays,
                pr.id as profile_id, pr.username, pr.display_name, pr.full_name, pr.avatar_url, pr.is_verified,
                EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $2) as is_liked
         FROM peaks p
@@ -111,6 +112,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         commentsCount: row.comments_count,
         viewsCount: row.views_count,
         repliesCount: row.peak_replies_count,
+        filterId: row.filter_id || null,
+        filterIntensity: row.filter_intensity ?? null,
+        overlays: row.overlays || null,
         isLiked: row.is_liked,
         createdAt: row.created_at,
         author: {

@@ -2,9 +2,11 @@
 
 These rules apply to ALL AI agents (Codex, Claude Code, Cursor agents) and humans.
 
+> **Full rules**: [CLAUDE.md](./CLAUDE.md) (conventions & constraints) | [CLAUDE-WORKFLOW.md](./CLAUDE-WORKFLOW.md) (workflow & blueprint)
+
 ## 0) Absolute Rules
 - NEVER edit files unless explicitly requested by the user.
-- Work in SMALL LOTS only (UI-only or backend-only).
+- Work in SMALL LOTS only (one feature or fix per lot, all its layers together).
 - One LOT = one purpose. No opportunistic refactors.
 - Always list EXACT files that will be changed before changing anything.
 - If unsure, STOP and ask for clarification.

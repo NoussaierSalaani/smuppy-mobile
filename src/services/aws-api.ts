@@ -3677,7 +3677,8 @@ export interface Post {
   authorId: string;
   content: string;
   mediaUrls: string[];
-  mediaType: 'image' | 'video' | null;
+  mediaType: 'image' | 'video' | 'multiple' | null;
+  visibility?: 'public' | 'fans' | 'private' | 'subscribers';
   isPeak?: boolean;
   location?: string | null;
   tags?: string[];
@@ -3789,8 +3790,8 @@ export interface NotificationPreferences {
 export interface CreatePostInput {
   content?: string;
   mediaUrls?: string[];
-  mediaType?: 'image' | 'video';
-  visibility?: 'public' | 'followers' | 'private';
+  mediaType?: 'image' | 'video' | 'multiple';
+  visibility?: 'public' | 'fans' | 'private' | 'subscribers';
 }
 
 export interface CreatePeakInput {

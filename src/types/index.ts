@@ -51,7 +51,7 @@ export interface Post {
   thumbnail: string;
   description: string;
   location: string | null;
-  visibility: 'public' | 'fans' | 'private';
+  visibility: 'public' | 'fans' | 'private' | 'subscribers';
   likes: number;
   comments: number;
   shares: number;
@@ -74,7 +74,7 @@ export interface CreatePostData {
   media: MediaAsset[];
   description: string;
   location?: string;
-  visibility: 'public' | 'fans' | 'private';
+  visibility: 'public' | 'fans' | 'private' | 'subscribers';
   taggedPeople?: string[];
 }
 

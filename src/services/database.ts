@@ -232,7 +232,7 @@ const convertPost = (p: AWSPost): Post => {
     media_urls: mediaArray,
     media_type: p.mediaType || pRec?.media_type as Post['media_type'] || (mediaArray.length > 1 ? 'multiple' : undefined),
     is_peak: pRec?.is_peak as boolean ?? p.isPeak ?? false,
-    visibility: 'public',
+    visibility: (p.visibility || pRec?.visibility || 'public') as Post['visibility'],
     location: p.location || pRec?.location as string || null,
     tagged_users: p.taggedUsers || pRec?.tagged_users as Post['tagged_users'] || [],
     likes_count: p.likesCount,
@@ -1547,6 +1547,27 @@ export const reportPost = async (postId: string, reason: string, details?: strin
     const result = await awsAPI.request<{ id: string }>('/reports/post', {
       method: 'POST',
       body: { postId, reason, details },
+    });
+    return { data: result, error: null };
+  } catch (error: unknown) {
+    if (getErrorMessage(error)?.includes('already')) {
+      return { data: null, error: 'already_reported' };
+    }
+    return { data: null, error: getErrorMessage(error) };
+  }
+};
+
+/**
+ * Report a peak
+ */
+export const reportPeak = async (peakId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ id: string }>('/reports/peak', {
+      method: 'POST',
+      body: { peakId, reason, details },
     });
     return { data: result, error: null };
   } catch (error: unknown) {

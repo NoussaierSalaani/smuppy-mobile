@@ -72,6 +72,7 @@ export interface Profile {
   fan_count?: number;
   following_count?: number;
   post_count?: number;
+  peak_count?: number;
   // Bot/Team flags
   is_bot?: boolean;
   is_team?: boolean;
@@ -213,6 +214,7 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     fan_count: p.followersCount,
     following_count: p.followingCount,
     post_count: p.postsCount,
+    peak_count: p.peaksCount,
     // Follow status from API
     is_following: isFollowing,
     is_followed_by: isFollowedBy,

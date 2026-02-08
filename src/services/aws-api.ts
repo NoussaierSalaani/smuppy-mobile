@@ -3707,6 +3707,7 @@ export interface Profile {
   followersCount: number;
   followingCount: number;
   postsCount: number;
+  peaksCount?: number;
   isFollowing?: boolean;
   isFollowedBy?: boolean;
   // Profile extras

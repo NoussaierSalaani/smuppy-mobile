@@ -47,7 +47,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       interests, expertise, social_links, business_name, business_category,
       business_address, business_latitude, business_longitude, business_phone,
       locations_mode, onboarding_completed,
-      fan_count, following_count, post_count`;
+      fan_count, following_count, post_count,
+      (SELECT COUNT(*) FROM peaks WHERE author_id = profiles.id) AS peak_count`;
 
     let result;
     if (username) {
@@ -165,6 +166,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         followersCount: profile.fan_count || 0,
         followingCount: profile.following_count || 0,
         postsCount: profile.post_count || 0,
+        peaksCount: parseInt(profile.peak_count, 10) || 0,
         isFollowing,
         isFollowedBy,
       }),

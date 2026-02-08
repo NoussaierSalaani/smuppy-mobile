@@ -53,67 +53,82 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const db = await getPool();
+    const client = await db.connect();
 
-    // Resolve cognito_sub to profile ID
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
+    try {
+      await client.query('BEGIN');
 
-    if (userResult.rows.length === 0) {
+      // Resolve cognito_sub to profile ID
+      const userResult = await client.query(
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'User profile not found' }),
+        };
+      }
+
+      const profileId = userResult.rows[0].id;
+
+      // Check peak exists and verify ownership (same transaction to prevent race)
+      const peakResult = await client.query(
+        'SELECT id, author_id FROM peaks WHERE id = $1',
+        [peakId]
+      );
+
+      if (peakResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'Peak not found' }),
+        };
+      }
+
+      if (peakResult.rows[0].author_id !== profileId) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: 'Not authorized to modify this peak' }),
+        };
+      }
+
+      // Update saved_to_profile flag
+      const savedValue = action === 'save_to_profile';
+      await client.query(
+        'UPDATE peaks SET saved_to_profile = $1 WHERE id = $2',
+        [savedValue, peakId]
+      );
+
+      await client.query('COMMIT');
+
+      log.info('Peak save decision recorded', {
+        peakId: peakId.substring(0, 8) + '***',
+        userId: userId.substring(0, 8) + '***',
+        action,
+      });
+
       return {
-        statusCode: 404,
+        statusCode: 200,
         headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
+        body: JSON.stringify({
+          success: true,
+          message: action === 'save_to_profile' ? 'Peak saved to profile' : 'Peak dismissed',
+          savedToProfile: savedValue,
+        }),
       };
+    } catch (txError: unknown) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
     }
-
-    const profileId = userResult.rows[0].id;
-
-    // Check peak exists and verify ownership
-    const peakResult = await db.query(
-      'SELECT id, author_id FROM peaks WHERE id = $1',
-      [peakId]
-    );
-
-    if (peakResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'Peak not found' }),
-      };
-    }
-
-    if (peakResult.rows[0].author_id !== profileId) {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ message: 'Not authorized to modify this peak' }),
-      };
-    }
-
-    // Update saved_to_profile flag
-    const savedValue = action === 'save_to_profile';
-    await db.query(
-      'UPDATE peaks SET saved_to_profile = $1 WHERE id = $2',
-      [savedValue, peakId]
-    );
-
-    log.info('Peak save decision recorded', {
-      peakId: peakId.substring(0, 8) + '***',
-      userId: userId.substring(0, 8) + '***',
-      action,
-    });
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        message: action === 'save_to_profile' ? 'Peak saved to profile' : 'Peak dismissed',
-        savedToProfile: savedValue,
-      }),
-    };
   } catch (error: unknown) {
     log.error('Error processing peak save decision', error);
     return {

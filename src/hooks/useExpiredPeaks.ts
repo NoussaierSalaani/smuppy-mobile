@@ -13,7 +13,6 @@ interface UseExpiredPeaksReturn {
   expiredPeaks: Peak[];
   isLoading: boolean;
   savePeakToProfile: (peakId: string) => Promise<void>;
-  dismissPeak: (peakId: string) => Promise<void>;
   deletePeak: (peakId: string) => Promise<void>;
   downloadPeak: (peakId: string, videoUrl: string) => Promise<boolean>;
   refresh: () => Promise<void>;
@@ -64,11 +63,6 @@ export function useExpiredPeaks(): UseExpiredPeaksReturn {
     setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
   }, []);
 
-  const dismissPeak = useCallback(async (peakId: string) => {
-    await awsAPI.savePeakDecision(peakId, 'dismiss');
-    setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
-  }, []);
-
   const deletePeak = useCallback(async (peakId: string) => {
     await awsAPI.deletePeak(peakId);
     setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
@@ -91,7 +85,6 @@ export function useExpiredPeaks(): UseExpiredPeaksReturn {
     expiredPeaks,
     isLoading,
     savePeakToProfile,
-    dismissPeak,
     deletePeak,
     downloadPeak,
     refresh: fetchExpired,

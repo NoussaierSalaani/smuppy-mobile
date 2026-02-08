@@ -646,6 +646,7 @@ const UserProfileScreen = () => {
 
   // Create styles with theme (MUST BE BEFORE RENDER CALLBACKS)
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const fixedBtnTopStyle = useMemo(() => ({ top: insets.top + 8 }), [insets.top]);
 
   // ==================== EXTRACTED HANDLERS (from inline JSX) ====================
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
@@ -775,12 +776,12 @@ const UserProfileScreen = () => {
   // States: missing userId or loading/error
   if (!userId) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+      <View style={styles.errorStateContainer}>
         <Text style={styles.displayName}>Profile not found</Text>
-        <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
+        <Text style={styles.errorBioText}>
           This profile is unavailable. Please try again.
         </Text>
-        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={handleGoBack}>
+        <TouchableOpacity style={styles.errorGoBackButton} onPress={handleGoBack}>
           <Text style={styles.fanButtonText}>Go back</Text>
         </TouchableOpacity>
       </View>
@@ -793,12 +794,12 @@ const UserProfileScreen = () => {
 
   if (isError || !profileData) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+      <View style={styles.errorStateContainer}>
         <Text style={styles.displayName}>Unable to load profile</Text>
-        <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
+        <Text style={styles.errorBioText}>
           Please check your connection or try again later.
         </Text>
-        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={handleGoBack}>
+        <TouchableOpacity style={styles.errorGoBackButton} onPress={handleGoBack}>
           <Text style={styles.fanButtonText}>Go back</Text>
         </TouchableOpacity>
       </View>
@@ -836,7 +837,7 @@ const UserProfileScreen = () => {
         name={type === 'posts' ? 'images-outline' : type === 'peaks' ? 'videocam-outline' : 'bookmark-outline'}
         size={48}
         color={colors.gray}
-        style={{ marginBottom: 16 }}
+        style={styles.emptyIconMargin}
       />
       <Text style={styles.emptyTitle}>
         {type === 'posts' ? 'No posts yet' : type === 'peaks' ? 'No peaks yet' : 'Private'}
@@ -936,7 +937,7 @@ const UserProfileScreen = () => {
       // Unified Activities - no Event/Group toggle
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="flash-outline" size={48} color={colors.gray} style={{ marginBottom: 16 }} />
+          <Ionicons name="flash-outline" size={48} color={colors.gray} style={styles.emptyIconMargin} />
           <Text style={styles.emptyTitle}>No activities yet</Text>
           <Text style={styles.emptyDesc}>This user hasn't created any activities yet</Text>
         </View>
@@ -1142,11 +1143,11 @@ const UserProfileScreen = () => {
                   onPress={handleShowSubscribeModal}
                   size="sm"
                   variant="outline"
-                  style={{ flex: 1 }}
+                  style={styles.flex1}
                   icon={<Ionicons name="star" size={14} color="#E74C3C" />}
                   iconPosition="left"
                   colorScheme="green"
-                  textStyle={{ color: '#E74C3C' }}
+                  textStyle={styles.subscribeTextStyle}
                 />
               )}
 
@@ -1156,11 +1157,11 @@ const UserProfileScreen = () => {
                   onPress={handleBookSession}
                   size="sm"
                   variant="outline"
-                  style={{ flex: 1 }}
+                  style={styles.flex1}
                   icon={<Ionicons name="videocam" size={14} color="#3B82F6" />}
                   iconPosition="left"
                   colorScheme="green"
-                  textStyle={{ color: '#3B82F6' }}
+                  textStyle={styles.bookSessionTextStyle}
                 />
               )}
 
@@ -1187,7 +1188,7 @@ const UserProfileScreen = () => {
                 onPress={handleViewOfferings}
                 size="sm"
                 variant="outline"
-                style={{ flex: 1 }}
+                style={styles.flex1}
                 icon={<Ionicons name="pricetag" size={14} color="#0EBF8A" />}
                 iconPosition="left"
                 colorScheme="green"
@@ -1244,7 +1245,7 @@ const UserProfileScreen = () => {
 
       {/* Back Button - Fixed on top */}
       <TouchableOpacity
-        style={[styles.backBtnFixed, { top: insets.top + 8 }]}
+        style={[styles.backBtnFixed, fixedBtnTopStyle]}
         onPress={handleGoBack}
       >
         <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
@@ -1253,7 +1254,7 @@ const UserProfileScreen = () => {
       {/* Menu Button - Fixed on top */}
       {!isOwnProfile && (
         <TouchableOpacity
-          style={[styles.menuBtnFixed, { top: insets.top + 8 }]}
+          style={[styles.menuBtnFixed, fixedBtnTopStyle]}
           onPress={handleShowMenuModal}
         >
           <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
@@ -1358,7 +1359,7 @@ const UserProfileScreen = () => {
                 <Text style={styles.modalBtnCancelText}>Keep</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtnConfirm, { backgroundColor: '#FF3B30' }]}
+                style={styles.modalBtnConfirmDanger}
                 onPress={handleCancelRequest}
               >
                 <Text style={styles.modalBtnConfirmText}>Cancel Request</Text>
@@ -1391,10 +1392,7 @@ const UserProfileScreen = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalBtnConfirm}
-                onPress={() => {
-                  setShowFanRequiredModal(false);
-                  becomeFan();
-                }}
+                onPress={handleFanRequiredConfirm}
               >
                 <Text style={styles.modalBtnConfirmText}>Become a fan</Text>
               </TouchableOpacity>
@@ -1463,16 +1461,7 @@ const UserProfileScreen = () => {
         creatorName={profile.displayName}
         creatorAvatar={profile.avatar || ''}
         creatorUsername={profile.username}
-        onSubscribe={(tierId) => {
-          setShowSubscribeModal(false);
-          const tierMap: Record<string, { id: string; name: string; price: number; perks: string[] }> = {
-            basic: { id: 'basic', name: 'Fan', price: 4.99, perks: ['Access to exclusive posts', 'Join live streams', 'Fan badge on comments'] },
-            premium: { id: 'premium', name: 'Super Fan', price: 9.99, perks: ['All Fan benefits', 'Access to exclusive videos', 'Priority in live chat', 'Monthly 1-on-1 Q&A'] },
-            vip: { id: 'vip', name: 'VIP', price: 24.99, perks: ['All Super Fan benefits', 'Private Discord access', 'Early access to content', 'Personal shoutouts', '10% off private sessions'] },
-          };
-          const tier = tierMap[tierId] || tierMap.premium;
-          navigation.navigate('ChannelSubscribe', { creatorId: profile.id, tier });
-        }}
+        onSubscribe={handleSubscribe}
       />
     </View>
   );
@@ -2307,6 +2296,53 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 16,
     fontWeight: '600',
     color: colors.dark,
+  },
+
+  // Extracted inline styles
+  errorStateContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 24,
+  },
+  errorBioText: {
+    fontSize: 14,
+    fontWeight: '400' as const,
+    color: colors.dark,
+    lineHeight: 18,
+    textAlign: 'center' as const,
+    marginTop: 8,
+  },
+  errorGoBackButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginTop: 16,
+    width: '60%',
+  },
+  emptyIconMargin: {
+    marginBottom: 16,
+  },
+  flex1: {
+    flex: 1,
+  },
+  subscribeTextStyle: {
+    color: '#E74C3C',
+  },
+  bookSessionTextStyle: {
+    color: '#3B82F6',
+  },
+  modalBtnConfirmDanger: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center' as const,
   },
 });
 

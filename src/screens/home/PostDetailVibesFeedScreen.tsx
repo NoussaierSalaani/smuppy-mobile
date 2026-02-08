@@ -1041,24 +1041,24 @@ const PostDetailVibesFeedScreen = () => {
                   <View style={styles.menuDivider} />
 
                   <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
-                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                    <View style={[styles.menuIconBg, styles.menuIconBgMute]}>
                       <Ionicons name="eye-off-outline" size={22} color="#FFF" />
                     </View>
                     <Text style={styles.menuItemText}>Mute user</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
-                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+                    <View style={[styles.menuIconBg, styles.menuIconBgDanger]}>
                       <Ionicons name="ban-outline" size={22} color={colors.heartRed} />
                     </View>
-                    <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Block user</Text>
+                    <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block user</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
-                    <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+                    <View style={[styles.menuIconBg, styles.menuIconBgDanger]}>
                       <Ionicons name="flag-outline" size={22} color={colors.heartRed} />
                     </View>
-                    <Text style={[styles.menuItemText, { color: colors.heartRed }]}>Report</Text>
+                    <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -1697,10 +1697,19 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     justifyContent: 'center',
     alignItems: 'center',
   },
+  menuIconBgMute: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  menuIconBgDanger: {
+    backgroundColor: 'rgba(255,107,107,0.2)',
+  },
   menuItemText: {
     fontSize: 16,
     fontWeight: '500',
     color: '#FFF',
+  },
+  menuItemTextDanger: {
+    color: colors.heartRed,
   },
   menuDivider: {
     height: 1,

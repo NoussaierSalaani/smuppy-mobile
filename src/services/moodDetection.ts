@@ -146,6 +146,11 @@ class MoodDetectionEngine {
       const velocity = Math.abs(deltaY) / (deltaTime / 1000); // pixels per second
       this.scrollVelocities.push(velocity);
 
+      // Prevent memory leak: limit array size (keep last 1000 entries)
+      if (this.scrollVelocities.length > 1000) {
+        this.scrollVelocities = this.scrollVelocities.slice(-500);
+      }
+
       // Detect reverse scroll (scrolling back up)
       if (deltaY < -50) {
         this.reverseScrolls++;
@@ -158,6 +163,10 @@ class MoodDetectionEngine {
         const pauseDuration = timestamp - this.pauseStartTime;
         if (pauseDuration >= 500) {
           this.pauseDurations.push(pauseDuration);
+          // Prevent memory leak: limit array size
+          if (this.pauseDurations.length > 500) {
+            this.pauseDurations = this.pauseDurations.slice(-250);
+          }
         }
         this.pauseStartTime = null;
       }
@@ -222,6 +231,11 @@ class MoodDetectionEngine {
    */
   trackTimeOnPost(postId: string, timeSeconds: number): void {
     this.timePerPost.push(timeSeconds);
+
+    // Prevent memory leak: limit array size (keep last 200 entries)
+    if (this.timePerPost.length > 200) {
+      this.timePerPost = this.timePerPost.slice(-100);
+    }
 
     // If less than 1 second, consider it a skip
     if (timeSeconds < 1) {

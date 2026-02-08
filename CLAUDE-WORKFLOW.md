@@ -106,6 +106,54 @@ This gives `main` exactly ONE clean commit per feature, no matter how many inter
 | Copy-paste code to "fix it fast" | Creates tech debt | Understand the root cause, fix properly |
 | Skip reading existing code | Breaks existing behavior | Read every file you'll modify |
 | Ignore edge cases | Bugs in production | Test empty/null/error/concurrent paths |
+| **Deploy without verifying migrations** | Features fail silently in production | Always run verification queries post-deploy |
+| **API and webhook use different tables** | Data inconsistency, lost records | Ensure both write to same table |
+
+## Common Critical Failures (Learn from Past Bugs)
+
+### Failure 1: Missing Database Columns
+**What happened:** Peaks creation failed because `expires_at` and `saved_to_profile` columns weren't added to the `peaks` table.
+
+**Root cause:** Migration files were created but never executed on staging/production.
+
+**Prevention:**
+```bash
+# After EVERY deploy with migrations:
+curl -X POST "$ADMIN_API_URL" \
+  -d '{"action":"run-sql","sql":"SELECT column_name FROM information_schema.columns WHERE table_name = '\''peaks'\''"}'
+# Verify all expected columns exist
+```
+
+### Failure 2: Table Mismatch Between API and Webhook
+**What happened:** Subscriptions created via Stripe webhook went to `channel_subscriptions` table, but API `subscriptions.ts` read from `subscriptions` table. Users couldn't see their subscriptions.
+
+**Root cause:** Different developers used different table names without coordination.
+
+**Prevention:**
+```bash
+# Before creating payment-related features:
+grep -r "INSERT INTO\|UPDATE.*SET\|SELECT.*FROM" aws-migration/lambda/api/payments/ \
+  | grep -v test | grep -v node_modules
+# Ensure ALL handlers use the same table names
+```
+
+### Failure 3: Missing Rate Limiting
+**What happened:** Endpoints without rate limiting were abused, causing AWS Lambda throttling.
+
+**Prevention:** Always add rate limiting to:
+- Resource creation endpoints (posts, peaks, comments)
+- Follow/unfollow actions
+- Any endpoint that triggers notifications
+
+```typescript
+const rateLimit = await checkRateLimit({
+  prefix: 'feature-action',
+  identifier: cognitoSub,
+  windowSeconds: 60,
+  maxRequests: 10,
+});
+if (!rateLimit.allowed) return { statusCode: 429, ... };
+```
 
 ## Parallel Development (Multiple Tasks at Once)
 
@@ -522,12 +570,52 @@ git push origin main
 ### Step 12: Deploy + TestFlight
 
 **12a. Backend**: `cd aws-migration/infrastructure && npx cdk deploy --all`
-**12b. Migrations**: via admin Lambda `run-ddl` (see Step 1)
-**12c. Verify Lambdas**: `aws lambda invoke` (expect 401 without token)
-**12d. Frontend**: `eas update --branch production` (JS only) or `eas build + eas submit` (native changes)
-**12e. Test on TestFlight**: full flow manually on device
 
-**A feature is NOT done until you test it on TestFlight.**
+**12b. Migrations**: via admin Lambda `run-ddl` (see Step 1)
+
+**12c. CRITICAL: Migration Verification** (NEW - prevents critical bugs)
+
+After deploying migrations, you MUST verify they were applied:
+
+```bash
+# Get admin key
+ADMIN_KEY=$(aws secretsmanager get-secret-value \
+  --secret-id smuppy-admin-api-key-staging \
+  --region us-east-1 \
+  --query SecretString --output text)
+
+# Verify columns exist
+curl -X POST "https://lhvm623909.execute-api.us-east-1.amazonaws.com/staging/admin/migrate" \
+  -H "Content-Type: application/json" \
+  -H "x-admin-key: $ADMIN_KEY" \
+  -d '{
+    "action": "run-sql",
+    "sql": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '\''YOUR_TABLE'\'' ORDER BY ordinal_position;"
+  }'
+```
+
+**Table Consistency Check** (CRITICAL for payments/webhooks):
+
+Ensure all handlers use the SAME table as webhooks:
+- If webhook writes to `channel_subscriptions`, API must read/write to `channel_subscriptions`
+- If webhook writes to `payments`, API must read/write to `payments`
+- NEVER have API and webhook using different tables for the same data
+
+```bash
+# Verify table consistency
+grep -r "INSERT INTO\|UPDATE\|SELECT.*FROM" aws-migration/lambda/api/payments/ \
+  | grep -v "channel_subscriptions\|payments\|platform_subscriptions" \
+  | grep -v test
+# Should return nothing if consistent
+```
+
+**12d. Verify Lambdas**: `aws lambda invoke` (expect 401 without token)
+
+**12e. Frontend**: `eas update --branch production` (JS only) or `eas build + eas submit` (native changes)
+
+**12f. Test on TestFlight**: full flow manually on device
+
+**A feature is NOT done until you test it on TestFlight AND verify database schema.**
 
 ---
 
@@ -602,6 +690,8 @@ git push origin main
 ### Deployment
 - [ ] cdk deploy --all (backend)
 - [ ] Migrations executed and verified
+- [ ] **Migration verification**: columns verified via run-sql
+- [ ] **Table consistency check**: API and webhooks use same tables
 - [ ] aws lambda invoke (endpoints respond)
 - [ ] eas update --branch production (or eas build + submit)
 - [ ] Tested on TestFlight — full flow works

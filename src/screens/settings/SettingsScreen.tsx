@@ -25,7 +25,7 @@ import { resetAllStores, useUserStore } from '../../stores';
 import type { ThemePreference } from '../../stores/themeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { HIT_SLOP } from '../../config/theme';
-import { hapticButtonPress, hapticSubmit, hapticDestructive } from '../../utils/haptics';
+import { hapticButtonPress, hapticDestructive } from '../../utils/haptics';
 import { VerifiedBadge } from '../../components/Badge';
 
 const COVER_HEIGHT = 160;

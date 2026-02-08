@@ -10,8 +10,7 @@ import {
   Animated,
   RefreshControl,
   ActivityIndicator,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';

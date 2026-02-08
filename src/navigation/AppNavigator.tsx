@@ -114,6 +114,10 @@ const linking = {
               packId: (packId: string) => isValidUUID(packId) ? packId : '',
             },
           },
+          // Checkout success screens
+          SessionBooked: 'checkout/session-booked',
+          SubscriptionSuccess: 'checkout/subscription-success',
+          BusinessSubscriptionSuccess: 'checkout/business-subscription-success',
         },
       },
     },

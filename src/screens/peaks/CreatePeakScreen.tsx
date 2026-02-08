@@ -25,7 +25,7 @@ import Animated, {
 import RecordButton from '../../components/peaks/RecordButton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { HIT_SLOP } from '../../config/theme';
-import { hapticButtonPress, hapticSubmit, hapticDestructive } from '../../utils/haptics';
+import { hapticButtonPress, hapticSubmit } from '../../utils/haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import {
   useFilters,

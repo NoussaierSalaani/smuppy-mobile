@@ -11,13 +11,19 @@ import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+import { getStripeKey } from '../../shared/secrets';
 import Stripe from 'stripe';
 
 const log = createLogger('business/subscription-cancel');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-12-15.clover',
-});
+let stripe: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripe) {
+    const key = await getStripeKey();
+    stripe = new Stripe(key, { apiVersion: '2025-12-15.clover' });
+  }
+  return stripe;
+}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -92,7 +98,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // If there's a Stripe subscription, cancel at period end
     if (subscription.stripe_subscription_id) {
       try {
-        await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+        const stripeClient = await getStripe();
+        await stripeClient.subscriptions.update(subscription.stripe_subscription_id, {
           cancel_at_period_end: true,
         });
       } catch (stripeError) {

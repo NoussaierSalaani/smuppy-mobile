@@ -355,7 +355,7 @@ const UserProfileScreen = () => {
   }, [loadUserPosts]);
 
   // Share profile
-  const handleShareProfile = async () => {
+  const handleShareProfile = useCallback(async () => {
     try {
       const profileUrl = `https://smuppy.app/u/${profile.username}`;
       await Share.share({
@@ -365,13 +365,17 @@ const UserProfileScreen = () => {
     } catch (error) {
       if (__DEV__) console.warn('Error sharing profile:', error);
     }
-  };
+  }, [profile.username, profile.displayName]);
 
   // User safety store for block
   const { block, isBlocked: isUserBlocked } = useUserSafetyStore();
 
   // Report user
-  const handleReportUser = () => {
+  const submitUserReport = useCallback((_reason: string) => {
+    showSuccess('Report Submitted', 'Thank you for your report. We will review this user.');
+  }, [showSuccess]);
+
+  const handleReportUser = useCallback(() => {
     setShowMenuModal(false);
     showAlert({
       title: 'Report User',
@@ -384,14 +388,10 @@ const UserProfileScreen = () => {
         { text: 'Cancel', style: 'cancel' },
       ],
     });
-  };
-
-  const submitUserReport = (_reason: string) => {
-    showSuccess('Report Submitted', 'Thank you for your report. We will review this user.');
-  };
+  }, [showAlert, submitUserReport]);
 
   // Block user
-  const handleBlockUser = () => {
+  const handleBlockUser = useCallback(() => {
     if (!userId) return;
 
     if (isUserBlocked(userId)) {
@@ -415,10 +415,10 @@ const UserProfileScreen = () => {
       },
       'Block'
     );
-  };
+  }, [userId, profile.displayName, isUserBlocked, showDestructiveConfirm, showError, showSuccess, navigation, block]);
 
   // Fan button handler
-  const handleFanPress = () => {
+  const handleFanPress = useCallback(() => {
     // Guard: don't allow on own profile or while loading
     if (isOwnProfile || isLoadingFollow) return;
 
@@ -435,10 +435,11 @@ const UserProfileScreen = () => {
     } else {
       becomeFan();
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwnProfile, isLoadingFollow, isBlocked, effectiveIsFan, isRequested]);
 
   // Cancel follow request
-  const handleCancelRequest = async () => {
+  const handleCancelRequest = useCallback(async () => {
     if (!userId || isLoadingFollow) return;
 
     setShowCancelRequestModal(false);
@@ -451,9 +452,9 @@ const UserProfileScreen = () => {
     }
 
     setIsLoadingFollow(false);
-  };
-  
-  const registerToggleAndMaybeBlock = () => {
+  }, [userId, isLoadingFollow]);
+
+  const registerToggleAndMaybeBlock = useCallback(() => {
     const next = fanToggleCount + 1;
     if (next > 2) {
       const endDate = new Date();
@@ -465,9 +466,9 @@ const UserProfileScreen = () => {
     }
     setFanToggleCount(next);
     return false;
-  };
+  }, [fanToggleCount]);
 
-  const becomeFan = async () => {
+  const becomeFan = useCallback(async () => {
     // Guard: require userId and not loading
     if (!userId || isLoadingFollow || isOwnProfile) return;
 
@@ -564,9 +565,10 @@ const UserProfileScreen = () => {
     } finally {
       setIsLoadingFollow(false);
     }
-  };
+   
+  }, [userId, isLoadingFollow, isOwnProfile, profile.isPrivate, queryClient, showError, registerToggleAndMaybeBlock]);
 
-  const confirmUnfan = async () => {
+  const confirmUnfan = useCallback(async () => {
     // Guard: require userId and not loading
     if (!userId || isLoadingFollow || isOwnProfile) return;
 
@@ -615,9 +617,10 @@ const UserProfileScreen = () => {
     } finally {
       setIsLoadingFollow(false);
     }
-  };
+   
+  }, [userId, isLoadingFollow, isOwnProfile, queryClient, showError, registerToggleAndMaybeBlock]);
 
-  const handleMessagePress = () => {
+  const handleMessagePress = useCallback(() => {
     if (effectiveIsFan) {
       // Pass userId so ChatScreen can get/create the real conversation
       navigation.navigate('Chat', {
@@ -632,14 +635,14 @@ const UserProfileScreen = () => {
         },
       });
     }
-  };
+  }, [effectiveIsFan, navigation, profile.id, profile.username, profile.displayName, profile.avatar, profile.isVerified, profile.accountType]);
 
   // Format the unblock date
-  const formatBlockDate = () => {
+  const formatBlockDate = useCallback(() => {
     if (!blockEndDate) return '';
     const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
     return blockEndDate.toLocaleDateString('en-US', options);
-  };
+  }, [blockEndDate]);
 
   // Create styles with theme (MUST BE BEFORE RENDER CALLBACKS)
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);

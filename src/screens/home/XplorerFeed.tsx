@@ -1269,7 +1269,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     position: 'absolute',
     left: wp(4),
     right: wp(4),
-    zIndex: 10,
+    zIndex: 20,
   },
   searchBar: {
     flex: 1,

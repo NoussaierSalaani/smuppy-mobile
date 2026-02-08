@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Dimensions, ScrollView, TextInput, StatusBar, Pressable, Keyboard } from 'react-native';
-import { AvatarImage } from '../../components/OptimizedImage';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions, ScrollView, TextInput, StatusBar, Pressable, Keyboard } from 'react-native';
+import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import Mapbox, { MapView, Camera, PointAnnotation, LocationPuck } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -735,7 +735,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         <TouchableOpacity style={styles.businessPopupClose} onPress={closePopup}>
           <Ionicons name="close" size={normalize(22)} color={colors.white} />
         </TouchableOpacity>
-        <Image source={{ uri: selectedMarker.coverImage }} style={styles.businessCover} />
+        <OptimizedImage source={selectedMarker.coverImage} style={styles.businessCover} />
         <View style={styles.businessContent}>
           <Text style={styles.businessName}>{sanitizeText(selectedMarker.name)}</Text>
           <View style={styles.businessRow}>
@@ -916,7 +916,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
         {/* Cover image */}
         {coverUrl ? (
-          <Image source={{ uri: coverUrl }} style={styles.eventDetailCover} />
+          <OptimizedImage source={coverUrl} style={styles.eventDetailCover} />
         ) : (
           <View style={[styles.eventDetailCover, { backgroundColor: colors.backgroundSecondary, justifyContent: 'center', alignItems: 'center' }]}>
             <Ionicons name={selectedMarker.category === 'event' ? 'calendar' : 'people'} size={normalize(40)} color={colors.gray} />

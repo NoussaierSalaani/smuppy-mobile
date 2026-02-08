@@ -203,7 +203,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           );
 
           // Batch insert notifications: $1 = body text, $2 = data JSON, $3..N = user IDs
-          const notifData = JSON.stringify({ actor_id: userId, post_id: postId });
+          const notifData = JSON.stringify({ senderId: userId, postId });
           const notifValues = tagsToInsert.map((_, i) => `($${i + 3}, 'post_tag', 'You were tagged', $1, $2, NOW())`).join(', ');
           await client.query(
             `INSERT INTO notifications (user_id, type, title, body, data, created_at)

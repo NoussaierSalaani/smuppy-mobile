@@ -73,8 +73,16 @@ const GroupDetailScreen: React.FC<{ navigation: { navigate: (screen: string, par
     try {
       const response = await awsAPI.getGroup(groupId);
       if (response.success && response.group) {
-        setGroup(response.group as unknown as GroupData);
         const groupData = response.group as unknown as Record<string, unknown>;
+        // Map camelCase backend response to snake_case GroupData
+        setGroup({
+          ...(groupData as unknown as GroupData),
+          route_geojson: (groupData.routeGeojson || groupData.route_geojson) as GroupData['route_geojson'],
+          route_distance_km: (groupData.routeDistanceKm || groupData.route_distance_km) as number | undefined,
+          route_duration_min: (groupData.routeDurationMin || groupData.route_duration_min) as number | undefined,
+          is_route: (groupData.isRoute || groupData.is_route) as boolean | undefined,
+          difficulty: (groupData.difficulty) as string | undefined,
+        });
         const participants = groupData.participants as Array<{ id: string }> | undefined;
         setHasJoined(participants?.some((p) => p.id === userId) || false);
       }

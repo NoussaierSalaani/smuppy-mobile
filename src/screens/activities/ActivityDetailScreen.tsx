@@ -190,12 +190,18 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
         response = await awsAPI.getGroup(activityId);
         if (response.success && response.group) {
           const group = response.group as unknown as Record<string, unknown>;
-          // Normalize group to activity format
+          // Normalize group to activity format (backend returns camelCase, Activity type uses snake_case)
           setActivity({
             ...(group as unknown as Activity),
             title: (group.name as string) || '',
             category: (group.category as Activity['category']) || { id: '0', name: 'Activity', slug: (group.subcategory as string) || 'other', icon: 'people', color: '#0EBF8A' },
             organizer: group.creator as Activity['organizer'],
+            route_geojson: (group.routeGeojson || group.route_geojson) as Activity['route_geojson'],
+            route_waypoints: (group.routeWaypoints || group.route_waypoints) as Activity['route_waypoints'],
+            route_distance_km: (group.routeDistanceKm || group.route_distance_km) as number | undefined,
+            route_duration_min: (group.routeDurationMin || group.route_duration_min) as number | undefined,
+            route_difficulty: (group.difficulty || group.route_difficulty) as Activity['route_difficulty'],
+            is_route: (group.isRoute || group.is_route) as boolean,
           });
           setHasJoined(((group.participants as Array<{ id: string }>) || []).some((p) => p.id === user?.id));
         } else {

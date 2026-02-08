@@ -435,6 +435,26 @@ const PostDetailFanFeedScreen = () => {
     }
   }, [currentPost, storeSubmitReport, showError, showSuccess]);
 
+  // --- Extracted inline handlers ---
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleShowMenu = useCallback(() => setShowMenu(true), []);
+  const handleCloseMenu = useCallback(() => setShowMenu(false), []);
+  const handleToggleAudioMute = useCallback(() => setIsAudioMuted(prev => !prev), []);
+  const handleToggleDescription = useCallback(() => setExpandedDescription(prev => !prev), []);
+  const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
+
+  const handleViewProfile = useCallback(() => {
+    if (!currentPost) return;
+    setShowMenu(false);
+    navigateToProfile(currentPost.user.id);
+  }, [currentPost, navigateToProfile]);
+
+  const handleReportSpam = useCallback(() => submitReport('spam'), [submitReport]);
+  const handleReportInappropriate = useCallback(() => submitReport('inappropriate'), [submitReport]);
+  const handleReportHarassment = useCallback(() => submitReport('harassment'), [submitReport]);
+  const handleReportViolence = useCallback(() => submitReport('violence'), [submitReport]);
+  const handleReportOther = useCallback(() => submitReport('other'), [submitReport]);
+
   // Mute user with anti spam-click
   const handleMute = useCallback(async () => {
     if (muteLoading || !currentPost) return;
@@ -504,6 +524,10 @@ const PostDetailFanFeedScreen = () => {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  // Dynamic styles depending on insets
+  const headerPaddingStyle = useMemo(() => ({ paddingTop: insets.top + 10 }), [insets.top]);
+  const bottomContentPaddingStyle = useMemo(() => ({ paddingBottom: insets.bottom + 10 }), [insets.bottom]);
+
   // Stable keyExtractor for FlashList
   const keyExtractor = useCallback((item: FanFeedPost) => item.id, []);
 
@@ -519,7 +543,7 @@ const PostDetailFanFeedScreen = () => {
 
     return (
       <TouchableWithoutFeedback onPress={handleDoubleTap}>
-        <View style={[styles.postContainer, { height: height }]}>
+        <View style={[styles.postContainer, styles.postContainerHeight]}>
           {/* Under Review Overlay */}
           {postUnderReview && (
             <View style={styles.underReviewOverlay}>
@@ -599,10 +623,10 @@ const PostDetailFanFeedScreen = () => {
           )}
 
           {/* Header */}
-          <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <View style={[styles.header, headerPaddingStyle]}>
             <TouchableOpacity
               style={styles.headerBtn}
-              onPress={() => navigation.goBack()}
+              onPress={handleGoBack}
               accessibilityLabel="Go back"
               accessibilityRole="button"
             >
@@ -611,7 +635,7 @@ const PostDetailFanFeedScreen = () => {
 
             <TouchableOpacity
               style={styles.headerBtn}
-              onPress={() => setShowMenu(true)}
+              onPress={handleShowMenu}
               accessibilityLabel="Open menu"
               accessibilityRole="button"
             >
@@ -676,7 +700,7 @@ const PostDetailFanFeedScreen = () => {
             {item.type === 'video' && (
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={() => setIsAudioMuted(prev => !prev)}
+                onPress={handleToggleAudioMute}
                 accessibilityLabel={isAudioMuted ? 'Unmute audio' : 'Mute audio'}
                 accessibilityRole="button"
               >
@@ -690,7 +714,7 @@ const PostDetailFanFeedScreen = () => {
           </View>
 
           {/* Bottom content */}
-          <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 10 }]}>
+          <View style={[styles.bottomContent, bottomContentPaddingStyle]}>
             {/* User info */}
             <View style={styles.userRow}>
               <TouchableOpacity
@@ -749,7 +773,7 @@ const PostDetailFanFeedScreen = () => {
 
             {/* Description */}
             <TouchableOpacity
-              onPress={() => setExpandedDescription(prev => !prev)}
+              onPress={handleToggleDescription}
               activeOpacity={0.8}
             >
               <Text
@@ -786,17 +810,18 @@ const PostDetailFanFeedScreen = () => {
       handleDoubleTap, currentIndex, isAudioMuted, isPaused, carouselIndexes, showLikeAnimation,
       likeAnimationScale, shareLoading, handleShare, likeLoading, toggleLike, bookmarkLoading,
       toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescription,
-      styles, colors, insets, navigation]);
+      styles, colors, navigation, bottomContentPaddingStyle, handleGoBack, handleShowMenu,
+      handleToggleAudioMute, handleToggleDescription, headerPaddingStyle]);
 
   // Early return for empty posts array
   if (fanFeedPosts.length === 0) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, styles.emptyStateContainer]}>
         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={[styles.header, headerPaddingStyle]}>
           <TouchableOpacity
             style={styles.headerBtn}
-            onPress={() => navigation.goBack()}
+            onPress={handleGoBack}
             accessibilityLabel="Go back"
             accessibilityRole="button"
           >
@@ -804,7 +829,7 @@ const PostDetailFanFeedScreen = () => {
           </TouchableOpacity>
         </View>
         <Ionicons name="images-outline" size={64} color={colors.gray} />
-        <Text style={{ color: colors.gray, marginTop: 16, fontSize: 16 }}>No posts available</Text>
+        <Text style={styles.emptyStateText}>No posts available</Text>
       </View>
     );
   }
@@ -836,12 +861,12 @@ const PostDetailFanFeedScreen = () => {
         visible={showMenu}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowMenu(false)}
+        onRequestClose={handleCloseMenu}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setShowMenu(false)}
+          onPress={handleCloseMenu}
         >
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
@@ -868,11 +893,7 @@ const PostDetailFanFeedScreen = () => {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => {
-                if (!currentPost) return;
-                setShowMenu(false);
-                navigateToProfile(currentPost.user.id);
-              }}
+              onPress={handleViewProfile}
               accessibilityLabel="View user profile"
               accessibilityRole="button"
             >
@@ -903,7 +924,7 @@ const PostDetailFanFeedScreen = () => {
                   accessibilityHint="Block all interactions with this user"
                 >
                   <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
-                  <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Block user</Text>
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block user</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -916,12 +937,12 @@ const PostDetailFanFeedScreen = () => {
               accessibilityHint="Report inappropriate content"
             >
               <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
-              <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
+              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.menuCancel}
-              onPress={() => setShowMenu(false)}
+              onPress={handleCloseMenu}
               accessibilityLabel="Cancel"
               accessibilityRole="button"
             >
@@ -936,12 +957,12 @@ const PostDetailFanFeedScreen = () => {
         visible={showReportModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowReportModal(false)}
+        onRequestClose={handleCloseReportModal}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setShowReportModal(false)}
+          onPress={handleCloseReportModal}
         >
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
@@ -950,42 +971,42 @@ const PostDetailFanFeedScreen = () => {
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('spam')}
+              onPress={handleReportSpam}
             >
               <Text style={styles.reportOptionText}>Spam or misleading</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('inappropriate')}
+              onPress={handleReportInappropriate}
             >
               <Text style={styles.reportOptionText}>Inappropriate content</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('harassment')}
+              onPress={handleReportHarassment}
             >
               <Text style={styles.reportOptionText}>Harassment or bullying</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('violence')}
+              onPress={handleReportViolence}
             >
               <Text style={styles.reportOptionText}>Violence or dangerous</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('other')}
+              onPress={handleReportOther}
             >
               <Text style={styles.reportOptionText}>Other</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.menuCancel}
-              onPress={() => setShowReportModal(false)}
+              onPress={handleCloseReportModal}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -1001,9 +1022,21 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     flex: 1,
     backgroundColor: colors.background,
   },
+  emptyStateContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    color: colors.gray,
+    marginTop: 16,
+    fontSize: 16,
+  },
   postContainer: {
     width: width,
     position: 'relative',
+  },
+  postContainerHeight: {
+    height: height,
   },
   media: {
     width: '100%',
@@ -1268,6 +1301,9 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   menuItemText: {
     fontSize: 16,
     color: '#FFF',
+  },
+  menuItemTextDanger: {
+    color: '#FF6B6B',
   },
   menuCancel: {
     marginTop: 8,

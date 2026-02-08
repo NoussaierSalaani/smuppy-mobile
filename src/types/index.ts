@@ -781,7 +781,6 @@ export type MainStackParamList = {
   // Events (Xplorer)
   EventList: undefined;
   EventDetail: { eventId: string };
-  CreateEvent: undefined;
   EventManage: { eventId: string };
 
   // Groups

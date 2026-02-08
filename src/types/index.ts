@@ -780,12 +780,10 @@ export type MainStackParamList = {
 
   // Events (Xplorer)
   EventList: undefined;
-  EventDetail: { eventId: string };
   EventManage: { eventId: string };
 
   // Groups
   CreateGroup: { lockedLocation?: { lat: number; lng: number } } | undefined;
-  GroupDetail: { groupId: string };
 
   // Activities (unified)
   CreateActivity: { lockedLocation?: { lat: number; lng: number }; initialMode?: 'event' | 'group' } | undefined;

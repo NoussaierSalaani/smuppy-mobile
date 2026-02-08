@@ -236,12 +236,12 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
                       url: shareUrl,
                     });
                   } catch { /* cancelled */ }
-                  navigation.replace('GroupDetail', { groupId: activityId });
+                  navigation.replace('ActivityDetail', { activityId, activityType: 'group' });
                 },
               },
               {
                 text: 'View',
-                onPress: () => navigation.replace('GroupDetail', { groupId: activityId }),
+                onPress: () => navigation.replace('ActivityDetail', { activityId, activityType: 'group' }),
               },
             ],
           });

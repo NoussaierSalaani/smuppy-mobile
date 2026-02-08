@@ -86,10 +86,11 @@ const linking = {
               peakId: (peakId: string) => isValidUUID(peakId) ? peakId : '',
             },
           },
-          EventDetail: {
-            path: 'event/:eventId',
+          ActivityDetail: {
+            path: 'activity/:activityId/:activityType',
             parse: {
-              eventId: (eventId: string) => isValidUUID(eventId) ? eventId : '',
+              activityId: (activityId: string) => isValidUUID(activityId) ? activityId : '',
+              activityType: (activityType: string) => activityType === 'group' ? 'group' : 'event',
             },
           },
           BusinessProfile: {
@@ -100,12 +101,6 @@ const linking = {
           },
           EventList: {
             path: 'events',
-          },
-          GroupDetail: {
-            path: 'groups/:groupId',
-            parse: {
-              groupId: (groupId: string) => isValidUUID(groupId) ? groupId : '',
-            },
           },
           CreatorOfferings: {
             path: 'creator/:creatorId/offerings',

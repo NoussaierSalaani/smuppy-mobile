@@ -146,12 +146,10 @@ const InviteToBattleScreen = lazyScreen(() => import('../screens/battles/InviteT
 
 // Events Screens
 const EventListScreen = lazyScreen(() => import('../screens/events/EventListScreen'));
-const EventDetailScreen = lazyScreen(() => import('../screens/events/EventDetailScreen'));
 const EventManageScreen = lazyScreen(() => import('../screens/events/EventManageScreen'));
 
 // Group Screens
 const CreateGroupScreen = lazyScreen(() => import('../screens/groups/CreateGroupScreen'));
-const GroupDetailScreen = lazyScreen(() => import('../screens/groups/GroupDetailScreen'));
 
 // Activity Screens (unified — CreateEventScreen is the final version with Event/Group toggle)
 const CreateActivityScreen = lazyScreen(() => import('../screens/events/CreateEventScreen'));
@@ -441,12 +439,10 @@ export default function MainNavigator() {
 
       {/* Events (Xplorer) */}
       <Stack.Screen name="EventList" component={EventListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EventManage" component={EventManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Groups */}
       <Stack.Screen name="CreateGroup" component={CreateGroupScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="GroupDetail" component={GroupDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Activities (unified) */}
       <Stack.Screen name="CreateActivity" component={CreateActivityScreen} options={{ animation: 'slide_from_bottom' }} />

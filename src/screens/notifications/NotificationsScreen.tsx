@@ -472,7 +472,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       return;
     }
     if (notif.eventId && isValidUUID(notif.eventId)) {
-      navigation.navigate('EventDetail', { eventId: notif.eventId });
+      navigation.navigate('ActivityDetail', { activityId: notif.eventId, activityType: 'event' });
       return;
     }
     if (notif.sessionId && isValidUUID(notif.sessionId)) {

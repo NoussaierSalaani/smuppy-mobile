@@ -17,6 +17,7 @@ import {
   Animated,
   Linking,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -132,13 +133,29 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'about' | 'services' | 'schedule' | 'reviews'>('about');
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const isMountedRef = useRef(true);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadBusinessProfile = useCallback(async () => {
+    if (!businessId) {
+      if (__DEV__) console.warn('BusinessProfileScreen: No businessId provided');
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     try {
       const [profileRes, servicesRes, scheduleRes, reviewsRes] = await Promise.all([
         awsAPI.getBusinessProfile(businessId),
@@ -146,6 +163,8 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
         awsAPI.getBusinessSchedule(businessId),
         awsAPI.getBusinessReviews(businessId, { limit: 10 }),
       ]);
+
+      if (!isMountedRef.current) return;
 
       if (profileRes.success && profileRes.business) {
         setBusiness(profileRes.business as unknown as BusinessProfile);
@@ -157,7 +176,9 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
     } catch (error) {
       if (__DEV__) console.warn('Load business profile error:', error);
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [businessId]);
 
@@ -166,6 +187,9 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   }, [loadBusinessProfile]);
 
   const handleFollow = useCallback(async () => {
+    if (isFollowLoading) return;
+
+    setIsFollowLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const newFollowing = !isFollowing;
     setIsFollowing(newFollowing);
@@ -177,9 +201,15 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
         await awsAPI.unfollowBusiness(businessId);
       }
     } catch (_error) {
-      setIsFollowing(!newFollowing); // Revert on error
+      if (isMountedRef.current) {
+        setIsFollowing(!newFollowing); // Revert on error
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsFollowLoading(false);
+      }
     }
-  }, [businessId, isFollowing]);
+  }, [businessId, isFollowing, isFollowLoading]);
 
   const handleBookService = useCallback((service: Service) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -190,26 +220,59 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
     }
   }, [businessId, navigation]);
 
-  const handleCallBusiness = useCallback(() => {
+  const handleCallBusiness = useCallback(async () => {
     if (business?.contact.phone) {
-      Linking.openURL(`tel:${business.contact.phone}`);
+      const url = `tel:${business.contact.phone}`;
+      try {
+        const canOpen = await Linking.canOpenURL(url);
+        if (canOpen) {
+          await Linking.openURL(url);
+        } else {
+          Alert.alert('Error', 'Unable to make a call from this device.');
+        }
+      } catch (error) {
+        if (__DEV__) console.warn('Call business error:', error);
+        Alert.alert('Error', 'Failed to open phone app.');
+      }
     }
   }, [business?.contact.phone]);
 
-  const handleOpenMaps = useCallback(() => {
+  const handleOpenMaps = useCallback(async () => {
     if (business?.location.coordinates) {
       const { lat, lng } = business.location.coordinates;
       const url = Platform.select({
         ios: `maps:0,0?q=${business.name}@${lat},${lng}`,
         android: `geo:0,0?q=${lat},${lng}(${business.name})`,
       });
-      if (url) Linking.openURL(url);
+      if (url) {
+        try {
+          const canOpen = await Linking.canOpenURL(url);
+          if (canOpen) {
+            await Linking.openURL(url);
+          } else {
+            Alert.alert('Error', 'Maps application is not available.');
+          }
+        } catch (error) {
+          if (__DEV__) console.warn('Open maps error:', error);
+          Alert.alert('Error', 'Failed to open maps.');
+        }
+      }
     }
   }, [business?.location.coordinates, business?.name]);
 
-  const handleOpenWebsite = useCallback(() => {
+  const handleOpenWebsite = useCallback(async () => {
     if (business?.contact.website) {
-      Linking.openURL(business.contact.website);
+      try {
+        const canOpen = await Linking.canOpenURL(business.contact.website);
+        if (canOpen) {
+          await Linking.openURL(business.contact.website);
+        } else {
+          Alert.alert('Error', 'Unable to open this website.');
+        }
+      } catch (error) {
+        if (__DEV__) console.warn('Open website error:', error);
+        Alert.alert('Error', 'Failed to open website.');
+      }
     }
   }, [business?.contact.website]);
 
@@ -473,15 +536,22 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
             <TouchableOpacity
               style={[styles.followButton, isFollowing && styles.followButtonActive]}
               onPress={handleFollow}
+              disabled={isFollowLoading}
             >
-              <Ionicons
-                name={isFollowing ? 'checkmark' : 'add'}
-                size={20}
-                color={isFollowing ? colors.primary : '#fff'}
-              />
-              <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>
-                {isFollowing ? 'Following' : 'Follow'}
-              </Text>
+              {isFollowLoading ? (
+                <ActivityIndicator size="small" color={isFollowing ? colors.primary : '#fff'} />
+              ) : (
+                <>
+                  <Ionicons
+                    name={isFollowing ? 'checkmark' : 'add'}
+                    size={20}
+                    color={isFollowing ? colors.primary : '#fff'}
+                  />
+                  <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.iconButton} onPress={handleCallBusiness}>

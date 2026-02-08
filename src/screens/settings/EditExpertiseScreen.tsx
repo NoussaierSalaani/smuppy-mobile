@@ -95,7 +95,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
             <View style={styles.chipSelectedInner}>
               <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
               <Text style={styles.chipText}>{item.name}</Text>
-              <Ionicons name="close" size={14} color={colors.gray} style={{ marginLeft: 2 }} />
+              <Ionicons name="close" size={14} color={colors.gray} style={styles.chipCloseIcon} />
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -186,7 +186,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
         })}
 
         {/* Bottom spacer */}
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
@@ -319,4 +319,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontWeight: '500',
     color: colors.dark,
   },
+  chipCloseIcon: { marginLeft: 2 },
+  bottomSpacer: { height: 40 },
 });

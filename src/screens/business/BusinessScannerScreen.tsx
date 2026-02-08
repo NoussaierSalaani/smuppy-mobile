@@ -60,6 +60,17 @@ export default function BusinessScannerScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const scanAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const isMountedRef = useRef(true);
+  const lastScanTimeRef = useRef(0);
+  const SCAN_DEBOUNCE_MS = 2000; // Prevent rapid scanning
+
+  // Track mount state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isScanning) {
@@ -91,24 +102,59 @@ export default function BusinessScannerScreen({ navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isScanning]);
 
+  // Secure QR data validation to prevent prototype pollution
+  const validateQRData = (data: unknown): { subscriptionId: string; businessId: string; userId: string } => {
+    if (typeof data !== 'object' || data === null) {
+      throw new Error('Invalid QR code format');
+    }
+    
+    const obj = data as Record<string, unknown>;
+    
+    if (obj.type !== 'smuppy_access') {
+      throw new Error('This is not a valid Smuppy access code');
+    }
+    
+    if (typeof obj.subscriptionId !== 'string' || !obj.subscriptionId) {
+      throw new Error('Invalid subscription ID');
+    }
+    
+    if (typeof obj.businessId !== 'string' || !obj.businessId) {
+      throw new Error('Invalid business ID');
+    }
+    
+    if (typeof obj.userId !== 'string' || !obj.userId) {
+      throw new Error('Invalid user ID');
+    }
+    
+    return {
+      subscriptionId: obj.subscriptionId,
+      businessId: obj.businessId,
+      userId: obj.userId,
+    };
+  };
+
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     if (!isScanning || isValidating) return;
+    
+    // Debounce: prevent rapid scanning
+    const now = Date.now();
+    if (now - lastScanTimeRef.current < SCAN_DEBOUNCE_MS) {
+      return;
+    }
+    lastScanTimeRef.current = now;
 
     setIsScanning(false);
     setIsValidating(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      // Parse QR data
+      // Parse and validate QR data securely
       let qrData;
       try {
-        qrData = JSON.parse(data);
-      } catch {
-        throw new Error('Invalid QR code format');
-      }
-
-      if (qrData.type !== 'smuppy_access') {
-        throw new Error('This is not a valid Smuppy access code');
+        const parsed = JSON.parse(data);
+        qrData = validateQRData(parsed);
+      } catch (parseError) {
+        throw new Error(parseError instanceof Error ? parseError.message : 'Invalid QR code format');
       }
 
       // Validate with backend
@@ -117,6 +163,8 @@ export default function BusinessScannerScreen({ navigation }: Props) {
         businessId: qrData.businessId,
         userId: qrData.userId,
       });
+
+      if (!isMountedRef.current) return;
 
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -132,11 +180,17 @@ export default function BusinessScannerScreen({ navigation }: Props) {
         setValidationResult(result);
         setScanHistory((prev) => [result, ...prev.slice(0, 9)]);
 
-        // Log entry
-        await awsAPI.logMemberEntry({
-          subscriptionId: qrData.subscriptionId,
-          businessId: qrData.businessId,
-        });
+        // Log entry with error handling
+        try {
+          await awsAPI.logMemberEntry({
+            subscriptionId: qrData.subscriptionId,
+            businessId: qrData.businessId,
+          });
+        } catch (logError) {
+          // Log failure shouldn't block user feedback
+          if (__DEV__) console.warn('[BusinessScanner] Failed to log entry:', logError);
+          // Silently fail - entry is not critical for access
+        }
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         setValidationResult({
@@ -149,6 +203,7 @@ export default function BusinessScannerScreen({ navigation }: Props) {
         });
       }
     } catch (error: unknown) {
+      if (!isMountedRef.current) return;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setValidationResult({
         valid: false,
@@ -159,18 +214,21 @@ export default function BusinessScannerScreen({ navigation }: Props) {
         message: (error as Error).message || 'Failed to validate access',
       });
     } finally {
-      setIsValidating(false);
-      setShowResult(true);
-      Animated.spring(resultScaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }).start();
+      if (isMountedRef.current) {
+        setIsValidating(false);
+        setShowResult(true);
+        Animated.spring(resultScaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start();
+      }
     }
   };
 
   const handleScanAgain = () => {
+    resultScaleAnim.stopAnimation();
     resultScaleAnim.setValue(0);
     setShowResult(false);
     setValidationResult(null);

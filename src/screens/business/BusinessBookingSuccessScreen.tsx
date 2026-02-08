@@ -3,7 +3,7 @@
  * Confirmation screen after successful booking
  */
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -84,10 +84,15 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
     }
   };
 
-  const handleDone = () => {
-    navigation.popToTop();
-    navigation.navigate('Tabs');
-  };
+  const handleDone = useCallback(() => {
+    try {
+      navigation.popToTop();
+      navigation.navigate('Tabs');
+    } catch {
+      // Fallback navigation
+      navigation.navigate('Tabs');
+    }
+  }, [navigation]);
 
   return (
     <View style={styles.container}>

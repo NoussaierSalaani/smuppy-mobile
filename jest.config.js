@@ -10,7 +10,6 @@ module.exports = {
     '/node_modules/',
     '/aws-migration/',
     '/dist/',
-    'src/services/__tests__/',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -33,10 +32,10 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      branches: 3,
-      functions: 3,
-      lines: 1.5,
-      statements: 1.5,
+      branches: 10,
+      functions: 10,
+      lines: 10,
+      statements: 10,
     },
   },
   // Ignore module collisions in aws-migration

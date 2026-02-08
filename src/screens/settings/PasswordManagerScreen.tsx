@@ -103,7 +103,7 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
     <Modal visible={successModal} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          <View style={[styles.modalIconBox, { backgroundColor: '#E8FBF5' }]}>
+          <View style={[styles.modalIconBox, styles.modalIconBoxSuccess]}>
             <Ionicons name="checkmark-circle" size={40} color="#0EBF8A" />
           </View>
           <Text style={styles.modalTitle}>Password Updated!</Text>
@@ -127,12 +127,12 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
           <TouchableOpacity style={styles.modalClose} onPress={() => setErrorModal({ ...errorModal, visible: false })}>
             <Ionicons name="close" size={24} color="#9CA3AF" />
           </TouchableOpacity>
-          <View style={[styles.modalIconBox, { backgroundColor: '#FEE2E2' }]}>
+          <View style={[styles.modalIconBox, styles.modalIconBoxError]}>
             <Ionicons name="alert-circle" size={40} color="#FF3B30" />
           </View>
           <Text style={styles.modalTitle}>{errorModal.title}</Text>
           <Text style={styles.modalMessage}>{errorModal.message}</Text>
-          <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#FF3B30' }]} onPress={() => setErrorModal({ ...errorModal, visible: false })}>
+          <TouchableOpacity style={[styles.modalBtn, styles.modalBtnError]} onPress={() => setErrorModal({ ...errorModal, visible: false })}>
             <Text style={styles.modalBtnText}>Try Again</Text>
           </TouchableOpacity>
         </View>
@@ -197,7 +197,7 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
             <Text style={[styles.forgotButtonText, !canAction && styles.forgotButtonTextDisabled]}>{canAction ? 'Forgot current password?' : `Wait ${remainingTime}s`}</Text>
           </TouchableOpacity>
 
-          <View style={{ height: 40 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -248,7 +248,11 @@ const styles = StyleSheet.create({
   modalMessage: { fontSize: 14, color: '#0A0A0F', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   modalMessageBold: { fontWeight: '600' },
   modalBtn: { width: '100%', paddingVertical: 16, backgroundColor: '#0EBF8A', borderRadius: 14, alignItems: 'center' },
+  modalBtnError: { backgroundColor: '#FF3B30' },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: '#FFF' },
+  modalIconBoxSuccess: { backgroundColor: '#E8FBF5' },
+  modalIconBoxError: { backgroundColor: '#FEE2E2' },
+  bottomSpacer: { height: 40 },
 });
 
 export default PasswordManagerScreen;

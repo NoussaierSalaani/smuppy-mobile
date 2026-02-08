@@ -74,7 +74,7 @@ export default function EditBusinessCategoryScreen({ navigation, route }: EditBu
             <View style={styles.chipSelectedInner}>
               <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={18} color={item.color} />
               <Text style={styles.chipText}>{item.label}</Text>
-              <Ionicons name="checkmark-circle" size={16} color={colors.primaryGreen} style={{ marginLeft: 2 }} />
+              <Ionicons name="checkmark-circle" size={16} color={colors.primaryGreen} style={styles.chipCheckIcon} />
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -133,7 +133,7 @@ export default function EditBusinessCategoryScreen({ navigation, route }: EditBu
         <View style={styles.itemsGrid}>
           {ALL_BUSINESS_CATEGORIES.map(renderItem)}
         </View>
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
@@ -229,4 +229,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontWeight: '500',
     color: colors.dark,
   },
+  chipCheckIcon: { marginLeft: 2 },
+  bottomSpacer: { height: 40 },
 });

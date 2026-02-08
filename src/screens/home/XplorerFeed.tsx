@@ -918,7 +918,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         {coverUrl ? (
           <OptimizedImage source={coverUrl} style={styles.eventDetailCover} />
         ) : (
-          <View style={[styles.eventDetailCover, { backgroundColor: colors.backgroundSecondary, justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.eventDetailCover, styles.eventDetailCoverPlaceholder]}>
             <Ionicons name={selectedMarker.category === 'event' ? 'calendar' : 'people'} size={normalize(40)} color={colors.gray} />
           </View>
         )}
@@ -926,7 +926,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         <View style={styles.eventDetailContent}>
           {/* Title + Join */}
           <View style={styles.eventDetailTitleRow}>
-            <View style={{ flex: 1 }}>
+            <View style={styles.flexOne}>
               <Text style={styles.eventDetailTitle} numberOfLines={2}>{eventTitle}</Text>
               {location ? (
                 <View style={styles.eventDetailLocationRow}>
@@ -1014,15 +1014,15 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
       {/* MAP */}
       {mapError ? (
-        <View style={[styles.map, { backgroundColor: isDark ? '#1a1a2e' : '#e8f4f8', justifyContent: 'center', alignItems: 'center' }]}>
+        <View style={[styles.map, styles.mapErrorContainer]}>
           <Ionicons name="map-outline" size={normalize(48)} color={colors.gray} />
-          <Text style={{ color: colors.gray, fontSize: normalize(14), marginTop: 12, textAlign: 'center' }}>
+          <Text style={styles.mapErrorText}>
             Map unavailable{'\n'}Please rebuild the app with native modules
           </Text>
         </View>
       ) : null}
       <MapView
-        style={[styles.map, mapError && { display: 'none' }]}
+        style={[styles.map, mapError && styles.mapHidden]}
         styleURL={isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v12'}
         logoEnabled={false}
         attributionEnabled={false}
@@ -1187,7 +1187,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       {/* FAB overlay to close */}
       {fabOpen && (
         <TouchableOpacity
-          style={[StyleSheet.absoluteFill, { zIndex: 15 }]}
+          style={styles.fabOverlay}
           activeOpacity={1}
           onPress={() => setFabOpen(false)}
         />
@@ -1263,6 +1263,23 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark: boolean) => StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
+  mapErrorContainer: {
+    backgroundColor: isDark ? '#1a1a2e' : '#e8f4f8',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  mapErrorText: {
+    color: colors.gray,
+    fontSize: normalize(14),
+    marginTop: 12,
+    textAlign: 'center' as const,
+  },
+  mapHidden: { display: 'none' as const },
+  fabOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 15,
+  },
+  flexOne: { flex: 1 },
 
   // Search Bar
   searchContainer: {
@@ -1652,6 +1669,11 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   eventDetailCover: {
     width: '100%',
     height: hp(15),
+  },
+  eventDetailCoverPlaceholder: {
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   eventDetailContent: {
     padding: wp(4),

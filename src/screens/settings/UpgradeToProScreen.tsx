@@ -292,7 +292,7 @@ export default function UpgradeToProScreen() {
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Confirm Upgrade</Text>
-            <View style={{ width: 40 }} />
+            <View style={styles.headerSpacer} />
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -379,7 +379,7 @@ export default function UpgradeToProScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Become Pro Creator</Text>
-          <View style={{ width: 40 }} />
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -412,7 +412,7 @@ export default function UpgradeToProScreen() {
           </View>
 
           {/* Bottom Spacing */}
-          <View style={{ height: 120 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
 
         {/* Footer */}
@@ -680,4 +680,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
   },
+  headerSpacer: { width: 40 },
+  bottomSpacer: { height: 120 },
 });

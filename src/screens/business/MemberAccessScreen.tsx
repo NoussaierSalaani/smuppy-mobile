@@ -4,7 +4,7 @@
  * Business scans this to validate entry
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -52,19 +52,57 @@ interface AccessPass {
 
 export default function MemberAccessScreen({ route, navigation }: Props) {
   const { colors, isDark } = useTheme();
-  const { subscriptionId, businessId, businessName } = route.params;
-  const user = useUserStore((state) => state.user);
-  const getFullName = useUserStore((state) => state.getFullName);
+  const { subscriptionId, businessId, businessName: _businessName } = route.params;
+  const _user = useUserStore((state) => state.user);
+  const _getFullName = useUserStore((state) => state.getFullName);
 
   const [accessPass, setAccessPass] = useState<AccessPass | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const isMountedRef = useRef(true);
+  const isRefreshingRef = useRef(false);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  // Validate route params
   useEffect(() => {
+    if (!subscriptionId || !businessId) {
+      setError('Invalid access pass parameters');
+      setIsLoading(false);
+    }
+  }, [subscriptionId, businessId]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    const loadAccessPass = async () => {
+      if (!subscriptionId) return;
+      
+      try {
+        const response = await awsAPI.getMemberAccessPass(subscriptionId);
+
+        if (!isMountedRef.current) return;
+
+        if (response.success && response.accessPass) {
+          setAccessPass(response.accessPass);
+          setError(null);
+        } else {
+          setError('Failed to load access pass');
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        if (__DEV__) console.warn('Load access pass error:', err);
+        setError('Failed to load access pass. Please try again.');
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
+      }
+    };
+
     loadAccessPass();
 
     // Pulse animation for QR container
@@ -102,88 +140,84 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
     glow.start();
 
     return () => {
+      isMountedRef.current = false;
       pulse.stop();
       glow.stop();
     };
+    // pulseAnim and glowAnim are refs, not needed in deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [subscriptionId]);
 
-  const loadAccessPass = async () => {
-    try {
-      const response = await awsAPI.getMemberAccessPass(subscriptionId);
-
-      if (response.success && response.accessPass) {
-        setAccessPass(response.accessPass);
-      } else {
-        // Generate a basic pass for demo
-        setAccessPass({
-          id: subscriptionId,
-          qrCode: JSON.stringify({
-            type: 'smuppy_access',
-            subscriptionId,
-            businessId,
-            userId: user?.id,
-            timestamp: Date.now(),
-          }),
-          memberName: getFullName() || 'Member',
-          membershipType: 'Premium',
-          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'active',
-          businessName,
-        });
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Load access pass error:', error);
-      // Set demo pass on error
-      setAccessPass({
-        id: subscriptionId,
-        qrCode: JSON.stringify({
-          type: 'smuppy_access',
-          subscriptionId,
-          businessId,
-          userId: user?.id,
-          timestamp: Date.now(),
-        }),
-        memberName: getFullName() || 'Member',
-        membershipType: 'Premium',
-        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        businessName,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsLoading(true);
-    loadAccessPass();
-  };
+    setError(null);
+    
+    try {
+      const response = await awsAPI.getMemberAccessPass(subscriptionId);
+      
+      if (!isMountedRef.current) return;
+      
+      if (response.success && response.accessPass) {
+        setAccessPass(response.accessPass);
+        setError(null);
+      } else {
+        setError('Failed to refresh access pass');
+      }
+    } catch (_err) {
+      if (!isMountedRef.current) return;
+      setError('Failed to refresh. Please try again.');
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      isRefreshingRef.current = false;
+    }
+  }, [subscriptionId]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case 'active': return '#0EBF8A';
       case 'expired': return '#FF6B6B';
       case 'suspended': return '#FFD93D';
       default: return colors.gray;
     }
-  };
+  }, [colors.gray]);
 
-  const getStatusText = (status: string) => {
+  const getStatusText = useCallback((status: string) => {
     switch (status) {
       case 'active': return 'Active';
       case 'expired': return 'Expired';
       case 'suspended': return 'Suspended';
       default: return status;
     }
-  };
+  }, []);
 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading your access pass...</Text>
+      </View>
+    );
+  }
+
+  if (error || !accessPass) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={64} color="#FF6B6B" />
+            <Text style={styles.errorText}>{error || 'Access pass not found'}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       </View>
     );
   }
@@ -316,6 +350,32 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   loadingText: {
     fontSize: 14,
     color: colors.gray,
+  },
+
+  // Error State
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.gray,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
   },
 
   // Header

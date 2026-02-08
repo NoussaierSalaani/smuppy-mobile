@@ -372,7 +372,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={styles.readOnlyInput}>
-                <Ionicons name="mail-outline" size={18} color="#8E8E93" style={{ marginRight: 10 }} />
+                <Ionicons name="mail-outline" size={18} color="#8E8E93" style={styles.emailIcon} />
                 <Text style={styles.readOnlyText}>{userEmail}</Text>
                 <Ionicons name="lock-closed" size={14} color="#C7C7CC" />
               </View>
@@ -462,7 +462,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
                   )}
                 </TouchableOpacity>
                 <TextInput
-                  style={[styles.input, { flex: 1 }]}
+                  style={[styles.input, styles.flexOne]}
                   value={businessAddress}
                   onChangeText={handleBusinessAddressChange}
                   placeholder="Start typing or use location..."
@@ -489,7 +489,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         )}
 
         {/* Spacer for bottom */}
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Date Picker Modal */}
@@ -686,6 +686,9 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     color: colors.dark,
     marginLeft: 8,
   },
+  emailIcon: { marginRight: 10 },
+  flexOne: { flex: 1 },
+  bottomSpacer: { height: 40 },
 });
 
 export default EditProfileScreen;

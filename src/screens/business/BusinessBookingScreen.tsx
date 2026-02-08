@@ -4,7 +4,7 @@
  * Uses Stripe Checkout via WebBrowser (no PaymentSheet)
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -82,6 +82,9 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
   const today = new Date();
 
+  // Ref to prevent state updates on unmounted component
+  const isMountedRef = useRef(true);
+
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const loadBusinessData = useCallback(async () => {
@@ -93,6 +96,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
 
       if (profileRes.success && profileRes.business) {
         const biz = profileRes.business as unknown as Record<string, unknown>;
+        if (!isMountedRef.current) return;
         setBusiness({
           id: biz.id as string,
           name: biz.name as string,
@@ -106,11 +110,13 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
         const bookableServices = allServices.filter(
           (s) => !s.is_subscription && !s.isSubscription
         ) as Service[];
+        if (!isMountedRef.current) return;
         setServices(bookableServices);
 
         if (serviceId) {
           const preselected = bookableServices.find((s) => s.id === serviceId);
           if (preselected) {
+            if (!isMountedRef.current) return;
             setSelectedService(preselected);
             setStep('date');
           }
@@ -118,9 +124,13 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
       }
     } catch (error) {
       if (__DEV__) console.warn('Load business data error:', error);
-      showError('Error', 'Failed to load business information');
+      if (isMountedRef.current) {
+        showError('Error', 'Failed to load business information');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [businessId, serviceId, showError]);
 
@@ -135,14 +145,27 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
       });
 
       if (response.success) {
+        if (!isMountedRef.current) return;
         setTimeSlots((response.slots || []) as unknown as TimeSlot[]);
       }
     } catch (error) {
       if (__DEV__) console.warn('Load time slots error:', error);
+      if (isMountedRef.current) {
+        showError('Error', 'Failed to load available time slots. Please try again.');
+      }
     } finally {
-      setIsLoadingSlots(false);
+      if (isMountedRef.current) {
+        setIsLoadingSlots(false);
+      }
     }
-  }, [businessId, selectedDateString, selectedService]);
+  }, [businessId, selectedDateString, selectedService, showError]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     loadBusinessData();

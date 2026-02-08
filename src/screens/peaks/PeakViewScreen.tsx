@@ -276,6 +276,8 @@ type RootStackParamList = {
   [key: string]: object | undefined;
 };
 
+const NOOP = () => {};
+
 const PeakViewScreen = (): React.JSX.Element => {
   const { colors, isDark } = useTheme();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
@@ -1001,6 +1003,38 @@ const PeakViewScreen = (): React.JSX.Element => {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const placeholder = useMemo(() => require('../../../assets/images/bg.png'), []);
 
+  // Memoized insets-dependent styles
+  const topHeaderPaddingStyle = useMemo(() => ({ paddingTop: insets.top + 8 }), [insets.top]);
+  const progressSegmentsTopStyle = useMemo(() => ({ top: insets.top + 70 }), [insets.top]);
+  const filterBadgeTopStyle = useMemo(() => ({ top: insets.top + 82 }), [insets.top]);
+  const actionButtonsBottomStyle = useMemo(() => ({ bottom: insets.bottom + 100 }), [insets.bottom]);
+  const bottomInfoPaddingStyle = useMemo(() => ({ paddingBottom: insets.bottom + 16 }), [insets.bottom]);
+  const chainHeaderPaddingStyle = useMemo(() => ({ paddingTop: insets.top + 10 }), [insets.top]);
+
+  // Extracted handlers for modal open/close
+  const handleShowMenu = useCallback(() => setShowMenu(true), []);
+  const handleCloseTagModal = useCallback(() => setShowTagModal(false), []);
+  const handleCloseReactions = useCallback(() => {
+    setShowReactions(false);
+    setIsPaused(false);
+  }, []);
+  const handleCloseResponsesModal = useCallback(() => setShowResponsesModal(false), []);
+  const handleCloseCommentsModal = useCallback(() => setShowCommentsModal(false), []);
+  const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
+
+  // Menu action handlers
+  const handleShareAction = useCallback(() => handleMenuAction('share'), []);
+  const handleMenuDownload = useCallback(() => handleMenuAction('download'), []);
+  const handleMenuDelete = useCallback(() => handleMenuAction('delete'), []);
+  const handleMenuNotInterested = useCallback(() => handleMenuAction('not_interested'), []);
+  const handleMenuReport = useCallback(() => handleMenuAction('report'), []);
+
+  const handleNavigateToUser = useCallback(() => {
+    if (currentPeak.user?.id) {
+      navigation.navigate('UserProfile', { userId: currentPeak.user.id });
+    }
+  }, [currentPeak.user?.id, navigation]);
+
   // Memoized render functions for FlatLists
   const renderChallengeResponse = useCallback(({ item }: { item: ChallengeResponseItemProps['item'] }) => (
     <ChallengeResponseItem
@@ -1110,7 +1144,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       {/* Top Header with Avatar Carousel */}
       {carouselVisible && (
-        <View style={[styles.topHeader, { paddingTop: insets.top + 8 }]}>
+        <View style={[styles.topHeader, topHeaderPaddingStyle]}>
           {/* Back Button */}
           <TouchableOpacity
             style={styles.backButton}
@@ -1169,7 +1203,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       {/* Peak Progress Segments - Below avatars */}
       {carouselVisible && (
-        <View style={[styles.progressSegmentsContainer, { top: insets.top + 70 }]}>
+        <View style={[styles.progressSegmentsContainer, progressSegmentsTopStyle]}>
           {peaks.filter(p => p.user.id === currentPeak.user?.id).map((_, idx) => {
             const userPeaks = peaks.filter(p => p.user.id === currentPeak.user?.id);
             const currentUserPeakIndex = userPeaks.findIndex(p => p.id === currentPeak.id);
@@ -1200,7 +1234,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       {/* Filter badge */}
       {carouselVisible && currentPeak.filterId && (
-        <View style={[styles.filterBadge, { top: insets.top + 82 }]}>
+        <View style={[styles.filterBadge, filterBadgeTopStyle]}>
           <Ionicons name="color-wand" size={12} color={colors.primary} />
           <Text style={styles.filterBadgeText}>{currentPeak.filterId.replace(/_/g, ' ')}</Text>
         </View>
@@ -1230,7 +1264,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       {/* Vertical Action Buttons - Right Side */}
       {carouselVisible && (
-        <View style={[styles.actionButtonsContainer, { bottom: insets.bottom + 100 }]}>
+        <View style={[styles.actionButtonsContainer, actionButtonsBottomStyle]}>
           {/* Like Button */}
           <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
             <View style={[styles.actionIconContainer, isLiked && styles.actionIconActive]}>
@@ -1262,7 +1296,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           )}
 
           {/* Share Button */}
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleMenuAction('share')}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleShareAction}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="paper-plane-outline" size={24} color={colors.white} />
             </View>

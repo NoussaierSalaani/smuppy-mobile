@@ -52,6 +52,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    // Get user profile
+    const profileResult = await client.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'User profile not found' }),
+      });
+    }
+    const profileId = profileResult.rows[0].id;
+
     // Get battle details
     const battleResult = await client.query(
       `SELECT id, host_id, agora_channel_name, status
@@ -114,14 +127,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
         // Notify host
         await client.query(
-          `INSERT INTO notifications (
-            user_id, type, title, message, data, from_user_id
-          ) VALUES ($1, 'battle_accepted', 'Battle Accepted',
-            'Your opponent accepted the battle invitation!', $2, $3)`,
+          `INSERT INTO notifications (user_id, type, title, body, data)
+           VALUES ($1, 'battle_accepted', 'Battle Accepted', $2, $3)`,
           [
             battle.host_id,
-            JSON.stringify({ battleId: battle.id }),
-            userId,
+            'Your opponent accepted the battle invitation!',
+            JSON.stringify({ battleId: battle.id, senderId: profileId }),
           ]
         );
 
@@ -148,14 +159,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
         // Notify host
         await client.query(
-          `INSERT INTO notifications (
-            user_id, type, title, message, data, from_user_id
-          ) VALUES ($1, 'battle_declined', 'Battle Declined',
-            'Your opponent declined the battle invitation', $2, $3)`,
+          `INSERT INTO notifications (user_id, type, title, body, data)
+           VALUES ($1, 'battle_declined', 'Battle Declined', $2, $3)`,
           [
             battle.host_id,
-            JSON.stringify({ battleId: battle.id }),
-            userId,
+            'Your opponent declined the battle invitation',
+            JSON.stringify({ battleId: battle.id, senderId: profileId }),
           ]
         );
 

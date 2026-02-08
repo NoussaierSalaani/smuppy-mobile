@@ -6,6 +6,11 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
+import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('sessions-token');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID || '';
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || '';
@@ -15,8 +20,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  if (!cognitoSub) {
     return {
       statusCode: 401,
       headers: corsHeaders,
@@ -25,16 +30,28 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   const sessionId = event.pathParameters?.id;
-  if (!sessionId) {
+  if (!sessionId || !isValidUUID(sessionId)) {
     return {
       statusCode: 400,
       headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Session ID required' }),
+      body: JSON.stringify({ success: false, message: 'Valid session ID required' }),
     };
+  }
+
+  const { allowed } = await checkRateLimit({ prefix: 'session-token', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 });
+  if (!allowed) {
+    return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
   }
 
   try {
     const pool = await getPool();
+
+    // Resolve cognitoSub → profile ID
+    const profileLookup = await pool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
 
     // Get session and verify user is participant
     const sessionResult = await pool.query(
@@ -42,7 +59,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        FROM private_sessions
        WHERE id = $1 AND (creator_id = $2 OR fan_id = $2)
        AND status = 'confirmed'`,
-      [sessionId, userId]
+      [sessionId, profileId]
     );
 
     if (sessionResult.rows.length === 0) {
@@ -92,14 +109,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Determine user role
-    const isCreator = session.creator_id === userId;
+    const isCreator = session.creator_id === profileId;
     const role = isCreator ? RtcRole.PUBLISHER : RtcRole.PUBLISHER; // Both can publish in 1:1
 
-    // Generate UID from user ID (use hash of UUID)
-    const uid = Math.abs(hashCode(userId)) % 1000000000;
+    // Generate UID from profile ID (deterministic hash)
+    const uid = Math.abs(hashCode(profileId)) % 1000000000;
 
-    // Token expires after session duration + 30 min buffer
-    const tokenExpireSeconds = Math.ceil((sessionEnd - now) / 1000) + 30 * 60;
+    // Token expires at session end + 5 min grace period (not 30 min)
+    const tokenExpireSeconds = Math.ceil((sessionEnd - now) / 1000) + 5 * 60;
 
     // Build token
     const token = RtcTokenBuilder.buildTokenWithUid(
@@ -133,7 +150,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('Generate token error:', error);
+    log.error('Generate token error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

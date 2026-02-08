@@ -182,6 +182,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
 
         // If there's a pack, update its status
+        // TODO: monthly_packs is legacy (migration-008). sessions/create.ts reads
+        // from user_session_packs (migration-010). Needs pack flow unification.
         const packId = paymentIntent.metadata?.pack_id;
         if (packId && isValidUUID(packId)) {
           await client.query(

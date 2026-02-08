@@ -1,16 +1,14 @@
 // src/screens/live/GoLiveScreen.tsx
 // Simplified: Just for going live (public). Private sessions managed separately.
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Dimensions,
   Animated,
   StatusBar,
-  Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -23,8 +21,6 @@ import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
-
-const { width: _width, height: _height } = Dimensions.get('window');
 
 export default function GoLiveScreen(): React.JSX.Element {
   const { showAlert } = useSmuppyAlert();
@@ -111,13 +107,13 @@ export default function GoLiveScreen(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCountdown, countdownValue, title, user, navigation]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     navigation.goBack();
-  };
+  }, [navigation]);
 
-  const handleGoLive = () => {
+  const handleGoLive = useCallback(() => {
     setIsCountdown(true);
-  };
+  }, []);
 
   // Countdown overlay
   if (isCountdown) {
@@ -125,11 +121,6 @@ export default function GoLiveScreen(): React.JSX.Element {
       <View style={styles.countdownContainer}>
         <StatusBar barStyle="light-content" />
         <View style={styles.cameraBackground}>
-          <Image
-            source={{ uri: undefined }}
-            style={styles.cameraBackgroundImage}
-            blurRadius={3}
-          />
           <View style={styles.cameraOverlay} />
         </View>
 
@@ -172,10 +163,6 @@ export default function GoLiveScreen(): React.JSX.Element {
 
       {/* Camera preview background */}
       <View style={styles.cameraBackground}>
-        <Image
-          source={{ uri: undefined }}
-          style={styles.cameraBackgroundImage}
-        />
         <View style={styles.cameraOverlay} />
       </View>
 
@@ -214,14 +201,14 @@ export default function GoLiveScreen(): React.JSX.Element {
           <Text style={styles.sideButtonLabel}>Title</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.sideButton}>
+        <TouchableOpacity style={[styles.sideButton, { opacity: 0.4 }]} disabled>
           <View style={styles.sideIconBg}>
             <Ionicons name="camera-reverse-outline" size={18} color="white" />
           </View>
           <Text style={styles.sideButtonLabel}>Flip</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.sideButton}>
+        <TouchableOpacity style={[styles.sideButton, { opacity: 0.4 }]} disabled>
           <View style={styles.sideIconBg}>
             <Ionicons name="sparkles" size={18} color="white" />
           </View>
@@ -308,13 +295,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   cameraBackground: {
     ...StyleSheet.absoluteFillObject,
   },
-  cameraBackgroundImage: {
-    width: '100%',
-    height: '100%',
-  },
   cameraOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   topControls: {
     flexDirection: 'row',

@@ -49,6 +49,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    // Get user profile ID
+    const userProfileResult = await client.query(
+      'SELECT id, full_name, username FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (userProfileResult.rows.length === 0) {
+      return cors({
+        statusCode: 404,
+        body: JSON.stringify({ success: false, message: 'User profile not found' }),
+      });
+    }
+    const userProfile = userProfileResult.rows[0];
+    const userProfileId = userProfile.id;
+
     // Get event details
     const eventResult = await client.query(
       `SELECT e.id, e.title, e.starts_at, e.status, e.is_fans_only, e.creator_id,
@@ -179,23 +193,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         );
 
         // Notify creator
-        if (eventData.creator_id !== userId) {
-          // Get registrant name for notification
-          const registrantResult = await client.query(
-            'SELECT full_name, username FROM profiles WHERE cognito_sub = $1',
-            [userId]
-          );
-          const registrantName = registrantResult.rows[0]?.full_name || registrantResult.rows[0]?.username || 'Someone';
+        if (eventData.creator_id !== userProfileId) {
+          const registrantName = userProfile.full_name || userProfile.username || 'Someone';
           await client.query(
-            `INSERT INTO notifications (
-              user_id, type, title, message, data, from_user_id
-            ) VALUES ($1, 'event_registration', 'New Registration',
-              $2, $3, $4)`,
+            `INSERT INTO notifications (user_id, type, title, body, data)
+             VALUES ($1, 'event_registration', 'New Registration', $2, $3)`,
             [
               eventData.creator_id,
               `${registrantName} registered for your event!`,
-              JSON.stringify({ eventId, eventTitle: eventData.title }),
-              userId,
+              JSON.stringify({ eventId, eventTitle: eventData.title, senderId: userProfileId }),
             ]
           );
         }

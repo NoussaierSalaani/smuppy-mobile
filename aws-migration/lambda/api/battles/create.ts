@@ -194,10 +194,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       // Send notification
       await client.query(
-        `INSERT INTO notifications (
-          user_id, type, title, message, data, from_user_id
-        ) VALUES ($1, 'battle_invite', 'Battle Invitation',
-          $2, $3, $4)`,
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'battle_invite', 'Battle Invitation', $2, $3)`,
         [
           invited.id,
           `${host.display_name} invited you to a live battle!`,
@@ -206,8 +204,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             title: battle.title,
             battleType,
             scheduledAt: battle.scheduled_at,
+            senderId: profileId,
           }),
-          profileId,
         ]
       );
 

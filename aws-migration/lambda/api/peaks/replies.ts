@@ -178,9 +178,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Create notification for parent peak owner (if not self-reply)
       if (parentPeak.author_id !== profileId) {
         await db.query(
-          `INSERT INTO notifications (user_id, type, actor_id, post_id, message, created_at)
-           VALUES ($1, 'peak_reply', $2, $3, $4, NOW())`,
-          [parentPeak.author_id, profileId, peakId, 'replied to your Peak with a Peak']
+          `INSERT INTO notifications (user_id, type, title, body, data)
+           VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
+          [
+            parentPeak.author_id,
+            `${author.display_name || author.full_name || author.username} replied to your Peak`,
+            JSON.stringify({ replyToPeakId: peakId, authorId: profileId, replyId: newReply.id })
+          ]
         );
       }
 

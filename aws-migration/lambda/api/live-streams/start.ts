@@ -119,8 +119,9 @@ async function notifyFans(
 
   // Batch insert notifications (500 per batch)
   const BATCH_SIZE = 500;
-  const notifMessage = `${displayName} is live now!`;
-  const notifData = JSON.stringify({ type: 'live', channelName: `live_${host.id}` });
+  const notifTitle = 'Live Stream';
+  const notifBody = `${displayName} is live now!`;
+  const notifData = JSON.stringify({ type: 'live', channelName: `live_${host.id}`, senderId: host.id });
 
   for (let i = 0; i < fanIds.length; i += BATCH_SIZE) {
     const batch = fanIds.slice(i, i + BATCH_SIZE);
@@ -130,11 +131,11 @@ async function notifyFans(
     for (let j = 0; j < batch.length; j++) {
       const base = j * 5 + 1;
       placeholders.push(`($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`);
-      params.push(batch[j], host.id, 'live', notifMessage, notifData);
+      params.push(batch[j], 'live', notifTitle, notifBody, notifData);
     }
 
     await db.query(
-      `INSERT INTO notifications (recipient_id, sender_id, type, message, data)
+      `INSERT INTO notifications (user_id, type, title, body, data)
        VALUES ${placeholders.join(', ')}`,
       params
     );

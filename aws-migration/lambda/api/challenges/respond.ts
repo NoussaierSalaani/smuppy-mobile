@@ -208,10 +208,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Notify challenge creator
     await client.query(
-      `INSERT INTO notifications (
-        user_id, type, title, message, data, from_user_id
-      ) VALUES ($1, 'challenge_response', 'New Challenge Response',
-        $2, $3, $4)`,
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'challenge_response', 'New Challenge Response', $2, $3)`,
       [
         challenge.creator_id,
         `${responderName} responded to your challenge!`,
@@ -219,8 +217,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           challengeId,
           responseId: response.id,
           peakId,
+          senderId: userId,
         }),
-        userId,
       ]
     );
 

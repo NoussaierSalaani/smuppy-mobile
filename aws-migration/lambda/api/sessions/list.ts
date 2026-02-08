@@ -4,15 +4,18 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getReaderPool, corsHeaders, SqlParam } from '../../shared/db';
+import { getReaderPool, getPool, corsHeaders, SqlParam } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('sessions-list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  if (!cognitoSub) {
     return {
       statusCode: 401,
       headers: corsHeaders,
@@ -21,6 +24,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
+    // Resolve cognitoSub → profile ID (use write pool for profile lookup)
+    const writePool = await getPool();
+    const profileLookup = await writePool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
+
     const pool = await getReaderPool();
     const status = event.queryStringParameters?.status; // 'upcoming', 'past', 'pending'
     const role = event.queryStringParameters?.role; // 'fan', 'creator'
@@ -45,7 +56,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       WHERE (s.creator_id = $1 OR s.fan_id = $1)
     `;
 
-    const params: SqlParam[] = [userId];
+    const params: SqlParam[] = [profileId];
     let paramIndex = 2;
 
     // Filter by role if specified
@@ -93,7 +104,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         username: row.fan_username,
         avatar: row.fan_avatar,
       },
-      isCreator: row.creator_id === userId,
+      isCreator: row.creator_id === profileId,
       createdAt: row.created_at,
     }));
 
@@ -106,7 +117,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('List sessions error:', error);
+    log.error('List sessions error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

@@ -137,7 +137,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await client.query(
         `INSERT INTO notifications (user_id, type, title, body, data)
          VALUES ($1, 'follow_accepted', 'Follow Request Accepted', $2, $3)`,
-        [request.requester_id, `${accepterName} accepted your follow request`, JSON.stringify({ acceptedBy: profileId })]
+        [request.requester_id, `${accepterName} accepted your follow request`, JSON.stringify({ senderId: profileId })]
       );
 
       await client.query('COMMIT');

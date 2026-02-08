@@ -73,7 +73,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         CASE WHEN n.data->>'likerId' ~ ${UUID_PATTERN} THEN (n.data->>'likerId')::uuid END,
         CASE WHEN n.data->>'commenterId' ~ ${UUID_PATTERN} THEN (n.data->>'commenterId')::uuid END,
         CASE WHEN n.data->>'requesterId' ~ ${UUID_PATTERN} THEN (n.data->>'requesterId')::uuid END,
-        CASE WHEN n.data->>'senderId' ~ ${UUID_PATTERN} THEN (n.data->>'senderId')::uuid END
+        CASE WHEN n.data->>'senderId' ~ ${UUID_PATTERN} THEN (n.data->>'senderId')::uuid END,
+        CASE WHEN n.data->>'authorId' ~ ${UUID_PATTERN} THEN (n.data->>'authorId')::uuid END,
+        CASE WHEN n.data->>'taggedById' ~ ${UUID_PATTERN} THEN (n.data->>'taggedById')::uuid END,
+        CASE WHEN n.data->>'fanId' ~ ${UUID_PATTERN} THEN (n.data->>'fanId')::uuid END,
+        CASE WHEN n.data->>'creatorId' ~ ${UUID_PATTERN} THEN (n.data->>'creatorId')::uuid END
       )
       LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
       WHERE n.user_id = $1
@@ -105,7 +109,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Format response with enriched user data (spread to avoid mutating DB row)
     const formattedNotifications = notifications.map((n: Record<string, unknown>) => {
-      const enrichedData: Record<string, unknown> = { ...(n.data || {}) };
+      const dataObj = (n.data as Record<string, unknown> | null) || {};
+      const enrichedData: Record<string, unknown> = { ...dataObj };
 
       // Inject actor user info if we found a matching profile
       if (n.actor_id) {

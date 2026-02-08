@@ -5,6 +5,11 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
+import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('sessions-decline');
 
 interface DeclineBody {
   reason?: string;
@@ -15,8 +20,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  if (!cognitoSub) {
     return {
       statusCode: 401,
       headers: corsHeaders,
@@ -25,15 +30,28 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   const sessionId = event.pathParameters?.id;
-  if (!sessionId) {
+  if (!sessionId || !isValidUUID(sessionId)) {
     return {
       statusCode: 400,
       headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Session ID required' }),
+      body: JSON.stringify({ success: false, message: 'Valid session ID required' }),
     };
   }
 
+  const { allowed } = await checkRateLimit({ prefix: 'session-decline', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 });
+  if (!allowed) {
+    return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
+  }
+
   const pool = await getPool();
+
+  // Resolve cognitoSub → profile ID
+  const profileLookup = await pool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
+  if (profileLookup.rows.length === 0) {
+    return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+  }
+  const profileId = profileLookup.rows[0].id as string;
+
   const client = await pool.connect();
 
   try {
@@ -61,8 +79,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const session = sessionResult.rows[0];
-    const isCreator = session.creator_id === userId;
-    const isFan = session.fan_id === userId;
+    const isCreator = session.creator_id === profileId;
+    const isFan = session.fan_id === profileId;
 
     if (!isCreator && !isFan) {
       await client.query('ROLLBACK');
@@ -111,7 +129,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           JSON.stringify({
             sessionId,
             scheduledAt: session.scheduled_at,
-            creatorId: userId,
+            creatorId: profileId,
           }),
         ]
       );
@@ -125,7 +143,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           JSON.stringify({
             sessionId,
             scheduledAt: session.scheduled_at,
-            fanId: userId,
+            fanId: profileId,
           }),
         ]
       );
@@ -143,7 +161,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Decline session error:', error);
+    log.error('Decline session error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

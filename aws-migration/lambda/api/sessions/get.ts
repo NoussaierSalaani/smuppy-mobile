@@ -5,14 +5,18 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
+import { isValidUUID } from '../utils/security';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('sessions-get');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  if (!cognitoSub) {
     return {
       statusCode: 401,
       headers: corsHeaders,
@@ -21,16 +25,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   const sessionId = event.pathParameters?.id;
-  if (!sessionId) {
+  if (!sessionId || !isValidUUID(sessionId)) {
     return {
       statusCode: 400,
       headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Session ID required' }),
+      body: JSON.stringify({ success: false, message: 'Valid session ID required' }),
     };
   }
 
   try {
     const pool = await getPool();
+
+    // Resolve cognitoSub → profile ID
+    const profileLookup = await pool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+    }
+    const profileId = profileLookup.rows[0].id as string;
 
     const result = await pool.query(
       `SELECT
@@ -57,7 +68,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       JOIN profiles cp ON s.creator_id = cp.id
       JOIN profiles fp ON s.fan_id = fp.id
       WHERE s.id = $1 AND (s.creator_id = $2 OR s.fan_id = $2)`,
-      [sessionId, userId]
+      [sessionId, profileId]
     );
 
     if (result.rows.length === 0) {
@@ -96,7 +107,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             username: row.fan_username,
             avatar: row.fan_avatar,
           },
-          isCreator: row.creator_id === userId,
+          isCreator: row.creator_id === profileId,
           agoraChannel: row.agora_channel,
           startedAt: row.started_at,
           endedAt: row.ended_at,
@@ -105,7 +116,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('Get session error:', error);
+    log.error('Get session error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

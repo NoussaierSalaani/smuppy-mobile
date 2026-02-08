@@ -20,9 +20,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
     }
 
-    const db = await getPool();
+    const pool = await getPool();
 
-    const profileResult = await db.query(
+    const profileResult = await pool.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
       [cognitoSub]
     );
@@ -32,8 +32,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const profileId = profileResult.rows[0].id;
 
+    const client = await pool.connect();
+    try {
+    await client.query('BEGIN');
+
     // Find active stream for this host
-    const streamResult = await db.query(
+    const streamResult = await client.query(
       `SELECT id, channel_name, started_at FROM live_streams
        WHERE host_id = $1 AND status = 'live'
        LIMIT 1`,
@@ -41,20 +45,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (streamResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return { statusCode: 404, headers, body: JSON.stringify({ message: 'No active live stream found' }) };
     }
 
     const stream = streamResult.rows[0];
 
     // Get current viewer count for max_viewers
-    const viewerCountResult = await db.query(
+    const viewerCountResult = await client.query(
       'SELECT COUNT(1) as count FROM live_stream_viewers WHERE channel_name = $1',
       [stream.channel_name]
     );
     const currentViewers = parseInt(viewerCountResult.rows[0].count);
 
     // End the stream
-    const updateResult = await db.query(
+    const updateResult = await client.query(
       `UPDATE live_streams
        SET status = 'ended',
            ended_at = NOW(),
@@ -65,10 +70,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     // Clean up viewers
-    await db.query(
+    await client.query(
       'DELETE FROM live_stream_viewers WHERE channel_name = $1',
       [stream.channel_name]
     );
+
+    await client.query('COMMIT');
 
     const ended = updateResult.rows[0];
     const durationMs = new Date(ended.ended_at).getTime() - new Date(ended.started_at).getTime();
@@ -87,6 +94,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     };
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     log.error('Error ending live stream', error);
     return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };

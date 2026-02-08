@@ -123,6 +123,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return createCorsResponse(409, { error: 'User already tagged on this peak' });
       }
 
+      // Get tagger info for notification
+      const taggerResult = await db.query(
+        'SELECT username, display_name, full_name FROM profiles WHERE id = $1',
+        [profileId]
+      );
+      const tagger = taggerResult.rows[0];
+
       // Create tag
       const tagResult = await db.query(
         `INSERT INTO peak_tags (peak_id, tagged_user_id, tagged_by_user_id, created_at)
@@ -133,9 +140,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Create notification for tagged user
       await db.query(
-        `INSERT INTO notifications (user_id, type, actor_id, post_id, message, created_at)
-         VALUES ($1, 'peak_tag', $2, $3, $4, NOW())`,
-        [friendId, profileId, peakId, 'tagged you in a Peak']
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'peak_tag', 'Tagged in Peak', $2, $3)`,
+        [
+          friendId,
+          `${tagger.display_name || tagger.full_name || tagger.username} tagged you in a Peak`,
+          JSON.stringify({ peakId, taggedById: profileId })
+        ]
       );
 
       const friend = friendResult.rows[0];

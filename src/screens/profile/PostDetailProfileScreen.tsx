@@ -467,6 +467,25 @@ const PostDetailProfileScreen = () => {
   // Create styles with theme
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  // Memoized insets-dependent styles
+  const headerPaddingStyle = useMemo(() => ({ paddingTop: insets.top + 10 }), [insets.top]);
+  const bottomContentPaddingStyle = useMemo(() => ({ paddingBottom: insets.bottom + 10 }), [insets.bottom]);
+
+  // Extracted handlers
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleShowMenu = useCallback(() => setShowMenu(true), []);
+  const handleCloseMenu = useCallback(() => setShowMenu(false), []);
+  const handleToggleMute = useCallback(() => setIsMuted(prev => !prev), []);
+  const handleToggleDescription = useCallback(() => setExpandedDescription(prev => !prev), []);
+  const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
+
+  // Report reason handlers
+  const handleReportSpam = useCallback(() => submitReport('spam'), [submitReport]);
+  const handleReportInappropriate = useCallback(() => submitReport('inappropriate'), [submitReport]);
+  const handleReportHarassment = useCallback(() => submitReport('harassment'), [submitReport]);
+  const handleReportViolence = useCallback(() => submitReport('violence'), [submitReport]);
+  const handleReportOther = useCallback(() => submitReport('other'), [submitReport]);
+
   // Render post item
   const renderPostItem = useCallback(({ item, index }: { item: PostItem; index: number }) => {
     const displayLikes = localLikes[item.id] ?? item.likes;
@@ -543,17 +562,17 @@ const PostDetailProfileScreen = () => {
           )}
 
           {/* Header */}
-          <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <View style={[styles.header, headerPaddingStyle]}>
             <TouchableOpacity
               style={styles.headerBtn}
-              onPress={() => navigation.goBack()}
+              onPress={handleGoBack}
             >
               <Ionicons name="chevron-back" size={28} color="#FFF" />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.headerBtn}
-              onPress={() => setShowMenu(true)}
+              onPress={handleShowMenu}
             >
               <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
             </TouchableOpacity>
@@ -608,7 +627,7 @@ const PostDetailProfileScreen = () => {
             {item.type === 'video' && (
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={() => setIsMuted(!isMuted)}
+                onPress={handleToggleMute}
               >
                 <Ionicons
                   name={isMuted ? 'volume-mute' : 'volume-high'}
@@ -620,7 +639,7 @@ const PostDetailProfileScreen = () => {
           </View>
 
           {/* Bottom content */}
-          <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 10 }]}>
+          <View style={[styles.bottomContent, bottomContentPaddingStyle]}>
             {/* User info */}
             <View style={styles.userRow}>
               <TouchableOpacity
@@ -667,7 +686,7 @@ const PostDetailProfileScreen = () => {
             {/* Description */}
             {item.description ? (
               <TouchableOpacity
-                onPress={() => setExpandedDescription(!expandedDescription)}
+                onPress={handleToggleDescription}
                 activeOpacity={0.8}
               >
                 <Text
@@ -713,10 +732,12 @@ const PostDetailProfileScreen = () => {
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    currentIndex, isMuted, isPaused, showLikeAnimation, likeAnimationScale,
+    currentIndex, isPaused, showLikeAnimation, likeAnimationScale,
     isLiked, isBookmarked, isFan, fanLoading, shareLoading, likeLoading,
-    bookmarkLoading, expandedDescription, localLikes, localViews, currentUserId,
-    colors, styles, insets, navigation, handleDoubleTap, handleShare,
+    bookmarkLoading, localLikes, localViews, currentUserId,
+    colors, styles, headerPaddingStyle, bottomContentPaddingStyle,
+    handleDoubleTap, handleShare, handleGoBack, handleShowMenu,
+    handleToggleMute, handleToggleDescription,
     toggleLike, toggleBookmark, becomeFan,
   ]);
 
@@ -775,12 +796,12 @@ const PostDetailProfileScreen = () => {
         visible={showMenu}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowMenu(false)}
+        onRequestClose={handleCloseMenu}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setShowMenu(false)}
+          onPress={handleCloseMenu}
         >
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
@@ -798,18 +819,18 @@ const PostDetailProfileScreen = () => {
             {isOwnPost ? (
               <TouchableOpacity style={styles.menuItem} onPress={handleDeletePost}>
                 <Ionicons name="trash-outline" size={24} color="#FF3B30" />
-                <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>Delete Post</Text>
+                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
                 <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
-                <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>Report</Text>
+                <Text style={[styles.menuItemText, styles.menuItemTextReport]}>Report</Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity
               style={styles.menuCancel}
-              onPress={() => setShowMenu(false)}
+              onPress={handleCloseMenu}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -822,12 +843,12 @@ const PostDetailProfileScreen = () => {
         visible={showReportModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowReportModal(false)}
+        onRequestClose={handleCloseReportModal}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setShowReportModal(false)}
+          onPress={handleCloseReportModal}
         >
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
@@ -836,42 +857,42 @@ const PostDetailProfileScreen = () => {
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('spam')}
+              onPress={handleReportSpam}
             >
               <Text style={styles.reportOptionText}>Spam or misleading</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('inappropriate')}
+              onPress={handleReportInappropriate}
             >
               <Text style={styles.reportOptionText}>Inappropriate content</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('harassment')}
+              onPress={handleReportHarassment}
             >
               <Text style={styles.reportOptionText}>Harassment or bullying</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('violence')}
+              onPress={handleReportViolence}
             >
               <Text style={styles.reportOptionText}>Violence or dangerous</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.reportOption}
-              onPress={() => submitReport('other')}
+              onPress={handleReportOther}
             >
               <Text style={styles.reportOptionText}>Other</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.menuCancel}
-              onPress={() => setShowReportModal(false)}
+              onPress={handleCloseReportModal}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -1131,6 +1152,12 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   menuItemText: {
     fontSize: 16,
     color: '#FFF',
+  },
+  menuItemTextDanger: {
+    color: '#FF3B30',
+  },
+  menuItemTextReport: {
+    color: '#FF6B6B',
   },
   menuCancel: {
     marginTop: 8,

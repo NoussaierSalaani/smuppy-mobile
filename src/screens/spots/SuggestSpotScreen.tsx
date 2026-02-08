@@ -31,6 +31,7 @@ import QualityPicker from '../../components/QualityPicker';
 import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { filterContent } from '../../utils/contentFilters';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -110,6 +111,17 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
     // Sanitize inputs: strip HTML tags and control characters
     const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+
+    // Content moderation check on user-generated text fields
+    const textsToCheck = [name, description, review].filter(t => t.trim());
+    for (const text of textsToCheck) {
+      const filterResult = filterContent(text, { context: 'spot' });
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        showError('Content Policy', filterResult.reason || 'Your submission contains inappropriate content.');
+        setIsLoading(false);
+        return;
+      }
+    }
 
     try {
       const sanitizedSubcategory = sanitize(selectedSubcategory || customSubcategory);

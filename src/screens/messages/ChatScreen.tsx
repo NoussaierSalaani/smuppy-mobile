@@ -41,6 +41,7 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 import { formatTime } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
+import { filterContent } from '../../utils/contentFilters';
 
 const { width } = Dimensions.get('window');
 
@@ -336,6 +337,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const handleSendMessage = useCallback(async () => {
     const messageText = sanitizeText(inputText);
     if (!messageText) return;
+
+    // Content moderation check (skip personal data for DMs)
+    const filterResult = filterContent(messageText, { context: 'chat', skipPersonalDataCheck: true });
+    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      showError('Content Policy', filterResult.reason || 'Your message contains inappropriate content.');
+      return;
+    }
 
     if (!conversationId) {
       showError('Error', 'Conversation not initialized. Please go back and try again.');

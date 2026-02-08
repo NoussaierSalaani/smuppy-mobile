@@ -50,6 +50,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { queryClient, queryKeys } from '../../lib/queryClient';
 import { useFeedStore } from '../../stores';
+import { filterContent } from '../../utils/contentFilters';
 
 const { width } = Dimensions.get('window');
 
@@ -453,6 +454,15 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   const handlePost = useCallback(async () => {
     hapticSubmit();
     if (isPosting) return;
+
+    // Content moderation check
+    if (description.trim()) {
+      const filterResult = filterContent(description, { context: 'post' });
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        showError('Content Policy', filterResult.reason || 'Your post contains inappropriate content.');
+        return;
+      }
+    }
 
     setIsPosting(true);
     setUploadProgress(0);

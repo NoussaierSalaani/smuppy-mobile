@@ -28,6 +28,7 @@ import { useLiveStream, LiveComment } from '../../hooks';
 import { LocalVideoView } from '../../components/AgoraVideoView';
 import { generateLiveChannelName } from '../../services/agora';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { filterContent } from '../../utils/contentFilters';
 import { awsAPI } from '../../services/aws-api';
 
 const { width: _width, height: _height } = Dimensions.get('window');
@@ -204,11 +205,18 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const sendComment = useCallback(() => {
     // Sanitize: strip HTML tags and control characters
     const sanitized = newComment.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-    if (sanitized) {
-      sendLiveComment(sanitized);
-      setNewComment('');
+    if (!sanitized) return;
+
+    // Content moderation check
+    const filterResult = filterContent(sanitized, { context: 'live_chat' });
+    if (!filterResult.clean) {
+      showError('Content Policy', filterResult.reason || 'Message blocked.');
+      return;
     }
-  }, [newComment, sendLiveComment]);
+
+    sendLiveComment(sanitized);
+    setNewComment('');
+  }, [newComment, sendLiveComment, showError]);
 
   // Cleanup old fade animations when comments change
   useEffect(() => {

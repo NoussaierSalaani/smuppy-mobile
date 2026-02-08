@@ -190,6 +190,7 @@ export class LambdaStack extends cdk.NestedStack {
 
   // Content Moderation: Reports
   public readonly reportsPostFn: NodejsFunction;
+  public readonly reportsPeakFn: NodejsFunction;
   public readonly reportsUserFn: NodejsFunction;
   public readonly reportsCheckPostFn: NodejsFunction;
   public readonly reportsCheckUserFn: NodejsFunction;
@@ -487,6 +488,7 @@ export class LambdaStack extends cdk.NestedStack {
     // Content Moderation: Reports Lambda Functions
     // ========================================
     this.reportsPostFn = createLambda('ReportsPostFunction', 'reports/report-post');
+    this.reportsPeakFn = createLambda('ReportsPeakFunction', 'reports/report-peak');
     this.reportsUserFn = createLambda('ReportsUserFunction', 'reports/report-user');
     this.reportsCheckPostFn = createLambda('ReportsCheckPostFunction', 'reports/check-post-report');
     this.reportsCheckUserFn = createLambda('ReportsCheckUserFunction', 'reports/check-user-report');

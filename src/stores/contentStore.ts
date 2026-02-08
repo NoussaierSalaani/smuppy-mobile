@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import {
   reportPost as dbReportPost,
+  reportPeak as dbReportPeak,
   reportUser as dbReportUser,
   hasReportedPost as dbHasReportedPost,
   hasReportedUser as dbHasReportedUser,
@@ -24,16 +25,19 @@ interface ReportResult {
 interface ContentState {
   // State
   reportedPosts: string[];
+  reportedPeaks: string[];
   reportedUsers: string[];
   contentStatus: Record<string, ContentStatus>;
 
   // Actions
   submitPostReport: (postId: string, reason: string, details?: string) => Promise<ReportResult>;
+  submitPeakReport: (peakId: string, reason: string, details?: string) => Promise<ReportResult>;
   submitUserReport: (userId: string, reason: string, details?: string) => Promise<ReportResult>;
   submitReport: (contentId: string, reason: string) => ReportResult;
   checkPostReportedStatus: (postId: string) => Promise<boolean>;
   checkUserReportedStatus: (userId: string) => Promise<boolean>;
   hasUserReportedPost: (postId: string) => boolean;
+  hasUserReportedPeak: (peakId: string) => boolean;
   hasUserReportedUser: (userId: string) => boolean;
   hasUserReported: (contentId: string) => boolean;
   getContentStatus: (contentId: string) => ContentStatus;
@@ -45,12 +49,18 @@ interface ContentState {
 export const useContentStore = create<ContentState>()(
   immer((set, get) => ({
     reportedPosts: [],
+    reportedPeaks: [],
     reportedUsers: [],
     contentStatus: {},
 
     // Check if user has reported a post
     hasUserReportedPost: (postId: string) => {
       return get().reportedPosts.includes(postId);
+    },
+
+    // Check if user has reported a peak
+    hasUserReportedPeak: (peakId: string) => {
+      return get().reportedPeaks.includes(peakId);
     },
 
     // Check if user has reported a user
@@ -103,6 +113,55 @@ export const useContentStore = create<ContentState>()(
           state.reportedPosts.push(postId);
         }
         state.contentStatus[postId] = 'under_review';
+      });
+
+      return {
+        success: true,
+        message: 'Reported — under review',
+        alreadyReported: false,
+      };
+    },
+
+    // Submit peak report (async)
+    submitPeakReport: async (peakId, reason, details) => {
+      const { reportedPeaks } = get();
+
+      if (reportedPeaks.includes(peakId)) {
+        return {
+          success: false,
+          message: 'You have already reported this peak',
+          alreadyReported: true,
+        };
+      }
+
+      const { error } = await dbReportPeak(peakId, reason, details);
+
+      if (error === 'already_reported') {
+        set((state) => {
+          if (!state.reportedPeaks.includes(peakId)) {
+            state.reportedPeaks.push(peakId);
+          }
+        });
+        return {
+          success: false,
+          message: 'You have already reported this peak',
+          alreadyReported: true,
+        };
+      }
+
+      if (error) {
+        return {
+          success: false,
+          message: error,
+          alreadyReported: false,
+        };
+      }
+
+      set((state) => {
+        if (!state.reportedPeaks.includes(peakId)) {
+          state.reportedPeaks.push(peakId);
+        }
+        state.contentStatus[peakId] = 'under_review';
       });
 
       return {
@@ -238,6 +297,7 @@ export const useContentStore = create<ContentState>()(
     reset: () => {
       set({
         reportedPosts: [],
+        reportedPeaks: [],
         reportedUsers: [],
         contentStatus: {},
       });

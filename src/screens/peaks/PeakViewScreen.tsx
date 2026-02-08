@@ -38,7 +38,7 @@ import { WorkoutTimer, RepCounter, DayChallenge, CalorieBurn, HeartRatePulse } f
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
-import { reportPost, savePost, unsavePost } from '../../services/database';
+import { savePost, unsavePost } from '../../services/database';
 import { useContentStore, useUserStore, useFeedStore } from '../../stores';
 import { awsAPI } from '../../services/aws-api';
 
@@ -229,6 +229,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [postingComment, setPostingComment] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportingPeak, setReportingPeak] = useState(false);
   const [challengeResponses, setChallengeResponses] = useState<Array<{
     id: string;
     peakId: string;
@@ -239,7 +241,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [responsesLoading, setResponsesLoading] = useState(false);
 
   // Content store for reporting
-  const { submitPostReport } = useContentStore();
+  const { submitPeakReport } = useContentStore();
 
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartParticles = useRef([...Array(6)].map(() => ({
@@ -642,21 +644,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     closeMenu();
     switch (action) {
       case 'report':
-        showDestructiveConfirm(
-          'Report Peak',
-          'Are you sure you want to report this Peak?',
-          async () => {
-            try {
-              await submitPostReport(currentPeak.id, 'inappropriate', 'Reported from Peak view');
-              await reportPost(currentPeak.id, 'inappropriate', 'Reported from Peak view');
-              showSuccess('Reported', 'Thank you for your report. We will review this content.');
-            } catch (error) {
-              if (__DEV__) console.warn('[Peak] Failed to report:', error);
-              showError('Error', 'Failed to submit report. Please try again.');
-            }
-          },
-          'Report'
-        );
+        setShowReportModal(true);
         break;
       case 'not_interested':
         // Hide peak from feed - optimistic update
@@ -868,6 +856,27 @@ const PeakViewScreen = (): React.JSX.Element => {
       setPostingComment(false);
     }
   }, [currentPeak.id, commentText, postingComment, showError]);
+
+  const handleReportPeak = useCallback(async (reason: string) => {
+    if (reportingPeak) return;
+    setReportingPeak(true);
+    try {
+      const result = await submitPeakReport(currentPeak.id, reason);
+      setShowReportModal(false);
+      if (result.alreadyReported) {
+        showError('Already Reported', 'You have already reported this peak.');
+      } else if (result.success) {
+        showSuccess('Reported', 'Thank you for your report. We will review this content.');
+      } else {
+        showError('Error', result.message || 'Failed to submit report.');
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('[Peak] Failed to report:', error);
+      showError('Error', 'Failed to submit report. Please try again.');
+    } finally {
+      setReportingPeak(false);
+    }
+  }, [currentPeak.id, reportingPeak, submitPeakReport, showError, showSuccess]);
 
   const isLiked = likedPeaks.has(currentPeak.id);
   const isSaved = savedPeaks.has(currentPeak.id);
@@ -1560,6 +1569,62 @@ const PeakViewScreen = (): React.JSX.Element => {
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
+
+      {/* Report Reason Modal */}
+      <Modal
+        visible={showReportModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <Pressable style={styles.responsesOverlay} onPress={() => setShowReportModal(false)}>
+          <Pressable style={styles.responsesContainer} onPress={() => {}}>
+            <View style={styles.responsesHeader}>
+              <View style={styles.menuHandle} />
+              <View style={styles.responsesTitleRow}>
+                <Ionicons name="flag" size={18} color="#FF453A" />
+                <Text style={styles.responsesTitle}>Report Peak</Text>
+              </View>
+              <Text style={styles.reportSubtitle}>Why are you reporting this content?</Text>
+            </View>
+            {reportingPeak ? (
+              <View style={styles.responsesLoading}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.responsesEmptySubtext, { marginTop: 12 }]}>Submitting report...</Text>
+              </View>
+            ) : (
+              <View style={styles.reportReasonList}>
+                {[
+                  { key: 'inappropriate', label: 'Inappropriate content', icon: 'alert-circle-outline' as const },
+                  { key: 'spam', label: 'Spam or misleading', icon: 'megaphone-outline' as const },
+                  { key: 'harassment', label: 'Harassment or bullying', icon: 'hand-left-outline' as const },
+                  { key: 'violence', label: 'Violence or dangerous acts', icon: 'warning-outline' as const },
+                  { key: 'misinformation', label: 'Misinformation', icon: 'information-circle-outline' as const },
+                  { key: 'copyright', label: 'Copyright infringement', icon: 'copy-outline' as const },
+                  { key: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline' as const },
+                ].map((reason) => (
+                  <TouchableOpacity
+                    key={reason.key}
+                    style={styles.reportReasonItem}
+                    onPress={() => handleReportPeak(reason.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={reason.icon} size={22} color={isDark ? colors.white : colors.dark} />
+                    <Text style={styles.reportReasonText}>{reason.label}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.gray} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.menuCancelButton}
+              onPress={() => setShowReportModal(false)}
+            >
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -2159,6 +2224,27 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   commentSendDisabled: {
     opacity: 0.4,
+  },
+  reportSubtitle: {
+    fontSize: 14,
+    color: colors.gray,
+    marginTop: 8,
+  },
+  reportReasonList: {
+    paddingVertical: 8,
+  },
+  reportReasonItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  reportReasonText: {
+    flex: 1,
+    fontSize: 16,
+    color: isDark ? colors.white : colors.dark,
+    fontWeight: '500',
   },
 });
 

@@ -81,9 +81,21 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 
   const fetchPeaks = useCallback(async (reset = false) => {
     try {
+      if (__DEV__) {
+        console.log('[PeaksFeedScreen] Fetching peaks...', { reset, cursor, userId: user?.id });
+      }
+      
       const params: { limit: number; cursor?: string } = { limit: 20 };
       if (!reset && cursor) params.cursor = cursor;
       const response = await awsAPI.getPeaks(params);
+      
+      if (__DEV__) {
+        console.log('[PeaksFeedScreen] API response:', { 
+          count: response.data?.length || 0,
+          nextCursor: response.nextCursor 
+        });
+      }
+      
       const toCdn = (url?: string | null) => {
         if (!url) return null;
         return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
@@ -114,16 +126,21 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         expiresAt: p.expiresAt || undefined,
         isOwnPeak: (p.author?.id || p.authorId) === user?.id,
       }));
+      
+      if (__DEV__) {
+        console.log('[PeaksFeedScreen] Mapped peaks:', mapped.length);
+      }
+      
       setPeaks(reset ? mapped : (prev) => [...prev, ...mapped]);
       setCursor(response.nextCursor);
       setHasMore(!!response.nextCursor);
     } catch (error) {
-      if (__DEV__) console.warn('Failed to fetch peaks:', error);
+      if (__DEV__) console.warn('[PeaksFeedScreen] Failed to fetch peaks:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [cursor]);
+  }, [cursor, user?.id]);
 
   useEffect(() => {
     fetchPeaks(true);

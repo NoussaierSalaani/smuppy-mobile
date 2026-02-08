@@ -6,6 +6,7 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { useShallow } from 'zustand/react/shallow';
 import { v4 as uuidv4 } from 'uuid';
 import {
   FilterState,
@@ -121,6 +122,13 @@ const DEFAULT_OVERLAY_POSITION: OverlayPosition = {
   rotation: 0,
 };
 
+// Body pose stored outside Zustand to avoid triggering React re-renders at 30-60fps.
+// Use getBodyPose() to read, updateBodyPose() on the store to write.
+let _bodyPoseRef: PoseLandmarks | null = null;
+
+/** Read body pose without subscribing to Zustand (no re-renders) */
+export const getBodyPose = (): PoseLandmarks | null => _bodyPoseRef;
+
 const getDefaultOverlayParams = (type: OverlayType): Record<string, unknown> => {
   switch (type) {
     case 'workout_timer':
@@ -160,6 +168,22 @@ const getDefaultOverlayParams = (type: OverlayType): Record<string, unknown> => 
     default:
       return {};
   }
+};
+
+// ============================================
+// STATIC FILTER HELPERS (no store state needed)
+// ============================================
+
+export const getFilterDefinition = (filterId: string): FilterDefinition | undefined => {
+  return FILTER_DEFINITIONS.find((f) => f.id === filterId);
+};
+
+export const getAllFilters = (): FilterDefinition[] => {
+  return FILTER_DEFINITIONS;
+};
+
+export const getFiltersByCategory = (category: FilterCategory): FilterDefinition[] => {
+  return FILTER_DEFINITIONS.filter((f) => f.category === category);
 };
 
 // ============================================
@@ -306,13 +330,13 @@ export const useFilterStore = create<FilterStoreState>()(
     },
 
     updateBodyPose: (pose) => {
-      set((state) => {
-        state.bodyPose = pose;
-      });
+      // Write to module-level ref (no React re-renders at frame rate)
+      _bodyPoseRef = pose;
     },
 
     // Utilities
     reset: () => {
+      _bodyPoseRef = null;
       set({
         activeFilter: null,
         activeOverlays: [],
@@ -324,16 +348,16 @@ export const useFilterStore = create<FilterStoreState>()(
       });
     },
 
-    getFilterDefinition: (filterId) => {
-      return FILTER_DEFINITIONS.find((f) => f.id === filterId);
+    getFilterDefinition: (filterId: string) => {
+      return getFilterDefinition(filterId);
     },
 
     getAllFilters: () => {
-      return FILTER_DEFINITIONS;
+      return getAllFilters();
     },
 
-    getFiltersByCategory: (category) => {
-      return FILTER_DEFINITIONS.filter((f) => f.category === category);
+    getFiltersByCategory: (category: FilterCategory) => {
+      return getFiltersByCategory(category);
     },
   }))
 );
@@ -352,11 +376,33 @@ export const selectBodyPose = (state: FilterStoreState) => state.bodyPose;
 // ============================================
 
 /**
- * Hook that mimics the old useFilters() API
- * Use this for gradual migration from FilterContext
+ * Hook that mimics the old useFilters() API with granular selectors.
+ * Uses useShallow to prevent re-renders from bodyPose frame-rate updates.
  */
 export const useFilters = () => {
-  return useFilterStore();
+  return useFilterStore(
+    useShallow((state) => ({
+      activeFilter: state.activeFilter,
+      activeOverlays: state.activeOverlays,
+      isBodyTrackingEnabled: state.isBodyTrackingEnabled,
+      isProcessing: state.isProcessing,
+      fps: state.fps,
+      setFilter: state.setFilter,
+      setFilterIntensity: state.setFilterIntensity,
+      clearFilter: state.clearFilter,
+      addOverlay: state.addOverlay,
+      removeOverlay: state.removeOverlay,
+      updateOverlay: state.updateOverlay,
+      updateOverlayParams: state.updateOverlayParams,
+      enableBodyTracking: state.enableBodyTracking,
+      disableBodyTracking: state.disableBodyTracking,
+      updateBodyPose: state.updateBodyPose,
+      reset: state.reset,
+      getFilterDefinition: state.getFilterDefinition,
+      getAllFilters: state.getAllFilters,
+      getFiltersByCategory: state.getFiltersByCategory,
+    }))
+  );
 };
 
 // Legacy export for backward compatibility

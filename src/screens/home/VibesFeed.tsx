@@ -550,43 +550,66 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Fetch peaks for carousel (skip for business accounts — they don't see the carousel)
   useEffect(() => {
     if (isBusiness) return;
+    
+    if (__DEV__) {
+      console.log('[VibesFeed] Fetching peaks...', { currentUserId });
+    }
+    
     const toCdn = (url?: string | null) => {
       if (!url) return null;
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
     };
-    awsAPI.getPeaks({ limit: 10 }).then((res) => {
-      setPeaksData((res.data || []).map((p) => {
-        const thumbnail = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER;
-        const videoUrl = toCdn(p.videoUrl) || undefined;
-        const createdAt = p.createdAt || new Date().toISOString();
-        const hasNew = (Date.now() - new Date(createdAt).getTime()) < 60 * 60 * 1000;
-        return {
-          id: p.id,
-          videoUrl,
-          thumbnail,
-          user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: toCdn(p.author?.avatarUrl) || null },
-          duration: p.duration || 0,
-          createdAt,
-          isLiked: !!p.isLiked,
-          likes: p.likesCount ?? 0,
-          views: p.viewsCount ?? 0,
-          repliesCount: p.commentsCount ?? 0,
-          textOverlay: p.caption || undefined,
-          filterId: p.filterId || undefined,
-          filterIntensity: p.filterIntensity ?? undefined,
-          overlays: p.overlays || undefined,
-          isChallenge: !!p.challenge?.id,
-          challengeId: p.challenge?.id || undefined,
-          challengeTitle: p.challenge?.title || undefined,
-          expiresAt: p.expiresAt || undefined,
-          isOwnPeak: (p.author?.id || p.authorId) === currentUserId,
-          hasNew,
-        };
-      }));
-    }).catch((err) => {
-      if (__DEV__) console.warn('[VibesFeed] Error loading peaks:', err);
-    });
-  }, [isBusiness]);
+    
+    awsAPI.getPeaks({ limit: 10 })
+      .then((res) => {
+        if (__DEV__) {
+          console.log('[VibesFeed] Peaks API response:', { 
+            count: res.data?.length || 0, 
+            data: res.data 
+          });
+        }
+        
+        const mappedPeaks = (res.data || []).map((p) => {
+          const thumbnail = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER;
+          const videoUrl = toCdn(p.videoUrl) || undefined;
+          const createdAt = p.createdAt || new Date().toISOString();
+          const hasNew = (Date.now() - new Date(createdAt).getTime()) < 60 * 60 * 1000;
+          return {
+            id: p.id,
+            videoUrl,
+            thumbnail,
+            user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: toCdn(p.author?.avatarUrl) || null },
+            duration: p.duration || 0,
+            createdAt,
+            isLiked: !!p.isLiked,
+            likes: p.likesCount ?? 0,
+            views: p.viewsCount ?? 0,
+            repliesCount: p.commentsCount ?? 0,
+            textOverlay: p.caption || undefined,
+            filterId: p.filterId || undefined,
+            filterIntensity: p.filterIntensity ?? undefined,
+            overlays: p.overlays || undefined,
+            isChallenge: !!p.challenge?.id,
+            challengeId: p.challenge?.id || undefined,
+            challengeTitle: p.challenge?.title || undefined,
+            expiresAt: p.expiresAt || undefined,
+            isOwnPeak: (p.author?.id || p.authorId) === currentUserId,
+            hasNew,
+          };
+        });
+        
+        if (__DEV__) {
+          console.log('[VibesFeed] Mapped peaks:', mappedPeaks.length);
+        }
+        
+        setPeaksData(mappedPeaks);
+      })
+      .catch((err) => {
+        if (__DEV__) {
+          console.warn('[VibesFeed] Error loading peaks:', err);
+        }
+      });
+  }, [isBusiness, currentUserId]);
 
   // Passive daily login streak tracking
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { ReactNode, useMemo } from 'react';
+import React, { ReactNode, useMemo, memo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +27,7 @@ interface ButtonProps {
 /**
  * Button Component
  */
-export default function Button({
+function Button({
   variant = 'primary',
   size = 'lg',
   disabled = false,
@@ -242,6 +242,8 @@ export default function Button({
     </TouchableOpacity>
   );
 }
+
+export default memo(Button);
 
 const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   button: {

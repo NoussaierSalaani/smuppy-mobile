@@ -20,7 +20,7 @@ import { themeStore } from './themeStore';
 // Re-export all stores
 export { useContentStore, contentStore } from './contentStore';
 export { useUserSafetyStore, userSafetyStore } from './userSafetyStore';
-export { useFilterStore, useFilters, filterStore, FILTER_DEFINITIONS } from './filterStore';
+export { useFilterStore, useFilters, filterStore, FILTER_DEFINITIONS, getBodyPose, getFilterDefinition, getAllFilters, getFiltersByCategory } from './filterStore';
 export { useTabBarStore, useTabBar, useTabBarAnimations, tabBarStore } from './tabBarStore';
 export { useVibeStore, vibeStore } from './vibeStore';
 export { useThemeStore, themeStore } from './themeStore';

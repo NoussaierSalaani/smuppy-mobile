@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,7 +41,7 @@ interface TagProps {
 /**
  * Tag/Chip Component
  */
-export default function Tag({
+function Tag({
   label,
   icon,
   selected = false,
@@ -233,6 +233,8 @@ export default function Tag({
     </TouchableOpacity>
   );
 }
+
+export default memo(Tag);
 
 const createStyles = (_colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   tag: {

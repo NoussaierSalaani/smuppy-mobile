@@ -3,6 +3,7 @@
  * Custom hooks for data fetching with caching, offline support, and optimistic updates
  */
 
+import { useEffect } from 'react';
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryClient';
 import * as database from '../../services/database';
@@ -150,11 +151,14 @@ export const useFeedPosts = () => {
     staleTime: 2 * 60 * 1000, // 2 minutes for feed
   });
 
-  // Update feed cache when data changes (replaces deprecated onSuccess)
-  if (query.data) {
-    const allPosts = query.data.pages.flatMap((page) => page.posts);
-    setFeedCache(allPosts);
-  }
+  // Update feed cache when data changes (in useEffect to avoid render-loop)
+  const queryData = query.data;
+  useEffect(() => {
+    if (queryData) {
+      const allPosts = queryData.pages.flatMap((page) => page.posts);
+      setFeedCache(allPosts);
+    }
+  }, [queryData, setFeedCache]);
 
   return query;
 };

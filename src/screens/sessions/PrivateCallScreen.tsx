@@ -78,7 +78,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [localVideoLarge, setLocalVideoLarge] = useState(false);
-  const [agoraToken, setAgoraToken] = useState<string | null>(null);
+  const [_agoraToken, setAgoraToken] = useState<string | null>(null);
   const [agoraChannelName, setAgoraChannelName] = useState<string | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;

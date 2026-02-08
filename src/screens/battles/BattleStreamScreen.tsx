@@ -3,7 +3,7 @@
  * Live Battle streaming with split-screen view and tips
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,12 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
 import { useCurrency } from '../../hooks/useCurrency';
 import TipModal from '../../components/tips/TipModal';
+
+const MAX_TIP_ANIMATIONS = 50;
+const MAX_TIP_EVENTS = 10;
+const MAX_COMMENTS = 50;
+const POLL_INTERVAL_MS = 2000;
+const BATTLE_END_DELAY_MS = 3000;
 
 // Get user from store
 const getUser = (state: { user: { id: string } | null }) => state.user;
@@ -93,31 +99,22 @@ export default function BattleStreamScreen() {
 
   const tipAnimations = useRef<Animated.Value[]>([]).current;
   const commentsRef = useRef<FlatList<Comment>>(null);
-  const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(true);
+  const battleEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Track mounted state for async operations
   useEffect(() => {
-    loadBattleState();
-    const interval = setInterval(loadBattleState, 2000);
-
-    // Duration counter
-    durationInterval.current = setInterval(() => {
-      setDuration((d) => d + 1);
-    }, 1000);
-
+    mountedRef.current = true;
     return () => {
-      clearInterval(interval);
-      if (durationInterval.current) {
-        clearInterval(durationInterval.current);
-      }
-      // Clear animation references to prevent memory leak
-      tipAnimations.length = 0;
+      mountedRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadBattleState = async () => {
+  const loadBattleState = useCallback(async () => {
+    if (!mountedRef.current) return;
     try {
       const response = await awsAPI.getBattleState(battleId);
+      if (!mountedRef.current) return;
       if (response.success) {
         setParticipants((response.participants || []) as unknown as Participant[]);
         setViewerCount(response.viewer_count || 0);
@@ -130,7 +127,7 @@ export default function BattleStreamScreen() {
         // Handle new comments
         if (response.new_comments && response.new_comments.length > 0) {
           const newComments = response.new_comments as unknown as Comment[];
-          setComments((prev) => [...prev, ...newComments].slice(-50));
+          setComments((prev) => [...prev, ...newComments].slice(-MAX_COMMENTS));
         }
 
         // Check if battle ended
@@ -141,15 +138,40 @@ export default function BattleStreamScreen() {
     } catch (error) {
       if (__DEV__) console.warn('Load battle state error:', error);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [battleId]);
+
+  useEffect(() => {
+    loadBattleState();
+    const pollInterval = setInterval(loadBattleState, POLL_INTERVAL_MS);
+
+    // Duration counter
+    const durationInterval = setInterval(() => {
+      setDuration((d) => d + 1);
+    }, 1000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(durationInterval);
+      // Clear animation references to prevent memory leak
+      tipAnimations.length = 0;
+      // Clear battle end timer
+      if (battleEndTimerRef.current) {
+        clearTimeout(battleEndTimerRef.current);
+        battleEndTimerRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleNewTips = (newTips: TipEvent[]) => {
+    if (!mountedRef.current) return;
     newTips.forEach((tip) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Animate tip — cap array size to prevent unbounded growth
-      if (tipAnimations.length > 20) {
-        tipAnimations.splice(0, tipAnimations.length - 10);
+      // Cap animation array to prevent unbounded growth — remove oldest when limit exceeded
+      while (tipAnimations.length >= MAX_TIP_ANIMATIONS) {
+        tipAnimations.shift();
       }
       const anim = new Animated.Value(0);
       tipAnimations.push(anim);
@@ -167,25 +189,31 @@ export default function BattleStreamScreen() {
           useNativeDriver: true,
         }),
       ]).start(() => {
+        // Only clean up if still mounted
+        if (!mountedRef.current) return;
         const index = tipAnimations.indexOf(anim);
         if (index > -1) tipAnimations.splice(index, 1);
       });
 
-      setTipEvents((prev) => [...prev, tip].slice(-10));
+      setTipEvents((prev) => [...prev, tip].slice(-MAX_TIP_EVENTS));
     });
   };
 
   const handleBattleEnded = (winner?: Participant) => {
+    if (!mountedRef.current) return;
     setIsEnding(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    setTimeout(() => {
+    // Store timer ref so it can be cleaned up on unmount
+    battleEndTimerRef.current = setTimeout(() => {
+      if (!mountedRef.current) return;
+      battleEndTimerRef.current = null;
       navigation.replace('BattleResults', {
         battleId,
         winner,
         participants,
       });
-    }, 3000);
+    }, BATTLE_END_DELAY_MS);
   };
 
   const handleTip = (participant: Participant) => {

@@ -60,7 +60,7 @@ interface SmuppyLogoProps {
 /**
  * SmuppyIcon - The S in the rounded square
  */
-export const SmuppyIcon: React.FC<SmuppyIconProps> = ({ size = 80, variant = 'gradient' }) => {
+export const SmuppyIcon: React.FC<SmuppyIconProps> = React.memo(({ size = 80, variant = 'gradient' }) => {
   const isGradient = variant === 'gradient';
   const isDark = variant === 'dark';
   
@@ -111,7 +111,7 @@ export const SmuppyIcon: React.FC<SmuppyIconProps> = ({ size = 80, variant = 'gr
       />
     </Svg>
   );
-};
+});
 
 // ============================================
 // TEXT VARIANTS
@@ -123,7 +123,7 @@ const SMUPPY_TEXT_PATH = "M184.138 6.12109C185.812 4.4176 191.327 5.23915 191.35
 /**
  * SmuppyText - Le texte "Smuppy"
  */
-export const SmuppyText: React.FC<SmuppyTextProps> = ({ width = 100, variant = 'gradient' }) => {
+export const SmuppyText: React.FC<SmuppyTextProps> = React.memo(({ width = 100, variant = 'gradient' }) => {
   // Original ratio: 215x46
   const height = width * (46 / 215);
   
@@ -156,7 +156,7 @@ export const SmuppyText: React.FC<SmuppyTextProps> = ({ width = 100, variant = '
       <Path d={SMUPPY_TEXT_PATH} fill={getFill()} />
     </Svg>
   );
-};
+});
 
 // ============================================
 // COMBINED LOGOS
@@ -165,7 +165,7 @@ export const SmuppyText: React.FC<SmuppyTextProps> = ({ width = 100, variant = '
 /**
  * SmuppyLogoFull - Icon + Text side by side
  */
-export const SmuppyLogoFull: React.FC<SmuppyLogoFullProps> = ({
+export const SmuppyLogoFull: React.FC<SmuppyLogoFullProps> = React.memo(({
   iconSize = 50,
   textWidth = 120,
   spacing = 12,
@@ -176,12 +176,12 @@ export const SmuppyLogoFull: React.FC<SmuppyLogoFullProps> = ({
     <SmuppyIcon size={iconSize} variant={iconVariant} />
     <SmuppyText width={textWidth} variant={textVariant} />
   </View>
-);
+));
 
 /**
  * SmuppyLogoStacked - Icon above text
  */
-export const SmuppyLogoStacked: React.FC<SmuppyLogoStackedProps> = ({
+export const SmuppyLogoStacked: React.FC<SmuppyLogoStackedProps> = React.memo(({
   iconSize = 80,
   textWidth = 100,
   spacing = 16,
@@ -192,7 +192,7 @@ export const SmuppyLogoStacked: React.FC<SmuppyLogoStackedProps> = ({
     <SmuppyIcon size={iconSize} variant={iconVariant} />
     <SmuppyText width={textWidth} variant={textVariant} />
   </View>
-);
+));
 
 // ============================================
 // DEFAULT EXPORT
@@ -246,4 +246,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SmuppyLogo;
+export default React.memo(SmuppyLogo);

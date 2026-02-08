@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -150,28 +150,8 @@ const PostDetailVibesFeedScreen = () => {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  // Guard: if no post data was passed, bail out
-  if (!currentPost) return null;
-
-  // Double tap to like
-  const handleDoubleTap = () => {
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      if (!isLiked) {
-        toggleLike(); // Call API to persist the like
-      }
-    } else {
-      if (currentPost.type === 'video') {
-        setIsPaused(!isPaused);
-      }
-    }
-    lastTap.current = now;
-  };
-
   // Like animation
-  const triggerLikeAnimation = () => {
+  const triggerLikeAnimation = useCallback(() => {
     setShowLikeAnimation(true);
     likeAnimationScale.setValue(0);
 
@@ -188,43 +168,11 @@ const PostDetailVibesFeedScreen = () => {
         useNativeDriver: true,
       }),
     ]).start(() => setShowLikeAnimation(false));
-  };
-
-  // Handle swipe down
-  const handleSwipeDown = () => {
-    if (viewState === VIEW_STATES.FULLSCREEN) {
-      setViewState(VIEW_STATES.CONDENSED);
-    } else if (viewState === VIEW_STATES.CONDENSED) {
-      setViewState(VIEW_STATES.GRID_ONLY);
-      // Shuffle grid posts for variety
-      setGridPosts([...gridPosts].sort(() => Math.random() - 0.5));
-    }
-  };
-
-  // Handle swipe up
-  const handleSwipeUp = () => {
-    if (viewState === VIEW_STATES.GRID_ONLY) {
-      setViewState(VIEW_STATES.CONDENSED);
-    } else if (viewState === VIEW_STATES.CONDENSED) {
-      setViewState(VIEW_STATES.FULLSCREEN);
-    }
-  };
-
-  // Handle scroll
-  const handleScroll = (event: { nativeEvent: { contentOffset: { y: number } } }) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-
-    if (offsetY > 50 && viewState === VIEW_STATES.FULLSCREEN) {
-      handleSwipeDown();
-    } else if (offsetY < -50 && viewState !== VIEW_STATES.FULLSCREEN) {
-      handleSwipeUp();
-    }
-  };
-
+  }, [likeAnimationScale]);
 
   // Toggle like with anti spam-click - connected to database
-  const toggleLike = async () => {
-    if (likeLoading) return;
+  const toggleLike = useCallback(async () => {
+    if (likeLoading || !currentPost) return;
 
     const postId = currentPost.id;
 
@@ -264,11 +212,11 @@ const PostDetailVibesFeedScreen = () => {
     } finally {
       setLikeLoading(false);
     }
-  };
+  }, [likeLoading, currentPost, isLiked, triggerLikeAnimation]);
 
   // Toggle bookmark with anti spam-click - connected to database
-  const toggleBookmark = async () => {
-    if (bookmarkLoading) return;
+  const toggleBookmark = useCallback(async () => {
+    if (bookmarkLoading || !currentPost) return;
 
     const postId = currentPost.id;
 
@@ -308,11 +256,11 @@ const PostDetailVibesFeedScreen = () => {
     } finally {
       setBookmarkLoading(false);
     }
-  };
+  }, [bookmarkLoading, currentPost, isBookmarked, showSuccess]);
 
   // Become fan with anti spam-click - using real database
-  const becomeFan = async () => {
-    if (fanLoading || !currentPost.user?.id) return;
+  const becomeFan = useCallback(async () => {
+    if (fanLoading || !currentPost?.user?.id) return;
     setFanLoading(true);
     try {
       const { error } = await followUser(currentPost.user.id);
@@ -326,11 +274,60 @@ const PostDetailVibesFeedScreen = () => {
     } finally {
       setFanLoading(false);
     }
-  };
+  }, [fanLoading, currentPost?.user?.id]);
+
+  // Double tap to like
+  const handleDoubleTap = useCallback(() => {
+    if (!currentPost) return;
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+
+    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
+      if (!isLiked) {
+        toggleLike(); // Call API to persist the like
+      }
+    } else {
+      if (currentPost.type === 'video') {
+        setIsPaused(prev => !prev);
+      }
+    }
+    lastTap.current = now;
+  }, [currentPost, isLiked, toggleLike]);
+
+  // Handle swipe down
+  const handleSwipeDown = useCallback(() => {
+    if (viewState === VIEW_STATES.FULLSCREEN) {
+      setViewState(VIEW_STATES.CONDENSED);
+    } else if (viewState === VIEW_STATES.CONDENSED) {
+      setViewState(VIEW_STATES.GRID_ONLY);
+      // Shuffle grid posts for variety
+      setGridPosts(prev => [...prev].sort(() => Math.random() - 0.5));
+    }
+  }, [viewState]);
+
+  // Handle swipe up
+  const handleSwipeUp = useCallback(() => {
+    if (viewState === VIEW_STATES.GRID_ONLY) {
+      setViewState(VIEW_STATES.CONDENSED);
+    } else if (viewState === VIEW_STATES.CONDENSED) {
+      setViewState(VIEW_STATES.FULLSCREEN);
+    }
+  }, [viewState]);
+
+  // Handle scroll
+  const handleScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+
+    if (offsetY > 50 && viewState === VIEW_STATES.FULLSCREEN) {
+      handleSwipeDown();
+    } else if (offsetY < -50 && viewState !== VIEW_STATES.FULLSCREEN) {
+      handleSwipeUp();
+    }
+  }, [viewState, handleSwipeDown, handleSwipeUp]);
 
   // Share post with anti spam-click
-  const handleShare = async () => {
-    if (shareLoading) return;
+  const handleShare = useCallback(async () => {
+    if (shareLoading || !currentPost) return;
     setShareLoading(true);
     try {
       setShowMenu(false);
@@ -344,20 +341,21 @@ const PostDetailVibesFeedScreen = () => {
     } finally {
       setShareLoading(false);
     }
-  };
+  }, [shareLoading, currentPost]);
 
   // Copy link to clipboard
-  const handleCopyLink = async () => {
+  const handleCopyLink = useCallback(async () => {
+    if (!currentPost) return;
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
       showSuccess('Copied!', 'Post link copied to clipboard');
     }
-  };
+  }, [currentPost, showSuccess]);
 
   // Report post with anti spam-click
-  const handleReport = async () => {
-    if (reportLoading) return;
+  const handleReport = useCallback(async () => {
+    if (reportLoading || !currentPost) return;
     setReportLoading(true);
     try {
       setShowMenu(false);
@@ -379,10 +377,11 @@ const PostDetailVibesFeedScreen = () => {
     } finally {
       setReportLoading(false);
     }
-  };
+  }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError]);
 
   // Submit report to store
-  const submitReport = (reason: string) => {
+  const submitReport = useCallback((reason: string) => {
+    if (!currentPost) return;
     setShowReportModal(false);
 
     // Submit to content store
@@ -395,11 +394,11 @@ const PostDetailVibesFeedScreen = () => {
     } else {
       showError('Error', 'Something went wrong. Please try again.');
     }
-  };
+  }, [currentPost, storeSubmitReport, showError, showSuccess]);
 
   // Mute user with anti spam-click
-  const handleMute = async () => {
-    if (muteLoading) return;
+  const handleMute = useCallback(async () => {
+    if (muteLoading || !currentPost) return;
     const userId = currentPost.user?.id;
     if (!userId) return;
 
@@ -428,11 +427,11 @@ const PostDetailVibesFeedScreen = () => {
         }
       }
     );
-  };
+  }, [muteLoading, currentPost, isUserMuted, showError, showDestructiveConfirm, mute, showSuccess]);
 
   // Block user with anti spam-click
-  const handleBlock = async () => {
-    if (blockLoading) return;
+  const handleBlock = useCallback(async () => {
+    if (blockLoading || !currentPost) return;
     const userId = currentPost.user?.id;
     if (!userId) return;
 
@@ -461,11 +460,10 @@ const PostDetailVibesFeedScreen = () => {
         }
       }
     );
-  };
-
+  }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess]);
 
   // Navigate to post detail with animation
-  const _handleGridPostPress = (post: GridPost) => {
+  const _handleGridPostPress = useCallback((post: GridPost) => {
     const scale = getCardScale(post.id);
 
     // Press animation
@@ -483,10 +481,10 @@ const PostDetailVibesFeedScreen = () => {
     ]).start(() => {
       navigation.navigate('PostDetailVibesFeed', { postId: post.id, post });
     });
-  };
+  }, [getCardScale, navigation]);
 
   // Render modern grid post card
-  const renderGridPost = (post: { id: string; type?: string; thumbnail: string; title?: string; likes?: number; category?: string; height?: number; duration?: string; user?: { id?: string; name?: string; avatar?: string } }, index: number) => {
+  const renderGridPost = useCallback((post: { id: string; type?: string; thumbnail: string; title?: string; likes?: number; category?: string; height?: number; duration?: string; user?: { id?: string; name?: string; avatar?: string } }, index: number) => {
     const scale = getCardScale(post.id);
 
     // Convert mock post to format expected by this screen
@@ -578,11 +576,14 @@ const PostDetailVibesFeedScreen = () => {
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  }, [getCardScale, styles, colors, navigation]);
 
   // Split grid posts into columns for masonry layout
   const leftColumn = gridPosts.filter((_, i) => i % 2 === 0);
   const rightColumn = gridPosts.filter((_, i) => i % 2 === 1);
+
+  // Guard: if no post data was passed, bail out
+  if (!currentPost) return null;
 
   return (
     <View style={styles.container}>
@@ -748,7 +749,7 @@ const PostDetailVibesFeedScreen = () => {
                 {currentPost.type === 'video' && (
                   <TouchableOpacity
                     style={styles.actionBtnSimple}
-                    onPress={() => setIsAudioMuted(!isAudioMuted)}
+                    onPress={() => setIsAudioMuted(prev => !prev)}
                   >
                     <Ionicons
                       name={isAudioMuted ? 'volume-mute' : 'volume-high'}

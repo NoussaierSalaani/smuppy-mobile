@@ -48,7 +48,7 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
 /**
  * Input Component
  */
-export default function Input({
+function Input({
   label,
   placeholder,
   value,
@@ -253,6 +253,8 @@ export default function Input({
     </View>
   );
 }
+
+export default React.memo(Input);
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {

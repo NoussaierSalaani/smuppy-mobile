@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme, useNavigationContainerRef } from '@react-navigation/native';
-import { createStackNavigator, StackCardInterpolationProps } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
@@ -29,7 +29,7 @@ export type RootStackParamList = {
   Main: undefined;
 };
 
-const RootStack = createStackNavigator<RootStackParamList>();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 // Deep linking configuration for React Navigation
 const linking = {
@@ -317,14 +317,7 @@ export default function AppNavigator(): React.JSX.Element {
                 id="RootStack"
                 screenOptions={{
                   headerShown: false,
-                  cardStyleInterpolator: ({ current }: StackCardInterpolationProps) => ({
-                    cardStyle: {
-                      opacity: current.progress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 1],
-                      }),
-                    },
-                  }),
+                  animation: 'fade',
                 }}
               >
                 {showAuth && (

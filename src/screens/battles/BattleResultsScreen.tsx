@@ -74,13 +74,14 @@ export default function BattleResultsScreen() {
   }, [participants]);
 
   useEffect(() => {
-    // Initialize participant animations
-    while (participantAnims.length < sortedParticipants.length) {
+    // Initialize participant animations — cap to prevent unbounded growth
+    const targetLength = Math.min(sortedParticipants.length, 50);
+    while (participantAnims.length < targetLength) {
       participantAnims.push(new Animated.Value(0));
     }
 
     // Play entrance animations
-    Animated.parallel([
+    const entranceComposite = Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 500,
@@ -92,12 +93,14 @@ export default function BattleResultsScreen() {
         friction: 7,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]);
+    entranceComposite.start();
 
-    // Confetti animation
+    // Confetti animation — store reference for cleanup
+    let confettiLoop: Animated.CompositeAnimation | null = null;
     if (winner) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Animated.loop(
+      confettiLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(confettiAnim, {
             toValue: 1,
@@ -110,17 +113,29 @@ export default function BattleResultsScreen() {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      confettiLoop.start();
     }
 
     // Stagger participant animations
+    const participantComposites: Animated.CompositeAnimation[] = [];
     sortedParticipants.forEach((_, i) => {
-      Animated.spring(participantAnims[i], {
-        toValue: 1,
-        useNativeDriver: true,
-        delay: 300 + i * 100,
-      }).start();
+      if (i < participantAnims.length) {
+        const anim = Animated.spring(participantAnims[i], {
+          toValue: 1,
+          useNativeDriver: true,
+          delay: 300 + i * 100,
+        });
+        anim.start();
+        participantComposites.push(anim);
+      }
     });
+
+    return () => {
+      entranceComposite.stop();
+      if (confettiLoop) confettiLoop.stop();
+      participantComposites.forEach((a) => a.stop());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PeakReactions;
+export default React.memo(PeakReactions);
 
 // Export reaction types for use elsewhere
 export { REACTIONS };

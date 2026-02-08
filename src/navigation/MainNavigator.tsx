@@ -132,11 +132,11 @@ const PeakPreviewScreen = lazyScreen(() => import('../screens/peaks/PeakPreviewS
 const ChallengesScreen = lazyScreen(() => import('../screens/peaks/ChallengesScreen'));
 
 // Live Streaming Screens
-const GoLiveIntroScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.GoLiveIntroScreen })));
-const GoLiveScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.GoLiveScreen })));
-const LiveStreamingScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.LiveStreamingScreen })));
-const LiveEndedScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.LiveEndedScreen })));
-const ViewerLiveStreamScreen = lazyScreen(() => import('../screens/live').then(m => ({ default: m.ViewerLiveStreamScreen })));
+const GoLiveIntroScreen = lazyScreen(() => import('../screens/live/GoLiveIntroScreen'));
+const GoLiveScreen = lazyScreen(() => import('../screens/live/GoLiveScreen'));
+const LiveStreamingScreen = lazyScreen(() => import('../screens/live/LiveStreamingScreen'));
+const LiveEndedScreen = lazyScreen(() => import('../screens/live/LiveEndedScreen'));
+const ViewerLiveStreamScreen = lazyScreen(() => import('../screens/live/ViewerLiveStreamScreen'));
 
 // Battles Screens
 const BattleLobbyScreen = lazyScreen(() => import('../screens/battles/BattleLobbyScreen'));
@@ -162,43 +162,43 @@ const SuggestSpotScreen = lazyScreen(() => import('../screens/spots/SuggestSpotS
 const SpotDetailScreen = lazyScreen(() => import('../screens/spots/SpotDetailScreen'));
 
 // Business Screens
-const BusinessProfileScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessProfileScreen })));
-const BusinessDiscoveryScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessDiscoveryScreen })));
-const BusinessBookingScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessBookingScreen })));
-const BusinessSubscriptionScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessSubscriptionScreen })));
-const BusinessBookingSuccessScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessBookingSuccessScreen })));
-const BusinessSubscriptionSuccessScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessSubscriptionSuccessScreen })));
-const BusinessProgramScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessProgramScreen })));
-const MySubscriptionsScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.MySubscriptionsScreen })));
-const MemberAccessScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.MemberAccessScreen })));
-const BusinessDashboardScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessDashboardScreen })));
-const BusinessServicesManageScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessServicesManageScreen })));
-const BusinessScheduleUploadScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessScheduleUploadScreen })));
-const BusinessScannerScreen = lazyScreen(() => import('../screens/business').then(m => ({ default: m.BusinessScannerScreen })));
+const BusinessProfileScreen = lazyScreen(() => import('../screens/business/BusinessProfileScreen'));
+const BusinessDiscoveryScreen = lazyScreen(() => import('../screens/business/BusinessDiscoveryScreen'));
+const BusinessBookingScreen = lazyScreen(() => import('../screens/business/BusinessBookingScreen'));
+const BusinessSubscriptionScreen = lazyScreen(() => import('../screens/business/BusinessSubscriptionScreen'));
+const BusinessBookingSuccessScreen = lazyScreen(() => import('../screens/business/BusinessBookingSuccessScreen'));
+const BusinessSubscriptionSuccessScreen = lazyScreen(() => import('../screens/business/BusinessSubscriptionSuccessScreen'));
+const BusinessProgramScreen = lazyScreen(() => import('../screens/business/BusinessProgramScreen'));
+const MySubscriptionsScreen = lazyScreen(() => import('../screens/business/MySubscriptionsScreen'));
+const MemberAccessScreen = lazyScreen(() => import('../screens/business/MemberAccessScreen'));
+const BusinessDashboardScreen = lazyScreen(() => import('../screens/business/BusinessDashboardScreen'));
+const BusinessServicesManageScreen = lazyScreen(() => import('../screens/business/BusinessServicesManageScreen'));
+const BusinessScheduleUploadScreen = lazyScreen(() => import('../screens/business/BusinessScheduleUploadScreen'));
+const BusinessScannerScreen = lazyScreen(() => import('../screens/business/BusinessScannerScreen'));
 
 // Private Sessions Screens
-const BookSessionScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.BookSessionScreen })));
-const SessionPaymentScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SessionPaymentScreen })));
-const SessionBookedScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SessionBookedScreen })));
-const WaitingRoomScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.WaitingRoomScreen })));
-const PrivateCallScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.PrivateCallScreen })));
-const SessionEndedScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SessionEndedScreen })));
-const PrivateSessionsManageScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.PrivateSessionsManageScreen })));
-const MySessionsScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.MySessionsScreen })));
-const SessionDetailScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SessionDetailScreen })));
-const CreatorOfferingsScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.CreatorOfferingsScreen })));
-const PackPurchaseScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.PackPurchaseScreen })));
-const PackPurchaseSuccessScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.PackPurchaseSuccessScreen })));
-const ChannelSubscribeScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.ChannelSubscribeScreen })));
-const SubscriptionSuccessScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.SubscriptionSuccessScreen })));
-const CreatorEarningsScreen = lazyScreen(() => import('../screens/sessions').then(m => ({ default: m.CreatorEarningsScreen })));
+const BookSessionScreen = lazyScreen(() => import('../screens/sessions/BookSessionScreen'));
+const SessionPaymentScreen = lazyScreen(() => import('../screens/sessions/SessionPaymentScreen'));
+const SessionBookedScreen = lazyScreen(() => import('../screens/sessions/SessionBookedScreen'));
+const WaitingRoomScreen = lazyScreen(() => import('../screens/sessions/WaitingRoomScreen'));
+const PrivateCallScreen = lazyScreen(() => import('../screens/sessions/PrivateCallScreen'));
+const SessionEndedScreen = lazyScreen(() => import('../screens/sessions/SessionEndedScreen'));
+const PrivateSessionsManageScreen = lazyScreen(() => import('../screens/sessions/PrivateSessionsManageScreen'));
+const MySessionsScreen = lazyScreen(() => import('../screens/sessions/MySessionsScreen'));
+const SessionDetailScreen = lazyScreen(() => import('../screens/sessions/SessionDetailScreen'));
+const CreatorOfferingsScreen = lazyScreen(() => import('../screens/sessions/CreatorOfferingsScreen'));
+const PackPurchaseScreen = lazyScreen(() => import('../screens/sessions/PackPurchaseScreen'));
+const PackPurchaseSuccessScreen = lazyScreen(() => import('../screens/sessions/PackPurchaseSuccessScreen'));
+const ChannelSubscribeScreen = lazyScreen(() => import('../screens/sessions/ChannelSubscribeScreen'));
+const SubscriptionSuccessScreen = lazyScreen(() => import('../screens/sessions/SubscriptionSuccessScreen'));
+const CreatorEarningsScreen = lazyScreen(() => import('../screens/sessions/CreatorEarningsScreen'));
 
 // Payment Screens
-const CreatorWalletScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.CreatorWalletScreen })));
-const PlatformSubscriptionScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.PlatformSubscriptionScreen })));
-const ChannelSubscriptionScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.ChannelSubscriptionScreen })));
-const IdentityVerificationScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.IdentityVerificationScreen })));
-const PaymentMethodsScreen = lazyScreen(() => import('../screens/payments').then(m => ({ default: m.PaymentMethodsScreen })));
+const CreatorWalletScreen = lazyScreen(() => import('../screens/payments/CreatorWalletScreen'));
+const PlatformSubscriptionScreen = lazyScreen(() => import('../screens/payments/PlatformSubscriptionScreen'));
+const ChannelSubscriptionScreen = lazyScreen(() => import('../screens/payments/ChannelSubscriptionScreen'));
+const IdentityVerificationScreen = lazyScreen(() => import('../screens/payments/IdentityVerificationScreen'));
+const PaymentMethodsScreen = lazyScreen(() => import('../screens/payments/PaymentMethodsScreen'));
 
 // WebView (already lazy)
 const LazyWebViewScreen = React.lazy(() => import('../screens/WebViewScreen'));

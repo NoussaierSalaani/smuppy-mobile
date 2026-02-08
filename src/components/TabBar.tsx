@@ -128,7 +128,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
 /**
  * TabBar Component (Top Navigation Tabs)
  */
-export default function TabBar({
+function TabBar({
   tabs = [],
   activeTab,
   onTabChange,
@@ -270,3 +270,5 @@ export default function TabBar({
     </View>
   );
 }
+
+export default React.memo(TabBar);

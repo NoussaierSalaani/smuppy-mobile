@@ -18,7 +18,7 @@ interface SharedPostBubbleProps {
   isFromMe: boolean;
 }
 
-export default function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
+function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void }>();
   const [post, setPost] = useState<Post | null>(null);
@@ -132,6 +132,8 @@ export default function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleP
     </TouchableOpacity>
   );
 }
+
+export default React.memo(SharedPostBubble);
 
 const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {

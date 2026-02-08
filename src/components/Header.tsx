@@ -23,7 +23,7 @@ interface HeaderProps {
 /**
  * Header Component
  */
-export default function Header({
+function Header({
   title,
   subtitle,
   showBack = true,
@@ -142,6 +142,8 @@ export default function Header({
     </View>
   );
 }
+
+export default React.memo(Header);
 
 const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {

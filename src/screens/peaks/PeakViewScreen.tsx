@@ -183,7 +183,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   const route = useRoute<RouteProp<RootStackParamList, 'PeakView'>>();
 
   const { peaks: peaksParam = [], peakData = [], initialIndex = 0 } = route.params || {};
-  const peaks = (peaksParam && peaksParam.length > 0 ? peaksParam : peakData) as Peak[];
+  const initialPeaks = (peaksParam && peaksParam.length > 0 ? peaksParam : peakData) as Peak[];
+  const [peaks, setPeaks] = useState<Peak[]>(initialPeaks);
   const currentUser = useUserStore((state) => state.user);
   const isBusiness = currentUser?.accountType === 'pro_business';
 
@@ -303,7 +304,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     // Count a view locally (once per peak in this session)
     if (currentPeak.id && !viewedPeaks.has(currentPeak.id)) {
       setViewedPeaks(prev => new Set(prev).add(currentPeak.id));
-      peaks[currentIndex] = { ...currentPeak, views: (currentPeak.views || 0) + 1 };
+      setPeaks(prev => prev.map((p, i) => i === currentIndex ? { ...p, views: (p.views || 0) + 1 } : p));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
@@ -422,14 +423,11 @@ const PeakViewScreen = (): React.JSX.Element => {
       if (isCurrentlyLiked) {
         await awsAPI.unlikePeak(currentPeak.id);
         useFeedStore.getState().setPeakLikeOverride(currentPeak.id, false);
-        // Sync current peak likes
-        const updatedLikes = Math.max((currentPeak.likes || 1) - 1, 0);
-        peaks[currentIndex] = { ...currentPeak, likes: updatedLikes, isLiked: false };
+        setPeaks(prev => prev.map((p, i) => i === currentIndex ? { ...p, likes: Math.max((p.likes || 1) - 1, 0), isLiked: false } : p));
       } else {
         await awsAPI.likePeak(currentPeak.id);
         useFeedStore.getState().setPeakLikeOverride(currentPeak.id, true);
-        const updatedLikes = (currentPeak.likes || 0) + 1;
-        peaks[currentIndex] = { ...currentPeak, likes: updatedLikes, isLiked: true };
+        setPeaks(prev => prev.map((p, i) => i === currentIndex ? { ...p, likes: (p.likes || 0) + 1, isLiked: true } : p));
       }
     } catch (error) {
       if (__DEV__) console.warn('[Peak] Failed to toggle like:', error);
@@ -902,7 +900,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const placeholder = useMemo(() => require('../../../assets/images/bg.png'), []);
 
-  const onVideoStatus = (status: AVPlaybackStatus) => {
+  const onVideoStatus = useCallback((status: AVPlaybackStatus) => {
     const s = status as AVPlaybackStatusSuccess;
     if (!s.isLoaded) return;
     if (s.durationMillis) setVideoDuration(s.durationMillis);
@@ -912,16 +910,18 @@ const PeakViewScreen = (): React.JSX.Element => {
     }
     if (s.didJustFinish) {
       // Advance to next peak if available
-      if (currentIndex < peaks.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-      } else {
+      setCurrentIndex(prev => {
+        if (prev < peaks.length - 1) {
+          return prev + 1;
+        }
         setIsPaused(true);
         videoRef.current?.pauseAsync().catch((err) => {
           if (__DEV__) console.warn('[PeakView] pauseAsync failed:', err);
         });
-      }
+        return prev;
+      });
     }
-  };
+  }, [peaks.length]);
 
   return (
     <View style={styles.container}>

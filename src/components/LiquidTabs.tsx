@@ -56,7 +56,7 @@ const WATER_SPRING = {
   mass: 0.6,
 };
 
-export const LiquidTabs: React.FC<LiquidTabsProps> = ({
+export const LiquidTabs: React.FC<LiquidTabsProps> = React.memo(({
   tabs,
   activeTab,
   onTabChange,
@@ -218,12 +218,12 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = ({
       {!fullWidth && <View style={[styles.borderGlow, { borderRadius: config.radius }]} />}
     </View>
   );
-};
+});
 
 // Compact version
-export const LiquidTabsCompact: React.FC<LiquidTabsProps> = (props) => (
+export const LiquidTabsCompact: React.FC<LiquidTabsProps> = React.memo((props) => (
   <LiquidTabs {...props} size="small" />
-);
+));
 
 // With More button for profile
 interface LiquidTabsWithMoreProps extends LiquidTabsProps {
@@ -231,7 +231,7 @@ interface LiquidTabsWithMoreProps extends LiquidTabsProps {
   onMorePress?: () => void;
 }
 
-export const LiquidTabsWithMore: React.FC<LiquidTabsWithMoreProps> = ({
+export const LiquidTabsWithMore: React.FC<LiquidTabsWithMoreProps> = React.memo(({
   tabs,
   extraTabs = [],
   activeTab,
@@ -269,7 +269,7 @@ export const LiquidTabsWithMore: React.FC<LiquidTabsWithMoreProps> = ({
       size={size}
     />
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

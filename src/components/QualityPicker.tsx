@@ -24,7 +24,7 @@ interface QualityPickerProps {
   onSelectionChange: (qualities: string[]) => void;
 }
 
-export default function QualityPicker({ category, selected, onSelectionChange }: QualityPickerProps) {
+function QualityPicker({ category, selected, onSelectionChange }: QualityPickerProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -76,6 +76,8 @@ export default function QualityPicker({ category, selected, onSelectionChange }:
     </View>
   );
 }
+
+export default React.memo(QualityPicker);
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {

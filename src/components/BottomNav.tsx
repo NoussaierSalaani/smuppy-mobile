@@ -5,11 +5,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
-  Image,
   Text,
   Modal,
   Pressable,
 } from 'react-native';
+import { AvatarImage } from './OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { FEATURES } from '../config/featureFlags';
@@ -244,8 +244,9 @@ const ProfileIcon = ({ imageUri, isActive, size = 26, activeColor }: ProfileIcon
   return (
     <View style={profileContainerStyle}>
       {normalizedUri ? (
-        <Image
-          source={{ uri: normalizedUri }}
+        <AvatarImage
+          source={normalizedUri}
+          size={size - 4}
           style={profileImageStyle}
         />
       ) : (

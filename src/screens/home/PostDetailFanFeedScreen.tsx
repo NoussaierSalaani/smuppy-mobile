@@ -184,7 +184,7 @@ const PostDetailFanFeedScreen = () => {
   }, [currentPost?.id]);
 
   // Navigate to user profile (own profile → Profile tab, others → UserProfile)
-  const navigateToProfile = (userId: string) => {
+  const navigateToProfile = useCallback((userId: string) => {
     if (!isValidUUID(userId)) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Cannot navigate - invalid userId:', userId);
       return;
@@ -194,33 +194,13 @@ const PostDetailFanFeedScreen = () => {
     } else {
       navigation.navigate('UserProfile', { userId });
     }
-  };
+  }, [currentUserId, navigation]);
 
-  // Double tap to like
-  const handleDoubleTap = () => {
-    if (!currentPost) return;
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected - Like (only if not already liked)
-      if (!likedPosts[currentPost.id]) {
-        toggleLike(currentPost.id); // Call API to persist the like
-      }
-    } else {
-      // Single tap - toggle pause/play for video
-      if (currentPost.type === 'video') {
-        setIsPaused(!isPaused);
-      }
-    }
-    lastTap.current = now;
-  };
-  
   // Like animation
-  const triggerLikeAnimation = () => {
+  const triggerLikeAnimation = useCallback(() => {
     setShowLikeAnimation(true);
     likeAnimationScale.setValue(0);
-    
+
     Animated.sequence([
       Animated.spring(likeAnimationScale, {
         toValue: 1,
@@ -234,117 +214,80 @@ const PostDetailFanFeedScreen = () => {
         useNativeDriver: true,
       }),
     ]).start(() => setShowLikeAnimation(false));
-  };
-  
-  // Handle scroll - prevents scrolling above the initial post
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    const newIndex = Math.round(offsetY / height);
-
-    // Prevent scrolling above the initial post
-    if (newIndex < minIndex) {
-      flatListRef.current?.scrollToIndex({
-        index: minIndex,
-        animated: true,
-      });
-    }
-  };
-
-  // Handle swipe to next/prev post
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems.length > 0) {
-      const newIndex = viewableItems[0].index;
-
-      // Do not go above minIndex
-      if (newIndex !== null && newIndex !== undefined && newIndex >= minIndex) {
-        setCurrentIndex(newIndex);
-        setIsPaused(false);
-        setExpandedDescription(false);
-      }
-    }
-  }).current;
-  
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
-  const getItemType = useCallback((item: FanFeedPost) => {
-    if (item.allMedia && item.allMedia.length > 1) return 'carousel';
-    return item.type === 'video' ? 'video' : 'image';
-  }, []);
+  }, [likeAnimationScale]);
 
   // Toggle like with anti spam-click - connected to database
-  const toggleLike = async (postId: string) => {
-    if (likeLoading[postId]) return;
+  const toggleLike = useCallback(async (pId: string) => {
+    if (likeLoading[pId]) return;
 
-    if (!isValidUUID(postId)) {
+    if (!isValidUUID(pId)) {
       // For mock data, use local state only
-      setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
-      if (!likedPosts[postId]) {
+      setLikedPosts(prev => ({ ...prev, [pId]: !prev[pId] }));
+      if (!likedPosts[pId]) {
         triggerLikeAnimation();
       }
       return;
     }
 
-    setLikeLoading(prev => ({ ...prev, [postId]: true }));
+    setLikeLoading(prev => ({ ...prev, [pId]: true }));
     try {
-      const isCurrentlyLiked = likedPosts[postId];
+      const isCurrentlyLiked = likedPosts[pId];
       if (isCurrentlyLiked) {
-        const { error } = await unlikePost(postId);
+        const { error } = await unlikePost(pId);
         if (!error) {
-          setLikedPosts(prev => ({ ...prev, [postId]: false }));
-          useFeedStore.getState().toggleLikeOptimistic(postId, false);
+          setLikedPosts(prev => ({ ...prev, [pId]: false }));
+          useFeedStore.getState().toggleLikeOptimistic(pId, false);
         }
       } else {
-        const { error } = await likePost(postId);
+        const { error } = await likePost(pId);
         if (!error) {
-          setLikedPosts(prev => ({ ...prev, [postId]: true }));
-          useFeedStore.getState().toggleLikeOptimistic(postId, true);
+          setLikedPosts(prev => ({ ...prev, [pId]: true }));
+          useFeedStore.getState().toggleLikeOptimistic(pId, true);
           triggerLikeAnimation();
         }
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Like error:', error);
     } finally {
-      setLikeLoading(prev => ({ ...prev, [postId]: false }));
+      setLikeLoading(prev => ({ ...prev, [pId]: false }));
     }
-  };
+  }, [likeLoading, likedPosts, triggerLikeAnimation]);
 
   // Toggle bookmark with anti spam-click - connected to database
-  const toggleBookmark = async (postId: string) => {
-    if (bookmarkLoading[postId]) return;
+  const toggleBookmark = useCallback(async (pId: string) => {
+    if (bookmarkLoading[pId]) return;
 
-    if (!isValidUUID(postId)) {
+    if (!isValidUUID(pId)) {
       // For mock data, use local state only
-      setBookmarkedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+      setBookmarkedPosts(prev => ({ ...prev, [pId]: !prev[pId] }));
       return;
     }
 
-    setBookmarkLoading(prev => ({ ...prev, [postId]: true }));
+    setBookmarkLoading(prev => ({ ...prev, [pId]: true }));
     try {
-      const isCurrentlySaved = bookmarkedPosts[postId];
+      const isCurrentlySaved = bookmarkedPosts[pId];
       if (isCurrentlySaved) {
-        const { error } = await unsavePost(postId);
+        const { error } = await unsavePost(pId);
         if (!error) {
-          setBookmarkedPosts(prev => ({ ...prev, [postId]: false }));
+          setBookmarkedPosts(prev => ({ ...prev, [pId]: false }));
           showSuccess('Removed', 'Post removed from saved.');
         }
       } else {
-        const { error } = await savePost(postId);
+        const { error } = await savePost(pId);
         if (!error) {
-          setBookmarkedPosts(prev => ({ ...prev, [postId]: true }));
+          setBookmarkedPosts(prev => ({ ...prev, [pId]: true }));
           showSuccess('Saved', 'Post added to your collection.');
         }
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Bookmark error:', error);
     } finally {
-      setBookmarkLoading(prev => ({ ...prev, [postId]: false }));
+      setBookmarkLoading(prev => ({ ...prev, [pId]: false }));
     }
-  };
+  }, [bookmarkLoading, bookmarkedPosts, showSuccess]);
 
   // Become fan with anti spam-click - using real database
-  const becomeFan = async (userId: string) => {
+  const becomeFan = useCallback(async (userId: string) => {
     if (!isValidUUID(userId) || fanLoading[userId]) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Invalid userId:', userId);
       return;
@@ -362,10 +305,67 @@ const PostDetailFanFeedScreen = () => {
     } finally {
       setFanLoading(prev => ({ ...prev, [userId]: false }));
     }
-  };
+  }, [fanLoading]);
+
+  // Double tap to like
+  const handleDoubleTap = useCallback(() => {
+    if (!currentPost) return;
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+
+    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
+      // Double tap detected - Like (only if not already liked)
+      if (!likedPosts[currentPost.id]) {
+        toggleLike(currentPost.id); // Call API to persist the like
+      }
+    } else {
+      // Single tap - toggle pause/play for video
+      if (currentPost.type === 'video') {
+        setIsPaused(prev => !prev);
+      }
+    }
+    lastTap.current = now;
+  }, [currentPost, likedPosts, toggleLike]);
+
+  // Handle scroll - prevents scrolling above the initial post
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const newIndex = Math.round(offsetY / height);
+
+    // Prevent scrolling above the initial post
+    if (newIndex < minIndex) {
+      flatListRef.current?.scrollToIndex({
+        index: minIndex,
+        animated: true,
+      });
+    }
+  }, [minIndex]);
+
+  // Handle swipe to next/prev post
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0) {
+      const newIndex = viewableItems[0].index;
+
+      // Do not go above minIndex
+      if (newIndex !== null && newIndex !== undefined && newIndex >= minIndex) {
+        setCurrentIndex(newIndex);
+        setIsPaused(false);
+        setExpandedDescription(false);
+      }
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
+
+  const getItemType = useCallback((item: FanFeedPost) => {
+    if (item.allMedia && item.allMedia.length > 1) return 'carousel';
+    return item.type === 'video' ? 'video' : 'image';
+  }, []);
 
   // Share post with anti spam-click
-  const handleShare = async () => {
+  const handleShare = useCallback(async () => {
     if (shareLoading || !currentPost) return;
     setShareLoading(true);
     try {
@@ -380,20 +380,20 @@ const PostDetailFanFeedScreen = () => {
     } finally {
       setShareLoading(false);
     }
-  };
+  }, [shareLoading, currentPost]);
 
   // Copy link to clipboard
-  const handleCopyLink = async () => {
+  const handleCopyLink = useCallback(async () => {
     if (!currentPost) return;
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
       showSuccess('Copied!', 'Post link copied to clipboard');
     }
-  };
+  }, [currentPost, showSuccess]);
 
   // Report post with anti spam-click
-  const handleReport = async () => {
+  const handleReport = useCallback(async () => {
     if (reportLoading || !currentPost) return;
     setReportLoading(true);
     try {
@@ -416,10 +416,10 @@ const PostDetailFanFeedScreen = () => {
     } finally {
       setReportLoading(false);
     }
-  };
+  }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError]);
 
   // Submit report to store
-  const submitReport = (reason: string) => {
+  const submitReport = useCallback((reason: string) => {
     if (!currentPost) return;
     setShowReportModal(false);
 
@@ -433,10 +433,10 @@ const PostDetailFanFeedScreen = () => {
     } else {
       showError('Error', 'Something went wrong. Please try again.');
     }
-  };
+  }, [currentPost, storeSubmitReport, showError, showSuccess]);
 
   // Mute user with anti spam-click
-  const handleMute = async () => {
+  const handleMute = useCallback(async () => {
     if (muteLoading || !currentPost) return;
     const userId = currentPost.user?.id;
     if (!userId) return;
@@ -466,10 +466,10 @@ const PostDetailFanFeedScreen = () => {
         }
       }
     );
-  };
+  }, [muteLoading, currentPost, isUserMuted, showError, showDestructiveConfirm, mute, showSuccess]);
 
   // Block user with anti spam-click
-  const handleBlock = async () => {
+  const handleBlock = useCallback(async () => {
     if (blockLoading || !currentPost) return;
     const userId = currentPost.user?.id;
     if (!userId) return;
@@ -499,13 +499,16 @@ const PostDetailFanFeedScreen = () => {
         }
       }
     );
-  };
+  }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess]);
   
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  // Stable keyExtractor for FlashList
+  const keyExtractor = useCallback((item: FanFeedPost) => item.id, []);
+
   // Render post item
-  const renderPostItem = ({ item, index }: { item: FanFeedPost; index: number }) => {
+  const renderPostItem = useCallback(({ item, index }: { item: FanFeedPost; index: number }) => {
     const isLiked = likedPosts[item.id];
     const isBookmarked = bookmarkedPosts[item.id];
     const isOwnPost = item.user.id === currentUserId;
@@ -576,10 +579,10 @@ const PostDetailFanFeedScreen = () => {
           ) : (
             <OptimizedImage source={item.media} style={styles.media} />
           )}
-          
+
           {/* Gradient overlay bottom */}
           <View style={styles.gradientOverlay} />
-          
+
           {/* Like animation */}
           {showLikeAnimation && index === currentIndex && (
             <Animated.View
@@ -615,7 +618,7 @@ const PostDetailFanFeedScreen = () => {
               <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
             </TouchableOpacity>
           </View>
-          
+
           {/* Right actions */}
           <View style={styles.rightActions}>
             <TouchableOpacity
@@ -673,7 +676,7 @@ const PostDetailFanFeedScreen = () => {
             {item.type === 'video' && (
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={() => setIsAudioMuted(!isAudioMuted)}
+                onPress={() => setIsAudioMuted(prev => !prev)}
                 accessibilityLabel={isAudioMuted ? 'Unmute audio' : 'Mute audio'}
                 accessibilityRole="button"
               >
@@ -685,7 +688,7 @@ const PostDetailFanFeedScreen = () => {
               </TouchableOpacity>
             )}
           </View>
-          
+
           {/* Bottom content */}
           <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 10 }]}>
             {/* User info */}
@@ -697,7 +700,7 @@ const PostDetailFanFeedScreen = () => {
                 <AvatarImage source={item.user.avatar} size={40} style={styles.avatar} />
                 <Text style={styles.userName}>{item.user.name}</Text>
               </TouchableOpacity>
-              
+
               {/* Fan button logic:
                   - Checking fan status → no button (prevents flicker)
                   - Already a fan → no button
@@ -725,7 +728,7 @@ const PostDetailFanFeedScreen = () => {
                 </TouchableOpacity>
               )}
             </View>
-            
+
             {/* Location */}
             {item.location ? (
               <View style={styles.locationRow}>
@@ -746,7 +749,7 @@ const PostDetailFanFeedScreen = () => {
 
             {/* Description */}
             <TouchableOpacity
-              onPress={() => setExpandedDescription(!expandedDescription)}
+              onPress={() => setExpandedDescription(prev => !prev)}
               activeOpacity={0.8}
             >
               <Text
@@ -779,7 +782,11 @@ const PostDetailFanFeedScreen = () => {
         </View>
       </TouchableWithoutFeedback>
     );
-  };
+  }, [likedPosts, bookmarkedPosts, currentUserId, fanStatus, fanStatusChecking, isUnderReview,
+      handleDoubleTap, currentIndex, isAudioMuted, isPaused, carouselIndexes, showLikeAnimation,
+      likeAnimationScale, shareLoading, handleShare, likeLoading, toggleLike, bookmarkLoading,
+      toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescription,
+      styles, colors, insets, navigation]);
 
   // Early return for empty posts array
   if (fanFeedPosts.length === 0) {
@@ -811,7 +818,7 @@ const PostDetailFanFeedScreen = () => {
         ref={flatListRef}
         data={fanFeedPosts}
         renderItem={renderPostItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         getItemType={getItemType}
         pagingEnabled
         showsVerticalScrollIndicator={false}

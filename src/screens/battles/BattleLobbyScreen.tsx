@@ -3,7 +3,7 @@
  * Live Battle lobby - waiting room before battle starts
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,8 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
 
 const { width: _width } = Dimensions.get('window');
+const POLL_INTERVAL_MS = 3000;
+const MAX_SCALE_ANIMS = 20;
 
 interface Participant {
   id: string;
@@ -74,13 +76,71 @@ export default function BattleLobbyScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const scaleAnims = useRef<Animated.Value[]>([]).current;
+  const mountedRef = useRef(true);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Track mounted state for async operations
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      // Clean up countdown timer on unmount
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const loadBattle = useCallback(async () => {
+    if (!mountedRef.current) return;
+    try {
+      const response = await awsAPI.getBattle(battleId);
+      if (!mountedRef.current) return;
+      if (response.success && response.battle) {
+        const battleData = response.battle as unknown as Battle;
+        setBattle(battleData);
+
+        // Initialize scale anims for participants — cap to prevent unbounded growth
+        const targetLength = Math.min(battleData.participants.length, MAX_SCALE_ANIMS);
+        while (scaleAnims.length < targetLength) {
+          scaleAnims.push(new Animated.Value(0));
+        }
+
+        // Animate in participants
+        battleData.participants.forEach((_: Participant, i: number) => {
+          if (i < scaleAnims.length) {
+            Animated.spring(scaleAnims[i], {
+              toValue: 1,
+              useNativeDriver: true,
+              delay: i * 100,
+            }).start();
+          }
+        });
+
+        // If battle is live, go to battle screen
+        if (battleData.status === 'live') {
+          navigation.replace('BattleStream', {
+            battleId,
+            agoraToken: response.agora_token,
+            agoraUid: response.agora_uid,
+          });
+        }
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('Load battle error:', error);
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [battleId, navigation, scaleAnims]);
 
   useEffect(() => {
     loadBattle();
-    const interval = setInterval(loadBattle, 3000); // Poll for updates
+    const interval = setInterval(loadBattle, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [battleId]);
+  }, [loadBattle]);
 
   useEffect(() => {
     // Pulse animation
@@ -141,52 +201,10 @@ export default function BattleLobbyScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [battle]);
 
-  const loadBattle = async () => {
-    try {
-      const response = await awsAPI.getBattle(battleId);
-      if (response.success && response.battle) {
-        const battleData = response.battle as unknown as Battle;
-        setBattle(battleData);
+  const startCountdown = useCallback(() => {
+    // Prevent duplicate countdown intervals
+    if (countdownTimerRef.current) return;
 
-        // Initialize scale anims for participants
-        while (scaleAnims.length < battleData.participants.length) {
-          scaleAnims.push(new Animated.Value(0));
-        }
-
-        // Animate in participants
-        battleData.participants.forEach((_: Participant, i: number) => {
-          Animated.spring(scaleAnims[i], {
-            toValue: 1,
-            useNativeDriver: true,
-            delay: i * 100,
-          }).start();
-        });
-
-        // If battle is live, go to battle screen
-        if (battleData.status === 'live') {
-          navigation.replace('BattleStream', {
-            battleId,
-            agoraToken: response.agora_token,
-            agoraUid: response.agora_uid,
-          });
-        }
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Load battle error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-    };
-  }, []);
-
-  const startCountdown = () => {
     setCountdown(3);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
@@ -202,25 +220,27 @@ export default function BattleLobbyScreen() {
         return prev - 1;
       });
     }, 1000);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleToggleReady = async () => {
+  const handleToggleReady = useCallback(async () => {
     const newReady = !isReady;
     setIsReady(newReady);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       await awsAPI.battleAction(battleId, newReady ? 'ready' : 'unready');
-      loadBattle();
+      if (mountedRef.current) loadBattle();
     } catch (error) {
       if (__DEV__) console.warn('Toggle ready error:', error);
-      setIsReady(!newReady);
+      if (mountedRef.current) setIsReady(!newReady);
     }
-  };
+  }, [isReady, battleId, loadBattle]);
 
-  const handleStartBattle = async () => {
+  const handleStartBattle = useCallback(async () => {
     try {
       const response = await awsAPI.battleAction(battleId, 'start');
+      if (!mountedRef.current) return;
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         navigation.replace('BattleStream', {
@@ -231,9 +251,9 @@ export default function BattleLobbyScreen() {
       }
     } catch (error) {
       if (__DEV__) console.warn('Start battle error:', error);
-      showError('Error', 'Failed to start battle');
+      if (mountedRef.current) showError('Error', 'Failed to start battle');
     }
-  };
+  }, [battleId, navigation, showError]);
 
   const handleLeaveBattle = async () => {
     showDestructiveConfirm('Leave Battle?', 'Are you sure you want to leave this battle?', async () => {

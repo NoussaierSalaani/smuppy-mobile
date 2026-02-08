@@ -41,7 +41,7 @@ type RootStackParamList = {
   [key: string]: undefined;
 };
 
-export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): React.JSX.Element {
+function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { topBarTranslate, barsOpacity, xplorerFullscreen } = useTabBar();
@@ -237,6 +237,8 @@ export default function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHea
     </View>
   );
 }
+
+export default React.memo(HomeHeader);
 
 const styles = StyleSheet.create({
   wrapper: {

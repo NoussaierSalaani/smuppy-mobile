@@ -1,5 +1,5 @@
 import React from 'react';
-import { createStackNavigator, StackCardInterpolationProps, StackNavigationOptions } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../hooks/useTheme';
 // Auth screens
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
@@ -57,22 +57,7 @@ export type AuthStackParamList = {
   Success: undefined;
 };
 
-const Stack = createStackNavigator<AuthStackParamList>();
-
-const fadeTransition: StackNavigationOptions = {
-  cardStyleInterpolator: ({ current }: StackCardInterpolationProps) => ({
-    cardStyle: {
-      opacity: current.progress.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 1],
-      }),
-    },
-  }),
-  transitionSpec: {
-    open: { animation: 'timing' as const, config: { duration: 300 } },
-    close: { animation: 'timing' as const, config: { duration: 300 } },
-  },
-};
+const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export default function AuthNavigator(): React.JSX.Element {
   const { colors } = useTheme();
@@ -80,10 +65,10 @@ export default function AuthNavigator(): React.JSX.Element {
     <Stack.Navigator
       id="AuthStack"
       initialRouteName="Welcome"
-      screenOptions={{ headerShown: false, cardStyle: { backgroundColor: colors.background } }}
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background }, animation: 'fade' }}
     >
       {/* Welcome */}
-      <Stack.Screen name="Welcome" component={WelcomeScreen} options={fadeTransition} />
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
 
       {/* Auth */}
       <Stack.Screen name="Login" component={LoginScreen} options={{ gestureEnabled: false }} />

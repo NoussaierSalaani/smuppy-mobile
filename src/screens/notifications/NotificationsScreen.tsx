@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  SectionList,
   TouchableOpacity,
   Image,
   RefreshControl,
@@ -74,6 +75,11 @@ type Notification = UserNotification | SystemNotification;
 interface Filter {
   key: string;
   label: string;
+}
+
+interface NotificationSection {
+  title: string;
+  data: Notification[];
 }
 
 type RootStackParamList = {
@@ -209,6 +215,145 @@ function getDefaultMessage(type: string): string {
 }
 
 // ============================================
+// MEMOIZED LIST ITEM
+// ============================================
+
+interface NotificationItemProps {
+  item: Notification;
+  styles: ReturnType<typeof createStyles>;
+  colors: ThemeColors;
+  markAsRead: (id: number | string) => Promise<void>;
+  navigateToContent: (notif: UserNotification) => void;
+  goToUserProfile: (userId: string) => void;
+  toggleFollow: (id: number | string) => Promise<void>;
+  getNotificationIcon: (type: string) => { name: keyof typeof Ionicons.glyphMap; color: string };
+  isToggling: boolean;
+}
+
+const isSystemNotification = (notif: Notification): notif is SystemNotification => {
+  return notif.type === 'system' || notif.type === 'reminder';
+};
+
+const NotificationItem = React.memo(function NotificationItem({
+  item,
+  styles,
+  colors,
+  markAsRead,
+  navigateToContent,
+  goToUserProfile,
+  toggleFollow,
+  getNotificationIcon,
+  isToggling,
+}: NotificationItemProps): React.JSX.Element {
+  const isSystem = isSystemNotification(item);
+
+  return (
+    <TouchableOpacity
+      style={[styles.notificationItem, !item.isRead && styles.notificationUnread]}
+      onPress={() => {
+        markAsRead(item.id);
+        if (!isSystem) {
+          navigateToContent(item as UserNotification);
+        }
+      }}
+      activeOpacity={0.7}
+    >
+      {!item.isRead && <View style={styles.unreadDot} />}
+
+      {isSystem ? (
+        <View style={[styles.systemIcon, { backgroundColor: colors.backgroundFocus }]}>
+          <Ionicons
+            name={(item as SystemNotification).icon as keyof typeof Ionicons.glyphMap}
+            size={24}
+            color={colors.primary}
+          />
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={() =>
+            (item as UserNotification).user?.id &&
+            goToUserProfile((item as UserNotification).user.id)
+          }
+        >
+          <AvatarImage source={(item as UserNotification).user.avatar} size={50} />
+          <View
+            style={[
+              styles.typeIcon,
+              {
+                backgroundColor: getNotificationIcon(item.type).color,
+                borderColor: colors.white
+              },
+            ]}
+          >
+            <Ionicons name={getNotificationIcon(item.type).name} size={10} color="#fff" />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      <View style={styles.notificationContent}>
+        {isSystem ? (
+          <>
+            <Text style={styles.systemTitle}>{(item as SystemNotification).title}</Text>
+            <Text style={styles.systemMessage}>{(item as SystemNotification).message}</Text>
+          </>
+        ) : (
+          <Text style={styles.notificationText}>
+            <Text
+              style={styles.userName}
+              onPress={() =>
+                (item as UserNotification).user?.id &&
+                goToUserProfile((item as UserNotification).user.id)
+              }
+            >
+              {(item as UserNotification).user.name}
+            </Text>
+            {(item as UserNotification).user.isVerified ? ' \u2713 ' : ' '}{item.message}
+          </Text>
+        )}
+        <Text style={styles.timeText}>{item.time}</Text>
+      </View>
+
+      {item.type === 'follow' && !isSystem && (
+        <TouchableOpacity
+          style={styles.followButtonContainer}
+          onPress={() => toggleFollow(item.id)}
+          disabled={isToggling}
+        >
+          {(item as UserNotification).isFollowing ? (
+            <View style={styles.followingButton}>
+              <Text style={styles.followingButtonText}>Following</Text>
+            </View>
+          ) : (
+            <LinearGradient
+              colors={GRADIENTS.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.followButton}
+            >
+              <Text style={styles.followButtonText}>Fan</Text>
+            </LinearGradient>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {!isSystem && (item as UserNotification).postImage && (
+        <Image
+          source={{ uri: (item as UserNotification).postImage }}
+          style={styles.postThumbnail}
+        />
+      )}
+
+      {item.type === 'live' && (
+        <View style={styles.liveButton}>
+          <Text style={styles.liveButtonText}>Watch</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -224,6 +369,7 @@ export default function NotificationsScreen(): React.JSX.Element {
   const [followRequestsCount, setFollowRequestsCount] = useState(0);
   const cursorRef = useRef<string | null>(null);
   const togglingRef = useRef<Set<number | string>>(new Set());
+  const [togglingIds, setTogglingIds] = useState<Set<number | string>>(new Set());
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -351,14 +497,14 @@ export default function NotificationsScreen(): React.JSX.Element {
     }
   }, [navigation, goToUserProfile]);
 
-  const onRefresh = async (): Promise<void> => {
+  const onRefresh = useCallback(async (): Promise<void> => {
     setRefreshing(true);
     await Promise.all([
       loadFollowRequestsCount(),
       fetchNotifications(true),
     ]);
     setRefreshing(false);
-  };
+  }, [loadFollowRequestsCount, fetchNotifications]);
 
   const toggleFollow = useCallback(async (id: number | string): Promise<void> => {
     // Guard against double-tap
@@ -369,6 +515,7 @@ export default function NotificationsScreen(): React.JSX.Element {
     const userNotif = notif as UserNotification;
 
     togglingRef.current.add(id);
+    setTogglingIds(prev => new Set(prev).add(id));
 
     // Optimistic update
     setNotifications(prev =>
@@ -389,6 +536,11 @@ export default function NotificationsScreen(): React.JSX.Element {
       if (__DEV__) console.warn('Follow toggle error:', err);
     } finally {
       togglingRef.current.delete(id);
+      setTogglingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }, [notifications]);
 
@@ -440,120 +592,94 @@ export default function NotificationsScreen(): React.JSX.Element {
     }
   }, [colors.blue, colors.primary]);
 
-  const isSystemNotification = (notif: Notification): notif is SystemNotification => {
-    return notif.type === 'system' || notif.type === 'reminder';
-  };
+  // Build sections for SectionList from recent/older split
+  const sections = useMemo((): NotificationSection[] => {
+    const result: NotificationSection[] = [];
+    if (recentNotifications.length > 0) {
+      result.push({ title: 'Today', data: recentNotifications });
+    }
+    if (olderNotifications.length > 0) {
+      result.push({ title: 'Earlier', data: olderNotifications });
+    }
+    return result;
+  }, [recentNotifications, olderNotifications]);
 
-  const renderNotification = useCallback((item: Notification): React.JSX.Element => {
-    const isSystem = isSystemNotification(item);
+  const renderItem = useCallback(({ item }: { item: Notification }) => (
+    <NotificationItem
+      item={item}
+      styles={styles}
+      colors={colors}
+      markAsRead={markAsRead}
+      navigateToContent={navigateToContent}
+      goToUserProfile={goToUserProfile}
+      toggleFollow={toggleFollow}
+      getNotificationIcon={getNotificationIcon}
+      isToggling={togglingIds.has(item.id)}
+    />
+  ), [styles, colors, markAsRead, navigateToContent, goToUserProfile, toggleFollow, getNotificationIcon, togglingIds]);
 
-    return (
-      <TouchableOpacity
-        key={item.id}
-        style={[styles.notificationItem, !item.isRead && styles.notificationUnread]}
-        onPress={() => {
-          markAsRead(item.id);
-          if (!isSystem) {
-            // Navigate to the content (peak, post, etc.) or user profile
-            navigateToContent(item as UserNotification);
-          }
-        }}
-        activeOpacity={0.7}
-      >
-        {!item.isRead && <View style={styles.unreadDot} />}
+  const renderSectionHeader = useCallback(({ section }: { section: NotificationSection }) => (
+    <Text style={styles.sectionTitle}>{section.title}</Text>
+  ), [styles.sectionTitle]);
 
-        {isSystem ? (
-          <View style={[styles.systemIcon, { backgroundColor: colors.backgroundFocus }]}>
-            <Ionicons
-              name={(item as SystemNotification).icon as keyof typeof Ionicons.glyphMap}
-              size={24}
-              color={colors.primary}
-            />
-          </View>
-        ) : (
+  const keyExtractor = useCallback((item: Notification) => String(item.id), []);
+
+  const ListHeaderComponent = useMemo(() => (
+    <>
+      {/* Error Banner */}
+      {error && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle-outline" size={20} color="#FF3B30" />
+          <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
-            style={styles.avatarContainer}
-            onPress={() =>
-              (item as UserNotification).user?.id &&
-              goToUserProfile((item as UserNotification).user.id)
-            }
+            style={styles.retryButton}
+            onPress={() => fetchNotifications(true)}
           >
-            <AvatarImage source={(item as UserNotification).user.avatar} size={50} />
-            <View
-              style={[
-                styles.typeIcon,
-                {
-                  backgroundColor: getNotificationIcon(item.type).color,
-                  borderColor: colors.white
-                },
-              ]}
-            >
-              <Ionicons name={getNotificationIcon(item.type).name} size={10} color="#fff" />
-            </View>
+            <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
-        )}
-
-        <View style={styles.notificationContent}>
-          {isSystem ? (
-            <>
-              <Text style={styles.systemTitle}>{(item as SystemNotification).title}</Text>
-              <Text style={styles.systemMessage}>{(item as SystemNotification).message}</Text>
-            </>
-          ) : (
-            <Text style={styles.notificationText}>
-              <Text
-                style={styles.userName}
-                onPress={() =>
-                  (item as UserNotification).user?.id &&
-                  goToUserProfile((item as UserNotification).user.id)
-                }
-              >
-                {(item as UserNotification).user.name}
-              </Text>
-              {(item as UserNotification).user.isVerified ? ' ✓ ' : ' '}{item.message}
-            </Text>
-          )}
-          <Text style={styles.timeText}>{item.time}</Text>
         </View>
+      )}
 
-        {item.type === 'follow' && !isSystem && (
-          <TouchableOpacity
-            style={styles.followButtonContainer}
-            onPress={() => toggleFollow(item.id)}
-            disabled={togglingRef.current.has(item.id)}
-          >
-            {(item as UserNotification).isFollowing ? (
-              <View style={styles.followingButton}>
-                <Text style={styles.followingButtonText}>Following</Text>
-              </View>
-            ) : (
-              <LinearGradient
-                colors={GRADIENTS.primary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.followButton}
-              >
-                <Text style={styles.followButtonText}>Fan</Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {!isSystem && (item as UserNotification).postImage && (
-          <Image
-            source={{ uri: (item as UserNotification).postImage }}
-            style={styles.postThumbnail}
-          />
-        )}
-
-        {item.type === 'live' && (
-          <View style={styles.liveButton}>
-            <Text style={styles.liveButtonText}>Watch</Text>
+      {/* Follow Requests Banner */}
+      {followRequestsCount > 0 && (
+        <TouchableOpacity
+          style={styles.followRequestsBanner}
+          onPress={() => navigation.navigate('FollowRequests')}
+        >
+          <View style={styles.followRequestsIcon}>
+            <Ionicons name="person-add" size={20} color={colors.primaryGreen} />
           </View>
-        )}
-      </TouchableOpacity>
-    );
-  }, [styles, colors, markAsRead, navigateToContent, goToUserProfile, toggleFollow, getNotificationIcon]);
+          <View style={styles.followRequestsContent}>
+            <Text style={styles.followRequestsTitle}>Follow Requests</Text>
+            <Text style={styles.followRequestsSubtitle}>
+              {followRequestsCount} {followRequestsCount === 1 ? 'person wants' : 'people want'} to follow you
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.gray} />
+        </TouchableOpacity>
+      )}
+    </>
+  ), [error, followRequestsCount, styles, colors, navigation, fetchNotifications]);
+
+  const ListEmptyComponent = useMemo(() => {
+    if (loading && notifications.length === 0) {
+      return <NotificationsSkeleton />;
+    }
+    if (!loading && !error && filteredNotifications.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="notifications-off-outline" size={60} color={colors.grayLight} />
+          <Text style={styles.emptyTitle}>No notifications</Text>
+          <Text style={styles.emptySubtitle}>
+            When you get notifications, they'll show up here
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  }, [loading, error, notifications.length, filteredNotifications.length, styles, colors.grayLight]);
+
+  const BOTTOM_SPACER = useMemo(() => <View style={styles.bottomSpacer} />, [styles.bottomSpacer]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -611,9 +737,17 @@ export default function NotificationsScreen(): React.JSX.Element {
         ))}
       </ScrollView>
 
-      <ScrollView
+      <SectionList<Notification, NotificationSection>
+        sections={sections}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
+        ListHeaderComponent={ListHeaderComponent}
+        ListEmptyComponent={ListEmptyComponent}
+        ListFooterComponent={BOTTOM_SPACER}
         style={styles.notificationsList}
         showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -622,70 +756,7 @@ export default function NotificationsScreen(): React.JSX.Element {
             colors={[colors.primary]}
           />
         }
-      >
-        {/* Error Banner */}
-        {error && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle-outline" size={20} color="#FF3B30" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => fetchNotifications(true)}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Follow Requests Banner */}
-        {followRequestsCount > 0 && (
-          <TouchableOpacity
-            style={styles.followRequestsBanner}
-            onPress={() => navigation.navigate('FollowRequests')}
-          >
-            <View style={styles.followRequestsIcon}>
-              <Ionicons name="person-add" size={20} color={colors.primaryGreen} />
-            </View>
-            <View style={styles.followRequestsContent}>
-              <Text style={styles.followRequestsTitle}>Follow Requests</Text>
-              <Text style={styles.followRequestsSubtitle}>
-                {followRequestsCount} {followRequestsCount === 1 ? 'person wants' : 'people want'} to follow you
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.gray} />
-          </TouchableOpacity>
-        )}
-
-        {recentNotifications.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Today</Text>
-            {recentNotifications.map(renderNotification)}
-          </>
-        )}
-
-        {olderNotifications.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Earlier</Text>
-            {olderNotifications.map(renderNotification)}
-          </>
-        )}
-
-        {loading && notifications.length === 0 && (
-          <NotificationsSkeleton />
-        )}
-
-        {!loading && !error && filteredNotifications.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={60} color={colors.grayLight} />
-            <Text style={styles.emptyTitle}>No notifications</Text>
-            <Text style={styles.emptySubtitle}>
-              When you get notifications, they'll show up here
-            </Text>
-          </View>
-        )}
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+      />
     </View>
   );
 }
@@ -950,5 +1021,8 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 13,
     color: colors.gray,
     marginTop: 1,
+  },
+  bottomSpacer: {
+    height: 100,
   },
 });

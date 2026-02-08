@@ -46,6 +46,59 @@ import { ProfileSkeleton } from '../../components/skeleton';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Memoized wrapper to prevent inline arrow functions from defeating EventGroupCard memo */
+interface MemoizedEventGroupCardProps {
+  type: 'event' | 'group';
+  id: string;
+  title: string;
+  location: string;
+  coverImage?: string;
+  startDate?: string;
+  participantCount: number;
+  maxParticipants?: number;
+  isOwner: boolean;
+  onCardPress: (type: 'event' | 'group', id: string) => void;
+  onCardMenuPress: (type: 'event' | 'group', id: string) => void;
+}
+
+const MemoizedEventGroupCard = React.memo(({
+  type,
+  id,
+  title,
+  location,
+  coverImage,
+  startDate,
+  participantCount,
+  maxParticipants,
+  isOwner,
+  onCardPress,
+  onCardMenuPress,
+}: MemoizedEventGroupCardProps) => {
+  const handlePress = useCallback(() => {
+    onCardPress(type, id);
+  }, [onCardPress, type, id]);
+
+  const handleMenuPress = useCallback(() => {
+    onCardMenuPress(type, id);
+  }, [onCardMenuPress, type, id]);
+
+  return (
+    <EventGroupCard
+      type={type}
+      id={id}
+      title={title}
+      location={location}
+      coverImage={coverImage}
+      startDate={startDate}
+      participantCount={participantCount}
+      maxParticipants={maxParticipants}
+      isOwner={isOwner}
+      onPress={handlePress}
+      onMenuPress={handleMenuPress}
+    />
+  );
+});
 const BIO_MAX_LINES = 2;
 
 /** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
@@ -307,88 +360,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   }, [refetchProfile, refetchPosts, refetchSavedPosts, refreshEventsGroups, userId, isOwnProfile]);
 
   // ==================== IMAGE PICKER ====================
-  const showImageOptions = (type: 'avatar' | 'cover') => {
+  const showImageOptions = useCallback((type: 'avatar' | 'cover') => {
     setImageSheetType(type);
     setShowImageSheet(true);
-  };
-
-  const handleTakePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      showError('Permission needed', 'Camera access is required');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: imageSheetType === 'avatar' ? [1, 1] : [16, 9],
-      quality: 0.8,
-    });
-    if (!result.canceled) {
-      updateImage(imageSheetType, result.assets[0].uri);
-    }
-  };
-
-  const handleChooseLibrary = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showError('Permission needed', 'Photo library access is required');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: imageSheetType === 'avatar' ? [1, 1] : [16, 9],
-      quality: 0.8,
-    });
-    if (!result.canceled) {
-      updateImage(imageSheetType, result.assets[0].uri);
-    }
-  };
-
-  const handleRemovePhoto = useCallback(async () => {
-    setUser(prev => ({
-      ...prev,
-      [imageSheetType === 'avatar' ? 'avatar' : 'coverImage']: null,
-    }));
-    try {
-      if (imageSheetType === 'avatar') {
-        await updateDbProfile({ avatar_url: '' });
-        updateStoreProfile({ avatar: null });
-      } else {
-        await updateDbProfile({ cover_url: '' });
-        updateStoreProfile({ coverImage: null });
-      }
-      refetchProfile();
-    } catch {
-      showError('Error', 'Failed to remove photo');
-    }
-  }, [imageSheetType, refetchProfile, showError, updateStoreProfile]);
-
-  const getImageSheetOptions = () => {
-    const hasExisting = imageSheetType === 'avatar' ? !!user.avatar : !!user.coverImage;
-    const options: Array<{ label: string; icon: string; onPress: () => Promise<void>; destructive?: boolean }> = [
-      {
-        label: 'Take Photo',
-        icon: 'camera-outline',
-        onPress: handleTakePhoto,
-      },
-      {
-        label: 'Choose from Library',
-        icon: 'images-outline',
-        onPress: handleChooseLibrary,
-      },
-    ];
-
-    if (hasExisting) {
-      options.push({
-        label: 'Remove Photo',
-        icon: 'trash-outline',
-        onPress: handleRemovePhoto,
-        destructive: true,
-      });
-    }
-
-    return options;
-  };
+  }, []);
 
   const updateImage = useCallback(async (type: 'avatar' | 'cover', uri: string | null) => {
     // Optimistically update UI
@@ -429,34 +404,112 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }
   }, [profileData?.id, storeUser?.id, showError, refetchProfile, updateStoreProfile]);
 
+  const handleTakePhoto = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      showError('Permission needed', 'Camera access is required');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: imageSheetType === 'avatar' ? [1, 1] : [16, 9],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      updateImage(imageSheetType, result.assets[0].uri);
+    }
+  }, [imageSheetType, showError, updateImage]);
+
+  const handleChooseLibrary = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showError('Permission needed', 'Photo library access is required');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: imageSheetType === 'avatar' ? [1, 1] : [16, 9],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      updateImage(imageSheetType, result.assets[0].uri);
+    }
+  }, [imageSheetType, showError, updateImage]);
+
+  const handleRemovePhoto = useCallback(async () => {
+    setUser(prev => ({
+      ...prev,
+      [imageSheetType === 'avatar' ? 'avatar' : 'coverImage']: null,
+    }));
+    try {
+      if (imageSheetType === 'avatar') {
+        await updateDbProfile({ avatar_url: '' });
+        updateStoreProfile({ avatar: null });
+      } else {
+        await updateDbProfile({ cover_url: '' });
+        updateStoreProfile({ coverImage: null });
+      }
+      refetchProfile();
+    } catch {
+      showError('Error', 'Failed to remove photo');
+    }
+  }, [imageSheetType, refetchProfile, showError, updateStoreProfile]);
+
+  const getImageSheetOptions = useCallback(() => {
+    const hasExisting = imageSheetType === 'avatar' ? !!user.avatar : !!user.coverImage;
+    const options: Array<{ label: string; icon: string; onPress: () => Promise<void>; destructive?: boolean }> = [
+      {
+        label: 'Take Photo',
+        icon: 'camera-outline',
+        onPress: handleTakePhoto,
+      },
+      {
+        label: 'Choose from Library',
+        icon: 'images-outline',
+        onPress: handleChooseLibrary,
+      },
+    ];
+
+    if (hasExisting) {
+      options.push({
+        label: 'Remove Photo',
+        icon: 'trash-outline',
+        onPress: handleRemovePhoto,
+        destructive: true,
+      });
+    }
+
+    return options;
+  }, [imageSheetType, user.avatar, user.coverImage, handleTakePhoto, handleChooseLibrary, handleRemovePhoto]);
+
   // ==================== COPY PROFILE LINK ====================
-  const getProfileUrl = () => {
+  const getProfileUrl = useCallback(() => {
     const username = user.username || user.displayName.toLowerCase().replace(/\s+/g, '');
     return `https://smuppy.app/u/${username}`;
-  };
+  }, [user.username, user.displayName]);
 
-  const handleCopyLink = async () => {
+  const handleCopyLink = useCallback(async () => {
     try {
       await Clipboard.setStringAsync(getProfileUrl());
       showSuccess('Copied!', 'Profile link copied to clipboard');
     } catch (_error) {
       showError('Error', 'Failed to copy link');
     }
-  };
+  }, [getProfileUrl, showSuccess, showError]);
 
   // ==================== FANS ====================
-  const handleFansPress = () => {
+  const handleFansPress = useCallback(() => {
     navigation.navigate('FansList', { fansCount: user.stats.fans });
-  };
+  }, [navigation, user.stats.fans]);
 
   // Collection menu handlers
-  const handleCollectionMenu = (post: { id: string }, e: { stopPropagation: () => void }) => {
+  const handleCollectionMenu = useCallback((post: { id: string }, e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     setSelectedCollectionPost(post);
     setCollectionMenuVisible(true);
-  };
+  }, []);
 
-  const handleRemoveFromCollection = async () => {
+  const handleRemoveFromCollection = useCallback(async () => {
     if (!selectedCollectionPost) return;
     // UUID validation per CLAUDE.md
     if (!UUID_REGEX.test(selectedCollectionPost.id)) {
@@ -473,7 +526,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       refetchSavedPosts();
     }
     setSelectedCollectionPost(null);
-  };
+  }, [selectedCollectionPost, showError, refetchSavedPosts]);
 
   // ==================== RENDER AVATAR ====================
   const renderAvatarContent = useCallback(() => {
@@ -676,6 +729,11 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // Dynamic tabs based on account type
   const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
 
+  // Stable callback for LiquidTabsWithMore (memoized component)
+  const handleMoreTabsPress = useCallback(() => {
+    setShowMoreTabs(true);
+  }, []);
+
   // Primary tabs (always visible) - max 3 to keep labels readable
   const PRIMARY_TABS = useMemo(() => {
     return [
@@ -715,7 +773,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           extraTabs={EXTRA_TABS}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onMorePress={() => setShowMoreTabs(true)}
+          onMorePress={handleMoreTabsPress}
           size="medium"
           style={styles.liquidProfileTabs}
         />
@@ -1018,7 +1076,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       </TouchableOpacity>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, collections]);
+  }, [navigation, collections, handleCollectionMenu]);
 
   // ==================== RENDER COLLECTIONS ====================
   const renderCollections = () => {
@@ -1371,7 +1429,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         ) : (
           <View style={styles.groupEventList}>
             {items.map((item) => (
-              <EventGroupCard
+              <MemoizedEventGroupCard
                 key={`${item._type}-${item.id}`}
                 type={item._type}
                 id={item.id}
@@ -1382,8 +1440,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 participantCount={item.current_participants}
                 maxParticipants={item.max_participants}
                 isOwner={item.creator_id === storeUser?.id}
-                onPress={() => handleEventGroupCardPress(item._type, item.id)}
-                onMenuPress={() => handleEventGroupMenuPress(item._type, item.id)}
+                onCardPress={handleEventGroupCardPress}
+                onCardMenuPress={handleEventGroupMenuPress}
               />
             ))}
           </View>

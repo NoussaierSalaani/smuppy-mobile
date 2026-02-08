@@ -129,6 +129,10 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  // Memoized insets-dependent styles
+  const modalContainerPaddingStyle = useMemo(() => ({ paddingTop: insets.top }), [insets.top]);
+  const headerPaddingStyle = useMemo(() => ({ paddingTop: insets.top + 10 }), [insets.top]);
+
   // Dynamic visibility options based on account type
   // Pro creators can restrict content to paid subscribers
   // Business accounts can only post publicly
@@ -352,7 +356,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   }, [locationSearch]);
 
   // Get current location
-  const getCurrentLocation = async () => {
+  const getCurrentLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -390,7 +394,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       if (__DEV__) console.warn('Error getting location:', error);
       showError('Error', 'Could not get your current location.');
     }
-  };
+  }, [showMapView, showError]);
 
   // Handle map press to select location
   const handleMapPress = async (feature: Feature) => {
@@ -606,6 +610,38 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     setTaggedPeople(prev => prev.filter(p => p.id !== userId));
   }, []);
 
+  // Modal open/close handlers
+  const handleCloseVisibilityModal = useCallback(() => setShowVisibilityModal(false), []);
+  const handleShowVisibilityModal = useCallback(() => setShowVisibilityModal(true), []);
+  const handleShowLocationModal = useCallback(() => setShowLocationModal(true), []);
+  const handleShowTagModal = useCallback(() => setShowTagModal(true), []);
+
+  const handleCloseLocationModal = useCallback(() => {
+    setShowLocationModal(false);
+    setLocationSearch('');
+    setShowMapView(false);
+  }, []);
+
+  const handleCloseTagModal = useCallback(() => {
+    setShowTagModal(false);
+    setTagSearchQuery('');
+  }, []);
+
+  const handleHideMapView = useCallback(() => setShowMapView(false), []);
+
+  const handleMapConfirm = useCallback(() => {
+    setShowLocationModal(false);
+    setShowMapView(false);
+  }, []);
+
+  const handleCurrentLocationWithHaptic = useCallback(() => {
+    hapticButtonPress();
+    getCurrentLocation();
+  }, [getCurrentLocation]);
+
+  const handleClearLocationSearch = useCallback(() => setLocationSearch(''), []);
+  const handleClearTagSearch = useCallback(() => setTagSearchQuery(''), []);
+
   // ============================================
   // RENDER FUNCTIONS
   // ============================================
@@ -630,9 +666,9 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // Visibility Modal
   const renderVisibilityModal = () => (
     <Modal visible={showVisibilityModal} animationType="slide" presentationStyle="pageSheet">
-      <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+      <View style={[styles.modalContainer, modalContainerPaddingStyle]}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={() => setShowVisibilityModal(false)}>
+          <TouchableOpacity onPress={handleCloseVisibilityModal}>
             <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Visibility</Text>
@@ -679,13 +715,13 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // Location Modal
   const renderLocationModal = () => (
     <Modal visible={showLocationModal} animationType="slide" presentationStyle="pageSheet">
-      <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+      <View style={[styles.modalContainer, modalContainerPaddingStyle]}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={() => { setShowLocationModal(false); setLocationSearch(''); setShowMapView(false); }}>
+          <TouchableOpacity onPress={handleCloseLocationModal}>
             <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Add Location</Text>
-          <TouchableOpacity onPress={() => { setShowLocationModal(false); setLocationSearch(''); setShowMapView(false); }}>
+          <TouchableOpacity onPress={handleCloseLocationModal}>
             <Text style={styles.modalDone}>Done</Text>
           </TouchableOpacity>
         </View>
@@ -694,7 +730,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         <View style={styles.viewToggle}>
           <TouchableOpacity
             style={[styles.viewToggleButton, !showMapView && styles.viewToggleButtonActive]}
-            onPress={() => setShowMapView(false)}
+            onPress={handleHideMapView}
           >
             <Ionicons name="search" size={18} color={!showMapView ? colors.white : colors.dark} />
             <Text style={[styles.viewToggleText, !showMapView && styles.viewToggleTextActive]}>Search</Text>
@@ -737,7 +773,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                 <Text style={styles.mapLocationText} numberOfLines={2}>{location}</Text>
                 <TouchableOpacity
                   style={styles.mapConfirmButton}
-                  onPress={() => { setShowLocationModal(false); setShowMapView(false); }}
+                  onPress={handleMapConfirm}
                 >
                   <Text style={styles.mapConfirmText}>Confirm</Text>
                 </TouchableOpacity>
@@ -755,7 +791,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             {/* Current Location Button */}
             <TouchableOpacity
               style={styles.currentLocationButton}
-              onPress={() => { hapticButtonPress(); getCurrentLocation(); }}
+              onPress={handleCurrentLocationWithHaptic}
               activeOpacity={0.7}
             >
               <View style={styles.currentLocationIcon}>
@@ -776,7 +812,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                 autoFocus={!showMapView}
               />
               {locationSearch.length > 0 && (
-                <TouchableOpacity onPress={() => setLocationSearch('')}>
+                <TouchableOpacity onPress={handleClearLocationSearch}>
                   <Ionicons name="close-circle" size={20} color={colors.gray} />
                 </TouchableOpacity>
               )}
@@ -843,13 +879,13 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // Tag People Modal
   const renderTagModal = () => (
     <Modal visible={showTagModal} animationType="slide" presentationStyle="pageSheet">
-      <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+      <View style={[styles.modalContainer, modalContainerPaddingStyle]}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={() => { setShowTagModal(false); setTagSearchQuery(''); }}>
+          <TouchableOpacity onPress={handleCloseTagModal}>
             <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Tag People</Text>
-          <TouchableOpacity onPress={() => { setShowTagModal(false); setTagSearchQuery(''); }}>
+          <TouchableOpacity onPress={handleCloseTagModal}>
             <Text style={styles.modalDone}>Done</Text>
           </TouchableOpacity>
         </View>
@@ -866,7 +902,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
               autoFocus
             />
             {tagSearchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setTagSearchQuery('')}>
+              <TouchableOpacity onPress={handleClearTagSearch}>
                 <Ionicons name="close-circle" size={20} color={colors.gray} />
               </TouchableOpacity>
             )}
@@ -955,7 +991,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       keyboardVerticalOffset={0}
     >
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, headerPaddingStyle]}>
         <TouchableOpacity onPress={handleBack} hitSlop={HIT_SLOP.medium}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
@@ -1032,7 +1068,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           {/* Visibility */}
           <TouchableOpacity
             style={styles.optionRow}
-            onPress={() => setShowVisibilityModal(true)}
+            onPress={handleShowVisibilityModal}
           >
             <View style={styles.optionLeft}>
               <View style={styles.optionIconContainer}>
@@ -1049,7 +1085,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           {/* Location */}
           <TouchableOpacity
             style={styles.optionRow}
-            onPress={() => setShowLocationModal(true)}
+            onPress={handleShowLocationModal}
           >
             <View style={styles.optionLeft}>
               <View style={styles.optionIconContainer}>
@@ -1068,7 +1104,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           {/* Tag People */}
           <TouchableOpacity
             style={styles.optionRow}
-            onPress={() => setShowTagModal(true)}
+            onPress={handleShowTagModal}
           >
             <View style={styles.optionLeft}>
               <View style={styles.optionIconContainer}>

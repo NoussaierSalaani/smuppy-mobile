@@ -798,6 +798,24 @@ class AWSAPIService {
 
 
   /**
+   * Get tags on a peak
+   */
+  async getPeakTags(peakId: string): Promise<{
+    success: boolean;
+    tags: Array<{
+      id: string;
+      userId: string;
+      username: string;
+      displayName?: string;
+      avatarUrl?: string;
+      taggedBy: string;
+      createdAt: string;
+    }>;
+  }> {
+    return this.request(`/peaks/${peakId}/tags`);
+  }
+
+  /**
    * Hide a peak from feed (not interested)
    */
   async hidePeak(id: string, reason: 'not_interested' | 'seen_too_often' | 'irrelevant' | 'other' = 'not_interested'): Promise<{

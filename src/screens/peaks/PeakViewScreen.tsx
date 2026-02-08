@@ -884,7 +884,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   const repliesCount = currentPeak.repliesCount || 0;
   const commentsCount = currentPeak.commentsCount || 0;
   const existingTags = peakTags.get(currentPeak.id) || [];
-  const _tagsCount = (currentPeak.tagsCount || 0) + existingTags.length;
   const _isOwnPeak = currentPeak.isOwnPeak || false;
 
   // Get unique users from peaks for the avatar carousel
@@ -1155,6 +1154,11 @@ const PeakViewScreen = (): React.JSX.Element => {
             <View style={styles.actionIconContainer}>
               <Ionicons name="person-add-outline" size={22} color={colors.white} />
             </View>
+            {((currentPeak.tagsCount || 0) + existingTags.length) > 0 && (
+              <Text style={styles.actionCount}>
+                {(currentPeak.tagsCount || 0) + existingTags.length}
+              </Text>
+            )}
           </TouchableOpacity>
 
           {/* Save Button */}

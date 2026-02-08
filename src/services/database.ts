@@ -448,7 +448,8 @@ export const searchByHashtag = async (
   const tag = hashtag.trim().replace(/^#/, '').toLowerCase();
 
   try {
-    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/hashtag/${encodeURIComponent(tag)}?limit=${limit}&offset=${offset}`);
+    // Use posts search with hashtag prefix — ILIKE fallback will match #tag in content
+    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/search?q=${encodeURIComponent('#' + tag)}&limit=${limit}&offset=${offset}`);
     return { data: result.data.map(convertPost), error: null };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };

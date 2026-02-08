@@ -58,15 +58,20 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       requesterId = userResult.rows[0]?.id || null;
     }
 
+    // Detect hashtag search: query starts with # or is a bare tag word
+    const isHashtagSearch = sanitized.startsWith('#') || /^[a-z0-9_]+$/i.test(sanitized);
+    const hashtagTerm = sanitized.replace(/^#/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+
     const likedSelect = requesterId
-      ? `, EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $4) as "isLiked"`
+      ? `, EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = ${isHashtagSearch ? '$3' : '$4'}) as "isLiked"`
       : '';
 
-    // Try full-text search first, fallback to ILIKE
     let result;
-    try {
-      const ftsQuery = `
-        SELECT p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
+
+    if (isHashtagSearch && hashtagTerm.length > 0) {
+      // Hashtag search: find peaks via peak_hashtags table
+      const hashtagQuery = `
+        SELECT DISTINCT p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
                p.thumbnail_url as "thumbnailUrl", p.duration,
                p.likes_count as "likesCount", p.comments_count as "commentsCount",
                p.views_count as "viewsCount", p.created_at as "createdAt",
@@ -75,38 +80,65 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                ${likedSelect}
         FROM peaks p
         JOIN profiles pr ON p.author_id = pr.id
-        WHERE to_tsvector('english', p.caption) @@ plainto_tsquery('english', $1)
+        JOIN peak_hashtags ph ON ph.peak_id = p.id
+        WHERE ph.hashtag = $1
         ORDER BY p.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $2 OFFSET ${requesterId ? '$4' : '$3'}
       `;
       const params = requesterId
-        ? [sanitized, parsedLimit, parsedOffset, requesterId]
-        : [sanitized, parsedLimit, parsedOffset];
+        ? [hashtagTerm, parsedLimit, requesterId, parsedOffset]
+        : [hashtagTerm, parsedLimit, parsedOffset];
 
-      result = await pool.query(ftsQuery, params);
-    } catch {
-      // Fallback to ILIKE if tsquery fails
-      log.info('FTS failed, falling back to ILIKE', { query: sanitized.substring(0, 2) + '***' });
+      result = await pool.query(hashtagQuery, params);
+    } else {
+      // Text search: FTS first, ILIKE fallback
+      const likedSelectText = requesterId
+        ? `, EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $4) as "isLiked"`
+        : '';
 
-      const ilikeQuery = `
-        SELECT p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
-               p.thumbnail_url as "thumbnailUrl", p.duration,
-               p.likes_count as "likesCount", p.comments_count as "commentsCount",
-               p.views_count as "viewsCount", p.created_at as "createdAt",
-               pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
-               pr.is_verified as "isVerified", pr.account_type as "accountType"
-               ${likedSelect}
-        FROM peaks p
-        JOIN profiles pr ON p.author_id = pr.id
-        WHERE p.caption ILIKE $1
-        ORDER BY p.created_at DESC
-        LIMIT $2 OFFSET $3
-      `;
-      const params = requesterId
-        ? [`%${sanitized}%`, parsedLimit, parsedOffset, requesterId]
-        : [`%${sanitized}%`, parsedLimit, parsedOffset];
+      try {
+        const ftsQuery = `
+          SELECT p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
+                 p.thumbnail_url as "thumbnailUrl", p.duration,
+                 p.likes_count as "likesCount", p.comments_count as "commentsCount",
+                 p.views_count as "viewsCount", p.created_at as "createdAt",
+                 pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
+                 pr.is_verified as "isVerified", pr.account_type as "accountType"
+                 ${likedSelectText}
+          FROM peaks p
+          JOIN profiles pr ON p.author_id = pr.id
+          WHERE to_tsvector('english', p.caption) @@ plainto_tsquery('english', $1)
+          ORDER BY p.created_at DESC
+          LIMIT $2 OFFSET $3
+        `;
+        const params = requesterId
+          ? [sanitized, parsedLimit, parsedOffset, requesterId]
+          : [sanitized, parsedLimit, parsedOffset];
 
-      result = await pool.query(ilikeQuery, params);
+        result = await pool.query(ftsQuery, params);
+      } catch {
+        log.info('FTS failed, falling back to ILIKE', { query: sanitized.substring(0, 2) + '***' });
+
+        const ilikeQuery = `
+          SELECT p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
+                 p.thumbnail_url as "thumbnailUrl", p.duration,
+                 p.likes_count as "likesCount", p.comments_count as "commentsCount",
+                 p.views_count as "viewsCount", p.created_at as "createdAt",
+                 pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
+                 pr.is_verified as "isVerified", pr.account_type as "accountType"
+                 ${likedSelectText}
+          FROM peaks p
+          JOIN profiles pr ON p.author_id = pr.id
+          WHERE p.caption ILIKE $1
+          ORDER BY p.created_at DESC
+          LIMIT $2 OFFSET $3
+        `;
+        const params = requesterId
+          ? [`%${sanitized}%`, parsedLimit, parsedOffset, requesterId]
+          : [`%${sanitized}%`, parsedLimit, parsedOffset];
+
+        result = await pool.query(ilikeQuery, params);
+      }
     }
 
     const peaks = result.rows.map((peak: Record<string, unknown>) => ({

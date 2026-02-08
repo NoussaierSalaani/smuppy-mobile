@@ -231,6 +231,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           createdAt: peak.created_at,
           expiresAt: peak.expires_at || null,
           savedToProfile: peak.saved_to_profile ?? null,
+          hashtags: validHashtags,
           isLiked: false,
           author: {
             id: profile.id,

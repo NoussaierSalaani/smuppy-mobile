@@ -647,6 +647,66 @@ const UserProfileScreen = () => {
   // Create styles with theme (MUST BE BEFORE RENDER CALLBACKS)
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  // ==================== EXTRACTED HANDLERS (from inline JSX) ====================
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleShowMenuModal = useCallback(() => setShowMenuModal(true), []);
+  const handleCloseMenuModal = useCallback(() => setShowMenuModal(false), []);
+  const handleCloseUnfanModal = useCallback(() => setShowUnfanModal(false), []);
+  const handleCloseBlockedModal = useCallback(() => setShowBlockedModal(false), []);
+  const handleCloseCancelRequestModal = useCallback(() => setShowCancelRequestModal(false), []);
+  const handleCloseFanRequiredModal = useCallback(() => setShowFanRequiredModal(false), []);
+  const handleShowSubscribeModal = useCallback(() => setShowSubscribeModal(true), []);
+  const handleCloseSubscribeModal = useCallback(() => setShowSubscribeModal(false), []);
+  const handleBioToggle = useCallback(() => setBioExpanded(prev => !prev), []);
+  const handleEditProfile = useCallback(() => navigation.navigate('EditProfile' as never), [navigation]);
+  const handleTabChange = useCallback((key: string) => setActiveTab(key as typeof activeTab), []);
+  const handleBookSession = useCallback(() => {
+    navigation.navigate('BookSession', {
+      creatorId: profile.id,
+      creator: {
+        id: profile.id,
+        name: profile.displayName,
+        avatar: profile.avatar || '',
+        specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
+      }
+    });
+  }, [navigation, profile.id, profile.displayName, profile.avatar, profile.bio]);
+  const handleViewOfferings = useCallback(() => {
+    navigation.navigate('CreatorOfferings', { creatorId: profile.id });
+  }, [navigation, profile.id]);
+  const handleJoinLive = useCallback(() => {
+    navigation.navigate('ViewerLiveStream', {
+      channelName: `live_${profile.id}`,
+      creatorId: profile.id,
+      creatorName: profile.displayName,
+      creatorAvatar: profile.avatar,
+      liveTitle: creatorLiveStatus.liveTitle || 'Live Session',
+      viewerCount: 127,
+    });
+  }, [navigation, profile.id, profile.displayName, profile.avatar, creatorLiveStatus.liveTitle]);
+  const handleMenuShareProfile = useCallback(() => {
+    setShowMenuModal(false);
+    handleShareProfile();
+  }, [handleShareProfile]);
+  const handleMenuUnfan = useCallback(() => {
+    setShowMenuModal(false);
+    setShowUnfanModal(true);
+  }, []);
+  const handleFanRequiredConfirm = useCallback(() => {
+    setShowFanRequiredModal(false);
+    becomeFan();
+  }, [becomeFan]);
+  const handleSubscribe = useCallback((tierId: string) => {
+    setShowSubscribeModal(false);
+    const tierMap: Record<string, { id: string; name: string; price: number; perks: string[] }> = {
+      basic: { id: 'basic', name: 'Fan', price: 4.99, perks: ['Access to exclusive posts', 'Join live streams', 'Fan badge on comments'] },
+      premium: { id: 'premium', name: 'Super Fan', price: 9.99, perks: ['All Fan benefits', 'Access to exclusive videos', 'Priority in live chat', 'Monthly 1-on-1 Q&A'] },
+      vip: { id: 'vip', name: 'VIP', price: 24.99, perks: ['All Super Fan benefits', 'Private Discord access', 'Early access to content', 'Personal shoutouts', '10% off private sessions'] },
+    };
+    const tier = tierMap[tierId] || tierMap.premium;
+    navigation.navigate('ChannelSubscribe', { creatorId: profile.id, tier });
+  }, [navigation, profile.id]);
+
   // ==================== RENDER POST ITEM (MUST BE BEFORE EARLY RETURNS) ====================
   const renderPostItem = useCallback((post: Post, allPosts: Post[]) => {
     // Support both media_urls array and legacy media_url string
@@ -720,7 +780,7 @@ const UserProfileScreen = () => {
         <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
           This profile is unavailable. Please try again.
         </Text>
-        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={handleGoBack}>
           <Text style={styles.fanButtonText}>Go back</Text>
         </TouchableOpacity>
       </View>
@@ -738,7 +798,7 @@ const UserProfileScreen = () => {
         <Text style={[styles.bioText, { textAlign: 'center', marginTop: 8 }]}>
           Please check your connection or try again later.
         </Text>
-        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={[styles.fanButton, { marginTop: 16, width: '60%' }]} onPress={handleGoBack}>
           <Text style={styles.fanButtonText}>Go back</Text>
         </TouchableOpacity>
       </View>
@@ -901,7 +961,7 @@ const UserProfileScreen = () => {
       <LiquidTabs
         tabs={TABS as unknown as { key: string; label: string }[]}
         activeTab={activeTab}
-        onTabChange={(key) => setActiveTab(key as typeof activeTab)}
+        onTabChange={handleTabChange}
         fullWidth
       />
     </View>
@@ -1023,7 +1083,7 @@ const UserProfileScreen = () => {
           </Text>
           {profile.bio.length > 80 && (
             <TouchableOpacity
-              onPress={() => setBioExpanded(!bioExpanded)}
+              onPress={handleBioToggle}
               hitSlop={HIT_SLOP.medium}
               style={styles.seeMoreBtn}
             >
@@ -1043,7 +1103,7 @@ const UserProfileScreen = () => {
             <View style={styles.actionButtonsRow}>
               <TouchableOpacity
                 style={styles.editProfileButton}
-                onPress={() => navigation.navigate('EditProfile' as never)}
+                onPress={handleEditProfile}
               >
                 <Ionicons name="pencil-outline" size={18} color={colors.dark} />
                 <Text style={styles.editProfileText}>Edit Profile</Text>
@@ -1079,7 +1139,7 @@ const UserProfileScreen = () => {
               {FEATURES.CHANNEL_SUBSCRIBE && (
                 <LiquidButton
                   label="Subscribe"
-                  onPress={() => setShowSubscribeModal(true)}
+                  onPress={handleShowSubscribeModal}
                   size="sm"
                   variant="outline"
                   style={{ flex: 1 }}
@@ -1093,15 +1153,7 @@ const UserProfileScreen = () => {
               {FEATURES.PRIVATE_SESSIONS && (
                 <LiquidButton
                   label="Book 1:1"
-                  onPress={() => navigation.navigate('BookSession', {
-                    creatorId: profile.id,
-                    creator: {
-                      id: profile.id,
-                      name: profile.displayName,
-                      avatar: profile.avatar || '',
-                      specialty: profile.bio?.slice(0, 30) || 'Fitness Coach',
-                    }
-                  })}
+                  onPress={handleBookSession}
                   size="sm"
                   variant="outline"
                   style={{ flex: 1 }}
@@ -1132,7 +1184,7 @@ const UserProfileScreen = () => {
             <View style={styles.actionButtonsRow}>
               <LiquidButton
                 label="View Offerings"
-                onPress={() => navigation.navigate('CreatorOfferings', { creatorId: profile.id })}
+                onPress={handleViewOfferings}
                 size="sm"
                 variant="outline"
                 style={{ flex: 1 }}
@@ -1165,14 +1217,7 @@ const UserProfileScreen = () => {
                 <Text style={styles.liveTitle}>{creatorLiveStatus.liveTitle}</Text>
                 <TouchableOpacity
                   style={styles.joinLiveButton}
-                  onPress={() => navigation.navigate('ViewerLiveStream', {
-                    channelName: `live_${profile.id}`,
-                    creatorId: profile.id,
-                    creatorName: profile.displayName,
-                    creatorAvatar: profile.avatar,
-                    liveTitle: creatorLiveStatus.liveTitle || 'Live Session',
-                    viewerCount: 127,
-                  })}
+                  onPress={handleJoinLive}
                 >
                   <LinearGradient
                     colors={['#FF3B30', '#FF6B6B']}
@@ -1200,7 +1245,7 @@ const UserProfileScreen = () => {
       {/* Back Button - Fixed on top */}
       <TouchableOpacity
         style={[styles.backBtnFixed, { top: insets.top + 8 }]}
-        onPress={() => navigation.goBack()}
+        onPress={handleGoBack}
       >
         <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
       </TouchableOpacity>
@@ -1209,7 +1254,7 @@ const UserProfileScreen = () => {
       {!isOwnProfile && (
         <TouchableOpacity
           style={[styles.menuBtnFixed, { top: insets.top + 8 }]}
-          onPress={() => setShowMenuModal(true)}
+          onPress={handleShowMenuModal}
         >
           <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
         </TouchableOpacity>
@@ -1241,7 +1286,7 @@ const UserProfileScreen = () => {
         visible={showUnfanModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowUnfanModal(false)}
+        onRequestClose={handleCloseUnfanModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -1252,7 +1297,7 @@ const UserProfileScreen = () => {
             <View style={styles.modalButtons}>
               <TouchableOpacity 
                 style={styles.modalBtnCancel}
-                onPress={() => setShowUnfanModal(false)}
+                onPress={handleCloseUnfanModal}
               >
                 <Text style={styles.modalBtnCancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -1272,7 +1317,7 @@ const UserProfileScreen = () => {
         visible={showBlockedModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowBlockedModal(false)}
+        onRequestClose={handleCloseBlockedModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -1283,7 +1328,7 @@ const UserProfileScreen = () => {
             </Text>
             <TouchableOpacity 
               style={styles.modalBtnSingle}
-              onPress={() => setShowBlockedModal(false)}
+              onPress={handleCloseBlockedModal}
             >
               <Text style={styles.modalBtnSingleText}>Got it</Text>
             </TouchableOpacity>
@@ -1296,7 +1341,7 @@ const UserProfileScreen = () => {
         visible={showCancelRequestModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowCancelRequestModal(false)}
+        onRequestClose={handleCloseCancelRequestModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -1308,7 +1353,7 @@ const UserProfileScreen = () => {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
-                onPress={() => setShowCancelRequestModal(false)}
+                onPress={handleCloseCancelRequestModal}
               >
                 <Text style={styles.modalBtnCancelText}>Keep</Text>
               </TouchableOpacity>
@@ -1328,7 +1373,7 @@ const UserProfileScreen = () => {
         visible={showFanRequiredModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowFanRequiredModal(false)}
+        onRequestClose={handleCloseFanRequiredModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -1340,7 +1385,7 @@ const UserProfileScreen = () => {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
-                onPress={() => setShowFanRequiredModal(false)}
+                onPress={handleCloseFanRequiredModal}
               >
                 <Text style={styles.modalBtnCancelText}>Later</Text>
               </TouchableOpacity>
@@ -1363,22 +1408,19 @@ const UserProfileScreen = () => {
         visible={showMenuModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowMenuModal(false)}
+        onRequestClose={handleCloseMenuModal}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setShowMenuModal(false)}
+          onPress={handleCloseMenuModal}
         >
           <View style={styles.menuContent}>
             <View style={styles.menuHandle} />
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => {
-                setShowMenuModal(false);
-                handleShareProfile();
-              }}
+              onPress={handleMenuShareProfile}
             >
               <Ionicons name="share-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>Share Profile</Text>
@@ -1387,10 +1429,7 @@ const UserProfileScreen = () => {
             {effectiveIsFan && (
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => {
-                  setShowMenuModal(false);
-                  setShowUnfanModal(true);
-                }}
+                onPress={handleMenuUnfan}
               >
                 <Ionicons name="heart-dislike-outline" size={22} color={colors.dark} />
                 <Text style={styles.menuItemText}>Unfan</Text>
@@ -1409,7 +1448,7 @@ const UserProfileScreen = () => {
 
             <TouchableOpacity
               style={styles.menuCancel}
-              onPress={() => setShowMenuModal(false)}
+              onPress={handleCloseMenuModal}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -1420,7 +1459,7 @@ const UserProfileScreen = () => {
       {/* Subscribe Channel Modal */}
       <SubscribeChannelModal
         visible={showSubscribeModal}
-        onClose={() => setShowSubscribeModal(false)}
+        onClose={handleCloseSubscribeModal}
         creatorName={profile.displayName}
         creatorAvatar={profile.avatar || ''}
         creatorUsername={profile.username}

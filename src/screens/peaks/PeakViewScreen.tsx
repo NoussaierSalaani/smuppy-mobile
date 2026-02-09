@@ -415,11 +415,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
-  // Reset progress when changing peak
-  useEffect(() => {
-    setProgress(0);
-  }, [currentIndex]);
-
   const animateHeart = (): void => {
     setShowHeart(true);
     heartScale.setValue(0);
@@ -813,13 +808,17 @@ const PeakViewScreen = (): React.JSX.Element => {
         break;
       case 'download':
         try {
+          if (!currentPeak.videoUrl) {
+            showError('Unavailable', 'No video available to download');
+            return;
+          }
           const { status } = await MediaLibrary.requestPermissionsAsync();
           if (status !== 'granted') {
             showError('Permission required', 'Allow access to save videos');
             return;
           }
           const fileUri = FileSystem.documentDirectory + 'peak_' + currentPeak.id + '.mov';
-          await FileSystem.downloadAsync(currentPeak.videoUrl!, fileUri);
+          await FileSystem.downloadAsync(currentPeak.videoUrl, fileUri);
           await MediaLibrary.saveToLibraryAsync(fileUri);
           await FileSystem.deleteAsync(fileUri, { idempotent: true });
           showSuccess('Saved!', 'Video saved to your camera roll');

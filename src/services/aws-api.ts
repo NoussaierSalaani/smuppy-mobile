@@ -399,10 +399,15 @@ class AWSAPIService {
           : API_BASE_URL;
     const url = `${baseUrl}${endpoint}`;
 
+    const isFormData = body instanceof FormData;
     const requestHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...headers,
     };
+    // When sending FormData, remove Content-Type so fetch auto-sets it with boundary
+    if (isFormData) {
+      delete requestHeaders['Content-Type'];
+    }
 
     // Add authentication header if needed
     // Cognito Authorizer expects the ID token (not Access token)
@@ -421,10 +426,11 @@ class AWSAPIService {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
+      const serializedBody = body ? (isFormData ? body as unknown as BodyInit : JSON.stringify(body)) : undefined;
       const response = await secureFetch(url, {
         method,
         headers: requestHeaders,
-        body: body ? JSON.stringify(body) : undefined,
+        body: serializedBody,
         signal: controller.signal,
       });
 
@@ -442,7 +448,7 @@ class AWSAPIService {
             const retryResponse = await secureFetch(url, {
               method,
               headers: requestHeaders,
-              body: body ? JSON.stringify(body) : undefined,
+              body: serializedBody,
               signal: retryController.signal,
             });
             clearTimeout(retryTimeoutId);

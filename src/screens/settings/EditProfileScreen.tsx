@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -316,12 +316,26 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
     }
   };
 
+  // Extracted handlers
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleFirstNameChange = useCallback((text: string) => updateField(setFirstName, text), []);
+  const handleLastNameChange = useCallback((text: string) => updateField(setLastName, text), []);
+  const handleBioChange = useCallback((text: string) => updateField(setBio, text), []);
+  const handleShowDatePicker = useCallback(() => setShowDatePicker(true), []);
+  const handleShowGenderPicker = useCallback(() => setShowGenderPicker(true), []);
+  const handleCloseDatePicker = useCallback(() => setShowDatePicker(false), []);
+  const handleConfirmDate = useCallback((date: string) => updateField(setDateOfBirth, date), []);
+  const handleCloseGenderPicker = useCallback(() => setShowGenderPicker(false), []);
+  const handleSelectGender = useCallback((selected: string) => updateField(setGender, selected), []);
+  const handleCloseImageSheet = useCallback(() => setShowImageSheet(false), []);
+
   // Create styles with theme
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const containerStyle = useMemo(() => [styles.container, { paddingTop: insets.top }], [insets.top, styles.container]);
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={containerStyle}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
     >
@@ -331,7 +345,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={handleGoBack}
         >
           <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
         </TouchableOpacity>
@@ -385,7 +399,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
             <TextInput
               style={styles.input}
               value={firstName}
-              onChangeText={(text) => updateField(setFirstName, text)}
+              onChangeText={handleFirstNameChange}
               placeholder="First name"
               placeholderTextColor="#C7C7CC"
             />
@@ -397,7 +411,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
             <TextInput
               style={styles.input}
               value={lastName}
-              onChangeText={(text) => updateField(setLastName, text)}
+              onChangeText={handleLastNameChange}
               placeholder="Last name"
               placeholderTextColor="#C7C7CC"
             />
@@ -409,7 +423,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
             <TextInput
               style={[styles.input, styles.bioInput]}
               value={bio}
-              onChangeText={(text) => updateField(setBio, text)}
+              onChangeText={handleBioChange}
               placeholder="Tell us about yourself..."
               placeholderTextColor="#C7C7CC"
               multiline
@@ -424,7 +438,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
             <Text style={styles.inputLabel}>Date of Birth</Text>
             <TouchableOpacity 
               style={styles.selectInput} 
-              onPress={() => setShowDatePicker(true)}
+              onPress={handleShowDatePicker}
             >
               <Text style={[styles.selectInputText, !dateOfBirth && styles.selectInputPlaceholder]}>
                 {dateOfBirth ? formatDateForDisplay(dateOfBirth) : 'Select date'}
@@ -438,7 +452,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
             <Text style={styles.inputLabel}>Gender</Text>
             <TouchableOpacity
               style={styles.selectInput}
-              onPress={() => setShowGenderPicker(true)}
+              onPress={handleShowGenderPicker}
             >
               <Text style={[styles.selectInputText, !gender && styles.selectInputPlaceholder]}>
                 {gender || 'Select gender'}
@@ -495,23 +509,23 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       {/* Date Picker Modal */}
       <DatePickerModal
         visible={showDatePicker}
-        onClose={() => setShowDatePicker(false)}
-        onConfirm={(date) => updateField(setDateOfBirth, date)}
+        onClose={handleCloseDatePicker}
+        onConfirm={handleConfirmDate}
         initialDate={dateOfBirth}
       />
 
       {/* Gender Picker Modal */}
       <GenderPickerModal
         visible={showGenderPicker}
-        onClose={() => setShowGenderPicker(false)}
-        onSelect={(selected) => updateField(setGender, selected)}
+        onClose={handleCloseGenderPicker}
+        onSelect={handleSelectGender}
         selectedGender={gender}
       />
 
       {/* Image Picker Action Sheet */}
       <SmuppyActionSheet
         visible={showImageSheet}
-        onClose={() => setShowImageSheet(false)}
+        onClose={handleCloseImageSheet}
         title="Profile Photo"
         subtitle="Choose how to update your photo"
         options={getImageSheetOptions()}

@@ -3,7 +3,7 @@
  * Manage business activities, schedule, and services (for Pro Business owners)
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -295,6 +295,23 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
     }
   };
 
+  // Extracted handlers
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleOpenActivityModal = useCallback(() => {
+    resetActivityForm();
+    setShowActivityModal(true);
+  }, []);
+  const handleCloseActivityModal = useCallback(() => setShowActivityModal(false), []);
+  const handleOpenScheduleModal = useCallback(() => {
+    if (activities.length === 0) {
+      showWarning('No Activities', 'Please add activities first before creating a schedule.');
+      return;
+    }
+    resetSlotForm();
+    setShowScheduleModal(true);
+  }, [activities.length, showWarning]);
+  const handleCloseScheduleModal = useCallback(() => setShowScheduleModal(false), []);
+
   const getDaySlots = (day: number) => {
     return schedule.filter(s => s.day_of_week === day).sort((a, b) => a.start_time.localeCompare(b.start_time));
   };
@@ -376,11 +393,11 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage Program</Text>
-          <View style={{ width: 40 }} />
+          <View style={styles.headerSpacer} />
         </View>
 
         {/* Tabs */}
@@ -411,10 +428,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
                 <Text style={styles.sectionTitle}>Activities ({activities.length})</Text>
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => {
-                    resetActivityForm();
-                    setShowActivityModal(true);
-                  }}
+                  onPress={handleOpenActivityModal}
                 >
                   <Ionicons name="add" size={20} color="#fff" />
                   <Text style={styles.addButtonText}>Add</Text>
@@ -472,14 +486,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
                   <Text style={styles.sectionTitle}>{DAYS[selectedDay]}</Text>
                   <TouchableOpacity
                     style={[styles.addButton, activities.length === 0 && styles.addButtonDisabled]}
-                    onPress={() => {
-                      if (activities.length === 0) {
-                        showWarning('No Activities', 'Please add activities first before creating a schedule.');
-                        return;
-                      }
-                      resetSlotForm();
-                      setShowScheduleModal(true);
-                    }}
+                    onPress={handleOpenScheduleModal}
                     disabled={activities.length === 0}
                   >
                     <Ionicons name="add" size={20} color="#fff" />
@@ -548,7 +555,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
       {/* Activity Modal */}
       <Modal visible={showActivityModal} animationType="slide" transparent>
         <KeyboardAvoidingView
-          style={{ flex: 1 }}
+          style={styles.flexOne}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
@@ -559,7 +566,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
                 <Text style={styles.modalTitle}>
                   {editingActivity ? 'Edit Activity' : 'New Activity'}
                 </Text>
-                <TouchableOpacity onPress={() => setShowActivityModal(false)}>
+                <TouchableOpacity onPress={handleCloseActivityModal}>
                   <Ionicons name="close" size={24} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -670,7 +677,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
       {/* Schedule Slot Modal */}
       <Modal visible={showScheduleModal} animationType="slide" transparent>
         <KeyboardAvoidingView
-          style={{ flex: 1 }}
+          style={styles.flexOne}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
@@ -679,7 +686,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
             <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Add Time Slot</Text>
-                <TouchableOpacity onPress={() => setShowScheduleModal(false)}>
+                <TouchableOpacity onPress={handleCloseScheduleModal}>
                   <Ionicons name="close" size={24} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -1203,5 +1210,11 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  flexOne: {
+    flex: 1,
   },
 });

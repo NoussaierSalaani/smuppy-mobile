@@ -76,26 +76,28 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const [refreshing, setRefreshing] = useState(false);
   const [peaks, setPeaks] = useState<Peak[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
   const fetchPeaks = useCallback(async (reset = false) => {
     try {
+      if (reset) setLoadError(null);
       if (__DEV__) {
         console.log('[PeaksFeedScreen] Fetching peaks...', { reset, cursor, userId: user?.id });
       }
-      
+
       const params: { limit: number; cursor?: string } = { limit: 20 };
       if (!reset && cursor) params.cursor = cursor;
       const response = await awsAPI.getPeaks(params);
-      
+
       if (__DEV__) {
-        console.log('[PeaksFeedScreen] API response:', { 
+        console.log('[PeaksFeedScreen] API response:', {
           count: response.data?.length || 0,
-          nextCursor: response.nextCursor 
+          nextCursor: response.nextCursor
         });
       }
-      
+
       const toCdn = (url?: string | null) => {
         if (!url) return null;
         return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
@@ -126,16 +128,20 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         expiresAt: p.expiresAt || undefined,
         isOwnPeak: (p.author?.id || p.authorId) === user?.id,
       }));
-      
+
       if (__DEV__) {
         console.log('[PeaksFeedScreen] Mapped peaks:', mapped.length);
       }
-      
+
       setPeaks(reset ? mapped : (prev) => [...prev, ...mapped]);
       setCursor(response.nextCursor);
       setHasMore(!!response.nextCursor);
     } catch (error) {
       if (__DEV__) console.warn('[PeaksFeedScreen] Failed to fetch peaks:', error);
+      if (reset) {
+        setPeaks([]);
+        setLoadError('Unable to load peaks. Check your connection and try again.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -258,18 +264,23 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         >
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconContainer}>
-              <Ionicons name="videocam-outline" size={56} color={colors.primary} />
+              <Ionicons name={loadError ? "cloud-offline-outline" : "videocam-outline"} size={56} color={loadError ? colors.grayMuted : colors.primary} />
             </View>
-            <Text style={styles.emptyTitle}>No Peaks yet</Text>
+            <Text style={styles.emptyTitle}>{loadError ? 'Connection Issue' : 'No Peaks yet'}</Text>
             <Text style={styles.emptySubtitle}>
-              Peaks are short videos from 6 to 60 seconds to share your fitness moments
+              {loadError || 'Peaks are short videos from 6 to 60 seconds to share your fitness moments'}
             </Text>
-            {!isBusiness && (
+            {loadError ? (
+              <TouchableOpacity style={styles.emptyButton} onPress={() => { setLoading(true); fetchPeaks(true); }}>
+                <Ionicons name="refresh" size={22} color={colors.white} />
+                <Text style={styles.emptyButtonText}>Retry</Text>
+              </TouchableOpacity>
+            ) : !isBusiness ? (
               <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
                 <Ionicons name="add-circle" size={22} color={colors.white} />
                 <Text style={styles.emptyButtonText}>Create my first Peak</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         </ScrollView>
       ) : (

@@ -400,24 +400,25 @@ const SearchScreen = (): React.JSX.Element => {
   }, [loadingMore, hasMore, searchQuery, activeTab, page, performSearch]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const containerStyle = useMemo(() => [styles.container, { paddingTop: insets.top, backgroundColor: colors.background }], [styles.container, insets.top, colors.background]);
 
   // ============================================
   // HANDLERS
   // ============================================
 
-  const handleGoBack = (): void => {
+  const handleGoBack = useCallback((): void => {
     navigation.goBack();
-  };
+  }, [navigation]);
 
-  const handleCancelSearch = (): void => {
+  const handleCancelSearch = useCallback((): void => {
     setSearchQuery('');
     Keyboard.dismiss();
-  };
+  }, []);
 
-  const handleClearSearch = (): void => {
+  const handleClearSearch = useCallback((): void => {
     setSearchQuery('');
     searchInputRef.current?.focus();
-  };
+  }, []);
 
   const handleUserPress = useCallback((userId: string): void => {
     if (!isValidUUID(userId)) {
@@ -584,13 +585,19 @@ const SearchScreen = (): React.JSX.Element => {
     { key: 'tags', label: 'Tags' },
   ];
 
-  const handleTabChange = (key: string) => {
+  const handleTabChange = useCallback((key: string) => {
     const tab = key as SearchTab;
     setActiveTab(tab);
     if (searchQuery.length >= 2 && !hasSearched) {
       performSearch(searchQuery, tab, 0, false);
     }
-  };
+  }, [searchQuery, hasSearched, performSearch]);
+
+  // "See all" handlers for All tab sections
+  const handleShowAllUsers = useCallback(() => setActiveTab('users'), []);
+  const handleShowAllPosts = useCallback(() => setActiveTab('posts'), []);
+  const handleShowAllPeaks = useCallback(() => setActiveTab('peaks'), []);
+  const handleShowAllTags = useCallback(() => setActiveTab('tags'), []);
 
   const renderTabs = (): React.JSX.Element => (
     <View style={styles.tabsContainer}>
@@ -688,7 +695,7 @@ const SearchScreen = (): React.JSX.Element => {
           <View style={styles.allSectionHeader}>
             <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Users</Text>
             {userResults.length > 3 && (
-              <TouchableOpacity onPress={() => setActiveTab('users')}>
+              <TouchableOpacity onPress={handleShowAllUsers}>
                 <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({userResults.length})</Text>
               </TouchableOpacity>
             )}
@@ -722,7 +729,7 @@ const SearchScreen = (): React.JSX.Element => {
           <View style={styles.allSectionHeader}>
             <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Posts</Text>
             {postResults.length > 6 && (
-              <TouchableOpacity onPress={() => setActiveTab('posts')}>
+              <TouchableOpacity onPress={handleShowAllPosts}>
                 <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({postResults.length})</Text>
               </TouchableOpacity>
             )}
@@ -761,7 +768,7 @@ const SearchScreen = (): React.JSX.Element => {
           <View style={styles.allSectionHeader}>
             <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Peaks</Text>
             {peakResults.length > 6 && (
-              <TouchableOpacity onPress={() => setActiveTab('peaks')}>
+              <TouchableOpacity onPress={handleShowAllPeaks}>
                 <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({peakResults.length})</Text>
               </TouchableOpacity>
             )}
@@ -798,7 +805,7 @@ const SearchScreen = (): React.JSX.Element => {
           <View style={styles.allSectionHeader}>
             <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Tagged Posts</Text>
             {hashtagResults.length > 6 && (
-              <TouchableOpacity onPress={() => setActiveTab('tags')}>
+              <TouchableOpacity onPress={handleShowAllTags}>
                 <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({hashtagResults.length})</Text>
               </TouchableOpacity>
             )}
@@ -914,7 +921,7 @@ const SearchScreen = (): React.JSX.Element => {
   // ============================================
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+    <View style={containerStyle}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* Header */}

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { SPACING } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useTranslation } from 'react-i18next';
 import { AccountBadge } from '../../components/Badge';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { resolveDisplayName } from '../../types/profile';
@@ -118,6 +119,7 @@ const ConversationItem = memo(({ item, colors, styles, onNavigate, onProfilePres
 });
 
 export default function MessagesScreen({ navigation }: MessagesScreenProps) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors, isDark: _isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);

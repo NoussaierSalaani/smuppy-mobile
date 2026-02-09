@@ -62,7 +62,7 @@ const PROD_FEATURES = {
   PLATFORM_SUBSCRIPTION: false, // V3: Stripe subscription — needs Apple IAP
 
   // ─── Disputes & Resolution ─────────────────────
-  DISPUTES: false,              // V3: tied to sessions/Stripe
+  DISPUTES: true,               // V3: ENABLED - deployed 2026-02-09
 
   // ─── Vibe Ecosystem ────────────────────────────
   VIBE_GUARDIAN: true,            // V1: anti-doom-scroll breathing overlay

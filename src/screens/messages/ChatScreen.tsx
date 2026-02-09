@@ -12,7 +12,10 @@ import {
   ActivityIndicator,
   Keyboard,
   AppState,
+  Animated,
+  Alert,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,9 +38,18 @@ import {
   getOrCreateConversation,
   getCurrentUserId,
   blockUser,
+  addMessageReaction,
+  removeMessageReaction,
+  deleteMessage,
+  forwardMessage,
+  getConversations,
+  AVAILABLE_REACTIONS,
   Message,
   Profile,
+  MessageReaction,
+  Conversation,
 } from '../../services/database';
+import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { formatTime } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
@@ -58,21 +70,151 @@ interface MessageItemProps {
   formatTime: (dateString: string) => string;
   setSelectedImage: (uri: string | null) => void;
   styles: ReturnType<typeof createStyles>;
+  onReply?: (message: Message) => void;
+  onReaction?: (messageId: string, emoji: string) => void;
+  onLongPress?: (message: Message) => void;
+  onDelete?: (message: Message) => void;
+  colors: ThemeColors;
+  currentUserId: string | null;
 }
 
-const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatTime, setSelectedImage, styles }: MessageItemProps) => {
+// Available quick reactions
+const QUICK_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '🙏'];
+
+// Reply Preview Component inside message bubble
+const ReplyPreviewInBubble = memo(({ replyTo, isFromMe, colors, styles }: { replyTo: Message; isFromMe: boolean; colors: ThemeColors; styles: ReturnType<typeof createStyles> }) => (
+  <View style={[styles.replyPreview, isFromMe ? styles.replyFromMe : styles.replyFromOther, { borderLeftColor: isFromMe ? 'rgba(255,255,255,0.5)' : colors.primary }]}>
+    <Text style={[styles.replyName, { color: isFromMe ? 'rgba(255,255,255,0.9)' : colors.primary }]} numberOfLines={1}>
+      {replyTo.sender?.full_name || replyTo.sender?.username || 'User'}
+    </Text>
+    <Text style={[styles.replyText, { color: isFromMe ? 'rgba(255,255,255,0.7)' : colors.gray }]} numberOfLines={2}>
+      {replyTo.content || (replyTo.media_type === 'audio' ? 'Voice message' : 'Media')}
+    </Text>
+  </View>
+));
+
+// Reaction bar component
+const MessageReactions = memo(({ reactions, isFromMe, styles, colors, currentUserId, onReaction }: {
+  reactions: MessageReaction[];
+  isFromMe: boolean;
+  styles: ReturnType<typeof createStyles>;
+  colors: ThemeColors;
+  currentUserId: string | null;
+  onReaction?: (emoji: string) => void;
+}) => {
+  if (!reactions || reactions.length === 0) return null;
+
+  // Group reactions by emoji
+  const grouped = reactions.reduce((acc, r) => {
+    acc[r.emoji] = acc[r.emoji] || { count: 0, users: [], hasMe: false };
+    acc[r.emoji].count++;
+    acc[r.emoji].users.push(r.user);
+    if (r.user_id === currentUserId) acc[r.emoji].hasMe = true;
+    return acc;
+  }, {} as Record<string, { count: number; users: (Profile | undefined)[]; hasMe: boolean }>);
+
   return (
-    <View style={[styles.messageRow, isFromMe ? styles.messageRowRight : styles.messageRowLeft]}>
+    <View style={[styles.reactionsContainer, isFromMe ? styles.reactionsRight : styles.reactionsLeft]}>
+      {Object.entries(grouped).map(([emoji, data]) => (
+        <TouchableOpacity
+          key={emoji}
+          style={[styles.reactionBubble, data.hasMe && styles.reactionBubbleActive]}
+          onPress={() => onReaction?.(emoji)}
+        >
+          <Text style={styles.reactionEmoji}>{emoji}</Text>
+          {data.count > 1 && (
+            <Text style={[styles.reactionCount, { color: data.hasMe ? colors.primary : colors.gray }]}>
+              {data.count}
+            </Text>
+          )}
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+});
+
+const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatTime, setSelectedImage, styles, onReply, onReaction, onLongPress, onDelete, colors, currentUserId }: MessageItemProps) => {
+  // Swipeable ref
+  const swipeableRef = useRef<Swipeable>(null);
+
+  // Render the reply action that appears when swiping
+  const renderRightActions = useCallback((progress: Animated.AnimatedInterpolation<number>) => {
+    if (isFromMe) return null;
+    const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [100, 0] });
+    return (
+      <Animated.View style={[styles.replyActionContainer, { transform: [{ translateX }] }]}>
+        <View style={[styles.replyAction, { backgroundColor: colors.primary + '20' }]}>
+          <Ionicons name="return-up-back" size={24} color={colors.primary} />
+        </View>
+      </Animated.View>
+    );
+  }, [isFromMe, colors]);
+
+  const renderLeftActions = useCallback((progress: Animated.AnimatedInterpolation<number>) => {
+    if (!isFromMe) return null;
+    const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [-100, 0] });
+    return (
+      <Animated.View style={[styles.replyActionContainerLeft, { transform: [{ translateX }] }]}>
+        <View style={[styles.replyAction, { backgroundColor: colors.primary + '20' }]}>
+          <Ionicons name="return-up-forward" size={24} color={colors.primary} />
+        </View>
+      </Animated.View>
+    );
+  }, [isFromMe, colors]);
+
+  const handleSwipeOpen = useCallback(() => {
+    if (onReply) {
+      onReply(item);
+    }
+    setTimeout(() => swipeableRef.current?.close(), 150);
+  }, [onReply, item]);
+
+  const handleLongPress = useCallback(() => {
+    if (item.is_deleted) return;
+    // Trigger haptic feedback
+    if (Platform.OS === 'ios') {
+      const Haptics = require('expo-haptics');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    onLongPress?.(item);
+  }, [item, item.is_deleted, onLongPress]);
+
+  const handleReactionPress = useCallback((emoji: string) => {
+    onReaction?.(item.id, emoji);
+  }, [item.id, onReaction]);
+
+  return (
+    <View style={styles.messageRowContainer}>
+      <Swipeable
+        ref={swipeableRef}
+        renderRightActions={isFromMe ? undefined : renderRightActions}
+        renderLeftActions={isFromMe ? renderLeftActions : undefined}
+        onSwipeableWillOpen={handleSwipeOpen}
+        friction={2}
+        leftThreshold={40}
+        rightThreshold={40}
+      containerStyle={styles.swipeableContainer}
+    >
+      <View style={[styles.messageRow, isFromMe ? styles.messageRowRight : styles.messageRowLeft]}>
       {!isFromMe && (
         <TouchableOpacity style={styles.avatarSpace} onPress={() => item.sender?.id && goToUserProfile(item.sender.id)}>
           {showAvatar && item.sender && <AvatarImage source={item.sender.avatar_url} size={28} />}
         </TouchableOpacity>
       )}
-      <View style={[
-        styles.messageBubble,
-        isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft,
-        (item.shared_post_id || (item.media_type === 'audio' && item.media_url)) && styles.messageBubbleNoPadding
-      ]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onLongPress={handleLongPress}
+        delayLongPress={300}
+        style={[
+          styles.messageBubble,
+          isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft,
+          (item.shared_post_id || (item.media_type === 'audio' && item.media_url)) && styles.messageBubbleNoPadding,
+          item.reply_to_message && styles.messageBubbleWithReply,
+        ]}
+      >
+        {item.reply_to_message && (
+          <ReplyPreviewInBubble replyTo={item.reply_to_message} isFromMe={isFromMe} colors={colors} styles={styles} />
+        )}
         {item.is_deleted ? (
           <Text style={[styles.deletedMessage, isFromMe && { color: 'rgba(255,255,255,0.6)' }]}>Message deleted</Text>
         ) : (
@@ -99,10 +241,30 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
         {!item.shared_post_id && (item.media_type !== 'audio' || !item.media_url) && (
           <View style={styles.messageFooter}>
             <Text style={[styles.messageTime, isFromMe && styles.messageTimeRight]}>{formatTime(item.created_at)}</Text>
-            {isFromMe && <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />}
+            {isFromMe && (
+              <View style={styles.readReceiptContainer}>
+                {item.is_read || (item.read_by && item.read_by.length > 0) ? (
+                  <Ionicons name="checkmark-done" size={14} color="#4FC3F7" style={{ marginLeft: 4 }} />
+                ) : (
+                  <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />
+                )}
+              </View>
+            )}
           </View>
         )}
+      </TouchableOpacity>
       </View>
+    </Swipeable>
+    {item.reactions && item.reactions.length > 0 && (
+      <MessageReactions
+        reactions={item.reactions}
+        isFromMe={isFromMe}
+        styles={styles}
+        colors={colors}
+        currentUserId={currentUserId}
+        onReaction={handleReactionPress}
+      />
+    )}
     </View>
   );
 }, (prev, next) => (
@@ -111,9 +273,13 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
   prev.item.content === next.item.content &&
   prev.item.media_url === next.item.media_url &&
   prev.item.media_type === next.item.media_type &&
+  prev.item.reply_to_message_id === next.item.reply_to_message_id &&
+  prev.item.reactions?.length === next.item.reactions?.length &&
   prev.isFromMe === next.isFromMe &&
   prev.showAvatar === next.showAvatar &&
-  prev.styles === next.styles
+  prev.styles === next.styles &&
+  prev.colors === next.colors &&
+  prev.currentUserId === next.currentUserId
 ));
 
 interface ChatScreenProps {
@@ -167,6 +333,17 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [voicePreviewVisible, setVoicePreviewVisible] = useState(false);
   const [chatMenuVisible, setChatMenuVisible] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+
+  // Message actions menu state
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [showMessageMenu, setShowMessageMenu] = useState(false);
+
+  // Forward modal state
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [forwarding, setForwarding] = useState(false);
+
   const inputRef = useRef<TextInput>(null);
 
   // Refs for stable callbacks (avoid re-creating renderMessage on every poll)
@@ -374,7 +551,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       return next;
     });
 
-    const { data: sentMessage, error } = await sendMessageToDb(conversationId, messageText);
+    const { data: sentMessage, error } = await sendMessageToDb(conversationId, messageText, undefined, undefined, replyToMessage?.id);
+    
+    // Clear reply after sending
+    setReplyToMessage(null);
 
     if (error) {
       // Remove optimistic message and restore input
@@ -398,7 +578,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       pendingOptimisticIdsRef.current.delete(optimisticId);
     }
     setSending(false);
-  }, [conversationId, inputText, sending, currentUserId, showError]);
+  }, [conversationId, inputText, sending, currentUserId, showError, replyToMessage]);
 
   // Handle voice message send with optimistic update
   const handleVoiceSend = useCallback(async (uri: string, duration: number) => {
@@ -452,8 +632,12 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       conversationId,
       `Voice message (${durationText})`,
       voiceUrl,
-      'audio'
+      'audio',
+      replyToMessage?.id
     );
+
+    // Clear reply after sending
+    setReplyToMessage(null);
 
     if (error) {
       pendingOptimisticIdsRef.current.delete(optimisticId);
@@ -480,7 +664,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       pendingOptimisticIdsRef.current.delete(optimisticId);
     }
     setSending(false);
-  }, [conversationId, currentUserId, showError]);
+  }, [conversationId, currentUserId, showError, replyToMessage]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -498,6 +682,100 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     setVoicePreviewVisible(true);
   }, []);
   const handleCloseEmojiPicker = useCallback(() => setShowEmojiPicker(false), []);
+  const handleReply = useCallback((message: Message) => {
+    setReplyToMessage(message);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+  const handleCancelReply = useCallback(() => setReplyToMessage(null), []);
+
+  // Handle message reaction
+  const handleReaction = useCallback(async (messageId: string, emoji: string) => {
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+
+    const hasReaction = message.reactions?.some(r => r.user_id === currentUserId && r.emoji === emoji);
+
+    if (hasReaction) {
+      // Remove reaction
+      await removeMessageReaction(messageId, emoji);
+    } else {
+      // Add reaction
+      await addMessageReaction(messageId, emoji);
+    }
+
+    // Refresh messages to get updated reactions
+    loadMessages();
+  }, [messages, currentUserId, loadMessages]);
+
+  // Handle message long press - show menu
+  const handleMessageLongPress = useCallback((message: Message) => {
+    if (message.is_deleted) return;
+    setSelectedMessage(message);
+    setShowMessageMenu(true);
+    if (Platform.OS === 'ios') {
+      const Haptics = require('expo-haptics');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  }, []);
+
+  // Handle delete message
+  const handleDeleteMessage = useCallback(async (message: Message) => {
+    // Check if message is less than 15 minutes old
+    const messageAge = Date.now() - new Date(message.created_at).getTime();
+    const fifteenMinutes = 15 * 60 * 1000;
+
+    if (messageAge > fifteenMinutes) {
+      showError('Cannot Delete', 'Messages can only be deleted within 15 minutes of sending.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Message',
+      'Delete this message for everyone?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { success, error } = await deleteMessage(message.id);
+            if (success) {
+              // Refresh messages
+              loadMessages();
+            } else {
+              showError('Error', error || 'Failed to delete message');
+            }
+          },
+        },
+      ]
+    );
+  }, [loadMessages, showError]);
+
+  // Handle forward message
+  const handleForwardPress = useCallback(() => {
+    setShowMessageMenu(false);
+    setShowForwardModal(true);
+    // Load conversations
+    getConversations().then(({ data }) => {
+      if (data) setConversations(data);
+    });
+  }, []);
+
+  const handleForwardToConversation = useCallback(async (conversationId: string) => {
+    if (!selectedMessage) return;
+    
+    setForwarding(true);
+    const { data, error } = await forwardMessage(selectedMessage.id, conversationId);
+    
+    if (error) {
+      showError('Error', error);
+    } else {
+      showSuccess('Forwarded', 'Message forwarded successfully');
+      setShowForwardModal(false);
+    }
+    setForwarding(false);
+  }, [selectedMessage, showError, showSuccess]);
+
   const handleCloseSelectedImage = useCallback(() => setSelectedImage(null), []);
   const handleCloseVoicePreview = useCallback(() => {
     setVoicePreviewVisible(false);
@@ -513,6 +791,74 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const handleSendVoicePreview = useCallback(() => {
     if (voicePreview) handleVoiceSend(voicePreview.uri, voicePreview.duration);
   }, [voicePreview, handleVoiceSend]);
+
+  // Handle image picking and sending
+  const handlePickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showError('Permission Required', 'Photo library access is needed to send images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      const asset = result.assets[0];
+      await handleSendImage(asset.uri);
+    }
+  }, [showError]);
+
+  const handleSendImage = useCallback(async (imageUri: string) => {
+    if (!conversationId) {
+      showError('Error', 'Conversation not initialized');
+      return;
+    }
+
+    setSending(true);
+
+    try {
+      // Get presigned URL for image upload
+      const { getPresignedUrl } = await import('../../services/mediaUpload');
+      const fileName = `message-${Date.now()}.jpg`;
+      const presignedResult = await getPresignedUrl(fileName, 'messages', 'image/jpeg');
+
+      if (!presignedResult || !presignedResult.uploadUrl) {
+        showError('Error', 'Failed to get upload URL');
+        setSending(false);
+        return;
+      }
+
+      // Upload image
+      const { uploadWithFileSystem } = await import('../../services/mediaUpload');
+      const uploadSuccess = await uploadWithFileSystem(imageUri, presignedResult.uploadUrl, 'image/jpeg');
+
+      if (!uploadSuccess) {
+        showError('Error', 'Failed to upload image');
+        setSending(false);
+        return;
+      }
+
+      // Send message with image
+      const imageUrl = presignedResult.cdnUrl || presignedResult.key;
+      await sendMessageToDb(conversationId, '📷 Photo', imageUrl, 'image', replyToMessage?.id);
+
+      // Clear reply after sending
+      setReplyToMessage(null);
+
+      // Refresh messages
+      loadMessages();
+    } catch (error) {
+      showError('Error', 'Failed to send image');
+    } finally {
+      setSending(false);
+    }
+  }, [conversationId, replyToMessage, showError, loadMessages]);
+
   const handleViewProfileMenu = useCallback(() => {
     setChatMenuVisible(false);
     if (otherUserProfile?.id && isValidUUID(otherUserProfile.id)) {
@@ -574,9 +920,15 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         formatTime={formatTime}
         setSelectedImage={setSelectedImage}
         styles={styles}
+        onReply={handleReply}
+        onReaction={handleReaction}
+        onLongPress={handleMessageLongPress}
+        onDelete={handleDeleteMessage}
+        colors={colors}
+        currentUserId={currentUserId}
       />
     );
-  }, [goToUserProfile, styles]);
+  }, [goToUserProfile, styles, handleReply, handleReaction, handleMessageLongPress, handleDeleteMessage, colors, currentUserId]);
 
   const displayName = resolveDisplayName(otherUserProfile);
 
@@ -687,6 +1039,33 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         />
       ) : (
         <View style={[styles.inputArea, inputAreaPaddingStyle]}>
+          {/* Reply Preview */}
+          {replyToMessage && (
+            <View style={styles.replyPreviewContainer}>
+              <View style={[styles.replyPreviewLine, { backgroundColor: colors.primary }]} />
+              <View style={styles.replyPreviewContent}>
+                <Text style={[styles.replyPreviewName, { color: colors.primary }]} numberOfLines={1}>
+                  {replyToMessage.sender_id === currentUserId ? 'You' : (replyToMessage.sender?.full_name || 'User')}
+                </Text>
+                <Text style={[styles.replyPreviewText, { color: colors.gray }]} numberOfLines={1}>
+                  {replyToMessage.content || (replyToMessage.media_type === 'audio' ? 'Voice message' : 'Media')}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={handleCancelReply} style={styles.replyPreviewCancel}>
+                <Ionicons name="close" size={20} color={colors.gray} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Attach Image Button */}
+          <TouchableOpacity
+            style={styles.attachButton}
+            onPress={handlePickImage}
+            disabled={sending}
+          >
+            <Ionicons name="image-outline" size={24} color={sending ? colors.gray : colors.primary} />
+          </TouchableOpacity>
+
           {/* Emoji Button */}
           <TouchableOpacity
             style={styles.emojiButton}
@@ -800,6 +1179,147 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         </View>
       </Modal>
 
+      {/* Message Actions Modal (Reactions + Delete) */}
+      <Modal
+        visible={showMessageMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMessageMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMessageMenu(false)}
+        >
+          <View style={styles.messageMenuContainer}>
+            {/* Quick Reactions */}
+            <View style={styles.reactionsRow}>
+              {QUICK_REACTIONS.map((emoji) => {
+                const hasReaction = selectedMessage?.reactions?.some(
+                  r => r.user_id === currentUserId && r.emoji === emoji
+                );
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[styles.reactionButton, hasReaction && styles.reactionButtonActive]}
+                    onPress={() => {
+                      if (selectedMessage) {
+                        handleReaction(selectedMessage.id, emoji);
+                      }
+                      setShowMessageMenu(false);
+                    }}
+                  >
+                    <Text style={styles.reactionButtonEmoji}>{emoji}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.messageActionsList}>
+              <TouchableOpacity
+                style={styles.messageActionItem}
+                onPress={() => {
+                  if (selectedMessage) {
+                    handleReply(selectedMessage);
+                  }
+                  setShowMessageMenu(false);
+                }}
+              >
+                <Ionicons name="return-up-back" size={22} color={colors.primary} />
+                <Text style={styles.messageActionText}>Reply</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.messageActionItem}
+                onPress={handleForwardPress}
+              >
+                <Ionicons name="arrow-redo-outline" size={22} color={colors.primary} />
+                <Text style={styles.messageActionText}>Forward</Text>
+              </TouchableOpacity>
+
+              {selectedMessage?.sender_id === currentUserId && (
+                <TouchableOpacity
+                  style={styles.messageActionItem}
+                  onPress={() => {
+                    if (selectedMessage) {
+                      handleDeleteMessage(selectedMessage);
+                    }
+                    setShowMessageMenu(false);
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+                  <Text style={[styles.messageActionText, styles.messageActionTextDanger]}>Delete</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[styles.messageActionItem, styles.messageActionItemLast]}
+                onPress={() => setShowMessageMenu(false)}
+              >
+                <Ionicons name="close-outline" size={22} color={colors.gray} />
+                <Text style={[styles.messageActionText, styles.messageActionTextCancel]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Forward Modal */}
+      <Modal
+        visible={showForwardModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowForwardModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.forwardModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowForwardModal(false)}
+        >
+          <View style={styles.forwardModalContainer}>
+            <View style={styles.forwardModalHeader}>
+              <Text style={[styles.forwardModalTitle, { color: colors.dark }]}>Forward to...</Text>
+              <TouchableOpacity onPress={() => setShowForwardModal(false)}>
+                <Ionicons name="close" size={24} color={colors.gray} />
+              </TouchableOpacity>
+            </View>
+            
+            {conversations.length === 0 ? (
+              <View style={styles.forwardModalEmpty}>
+                <Text style={{ color: colors.gray }}>No conversations found</Text>
+              </View>
+            ) : (
+              <FlashList
+                data={conversations}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.forwardConversationItem}
+                    onPress={() => handleForwardToConversation(item.id)}
+                    disabled={forwarding}
+                  >
+                    <AvatarImage source={item.other_user?.avatar_url} size={48} />
+                    <View style={styles.forwardConversationInfo}>
+                      <Text style={[styles.forwardConversationName, { color: colors.dark }]} numberOfLines={1}>
+                        {item.other_user?.full_name || item.other_user?.username || 'User'}
+                      </Text>
+                      <Text style={[styles.forwardConversationPreview, { color: colors.gray }]} numberOfLines={1}>
+                        {item.last_message_preview || 'No messages'}
+                      </Text>
+                    </View>
+                    {forwarding && (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                contentContainerStyle={styles.forwardListContent}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Chat Menu Modal */}
       <Modal
         visible={chatMenuVisible}
@@ -903,4 +1423,60 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   menuItemText: { fontSize: 16, fontWeight: '500', color: colors.dark, marginLeft: SPACING.md },
   menuItemTextDanger: { color: '#FF3B30' },
   menuItemTextCancel: { color: colors.gray },
+  // Swipe to Reply
+  swipeableContainer: { overflow: 'hidden' },
+  replyActionContainer: { justifyContent: 'center', alignItems: 'flex-start', marginLeft: 10, width: 60 },
+  replyActionContainerLeft: { justifyContent: 'center', alignItems: 'flex-end', marginRight: 10, width: 60 },
+  replyAction: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  // Reply Preview in Input
+  replyPreviewContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', borderRadius: 12, marginBottom: 8, marginHorizontal: 4 },
+  replyPreviewLine: { width: 3, height: 36, borderRadius: 2, marginRight: 10 },
+  replyPreviewContent: { flex: 1 },
+  replyPreviewName: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
+  replyPreviewText: { fontSize: 13 },
+  replyPreviewCancel: { padding: 4 },
+  // Reply Preview inside Message Bubble
+  messageBubbleWithReply: { paddingTop: 8 },
+  replyPreview: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginBottom: 6, borderLeftWidth: 3 },
+  replyFromMe: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  replyFromOther: { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
+  replyName: { fontSize: 12, fontWeight: '600', marginBottom: 2 },
+  replyText: { fontSize: 12 },
+  // Message Row Container (for reactions positioning)
+  messageRowContainer: { marginBottom: 4 },
+  // Reactions on messages
+  reactionsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, marginHorizontal: SPACING.md },
+  reactionsLeft: { marginLeft: 40 },
+  reactionsRight: { justifyContent: 'flex-end', marginRight: 8 },
+  reactionBubble: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#2A2A2A' : '#F0F0F0', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6, marginBottom: 4, borderWidth: 1, borderColor: isDark ? '#3A3A3A' : '#E0E0E0' },
+  reactionBubbleActive: { backgroundColor: colors.primary + '15', borderColor: colors.primary },
+  reactionEmoji: { fontSize: 14 },
+  reactionCount: { fontSize: 12, fontWeight: '600', marginLeft: 4 },
+  // Message Actions Menu
+  messageMenuContainer: { backgroundColor: colors.backgroundSecondary, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: SPACING.lg, paddingBottom: 34 },
+  reactionsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
+  reactionButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5', justifyContent: 'center', alignItems: 'center' },
+  reactionButtonActive: { backgroundColor: colors.primary + '20' },
+  reactionButtonEmoji: { fontSize: 24 },
+  messageActionsList: { paddingTop: SPACING.md },
+  messageActionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
+  messageActionItemLast: { borderBottomWidth: 0 },
+  messageActionText: { fontSize: 16, fontWeight: '500', color: colors.dark, marginLeft: SPACING.md },
+  messageActionTextDanger: { color: '#FF3B30' },
+  messageActionTextCancel: { color: colors.gray },
+  // Read Receipts
+  readReceiptContainer: { flexDirection: 'row', alignItems: 'center', marginLeft: 4 },
+  // Attach Button
+  attachButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 4 },
+  // Forward Modal
+  forwardModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  forwardModalContainer: { backgroundColor: colors.backgroundSecondary, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 34 },
+  forwardModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
+  forwardModalTitle: { fontSize: 18, fontWeight: '600' },
+  forwardModalEmpty: { paddingVertical: SPACING.xl, alignItems: 'center' },
+  forwardListContent: { paddingBottom: 20 },
+  forwardConversationItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
+  forwardConversationInfo: { flex: 1, marginLeft: SPACING.md },
+  forwardConversationName: { fontSize: 16, fontWeight: '500' },
+  forwardConversationPreview: { fontSize: 13, marginTop: 2 },
 });

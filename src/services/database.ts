@@ -1468,6 +1468,20 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
       sender_id: string; read: boolean; created_at: string;
       shared_post_id?: string; is_deleted?: boolean;
       sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      reply_to_message_id?: string;
+      reply_to_message?: {
+        id: string; content: string; sender_id: string;
+        sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      } | null;
+      reactions?: Array<{
+        id: string; message_id: string; user_id: string; emoji: string; created_at: string;
+        user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      }>;
+      read_by?: Array<{
+        message_id: string; user_id: string; read_at: string;
+        user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      }>;
+      is_read?: boolean;
     }> }>(`/conversations/${conversationId}/messages?limit=${limit}`);
     const messages: Message[] = (result.messages || []).map((m) => ({
       id: m.id,
@@ -1483,6 +1497,48 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
         id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
         display_name: m.sender.display_name, avatar_url: m.sender.avatar_url,
       } as Profile : undefined,
+      reply_to_message_id: m.reply_to_message_id,
+      reply_to_message: m.reply_to_message ? {
+        id: m.reply_to_message.id,
+        conversation_id: conversationId,
+        sender_id: m.reply_to_message.sender_id,
+        content: m.reply_to_message.content,
+        created_at: '',
+        sender: m.reply_to_message.sender ? {
+          id: m.reply_to_message.sender.id,
+          username: m.reply_to_message.sender.username,
+          full_name: m.reply_to_message.sender.display_name || '',
+          display_name: m.reply_to_message.sender.display_name,
+          avatar_url: m.reply_to_message.sender.avatar_url,
+        } as Profile : undefined,
+      } as Message : undefined,
+      reactions: (m.reactions || []).map((r) => ({
+        id: r.id,
+        message_id: r.message_id,
+        user_id: r.user_id,
+        emoji: r.emoji,
+        created_at: r.created_at,
+        user: r.user ? {
+          id: r.user.id,
+          username: r.user.username,
+          full_name: r.user.display_name || '',
+          display_name: r.user.display_name,
+          avatar_url: r.user.avatar_url,
+        } as Profile : undefined,
+      })),
+      read_by: (m.read_by || []).map((rb) => ({
+        message_id: rb.message_id,
+        user_id: rb.user_id,
+        read_at: rb.read_at,
+        user: rb.user ? {
+          id: rb.user.id,
+          username: rb.user.username,
+          full_name: rb.user.display_name || '',
+          display_name: rb.user.display_name,
+          avatar_url: rb.user.avatar_url,
+        } as Profile : undefined,
+      })),
+      is_read: m.is_read,
     }));
     return { data: messages, error: null };
   } catch (error: unknown) {
@@ -1497,7 +1553,8 @@ export const sendMessage = async (
   conversationId: string,
   content: string,
   mediaUrl?: string,
-  mediaType?: 'image' | 'video' | 'voice' | 'audio'
+  mediaType?: 'image' | 'video' | 'voice' | 'audio',
+  replyToMessageId?: string
 ): Promise<DbResponse<Message>> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
@@ -1512,9 +1569,14 @@ export const sendMessage = async (
       id: string; content: string; media_url?: string; media_type?: string;
       sender_id: string; recipient_id: string; read: boolean; created_at: string;
       sender: { id: string; username: string; display_name: string; avatar_url: string };
+      reply_to_message_id?: string;
+      reply_to_message?: {
+        id: string; content: string; sender_id: string;
+        sender: { id: string; username: string; display_name: string; avatar_url: string };
+      };
     } }>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { content: sanitizedContent, mediaUrl, mediaType },
+      body: { content: sanitizedContent, mediaUrl, mediaType, replyToMessageId },
     });
     const m = result.message;
     return { data: {
@@ -1524,6 +1586,21 @@ export const sendMessage = async (
       content: m.content,
       media_url: m.media_url,
       media_type: m.media_type as Message['media_type'],
+      reply_to_message_id: m.reply_to_message_id,
+      reply_to_message: m.reply_to_message ? {
+        id: m.reply_to_message.id,
+        conversation_id: conversationId,
+        sender_id: m.reply_to_message.sender_id,
+        content: m.reply_to_message.content,
+        created_at: '',
+        sender: m.reply_to_message.sender ? {
+          id: m.reply_to_message.sender.id,
+          username: m.reply_to_message.sender.username,
+          full_name: m.reply_to_message.sender.display_name || '',
+          display_name: m.reply_to_message.sender.display_name,
+          avatar_url: m.reply_to_message.sender.avatar_url,
+        } as Profile : undefined,
+      } as Message : undefined,
       created_at: m.created_at,
       sender: m.sender ? {
         id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
@@ -1728,6 +1805,22 @@ export interface MutedUser {
   muted_user: Profile;
 }
 
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+  user?: Profile;
+}
+
+export interface MessageReadReceipt {
+  message_id: string;
+  user_id: string;
+  read_at: string;
+  user?: Profile;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -1740,6 +1833,14 @@ export interface Message {
   created_at: string;
   read_at?: string;
   sender?: Profile;
+  // Reply/Quote functionality
+  reply_to_message_id?: string;
+  reply_to_message?: Message;
+  // Reactions
+  reactions?: MessageReaction[];
+  // Read receipts (for read indicators)
+  read_by?: MessageReadReceipt[];
+  is_read?: boolean;
 }
 
 export interface Conversation {
@@ -2188,6 +2289,191 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
     // Step 3: Return the best playback URL available (prefer CDN over S3 direct URL)
     const resolvedUrl = presignedResult.cdnUrl || awsAPI.getCDNUrl(presignedResult.key) || presignedResult.fileUrl || null;
     return { data: resolvedUrl, error: null };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
+  }
+};
+
+
+// ============================================
+// MESSAGE REACTIONS
+// ============================================
+
+/**
+ * Available emoji reactions
+ */
+export const AVAILABLE_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '🙏'] as const;
+
+/**
+ * Add or toggle a reaction on a message
+ */
+export const addMessageReaction = async (
+  messageId: string,
+  emoji: string
+): Promise<{ data: MessageReaction | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ reaction: {
+      id: string;
+      message_id: string;
+      user_id: string;
+      emoji: string;
+      created_at: string;
+      user?: { id: string; username: string; display_name: string; avatar_url: string };
+    } }>(`/messages/${messageId}/reactions`, {
+      method: 'POST',
+      body: { emoji },
+    });
+
+    return {
+      data: {
+        id: result.reaction.id,
+        message_id: result.reaction.message_id,
+        user_id: result.reaction.user_id,
+        emoji: result.reaction.emoji,
+        created_at: result.reaction.created_at,
+        user: result.reaction.user ? {
+          id: result.reaction.user.id,
+          username: result.reaction.user.username,
+          full_name: result.reaction.user.display_name || '',
+          display_name: result.reaction.user.display_name,
+          avatar_url: result.reaction.user.avatar_url,
+        } as Profile : undefined,
+      },
+      error: null,
+    };
+  } catch (error: unknown) {
+    return { data: null, error: getErrorMessage(error) };
+  }
+};
+
+/**
+ * Remove a reaction from a message
+ */
+export const removeMessageReaction = async (
+  messageId: string,
+  emoji: string
+): Promise<{ success: boolean; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { success: false, error: 'Not authenticated' };
+
+  try {
+    await awsAPI.request(`/messages/${messageId}/reactions`, {
+      method: 'DELETE',
+      body: { emoji },
+    });
+    return { success: true, error: null };
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+};
+
+/**
+ * Get reactions for a message
+ */
+export const getMessageReactions = async (
+  messageId: string
+): Promise<{ data: MessageReaction[]; error: string | null }> => {
+  try {
+    const result = await awsAPI.request<{ reactions: Array<{
+      id: string;
+      message_id: string;
+      user_id: string;
+      emoji: string;
+      created_at: string;
+      user?: { id: string; username: string; display_name: string; avatar_url: string };
+    }> }>(`/messages/${messageId}/reactions`);
+
+    const reactions: MessageReaction[] = (result.reactions || []).map((r) => ({
+      id: r.id,
+      message_id: r.message_id,
+      user_id: r.user_id,
+      emoji: r.emoji,
+      created_at: r.created_at,
+      user: r.user ? {
+        id: r.user.id,
+        username: r.user.username,
+        full_name: r.user.display_name || '',
+        display_name: r.user.display_name,
+        avatar_url: r.user.avatar_url,
+      } as Profile : undefined,
+    }));
+
+    return { data: reactions, error: null };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
+  }
+};
+
+// ============================================
+// MESSAGE DELETION
+// ============================================
+
+/**
+ * Delete a message (for everyone, within 15 minutes)
+ */
+export const deleteMessage = async (
+  messageId: string
+): Promise<{ success: boolean; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { success: false, error: 'Not authenticated' };
+
+  try {
+    await awsAPI.request(`/messages/${messageId}`, {
+      method: 'DELETE',
+    });
+    return { success: true, error: null };
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+};
+
+// ============================================
+// MESSAGE FORWARDING
+// ============================================
+
+/**
+ * Forward a message to another conversation
+ */
+export const forwardMessage = async (
+  messageId: string,
+  targetConversationId: string
+): Promise<{ data: Message | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ message: {
+      id: string; content: string; media_url?: string; media_type?: string;
+      sender_id: string; created_at: string;
+      sender: { id: string; username: string; display_name: string; avatar_url: string };
+    } }>(`/messages/${messageId}/forward`, {
+      method: 'POST',
+      body: { targetConversationId },
+    });
+
+    const m = result.message;
+    return {
+      data: {
+        id: m.id,
+        conversation_id: targetConversationId,
+        sender_id: m.sender_id,
+        content: m.content,
+        media_url: m.media_url,
+        media_type: m.media_type as Message['media_type'],
+        created_at: m.created_at,
+        sender: m.sender ? {
+          id: m.sender.id,
+          username: m.sender.username,
+          full_name: m.sender.display_name || '',
+          display_name: m.sender.display_name,
+          avatar_url: m.sender.avatar_url,
+        } as Profile : undefined,
+      },
+      error: null,
+    };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }

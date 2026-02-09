@@ -471,8 +471,8 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               <Ionicons name="finger-print" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
-              <Text style={styles.securityTitle}>3DS Authentication</Text>
-              <Text style={styles.securityDesc}>Secure payment verification</Text>
+              <Text style={styles.securityTitle}>{t('payments:methods:threeDS')}</Text>
+              <Text style={styles.securityDesc}>{t('payments:methods:threeDSDesc')}</Text>
             </View>
           </View>
           <View style={styles.securityItem}>
@@ -480,15 +480,15 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               <Ionicons name="eye-off" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
-              <Text style={styles.securityTitle}>Masked Data</Text>
-              <Text style={styles.securityDesc}>Card numbers never stored</Text>
+              <Text style={styles.securityTitle}>{t('payments:methods:maskedData')}</Text>
+              <Text style={styles.securityDesc}>{t('payments:methods:maskedDataDesc')}</Text>
             </View>
           </View>
         </View>
 
         {/* Powered by Stripe */}
         <View style={styles.poweredBy}>
-          <Text style={styles.poweredByText}>Secure payments by</Text>
+          <Text style={styles.poweredByText}>{t('payments:methods:securePaymentsBy')}</Text>
           <Text style={styles.stripeLogo}>stripe</Text>
         </View>
 

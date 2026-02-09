@@ -1624,6 +1624,48 @@ export const reportUser = async (userId: string, reason: string, details?: strin
 };
 
 /**
+ * Report a live stream
+ */
+export const reportLivestream = async (liveStreamId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ id: string }>('/reports/livestream', {
+      method: 'POST',
+      body: { liveStreamId, reason, details },
+    });
+    return { data: result, error: null };
+  } catch (error: unknown) {
+    if (getErrorMessage(error)?.includes('already')) {
+      return { data: null, error: 'already_reported' };
+    }
+    return { data: null, error: getErrorMessage(error) };
+  }
+};
+
+/**
+ * Report a message
+ */
+export const reportMessage = async (messageId: string, conversationId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ id: string }>('/reports/message', {
+      method: 'POST',
+      body: { messageId, conversationId, reason, details },
+    });
+    return { data: result, error: null };
+  } catch (error: unknown) {
+    if (getErrorMessage(error)?.includes('already')) {
+      return { data: null, error: 'already_reported' };
+    }
+    return { data: null, error: getErrorMessage(error) };
+  }
+};
+
+/**
  * Block a user
  */
 export const blockUser = async (userId: string): Promise<{ data: BlockedUser | null; error: string | null }> => {

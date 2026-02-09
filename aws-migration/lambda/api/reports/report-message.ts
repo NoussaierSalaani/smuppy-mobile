@@ -1,6 +1,6 @@
 /**
- * Report Post Lambda Handler
- * Creates a report against a post for content moderation
+ * Report Message Lambda Handler
+ * Creates a report against a private message for content moderation.
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -9,9 +9,9 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
-import { checkPostEscalation, checkUserEscalation } from '../../shared/moderation/autoEscalation';
+import { checkUserEscalation } from '../../shared/moderation/autoEscalation';
 
-const log = createLogger('reports-post');
+const log = createLogger('reports-message');
 const MAX_REASON_LENGTH = 100;
 const MAX_DETAILS_LENGTH = 1000;
 
@@ -25,7 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const rateLimit = await checkRateLimit({
-      prefix: 'report-post',
+      prefix: 'report-message',
       identifier: cognitoSub,
       windowSeconds: 300,
       maxRequests: 5,
@@ -35,17 +35,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { postId, reason, details } = body;
+    const { messageId, conversationId, reason, details } = body;
 
-    if (!postId || !isValidUUID(postId)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid post ID format' }) };
+    if (!messageId || !isValidUUID(messageId)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid message ID format' }) };
+    }
+
+    if (!conversationId || !isValidUUID(conversationId)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid conversation ID format' }) };
     }
 
     if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
       return { statusCode: 400, headers, body: JSON.stringify({ message: 'Reason is required' }) };
     }
 
-    // Sanitize inputs
     const sanitizedReason = reason.replace(/<[^>]*>/g, '').trim().slice(0, MAX_REASON_LENGTH);
     const sanitizedDetails = details
       ? String(details).replace(/<[^>]*>/g, '').trim().slice(0, MAX_DETAILS_LENGTH)
@@ -59,33 +62,39 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
     const reporterId = userResult.rows[0].id;
 
-    // Verify post exists
-    const postResult = await db.query('SELECT id FROM posts WHERE id = $1', [postId]);
-    if (postResult.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ message: 'Post not found' }) };
+    // Verify message exists and reporter is a participant
+    const messageResult = await db.query(
+      `SELECT m.id, m.conversation_id
+       FROM messages m
+       JOIN conversations c ON c.id = m.conversation_id
+       WHERE m.id = $1 AND m.conversation_id = $2
+         AND (c.participant_1_id = $3 OR c.participant_2_id = $3)`,
+      [messageId, conversationId, reporterId]
+    );
+    if (messageResult.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ message: 'Message not found or you are not a participant' }) };
     }
 
-    // Atomic duplicate check + insert in a single transaction
     const client = await db.connect();
     let result;
     try {
       await client.query('BEGIN');
 
       const existing = await client.query(
-        `SELECT id FROM post_reports WHERE reporter_id = $1 AND post_id = $2 FOR UPDATE`,
-        [reporterId, postId]
+        `SELECT id FROM message_reports WHERE reporter_id = $1 AND message_id = $2 FOR UPDATE`,
+        [reporterId, messageId]
       );
       if (existing.rows.length > 0) {
         await client.query('ROLLBACK');
         client.release();
-        return { statusCode: 409, headers, body: JSON.stringify({ message: 'You have already reported this post' }) };
+        return { statusCode: 409, headers, body: JSON.stringify({ message: 'You have already reported this message' }) };
       }
 
       result = await client.query(
-        `INSERT INTO post_reports (reporter_id, post_id, reason, description)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO message_reports (reporter_id, message_id, conversation_id, reason, description)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id`,
-        [reporterId, postId, sanitizedReason, sanitizedDetails]
+        [reporterId, messageId, conversationId, sanitizedReason, sanitizedDetails]
       );
 
       await client.query('COMMIT');
@@ -96,19 +105,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       client.release();
     }
 
-    log.info('Post report created', { reportId: result.rows[0].id });
+    log.info('Message report created', { reportId: result.rows[0].id });
 
-    // Auto-escalation: check if post/user thresholds are met
+    // Auto-escalation: check if message sender should be escalated
     try {
-      const postEscalation = await checkPostEscalation(db, postId);
-      if (postEscalation.action !== 'none') {
-        log.info('Auto-escalation triggered', postEscalation);
-      }
-
-      // Get post author for user escalation
-      const authorResult = await db.query('SELECT author_id FROM posts WHERE id = $1', [postId]);
-      if (authorResult.rows.length > 0) {
-        const userEscalation = await checkUserEscalation(db, authorResult.rows[0].author_id);
+      const senderResult = await db.query('SELECT sender_id FROM messages WHERE id = $1', [messageId]);
+      if (senderResult.rows.length > 0) {
+        const userEscalation = await checkUserEscalation(db, senderResult.rows[0].sender_id);
         if (userEscalation.action !== 'none') {
           log.info('User escalation triggered', userEscalation);
         }
@@ -123,7 +126,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify({ id: result.rows[0].id, success: true }),
     };
   } catch (error: unknown) {
-    log.error('Error reporting post', error);
+    log.error('Error reporting message', error);
     return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
   }
 }

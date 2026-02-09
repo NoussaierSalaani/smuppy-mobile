@@ -1,6 +1,6 @@
 /**
- * Report Post Lambda Handler
- * Creates a report against a post for content moderation
+ * Report Live Stream Lambda Handler
+ * Creates a report against a live stream for content moderation.
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -9,9 +9,9 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
-import { checkPostEscalation, checkUserEscalation } from '../../shared/moderation/autoEscalation';
+import { checkUserEscalation } from '../../shared/moderation/autoEscalation';
 
-const log = createLogger('reports-post');
+const log = createLogger('reports-livestream');
 const MAX_REASON_LENGTH = 100;
 const MAX_DETAILS_LENGTH = 1000;
 
@@ -25,7 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const rateLimit = await checkRateLimit({
-      prefix: 'report-post',
+      prefix: 'report-livestream',
       identifier: cognitoSub,
       windowSeconds: 300,
       maxRequests: 5,
@@ -35,17 +35,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { postId, reason, details } = body;
+    const { liveStreamId, reason, details } = body;
 
-    if (!postId || !isValidUUID(postId)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid post ID format' }) };
+    if (!liveStreamId || !isValidUUID(liveStreamId)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid live stream ID format' }) };
     }
 
     if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
       return { statusCode: 400, headers, body: JSON.stringify({ message: 'Reason is required' }) };
     }
 
-    // Sanitize inputs
     const sanitizedReason = reason.replace(/<[^>]*>/g, '').trim().slice(0, MAX_REASON_LENGTH);
     const sanitizedDetails = details
       ? String(details).replace(/<[^>]*>/g, '').trim().slice(0, MAX_DETAILS_LENGTH)
@@ -59,33 +58,32 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
     const reporterId = userResult.rows[0].id;
 
-    // Verify post exists
-    const postResult = await db.query('SELECT id FROM posts WHERE id = $1', [postId]);
-    if (postResult.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ message: 'Post not found' }) };
+    // Verify live stream exists
+    const streamResult = await db.query('SELECT id FROM live_streams WHERE id = $1', [liveStreamId]);
+    if (streamResult.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ message: 'Live stream not found' }) };
     }
 
-    // Atomic duplicate check + insert in a single transaction
     const client = await db.connect();
     let result;
     try {
       await client.query('BEGIN');
 
       const existing = await client.query(
-        `SELECT id FROM post_reports WHERE reporter_id = $1 AND post_id = $2 FOR UPDATE`,
-        [reporterId, postId]
+        `SELECT id FROM live_stream_reports WHERE reporter_id = $1 AND live_stream_id = $2 FOR UPDATE`,
+        [reporterId, liveStreamId]
       );
       if (existing.rows.length > 0) {
         await client.query('ROLLBACK');
         client.release();
-        return { statusCode: 409, headers, body: JSON.stringify({ message: 'You have already reported this post' }) };
+        return { statusCode: 409, headers, body: JSON.stringify({ message: 'You have already reported this live stream' }) };
       }
 
       result = await client.query(
-        `INSERT INTO post_reports (reporter_id, post_id, reason, description)
+        `INSERT INTO live_stream_reports (reporter_id, live_stream_id, reason, description)
          VALUES ($1, $2, $3, $4)
          RETURNING id`,
-        [reporterId, postId, sanitizedReason, sanitizedDetails]
+        [reporterId, liveStreamId, sanitizedReason, sanitizedDetails]
       );
 
       await client.query('COMMIT');
@@ -96,19 +94,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       client.release();
     }
 
-    log.info('Post report created', { reportId: result.rows[0].id });
+    log.info('Live stream report created', { reportId: result.rows[0].id });
 
-    // Auto-escalation: check if post/user thresholds are met
+    // Auto-escalation: check if streamer should be escalated
     try {
-      const postEscalation = await checkPostEscalation(db, postId);
-      if (postEscalation.action !== 'none') {
-        log.info('Auto-escalation triggered', postEscalation);
-      }
-
-      // Get post author for user escalation
-      const authorResult = await db.query('SELECT author_id FROM posts WHERE id = $1', [postId]);
-      if (authorResult.rows.length > 0) {
-        const userEscalation = await checkUserEscalation(db, authorResult.rows[0].author_id);
+      const streamerResult = await db.query('SELECT host_id FROM live_streams WHERE id = $1', [liveStreamId]);
+      if (streamerResult.rows.length > 0) {
+        const userEscalation = await checkUserEscalation(db, streamerResult.rows[0].host_id);
         if (userEscalation.action !== 'none') {
           log.info('User escalation triggered', userEscalation);
         }
@@ -123,7 +115,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify({ id: result.rows[0].id, success: true }),
     };
   } catch (error: unknown) {
-    log.error('Error reporting post', error);
+    log.error('Error reporting live stream', error);
     return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
   }
 }

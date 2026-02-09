@@ -325,6 +325,12 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const reportComment = reports.addResource('comment');
     reportComment.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsCommentFn), authWithBodyValidation);
 
+    const reportLivestream = reports.addResource('livestream');
+    reportLivestream.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsLivestreamFn), authWithBodyValidation);
+
+    const reportMessage = reports.addResource('message');
+    reportMessage.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsMessageFn), authWithBodyValidation);
+
     const reportUser = reports.addResource('user');
     reportUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsUserFn), authWithBodyValidation);
 

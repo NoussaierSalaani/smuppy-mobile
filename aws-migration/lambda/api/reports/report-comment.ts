@@ -10,6 +10,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { checkUserEscalation } from '../../shared/moderation/autoEscalation';
 
 const log = createLogger('reports-comment');
 const MAX_REASON_LENGTH = 100;
@@ -97,6 +98,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     log.info('Comment report created', { reportId: result.rows[0].id });
+
+    // Auto-escalation: check if comment author should be escalated
+    try {
+      const authorResult = await db.query('SELECT author_id FROM comments WHERE id = $1', [commentId]);
+      if (authorResult.rows.length > 0) {
+        const userEscalation = await checkUserEscalation(db, authorResult.rows[0].author_id);
+        if (userEscalation.action !== 'none') {
+          log.info('User escalation triggered', userEscalation);
+        }
+      }
+    } catch (escErr) {
+      log.error('Auto-escalation check failed (non-blocking)', escErr);
+    }
 
     return {
       statusCode: 201,

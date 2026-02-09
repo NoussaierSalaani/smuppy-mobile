@@ -10,7 +10,9 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
+import * as path from 'path';
 
 interface SecurityPhase2StackProps extends cdk.StackProps {
   environment: string;
@@ -35,6 +37,7 @@ interface SecurityPhase2StackProps extends cdk.StackProps {
 export class SecurityPhase2Stack extends cdk.Stack {
   public readonly backupVault: backup.BackupVault;
   public readonly virusScanFunction: lambda.Function;
+  public readonly imageModerationFunction: NodejsFunction;
   public readonly securityAlertsTopic: sns.Topic;
 
   constructor(scope: Construct, id: string, props: SecurityPhase2StackProps) {
@@ -504,6 +507,78 @@ def handler(event, context):
     });
 
     virusScanRule.addTarget(new targets.LambdaFunction(this.virusScanFunction, {
+      retryAttempts: 2,
+    }));
+
+    // ========================================
+    // 3. IMAGE MODERATION with AWS Rekognition
+    // ========================================
+
+    this.imageModerationFunction = new NodejsFunction(this, 'ImageModerationFunction', {
+      functionName: `smuppy-image-moderation-${environment}`,
+      entry: path.join(__dirname, '../../lambda/api/moderation/analyze-image.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        QUARANTINE_BUCKET: quarantineBucket.bucketName,
+        SECURITY_ALERTS_TOPIC_ARN: this.securityAlertsTopic.topicArn,
+        AWS_REGION_OVERRIDE: cdk.Aws.REGION,
+      },
+      bundling: {
+        minify: true,
+        sourceMap: !isProduction,
+        externalModules: [],
+      },
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+
+    // Grant S3 permissions (read source, delete source, tag source, write quarantine)
+    mediaBucket.grantRead(this.imageModerationFunction);
+    mediaBucket.grantDelete(this.imageModerationFunction);
+    quarantineBucket.grantPut(this.imageModerationFunction);
+    this.imageModerationFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['s3:PutObjectTagging', 's3:GetObjectTagging'],
+      resources: [`${mediaBucket.bucketArn}/*`],
+    }));
+
+    // Grant Rekognition DetectModerationLabels
+    this.imageModerationFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['rekognition:DetectModerationLabels'],
+      resources: ['*'],
+    }));
+
+    // Grant SNS publish for alerts
+    this.securityAlertsTopic.grantPublish(this.imageModerationFunction);
+
+    // EventBridge rule: trigger on image uploads to media bucket
+    const imageModerationRule = new events.Rule(this, 'ImageModerationRule', {
+      ruleName: `smuppy-image-moderation-trigger-${environment}`,
+      description: 'Trigger Rekognition moderation on image uploads',
+      eventPattern: {
+        source: ['aws.s3'],
+        detailType: ['Object Created'],
+        detail: {
+          bucket: {
+            name: [mediaBucket.bucketName],
+          },
+          object: {
+            key: [
+              { prefix: 'uploads/' },
+              { prefix: 'posts/' },
+              { prefix: 'peaks/' },
+              { prefix: 'users/' },
+            ],
+          },
+        },
+      },
+    });
+
+    imageModerationRule.addTarget(new targets.LambdaFunction(this.imageModerationFunction, {
       retryAttempts: 2,
     }));
 

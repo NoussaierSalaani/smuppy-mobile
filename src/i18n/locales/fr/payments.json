@@ -1,79 +1,143 @@
 {
-  "payments": "Paiements",
-  "paymentMethods": "Moyens de paiement",
-  "addPaymentMethod": "Ajouter un moyen de paiement",
-  "removePaymentMethod": "Supprimer le moyen de paiement",
-  "default": "Par défaut",
-  "setAsDefault": "Définir par défaut",
-
-  "methods": {
-    "card": "Carte",
-    "bank": "Virement bancaire",
-    "paypal": "PayPal",
-    "apple_pay": "Apple Pay",
-    "google_pay": "Google Pay"
-  },
-
-  "card": {
-    "number": "Numéro de carte",
-    "expiry": "Date d'expiration",
-    "cvc": "CVC",
-    "holderName": "Nom du titulaire"
-  },
-
-  "status": {
-    "pending": "En attente",
-    "processing": "En cours",
-    "succeeded": "Réussi",
-    "failed": "Échoué",
-    "refunded": "Remboursé",
-    "disputed": "Contesté"
-  },
-
-  "actions": {
-    "pay": "Payer",
-    "confirm": "Confirmer le paiement",
-    "retry": "Réessayer",
-    "refund": "Rembourser",
-    "downloadReceipt": "Télécharger le reçu"
-  },
-
-  "errors": {
-    "cardDeclined": "Carte refusée",
-    "insufficientFunds": "Fonds insuffisants",
-    "expiredCard": "Carte expirée",
-    "invalidCard": "Carte invalide",
-    "processingError": "Erreur de traitement",
-    "tryAgain": "Veuillez réessayer"
-  },
-
+  "title": "Moyens de paiement",
   "wallet": {
     "title": "Portefeuille",
-    "balance": "Solde",
-    "earnings": "Gains",
-    "withdraw": "Retirer",
-    "withdrawalHistory": "Historique des retraits",
-    "minimumWithdrawal": "Retrait minimum",
-    "instant": "Instantané",
-    "standard": "Standard (2-3 jours)"
-  },
-
-  "subscription": {
-    "title": "Abonnement",
-    "plan": "Formule",
-    "monthly": "Mensuel",
-    "yearly": "Annuel",
-    "cancel": "Annuler l'abonnement",
-    "renew": "Renouveler",
-    "upgrade": "Passer à",
-    "downgrade": "Passer à",
-    "benefits": "Avantages",
-    "manage": "Gérer l'abonnement"
-  },
-
-  "history": {
-    "title": "Historique",
+    "balance": "Solde disponible",
+    "revenueShare": "{{percent}}% de partage de revenus",
+    "thisMonth": "Ce mois",
+    "lifetime": "Depuis le début",
+    "subscribers": "Abonnés",
+    "revenueBreakdown": "Répartition des revenus",
+    "transactions": "{{count}} transactions",
+    "setupStripe": "Configurer les paiements avec Stripe",
+    "recentTransactions": "Transactions récentes",
     "noTransactions": "Aucune transaction",
-    "viewDetails": "Voir les détails"
+    "analytics": "Analytiques",
+    "avgPerTransaction": "Moyenne par transaction",
+    "transactionsThisMonth": "Transactions ce mois",
+    "viewDetailed": "Voir les analytiques détaillées"
+  },
+  "methods": {
+    "title": "Moyens de paiement",
+    "cards": "Cartes",
+    "ssl": "SSL 256 bits",
+    "secure": "3DS Secure",
+    "yourCards": "Vos cartes",
+    "noCards": "Aucune carte",
+    "addCard": "Ajouter une carte",
+    "default": "Par défaut",
+    "sslEncryption": "Chiffrement SSL",
+    "sslDesc": "Données chiffrées de bout en bout",
+    "threeDS": "Authentification 3DS",
+    "threeDSDesc": "Couche de sécurité supplémentaire",
+    "success": {
+      "cardAdded": "Carte ajoutée avec succès"
+    },
+    "errors": {
+      "addCard": "Impossible d'ajouter la carte. Veuillez réessayer.",
+      "setDefault": "Impossible de définir par défaut",
+      "removeCard": "Impossible de supprimer la carte"
+    }
+  },
+  "subscription": {
+    "title": "Passer Pro",
+    "premiumTitle": "Abonnement Premium",
+    "unlockFeatures": "Débloquez des fonctionnalités créateur premium",
+    "unlockPotential": "Libérez votre plein potentiel",
+    "popular": "Le plus populaire",
+    "currentPlan": "Plan actuel",
+    "perMonth": "/mois",
+    "cancelAnytime": "Annulez à tout moment",
+    "noCommitment": "Sans engagement, annulez quand vous voulez",
+    "subscribeFor": "S'abonner pour {{price}}/mois",
+    "termsAgreement": "En vous abonnant, vous acceptez nos Conditions d'utilisation",
+    "plans": {
+      "proCreator": "Pro Créateur",
+      "proBusiness": "Pro Business"
+    },
+    "features": {
+      "unlimitedLive": "Streaming live illimité",
+      "monetize": "Monétisez avec les abonnements chaîne",
+      "sellSessions": "Vendez des sessions 1:1 & packs",
+      "analytics": "Tableau de bord analytique avancé",
+      "identityBadge": "Badge de vérification d'identité",
+      "revenueShare": "Jusqu'à 80% de partage de revenus",
+      "prioritySupport": "Support prioritaire",
+      "exclusiveFeatures": "Fonctionnalités créateur exclusives",
+      "businessBadge": "Badge profil entreprise",
+      "consultations": "Vendez des sessions & consultations",
+      "localDiscovery": "Fonctionnalités de découverte locale",
+      "clientManagement": "Outils de gestion client",
+      "acceptPayments": "Acceptez les paiements directement",
+      "businessAnalytics": "Analytiques entreprise",
+      "priorityMessaging": "Messagerie prioritaire",
+      "reviews": "Avis & évaluations"
+    },
+    "includes": "{{plan}} comprend",
+    "success": {
+      "alreadySubscribed": "Déjà abonné",
+      "onPlan": "Vous êtes déjà sur ce plan.",
+      "subscribed": "Abonné !",
+      "active": "Votre abonnement est maintenant actif."
+    },
+    "errors": {
+      "paymentFailed": "Paiement échoué",
+      "startSubscription": "Impossible de démarrer l'abonnement. Veuillez réessayer."
+    }
+  },
+  "identity": {
+    "title": "Vérification d'identité",
+    "verified": "Identité vérifiée",
+    "verifiedAccount": "Compte vérifié",
+    "howItWorks": "Comment ça marche",
+    "whyVerify": "Pourquoi se faire vérifier ?",
+    "congratulations": "Félicitations !",
+    "steps": {
+      "subscribe": "Abonnez-vous à la vérification",
+      "selfie": "Prenez un selfie",
+      "selfieDesc": "Nous le comparerons à votre pièce d'identité",
+      "scanId": "Scannez votre pièce d'identité",
+      "scanIdDesc": "Permis de conduire ou passeport",
+      "getVerified": "Soyez vérifié",
+      "getVerifiedDesc": "Le badge apparaît sur votre profil"
+    },
+    "benefits": {
+      "badge": "Badge vérifié sur votre profil",
+      "visibility": "Plus de visibilité dans les recherches",
+      "trust": "Gagnez la confiance de vos fans",
+      "monetization": "Requis pour la monétisation",
+      "security": "Protection sécurisée de l'identité"
+    },
+    "status": {
+      "notVerified": "Non vérifié",
+      "notVerifiedDesc": "Complétez la vérification pour obtenir votre badge",
+      "paymentRequired": "Paiement requis",
+      "paymentRequiredDesc": "Payez les frais de vérification pour continuer",
+      "docsNeeded": "Documents requis",
+      "docsNeededDesc": "Veuillez soumettre vos documents",
+      "processing": "En cours",
+      "processingDesc": "Nous examinons vos documents",
+      "verified": "Vérifié",
+      "verifiedDesc": "Votre identité a été vérifiée"
+    },
+    "loadingPrice": "Chargement du prix...",
+    "priceUnavailable": "Prix indisponible",
+    "billingPeriod": "période de facturation",
+    "continueVerification": "Continuer la vérification",
+    "getVerified": "Se faire vérifier",
+    "verifiedBadgeVisible": "Votre identité a été vérifiée. Le badge vérifié est maintenant visible sur votre profil.",
+    "subscriptionActive": "Abonnement actif",
+    "verifyNow": "Vérifions maintenant votre identité",
+    "continue": "Continuer",
+    "secureNote": "Propulsé par Stripe Identity • Vos données sont sécurisées",
+    "errors": {
+      "initSubscription": "Impossible d'initialiser l'abonnement. Veuillez réessayer.",
+      "startVerification": "Impossible de démarrer la vérification. Veuillez réessayer."
+    }
+  },
+  "generic": {
+    "error": "Une erreur s'est produite. Veuillez réessayer.",
+    "processing": "Traitement",
+    "errorTitle": "Erreur"
   }
 }

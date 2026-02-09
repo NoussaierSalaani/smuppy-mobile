@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTranslation } from 'react-i18next';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -93,6 +94,7 @@ const BENEFITS = [
 ];
 
 export default function IdentityVerificationScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -229,10 +231,10 @@ export default function IdentityVerificationScreen() {
           buttons: [{ text: 'Continue', onPress: startVerification }],
         });
       } else {
-        showError('Error', 'Failed to initialize subscription. Please try again.');
+        showError(t('common:error'), t('payments:payments:identity:errors:initSubscription'));
       }
     } catch (_error: unknown) {
-      showError('Error', 'Something went wrong. Please try again.');
+      showError(t('common:error'), t('payments:payments:generic:error'));
     } finally {
       setProcessing(false);
     }
@@ -276,7 +278,7 @@ export default function IdentityVerificationScreen() {
           }
         } else {
           // Generic error message per CLAUDE.md - never expose response.error to client
-          showError('Error', 'Failed to start verification. Please try again.');
+          showError(t('common:error'), t('payments:payments:identity:errors:startVerification'));
         }
       }
     } catch (error: unknown) {
@@ -330,7 +332,7 @@ export default function IdentityVerificationScreen() {
           {status === 'verified' && (
             <View style={styles.verifiedBadge}>
               <Ionicons name="checkmark-circle" size={20} color="white" />
-              <Text style={styles.verifiedText}>Identity Verified</Text>
+              <Text style={styles.verifiedText}>{t('payments:payments:identity:verified')}</Text>
             </View>
           )}
         </LinearGradient>
@@ -340,7 +342,7 @@ export default function IdentityVerificationScreen() {
             {/* Price Card */}
             <View style={styles.priceCard}>
               <View style={styles.priceHeader}>
-                <Text style={styles.priceLabel}>Verified Account</Text>
+                <Text style={styles.priceLabel}>{t('payments:payments:identity:verifiedAccount')}</Text>
                 <View style={styles.priceTag}>
                   <Text style={styles.priceAmount}>{priceAmountText}</Text>
                   <Text style={styles.priceOnce}>{priceIntervalText}</Text>
@@ -357,7 +359,7 @@ export default function IdentityVerificationScreen() {
 
             {/* Steps */}
             <View style={styles.stepsSection}>
-              <Text style={styles.sectionTitle}>How it works</Text>
+              <Text style={styles.sectionTitle}>{t('payments:payments:identity:howItWorks')}</Text>
               {steps.map((step, index) => (
                 <View key={index} style={styles.stepItem}>
                   <View style={styles.stepNumber}>
@@ -382,7 +384,7 @@ export default function IdentityVerificationScreen() {
 
             {/* Benefits */}
             <View style={styles.benefitsSection}>
-              <Text style={styles.sectionTitle}>Why get verified?</Text>
+              <Text style={styles.sectionTitle}>{t('payments:payments:identity:whyVerify')}</Text>
               {BENEFITS.map((benefit, index) => (
                 <View key={index} style={styles.benefitItem}>
                   <Ionicons name={benefit.icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.primary} />
@@ -397,7 +399,7 @@ export default function IdentityVerificationScreen() {
           <View style={styles.verifiedSection}>
             <View style={styles.verifiedCard}>
               <Ionicons name="ribbon" size={48} color={colors.primary} />
-              <Text style={styles.verifiedCardTitle}>Congratulations!</Text>
+              <Text style={styles.verifiedCardTitle}>{t('payments:payments:identity:congratulations')}</Text>
               <Text style={styles.verifiedCardText}>
                 Your identity has been verified. The verified badge is now visible on your profile.
               </Text>

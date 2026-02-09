@@ -2,7 +2,15 @@
  * Haptic Feedback Utility
  * Provides consistent haptic feedback across the app
  */
-import * as Haptics from 'expo-haptics';
+
+// Native module wrapped for Expo Go compatibility
+let Haptics: typeof import('expo-haptics') | null = null;
+try {
+  Haptics = require('expo-haptics');
+} catch {
+  // Module not available in Expo Go
+  Haptics = null;
+}
 
 export type HapticType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error';
 
@@ -11,6 +19,10 @@ export type HapticType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 
  * @param type - Type of haptic feedback
  */
 export const triggerHaptic = async (type: HapticType = 'light'): Promise<void> => {
+  if (!Haptics) {
+    // Silently skip if haptics not available in Expo Go
+    return;
+  }
   try {
     switch (type) {
       case 'light':

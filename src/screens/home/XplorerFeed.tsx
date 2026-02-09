@@ -12,11 +12,10 @@ import { FEATURES } from '../../config/featureFlags';
 import { LiquidButton } from '../../components/LiquidButton';
 import { BlurView } from 'expo-blur';
 import { useTabBar } from '../../context/TabBarContext';
-import { useUserStore } from '../../stores/userStore';
+import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme } from '../../hooks/useTheme';
-import { useTranslation } from 'react-i18next';
 import { searchNominatim, NominatimSearchResult, isValidCoordinate } from '../../config/api';
 
 // UUID validation regex for API calls
@@ -58,27 +57,25 @@ const PIN_COLORS: Record<string, string> = {
 // ============================================
 // 8 FILTER CHIPS - Available to ALL accounts
 // ============================================
-// Filter type definition
-interface FilterDef {
+type FilterDef = {
   key: string;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   subcategories: string[];
-}
+};
 
-// Filter definitions - labels will be translated via t() hook in component
-const FILTER_DEFS = [
-  { key: 'coaches', icon: 'person', color: PIN_COLORS.coaches, subcategories: ['Personal Trainers', 'Yoga Teachers', 'Sport Coaches', 'Nutritionists'] },
-  { key: 'gyms', icon: 'barbell', color: PIN_COLORS.gyms, subcategories: ['Gym', 'CrossFit', 'Boxing', 'Climbing', 'MMA', 'HIIT', 'Pilates', 'Bootcamp'] },
-  { key: 'wellness', icon: 'leaf', color: PIN_COLORS.wellness, subcategories: ['Yoga Studios', 'Spas', 'Meditation', 'Pools', 'Swim Schools'] },
-  { key: 'sports', icon: 'trophy', color: PIN_COLORS.sports, subcategories: ['Sports Club', 'Tennis', 'Golf', 'Running Club', 'Cycling', 'Dance'] },
-  { key: 'food', icon: 'restaurant', color: PIN_COLORS.food, subcategories: ['Healthy Food', 'Smoothies', 'Meal Prep', 'Supplements', 'Juice Bars'] },
-  { key: 'stores', icon: 'bag-handle', color: PIN_COLORS.stores, subcategories: ['Sportswear', 'Equipment', 'Accessories', 'Shoes', 'Nutrition'] },
-  { key: 'events', icon: 'calendar', color: PIN_COLORS.events, subcategories: ['Running', 'Hiking', 'Cycling', 'Soccer', 'Basketball', 'Tennis', 'Yoga', 'CrossFit', 'Swimming'] },
-  { key: 'groups', icon: 'people', color: PIN_COLORS.groups, subcategories: ['Running', 'Hiking', 'Cycling', 'Gym', 'Yoga', 'Sports', 'Swimming'] },
-  { key: 'spots', icon: 'location', color: PIN_COLORS.spots, subcategories: ['Parks', 'Outdoor Gyms', 'Trails', 'Courts', 'Fields', 'Beaches'] },
-] as const;
+const FILTERS: FilterDef[] = [
+  { key: 'coaches', label: 'Coaches', icon: 'person', color: PIN_COLORS.coaches, subcategories: ['Personal Trainers', 'Yoga Teachers', 'Sport Coaches', 'Nutritionists'] },
+  { key: 'gyms', label: 'Gyms', icon: 'barbell', color: PIN_COLORS.gyms, subcategories: ['Gym', 'CrossFit', 'Boxing', 'Climbing', 'MMA', 'HIIT', 'Pilates', 'Bootcamp'] },
+  { key: 'wellness', label: 'Wellness', icon: 'leaf', color: PIN_COLORS.wellness, subcategories: ['Yoga Studios', 'Spas', 'Meditation', 'Pools', 'Swim Schools'] },
+  { key: 'sports', label: 'Sports', icon: 'trophy', color: PIN_COLORS.sports, subcategories: ['Sports Club', 'Tennis', 'Golf', 'Running Club', 'Cycling', 'Dance'] },
+  { key: 'food', label: 'Food', icon: 'restaurant', color: PIN_COLORS.food, subcategories: ['Healthy Food', 'Smoothies', 'Meal Prep', 'Supplements', 'Juice Bars'] },
+  { key: 'stores', label: 'Stores', icon: 'bag-handle', color: PIN_COLORS.stores, subcategories: ['Sportswear', 'Equipment', 'Accessories', 'Shoes', 'Nutrition'] },
+  { key: 'events', label: 'Events', icon: 'calendar', color: PIN_COLORS.events, subcategories: ['Running', 'Hiking', 'Cycling', 'Soccer', 'Basketball', 'Tennis', 'Yoga', 'CrossFit', 'Swimming'] },
+  { key: 'groups', label: 'Groups', icon: 'people', color: PIN_COLORS.groups, subcategories: ['Running', 'Hiking', 'Cycling', 'Gym', 'Yoga', 'Sports', 'Swimming'] },
+  { key: 'spots', label: 'Spots', icon: 'location', color: PIN_COLORS.spots, subcategories: ['Parks', 'Outdoor Gyms', 'Trails', 'Courts', 'Fields', 'Beaches'] },
+];
 
 const MAX_ACTIVE_FILTERS = 3;
 
@@ -87,7 +84,38 @@ const MAX_ACTIVE_FILTERS = 3;
 // ============================================
 type FabAction = { label: string; icon: keyof typeof Ionicons.glyphMap; action: string };
 
+// Personal (non-verified): Create Activity only (1/week limit enforced at action time)
+const PERSONAL_ACTIONS: FabAction[] = [
+  { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
+];
 
+// Personal verified: + Suggest Spot
+const PERSONAL_VERIFIED_ACTIONS: FabAction[] = [
+  ...PERSONAL_ACTIONS,
+  { label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' },
+];
+
+// Pro Creator: same as personal verified
+const CREATOR_ACTIONS: FabAction[] = [
+  ...PERSONAL_VERIFIED_ACTIONS,
+];
+
+// Pro Creator Premium: + Share Live on Map
+const CREATOR_PREMIUM_ACTIONS: FabAction[] = [
+  ...CREATOR_ACTIONS,
+  ...(FEATURES.GO_LIVE ? [{ label: 'Share Live', icon: 'videocam-outline' as const, action: 'share_live' }] : []),
+];
+
+// Pro Business (non-premium): Create Activity only (locked to business location, no paid, no revenue)
+const BUSINESS_ACTIONS: FabAction[] = [
+  { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
+];
+
+// Pro Business Premium: Create Activity + Suggest Spot (NO live)
+const BUSINESS_PREMIUM_ACTIONS: FabAction[] = [
+  { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
+  { label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' },
+];
 
 // ============================================
 
@@ -121,19 +149,9 @@ interface XplorerFeedProps {
 }
 
 export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { showAlert } = useSmuppyAlert();
-
-  // Build filters with translations
-  const filters = useMemo(() => FILTER_DEFS.map(f => ({
-    key: f.key,
-    label: t(`feed:xplorer:${f.key}`),
-    icon: f.icon,
-    color: f.color,
-    subcategories: f.subcategories,
-  })), [t]);
   const cameraRef = useRef<Camera>(null);
   const hasRequestedPermission = useRef(false);
   const { setBottomBarHidden, showBars, xplorerFullscreen, toggleXplorerFullscreen, setXplorerFullscreen } = useTabBar();
@@ -341,29 +359,13 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
   // FAB visibility & actions based on account type
   const fabActions = useMemo((): FabAction[] => {
-    const actions: FabAction[] = [
-      { label: t('feed:xplorer:createActivity'), icon: 'add-circle-outline', action: 'create_activity' },
-    ];
-    
-    if (accountType === 'pro_business') {
-      if (isPremium) {
-        actions.push({ label: t('feed:xplorer:suggestSpot'), icon: 'pin-outline', action: 'suggest_spot' });
-      }
-      return actions;
-    }
-    
-    // Personal verified and creators
-    if (isVerified || accountType === 'pro_creator') {
-      actions.push({ label: t('feed:xplorer:suggestSpot'), icon: 'pin-outline', action: 'suggest_spot' });
-    }
-    
-    // Premium creators can go live
-    if (accountType === 'pro_creator' && isPremium && FEATURES.GO_LIVE) {
-      actions.push({ label: t('feed:xplorer:shareLive'), icon: 'videocam-outline', action: 'share_live' });
-    }
-    
-    return actions;
-  }, [accountType, isVerified, isPremium, t]);
+    if (accountType === 'pro_business' && isPremium) return BUSINESS_PREMIUM_ACTIONS;
+    if (accountType === 'pro_business') return BUSINESS_ACTIONS;
+    if (accountType === 'pro_creator' && isPremium) return CREATOR_PREMIUM_ACTIONS;
+    if (accountType === 'pro_creator') return CREATOR_ACTIONS;
+    if (isVerified) return PERSONAL_VERIFIED_ACTIONS;
+    return PERSONAL_ACTIONS;
+  }, [accountType, isVerified, isPremium]);
 
   // ============================================
   // LOCATION
@@ -735,15 +737,15 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           <View style={styles.popupInfo}>
             <Text style={styles.popupName}>{sanitizeText(selectedMarker.name)}</Text>
             <View style={styles.popupStats}>
-              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> {t('feed:xplorer:fans')}</Text>
+              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> fans</Text>
               <Text style={styles.popupStatDot}>·</Text>
-              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> {t('feed:xplorer:posts')}</Text>
+              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> posts</Text>
             </View>
             <Text style={styles.popupBio} numberOfLines={2}>{sanitizeText(selectedMarker.bio)}</Text>
           </View>
         </View>
         <LiquidButton
-          label={t('feed:xplorer:seeProfile')}
+          label="See Profile"
           onPress={() => goToProfile(selectedMarker)}
           size="md"
           style={styles.popupButton}
@@ -779,7 +781,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             ))}
           </View>
           <LiquidButton
-            label={t('feed:xplorer:seeProfile')}
+            label="See Profile"
             onPress={() => goToProfile(selectedMarker)}
             size="md"
             style={styles.popupButton}
@@ -796,7 +798,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
   const renderSubFilterSheet = () => {
     if (!subFilterSheet) return null;
-    const filter = filters.find(f => f.key === subFilterSheet);
+    const filter = FILTERS.find(f => f.key === subFilterSheet);
     if (!filter) return null;
     const activeSubs = activeSubFilters[subFilterSheet] || [];
 
@@ -811,7 +813,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               </View>
               <Text style={styles.sheetTitle}>{filter.label}</Text>
             </View>
-            <Text style={styles.sheetSubtitle}>{t('feed:filter:subcategory')}</Text>
+            <Text style={styles.sheetSubtitle}>Filter by subcategory</Text>
             <View style={styles.sheetChips}>
               {filter.subcategories.map(sub => {
                 const isActive = activeSubs.includes(sub);
@@ -825,7 +827,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               })}
             </View>
             <LiquidButton
-              label={t('common:done')}
+              label="Done"
               onPress={handleCloseSubFilterSheet}
               size="md"
               style={styles.sheetApplyButton}
@@ -847,10 +849,10 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           <LinearGradient colors={['#E7FCF6', '#E0F7FA']} style={styles.permissionIcon}>
             <Ionicons name="location" size={normalize(40)} color={colors.primary} />
           </LinearGradient>
-          <Text style={styles.permissionTitle}>{t('feed:xplorer:enableLocation')}</Text>
+          <Text style={styles.permissionTitle}>Enable your location</Text>
           <Text style={styles.permissionText}>Discover what your friends nearby are up to</Text>
           <LiquidButton
-            label={t('feed:xplorer:activate')}
+            label="Activate"
             onPress={handleActivateLocation}
             size="md"
             style={styles.permissionButton}
@@ -970,7 +972,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  <Text style={styles.eventJoinBtnText}>{t('feed:xplorer:join')}</Text>
+                  <Text style={styles.eventJoinBtnText}>Join</Text>
                   <Ionicons name="arrow-forward" size={normalize(14)} color={colors.white} />
                 </LinearGradient>
               </TouchableOpacity>
@@ -1146,7 +1148,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipsScroll}
         >
-          {filters.map(filter => {
+          {FILTERS.map(filter => {
             const isActive = activeFilters.includes(filter.key);
             const subCount = (activeSubFilters[filter.key] || []).length;
             return (

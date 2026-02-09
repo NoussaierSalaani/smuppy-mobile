@@ -3,8 +3,22 @@
  * Compresses and resizes images before upload to reduce bandwidth and storage costs
  */
 
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system/legacy';
+// Native modules wrapped for Expo Go compatibility
+let ImageManipulator: typeof import('expo-image-manipulator') | null = null;
+try {
+  ImageManipulator = require('expo-image-manipulator');
+} catch {
+  // Module not available in Expo Go
+  ImageManipulator = null;
+}
+
+let FileSystem: typeof import('expo-file-system/legacy') | null = null;
+try {
+  FileSystem = require('expo-file-system/legacy');
+} catch {
+  // Module not available in Expo Go
+  FileSystem = null;
+}
 
 // ============================================
 // TYPES
@@ -94,6 +108,9 @@ export const COMPRESSION_PRESETS = {
  * Get file size in bytes
  */
 const getFileSize = async (uri: string): Promise<number> => {
+  if (!FileSystem) {
+    return 0;
+  }
   try {
     const info = await FileSystem.getInfoAsync(uri);
     return (info as { size?: number }).size || 0;
@@ -158,6 +175,10 @@ export const compressImage = async (
     format = 'jpeg',
   } = options;
 
+  if (!ImageManipulator) {
+    throw new Error('ImageManipulator not available in Expo Go');
+  }
+
   try {
     // First, get the original image dimensions
     const originalInfo = await ImageManipulator.manipulateAsync(
@@ -175,7 +196,8 @@ export const compressImage = async (
     );
 
     // Apply compression and resize
-    const actions: ImageManipulator.Action[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const actions: any[] = [];
 
     // Only resize if needed
     if (width !== originalInfo.width || height !== originalInfo.height) {
@@ -189,8 +211,8 @@ export const compressImage = async (
       {
         compress: quality,
         format: format === 'png'
-          ? ImageManipulator.SaveFormat.PNG
-          : ImageManipulator.SaveFormat.JPEG,
+          ? ImageManipulator.SaveFormat.PNG!
+          : ImageManipulator.SaveFormat.JPEG!,
       }
     );
 
@@ -299,6 +321,9 @@ export const smartCompress = async (
  * Get image info without compressing
  */
 export const getImageInfo = async (imageUri: string): Promise<ImageInfo> => {
+  if (!ImageManipulator) {
+    throw new Error('ImageManipulator not available in Expo Go');
+  }
   const result = await ImageManipulator.manipulateAsync(
     imageUri,
     [],

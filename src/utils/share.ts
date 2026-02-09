@@ -1,6 +1,21 @@
 import { Share, Platform } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
+
+// Native modules wrapped for Expo Go compatibility
+let Clipboard: typeof import('expo-clipboard') | null = null;
+try {
+  Clipboard = require('expo-clipboard');
+} catch {
+  // Module not available in Expo Go
+  Clipboard = null;
+}
+
+let Haptics: typeof import('expo-haptics') | null = null;
+try {
+  Haptics = require('expo-haptics');
+} catch {
+  // Module not available in Expo Go
+  Haptics = null;
+}
 
 // App base URL - Update this when you have a real domain
 const APP_BASE_URL = 'https://smuppy.app';
@@ -79,7 +94,11 @@ export const shareContent = async (content: ShareContent): Promise<boolean> => {
     );
 
     if (result.action === Share.sharedAction) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Haptics) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
+          // Silently fail if haptics not available
+        });
+      }
       return true;
     }
 
@@ -95,9 +114,17 @@ export const shareContent = async (content: ShareContent): Promise<boolean> => {
  */
 export const copyLinkToClipboard = async (content: ShareContent): Promise<boolean> => {
   try {
+    if (!Clipboard) {
+      if (__DEV__) console.warn('[Share] Clipboard not available in Expo Go');
+      return false;
+    }
     const link = generateShareLink(content);
     await Clipboard.setStringAsync(link);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Haptics) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
+        // Silently fail if haptics not available
+      });
+    }
     return true;
   } catch (error) {
     if (__DEV__) console.warn('[Share] Error copying link:', error);

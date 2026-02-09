@@ -34,9 +34,6 @@ import Constants from 'expo-constants';
 import { SmuppyAlertProvider } from './src/context/SmuppyAlertContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 
-// i18n
-import { initI18n } from './src/i18n/config';
-
 /**
  * Network Monitor Component
  * Tracks online/offline status globally
@@ -192,7 +189,6 @@ export default function App() {
           initializeNotifications(),
           initializeBackend(),
           restoreQueryCache().catch(() => {}),
-          initI18n().catch(() => {}),
         ]);
       } catch (error) {
         if (__DEV__) console.error('Error initializing app:', error);

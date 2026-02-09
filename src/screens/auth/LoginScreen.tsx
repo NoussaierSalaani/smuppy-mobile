@@ -4,7 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { useTranslation } from 'react-i18next';
 import { GRADIENTS, FORM, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import {
@@ -110,7 +109,6 @@ const createLocalStyles = (colors: ThemeColors, authColors: ReturnType<typeof cr
 });
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const authColors = useMemo(() => createAuthColors(colors, isDark), [colors, isDark]);
   const _authStylesThemed = useMemo(() => createAuthStyles(colors, isDark), [colors, isDark]);
@@ -343,13 +341,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             
             {/* Header - NO back arrow */}
             <View style={styles.header}>
-              <Text style={styles.title}>{t('auth:welcomeTitle')}</Text>
-              <Text style={styles.subtitle}>{t('auth:welcomeSubtitle')}</Text>
+              <Text style={styles.title}>Login to Smuppy</Text>
+              <Text style={styles.subtitle}>Together for personalized well-being!</Text>
             </View>
 
             {/* Email Input */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('auth:email')}</Text>
+              <Text style={styles.label}>Email address</Text>
               <LinearGradient
                 colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
                 start={{ x: 0, y: 0 }}
@@ -360,7 +358,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                   <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? colors.primary : colors.grayMuted} />
                   <TextInput
                     style={styles.input}
-                    placeholder="email@example.com"
+                    placeholder="mailusersmuppy@mail.com"
                     placeholderTextColor={colors.grayMuted}
                     value={email}
                     onChangeText={setEmail}
@@ -378,7 +376,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
             {/* Password Input */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('auth:password')}</Text>
+              <Text style={styles.label}>Password</Text>
               <LinearGradient
                 colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
                 start={{ x: 0, y: 0 }}
@@ -405,7 +403,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     hitSlop={HIT_SLOP.medium}
                     accessible={true}
                     accessibilityRole="button"
-                    accessibilityLabel={showPassword ? t('common:hide') : t('common:show')}
+                    accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                     accessibilityHint="Double-tap to toggle password visibility"
                   >
                     <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
@@ -427,7 +425,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
                 {rememberMe && <Ionicons name="checkmark" size={14} color={colors.white} />}
               </View>
-              <Text style={styles.rememberText}>{t('settings:notifications:sessionReminders')}</Text>
+              <Text style={styles.rememberText}>Remember me</Text>
             </TouchableOpacity>
 
             {/* Login Button */}
@@ -451,7 +449,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 style={styles.btn}
               >
                 <View style={styles.btnInner}>
-                  <Text style={styles.btnText}>{loading ? t('common:loading') : t('auth:login')}</Text>
+                  <Text style={styles.btnText}>{loading ? 'Logging in...' : 'Login'}</Text>
                   {!loading && <Ionicons name="arrow-forward" size={20} color={colors.white} />}
                 </View>
               </LinearGradient>
@@ -460,7 +458,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             {/* Divider */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{t('auth:or')}</Text>
+              <Text style={styles.dividerText}>Or</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -511,12 +509,12 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               accessibilityLabel="Forgot password"
               accessibilityHint="Double-tap to reset your password"
             >
-              <Text style={styles.forgotText}>{t('auth:forgotPassword')}</Text>
+              <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
 
             {/* Signup Link */}
             <View style={styles.linkRow}>
-              <Text style={styles.linkText}>{t('auth:dontHaveAccount')} </Text>
+              <Text style={styles.linkText}>Don't have an account? </Text>
               <TouchableOpacity
                 onPress={handleGoToSignup}
                 style={styles.linkBtn}
@@ -525,7 +523,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 accessibilityLabel="Sign up"
                 accessibilityHint="Double-tap to create a new account"
               >
-                <Text style={styles.link}>{t('auth:signup')}</Text>
+                <Text style={styles.link}>Signup</Text>
                 <Ionicons name="arrow-forward" size={14} color={colors.primary} />
               </TouchableOpacity>
             </View>

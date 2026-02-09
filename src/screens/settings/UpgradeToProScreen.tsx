@@ -22,10 +22,9 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
-import { useUserStore } from '../../stores/userStore';
-import { useCurrentProfile } from '../../hooks/queries';
+import { useUserStore } from '../../stores';
+import { useCurrentProfile } from '../../hooks';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../../hooks/useCurrency';
 
 const { width: _width } = Dimensions.get('window');
@@ -112,7 +111,6 @@ const FEATURES: Feature[] = [
 ];
 
 export default function UpgradeToProScreen() {
-  const { t } = useTranslation();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const { showDestructiveConfirm, showWarning, showAlert, showError } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
@@ -228,7 +226,7 @@ export default function UpgradeToProScreen() {
       }
     } catch (_error: unknown) {
       if (__DEV__) console.warn('Upgrade error:', _error);
-      showError(t('settings:errors:upgradeFailed'), t('settings:errors:upgradeLater'));
+      showError('Upgrade Failed', 'Please try again later.');
     } finally {
       setIsLoading(false);
     }

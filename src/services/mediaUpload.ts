@@ -3,8 +3,22 @@
  * Handles uploads to AWS S3 with presigned URLs and CloudFront CDN
  */
 
-import * as FileSystem from 'expo-file-system/legacy';
-import * as VideoThumbnails from 'expo-video-thumbnails';
+// Native modules wrapped for Expo Go compatibility
+let FileSystem: typeof import('expo-file-system/legacy') | null = null;
+try {
+  FileSystem = require('expo-file-system/legacy');
+} catch {
+  // Module not available in Expo Go
+  FileSystem = null;
+}
+
+let VideoThumbnails: typeof import('expo-video-thumbnails') | null = null;
+try {
+  VideoThumbnails = require('expo-video-thumbnails');
+} catch {
+  // Module not available in Expo Go
+  VideoThumbnails = null;
+}
 import { ENV } from '../config/env';
 import { captureException } from '../lib/sentry';
 import {
@@ -148,6 +162,9 @@ const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean
       return { size: 0, exists: true };
     }
 
+    if (!FileSystem) {
+      return { size: 0, exists: true };
+    }
     const info = await FileSystem.getInfoAsync(checkUri);
     return {
       size: (info as { size?: number }).size || 0,
@@ -196,6 +213,9 @@ const readFileAsBase64 = async (uri: string): Promise<string> => {
     if (uri.startsWith('file://')) {
       if (__DEV__) console.log('[readFileAsBase64] Fetch failed, trying FileSystem...');
       // Use the legacy method as fallback
+      if (!FileSystem) {
+        throw new Error('FileSystem not available');
+      }
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
@@ -386,6 +406,9 @@ export const uploadWithFileSystem = async (
   try {
     if (__DEV__) console.log('[uploadFS] Uploading:', fileUri.substring(0, 80), 'contentType:', contentType);
 
+    if (!FileSystem) {
+      throw new Error('FileSystem not available');
+    }
     const uploadResult = await FileSystem.uploadAsync(presignedUrl, fileUri, {
       httpMethod: 'PUT',
       uploadType: 0, // FileSystemUploadType.BINARY_CONTENT
@@ -660,6 +683,10 @@ export const uploadPeakMedia = (
  * Returns the local thumbnail URI or null on failure
  */
 export const generateVideoThumbnail = async (videoUri: string): Promise<string | null> => {
+  if (!VideoThumbnails) {
+    if (__DEV__) console.warn('[generateVideoThumbnail] VideoThumbnails not available in Expo Go');
+    return null;
+  }
   try {
     const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, { time: 1000 });
     return uri;

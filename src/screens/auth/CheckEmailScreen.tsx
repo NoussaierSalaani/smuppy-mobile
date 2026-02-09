@@ -9,7 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { GRADIENTS, FORM, SPACING } from '../../config/theme';
 import { useCooldown } from '../../hooks/useCooldown';
 import * as backend from '../../services/backend';
@@ -54,7 +53,6 @@ const maskEmail = (email: string): string => {
 };
 
 export default function CheckEmailScreen({ navigation, route }: CheckEmailScreenProps) {
-  const { t } = useTranslation();
   const { email } = route?.params || {};
   const maskedEmailDisplay = maskEmail(email || '');
   const [isResending, setIsResending] = useState(false);
@@ -114,9 +112,9 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         </View>
 
         {/* Title & Subtitle */}
-        <Text style={styles.title}>{t('auth:checkEmailTitle')}</Text>
+        <Text style={styles.title}>Check your email</Text>
         <Text style={styles.subtitle}>
-          {t('auth:checkEmailSubtitle')}{'\n'}
+          We've sent a password reset code to{'\n'}
           <Text style={styles.emailText}>{maskedEmailDisplay}</Text>
         </Text>
 
@@ -124,15 +122,15 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         <View style={styles.instructionsBox}>
           <View style={styles.instructionRow}>
             <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-            <Text style={styles.instructionText}>{t('auth:checkEmailInstruction1')}</Text>
+            <Text style={styles.instructionText}>Open the email from Smuppy</Text>
           </View>
           <View style={styles.instructionRow}>
             <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-            <Text style={styles.instructionText}>{t('auth:checkEmailInstruction2')}</Text>
+            <Text style={styles.instructionText}>Copy the 6-digit verification code</Text>
           </View>
           <View style={styles.instructionRow}>
             <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-            <Text style={styles.instructionText}>{t('auth:checkEmailInstruction3')}</Text>
+            <Text style={styles.instructionText}>Enter the code to reset your password</Text>
           </View>
         </View>
 
@@ -140,7 +138,7 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
         {resendSuccess && (
           <View style={styles.successMessage}>
             <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-            <Text style={styles.successText}>{t('auth:codeSentSuccess')}</Text>
+            <Text style={styles.successText}>Code sent successfully!</Text>
           </View>
         )}
 
@@ -154,12 +152,12 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
             <ActivityIndicator size="small" color={colors.primary} />
           ) : !canAction ? (
             <Text style={styles.resendTextDisabled}>
-              {t('auth:resendCodeIn', { seconds: remainingTime })}
+              Resend code in {remainingTime}s
             </Text>
           ) : (
             <>
               <Ionicons name="refresh-outline" size={18} color={colors.primary} />
-              <Text style={styles.resendText}>{t('auth:resendCode')}</Text>
+              <Text style={styles.resendText}>Resend code</Text>
             </>
           )}
         </TouchableOpacity>
@@ -175,14 +173,14 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
           style={styles.btn}
         >
           <TouchableOpacity style={styles.btnInner} onPress={() => navigation.navigate('ResetCode', { email })} activeOpacity={0.8}>
-            <Text style={styles.btnText}>{t('auth:iHaveCode')}</Text>
+            <Text style={styles.btnText}>I have a code</Text>
             <Ionicons name="arrow-forward" size={20} color={colors.white} />
           </TouchableOpacity>
         </LinearGradient>
 
         {/* Back to Login Link */}
         <TouchableOpacity style={styles.backToLoginBtn} onPress={handleBackToLogin}>
-          <Text style={styles.backToLoginText}>{t('auth:backToLogin')}</Text>
+          <Text style={styles.backToLoginText}>Back to login</Text>
         </TouchableOpacity>
 
         {/* Footer */}

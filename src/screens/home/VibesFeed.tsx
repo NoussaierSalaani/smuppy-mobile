@@ -26,19 +26,14 @@ import { SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import DoubleTapLike from '../../components/DoubleTapLike';
-import { useUserStore } from '../../stores/userStore';
-import { useFeedStore } from '../../stores/feedStore';
-import { useContentStore } from '../../stores/contentStore';
-import { useUserSafetyStore } from '../../stores/userSafetyStore';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
-import { useShareModal } from '../../hooks/useModalState';
-import { usePostInteractions } from '../../hooks/usePostInteractions';
+import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
 import { ALL_INTERESTS } from '../../config/interests';
 import { ALL_EXPERTISE } from '../../config/expertise';
 import { ALL_BUSINESS_CATEGORIES } from '../../config/businessCategories';
 import { useTheme } from '../../hooks/useTheme';
-import { useTranslation } from 'react-i18next';
 import { PeakGridSkeleton } from '../../components/skeleton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
@@ -50,8 +45,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing } from '../../services/database';
 import type { Peak } from '../../types';
 import { awsAPI } from '../../services/aws-api';
-import { usePrefetchProfile } from '../../hooks/queries';
-import { useExpiredPeaks } from '../../hooks/useExpiredPeaks';
+import { usePrefetchProfile, useExpiredPeaks } from '../../hooks';
 import { formatNumber } from '../../utils/formatters';
 import ExpiredPeakModal from '../../components/peaks/ExpiredPeakModal';
 
@@ -144,10 +138,15 @@ const LEVEL_COLORS: Record<string, string> = {
   legend: '#FF9800',
 };
 
-// Level labels are now using translations via t() hook inside component
+const LEVEL_LABELS: Record<string, string> = {
+  newcomer: 'Newcomer',
+  explorer: 'Explorer',
+  contributor: 'Contributor',
+  influencer: 'Influencer',
+  legend: 'Legend',
+};
 
 const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicatorProps) => {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const vibeScore = useVibeStore((s) => s.vibeScore);
@@ -155,14 +154,6 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
   const currentStreak = useVibeStore((s) => s.currentStreak);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  const levelLabels: Record<string, string> = {
-    newcomer: t('feed:vibes:newcomer'),
-    explorer: t('feed:vibes:explorer'),
-    contributor: t('feed:vibes:contributor'),
-    influencer: t('feed:vibes:influencer'),
-    legend: t('feed:vibes:legend'),
-  };
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -188,7 +179,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
 
   const display = getMoodDisplay(mood.primaryMood);
   const levelColor = LEVEL_COLORS[vibeLevel] || colors.gray;
-  const levelLabel = levelLabels[vibeLevel] || t('feed:vibes:newcomer');
+  const levelLabel = LEVEL_LABELS[vibeLevel] || 'Newcomer';
 
   return (
     <TouchableOpacity onPress={onVibePress || onRefresh} activeOpacity={0.8}>
@@ -217,7 +208,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
           {/* Mood + Level info */}
           <View style={styles.moodTextContainer}>
             <View style={styles.moodLabelRow}>
-              <Text style={styles.moodLabel}>{t('feed:vibes:yourVibe')}</Text>
+              <Text style={styles.moodLabel}>Your vibe</Text>
               <View style={[styles.strategyBadge, { backgroundColor: levelColor + '20' }]}>
                 <Text style={[styles.strategyBadgeText, { color: levelColor }]}>{levelLabel}</Text>
               </View>
@@ -228,11 +219,11 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
 
           {/* Score + Streak */}
           <View style={styles.moodConfidenceContainer}>
-            <Text style={[styles.moodConfidenceText, { color: levelColor }]}>{t('feed:vibes:points', { count: vibeScore })}</Text>
+            <Text style={[styles.moodConfidenceText, { color: levelColor }]}>{vibeScore} pts</Text>
             {currentStreak > 1 && (
               <View style={styles.streakRow}>
                 <Ionicons name="flame" size={10} color="#FF6B35" />
-                <Text style={styles.streakText}>{t('feed:vibes:streak', { count: currentStreak })}</Text>
+                <Text style={styles.streakText}>{currentStreak}d</Text>
               </View>
             )}
           </View>
@@ -319,7 +310,6 @@ export interface VibesFeedRef {
 }
 
 const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }, ref) => {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const { showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
@@ -773,7 +763,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     setPosts: setAllPosts,
     onLike: onLikeCallback,
     onSaveToggle: (_postId, saved) => {
-      showSuccess(saved ? t('feed:success:saved') : t('feed:success:removed'), saved ? t('feed:success:postAdded') : t('feed:success:postRemoved'));
+      showSuccess(saved ? 'Saved' : 'Removed', saved ? 'Post added to your collection.' : 'Post removed from saved.');
     },
   });
 
@@ -1199,12 +1189,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             {/* PEAKS SECTION */}
             {!isBusiness && <View style={styles.peaksSection}>
               <View style={styles.peaksSectionHeader}>
-                <Text style={styles.peaksSectionTitle}>{t('peaks:title')}</Text>
+                <Text style={styles.peaksSectionTitle}>Peaks</Text>
                 <TouchableOpacity
                   style={styles.peaksSeeAll}
                   onPress={handleNavigatePeaks}
                 >
-                  <Text style={styles.peaksSeeAllText}>{t('common:seeAll')}</Text>
+                  <Text style={styles.peaksSeeAllText}>See all</Text>
                   <Ionicons name="chevron-forward" size={16} color={colors.primary} />
                 </TouchableOpacity>
               </View>

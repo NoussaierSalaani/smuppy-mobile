@@ -21,7 +21,6 @@ import {
   getOrCreateConversation,
   Profile,
 } from '../../services/database';
-import { useTranslation } from 'react-i18next';
 import { isValidUUID } from '../../utils/formatters';
 
 interface NewMessageScreenProps {
@@ -33,7 +32,6 @@ interface NewMessageScreenProps {
 }
 
 export default function NewMessageScreen({ navigation }: NewMessageScreenProps) {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
@@ -67,7 +65,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
     // SECURITY: Validate UUID before using
     if (!isValidUUID(user.id)) {
       if (__DEV__) console.warn('[NewMessageScreen] Invalid userId:', user.id);
-      showError(t('common:error'), t('messages:messages:newMessage:invalidUser'));
+      showError('Error', 'Invalid user');
       return;
     }
 
@@ -79,7 +77,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
     if (error || !conversationId) {
       setNavigating(null);
       if (__DEV__) console.warn('[NewMessageScreen] Failed to create conversation:', error);
-      showError(t('common:error'), t('messages:messages:newMessage:unableToStart'));
+      showError('Error', 'Unable to start conversation. Please try again.');
       return;
     }
 
@@ -88,7 +86,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
       conversationId,
       otherUser: user,
     });
-  }, [navigation, showError, t]);
+  }, [navigation, showError]);
 
   // Render user item
   const renderUser = useCallback(({ item }: { item: Profile }) => (

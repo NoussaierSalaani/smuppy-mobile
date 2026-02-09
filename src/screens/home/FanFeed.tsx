@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Modal,
   Share,
-  InteractionManager,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,21 +23,16 @@ import { AccountBadge } from '../../components/Badge';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import DoubleTapLike from '../../components/DoubleTapLike';
 import SwipeToPeaks from '../../components/SwipeToPeaks';
-import { useUserStore } from '../../stores/userStore';
-import { useFeedStore } from '../../stores/feedStore';
-import { useContentStore } from '../../stores/contentStore';
-import { useUserSafetyStore } from '../../stores/userSafetyStore';
-import { useShareModal } from '../../hooks/useModalState';
-import { usePostInteractions } from '../../hooks/usePostInteractions';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
+import { useShareModal, usePostInteractions } from '../../hooks';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
-import { useTranslation } from 'react-i18next';
 import { FeedSkeleton } from '../../components/skeleton';
-import { usePrefetchProfile } from '../../hooks/queries';
+import { usePrefetchProfile } from '../../hooks';
 import { formatNumber } from '../../utils/formatters';
 
 
@@ -286,7 +280,6 @@ export interface FanFeedRef {
 }
 
 const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref) => {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const { showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
@@ -362,7 +355,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       if (error) {
         if (__DEV__) console.warn('[FanFeed] Error fetching posts:', error);
         if (refresh) {
-          showError(t('feed:error:refreshFailed'), t('feed:error:loadNewPosts'));
+          showError('Refresh failed', 'Unable to load new posts. Please try again.');
         }
         if (refresh || isInitial) {
           setPosts([]);
@@ -617,13 +610,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     }
   }, [suggestions.length, fetchSuggestions]);
 
-  // Initial load — deferred until after navigation animation completes
+  // Initial load
   useEffect(() => {
     setIsLoading(true);
-    const task = InteractionManager.runAfterInteractions(() => {
-      Promise.all([fetchPosts(), fetchSuggestions(false)]).finally(() => setIsLoading(false));
-    });
-    return () => task.cancel();
+    Promise.all([fetchPosts(), fetchSuggestions(false)]).finally(() => setIsLoading(false));
   }, [fetchPosts, fetchSuggestions]);
 
   // Filter out posts that are under review (SAFETY-2) or from muted/blocked users (SAFETY-3)
@@ -687,7 +677,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const { toggleLike, toggleSave } = usePostInteractions({
     setPosts,
     onSaveToggle: (_postId, saved) => {
-      showSuccess(saved ? t('feed:success:saved') : t('feed:success:removed'), saved ? t('feed:success:postAdded') : t('feed:success:postRemoved'));
+      showSuccess(saved ? 'Saved' : 'Removed', saved ? 'Post added to your collection.' : 'Post removed from saved.');
     },
   });
 
@@ -718,7 +708,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       'Report Post',
       'Are you sure you want to report this post?',
       () => {
-        showSuccess(t('feed:success:reported'), t('feed:success:thanksReport'));
+        showSuccess('Reported', 'Thank you for your report. We will review it.');
       }
     );
   }, [menuPost, showDestructiveConfirm, showSuccess]);
@@ -728,10 +718,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     if (!menuPost) return;
     setMenuVisible(false);
     showDestructiveConfirm(
-      t('feed:menu:muteUser'),
-      t('feed:menu:muteConfirm', { name: menuPost.user.name }),
+      'Mute User',
+      `Mute ${menuPost.user.name}? You won't see their posts anymore.`,
       () => {
-        showSuccess(t('feed:success:saved'), t('feed:menu:mutedSuccess', { name: menuPost.user.name }));
+        showSuccess('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
       }
     );
   }, [menuPost, showDestructiveConfirm, showSuccess]);
@@ -789,7 +779,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           {firstName}
         </Text>
         <LiquidButton
-          label={isTracking ? t('feed:suggestions:tracking') : t('feed:suggestions:track')}
+          label={isTracking ? '...' : 'Track'}
           onPress={() => handleTrackUser(suggestion.id)}
           disabled={isTracking}
           size="xs"
@@ -848,14 +838,14 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const ListHeader = useMemo(() => (
     <View style={styles.suggestionsSection} accessible={true} accessibilityLabel="Suggested users to follow">
       <View style={styles.suggestionsSectionHeader}>
-        <Text style={styles.suggestionsSectionTitle}>{t('feed:suggestions:title')}</Text>
+        <Text style={styles.suggestionsSectionTitle}>Suggestions</Text>
         <TouchableOpacity
           onPress={handleNavigateSearch}
           accessibilityLabel="See all suggestions"
           accessibilityRole="button"
           accessibilityHint="Opens search to find more users"
         >
-          <Text style={styles.seeAllText}>{t('feed:suggestions:seeAll')}</Text>
+          <Text style={styles.seeAllText}>See all</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.suggestionsRow}>
@@ -876,10 +866,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             </LinearGradient>
           </TouchableOpacity>
           <Text style={styles.suggestionName} numberOfLines={1}>
-            {t('feed:suggestions:invite')}
+            Invite
           </Text>
           <LiquidButton
-            label={t('feed:suggestions:friends')}
+            label="Friends"
             onPress={inviteFriends}
             size="xs"
             variant="outline"
@@ -887,7 +877,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         </View>
         {suggestions.length === 0 && suggestionsExhausted ? (
           <View style={styles.suggestionsEmpty}>
-            <Text style={styles.suggestionsEmptyText}>{t('feed:suggestions:empty')}</Text>
+            <Text style={styles.suggestionsEmptyText}>No recommendations available right now</Text>
             <TouchableOpacity
               style={styles.suggestionsEmptyCTA}
               onPress={handleNavigateSearch}
@@ -896,7 +886,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
               accessibilityHint="Opens search to find people to follow"
             >
               <Ionicons name="search-outline" size={16} color={colors.primary} />
-              <Text style={styles.suggestionsEmptyCTAText}>{t('feed:suggestions:explore')}</Text>
+              <Text style={styles.suggestionsEmptyCTAText}>Explore</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -929,9 +919,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       return (
         <View style={styles.endOfFeed}>
           <Ionicons name="checkmark-circle" size={50} color={colors.primary} />
-          <Text style={styles.endOfFeedTitle}>{t('feed:caughtUp:title')}</Text>
+          <Text style={styles.endOfFeedTitle}>You're All Caught Up</Text>
           <Text style={styles.endOfFeedSubtitle}>
-            {t('feed:caughtUp:subtitle')}
+            You've seen all posts from people you follow
           </Text>
         </View>
       );
@@ -949,23 +939,23 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const EmptyState = useCallback(() => (
     <View style={styles.emptyState}>
       <Ionicons name={loadError ? "cloud-offline-outline" : "people-outline"} size={64} color={colors.grayMuted} />
-      <Text style={styles.emptyStateTitle}>{loadError ? t('feed:post:connectionError') : t('feed:feed:empty')}</Text>
+      <Text style={styles.emptyStateTitle}>{loadError ? 'Connection Issue' : 'No Posts Yet'}</Text>
       <Text style={styles.emptyStateSubtitle}>
-        {loadError || t('feed:feed:emptySubtitle')}
+        {loadError || 'Track some users to see their posts here'}
       </Text>
       {loadError ? (
         <TouchableOpacity
           style={styles.emptyStateButton}
           onPress={handleRetryFetch}
         >
-          <Text style={styles.emptyStateButtonText}>{t('feed:error:retry')}</Text>
+          <Text style={styles.emptyStateButtonText}>Retry</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
           style={styles.emptyStateButton}
           onPress={handleNavigateSearch}
         >
-          <Text style={styles.emptyStateButtonText}>{t('feed:feed:findPeople')}</Text>
+          <Text style={styles.emptyStateButtonText}>Find People</Text>
         </TouchableOpacity>
       )}
     </View>

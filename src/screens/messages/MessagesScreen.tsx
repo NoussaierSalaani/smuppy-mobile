@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { SPACING } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { useTranslation } from 'react-i18next';
 import { AccountBadge } from '../../components/Badge';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { resolveDisplayName } from '../../types/profile';
@@ -23,9 +22,9 @@ import {
   getConversations,
   Conversation,
 } from '../../services/database';
-import { useAppStore } from '../../stores/appStore';
+import { useAppStore } from '../../stores';
 import { ConversationListSkeleton } from '../../components/skeleton';
-import { usePrefetchProfile } from '../../hooks/queries';
+import { usePrefetchProfile } from '../../hooks';
 import { formatRelativeTimeShort } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 
@@ -119,7 +118,6 @@ const ConversationItem = memo(({ item, colors, styles, onNavigate, onProfilePres
 });
 
 export default function MessagesScreen({ navigation }: MessagesScreenProps) {
-  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors, isDark: _isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -249,7 +247,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.dark }]}>{t('messages:messages:title')}</Text>
+        <Text style={[styles.headerTitle, { color: colors.dark }]}>Messages</Text>
         <TouchableOpacity onPress={() => navigation.navigate('NewMessage')}>
           <Ionicons name="create-outline" size={24} color={colors.dark} />
         </TouchableOpacity>
@@ -261,7 +259,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
           <Ionicons name="search" size={20} color={colors.gray} />
           <TextInput
             style={[styles.searchInput, { color: colors.dark }]}
-            placeholder={t('messages:messages:search')}
+            placeholder="Search messages..."
             placeholderTextColor={colors.gray}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -307,7 +305,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <Ionicons name="chatbubbles-outline" size={60} color={colors.grayLight} />
-            <Text style={[styles.emptyTitle, { color: colors.dark }]}>{t('messages:messages:noMessages')}</Text>
+            <Text style={[styles.emptyTitle, { color: colors.dark }]}>No messages</Text>
             <Text style={[styles.emptySubtitle, { color: colors.gray }]}>
               {searchQuery ? 'No results found' : 'Start a conversation!'}
             </Text>
@@ -316,7 +314,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
               onPress={() => navigation.navigate('NewMessage')}
             >
               <Ionicons name="add" size={20} color={colors.white} />
-              <Text style={[styles.startChatText, { color: colors.white }]}>{t('messages:messages:newMessage')}</Text>
+              <Text style={[styles.startChatText, { color: colors.white }]}>New Message</Text>
             </TouchableOpacity>
           </View>
         )}

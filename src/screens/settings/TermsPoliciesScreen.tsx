@@ -11,7 +11,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTranslation } from 'react-i18next';
 
 // Website base URL for legal pages
 const WEBSITE_BASE_URL = 'https://smuppy.com';
@@ -60,7 +59,6 @@ interface TermsPoliciesScreenProps {
 }
 
 const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
-  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { showError } = useSmuppyAlert();
 
@@ -70,10 +68,10 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        showError(t('common:error'), t('settings:errors:openLink'));
+        showError('Error', `Unable to open ${title}. Please try again later.`);
       }
     } catch {
-      showError(t('common:error'), t('settings:errors:openLink'));
+      showError('Error', 'Failed to open link. Please check your internet connection.');
     }
   };
 
@@ -89,7 +87,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
         >
           <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('settings:termsPolicies:title')}</Text>
+        <Text style={styles.headerTitle}>Terms and policies</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -128,7 +126,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
 
         {/* Contact Section */}
         <View style={styles.contactSection}>
-          <Text style={styles.contactTitle}>{t('settings:termsPolicies:contact')}</Text>
+          <Text style={styles.contactTitle}>Questions?</Text>
           <Text style={styles.contactText}>
             If you have any questions about our policies or wish to exercise your data rights, please contact us.
           </Text>
@@ -137,7 +135,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
             onPress={() => openLink('mailto:legal@smuppy.app', 'Email')}
           >
             <Ionicons name="mail-outline" size={18} color="#0EBF8A" />
-            <Text style={styles.contactButtonText}>{t('settings:termsPolicies:email')}</Text>
+            <Text style={styles.contactButtonText}>legal@smuppy.app</Text>
           </TouchableOpacity>
         </View>
 

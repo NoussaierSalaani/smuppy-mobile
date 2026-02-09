@@ -20,13 +20,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { useTranslation } from 'react-i18next';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { useUserStore } from '../../stores/userStore';
-import { useFeedStore } from '../../stores/feedStore';
-import { useContentStore } from '../../stores/contentStore';
-import { useUserSafetyStore } from '../../stores/userSafetyStore';
+import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
@@ -48,7 +44,6 @@ interface VibesFeedPost { id: string; type: string; media: string; thumbnail: st
 interface GridPost { id: string; thumbnail: string; title: string; likes: number; height: number; type: string; category: string; user: { id: string; name: string; avatar: string }; duration?: string }
 
 const PostDetailVibesFeedScreen = () => {
-  const { t } = useTranslation();
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
@@ -249,7 +244,7 @@ const PostDetailVibesFeedScreen = () => {
           // Revert on error
           setIsBookmarked(true);
         } else {
-          showSuccess(t('feed:success:removed'), t('feed:success:postRemoved'));
+          showSuccess('Removed', 'Post removed from saved.');
         }
       } else {
         const { error } = await savePost(postId);
@@ -257,7 +252,7 @@ const PostDetailVibesFeedScreen = () => {
           // Revert on error
           setIsBookmarked(false);
         } else {
-          showSuccess(t('feed:success:saved'), t('feed:success:postAdded'));
+          showSuccess('Saved', 'Post added to your collection.');
         }
       }
     } catch (error) {
@@ -267,7 +262,7 @@ const PostDetailVibesFeedScreen = () => {
     } finally {
       setBookmarkLoading(false);
     }
-  }, [bookmarkLoading, currentPost, isBookmarked, showSuccess, t]);
+  }, [bookmarkLoading, currentPost, isBookmarked, showSuccess]);
 
   // Become fan with anti spam-click - using real database
   const becomeFan = useCallback(async () => {
@@ -360,9 +355,9 @@ const PostDetailVibesFeedScreen = () => {
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
-      showSuccess(t('feed:success:copied'), t('feed:success:linkCopied'));
+      showSuccess('Copied!', 'Post link copied to clipboard');
     }
-  }, [currentPost, showSuccess, t]);
+  }, [currentPost, showSuccess]);
 
   // Report post with anti spam-click
   const handleReport = useCallback(async () => {
@@ -373,13 +368,13 @@ const PostDetailVibesFeedScreen = () => {
 
       // Check if already reported (anti-spam)
       if (hasUserReported(currentPost.id)) {
-        showError(t('feed:report:alreadyReported'), t('feed:report:alreadyReportedDesc'));
+        showError('Already Reported', 'You have already reported this content. It is under review.');
         return;
       }
 
       // Check if content is already under review
       if (isUnderReview(currentPost.id)) {
-        showError(t('feed:report:underReview'), t('feed:report:underReviewDesc'));
+        showError('Under Review', 'This content is already being reviewed by our team.');
         return;
       }
 
@@ -388,7 +383,7 @@ const PostDetailVibesFeedScreen = () => {
     } finally {
       setReportLoading(false);
     }
-  }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError, t]);
+  }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError]);
 
   // Submit report to store
   const submitReport = useCallback((reason: string) => {
@@ -399,13 +394,13 @@ const PostDetailVibesFeedScreen = () => {
     const result = storeSubmitReport(currentPost.id, reason);
 
     if (result.alreadyReported) {
-      showError(t('feed:report:alreadyReported'), result.message);
+      showError('Already Reported', result.message);
     } else if (result.success) {
-      showSuccess(t('feed:success:reported'), result.message);
+      showSuccess('Reported', result.message);
     } else {
-      showError(t('common:error'), t('feed:error:generic'));
+      showError('Error', 'Something went wrong. Please try again.');
     }
-  }, [currentPost, storeSubmitReport, showError, showSuccess, t]);
+  }, [currentPost, storeSubmitReport, showError, showSuccess]);
 
   // --- Extracted inline handlers ---
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
@@ -420,7 +415,7 @@ const PostDetailVibesFeedScreen = () => {
   const handleUserPress = useCallback(() => {
     if (!currentPost) return;
     if (currentPost.user.id === currentUserId) {
-      navigation.navigate('Tabs', { screen: 'Profile' });
+      navigation.navigate('ProfileTab' as never);
     } else {
       navigation.navigate('UserProfile', { userId: currentPost.user.id });
     }
@@ -436,7 +431,7 @@ const PostDetailVibesFeedScreen = () => {
     setShowMenu(false);
     if (!currentPost) return;
     if (currentPost.user.id === currentUserId) {
-      navigation.navigate('Tabs', { screen: 'Profile' });
+      navigation.navigate('ProfileTab' as never);
     } else {
       navigation.navigate('UserProfile', { userId: currentPost.user.id });
     }
@@ -462,29 +457,29 @@ const PostDetailVibesFeedScreen = () => {
     // Check if already muted
     if (isUserMuted(userId)) {
       setShowMenu(false);
-      showError(t('feed:error:alreadyMuted'), t('feed:error:userAlreadyMuted'));
+      showError('Already Muted', 'This user is already muted.');
       return;
     }
 
     setShowMenu(false);
     showDestructiveConfirm(
-      t('feed:menu:muteUser'),
-      t('feed:menu:muteConfirmDesc'),
+      'Mute this user?',
+      'You will no longer see their posts in your feeds.',
       async () => {
         setMuteLoading(true);
         try {
           const { error } = await mute(userId);
           if (error) {
-            showError(t('common:error'), t('feed:error:couldNotMute'));
+            showError('Error', 'Could not mute this user.');
           } else {
-            showSuccess(t('feed:success:userMuted'), t('feed:success:userMutedDesc'));
+            showSuccess('User Muted', 'You will no longer see their posts.');
           }
         } finally {
           setMuteLoading(false);
         }
       }
     );
-  }, [muteLoading, currentPost, isUserMuted, showError, showDestructiveConfirm, mute, showSuccess, t]);
+  }, [muteLoading, currentPost, isUserMuted, showError, showDestructiveConfirm, mute, showSuccess]);
 
   // Block user with anti spam-click
   const handleBlock = useCallback(async () => {
@@ -495,29 +490,29 @@ const PostDetailVibesFeedScreen = () => {
     // Check if already blocked
     if (isBlocked(userId)) {
       setShowMenu(false);
-      showError(t('feed:error:alreadyBlocked'), t('feed:error:userAlreadyBlocked'));
+      showError('Already Blocked', 'This user is already blocked.');
       return;
     }
 
     setShowMenu(false);
     showDestructiveConfirm(
-      t('feed:menu:blockUser'),
-      t('feed:menu:blockConfirmDesc'),
+      'Block this user?',
+      'You will no longer see their posts and they will not be able to interact with you.',
       async () => {
         setBlockLoading(true);
         try {
           const { error } = await block(userId);
           if (error) {
-            showError(t('common:error'), t('feed:error:couldNotBlock'));
+            showError('Error', 'Could not block this user.');
           } else {
-            showSuccess(t('feed:success:userBlocked'), t('feed:success:userBlockedDesc'));
+            showSuccess('User Blocked', 'You will no longer see their posts.');
           }
         } finally {
           setBlockLoading(false);
         }
       }
     );
-  }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess, t]);
+  }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess]);
 
   // Navigate to post detail with animation
   const _handleGridPostPress = useCallback((post: GridPost) => {
@@ -556,7 +551,7 @@ const PostDetailVibesFeedScreen = () => {
       category: post.category || 'Fitness',
       user: {
         id: post.user?.id || 'unknown',
-        name: post.user?.name || t('common:user'),
+        name: post.user?.name || 'User',
         avatar: post.user?.avatar || null,
         followsMe: false,
       },

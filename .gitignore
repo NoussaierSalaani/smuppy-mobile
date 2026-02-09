@@ -67,6 +67,7 @@ aws-migration/infrastructure/cdk-out-temp/
 aws-migration/infrastructure/cdk-out-temp/**
 aws-migration/infrastructure/cdk-out-temp2/
 aws-migration/infrastructure/cdk-out-temp2/**
+aws-migration/infrastructure/cdk-outputs.json
 aws-migration/infrastructure/app.json
 aws-migration/lambda/shared/node_modules
 aws-migration/lambda/node_modules

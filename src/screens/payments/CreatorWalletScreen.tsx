@@ -173,7 +173,7 @@ export default function CreatorWalletScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('payments:payments:wallet:title')}</Text>
+        <Text style={styles.headerTitle}>{t('payments:wallet:title')}</Text>
         <TouchableOpacity onPress={openStripeDashboard} style={styles.settingsButton}>
           <Ionicons name="settings-outline" size={24} color="white" />
         </TouchableOpacity>
@@ -184,7 +184,7 @@ export default function CreatorWalletScreen() {
           {/* Balance Card */}
           <View style={styles.balanceCard}>
             <BlurView intensity={20} tint="light" style={styles.balanceBlur}>
-              <Text style={styles.balanceLabel}>{t('payments:payments:wallet:balance')}</Text>
+              <Text style={styles.balanceLabel}>{t('payments:wallet:balance')}</Text>
               <Text style={styles.balanceAmount}>
                 {dashboard.balance ? formatAmount(dashboard.balance.available) : formatAmount(0)}
               </Text>
@@ -213,7 +213,7 @@ export default function CreatorWalletScreen() {
                 {dashboard.tier.name} Creator
               </Text>
             </LinearGradient>
-            <Text style={styles.tierShare}>{t('payments:payments:wallet:revenueShare', { percent: dashboard.tier.creatorPercent })}</Text>
+            <Text style={styles.tierShare}>{t('payments:wallet:revenueShare', { percent: dashboard.tier.creatorPercent })}</Text>
           </View>
 
           {/* Progress to next tier */}
@@ -244,21 +244,21 @@ export default function CreatorWalletScreen() {
           <Ionicons name="trending-up" size={20} color={colors.primary} />
         </View>
         <Text style={styles.statValue}>{formatAmount(dashboard?.earnings.thisMonth.total || 0)}</Text>
-        <Text style={styles.statLabel}>{t('payments:payments:wallet:thisMonth')}</Text>
+        <Text style={styles.statLabel}>{t('payments:wallet:thisMonth')}</Text>
       </View>
       <View style={styles.statCard}>
         <View style={styles.statIconContainer}>
           <Ionicons name="wallet" size={20} color={colors.primary} />
         </View>
         <Text style={styles.statValue}>{formatAmount(dashboard?.earnings.lifetime.total || 0)}</Text>
-        <Text style={styles.statLabel}>{t('payments:payments:wallet:lifetime')}</Text>
+        <Text style={styles.statLabel}>{t('payments:wallet:lifetime')}</Text>
       </View>
       <View style={styles.statCard}>
         <View style={styles.statIconContainer}>
           <Ionicons name="people" size={20} color={colors.primary} />
         </View>
         <Text style={styles.statValue}>{formatNumber(dashboard?.subscribers.active || 0)}</Text>
-        <Text style={styles.statLabel}>{t('payments:payments:wallet:subscribers')}</Text>
+        <Text style={styles.statLabel}>{t('payments:wallet:subscribers')}</Text>
       </View>
     </View>
   );
@@ -281,7 +281,7 @@ export default function CreatorWalletScreen() {
 
   const renderOverview = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{t('payments:payments:wallet:revenueBreakdown')}</Text>
+      <Text style={styles.sectionTitle}>{t('payments:wallet:revenueBreakdown')}</Text>
       {dashboard?.earnings.breakdown.map((item) => (
         <View key={item.type} style={styles.breakdownItem}>
           <View style={styles.breakdownLeft}>
@@ -296,7 +296,7 @@ export default function CreatorWalletScreen() {
               <Text style={styles.breakdownType}>
                 {item.type === 'channel' ? 'Channel Subscriptions' : item.type === 'session' ? 'Sessions' : 'Packs'}
               </Text>
-              <Text style={styles.breakdownCount}>{t('payments:payments:wallet:transactions', { count: item.count })}</Text>
+              <Text style={styles.breakdownCount}>{t('payments:wallet:transactions', { count: item.count })}</Text>
             </View>
           </View>
           <Text style={styles.breakdownAmount}>{formatAmount(item.earnings)}</Text>
@@ -315,7 +315,7 @@ export default function CreatorWalletScreen() {
             style={styles.setupStripeGradient}
           >
             <Ionicons name="card" size={20} color="white" />
-            <Text style={styles.setupStripeText}>{t('payments:payments:wallet:setupStripe')}</Text>
+            <Text style={styles.setupStripeText}>{t('payments:wallet:setupStripe')}</Text>
             <Ionicons name="arrow-forward" size={20} color="white" />
           </LinearGradient>
         </TouchableOpacity>
@@ -325,11 +325,11 @@ export default function CreatorWalletScreen() {
 
   const renderTransactions = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{t('payments:payments:wallet:recentTransactions')}</Text>
+      <Text style={styles.sectionTitle}>{t('payments:wallet:recentTransactions')}</Text>
       {transactions.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="receipt-outline" size={48} color={colors.gray} />
-          <Text style={styles.emptyText}>{t('payments:payments:wallet:noTransactions')}</Text>
+          <Text style={styles.emptyText}>{t('payments:wallet:noTransactions')}</Text>
         </View>
       ) : (
         transactions.map((tx) => (
@@ -361,9 +361,9 @@ export default function CreatorWalletScreen() {
 
   const renderAnalytics = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{t('payments:payments:wallet:analytics')}</Text>
+      <Text style={styles.sectionTitle}>{t('payments:wallet:analytics')}</Text>
       <View style={styles.analyticsCard}>
-        <Text style={styles.analyticsLabel}>{t('payments:payments:wallet:avgPerTransaction')}</Text>
+        <Text style={styles.analyticsLabel}>{t('payments:wallet:avgPerTransaction')}</Text>
         <Text style={styles.analyticsValue}>
           {dashboard?.earnings.lifetime.transactions
             ? formatAmount(Math.round(dashboard.earnings.lifetime.total / dashboard.earnings.lifetime.transactions))
@@ -371,14 +371,14 @@ export default function CreatorWalletScreen() {
         </Text>
       </View>
       <View style={styles.analyticsCard}>
-        <Text style={styles.analyticsLabel}>{t('payments:payments:wallet:transactionsThisMonth')}</Text>
+        <Text style={styles.analyticsLabel}>{t('payments:wallet:transactionsThisMonth')}</Text>
         <Text style={styles.analyticsValue}>{dashboard?.earnings.thisMonth.transactions || 0}</Text>
       </View>
       <TouchableOpacity
         style={styles.viewMoreButton}
         onPress={() => showAlert({ title: 'Coming Soon', message: 'Detailed analytics will be available soon.', type: 'info', buttons: [{ text: 'OK' }] })}
       >
-        <Text style={styles.viewMoreText}>{t('payments:payments:wallet:viewDetailed')}</Text>
+        <Text style={styles.viewMoreText}>{t('payments:wallet:viewDetailed')}</Text>
         <Ionicons name="arrow-forward" size={16} color={colors.primary} />
       </TouchableOpacity>
     </View>

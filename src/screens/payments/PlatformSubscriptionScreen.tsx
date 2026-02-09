@@ -139,7 +139,7 @@ export default function PlatformSubscriptionScreen() {
 
   const handleSubscribe = async () => {
     if (currentPlan === selectedPlan) {
-      showSuccess(t('payments:payments:subscription:success:alreadySubscribed'), t('payments:payments:subscription:success:onPlan'));
+      showSuccess(t('payments:subscription:success:alreadySubscribed'), t('payments:subscription:success:onPlan'));
       return;
     }
 
@@ -154,11 +154,11 @@ export default function PlatformSubscriptionScreen() {
         const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
         if (checkoutResult.status === 'success') {
-          showSuccess(t('payments:payments:subscription:success:subscribed'), t('payments:payments:subscription:success:active'));
+          showSuccess(t('payments:subscription:success:subscribed'), t('payments:subscription:success:active'));
         } else if (checkoutResult.status === 'pending') {
           showWarning('Processing', checkoutResult.message);
         } else if (checkoutResult.status === 'failed') {
-          showError(t('payments:payments:subscription:errors:paymentFailed'), checkoutResult.message);
+          showError(t('payments:subscription:errors:paymentFailed'), checkoutResult.message);
         }
         // cancelled — do nothing
       } else if (response.success && response.checkoutUrl) {
@@ -166,10 +166,10 @@ export default function PlatformSubscriptionScreen() {
         navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Payment' });
       } else {
         // Generic error message per CLAUDE.md - never expose response.error to client
-        showError(t('common:error'), t('payments:payments:subscription:errors:startSubscription'));
+        showError(t('common:error'), t('payments:subscription:errors:startSubscription'));
       }
     } catch (_error: unknown) {
-      showError(t('common:error'), t('payments:payments:generic:error'));
+      showError(t('common:error'), t('payments:generic:error'));
     } finally {
       setLoading(false);
     }

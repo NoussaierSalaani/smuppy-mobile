@@ -285,6 +285,43 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
     }
   }, [step, selectedCategory, title, coordinates, routeData, saveToProfile, shareOnMap]);
 
+  // Extracted handlers
+  const handleGoBackNav = useCallback(() => navigation.goBack(), [navigation]);
+  const handleNavigateUpgrade = useCallback(() => navigation.navigate('UpgradeToPro'), [navigation]);
+  const handleShowDatePicker = useCallback(() => setShowDatePicker(true), []);
+  const handleSetFreeTrue = useCallback(() => setIsFree(true), []);
+  const handleSetPaid = useCallback(() => {
+    if (isProCreator) {
+      setIsFree(false);
+    } else {
+      showAlert({
+        title: 'Monetize Your Activities',
+        message: 'Upgrade to Pro Creator to create paid activities.',
+        type: 'info',
+        buttons: [
+          { text: 'Maybe Later', style: 'cancel' },
+          { text: 'Upgrade to Pro', onPress: () => navigation.navigate('UpgradeToPro') },
+        ],
+      });
+    }
+  }, [isProCreator, showAlert, navigation]);
+  const handleCoordinateSelect = useCallback((coord: { lat: number; lng: number }) => setCoordinates(coord), []);
+  const handleRouteCalculated = useCallback((result: RouteResult & { start: Coordinate; end: Coordinate; waypoints: Coordinate[]; profile: RouteProfile }) => {
+    setRouteData(result);
+    setCoordinates(result.start);
+  }, []);
+  const handleRouteClear = useCallback(() => setRouteData(null), []);
+  const handleToggleSaveProfile = useCallback(() => setSaveToProfile(prev => !prev), []);
+  const handleToggleShareMap = useCallback(() => setShareOnMap(prev => !prev), []);
+  const handleDateChange = useCallback((_: unknown, date?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (date) setStartDate(date);
+  }, []);
+  const handleCustomSubChange = useCallback((t: string) => {
+    setCustomSubcategory(t);
+    setSelectedSubcategory('');
+  }, []);
+
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // ============================================
@@ -358,7 +395,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
             placeholder="Or type a custom subcategory..."
             placeholderTextColor={colors.gray}
             value={customSubcategory}
-            onChangeText={(t) => { setCustomSubcategory(t); setSelectedSubcategory(''); }}
+            onChangeText={handleCustomSubChange}
             maxLength={100}
           />
         </View>
@@ -403,7 +440,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Date & Time</Text>
-        <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
+        <TouchableOpacity style={styles.dateButton} onPress={handleShowDatePicker}>
           <Ionicons name="calendar" size={20} color={colors.primary} />
           <Text style={styles.dateButtonText}>
             {startDate.toLocaleDateString('en-US', {
@@ -432,27 +469,13 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
         <View style={styles.toggleRow}>
           <TouchableOpacity
             style={[styles.toggleButton, isFree && styles.toggleButtonActive]}
-            onPress={() => setIsFree(true)}
+            onPress={handleSetFreeTrue}
           >
             <Text style={[styles.toggleButtonText, isFree && styles.toggleButtonTextActive]}>Free</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleButton, !isFree && styles.toggleButtonActive]}
-            onPress={() => {
-              if (isProCreator) {
-                setIsFree(false);
-              } else {
-                showAlert({
-                  title: 'Monetize Your Activities',
-                  message: 'Upgrade to Pro Creator to create paid activities.',
-                  type: 'info',
-                  buttons: [
-                    { text: 'Maybe Later', style: 'cancel' },
-                    { text: 'Upgrade to Pro', onPress: () => navigation.navigate('UpgradeToPro') },
-                  ],
-                });
-              }
-            }}
+            onPress={handleSetPaid}
           >
             <Text style={[styles.toggleButtonText, !isFree && styles.toggleButtonTextActive]}>Monetize</Text>
             {!isProCreator && (
@@ -503,12 +526,9 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
         lockedLocation={lockedLocation}
         locationName={locationName}
         onLocationNameChange={setLocationName}
-        onCoordinateSelect={(coord) => setCoordinates(coord)}
-        onRouteCalculated={(result) => {
-          setRouteData(result);
-          setCoordinates(result.start);
-        }}
-        onRouteClear={() => setRouteData(null)}
+        onCoordinateSelect={handleCoordinateSelect}
+        onRouteCalculated={handleRouteCalculated}
+        onRouteClear={handleRouteClear}
       />
     </View>
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -526,7 +546,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
       <TouchableOpacity
         style={[styles.optionCard, saveToProfile && styles.optionCardActive]}
         activeOpacity={0.8}
-        onPress={() => setSaveToProfile(prev => !prev)}
+        onPress={handleToggleSaveProfile}
       >
         <View style={styles.optionIconWrap}>
           <Ionicons name="bookmark" size={24} color={saveToProfile ? colors.primary : colors.gray} />
@@ -545,7 +565,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
       <TouchableOpacity
         style={[styles.optionCard, shareOnMap && styles.optionCardActive]}
         activeOpacity={0.8}
-        onPress={() => setShareOnMap(prev => !prev)}
+        onPress={handleToggleShareMap}
       >
         <View style={styles.optionIconWrap}>
           <Ionicons name="map" size={24} color={shareOnMap ? colors.primary : colors.gray} />
@@ -663,7 +683,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBackNav}>
             <Ionicons name="arrow-back" size={24} color={isDark ? colors.white : colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Create Activity</Text>
@@ -682,12 +702,12 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
             Personal accounts can create 1 activity per month.{'\n'}
             Upgrade to Pro for unlimited activities.
           </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('UpgradeToPro')}>
+          <TouchableOpacity onPress={handleNavigateUpgrade}>
             <LinearGradient colors={GRADIENTS.primary} style={styles.upgradeButton}>
               <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.goBackLink}>
+          <TouchableOpacity onPress={handleGoBackNav} style={styles.goBackLink}>
             <Text style={styles.goBackLinkText}>Maybe Later</Text>
           </TouchableOpacity>
         </View>
@@ -772,10 +792,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
           mode="datetime"
           display="spinner"
           minimumDate={new Date(Date.now() + 60 * 60 * 1000)}
-          onChange={(_, date) => {
-            setShowDatePicker(Platform.OS === 'ios');
-            if (date) setStartDate(date);
-          }}
+          onChange={handleDateChange}
         />
       )}
     </SafeAreaView>

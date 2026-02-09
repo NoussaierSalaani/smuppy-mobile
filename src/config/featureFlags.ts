@@ -32,8 +32,7 @@ const PROD_FEATURES = {
 
   // ─── Discovery / Xplorer ─────────────────────────
   XPLORER_MAP: true,
-  CREATE_EVENT: true,
-  CREATE_GROUP: true,
+  CREATE_ACTIVITY: true,       // V1: unified event/group creation screen
   SPOTS: true,
 
   // ─── Live Streaming ──────────────────────────────
@@ -53,9 +52,9 @@ const PROD_FEATURES = {
 
   // ─── Business Features ───────────────────────────
   BUSINESS_DISCOVERY: true,    // V1: browsing is free, no payment
-  BUSINESS_DASHBOARD: true,    // V1: owner management, no payment
+  BUSINESS_DASHBOARD: false,   // V2: owner management screens
   BUSINESS_BOOKING: false,     // V3: Stripe Connect — needs Apple IAP
-  BUSINESS_SCANNER: true,      // V1: QR scanner, no payment
+  BUSINESS_SCANNER: false,     // V2: QR scanner, tied to dashboard
 
   // ─── Account / Settings ──────────────────────────
   UPGRADE_TO_PRO: false,       // V3: Stripe platform subscription — needs Apple IAP

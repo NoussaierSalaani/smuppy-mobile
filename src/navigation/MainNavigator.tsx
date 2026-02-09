@@ -148,9 +148,6 @@ const InviteToBattleScreen = lazyScreen(() => import('../screens/battles/InviteT
 const EventListScreen = lazyScreen(() => import('../screens/events/EventListScreen'));
 const EventManageScreen = lazyScreen(() => import('../screens/events/EventManageScreen'));
 
-// Group Screens
-const CreateGroupScreen = lazyScreen(() => import('../screens/groups/CreateGroupScreen'));
-
 // Activity Screens (unified — CreateEventScreen is the final version with Event/Group toggle)
 const CreateActivityScreen = lazyScreen(() => import('../screens/events/CreateEventScreen'));
 const ActivityDetailScreen = lazyScreen(() => import('../screens/activities/ActivityDetailScreen'));
@@ -260,7 +257,7 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
         onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
         onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
         onSelectChallenge={undefined}
-        onSelectEvent={FEATURES.CREATE_EVENT && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateActivity'); } : undefined}
+        onSelectEvent={FEATURES.CREATE_ACTIVITY && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateActivity'); } : undefined}
       />
     </>
   );
@@ -451,16 +448,13 @@ export default function MainNavigator() {
       </>
       )}
 
-      {/* Events (Xplorer) */}
+      {/* Activities (unified — events + groups) */}
+      {FEATURES.CREATE_ACTIVITY && (
+      <Stack.Screen name="CreateActivity" component={CreateActivityScreen} options={{ animation: 'slide_from_bottom' }} />
+      )}
+      <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EventList" component={EventListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="EventManage" component={EventManageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-
-      {/* Groups */}
-      <Stack.Screen name="CreateGroup" component={CreateGroupScreen} options={{ animation: 'slide_from_bottom' }} />
-
-      {/* Activities (unified) */}
-      <Stack.Screen name="CreateActivity" component={CreateActivityScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Spots */}
       {FEATURES.SPOTS && (

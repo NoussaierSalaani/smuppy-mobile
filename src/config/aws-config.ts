@@ -61,7 +61,7 @@ const STAGING_DEFAULTS = {
   restEndpoint: 'https://90pg0i63ff.execute-api.us-east-1.amazonaws.com/staging',
   restEndpoint2: 'https://lhvm623909.execute-api.us-east-1.amazonaws.com/staging',
   restEndpoint3: 'https://1e2fsip7a4.execute-api.us-east-1.amazonaws.com/staging',
-  restEndpointDisputes: '',  // Populated after cdk deploy of ApiGatewayDisputesStack
+  restEndpointDisputes: 'https://wk7tymrgbg.execute-api.us-east-1.amazonaws.com/staging',
   graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
   websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
   bucket: 'smuppy-media-staging-471112656108',

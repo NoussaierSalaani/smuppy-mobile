@@ -29,14 +29,19 @@
     "sslEncryption": "Criptografia SSL",
     "sslDesc": "Dados criptografados de ponta a ponta",
     "threeDS": "Autenticação 3DS",
-    "threeDSDesc": "Camada extra de segurança",
+    "threeDSDesc": "Verificação de pagamento segura",
+    "maskedData": "Dados mascarados",
+    "maskedDataDesc": "Números de cartão nunca armazenados",
+    "securePaymentsBy": "Pagamentos seguros por",
     "success": {
       "cardAdded": "Cartão adicionado com sucesso"
     },
     "errors": {
       "addCard": "Não foi possível adicionar o cartão. Tente novamente.",
       "setDefault": "Não foi possível definir como padrão",
-      "removeCard": "Não foi possível remover o cartão"
+      "removeCard": "Não foi possível remover o cartão",
+      "setupIntent": "Falha ao criar intenção de configuração",
+      "removeCardDebug": "Falha ao remover cartão:"
     }
   },
   "subscription": {
@@ -51,6 +56,7 @@
     "noCommitment": "Sem compromisso, cancele quando quiser",
     "subscribeFor": "Assinar por {{price}}/mês",
     "termsAgreement": "Ao assinar, você concorda com nossos Termos de Serviço",
+    "completePayment": "Completar pagamento",
     "plans": {
       "proCreator": "Pro Criador",
       "proBusiness": "Pro Business"
@@ -82,6 +88,35 @@
     },
     "errors": {
       "paymentFailed": "Pagamento falhou",
+      "startSubscription": "Falha ao iniciar assinatura. Tente novamente."
+    }
+  },
+  "channel": {
+    "title": "Associação ao Canal",
+    "notFound": "Canal não encontrado",
+    "goBack": "Voltar",
+    "fans": "Fãs",
+    "subscribers": "Assinantes",
+    "tier": "Nível",
+    "billedMonthly": "Faturado mensalmente • Cancele a qualquer momento",
+    "perMonth": "/mês",
+    "membershipIncludes": "A associação inclui",
+    "joinMembers": "Junte-se a {{count}} outros membros apoiando {{name}}",
+    "subscribed": "Assinado!",
+    "subscribedDesc": "Sua assinatura está agora ativa.",
+    "processing": "Processando",
+    "paymentFailed": "Pagamento falhou",
+    "subscribeFor": "Assinar por {{price}}/mês",
+    "autoRenews": "A assinatura é renovada mensalmente até ser cancelada",
+    "perks": {
+      "exclusiveContent": "Acesso a conteúdo exclusivo",
+      "membersOnly": "Streams ao vivo apenas para membros",
+      "directMessaging": "Mensagens diretas com o criador",
+      "priorityNotif": "Notificações prioritárias",
+      "supportCreator": "Apoie seu criador favorito",
+      "subscriberBadge": "Badge de assinante no chat"
+    },
+    "errors": {
       "startSubscription": "Falha ao iniciar assinatura. Tente novamente."
     }
   },

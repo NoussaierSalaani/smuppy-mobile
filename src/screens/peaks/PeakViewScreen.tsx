@@ -790,12 +790,14 @@ const PeakViewScreen = (): React.JSX.Element => {
           async () => {
             try {
               await awsAPI.deletePeak(currentPeak.id);
-              if (peaks.length <= 1) {
+              const deletedIndex = currentIndex;
+              const remaining = peaks.filter((_, i) => i !== deletedIndex);
+              if (remaining.length === 0) {
                 navigation.goBack();
-              } else if (currentIndex < peaks.length - 1) {
-                setCurrentIndex(currentIndex + 1);
               } else {
-                setCurrentIndex(currentIndex - 1);
+                const nextIndex = deletedIndex >= remaining.length ? remaining.length - 1 : deletedIndex;
+                setPeaks(remaining);
+                setCurrentIndex(nextIndex);
               }
               showSuccess('Deleted', 'Peak deleted successfully');
             } catch (error) {
@@ -988,7 +990,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const repliesCount = currentPeak.repliesCount || 0;
   const commentsCount = currentPeak.commentsCount || 0;
   const existingTags = peakTags.get(currentPeak.id) || [];
-  const _isOwnPeak = currentPeak.isOwnPeak || false;
+  const isOwnPeak = currentPeak.isOwnPeak || (currentUser?.id != null && currentPeak.user?.id === currentUser.id);
 
   // Get unique users from peaks for the avatar carousel
   const uniqueUsers = useMemo(() => {
@@ -1028,6 +1030,8 @@ const PeakViewScreen = (): React.JSX.Element => {
   // Menu action handlers
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleShareAction = useCallback(() => handleMenuAction('share'), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const handleMenuCopyLink = useCallback(() => handleMenuAction('copy_link'), []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMenuDownload = useCallback(() => handleMenuAction('download'), []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1495,7 +1499,24 @@ const PeakViewScreen = (): React.JSX.Element => {
               <View style={styles.menuHandle} />
             </View>
 
-            {_isOwnPeak ? (
+            {/* Common actions */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleShareAction}
+            >
+              <Ionicons name="paper-plane-outline" size={24} color={isDark ? colors.white : colors.dark} />
+              <Text style={styles.menuItemText}>Share</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleMenuCopyLink}
+            >
+              <Ionicons name="link-outline" size={24} color={isDark ? colors.white : colors.dark} />
+              <Text style={styles.menuItemText}>Copy link</Text>
+            </TouchableOpacity>
+
+            {isOwnPeak ? (
               <>
                 <TouchableOpacity
                   style={styles.menuItem}

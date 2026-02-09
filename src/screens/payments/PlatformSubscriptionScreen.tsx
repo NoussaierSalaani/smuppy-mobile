@@ -156,14 +156,14 @@ export default function PlatformSubscriptionScreen() {
         if (checkoutResult.status === 'success') {
           showSuccess(t('payments:subscription:success:subscribed'), t('payments:subscription:success:active'));
         } else if (checkoutResult.status === 'pending') {
-          showWarning('Processing', checkoutResult.message);
+          showWarning(t('payments:generic:processing'), checkoutResult.message);
         } else if (checkoutResult.status === 'failed') {
           showError(t('payments:subscription:errors:paymentFailed'), checkoutResult.message);
         }
         // cancelled — do nothing
       } else if (response.success && response.checkoutUrl) {
         // Fallback if no sessionId returned
-        navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Payment' });
+        navigation.navigate('WebView', { url: response.checkoutUrl, title: t('payments:subscription:completePayment') });
       } else {
         // Generic error message per CLAUDE.md - never expose response.error to client
         showError(t('common:error'), t('payments:subscription:errors:startSubscription'));

@@ -299,13 +299,7 @@ const NotificationItem = React.memo(function NotificationItem({
           </>
         ) : (
           <Text style={styles.notificationText}>
-            <Text
-              style={styles.userName}
-              onPress={() =>
-                (item as UserNotification).user?.id &&
-                goToUserProfile((item as UserNotification).user.id)
-              }
-            >
+            <Text style={styles.userName}>
               {(item as UserNotification).user.name}
             </Text>
             {(item as UserNotification).user.isVerified ? ' \u2713 ' : ' '}{item.message}
@@ -488,7 +482,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       return;
     }
     if (notif.streamId && isValidUUID(notif.streamId)) {
-      navigation.navigate('ViewerLiveStream', { channelName: notif.streamId, hostUsername: '', hostAvatar: '' });
+      navigation.navigate('ViewerLiveStream', { channelName: notif.streamId });
       return;
     }
     // Fallback: navigate to user profile if no content ID

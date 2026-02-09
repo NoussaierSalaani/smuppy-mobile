@@ -29,14 +29,19 @@
     "sslEncryption": "Encriptación SSL",
     "sslDesc": "Datos encriptados de extremo a extremo",
     "threeDS": "Autenticación 3DS",
-    "threeDSDesc": "Capa de seguridad adicional",
+    "threeDSDesc": "Verificación de pago segura",
+    "maskedData": "Datos enmascarados",
+    "maskedDataDesc": "Números de tarjeta nunca almacenados",
+    "securePaymentsBy": "Pagos seguros por",
     "success": {
       "cardAdded": "Tarjeta agregada exitosamente"
     },
     "errors": {
       "addCard": "No se pudo agregar la tarjeta. Inténtalo de nuevo.",
       "setDefault": "No se pudo establecer como predeterminada",
-      "removeCard": "No se pudo eliminar la tarjeta"
+      "removeCard": "No se pudo eliminar la tarjeta",
+      "setupIntent": "No se pudo crear la intención de configuración",
+      "removeCardDebug": "Error al eliminar la tarjeta:"
     }
   },
   "subscription": {
@@ -51,6 +56,7 @@
     "noCommitment": "Sin compromiso, cancela cuando quieras",
     "subscribeFor": "Suscribirse por {{price}}/mes",
     "termsAgreement": "Al suscribirte, aceptas nuestros Términos de Servicio",
+    "completePayment": "Completar pago",
     "plans": {
       "proCreator": "Pro Creador",
       "proBusiness": "Pro Business"
@@ -82,6 +88,35 @@
     },
     "errors": {
       "paymentFailed": "Pago fallido",
+      "startSubscription": "No se pudo iniciar la suscripción. Inténtalo de nuevo."
+    }
+  },
+  "channel": {
+    "title": "Membresía de Canal",
+    "notFound": "Canal no encontrado",
+    "goBack": "Volver",
+    "fans": "Fans",
+    "subscribers": "Suscriptores",
+    "tier": "Nivel",
+    "billedMonthly": "Facturado mensual • Cancela cuando quieras",
+    "perMonth": "/mes",
+    "membershipIncludes": "La membresía incluye",
+    "joinMembers": "Únete a {{count}} otros miembros apoyando a {{name}}",
+    "subscribed": "¡Suscrito!",
+    "subscribedDesc": "Tu suscripción está ahora activa.",
+    "processing": "Procesando",
+    "paymentFailed": "Pago fallido",
+    "subscribeFor": "Suscribirse por {{price}}/mes",
+    "autoRenews": "La suscripción se renueva mensualmente hasta cancelar",
+    "perks": {
+      "exclusiveContent": "Acceso a contenido exclusivo",
+      "membersOnly": "Streams en vivo solo para miembros",
+      "directMessaging": "Mensajería directa con el creador",
+      "priorityNotif": "Notificaciones prioritarias",
+      "supportCreator": "Apoya a tu creador favorito",
+      "subscriberBadge": "Badge de suscriptor en el chat"
+    },
+    "errors": {
       "startSubscription": "No se pudo iniciar la suscripción. Inténtalo de nuevo."
     }
   },

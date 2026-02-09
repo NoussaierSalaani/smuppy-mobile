@@ -257,7 +257,7 @@ export default function IdentityVerificationScreen() {
         if (canOpen) {
           await Linking.openURL(response.url);
         } else {
-          navigation.navigate('WebView', { url: response.url, title: 'Verify Identity' });
+          navigation.navigate('WebView', { url: response.url, title: t('payments:identity:title') });
         }
       } else {
         // Try creating session directly
@@ -274,7 +274,7 @@ export default function IdentityVerificationScreen() {
           if (canOpen) {
             await Linking.openURL(sessionResponse.url);
           } else {
-            navigation.navigate('WebView', { url: sessionResponse.url, title: 'Verify Identity' });
+            navigation.navigate('WebView', { url: sessionResponse.url, title: t('payments:identity:title') });
           }
         } else {
           // Generic error message per CLAUDE.md - never expose response.error to client

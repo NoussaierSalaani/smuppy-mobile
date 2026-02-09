@@ -29,14 +29,19 @@
     "sslEncryption": "تشفير SSL",
     "sslDesc": "بيانات مشفرة من طرف إلى طرف",
     "threeDS": "مصادقة 3DS",
-    "threeDSDesc": "طبقة أمان إضافية",
+    "threeDSDesc": "التحقق الآمن من الدفع",
+    "maskedData": "بيانات مخفية",
+    "maskedDataDesc": "أرقام البطاقات لا تُخزن أبداً",
+    "securePaymentsBy": "مدفوعات آمنة بواسطة",
     "success": {
       "cardAdded": "تمت إضافة البطاقة بنجاح"
     },
     "errors": {
       "addCard": "تعذر إضافة البطاقة. يرجى المحاولة مرة أخرى.",
       "setDefault": "تعذر تعيين كافتراضي",
-      "removeCard": "تعذر إزالة البطاقة"
+      "removeCard": "تعذر إزالة البطاقة",
+      "setupIntent": "فشل إنشاء نية الإعداد",
+      "removeCardDebug": "فشل إزالة البطاقة:"
     }
   },
   "subscription": {
@@ -51,6 +56,7 @@
     "noCommitment": "بدون التزام، يمكنك الإلغاء في أي وقت",
     "subscribeFor": "اشترك مقابل {{price}}/شهر",
     "termsAgreement": "بالاشتراك، فإنك توافق على شروط الخدمة",
+    "completePayment": "إكمال الدفع",
     "plans": {
       "proCreator": "Pro صانع محتوى",
       "proBusiness": "Pro أعمال"
@@ -82,6 +88,35 @@
     },
     "errors": {
       "paymentFailed": "فشل الدفع",
+      "startSubscription": "فشل بدء الاشتراك. يرجى المحاولة مرة أخرى."
+    }
+  },
+  "channel": {
+    "title": "عضوية القناة",
+    "notFound": "القناة غير موجودة",
+    "goBack": "العودة",
+    "fans": "المعجبين",
+    "subscribers": "المشتركين",
+    "tier": "المستوى",
+    "billedMonthly": "الفوترة شهرية • إلغاء في أي وقت",
+    "perMonth": "/شهر",
+    "membershipIncludes": "تتضمن العضوية",
+    "joinMembers": "انضم إلى {{count}} من الأعضاء الآخرين لدعم {{name}}",
+    "subscribed": "تم الاشتراك!",
+    "subscribedDesc": "اشتراكك نشط الآن.",
+    "processing": "جاري المعالجة",
+    "paymentFailed": "فشل الدفع",
+    "subscribeFor": "اشترك مقابل {{price}}/شهر",
+    "autoRenews": "يتم تجديد الاشتراك شهرياً حتى الإلغاء",
+    "perks": {
+      "exclusiveContent": "الوصول إلى المحتوى الحصري",
+      "membersOnly": "البث المباشر للأعضاء فقط",
+      "directMessaging": "المراسلة المباشرة مع صانع المحتوى",
+      "priorityNotif": "الإشعارات الأولوية",
+      "supportCreator": "ادعم صانع المحتوى المفضل لديك",
+      "subscriberBadge": "شارة المشترك في الدردشة"
+    },
+    "errors": {
       "startSubscription": "فشل بدء الاشتراك. يرجى المحاولة مرة أخرى."
     }
   },

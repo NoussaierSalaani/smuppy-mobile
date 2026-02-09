@@ -155,12 +155,12 @@ export default function CreatorWalletScreen() {
       }) as { success?: boolean; url?: string };
       if (response.success && response.url) {
         // Open in browser or WebView
-        navigation.navigate('WebView', { url: response.url, title: 'Stripe Dashboard' });
+        navigation.navigate('WebView', { url: response.url, title: t('payments:wallet:setupStripe') });
       }
     } catch (error) {
       if (__DEV__) console.warn('Failed to get Stripe dashboard link:', (error as Error).message);
     }
-  }, [navigation]);
+  }, [navigation, t]);
 
   const renderHeader = () => (
     <LinearGradient
@@ -306,7 +306,7 @@ export default function CreatorWalletScreen() {
       {!dashboard?.profile.hasStripeConnect && (
         <TouchableOpacity
           style={styles.setupStripeButton}
-          onPress={() => showAlert({ title: 'Coming Soon', message: 'Stripe Connect payout setup will be available soon.', type: 'info', buttons: [{ text: 'OK' }] })}
+          onPress={() => showAlert({ title: t('common:comingSoon'), message: t('payments:wallet:stripeConnectComingSoon'), type: 'info', buttons: [{ text: t('common:ok') }] })}
         >
           <LinearGradient
             colors={GRADIENTS.primary}
@@ -376,7 +376,7 @@ export default function CreatorWalletScreen() {
       </View>
       <TouchableOpacity
         style={styles.viewMoreButton}
-        onPress={() => showAlert({ title: 'Coming Soon', message: 'Detailed analytics will be available soon.', type: 'info', buttons: [{ text: 'OK' }] })}
+        onPress={() => showAlert({ title: t('common:comingSoon'), message: t('payments:wallet:analyticsComingSoon'), type: 'info', buttons: [{ text: t('common:ok') }] })}
       >
         <Text style={styles.viewMoreText}>{t('payments:wallet:viewDetailed')}</Text>
         <Ionicons name="arrow-forward" size={16} color={colors.primary} />

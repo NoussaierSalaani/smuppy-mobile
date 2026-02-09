@@ -39,7 +39,9 @@
     "errors": {
       "addCard": "Could not add card. Please try again.",
       "setDefault": "Could not set as default",
-      "removeCard": "Could not remove card"
+      "removeCard": "Could not remove card",
+      "setupIntent": "Failed to create setup intent",
+      "removeCardDebug": "Failed to remove card:"
     }
   },
   "subscription": {
@@ -54,6 +56,7 @@
     "noCommitment": "No commitment, cancel whenever you want",
     "subscribeFor": "Subscribe for {{price}}/mo",
     "termsAgreement": "By subscribing, you agree to our Terms of Service",
+    "completePayment": "Complete Payment",
     "plans": {
       "proCreator": "Pro Creator",
       "proBusiness": "Pro Business"

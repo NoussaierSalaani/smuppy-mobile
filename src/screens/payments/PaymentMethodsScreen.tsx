@@ -154,7 +154,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
 
       const setupResponse = await awsAPI.createSetupIntent();
       if (!setupResponse.success || !setupResponse.checkoutUrl) {
-        throw new Error(setupResponse.message || 'Failed to create setup intent');
+        throw new Error(setupResponse.message || t('payments:methods:errors:setupIntent'));
       }
 
       const result = await WebBrowser.openBrowserAsync(setupResponse.checkoutUrl);
@@ -195,7 +195,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
 
   const handleRemove = (method: PaymentMethod) => {
     showDestructiveConfirm(
-      'Remove Card',
+      t('payments:methods:removeCardTitle'),
       `Remove card ending in **** ${method.card?.last4}?`,
       async () => {
         try {
@@ -209,7 +209,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
             showError(t('common:error'), response.message || t('payments:methods:errors:removeCard'));
           }
         } catch (error: unknown) {
-          if (__DEV__) console.warn('Failed to remove card:', error);
+          if (__DEV__) console.warn(t('payments:methods:errors:removeCardDebug'), error);
           showError(t('common:error'), t('payments:generic:error'));
         }
       }

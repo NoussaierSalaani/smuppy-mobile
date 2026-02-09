@@ -42,7 +42,7 @@ const envConfig = {
   staging: {
     skipSecurityStack: false,
     alertEmail: 'staging-alerts@smuppy.com',
-    apiDomain: undefined,  // Disabled: no Route53 hosted zone for staging DNS validation
+    apiDomain: 'api-staging.smuppy.com',
     graphqlDomain: 'graphql-staging.smuppy.com',
   },
   production: {

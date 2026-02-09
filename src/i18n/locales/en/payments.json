@@ -29,7 +29,10 @@
     "sslEncryption": "SSL Encryption",
     "sslDesc": "End-to-end encrypted data",
     "threeDS": "3DS Authentication",
-    "threeDSDesc": "Extra layer of security",
+    "threeDSDesc": "Secure payment verification",
+    "maskedData": "Masked Data",
+    "maskedDataDesc": "Card numbers never stored",
+    "securePaymentsBy": "Secure payments by",
     "success": {
       "cardAdded": "Card added successfully"
     },
@@ -82,6 +85,35 @@
     },
     "errors": {
       "paymentFailed": "Payment Failed",
+      "startSubscription": "Failed to start subscription. Please try again."
+    }
+  },
+  "channel": {
+    "title": "Channel Membership",
+    "notFound": "Channel not found",
+    "goBack": "Go Back",
+    "fans": "Fans",
+    "subscribers": "Subscribers",
+    "tier": "Tier",
+    "billedMonthly": "Billed monthly • Cancel anytime",
+    "perMonth": "/mo",
+    "membershipIncludes": "Membership includes",
+    "joinMembers": "Join {{count}} other members supporting {{name}}",
+    "subscribed": "Subscribed!",
+    "subscribedDesc": "Your subscription is now active.",
+    "processing": "Processing",
+    "paymentFailed": "Payment Failed",
+    "subscribeFor": "Subscribe for {{price}}/month",
+    "autoRenews": "Subscription auto-renews monthly until canceled",
+    "perks": {
+      "exclusiveContent": "Exclusive content access",
+      "membersOnly": "Members-only live streams",
+      "directMessaging": "Direct messaging with creator",
+      "priorityNotif": "Priority notifications",
+      "supportCreator": "Support your favorite creator",
+      "subscriberBadge": "Subscriber badge in chat"
+    },
+    "errors": {
       "startSubscription": "Failed to start subscription. Please try again."
     }
   },

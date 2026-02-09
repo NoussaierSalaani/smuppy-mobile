@@ -591,9 +591,9 @@ export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: n
   hasMore: boolean;
   error: string | null;
 }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, nextCursor: null, hasMore: false, error: 'Not authenticated' };
-
+  // No premature auth gate — GET /posts has no Cognito authorizer,
+  // so the API works with or without a token. awsAPI.request() attaches
+  // the token internally if available and retries on 401.
   try {
     const result = await awsAPI.getPosts({
       type: 'following',
@@ -615,9 +615,6 @@ export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: n
  * Get optimized FanFeed with likes/saves status included
  */
 export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[] }>(`/feed/following?limit=${limit}&page=${page}`);
     const posts: PostWithStatus[] = result.data.map((p: AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean }) => ({

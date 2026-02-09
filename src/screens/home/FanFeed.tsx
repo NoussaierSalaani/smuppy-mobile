@@ -355,7 +355,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       if (error) {
         if (__DEV__) console.warn('[FanFeed] Error fetching posts:', error);
         if (refresh) {
-          showError('Refresh failed', 'Unable to load new posts. Please try again.');
+          showError('Refresh failed', error);
         }
         if (refresh || isInitial) {
           setPosts([]);

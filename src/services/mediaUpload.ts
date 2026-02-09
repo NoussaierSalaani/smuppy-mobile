@@ -4,8 +4,17 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import * as VideoThumbnails from 'expo-video-thumbnails';
 import { ENV } from '../config/env';
+
+// VideoThumbnails est un module natif qui nécessite un build de développement
+// En Expo Go, on utilise une fallback sans thumbnail
+let VideoThumbnails: typeof import('expo-video-thumbnails') | null = null;
+try {
+  VideoThumbnails = require('expo-video-thumbnails');
+} catch {
+  // Module natif non disponible (Expo Go)
+  VideoThumbnails = null;
+}
 import { captureException } from '../lib/sentry';
 import {
   compressImage,
@@ -661,6 +670,10 @@ export const uploadPeakMedia = (
  */
 export const generateVideoThumbnail = async (videoUri: string): Promise<string | null> => {
   try {
+    if (!VideoThumbnails) {
+      if (__DEV__) console.warn('[generateVideoThumbnail] Module not available in Expo Go');
+      return null;
+    }
     const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, { time: 1000 });
     return uri;
   } catch {

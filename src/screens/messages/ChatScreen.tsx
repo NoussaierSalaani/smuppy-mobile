@@ -484,6 +484,80 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleOpenChatMenu = useCallback(() => setChatMenuVisible(true), []);
+  const handleCloseChatMenu = useCallback(() => setChatMenuVisible(false), []);
+  const handleGoToOtherProfile = useCallback(() => {
+    if (otherUserProfile?.id) goToUserProfile(otherUserProfile.id);
+  }, [otherUserProfile?.id, goToUserProfile]);
+  const handleStartRecording = useCallback(() => setIsRecording(true), []);
+  const handleStopRecording = useCallback(() => setIsRecording(false), []);
+  const handleVoiceFinish = useCallback((uri: string, duration: number) => {
+    setIsRecording(false);
+    setVoicePreview({ uri, duration });
+    setVoicePreviewVisible(true);
+  }, []);
+  const handleCloseEmojiPicker = useCallback(() => setShowEmojiPicker(false), []);
+  const handleCloseSelectedImage = useCallback(() => setSelectedImage(null), []);
+  const handleCloseVoicePreview = useCallback(() => {
+    setVoicePreviewVisible(false);
+    setVoicePreview(null);
+  }, []);
+  const handleDiscardVoice = useCallback(async () => {
+    setVoicePreviewVisible(false);
+    if (voicePreview?.uri) {
+      try { await FileSystem.deleteAsync(voicePreview.uri, { idempotent: true }); } catch { /* cleanup best-effort */ }
+    }
+    setVoicePreview(null);
+  }, [voicePreview?.uri]);
+  const handleSendVoicePreview = useCallback(() => {
+    if (voicePreview) handleVoiceSend(voicePreview.uri, voicePreview.duration);
+  }, [voicePreview, handleVoiceSend]);
+  const handleViewProfileMenu = useCallback(() => {
+    setChatMenuVisible(false);
+    if (otherUserProfile?.id && isValidUUID(otherUserProfile.id)) {
+      navigation.navigate('UserProfile', { userId: otherUserProfile.id });
+    }
+  }, [otherUserProfile?.id, navigation]);
+  const handleBlockUserMenu = useCallback(() => {
+    setChatMenuVisible(false);
+    showDestructiveConfirm(
+      'Block User',
+      `Block ${otherUserProfile?.full_name || 'this user'}?`,
+      async () => {
+        if (otherUserProfile?.id) {
+          const { error } = await blockUser(otherUserProfile.id);
+          if (error) {
+            showError('Error', 'Failed to block user');
+          } else {
+            showSuccess('Blocked', `${otherUserProfile.full_name || 'User'} has been blocked`);
+            navigation.goBack();
+          }
+        }
+      },
+      'Block'
+    );
+  }, [otherUserProfile?.id, otherUserProfile?.full_name, showDestructiveConfirm, showError, showSuccess, navigation]);
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    setInitError(null);
+    if (userId) {
+      getOrCreateConversation(userId).then(({ data, error }) => {
+        if (error) {
+          setInitError(error);
+          setLoading(false);
+        } else if (data) {
+          setConversationId(data);
+        }
+      });
+    }
+  }, [userId]);
+
+  const headerPaddingStyle = useMemo(() => ({ paddingTop: insets.top + 10 }), [insets.top]);
+  const inputAreaPaddingStyle = useMemo(() => ({ paddingBottom: insets.bottom + 10 }), [insets.bottom]);
+  const closeImageBtnTopStyle = useMemo(() => ({ top: insets.top + 20 }), [insets.top]);
+  const voicePreviewCardTopStyle = useMemo(() => ({ paddingTop: insets.top + 16 }), [insets.top]);
+
   // Stable renderMessage — uses refs so it doesn't re-create on every poll
   const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
     const isFromMe = item.sender_id === currentUserIdRef.current;
@@ -541,12 +615,12 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   if (initError && !conversationId) {
     return (
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <View style={[styles.header, headerPaddingStyle]}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerName}>Error</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerSpacer} />
         </View>
         <View style={styles.centered}>
           <Ionicons name="alert-circle-outline" size={64} color={colors.gray} />
@@ -554,21 +628,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           <Text style={styles.errorMessage}>Something went wrong. Please try again.</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => {
-              setLoading(true);
-              setInitError(null);
-              // Re-trigger the effect by clearing and setting userId
-              if (userId) {
-                getOrCreateConversation(userId).then(({ data, error }) => {
-                  if (error) {
-                    setInitError(error);
-                    setLoading(false);
-                  } else if (data) {
-                    setConversationId(data);
-                  }
-                });
-              }
-            }}
+            onPress={handleRetry}
           >
             <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
@@ -579,25 +639,25 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <View style={[styles.header, headerPaddingStyle]}>
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.userInfo} onPress={() => otherUserProfile?.id && goToUserProfile(otherUserProfile.id)}>
+        <TouchableOpacity style={styles.userInfo} onPress={handleGoToOtherProfile}>
           <AvatarImage source={otherUserProfile?.avatar_url} size={40} />
           <View>
             <View style={styles.headerNameRow}>
               <Text style={styles.headerName}>{displayName}</Text>
               <AccountBadge
                 size={16}
-                style={{ marginLeft: 4 }}
+                style={styles.accountBadgeMargin}
                 isVerified={otherUserProfile?.is_verified}
                 accountType={otherUserProfile?.account_type}
               />
             </View>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerIcon} onPress={() => setChatMenuVisible(true)}>
+        <TouchableOpacity style={styles.headerIcon} onPress={handleOpenChatMenu}>
           <Ionicons name="ellipsis-vertical" size={22} color={colors.dark} />
         </TouchableOpacity>
       </View>
@@ -622,15 +682,11 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       {/* Voice Recording Mode */}
       {isRecording ? (
         <VoiceRecorder
-          onFinish={(uri, duration) => {
-            setIsRecording(false);
-            setVoicePreview({ uri, duration });
-            setVoicePreviewVisible(true);
-          }}
-          onCancel={() => setIsRecording(false)}
+          onFinish={handleVoiceFinish}
+          onCancel={handleStopRecording}
         />
       ) : (
-        <View style={[styles.inputArea, { paddingBottom: insets.bottom + 10 }]}>
+        <View style={[styles.inputArea, inputAreaPaddingStyle]}>
           {/* Emoji Button */}
           <TouchableOpacity
             style={styles.emojiButton}
@@ -651,7 +707,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               placeholderTextColor={colors.gray}
               value={inputText}
               onChangeText={setInputText}
-              onFocus={() => setShowEmojiPicker(false)}
+              onFocus={handleCloseEmojiPicker}
               multiline
               maxLength={1000}
             />
@@ -665,7 +721,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           ) : (
             <TouchableOpacity
               style={styles.voiceButton}
-              onPress={() => setIsRecording(true)}
+              onPress={handleStartRecording}
             >
               <Ionicons name="mic" size={24} color={colors.primary} />
             </TouchableOpacity>
@@ -677,7 +733,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       <EmojiPicker
         onEmojiSelected={handleEmojiSelect}
         open={showEmojiPicker}
-        onClose={() => setShowEmojiPicker(false)}
+        onClose={handleCloseEmojiPicker}
         expandable={false}
         theme={{
           backdrop: 'rgba(0,0,0,0.2)',
@@ -699,7 +755,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
       <Modal visible={!!selectedImage} transparent animationType="fade">
         <View style={styles.imageModal}>
-          <TouchableOpacity style={[styles.closeImageBtn, { top: insets.top + 20 }]} onPress={() => setSelectedImage(null)}>
+          <TouchableOpacity style={[styles.closeImageBtn, closeImageBtnTopStyle]} onPress={handleCloseSelectedImage}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           {selectedImage && <OptimizedImage source={selectedImage} style={styles.fullImage} contentFit="contain" />}
@@ -711,13 +767,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         visible={voicePreviewVisible && !!voicePreview}
         transparent
         animationType="fade"
-        onRequestClose={() => {
-          setVoicePreviewVisible(false);
-          setVoicePreview(null);
-        }}
+        onRequestClose={handleCloseVoicePreview}
       >
         <View style={styles.voicePreviewOverlay}>
-          <View style={[styles.voicePreviewCard, { paddingTop: insets.top + 16 }]}>
+          <View style={[styles.voicePreviewCard, voicePreviewCardTopStyle]}>
             <Text style={styles.voicePreviewTitle}>Send voice message?</Text>
             {voicePreview && (
               <View style={styles.voicePreviewPlayer}>
@@ -727,19 +780,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             <View style={styles.voicePreviewButtons}>
               <TouchableOpacity
                 style={[styles.voicePreviewButton, styles.voicePreviewCancel]}
-                onPress={async () => {
-                  setVoicePreviewVisible(false);
-                  if (voicePreview?.uri) {
-                    try { await FileSystem.deleteAsync(voicePreview.uri, { idempotent: true }); } catch { /* cleanup best-effort */ }
-                  }
-                  setVoicePreview(null);
-                }}
+                onPress={handleDiscardVoice}
               >
                 <Text style={styles.voicePreviewCancelText}>Discard</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.voicePreviewButton, styles.voicePreviewSend]}
-                onPress={() => voicePreview && handleVoiceSend(voicePreview.uri, voicePreview.duration)}
+                onPress={handleSendVoicePreview}
                 disabled={sending}
               >
                 {sending ? (
@@ -758,57 +805,34 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         visible={chatMenuVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setChatMenuVisible(false)}
+        onRequestClose={handleCloseChatMenu}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setChatMenuVisible(false)}
+          onPress={handleCloseChatMenu}
         >
           <View style={styles.menuContainer}>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => {
-                setChatMenuVisible(false);
-                if (otherUserProfile?.id && isValidUUID(otherUserProfile.id)) {
-                  navigation.navigate('UserProfile', { userId: otherUserProfile.id });
-                }
-              }}
+              onPress={handleViewProfileMenu}
             >
               <Ionicons name="person-outline" size={22} color={colors.dark} />
               <Text style={styles.menuItemText}>View Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => {
-                setChatMenuVisible(false);
-                showDestructiveConfirm(
-                  'Block User',
-                  `Block ${otherUserProfile?.full_name || 'this user'}?`,
-                  async () => {
-                    if (otherUserProfile?.id) {
-                      const { error } = await blockUser(otherUserProfile.id);
-                      if (error) {
-                        showError('Error', 'Failed to block user');
-                      } else {
-                        showSuccess('Blocked', `${otherUserProfile.full_name || 'User'} has been blocked`);
-                        navigation.goBack();
-                      }
-                    }
-                  },
-                  'Block'
-                );
-              }}
+              onPress={handleBlockUserMenu}
             >
               <Ionicons name="ban-outline" size={22} color="#FF3B30" />
-              <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>Block User</Text>
+              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block User</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemLast]}
-              onPress={() => setChatMenuVisible(false)}
+              onPress={handleCloseChatMenu}
             >
               <Ionicons name="close-outline" size={22} color={colors.gray} />
-              <Text style={[styles.menuItemText, { color: colors.gray }]}>Cancel</Text>
+              <Text style={[styles.menuItemText, styles.menuItemTextCancel]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -824,10 +848,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   errorMessage: { fontSize: 14, color: colors.gray, marginTop: SPACING.sm, textAlign: 'center' },
   retryButton: { marginTop: SPACING.lg, backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 },
   retryButtonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  headerSpacer: { width: 24 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, backgroundColor: colors.backgroundSecondary, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
   backButton: { padding: 4 },
   userInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: SPACING.sm },
   headerNameRow: { flexDirection: 'row', alignItems: 'center', marginLeft: SPACING.sm },
+  accountBadgeMargin: { marginLeft: 4 },
   headerName: { fontSize: 16, fontWeight: '600', color: colors.dark },
   headerStatus: { fontSize: 12, color: colors.gray, marginLeft: SPACING.sm },
   headerIcon: { padding: 4 },
@@ -875,4 +901,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
   menuItemLast: { borderBottomWidth: 0 },
   menuItemText: { fontSize: 16, fontWeight: '500', color: colors.dark, marginLeft: SPACING.md },
+  menuItemTextDanger: { color: '#FF3B30' },
+  menuItemTextCancel: { color: colors.gray },
 });

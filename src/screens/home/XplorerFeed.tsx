@@ -441,7 +441,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         setAddressSuggestions(validResults);
         setShowAddressSuggestions(validResults.length > 0);
       } catch (error) {
-        console.error('Address search error:', error);
+        if (__DEV__) console.error('Address search error:', error);
         setAddressSuggestions([]);
         setShowAddressSuggestions(false);
       } finally {

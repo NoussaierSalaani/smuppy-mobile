@@ -6,3 +6,7 @@ export { default as NotificationSettingsScreen } from './NotificationSettingsScr
 export { default as ReportProblemScreen } from './ReportProblemScreen';
 export { default as TermsPoliciesScreen } from './TermsPoliciesScreen';
 export { default as BlockedUsersScreen } from './BlockedUsersScreen';
+export { default as EditExpertiseScreen } from './EditExpertiseScreen';
+export { default as EditBusinessCategoryScreen } from './EditBusinessCategoryScreen';
+export { default as MutedUsersScreen } from './MutedUsersScreen';
+export { default as LanguageSettingsScreen } from './LanguageSettingsScreen';

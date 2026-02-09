@@ -10,7 +10,8 @@ import {
   Animated,
   RefreshControl,
   ActivityIndicator,
-
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -884,7 +885,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   }, [accountType, navigation]);
 
   // Combined scroll handler for tab bar + mood tracking
-  const handleCombinedScroll = useCallback((event: any) => {
+  const handleCombinedScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     handleScroll(event);
     handleMoodScroll(event);
   }, [handleScroll, handleMoodScroll]);
@@ -1158,7 +1159,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         renderItem={renderGridItem}
         keyExtractor={keyExtractor}
         numColumns={2}
-        {...{ estimatedItemSize: 200 } as any}
+        {...{ estimatedItemSize: 200 } as Record<string, number>}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight } : undefined}
         onScroll={handleCombinedScroll}

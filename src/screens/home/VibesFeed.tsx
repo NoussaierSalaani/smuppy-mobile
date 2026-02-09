@@ -862,6 +862,72 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   }, [followLoading, selectedPost?.user?.id]);
 
 
+  // Navigate to prescriptions (vibe press)
+  const handleNavigatePrescriptions = useCallback(() => {
+    navigation.navigate('Prescriptions');
+  }, [navigation]);
+
+  // Navigate to Peaks screen
+  const handleNavigatePeaks = useCallback(() => {
+    navigation.navigate('Peaks');
+  }, [navigation]);
+
+  // Add interest button handler (varies by account type)
+  const handleAddInterestPress = useCallback(() => {
+    if (accountType === 'personal') {
+      navigation.navigate('EditInterests', { returnTo: 'VibesFeed' });
+    } else if (accountType === 'pro_business') {
+      navigation.navigate('EditBusinessCategory', { returnTo: 'VibesFeed' });
+    } else {
+      navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' });
+    }
+  }, [accountType, navigation]);
+
+  // Combined scroll handler for tab bar + mood tracking
+  const handleCombinedScroll = useCallback((event: any) => {
+    handleScroll(event);
+    handleMoodScroll(event);
+  }, [handleScroll, handleMoodScroll]);
+
+  // Close expired peak modal
+  const handleCloseExpiredModal = useCallback(() => setShowExpiredModal(false), []);
+
+  // Modal action handlers
+  const handleModalLike = useCallback(() => {
+    if (selectedPost) {
+      toggleLike(selectedPost.id);
+    }
+  }, [selectedPost, toggleLike]);
+
+  const handleModalShare = useCallback(() => {
+    if (selectedPost) {
+      shareModal.open({
+        id: selectedPost.id,
+        media: selectedPost.media,
+        caption: selectedPost.title,
+        user: {
+          name: selectedPost.user.name,
+          avatar: selectedPost.user.avatar,
+        },
+      });
+    }
+  }, [selectedPost, shareModal]);
+
+  const handleModalSave = useCallback(() => {
+    if (selectedPost) {
+      toggleSave(selectedPost.id);
+    }
+  }, [selectedPost, toggleSave]);
+
+  const handleModalUserPress = useCallback(() => {
+    if (selectedPost) {
+      goToUserProfile(selectedPost.user.id);
+    }
+  }, [selectedPost, goToUserProfile]);
+
+  // Memoized inline styles
+  const modalBottomStyle = useMemo(() => ({ height: insets.bottom + 20 }), [insets.bottom]);
+
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -992,7 +1058,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 <View style={styles.modalUser}>
                   <TouchableOpacity
                     style={styles.modalUserTouch}
-                    onPress={() => goToUserProfile(selectedPost.user.id)}
+                    onPress={handleModalUserPress}
                   >
                     <AvatarImage source={selectedPost.user.avatar} size={44} style={styles.modalAvatar} />
                     <View style={styles.modalUserInfo}>
@@ -1018,11 +1084,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={styles.modalAction}
-                    onPress={() => {
-                      if (selectedPost) {
-                        toggleLike(selectedPost.id);
-                      }
-                    }}
+                    onPress={handleModalLike}
                   >
                     <SmuppyHeartIcon
                       size={24}
@@ -1033,30 +1095,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.modalAction}
-                    onPress={() => {
-                      if (selectedPost) {
-                        shareModal.open({
-                          id: selectedPost.id,
-                          media: selectedPost.media,
-                          caption: selectedPost.title,
-                          user: {
-                            name: selectedPost.user.name,
-                            avatar: selectedPost.user.avatar,
-                          },
-                        });
-                      }
-                    }}
+                    onPress={handleModalShare}
                   >
                     <Ionicons name="share-outline" size={24} color={colors.dark} />
                     <Text style={styles.modalActionText}>Share</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.modalAction}
-                    onPress={() => {
-                      if (selectedPost) {
-                        toggleSave(selectedPost.id);
-                      }
-                    }}
+                    onPress={handleModalSave}
                   >
                     <Ionicons
                       name={selectedPost.isSaved ? "bookmark" : "bookmark-outline"}
@@ -1096,7 +1142,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               )}
 
               {/* Safe area bottom */}
-              <View style={{ height: insets.bottom + 20 }} />
+              <View style={modalBottomStyle} />
             </>
           )}
         </ScrollView>
@@ -1115,10 +1161,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         {...{ estimatedItemSize: 200 } as any}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight } : undefined}
-        onScroll={(event: any) => {
-          handleScroll(event);
-          handleMoodScroll(event);
-        }}
+        onScroll={handleCombinedScroll}
         scrollEventThrottle={16}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
@@ -1138,7 +1181,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               <MoodIndicator
                 mood={mood}
                 onRefresh={refreshMood}
-                onVibePress={() => navigation.navigate('Prescriptions')}
+                onVibePress={handleNavigatePrescriptions}
               />
             )}
 
@@ -1148,7 +1191,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 <Text style={styles.peaksSectionTitle}>Peaks</Text>
                 <TouchableOpacity
                   style={styles.peaksSeeAll}
-                  onPress={() => navigation.navigate('Peaks')}
+                  onPress={handleNavigatePeaks}
                 >
                   <Text style={styles.peaksSeeAllText}>See all</Text>
                   <Ionicons name="chevron-forward" size={16} color={colors.primary} />
@@ -1167,15 +1210,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             <View style={styles.filtersRow}>
               <TouchableOpacity
                 style={styles.addInterestButton}
-                onPress={() => {
-                  if (accountType === 'personal') {
-                    navigation.navigate('EditInterests', { returnTo: 'VibesFeed' });
-                  } else if (accountType === 'pro_business') {
-                    navigation.navigate('EditBusinessCategory', { returnTo: 'VibesFeed' });
-                  } else {
-                    navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' });
-                  }
-                }}
+                onPress={handleAddInterestPress}
                 activeOpacity={0.7}
               >
                 <Ionicons name="add" size={16} color={colors.primary} />
@@ -1251,7 +1286,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 <ActivityIndicator size="small" color={colors.primary} />
               </View>
             )}
-            <View style={{ height: 100 }} />
+            <View style={styles.footerSpacer} />
           </>
         }
       />
@@ -1289,7 +1324,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         onSaveToProfile={savePeakToProfile}
         onDownload={downloadPeak}
         onDelete={deletePeak}
-        onClose={() => setShowExpiredModal(false)}
+        onClose={handleCloseExpiredModal}
       />
     </View>
   );
@@ -1830,5 +1865,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   loadingMore: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+  footerSpacer: {
+    height: 100,
   },
 });

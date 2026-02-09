@@ -909,17 +909,18 @@ const PeakViewScreen = (): React.JSX.Element => {
     }
   }, [currentPeak.challengeId]);
 
-  const handleResponsePress = useCallback((peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string) => {
+  const handleResponsePress = useCallback((peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string, videoUrl: string) => {
     setShowResponsesModal(false);
     const toCdnLocal = (url?: string | null): string => {
       if (!url) return '';
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
     };
+    const resolvedVideoUrl = toCdnLocal(videoUrl) || undefined;
     navigation.navigate('PeakView', {
       peaks: [{
         id: peakId,
         thumbnail: toCdnLocal(thumbnailUrl),
-        videoUrl: toCdnLocal(thumbnailUrl), // Will be replaced by actual video
+        videoUrl: resolvedVideoUrl,
         duration: 0,
         user: { id: userId, name: displayName, avatar: toCdnLocal(avatarUrl) },
         views: 0,
@@ -1102,7 +1103,6 @@ const PeakViewScreen = (): React.JSX.Element => {
               style={styles.media}
               resizeMode={ResizeMode.COVER}
               shouldPlay
-              isLooping
               isMuted={false}
               onPlaybackStatusUpdate={onVideoStatus}
               posterSource={{ uri: currentPeak.thumbnail || undefined }}

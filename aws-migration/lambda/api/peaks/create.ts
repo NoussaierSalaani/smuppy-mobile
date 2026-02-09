@@ -10,6 +10,7 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
 
 const log = createLogger('peaks-create');
 
@@ -126,6 +127,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Sanitize caption
     const sanitizedCaption = caption ? sanitizeText(caption, 500) : null;
+
+    // Backend content moderation check on caption
+    if (sanitizedCaption) {
+      const filterResult = await filterText(sanitizedCaption);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Content policy violation' }),
+        };
+      }
+    }
 
     // Validate reply parent exists if provided
     if (replyToPeakId) {

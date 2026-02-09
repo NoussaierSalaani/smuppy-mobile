@@ -10,6 +10,7 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID } from '../utils/security';
 
@@ -67,6 +68,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 400,
         headers,
         body: JSON.stringify({ message: 'Comment text cannot be empty' }),
+      };
+    }
+
+    // Backend content moderation check
+    const filterResult = await filterText(sanitizedText);
+    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Content policy violation' }),
       };
     }
 

@@ -11,6 +11,7 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
 
 const log = createLogger('posts-create');
 
@@ -125,6 +126,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const sanitizedLocation = body.location
       ? body.location.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().slice(0, 200)
       : null;
+
+    // Backend content moderation check
+    if (sanitizedContent) {
+      const filterResult = await filterText(sanitizedContent);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, message: 'Content policy violation' }),
+        };
+      }
+    }
 
     // Check account moderation status
     const accountCheck = await requireActiveAccount(cognitoSub, headers);

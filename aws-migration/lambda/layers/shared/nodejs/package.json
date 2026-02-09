@@ -5,9 +5,9 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.975.0",
-    "@aws-sdk/rds-signer": "^3.975.0",
-    "ioredis": "^5.3.2",
-    "pg": "^8.14.1"
+    "@aws-sdk/client-secrets-manager": "3.975.0",
+    "@aws-sdk/rds-signer": "3.975.0",
+    "ioredis": "5.3.2",
+    "pg": "8.14.1"
   }
 }

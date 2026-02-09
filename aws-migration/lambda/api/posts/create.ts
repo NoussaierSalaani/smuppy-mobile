@@ -10,6 +10,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
 const log = createLogger('posts-create');
 
@@ -125,23 +126,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? body.location.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().slice(0, 200)
       : null;
 
+    // Check account moderation status
+    const accountCheck = await requireActiveAccount(cognitoSub, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
+    const userId = accountCheck.profileId;
+
     const db = await getPool();
 
+    // Get account_type for visibility check
     const userResult = await db.query(
-      'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
+      'SELECT account_type FROM profiles WHERE id = $1',
+      [userId]
     );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Profile not found. Please complete onboarding.' }),
-      };
-    }
-
-    const userId = userResult.rows[0].id;
-    const accountType = userResult.rows[0].account_type;
+    const accountType = userResult.rows[0]?.account_type;
 
     // Only pro_creator accounts can use 'subscribers' visibility
     if (body.visibility === 'subscribers' && accountType !== 'pro_creator') {

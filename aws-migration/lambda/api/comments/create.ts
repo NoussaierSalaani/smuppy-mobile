@@ -9,6 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID } from '../utils/security';
 
@@ -69,23 +70,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Check account moderation status
+    const accountCheck = await requireActiveAccount(userId, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
+    const profile = {
+      id: accountCheck.profileId,
+      username: accountCheck.username,
+      full_name: accountCheck.fullName,
+      avatar_url: accountCheck.avatarUrl,
+      is_verified: accountCheck.isVerified,
+    };
+
     const db = await getPool();
-
-    // Get user's profile
-    const userResult = await db.query(
-      'SELECT id, username, full_name, avatar_url, is_verified FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    const profile = userResult.rows[0];
 
     // Check if post exists
     const postResult = await db.query(

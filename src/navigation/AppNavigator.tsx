@@ -12,7 +12,9 @@ import { registerDeviceSession } from '../services/deviceSession';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPendingScreen';
-import { resetAllStores } from '../stores';
+import AccountSuspendedScreen from '../screens/moderation/AccountSuspendedScreen';
+import AccountBannedScreen from '../screens/moderation/AccountBannedScreen';
+import { resetAllStores, useModerationStore } from '../stores';
 import { TabBarProvider } from '../context/TabBarContext';
 import { AuthCallbackProvider } from '../context/AuthCallbackContext';
 import { useTheme } from '../hooks/useTheme';
@@ -27,6 +29,8 @@ import { FEATURES } from '../config/featureFlags';
 export type RootStackParamList = {
   Auth: undefined;
   EmailVerificationPending: { email?: string };
+  AccountSuspended: undefined;
+  AccountBanned: undefined;
   Main: undefined;
 };
 
@@ -126,7 +130,7 @@ const linking = {
  * - 'emailPending': user exists but email not verified
  * - 'main': user exists + email verified + has profile
  */
-type AppState = 'loading' | 'auth' | 'emailPending' | 'main';
+type AppState = 'loading' | 'auth' | 'emailPending' | 'suspended' | 'banned' | 'main';
 
 export default function AppNavigator(): React.JSX.Element {
   const { colors, isDark } = useTheme();
@@ -161,6 +165,16 @@ export default function AppNavigator(): React.JSX.Element {
   const [pendingRecovery, setPendingRecovery] = useState(false);
   const lastHandledUrl = useRef<string | null>(null);
   const resolvingRef = useRef(false);
+
+  // Subscribe to moderation store — redirect to suspended/banned screens
+  const moderationStatus = useModerationStore((s) => s.status);
+  useEffect(() => {
+    if (moderationStatus === 'suspended') {
+      setAppState('suspended');
+    } else if (moderationStatus === 'banned') {
+      setAppState('banned');
+    }
+  }, [moderationStatus]);
 
   const handleRecoveryComplete = useCallback(() => {
     setPendingRecovery(false);
@@ -295,6 +309,8 @@ export default function AppNavigator(): React.JSX.Element {
   // Simple state → screen mapping
   const showAuth = appState === 'auth' || appState === 'loading' || pendingRecovery;
   const showEmailPending = appState === 'emailPending' && !pendingRecovery;
+  const showSuspended = appState === 'suspended' && !pendingRecovery;
+  const showBanned = appState === 'banned' && !pendingRecovery;
   const showMain = appState === 'main' && !pendingRecovery;
 
   return (
@@ -326,6 +342,14 @@ export default function AppNavigator(): React.JSX.Element {
                     component={EmailVerificationPendingScreen}
                     initialParams={{ email: userEmail }}
                   />
+                )}
+
+                {showSuspended && (
+                  <RootStack.Screen name="AccountSuspended" component={AccountSuspendedScreen} />
+                )}
+
+                {showBanned && (
+                  <RootStack.Screen name="AccountBanned" component={AccountBannedScreen} />
                 )}
 
                 {showMain && (

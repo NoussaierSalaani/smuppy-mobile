@@ -16,6 +16,7 @@ import { filterStore } from './filterStore';
 import { tabBarStore } from './tabBarStore';
 import { vibeStore } from './vibeStore';
 import { themeStore } from './themeStore';
+import { useModerationStore } from './moderationStore';
 
 // Re-export all stores
 export { useContentStore, contentStore } from './contentStore';
@@ -24,6 +25,7 @@ export { useFilterStore, useFilters, filterStore, FILTER_DEFINITIONS, getBodyPos
 export { useTabBarStore, useTabBar, useTabBarAnimations, tabBarStore } from './tabBarStore';
 export { useVibeStore, vibeStore } from './vibeStore';
 export { useThemeStore, themeStore } from './themeStore';
+export { useModerationStore } from './moderationStore';
 export type { ThemePreference, ThemeMode } from './themeStore';
 export type { TabBarContextValue } from './tabBarStore';
 export type { ContentStatus } from './contentStore';
@@ -436,6 +438,7 @@ export const resetAllStores = async () => {
   tabBarStore.reset();
   vibeStore.reset();
   themeStore.reset();
+  useModerationStore.getState().clearModeration();
 
   // Clear module-level feed caches to prevent cross-user data leaks
   try {

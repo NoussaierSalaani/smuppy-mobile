@@ -465,6 +465,21 @@ class AWSAPIService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         if (__DEV__) console.warn(`[AWS API] ERROR ${response.status}:`, JSON.stringify(errorData).substring(0, 200));
+
+        // Detect account moderation (suspended/banned)
+        if (response.status === 403 && errorData.moderationStatus) {
+          try {
+            const { useModerationStore } = require('../stores/moderationStore');
+            useModerationStore.getState().setModeration(
+              errorData.moderationStatus,
+              errorData.reason || 'Community guidelines violation',
+              errorData.suspendedUntil,
+            );
+          } catch {
+            // Store not available — ignore
+          }
+        }
+
         throw new APIError(
           errorData.message || errorData.error || `Request failed with status ${response.status}`,
           response.status,

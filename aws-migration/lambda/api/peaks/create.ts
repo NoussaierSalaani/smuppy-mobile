@@ -9,6 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sanitizeText, isValidUUID } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
 const log = createLogger('peaks-create');
 
@@ -110,23 +111,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    // Check account moderation status
+    const accountCheck = await requireActiveAccount(userId, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
+    const profile = {
+      id: accountCheck.profileId,
+      username: accountCheck.username,
+      full_name: accountCheck.fullName,
+      avatar_url: accountCheck.avatarUrl,
+      is_verified: accountCheck.isVerified,
+    };
+
     const db = await getPool();
-
-    // Get user's profile
-    const userResult = await db.query(
-      'SELECT id, username, full_name, avatar_url, is_verified, account_type FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    const profile = userResult.rows[0];
 
     // Sanitize caption
     const sanitizedCaption = caption ? sanitizeText(caption, 500) : null;

@@ -8,6 +8,9 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 import { isValidUUID } from '../utils/security';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('packs/manage');
 
 interface CreatePackBody {
   name: string;
@@ -275,7 +278,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
   } catch (error) {
-    console.error('Pack management error:', error);
+    log.error('Pack management error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

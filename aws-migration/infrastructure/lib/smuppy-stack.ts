@@ -1856,6 +1856,12 @@ export class SmuppyStack extends cdk.Stack {
     });
     backupStalenessAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertsTopic));
 
+    // Connect Lambda stack alarms to SNS alerting
+    lambdaStack.paymentWebhookErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertsTopic));
+    lambdaStack.paymentWebhookThrottlesAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertsTopic));
+    lambdaStack.paymentCreateIntentErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertsTopic));
+    lambdaStack.criticalDlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertsTopic));
+
     // ========================================
     // CloudWatch Dashboards - System Observability
     // ========================================

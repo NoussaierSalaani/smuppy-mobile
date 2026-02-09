@@ -252,6 +252,12 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly signupAuthAlias: lambda.IFunction;
   public readonly appleAuthAlias: lambda.IFunction;
 
+  // CloudWatch Alarms (exposed for SNS action binding in parent stack)
+  public readonly paymentWebhookErrorsAlarm: cdk.aws_cloudwatch.Alarm;
+  public readonly paymentWebhookThrottlesAlarm: cdk.aws_cloudwatch.Alarm;
+  public readonly paymentCreateIntentErrorsAlarm: cdk.aws_cloudwatch.Alarm;
+  public readonly criticalDlqAlarm: cdk.aws_cloudwatch.Alarm;
+
   // Settings
   public readonly settingsCurrencyFn: NodejsFunction;
 
@@ -1519,7 +1525,7 @@ export class LambdaStack extends cdk.NestedStack {
     const cloudwatch = cdk.aws_cloudwatch;
 
     // Payment webhook errors
-    new cloudwatch.Alarm(this, 'PaymentWebhookErrorsAlarm', {
+    this.paymentWebhookErrorsAlarm = new cloudwatch.Alarm(this, 'PaymentWebhookErrorsAlarm', {
       metric: this.paymentWebhookFn.metricErrors({ period: cdk.Duration.minutes(5) }),
       threshold: 1,
       evaluationPeriods: 1,
@@ -1528,7 +1534,7 @@ export class LambdaStack extends cdk.NestedStack {
     });
 
     // Payment webhook throttles
-    new cloudwatch.Alarm(this, 'PaymentWebhookThrottlesAlarm', {
+    this.paymentWebhookThrottlesAlarm = new cloudwatch.Alarm(this, 'PaymentWebhookThrottlesAlarm', {
       metric: this.paymentWebhookFn.metricThrottles({ period: cdk.Duration.minutes(5) }),
       threshold: 1,
       evaluationPeriods: 1,
@@ -1537,7 +1543,7 @@ export class LambdaStack extends cdk.NestedStack {
     });
 
     // Payment create-intent errors
-    new cloudwatch.Alarm(this, 'PaymentCreateIntentErrorsAlarm', {
+    this.paymentCreateIntentErrorsAlarm = new cloudwatch.Alarm(this, 'PaymentCreateIntentErrorsAlarm', {
       metric: this.paymentCreateIntentFn.metricErrors({ period: cdk.Duration.minutes(5) }),
       threshold: 3,
       evaluationPeriods: 1,
@@ -1546,7 +1552,7 @@ export class LambdaStack extends cdk.NestedStack {
     });
 
     // DLQ messages alarm
-    new cloudwatch.Alarm(this, 'CriticalDLQAlarm', {
+    this.criticalDlqAlarm = new cloudwatch.Alarm(this, 'CriticalDLQAlarm', {
       metric: criticalDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) }),
       threshold: 1,
       evaluationPeriods: 1,

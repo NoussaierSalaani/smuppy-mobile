@@ -15,10 +15,8 @@ const log = createLogger('posts-list');
 // Redis connection (reused across Lambda invocations)
 let redis: Redis | null = null;
 
-const {
-  REDIS_HOST,
-  REDIS_PORT = '6379',
-} = process.env;
+// Use REDIS_ENDPOINT (set by CDK) — not REDIS_HOST
+// Read dynamically from process.env to match shared/redis.ts pattern
 
 const CACHE_TTL = {
   POSTS_LIST: 60,
@@ -27,11 +25,11 @@ const CACHE_TTL = {
 };
 
 async function getRedis(): Promise<Redis | null> {
-  if (!REDIS_HOST) return null;
+  if (!process.env.REDIS_ENDPOINT) return null;
   if (!redis) {
     redis = new Redis({
-      host: REDIS_HOST,
-      port: parseInt(REDIS_PORT),
+      host: process.env.REDIS_ENDPOINT,
+      port: parseInt(process.env.REDIS_PORT || '6379'),
       tls: {},
       maxRetriesPerRequest: 3,
       connectTimeout: 5000,

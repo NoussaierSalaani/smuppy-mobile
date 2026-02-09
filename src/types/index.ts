@@ -479,36 +479,6 @@ export interface GroupActivity {
   };
 }
 
-export interface CreateGroupData {
-  name: string;
-  description?: string;
-  category: SpotCategory;
-  subcategory: string;
-  sport_type?: SportType;
-  latitude: number;
-  longitude: number;
-  address?: string;
-  cover_image_url?: string;
-  starts_at: string;
-  ends_at?: string;
-  timezone?: string;
-  max_participants?: number;
-  is_free: boolean;
-  price?: number;
-  currency?: string;
-  is_public: boolean;
-  is_fans_only: boolean;
-  is_route: boolean;
-  route_start?: { lat: number; lng: number };
-  route_end?: { lat: number; lng: number };
-  route_waypoints?: { lat: number; lng: number }[];
-  route_geojson?: object;
-  route_profile?: RouteProfile;
-  route_distance_km?: number;
-  route_duration_min?: number;
-  route_elevation_gain?: number;
-  difficulty?: DifficultyLevel;
-}
 
 // ============================================
 // LIVE PIN TYPES (Pro Creator Premium + Pro Business Premium)
@@ -728,7 +698,6 @@ export type MainStackParamList = {
   EditBusinessCategory: { currentCategory?: string; returnTo?: string } | undefined;
   PasswordManager: undefined;
   NotificationSettings: undefined;
-  LanguageSettings: undefined;
   ReportProblem: undefined;
   TermsPolicies: undefined;
   BlockedUsers: undefined;
@@ -790,9 +759,6 @@ export type MainStackParamList = {
   // Events (Xplorer)
   EventList: undefined;
   EventManage: { eventId: string };
-
-  // Groups
-  CreateGroup: { lockedLocation?: { lat: number; lng: number } } | undefined;
 
   // Activities (unified)
   CreateActivity: { lockedLocation?: { lat: number; lng: number }; initialMode?: 'event' | 'group' } | undefined;

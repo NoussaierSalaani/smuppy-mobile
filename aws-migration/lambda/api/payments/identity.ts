@@ -12,6 +12,9 @@ import Stripe from 'stripe';
 import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('payments/identity');
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -169,7 +172,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
     }
   } catch (error) {
-    console.error('Identity error:', error);
+    log.error('Identity error', error);
     return {
       statusCode: 500,
       headers,

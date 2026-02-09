@@ -8,6 +8,9 @@ import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { checkRateLimit } from '../utils/rate-limit';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('payments/platform-subscription');
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -95,7 +98,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
     }
   } catch (error) {
-    console.error('Platform subscription error:', error);
+    log.error('Platform subscription error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

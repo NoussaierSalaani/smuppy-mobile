@@ -5,6 +5,9 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('earnings/get');
 
 // Revenue share tiers (must match wallet.ts and webhook.ts)
 function getCreatorSharePercent(fanCount: number): number {
@@ -202,7 +205,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('Get earnings error:', error);
+    log.error('Get earnings error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

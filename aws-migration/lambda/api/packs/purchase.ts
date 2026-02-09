@@ -8,6 +8,9 @@ import { getPool, corsHeaders } from '../../shared/db';
 import { isValidUUID } from '../utils/security';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('packs/purchase');
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -166,7 +169,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('Purchase pack error:', error);
+    log.error('Purchase pack error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

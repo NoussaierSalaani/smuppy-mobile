@@ -7,6 +7,9 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('packs/list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -114,7 +117,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({ success: false, message: 'Specify creatorId or owned=true' }),
     };
   } catch (error) {
-    console.error('List packs error:', error);
+    log.error('List packs error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

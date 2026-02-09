@@ -175,6 +175,16 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     navigation.navigate('Login');
   }, [navigation]);
 
+  const handleEmailFocus = useCallback(() => setEmailFocused(true), []);
+  const handleEmailBlur = useCallback(() => setEmailFocused(false), []);
+  const handlePasswordFocus = useCallback(() => setPasswordFocused(true), []);
+  const handlePasswordBlur = useCallback(() => setPasswordFocused(false), []);
+  const handleTogglePassword = useCallback(() => setShowPassword(prev => !prev), []);
+  const handleOpenTerms = useCallback(() => { WebBrowser.openBrowserAsync('https://smuppy.com/terms'); }, []);
+  const handleOpenPrivacy = useCallback(() => { WebBrowser.openBrowserAsync('https://smuppy.com/privacy'); }, []);
+  const handleOpenContentPolicy = useCallback(() => { WebBrowser.openBrowserAsync('https://smuppy.com/content-policy'); }, []);
+  const handleCloseErrorModal = useCallback(() => setErrorModal(prev => ({ ...prev, visible: false })), []);
+
   const passwordValid = isPasswordValid(password);
   const strengthLevel = getPasswordStrengthLevel(password);
   const emailValid = validate.email(email);
@@ -189,6 +199,15 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
     })), [password]);
 
   const allChecksPassed = passwordChecks.every((check) => check.passed);
+
+  const strengthBarStyle = useMemo(() => [
+    styles.strengthBar,
+    {
+      width: (strengthLevel.level === 'weak' ? '25%' : strengthLevel.level === 'medium' ? '50%' : strengthLevel.level === 'strong' ? '75%' : '100%') as `${number}%`,
+      backgroundColor: strengthLevel.color,
+    },
+  ], [styles.strengthBar, strengthLevel]);
+  const strengthTextStyle = useMemo(() => [styles.strengthText, { color: strengthLevel.color }], [styles.strengthText, strengthLevel.color]);
 
   const handleSignup = useCallback(async () => {
     if (!isFormValid || loading) return;
@@ -320,8 +339,8 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                   autoCapitalize="none"
                   autoCorrect={false}
                   maxLength={254}
-                  onFocus={() => setEmailFocused(true)}
-                  onBlur={() => setEmailFocused(false)}
+                  onFocus={handleEmailFocus}
+                  onBlur={handleEmailBlur}
                 />
               </View>
             ) : (
@@ -343,8 +362,8 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                     autoCapitalize="none"
                     autoCorrect={false}
                     maxLength={254}
-                    onFocus={() => setEmailFocused(true)}
-                    onBlur={() => setEmailFocused(false)}
+                    onFocus={handleEmailFocus}
+                    onBlur={handleEmailBlur}
                   />
                   {email.length > 0 && emailValid && <Ionicons name="checkmark-circle" size={20} color={authColors.primary} />}
                 </View>
@@ -384,11 +403,11 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
                     maxLength={128}
-                    onFocus={() => setPasswordFocused(true)}
-                    onBlur={() => setPasswordFocused(false)}
+                    onFocus={handlePasswordFocus}
+                    onBlur={handlePasswordBlur}
                   />
                   <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
+                    onPress={handleTogglePassword}
                     accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                     accessibilityRole="button"
                     accessibilityHint="Toggles password visibility"
@@ -424,15 +443,9 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             {password.length > 0 && (
               <View style={styles.strengthContainer}>
                 <View style={styles.strengthBarBg}>
-                  <View style={[
-                    styles.strengthBar,
-                    {
-                      width: strengthLevel.level === 'weak' ? '25%' : strengthLevel.level === 'medium' ? '50%' : strengthLevel.level === 'strong' ? '75%' : '100%',
-                      backgroundColor: strengthLevel.color
-                    }
-                  ]} />
+                  <View style={strengthBarStyle} />
                 </View>
-                <Text style={[styles.strengthText, { color: strengthLevel.color }]}>{strengthLevel.label}</Text>
+                <Text style={strengthTextStyle}>{strengthLevel.label}</Text>
               </View>
             )}
 
@@ -552,17 +565,17 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
               </TouchableOpacity>
               <Text style={styles.termsText}>
                 I agree to the{' '}
-                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/terms')} accessibilityRole="link">Terms and Conditions</Text>
+                <Text style={styles.termsLink} onPress={handleOpenTerms} accessibilityRole="link">Terms and Conditions</Text>
                 ,{' '}
-                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/privacy')} accessibilityRole="link">Privacy Policy</Text>
+                <Text style={styles.termsLink} onPress={handleOpenPrivacy} accessibilityRole="link">Privacy Policy</Text>
                 {' '}and{' '}
-                <Text style={styles.termsLink} onPress={() => WebBrowser.openBrowserAsync('https://smuppy.com/content-policy')} accessibilityRole="link">Content Policy</Text>.
+                <Text style={styles.termsLink} onPress={handleOpenContentPolicy} accessibilityRole="link">Content Policy</Text>.
               </Text>
             </View>
           </View>
         </KeyboardAvoidingView>
 
-        <ErrorModal visible={errorModal.visible} onClose={() => setErrorModal({ ...errorModal, visible: false })} title={errorModal.title} message={errorModal.message} />
+        <ErrorModal visible={errorModal.visible} onClose={handleCloseErrorModal} title={errorModal.title} message={errorModal.message} />
 
       </SafeAreaView>
     </TouchableWithoutFeedback>

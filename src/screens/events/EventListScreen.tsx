@@ -3,7 +3,7 @@
  * Browse and discover events on map
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -132,7 +132,7 @@ export default function EventListScreen() {
   const isSelectedInVisible = VISIBLE_CATEGORIES.some(c => c.id === selectedCategory.id);
 
   // Toggle filter drawer with animation
-  const toggleFilterDrawer = () => {
+  const toggleFilterDrawer = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (showFilterDrawer) {
       Animated.spring(filterDrawerAnim, {
@@ -150,16 +150,16 @@ export default function EventListScreen() {
         useNativeDriver: true,
       }).start();
     }
-  };
+  }, [showFilterDrawer, filterDrawerAnim]);
 
-  const handleSelectCategory = (category: EventCategory) => {
+  const handleSelectCategory = useCallback((category: EventCategory) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedCategory(category);
     setIsLoading(true);
     if (showFilterDrawer) {
       toggleFilterDrawer();
     }
-  };
+  }, [showFilterDrawer, toggleFilterDrawer]);
 
   useEffect(() => {
     getUserLocation();
@@ -214,18 +214,26 @@ export default function EventListScreen() {
     }
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadEvents();
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleMarkerPress = (event: Event) => {
+  const handleMarkerPress = useCallback((event: Event) => {
     setSelectedEvent(event);
     const index = events.findIndex((e) => e.id === event.id);
     if (index !== -1 && flatListRef.current) {
       flatListRef.current.scrollToIndex({ index, animated: true });
     }
-  };
+  }, [events]);
+
+  // Extracted handlers
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleToggleViewMode = useCallback(() => setViewMode(prev => prev === 'list' ? 'map' : 'list'), []);
+  const handleNavigateCreateActivity = useCallback(() => navigation.navigate('CreateActivity'), [navigation]);
+  const handleClearFilter = useCallback(() => handleSelectCategory(ALL_CATEGORIES[0]), [handleSelectCategory]);
+  const activeFilterNameStyle = useMemo(() => ({ color: selectedCategory.color, fontWeight: '700' as const }), [selectedCategory.color]);
 
   // Glass-morphism filter chip
   const renderGlassFilterChip = (item: EventCategory, compact: boolean = false) => {
@@ -539,7 +547,7 @@ export default function EventListScreen() {
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
 
@@ -548,14 +556,14 @@ export default function EventListScreen() {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.viewToggle, viewMode === 'map' && styles.viewToggleActive]}
-              onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
+              onPress={handleToggleViewMode}
             >
               <Ionicons name={viewMode === 'list' ? 'map' : 'list'} size={20} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.createButton}
-              onPress={() => navigation.navigate('CreateActivity')}
+              onPress={handleNavigateCreateActivity}
             >
               <LinearGradient
                 colors={['#FF6B35', '#FF4500']}
@@ -586,11 +594,11 @@ export default function EventListScreen() {
           <View style={styles.activeFilterIndicator}>
             <View style={[styles.activeFilterDot, { backgroundColor: selectedCategory.color }]} />
             <Text style={styles.activeFilterText}>
-              Showing: <Text style={{ color: selectedCategory.color, fontWeight: '700' }}>{selectedCategory.name}</Text>
+              Showing: <Text style={activeFilterNameStyle}>{selectedCategory.name}</Text>
             </Text>
             <TouchableOpacity
               style={styles.clearFilterButton}
-              onPress={() => handleSelectCategory(ALL_CATEGORIES[0])}
+              onPress={handleClearFilter}
             >
               <Ionicons name="close-circle" size={18} color="#666" />
             </TouchableOpacity>
@@ -665,7 +673,7 @@ export default function EventListScreen() {
                   </Text>
                   <TouchableOpacity
                     style={styles.emptyButton}
-                    onPress={() => navigation.navigate('CreateActivity')}
+                    onPress={handleNavigateCreateActivity}
                   >
                     <LinearGradient
                       colors={['#FF6B35', '#FF4500']}

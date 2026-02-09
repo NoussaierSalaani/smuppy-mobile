@@ -647,7 +647,7 @@ const PostDetailProfileScreen = () => {
                 style={styles.userInfo}
                 onPress={() => {
                   if (itemIsOwn) {
-                    navigation.navigate('ProfileTab' as never);
+                    navigation.navigate('Tabs', { screen: 'Profile' });
                   } else {
                     navigation.navigate('UserProfile', { userId: item.user.id });
                   }

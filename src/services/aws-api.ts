@@ -3418,9 +3418,6 @@ class AWSAPIService {
     return this.request('/businesses/my/analyze-schedule', {
       method: 'POST',
       body: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
     });
   }
 

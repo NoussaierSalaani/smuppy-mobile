@@ -11,6 +11,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('peaks-create');
 
@@ -133,6 +134,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (sanitizedCaption) {
       const filterResult = await filterText(sanitizedCaption);
       if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Content policy violation' }),
+        };
+      }
+
+      // AI toxicity detection (AWS Comprehend)
+      const toxicity = await analyzeTextToxicity(sanitizedCaption);
+      if (toxicity.action === 'block') {
+        log.info('Peak blocked by Comprehend', { topCategory: toxicity.topCategory, score: toxicity.maxScore });
         return {
           statusCode: 400,
           headers,

@@ -1516,6 +1516,19 @@ export class LambdaStack extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.wsLiveStreamFn);
 
+    // ========== Comprehend IAM for content creation Lambdas ==========
+    const comprehendLambdas = [
+      this.postsCreateFn,
+      this.commentsCreateFn,
+      this.peaksCreateFn,
+    ];
+    for (const fn of comprehendLambdas) {
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['comprehend:DetectToxicContent'],
+        resources: ['*'],
+      }));
+    }
+
     // ========== CloudWatch Alarms for critical Lambdas ==========
     const cloudwatch = cdk.aws_cloudwatch;
 

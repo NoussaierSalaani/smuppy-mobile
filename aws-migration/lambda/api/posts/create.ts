@@ -12,6 +12,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('posts-create');
 
@@ -127,6 +128,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? body.location.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().slice(0, 200)
       : null;
 
+    // Comprehend flag tracking
+    let contentFlagged = false;
+    let flagCategory: string | null = null;
+
     // Backend content moderation check
     if (sanitizedContent) {
       const filterResult = await filterText(sanitizedContent);
@@ -136,6 +141,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           headers,
           body: JSON.stringify({ success: false, message: 'Content policy violation' }),
         };
+      }
+
+      // AI toxicity detection (AWS Comprehend)
+      const toxicity = await analyzeTextToxicity(sanitizedContent);
+      if (toxicity.action === 'block') {
+        log.info('Post blocked by Comprehend', { topCategory: toxicity.topCategory, score: toxicity.maxScore });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, message: 'Content policy violation' }),
+        };
+      }
+      if (toxicity.action === 'flag') {
+        contentFlagged = true;
+        flagCategory = toxicity.topCategory;
       }
     }
 
@@ -229,6 +249,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw txErr;
     } finally {
       client.release();
+    }
+
+    // Log flagged content for moderator review (non-blocking)
+    if (contentFlagged) {
+      try {
+        await db.query(
+          `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, target_post_id, reason)
+           VALUES ($1, 'flag_content', $1, $2, $3)`,
+          [userId, postId, `Comprehend toxicity: ${flagCategory} (under_review)`],
+        );
+      } catch (flagErr) {
+        log.error('Failed to log flagged content (non-blocking)', flagErr);
+      }
     }
 
     const authorResult = await db.query(

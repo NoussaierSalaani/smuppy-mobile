@@ -11,6 +11,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID } from '../utils/security';
 
@@ -74,6 +75,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Backend content moderation check
     const filterResult = await filterText(sanitizedText);
     if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Content policy violation' }),
+      };
+    }
+
+    // AI toxicity detection (AWS Comprehend)
+    const toxicity = await analyzeTextToxicity(sanitizedText);
+    if (toxicity.action === 'block') {
+      log.info('Comment blocked by Comprehend', { topCategory: toxicity.topCategory, score: toxicity.maxScore });
       return {
         statusCode: 400,
         headers,

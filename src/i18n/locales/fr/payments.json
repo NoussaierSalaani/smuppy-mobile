@@ -29,7 +29,10 @@
     "sslEncryption": "Chiffrement SSL",
     "sslDesc": "Données chiffrées de bout en bout",
     "threeDS": "Authentification 3DS",
-    "threeDSDesc": "Couche de sécurité supplémentaire",
+    "threeDSDesc": "Vérification de paiement sécurisée",
+    "maskedData": "Données masquées",
+    "maskedDataDesc": "Numéros de carte jamais stockés",
+    "securePaymentsBy": "Paiements sécurisés par",
     "success": {
       "cardAdded": "Carte ajoutée avec succès"
     },
@@ -82,6 +85,35 @@
     },
     "errors": {
       "paymentFailed": "Paiement échoué",
+      "startSubscription": "Impossible de démarrer l'abonnement. Veuillez réessayer."
+    }
+  },
+  "channel": {
+    "title": "Adhésion Chaîne",
+    "notFound": "Chaîne non trouvée",
+    "goBack": "Retour",
+    "fans": "Fans",
+    "subscribers": "Abonnés",
+    "tier": "Niveau",
+    "billedMonthly": "Facturé mensuellement • Annulez à tout moment",
+    "perMonth": "/mois",
+    "membershipIncludes": "L'adhésion comprend",
+    "joinMembers": "Rejoignez {{count}} autres membres soutenant {{name}}",
+    "subscribed": "Abonné !",
+    "subscribedDesc": "Votre abonnement est maintenant actif.",
+    "processing": "Traitement",
+    "paymentFailed": "Paiement échoué",
+    "subscribeFor": "S'abonner pour {{price}}/mois",
+    "autoRenews": "L'abonnement se renouvelle mensuellement jusqu'à annulation",
+    "perks": {
+      "exclusiveContent": "Accès au contenu exclusif",
+      "membersOnly": "Streams live réservés aux membres",
+      "directMessaging": "Messagerie directe avec le créateur",
+      "priorityNotif": "Notifications prioritaires",
+      "supportCreator": "Soutenez votre créateur favori",
+      "subscriberBadge": "Badge d'abonné dans le chat"
+    },
+    "errors": {
       "startSubscription": "Impossible de démarrer l'abonnement. Veuillez réessayer."
     }
   },

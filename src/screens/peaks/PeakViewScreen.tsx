@@ -64,7 +64,7 @@ interface ChallengeResponseItemProps {
     peak?: { id: string; thumbnailUrl?: string; videoUrl?: string; duration?: number; viewsCount?: number };
     createdAt: string;
   };
-  onPress: (peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string) => void;
+  onPress: (peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string, videoUrl: string) => void;
   colors: { primary: string; gray: string };
   styles: ReturnType<typeof createStyles>;
 }
@@ -76,7 +76,8 @@ const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, on
       item.user?.id || '',
       item.user?.displayName || item.user?.username || '',
       item.user?.avatarUrl || '',
-      item.peak?.thumbnailUrl || ''
+      item.peak?.thumbnailUrl || '',
+      item.peak?.videoUrl || ''
     );
   }, [item, onPress]);
 

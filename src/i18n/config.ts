@@ -65,6 +65,10 @@ export const initI18n = async () => {
     lng: savedLanguage,
     fallbackLng: 'en',
     
+    // CRITICAL: disable separators so colons in keys are treated as literals
+    nsSeparator: false,
+    keySeparator: false,
+    
     interpolation: {
       escapeValue: false,
     },

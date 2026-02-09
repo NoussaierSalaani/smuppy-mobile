@@ -103,6 +103,14 @@ export default function TellUsAboutYouScreen({ navigation, route }: TellUsAboutY
     setGender(g);
   }, []);
 
+  // Extracted handlers
+  const handleNameChange = useCallback((text: string) => setName(sanitizeText(text)), []);
+  const handleNameFocus = useCallback(() => setFocusedField('name'), []);
+  const handleNameBlur = useCallback(() => setFocusedField(null), []);
+  const handleOpenDatePicker = useCallback(() => { Keyboard.dismiss(); setShowPicker(true); }, []);
+  const handleClosePicker = useCallback(() => setShowPicker(false), []);
+  const handleConfirmDate = useCallback(() => { setHasSelectedDate(true); setShowPicker(false); validateAge(date); }, [date, validateAge]);
+
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
     navigation.navigate('Interests', {
@@ -166,12 +174,12 @@ export default function TellUsAboutYouScreen({ navigation, route }: TellUsAboutY
                 placeholder="Your name"
                 placeholderTextColor={colors.grayMuted}
                 value={name}
-                onChangeText={(text) => setName(sanitizeText(text))}
+                onChangeText={handleNameChange}
                 returnKeyType="done"
                 autoCapitalize="words"
                 maxLength={NAME_MAX_LENGTH}
-                onFocus={() => setFocusedField('name')}
-                onBlur={() => setFocusedField(null)}
+                onFocus={handleNameFocus}
+                onBlur={handleNameBlur}
               />
             </View>
           </LinearGradient>
@@ -225,7 +233,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: TellUsAboutY
           {ageError ? (
             <TouchableOpacity
               style={[styles.inputBox, styles.inputError]}
-              onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
+              onPress={handleOpenDatePicker}
               activeOpacity={0.7}
             >
               <Ionicons name="calendar-outline" size={18} color={colors.error} />
@@ -242,7 +250,7 @@ export default function TellUsAboutYouScreen({ navigation, route }: TellUsAboutY
             >
               <TouchableOpacity
                 style={[styles.inputInner, hasSelectedDate && styles.inputInnerValid]}
-                onPress={() => { Keyboard.dismiss(); setShowPicker(true); }}
+                onPress={handleOpenDatePicker}
                 activeOpacity={0.7}
               >
                 <Ionicons name="calendar-outline" size={18} color={hasSelectedDate ? colors.primary : colors.grayMuted} />
@@ -286,13 +294,13 @@ export default function TellUsAboutYouScreen({ navigation, route }: TellUsAboutY
       {Platform.OS === 'ios' && (
         <Modal visible={showPicker} transparent animationType="slide">
           <View style={styles.modalOverlay}>
-            <TouchableOpacity style={styles.flex} onPress={() => setShowPicker(false)} activeOpacity={1} />
+            <TouchableOpacity style={styles.flex} onPress={handleClosePicker} activeOpacity={1} />
             <View style={styles.pickerBox}>
               <View style={styles.pickerHeader}>
-                <TouchableOpacity onPress={() => setShowPicker(false)}>
+                <TouchableOpacity onPress={handleClosePicker}>
                   <Text style={styles.pickerCancel}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => { setHasSelectedDate(true); setShowPicker(false); validateAge(date); }}>
+                <TouchableOpacity onPress={handleConfirmDate}>
                   <Text style={styles.pickerDone}>Done</Text>
                 </TouchableOpacity>
               </View>

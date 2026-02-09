@@ -19,7 +19,7 @@ import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { Prescription, PrescriptionCategory } from '../../services/prescriptionEngine';
 import { SPACING, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 

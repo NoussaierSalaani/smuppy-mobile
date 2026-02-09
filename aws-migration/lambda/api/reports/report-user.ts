@@ -9,6 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { checkUserEscalation } from '../../shared/moderation/autoEscalation';
 
 const log = createLogger('reports-user');
 const MAX_REASON_LENGTH = 100;
@@ -99,6 +100,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     log.info('User report created', { reportId: result.rows[0].id });
+
+    // Auto-escalation: check if reported user should be escalated
+    try {
+      const userEscalation = await checkUserEscalation(db, userId);
+      if (userEscalation.action !== 'none') {
+        log.info('User escalation triggered from user report', userEscalation);
+      }
+    } catch (escErr) {
+      log.error('Auto-escalation check failed (non-blocking)', escErr);
+    }
 
     return {
       statusCode: 201,

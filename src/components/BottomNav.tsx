@@ -18,7 +18,8 @@ import Svg, { Path, Rect, LinearGradient as SvgLinearGradient, Stop, Defs } from
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTabBar } from '../context/TabBarContext';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
-import { useUserStore, useAppStore } from '../stores';
+import { useUserStore } from '../stores/userStore';
+import { useAppStore } from '../stores/appStore';
 import { SmuppyIcon } from './SmuppyLogo';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 

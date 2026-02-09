@@ -101,9 +101,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Auto-escalation: check if comment author should be escalated
     try {
-      const authorResult = await db.query('SELECT author_id FROM comments WHERE id = $1', [commentId]);
+      const authorResult = await db.query('SELECT user_id FROM comments WHERE id = $1', [commentId]);
       if (authorResult.rows.length > 0) {
-        const userEscalation = await checkUserEscalation(db, authorResult.rows[0].author_id);
+        const userEscalation = await checkUserEscalation(db, authorResult.rows[0].user_id);
         if (userEscalation.action !== 'none') {
           log.info('User escalation triggered', userEscalation);
         }

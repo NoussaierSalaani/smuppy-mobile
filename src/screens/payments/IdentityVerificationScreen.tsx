@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTranslation } from 'react-i18next';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -33,66 +34,67 @@ interface StatusInfo {
   subtitle: string;
 }
 
-const getStatusInfo = (colors: ThemeColors): Record<VerificationStatus, StatusInfo> => ({
+const getStatusInfo = (t: (key: string) => string, colors: ThemeColors): Record<VerificationStatus, StatusInfo> => ({
   not_started: {
     icon: 'shield-outline',
     color: colors.gray,
-    title: 'Not Verified',
-    subtitle: 'Complete verification to get your badge',
+    title: t('payments:identity:status:notVerified'),
+    subtitle: t('payments:identity:status:notVerifiedDesc'),
   },
   payment_required: {
     icon: 'card-outline',
     color: '#FF9800',
-    title: 'Payment Required',
-    subtitle: 'Pay verification fee to continue',
+    title: t('payments:identity:status:paymentRequired'),
+    subtitle: t('payments:identity:status:paymentRequiredDesc'),
   },
   requires_input: {
     icon: 'document-text-outline',
     color: '#FF9800',
-    title: 'Documents Needed',
-    subtitle: 'Please submit your documents',
+    title: t('payments:identity:status:docsNeeded'),
+    subtitle: t('payments:identity:status:docsNeededDesc'),
   },
   processing: {
     icon: 'hourglass-outline',
     color: '#2196F3',
-    title: 'Processing',
-    subtitle: 'We\'re reviewing your documents',
+    title: t('payments:identity:status:processing'),
+    subtitle: t('payments:identity:status:processingDesc'),
   },
   verified: {
     icon: 'shield-checkmark',
     color: '#22C55E',
-    title: 'Verified',
-    subtitle: 'Your identity has been verified',
+    title: t('payments:identity:status:verified'),
+    subtitle: t('payments:identity:status:verifiedDesc'),
   },
 });
 
 const STATIC_VERIFICATION_STEPS = [
   {
     icon: 'camera',
-    title: 'Take a selfie',
-    subtitle: 'We\'ll match it to your ID',
+    titleKey: 'payments:identity:steps:selfie',
+    subtitleKey: 'payments:identity:steps:selfieDesc',
   },
   {
     icon: 'id-card',
-    title: 'Scan your ID',
-    subtitle: 'Driver\'s license or passport',
+    titleKey: 'payments:identity:steps:scanId',
+    subtitleKey: 'payments:identity:steps:scanIdDesc',
   },
   {
     icon: 'checkmark-circle',
-    title: 'Get verified',
-    subtitle: 'Badge appears on your profile',
+    titleKey: 'payments:identity:steps:getVerified',
+    subtitleKey: 'payments:identity:steps:getVerifiedDesc',
   },
 ];
 
 const BENEFITS = [
-  { icon: 'shield-checkmark', text: 'Verified badge on your profile' },
-  { icon: 'trending-up', text: 'Higher visibility in search' },
-  { icon: 'people', text: 'Build trust with your fans' },
-  { icon: 'cash', text: 'Required for monetization' },
-  { icon: 'lock-closed', text: 'Secure identity protection' },
+  { icon: 'shield-checkmark', textKey: 'payments:identity:benefits:badge' },
+  { icon: 'trending-up', textKey: 'payments:identity:benefits:visibility' },
+  { icon: 'people', textKey: 'payments:identity:benefits:trust' },
+  { icon: 'cash', textKey: 'payments:identity:benefits:monetization' },
+  { icon: 'lock-closed', textKey: 'payments:identity:benefits:security' },
 ];
 
 export default function IdentityVerificationScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -121,27 +123,27 @@ export default function IdentityVerificationScreen() {
   const priceLabel = pricing
     ? `${priceAmountText}${priceIntervalText}`
     : loading
-      ? 'Loading price...'
-      : 'Price unavailable';
-  const intervalReadable = pricing?.interval || 'billing period';
+      ? t('payments:identity:loadingPrice')
+      : t('payments:identity:priceUnavailable');
+  const intervalReadable = pricing?.interval || t('payments:identity:billingPeriod');
   const ctaPriceText = pricing ? `${priceAmountText}${priceIntervalText}` : null;
   const ctaLabel = status === 'requires_input'
-    ? 'Continue Verification'
+    ? t('payments:identity:continueVerification')
     : ctaPriceText
-      ? `Get Verified — ${ctaPriceText}`
-      : 'Get Verified';
+      ? `${t('payments:identity:getVerified')} — ${ctaPriceText}`
+      : t('payments:identity:getVerified');
 
-  const STATUS_INFO = useMemo(() => getStatusInfo(colors), [colors]);
+  const STATUS_INFO = useMemo(() => getStatusInfo(t, colors), [t, colors]);
   const steps = useMemo(
     () => [
       {
         icon: 'card',
-        title: 'Subscribe to verification',
+        title: t('payments:identity:steps:subscribe'),
         subtitle: priceLabel,
       },
       ...STATIC_VERIFICATION_STEPS,
     ],
-    [priceLabel],
+    [priceLabel, t],
   );
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -223,16 +225,16 @@ export default function IdentityVerificationScreen() {
 
         // Subscription activated, start verification
         showAlert({
-          title: 'Subscription Active',
-          message: 'Now let\'s verify your identity',
+          title: t('payments:identity:subscriptionActive'),
+          message: t('payments:identity:verifyNow'),
           type: 'success',
-          buttons: [{ text: 'Continue', onPress: startVerification }],
+          buttons: [{ text: t('payments:identity:continue'), onPress: startVerification }],
         });
       } else {
-        showError('Error', 'Failed to initialize subscription. Please try again.');
+        showError(t('common:error'), t('payments:identity:errors:initSubscription'));
       }
     } catch (_error: unknown) {
-      showError('Error', 'Something went wrong. Please try again.');
+      showError(t('common:error'), t('payments:generic:error'));
     } finally {
       setProcessing(false);
     }
@@ -276,13 +278,13 @@ export default function IdentityVerificationScreen() {
           }
         } else {
           // Generic error message per CLAUDE.md - never expose response.error to client
-          showError('Error', 'Failed to start verification. Please try again.');
+          showError(t('common:error'), t('payments:identity:errors:startVerification'));
         }
       }
     } catch (error: unknown) {
       if (__DEV__) console.warn('[IdentityVerification] Error:', error);
       // Generic error message per CLAUDE.md - never expose error.message to client
-      showError('Error', 'Something went wrong. Please try again.');
+      showError(t('payments:generic:errorTitle'), t('payments:generic:error'));
     } finally {
       setProcessing(false);
     }
@@ -330,7 +332,7 @@ export default function IdentityVerificationScreen() {
           {status === 'verified' && (
             <View style={styles.verifiedBadge}>
               <Ionicons name="checkmark-circle" size={20} color="white" />
-              <Text style={styles.verifiedText}>Identity Verified</Text>
+              <Text style={styles.verifiedText}>{t('payments:identity:verified')}</Text>
             </View>
           )}
         </LinearGradient>
@@ -340,7 +342,7 @@ export default function IdentityVerificationScreen() {
             {/* Price Card */}
             <View style={styles.priceCard}>
               <View style={styles.priceHeader}>
-                <Text style={styles.priceLabel}>Verified Account</Text>
+                <Text style={styles.priceLabel}>{t('payments:identity:verifiedAccount')}</Text>
                 <View style={styles.priceTag}>
                   <Text style={styles.priceAmount}>{priceAmountText}</Text>
                   <Text style={styles.priceOnce}>{priceIntervalText}</Text>
@@ -350,14 +352,14 @@ export default function IdentityVerificationScreen() {
               <View style={styles.priceInfo}>
                 <Ionicons name="information-circle" size={18} color={colors.gray} />
                 <Text style={styles.priceInfoText}>
-                  Subscription billed every {intervalReadable}. Cancel anytime from your profile settings.
+                  {t('payments:identity:billingPeriod')}: {intervalReadable}
                 </Text>
               </View>
             </View>
 
             {/* Steps */}
             <View style={styles.stepsSection}>
-              <Text style={styles.sectionTitle}>How it works</Text>
+              <Text style={styles.sectionTitle}>{t('payments:identity:howItWorks')}</Text>
               {steps.map((step, index) => (
                 <View key={index} style={styles.stepItem}>
                   <View style={styles.stepNumber}>
@@ -370,8 +372,8 @@ export default function IdentityVerificationScreen() {
                     <Ionicons name={step.icon as keyof typeof Ionicons.glyphMap} size={20} color="white" />
                   </LinearGradient>
                   <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>{step.title}</Text>
-                    <Text style={styles.stepSubtitle}>{step.subtitle}</Text>
+                    <Text style={styles.stepTitle}>{'titleKey' in step ? t(step.titleKey as string) : step.title}</Text>
+                    <Text style={styles.stepSubtitle}>{'subtitleKey' in step ? t(step.subtitleKey as string) : step.subtitle}</Text>
                   </View>
                   {index < steps.length - 1 && (
                     <View style={styles.stepLine} />
@@ -382,11 +384,11 @@ export default function IdentityVerificationScreen() {
 
             {/* Benefits */}
             <View style={styles.benefitsSection}>
-              <Text style={styles.sectionTitle}>Why get verified?</Text>
+              <Text style={styles.sectionTitle}>{t('payments:identity:whyVerify')}</Text>
               {BENEFITS.map((benefit, index) => (
                 <View key={index} style={styles.benefitItem}>
                   <Ionicons name={benefit.icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.primary} />
-                  <Text style={styles.benefitText}>{benefit.text}</Text>
+                  <Text style={styles.benefitText}>{t(benefit.textKey)}</Text>
                 </View>
               ))}
             </View>
@@ -397,9 +399,9 @@ export default function IdentityVerificationScreen() {
           <View style={styles.verifiedSection}>
             <View style={styles.verifiedCard}>
               <Ionicons name="ribbon" size={48} color={colors.primary} />
-              <Text style={styles.verifiedCardTitle}>Congratulations!</Text>
+              <Text style={styles.verifiedCardTitle}>{t('payments:identity:congratulations')}</Text>
               <Text style={styles.verifiedCardText}>
-                Your identity has been verified. The verified badge is now visible on your profile.
+                {t('payments:identity:verifiedBadgeVisible')}
               </Text>
             </View>
           </View>
@@ -441,7 +443,7 @@ export default function IdentityVerificationScreen() {
           <View style={styles.securityNote}>
             <Ionicons name="lock-closed" size={14} color={colors.gray} />
             <Text style={styles.securityText}>
-              Powered by Stripe Identity • Your data is secure
+              {t('payments:identity:secureNote')}
             </Text>
           </View>
         </View>

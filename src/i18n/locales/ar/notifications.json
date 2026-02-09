@@ -1,0 +1,20 @@
+{
+  "notifications": "الإشعارات",
+  "markAllRead": "تحديد الكل كمقروء",
+  "noNotifications": "لا توجد إشعارات",
+  "noNotificationsYet": "ليس لديك إشعارات جديدة",
+  "today": "اليوم",
+  "thisWeek": "هذا الأسبوع",
+  "earlier": "سابقاً",
+  "likedYourPost": "أعجب بمنشورك",
+  "commentedOnYourPost": "علق على منشورك",
+  "startedFollowingYou": "بدأ بمتابعتك",
+  "mentionedYou": "أشار إليك",
+  "sentYouMessage": "أرسل لك رسالة",
+  "likedYourComment": "أعجب بتعليقك",
+  "repliedToYourComment": "رد على تعليقك",
+  "taggedYou": "أشار إليك في منشور",
+  "sharedYourPost": "شارك منشورك",
+  "liveNow": "يبث مباشرة الآن",
+  "newPost": "نشر شيئاً جديداً"
+}

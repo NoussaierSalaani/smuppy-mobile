@@ -14,6 +14,7 @@ import {
   AppState,
   Animated,
   Alert,
+  InteractionManager,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { FlashList } from '@shopify/flash-list';
@@ -21,6 +22,7 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { resolveDisplayName } from '../../types/profile';
 import EmojiPicker from 'rn-emoji-keyboard';
 import { AccountBadge } from '../../components/Badge';
@@ -30,7 +32,7 @@ import SharedPostBubble from '../../components/SharedPostBubble';
 import { GRADIENTS, SPACING } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { useAppStore } from '../../stores';
+import { useAppStore } from '../../stores/appStore';
 import {
   getMessages,
   sendMessage as sendMessageToDb,
@@ -299,6 +301,7 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
+  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { conversationId: initialConversationId, otherUser, userId, unreadCount: routeUnreadCount } = route.params;
@@ -308,16 +311,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   useEffect(() => {
     if (initialConversationId && !isValidUUID(initialConversationId)) {
       if (__DEV__) console.warn('[ChatScreen] Invalid conversationId:', initialConversationId);
-      showError('Error', 'Invalid conversation');
+      showError(t('common:error'), t('messages:messages:errors:invalidConversation'));
       navigation.goBack();
       return;
     }
     if (userId && !isValidUUID(userId)) {
       if (__DEV__) console.warn('[ChatScreen] Invalid userId:', userId);
-      showError('Error', 'Invalid user');
+      showError(t('common:error'), t('messages:messages:newMessage:invalidUser'));
       navigation.goBack();
     }
-  }, [initialConversationId, userId, showError, navigation]);
+  }, [initialConversationId, userId, showError, navigation, t]);
   const flatListRef = useRef<typeof FlashList.prototype | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -378,6 +381,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         setCurrentUserId(id);
         currentUserIdRef.current = id;
       }
+    }).catch(() => {
+      // Storage read failure — userId stays null, safe fallback
     });
     return () => { mounted = false; };
   }, []);
@@ -385,35 +390,37 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   // Track initialization error
   const [initError, setInitError] = useState<string | null>(null);
 
-  // Load or create conversation
+  // Load or create conversation — deferred until after navigation animation
   useEffect(() => {
     let mounted = true;
-    const initConversation = async () => {
-      if (mounted) setInitError(null);
-      if (initialConversationId) {
-        if (mounted) setConversationId(initialConversationId);
-      } else if (userId) {
-        const { data, error } = await getOrCreateConversation(userId);
-        if (!mounted) return;
-        if (error) {
-          if (__DEV__) console.warn('[ChatScreen] Failed to create conversation:', error);
-          setInitError(error);
-          setLoading(false);
-        } else if (data) {
-          setConversationId(data);
+    const task = InteractionManager.runAfterInteractions(() => {
+      const initConversation = async () => {
+        if (mounted) setInitError(null);
+        if (initialConversationId) {
+          if (mounted) setConversationId(initialConversationId);
+        } else if (userId) {
+          const { data, error } = await getOrCreateConversation(userId);
+          if (!mounted) return;
+          if (error) {
+            if (__DEV__) console.warn('[ChatScreen] Failed to create conversation:', error);
+            setInitError(error);
+            setLoading(false);
+          } else if (data) {
+            setConversationId(data);
+          } else {
+            setInitError('Failed to initialize conversation');
+            setLoading(false);
+          }
         } else {
-          setInitError('Failed to initialize conversation');
-          setLoading(false);
+          if (mounted) {
+            setInitError('No conversation or user specified');
+            setLoading(false);
+          }
         }
-      } else {
-        if (mounted) {
-          setInitError('No conversation or user specified');
-          setLoading(false);
-        }
-      }
-    };
-    initConversation();
-    return () => { mounted = false; };
+      };
+      initConversation();
+    });
+    return () => { mounted = false; task.cancel(); };
   }, [initialConversationId, userId]);
 
   // Load messages
@@ -578,7 +585,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       pendingOptimisticIdsRef.current.delete(optimisticId);
     }
     setSending(false);
-  }, [conversationId, inputText, sending, currentUserId, showError, replyToMessage]);
+  }, [conversationId, inputText, sending, currentUserId, showError, replyToMessage, t]);
 
   // Handle voice message send with optimistic update
   const handleVoiceSend = useCallback(async (uri: string, duration: number) => {
@@ -664,7 +671,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       pendingOptimisticIdsRef.current.delete(optimisticId);
     }
     setSending(false);
-  }, [conversationId, currentUserId, showError, replyToMessage]);
+  }, [conversationId, currentUserId, showError, replyToMessage, t]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -749,7 +756,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         },
       ]
     );
-  }, [loadMessages, showError]);
+  }, [loadMessages, showError, t]);
 
   // Handle forward message
   const handleForwardPress = useCallback(() => {
@@ -758,6 +765,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     // Load conversations
     getConversations().then(({ data }) => {
       if (data) setConversations(data);
+    }).catch(() => {
+      // Conversation load failed — forward modal shows empty list
     });
   }, []);
 
@@ -774,7 +783,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       setShowForwardModal(false);
     }
     setForwarding(false);
-  }, [selectedMessage, showError, showSuccess]);
+  }, [selectedMessage, showError, showSuccess, t]);
 
   const handleCloseSelectedImage = useCallback(() => setSelectedImage(null), []);
   const handleCloseVoicePreview = useCallback(() => {
@@ -811,7 +820,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       const asset = result.assets[0];
       await handleSendImage(asset.uri);
     }
-  }, [showError]);
+  }, [showError, t]);
 
   const handleSendImage = useCallback(async (imageUri: string) => {
     if (!conversationId) {
@@ -857,7 +866,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     } finally {
       setSending(false);
     }
-  }, [conversationId, replyToMessage, showError, loadMessages]);
+  }, [conversationId, replyToMessage, showError, loadMessages, t]);
 
   const handleViewProfileMenu = useCallback(() => {
     setChatMenuVisible(false);
@@ -883,7 +892,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       },
       'Block'
     );
-  }, [otherUserProfile?.id, otherUserProfile?.full_name, showDestructiveConfirm, showError, showSuccess, navigation]);
+  }, [otherUserProfile?.id, otherUserProfile?.full_name, showDestructiveConfirm, showError, showSuccess, navigation, t]);
   const handleRetry = useCallback(() => {
     setLoading(true);
     setInitError(null);

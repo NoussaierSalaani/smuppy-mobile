@@ -13,6 +13,7 @@ import { isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 
 const log = createLogger('posts-create');
 
@@ -131,6 +132,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Comprehend flag tracking
     let contentFlagged = false;
     let flagCategory: string | null = null;
+    let flagScore: number | null = null;
 
     // Backend content moderation check
     if (sanitizedContent) {
@@ -156,6 +158,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (toxicity.action === 'flag') {
         contentFlagged = true;
         flagCategory = toxicity.topCategory;
+        flagScore = toxicity.maxScore;
       }
     }
 
@@ -196,8 +199,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await client.query('BEGIN');
 
       const result = await client.query(
-        `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, location, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, location, content_status, toxicity_score, toxicity_category, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
          RETURNING id, author_id, content, media_urls, media_type, visibility, location, likes_count, comments_count, created_at`,
         [
           postId,
@@ -207,6 +210,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body.mediaType || null,
           body.visibility || 'public',
           sanitizedLocation,
+          contentFlagged ? 'flagged' : 'clean',
+          flagScore,
+          flagCategory,
         ]
       );
 
@@ -256,8 +262,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       try {
         await db.query(
           `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, target_post_id, reason)
-           VALUES ($1, 'flag_content', $1, $2, $3)`,
-          [userId, postId, `Comprehend toxicity: ${flagCategory} (under_review)`],
+           VALUES ($1, 'flag_content', $2, $3, $4)`,
+          [SYSTEM_MODERATOR_ID, userId, postId, `Comprehend toxicity: ${flagCategory} score=${flagScore} (under_review)`],
         );
       } catch (flagErr) {
         log.error('Failed to log flagged content (non-blocking)', flagErr);

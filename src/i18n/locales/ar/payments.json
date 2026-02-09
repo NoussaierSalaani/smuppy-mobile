@@ -1,0 +1,143 @@
+{
+  "title": "طرق الدفع",
+  "wallet": {
+    "title": "المحفظة",
+    "balance": "الرصيد المتاح",
+    "revenueShare": "{{percent}}% من الإيرادات",
+    "thisMonth": "هذا الشهر",
+    "lifetime": "منذ البداية",
+    "subscribers": "المشتركين",
+    "revenueBreakdown": "تفصيل الإيرادات",
+    "transactions": "{{count}} معاملة",
+    "setupStripe": "إعداد المدفوعات مع Stripe",
+    "recentTransactions": "المعاملات الأخيرة",
+    "noTransactions": "لا توجد معاملات بعد",
+    "analytics": "التحليلات",
+    "avgPerTransaction": "المتوسط لكل معاملة",
+    "transactionsThisMonth": "المعاملات هذا الشهر",
+    "viewDetailed": "عرض التحليلات المفصلة"
+  },
+  "methods": {
+    "title": "طرق الدفع",
+    "cards": "البطاقات",
+    "ssl": "256 بت SSL",
+    "secure": "3DS Secure",
+    "yourCards": "بطاقاتك",
+    "noCards": "لا توجد بطاقات بعد",
+    "addCard": "إضافة بطاقة جديدة",
+    "default": "افتراضي",
+    "sslEncryption": "تشفير SSL",
+    "sslDesc": "بيانات مشفرة من طرف إلى طرف",
+    "threeDS": "مصادقة 3DS",
+    "threeDSDesc": "طبقة أمان إضافية",
+    "success": {
+      "cardAdded": "تمت إضافة البطاقة بنجاح"
+    },
+    "errors": {
+      "addCard": "تعذر إضافة البطاقة. يرجى المحاولة مرة أخرى.",
+      "setDefault": "تعذر تعيين كافتراضي",
+      "removeCard": "تعذر إزالة البطاقة"
+    }
+  },
+  "subscription": {
+    "title": "الترقية إلى Pro",
+    "premiumTitle": "الاشتراك المميز",
+    "unlockFeatures": "فتح ميزات المحتوى المميزة",
+    "unlockPotential": "أطلق العنان لإمكانياتك الكاملة",
+    "popular": "الأكثر شعبية",
+    "currentPlan": "الخطة الحالية",
+    "perMonth": "/شهر",
+    "cancelAnytime": "إلغاء في أي وقت",
+    "noCommitment": "بدون التزام، يمكنك الإلغاء في أي وقت",
+    "subscribeFor": "اشترك مقابل {{price}}/شهر",
+    "termsAgreement": "بالاشتراك، فإنك توافق على شروط الخدمة",
+    "plans": {
+      "proCreator": "Pro صانع محتوى",
+      "proBusiness": "Pro أعمال"
+    },
+    "features": {
+      "unlimitedLive": "بث مباشر غير محدود",
+      "monetize": "الربح من اشتراكات القناة",
+      "sellSessions": "بيع الجلسات الفردية والباقات",
+      "analytics": "لوحة تحليلات متقدمة",
+      "identityBadge": "شارة التحقق من الهوية",
+      "revenueShare": "حتى 80% من الإيرادات",
+      "prioritySupport": "دعم أولوي",
+      "exclusiveFeatures": "ميزات حصرية للمحتوى",
+      "businessBadge": "شارة الملف التجاري",
+      "consultations": "بيع الجلسات والاستشارات",
+      "localDiscovery": "ميزات الاكتشاف المحلي",
+      "clientManagement": "أدوات إدارة العملاء",
+      "acceptPayments": "قبول المدفوعات مباشرة",
+      "businessAnalytics": "تحليلات الأعمال",
+      "priorityMessaging": "المراسلة الأولوية",
+      "reviews": "التقييمات والمراجعات"
+    },
+    "includes": "{{plan}} يتضمن",
+    "success": {
+      "alreadySubscribed": "مشترك بالفعل",
+      "onPlan": "أنت بالفعل على هذه الخطة.",
+      "subscribed": "تم الاشتراك!",
+      "active": "اشتراكك نشط الآن."
+    },
+    "errors": {
+      "paymentFailed": "فشل الدفع",
+      "startSubscription": "فشل بدء الاشتراك. يرجى المحاولة مرة أخرى."
+    }
+  },
+  "identity": {
+    "title": "التحقق من الهوية",
+    "verified": "تم التحقق من الهوية",
+    "verifiedAccount": "حساب موثق",
+    "howItWorks": "كيف يعمل",
+    "whyVerify": "لماذا التحقق؟",
+    "congratulations": "تهانينا!",
+    "steps": {
+      "subscribe": "اشترك في التحقق",
+      "selfie": "التقط صورة شخصية",
+      "selfieDesc": "سنقوم بمطابقتها مع هويتك",
+      "scanId": "امسح هويتك",
+      "scanIdDesc": "رخصة القيادة أو جواز السفر",
+      "getVerified": "احصل على التوثيق",
+      "getVerifiedDesc": "تظهر الشارة على ملفك الشخصي"
+    },
+    "benefits": {
+      "badge": "شارة موثقة على ملفك الشخصي",
+      "visibility": "رؤية أعلى في البحث",
+      "trust": "ابنِ الثقة مع معجبيك",
+      "monetization": "مطلوب للربح",
+      "security": "حماية آمنة للهوية"
+    },
+    "status": {
+      "notVerified": "غير موثق",
+      "notVerifiedDesc": "أكمل التحقق للحصول على شارتك",
+      "paymentRequired": "الدفع مطلوب",
+      "paymentRequiredDesc": "ادفع رسوم التحقق للمتابعة",
+      "docsNeeded": "المستندات مطلوبة",
+      "docsNeededDesc": "يرجى إرسال مستنداتك",
+      "processing": "قيد المعالجة",
+      "processingDesc": "نقوم بمراجعة مستنداتك",
+      "verified": "موثق",
+      "verifiedDesc": "تم التحقق من هويتك"
+    },
+    "loadingPrice": "جاري تحميل السعر...",
+    "priceUnavailable": "السعر غير متاح",
+    "billingPeriod": "فترة الفوترة",
+    "continueVerification": "متابعة التحقق",
+    "getVerified": "الحصول على التوثيق",
+    "verifiedBadgeVisible": "تم التحقق من هويتك. الشارة الموثقة مرئية الآن على ملفك الشخصي.",
+    "subscriptionActive": "الاشتراك نشط",
+    "verifyNow": "لنتحقق من هويتك الآن",
+    "continue": "متابعة",
+    "secureNote": "مدعوم من Stripe Identity • بياناتك آمنة",
+    "errors": {
+      "initSubscription": "فشل تهيئة الاشتراك. يرجى المحاولة مرة أخرى.",
+      "startVerification": "فشل بدء التحقق. يرجى المحاولة مرة أخرى."
+    }
+  },
+  "generic": {
+    "error": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    "processing": "جاري المعالجة",
+    "errorTitle": "خطأ"
+  }
+}

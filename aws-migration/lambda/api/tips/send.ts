@@ -13,8 +13,11 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
+import { isValidUUID, sanitizeInput } from '../utils/security';
 import { getPool } from '../../shared/db';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('tips-send');
 import { getStripeKey } from '../../shared/secrets';
@@ -78,6 +81,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
     const profileId = profileResult.rows[0].id;
 
+    // Account status check (suspended/banned users cannot send tips)
+    const accountCheck = await requireActiveAccount(userId, {});
+    if (isAccountError(accountCheck)) {
+      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+    }
+
     // Rate limit check
     const now = Date.now();
     const userLimit = tipRateLimits.get(userId);
@@ -130,6 +139,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           message: 'Invalid context type',
         }),
       });
+    }
+
+    // Sanitize and moderate the optional message
+    const sanitizedMessage = message ? sanitizeInput(message, 500) : null;
+    if (sanitizedMessage) {
+      const filterResult = await filterText(sanitizedMessage);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Tip message blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your message contains content that violates our community guidelines.' }) });
+      }
+      const toxicityResult = await analyzeTextToxicity(sanitizedMessage);
+      if (toxicityResult.action === 'block') {
+        log.warn('Tip message blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your message contains content that violates our community guidelines.' }) });
+      }
     }
 
     // Can't tip yourself
@@ -247,7 +271,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         creatorAmount,
         contextType,
         contextId || null,
-        message || null,
+        sanitizedMessage,
         isAnonymous,
       ]
     );

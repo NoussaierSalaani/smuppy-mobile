@@ -12,6 +12,9 @@ import { sanitizeInput, isValidUsername, logSecurityEvent } from '../utils/secur
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { hasErrorCode } from '../utils/error-handler';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('profiles-update');
 
@@ -209,6 +212,31 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: 'Username must be 3-30 characters, alphanumeric and underscores only' }),
       };
     }
+
+    // Moderation: check text fields (bio, fullName, displayName) for violations
+    const textFieldsToCheck = ['bio', 'fullName', 'displayName'].filter(f => body[f] && typeof body[f] === 'string');
+    for (const field of textFieldsToCheck) {
+      const textValue = body[field] as string;
+      const filterResult = await filterText(textValue);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Profile field blocked by filter', { userId: userId.substring(0, 8) + '***', field, severity: filterResult.severity });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: `Your ${field === 'bio' ? 'bio' : 'name'} contains content that violates our community guidelines.` }),
+        };
+      }
+      const toxicityResult = await analyzeTextToxicity(textValue);
+      if (toxicityResult.action === 'block') {
+        log.warn('Profile field blocked by toxicity', { userId: userId.substring(0, 8) + '***', field, category: toxicityResult.topCategory });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: `Your ${field === 'bio' ? 'bio' : 'name'} contains content that violates our community guidelines.` }),
+        };
+      }
+    }
+
     const db = await getPool();
 
     // Build update fields dynamically
@@ -270,6 +298,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       `SELECT id FROM profiles WHERE cognito_sub = $1`,
       [userId]
     );
+
+    // Account status check — only for existing profiles (not during onboarding/creation)
+    if (existingProfile.rows.length > 0) {
+      const accountCheck = await requireActiveAccount(userId, headers);
+      if (isAccountError(accountCheck)) return accountCheck;
+    }
 
     // SECURITY: Prevent account type changes on existing profiles
     // Account type upgrades can ONLY happen via Stripe webhook

@@ -1,0 +1,77 @@
+name: i18n Sync
+
+on:
+  # Upload automatique quand les fichiers EN changent
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/i18n/locales/en/**'
+  
+  # Download manuel possible
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'sync'
+        type: choice
+        options:
+          - upload
+          - download
+          - sync
+
+jobs:
+  crowdin:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Crowdin Action
+        uses: crowdin/github-action@v1
+        with:
+          upload_sources: ${{ github.event.inputs.action == 'upload' || github.event.inputs.action == 'sync' || github.event_name == 'push' }}
+          download_translations: ${{ github.event.inputs.action == 'download' || github.event.inputs.action == 'sync' }}
+          localization_branch_name: l10n_crowdin_translations
+          create_pull_request: true
+          pull_request_title: '🌍 New Crowdin translations'
+          pull_request_body: |
+            ## New translations from Crowdin
+            
+            This PR contains the latest translations from our Crowdin project.
+            
+            ### Languages updated
+            - French (FR)
+            - Spanish (ES)
+            - Portuguese - Brazilian (PT-BR)
+            - Arabic (AR)
+            
+            ### Checklist
+            - [ ] Review translations
+            - [ ] Test UI with long text (especially DE, AR)
+            - [ ] Check RTL layout (AR)
+          pull_request_labels: 'translations, i18n'
+        env:
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+          CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_TOKEN }}
+      
+      - name: Format translations
+        if: github.event.inputs.action == 'download' || github.event.inputs.action == 'sync'
+        run: npx prettier --write "src/i18n/locales/**/*.json"
+      
+      - name: Check translation completeness
+        run: node scripts/check-translations.js
+        continue-on-error: true
+      
+      - name: Type check
+        run: npm run typecheck

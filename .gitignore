@@ -50,8 +50,13 @@ supabase/.temp/
 supabase/.branches/
 
 # CDK output
+aws-migration/cdk.out/
+aws-migration/cdk.out/**
+aws-migration/cdk.context.json
 aws-migration/infrastructure/cdk.out/
 aws-migration/infrastructure/cdk.out/**
+aws-migration/infrastructure/cdk-diff-out/
+aws-migration/infrastructure/cdk-diff-out/**
 aws-migration/infrastructure/cdk.out.2/
 aws-migration/infrastructure/cdk.out.2/**
 aws-migration/infrastructure/cdk-out-deploy/
@@ -62,6 +67,7 @@ aws-migration/infrastructure/cdk-out-temp/
 aws-migration/infrastructure/cdk-out-temp/**
 aws-migration/infrastructure/cdk-out-temp2/
 aws-migration/infrastructure/cdk-out-temp2/**
+aws-migration/infrastructure/cdk-outputs.json
 aws-migration/infrastructure/app.json
 aws-migration/lambda/shared/node_modules
 aws-migration/lambda/node_modules

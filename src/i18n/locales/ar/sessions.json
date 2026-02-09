@@ -1,0 +1,21 @@
+{
+  "sessions": "الجلسات",
+  "mySessions": "جلساتي",
+  "bookSession": "حجز جلسة",
+  "upcoming": "القادمة",
+  "past": "السابقة",
+  "cancelled": "الملغاة",
+  "noSessions": "لا توجد جلسات",
+  "noSessionsYet": "ليس لديك جلسات مجدولة",
+  "sessionDetails": "تفاصيل الجلسة",
+  "date": "التاريخ",
+  "time": "الوقت",
+  "duration": "المدة",
+  "price": "السعر",
+  "status": "الحالة",
+  "cancelSession": "إلغاء الجلسة",
+  "reschedule": "إعادة الجدولة",
+  "joinCall": "الانضمام للمكالمة",
+  "leaveReview": "ترك تقييم",
+  "minutes": "دقيقة"
+}

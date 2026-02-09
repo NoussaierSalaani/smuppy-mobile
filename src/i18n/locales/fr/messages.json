@@ -1,0 +1,42 @@
+{
+  "messages": {
+    "title": "Messages",
+    "search": "Rechercher des conversations",
+    "newMessage": "Nouveau message",
+    "noMessages": "Aucun message",
+    "startConversation": "Commencez une conversation",
+
+    "conversation": {
+      "type": "Tapez un message...",
+      "send": "Envoyer",
+      "sending": "Envoi...",
+      "delivered": "Livré",
+      "read": "Lu",
+      "voiceMessage": "Message vocal",
+      "photo": "Photo",
+      "today": "Aujourd'hui",
+      "yesterday": "Hier"
+    },
+
+    "actions": {
+      "delete": "Supprimer",
+      "mute": "Masquer",
+      "unmute": "Afficher",
+      "block": "Bloquer",
+      "report": "Signaler",
+      "clearHistory": "Effacer l'historique"
+    },
+
+    "empty": {
+      "title": "Pas encore de messages",
+      "subtitle": "Envoyez un message à quelqu'un pour commencer"
+    },
+
+    "new": {
+      "title": "Nouveau message",
+      "search": "Rechercher des utilisateurs",
+      "noResults": "Aucun résultat",
+      "recent": "Conversations récentes"
+    }
+  }
+}

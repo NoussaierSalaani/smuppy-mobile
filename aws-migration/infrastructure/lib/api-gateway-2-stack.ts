@@ -4,10 +4,14 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { LambdaStack } from './lambda-stack';
+import { LambdaStack2 } from './lambda-stack-2';
+import { LambdaStack3 } from './lambda-stack-3';
 
 export interface ApiGateway2StackProps extends cdk.NestedStackProps {
   userPool: cognito.IUserPool;
   lambdaStack: LambdaStack;
+  lambdaStack2: LambdaStack2;
+  lambdaStack3: LambdaStack3;
   environment: string;
   isProduction: boolean;
 }
@@ -24,7 +28,7 @@ export class ApiGateway2Stack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiGateway2StackProps) {
     super(scope, id, props);
 
-    const { userPool, lambdaStack, environment, isProduction } = props;
+    const { userPool, lambdaStack, lambdaStack2, lambdaStack3, environment, isProduction } = props;
 
     // ========================================
     // API Gateway - REST API with Throttling (Secondary API)
@@ -183,55 +187,55 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     tipsLeaderboardByCreator.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.tipsLeaderboardFn));
 
     // ========================================
-    // Challenges Endpoints
+    // Challenges Endpoints - FROM LambdaStack3
     // ========================================
     const challenges = this.api.root.addResource('challenges');
-    challenges.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.challengesCreateFn), authMethodOptions);
-    challenges.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.challengesListFn));
+    challenges.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.challengesCreateFn), authMethodOptions);
+    challenges.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.challengesListFn));
 
     const challengeById = challenges.addResource('{challengeId}');
     const challengeRespond = challengeById.addResource('respond');
-    challengeRespond.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.challengesRespondFn), authMethodOptions);
+    challengeRespond.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.challengesRespondFn), authMethodOptions);
 
     const challengeResponses = challengeById.addResource('responses');
-    challengeResponses.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.challengesResponsesFn));
+    challengeResponses.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.challengesResponsesFn));
 
     // ========================================
-    // Battles Endpoints
+    // Battles Endpoints - FROM LambdaStack3
     // ========================================
     const battles = this.api.root.addResource('battles');
-    battles.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.battlesCreateFn), authMethodOptions);
+    battles.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.battlesCreateFn), authMethodOptions);
 
     const battleById = battles.addResource('{battleId}');
     const battleJoin = battleById.addResource('join');
-    battleJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.battlesJoinFn), authMethodOptions);
+    battleJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.battlesJoinFn), authMethodOptions);
 
     // ========================================
-    // Events Endpoints
+    // Events Endpoints - FROM LambdaStack3
     // ========================================
     const events = this.api.root.addResource('events');
-    events.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.eventsCreateFn), authMethodOptions);
-    events.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.eventsListFn));
+    events.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.eventsCreateFn), authMethodOptions);
+    events.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.eventsListFn));
 
     const eventById = events.addResource('{eventId}');
     const eventJoin = eventById.addResource('join');
-    eventJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.eventsJoinFn), authMethodOptions);
+    eventJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.eventsJoinFn), authMethodOptions);
 
     // ========================================
-    // Groups Endpoints
+    // Groups Endpoints - FROM LambdaStack3
     // ========================================
     const groups = this.api.root.addResource('groups');
-    groups.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.groupsCreateFn), authMethodOptions);
-    groups.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.groupsListFn));
+    groups.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.groupsCreateFn), authMethodOptions);
+    groups.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.groupsListFn));
 
     const groupById = groups.addResource('{groupId}');
-    groupById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.groupsGetFn));
+    groupById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.groupsGetFn));
 
     const groupJoin = groupById.addResource('join');
-    groupJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.groupsJoinFn), authMethodOptions);
+    groupJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.groupsJoinFn), authMethodOptions);
 
     const groupLeave = groupById.addResource('leave');
-    groupLeave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.groupsLeaveFn), authMethodOptions);
+    groupLeave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack3.groupsLeaveFn), authMethodOptions);
 
     // ========================================
     // Settings Endpoints
@@ -273,52 +277,22 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     };
 
     // ========================================
-    // Hashtags Endpoints
+    // Hashtags Endpoints - FROM LambdaStack3
     // ========================================
     const hashtags = this.api.root.addResource('hashtags');
     const hashtagsTrending = hashtags.addResource('trending');
-    hashtagsTrending.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.hashtagsTrendingFn), authMethodOptions);
+    hashtagsTrending.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.hashtagsTrendingFn), authMethodOptions);
 
     // ========================================
-    // Interests & Expertise Endpoints
+    // Interests & Expertise Endpoints - FROM LambdaStack3
     // ========================================
     const interests = this.api.root.addResource('interests');
-    interests.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.interestsListFn), authMethodOptions);
+    interests.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.interestsListFn), authMethodOptions);
 
     const expertise = this.api.root.addResource('expertise');
-    expertise.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.expertiseListFn), authMethodOptions);
+    expertise.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.expertiseListFn), authMethodOptions);
 
-    // ========================================
-    // Spots Endpoints
-    // ========================================
-    const spots = this.api.root.addResource('spots');
-    spots.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsListFn), authMethodOptions);
-    spots.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsCreateFn), authWithBodyValidation);
-
-    const spotsNearby = spots.addResource('nearby');
-    spotsNearby.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsNearbyFn), authMethodOptions);
-
-    const spotsSaved = spots.addResource('saved');
-    spotsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsSavedListFn), authMethodOptions);
-
-    const spotById = spots.addResource('{id}');
-    spotById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsGetFn), authMethodOptions);
-    spotById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.spotsUpdateFn), authWithBodyValidation);
-    spotById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsDeleteFn), authMethodOptions);
-
-    const spotSave = spotById.addResource('save');
-    spotSave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsSaveFn), authMethodOptions);
-    spotSave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsUnsaveFn), authMethodOptions);
-
-    const spotIsSaved = spotById.addResource('is-saved');
-    spotIsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsIsSavedFn), authMethodOptions);
-
-    const spotReviews = spotById.addResource('reviews');
-    spotReviews.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsListFn), authMethodOptions);
-    spotReviews.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsCreateFn), authWithBodyValidation);
-
-    const spotReviewById = spotReviews.addResource('{reviewId}');
-    spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsDeleteFn), authMethodOptions);
+    // NOTE: Spots endpoints moved to ApiGateway3Stack (CloudFormation 500 resource limit)
 
     // ========================================
     // Business Endpoints

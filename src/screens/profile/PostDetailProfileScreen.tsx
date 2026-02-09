@@ -21,7 +21,8 @@ import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useUserStore, useFeedStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
+import { useFeedStore } from '../../stores/feedStore';
 import {
   followUser,
   isFollowing,
@@ -37,7 +38,7 @@ import {
 } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
-import { useContentStore } from '../../stores';
+import { useContentStore } from '../../stores/contentStore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -646,7 +647,7 @@ const PostDetailProfileScreen = () => {
                 style={styles.userInfo}
                 onPress={() => {
                   if (itemIsOwn) {
-                    navigation.navigate('ProfileTab' as never);
+                    navigation.navigate('Tabs', { screen: 'Profile' });
                   } else {
                     navigation.navigate('UserProfile', { userId: item.user.id });
                   }

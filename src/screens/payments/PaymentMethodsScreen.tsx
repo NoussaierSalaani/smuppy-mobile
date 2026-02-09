@@ -23,6 +23,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTranslation } from 'react-i18next';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -83,6 +84,7 @@ const CARD_BRANDS: Record<string, {
 };
 
 const PaymentMethodsScreen = (): React.JSX.Element => {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<{ goBack: () => void }>();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
@@ -161,11 +163,11 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         return;
       }
 
-      showSuccess('Success', 'Card added successfully');
+      showSuccess(t('common:success'), t('payments:methods:success:cardAdded'));
       fetchPaymentMethods();
     } catch (error: unknown) {
       if (__DEV__) console.warn('Failed to add card:', error);
-      showError('Error', 'Could not add card. Please try again.');
+      showError(t('common:error'), t('payments:methods:errors:addCard'));
     } finally {
       setAddingCard(false);
     }
@@ -183,11 +185,11 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         );
         setSelectedCard(methodId);
       } else {
-        showError('Error', response.message || 'Could not set as default');
+        showError(t('common:error'), response.message || t('payments:methods:errors:setDefault'));
       }
     } catch (error: unknown) {
       if (__DEV__) console.warn('Failed to set default:', error);
-      showError('Error', 'Something went wrong');
+      showError(t('common:error'), t('payments:generic:error'));
     }
   };
 
@@ -204,11 +206,11 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               setSelectedCard(null);
             }
           } else {
-            showError('Error', response.message || 'Could not remove card');
+            showError(t('common:error'), response.message || t('payments:methods:errors:removeCard'));
           }
         } catch (error: unknown) {
           if (__DEV__) console.warn('Failed to remove card:', error);
-          showError('Error', 'Something went wrong');
+          showError(t('common:error'), t('payments:generic:error'));
         }
       }
     );
@@ -263,7 +265,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               {method.isDefault && (
                 <View style={styles.defaultChip}>
                   <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
-                  <Text style={styles.defaultChipText}>Default</Text>
+                  <Text style={styles.defaultChipText}>{t('payments:methods:default')}</Text>
                 </View>
               )}
             </View>
@@ -328,7 +330,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           style={[styles.loadingHeader, { paddingTop: insets.top + 10 }]}
         >
           <ActivityIndicator size="large" color="white" />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>{t('common:loading')}</Text>
         </LinearGradient>
       </View>
     );
@@ -347,7 +349,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Payment Methods</Text>
+          <Text style={styles.headerTitle}>{t('payments:methods:title')}</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -356,17 +358,17 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
           <BlurView intensity={20} tint="light" style={styles.statCard}>
             <Ionicons name="card" size={20} color="white" />
             <Text style={styles.statNumber}>{paymentMethods.length}</Text>
-            <Text style={styles.statLabel}>Cards</Text>
+            <Text style={styles.statLabel}>{t('payments:methods:cards')}</Text>
           </BlurView>
           <BlurView intensity={20} tint="light" style={styles.statCard}>
             <Ionicons name="shield-checkmark" size={20} color="white" />
             <Text style={styles.statNumber}>256</Text>
-            <Text style={styles.statLabel}>bit SSL</Text>
+            <Text style={styles.statLabel}>{t('payments:methods:ssl')}</Text>
           </BlurView>
           <BlurView intensity={20} tint="light" style={styles.statCard}>
             <Ionicons name="lock-closed" size={20} color="white" />
             <Text style={styles.statNumber}>3DS</Text>
-            <Text style={styles.statLabel}>Secure</Text>
+            <Text style={styles.statLabel}>{t('payments:methods:secure')}</Text>
           </BlurView>
         </View>
       </LinearGradient>
@@ -386,7 +388,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
         {/* Cards Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Your Cards</Text>
+            <Text style={styles.sectionTitle}>{t('payments:methods:yourCards')}</Text>
             <TouchableOpacity onPress={handleAddCard} disabled={addingCard}>
               {addingCard ? (
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -411,7 +413,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               >
                 <View style={styles.emptyCardContent}>
                   <Ionicons name="card-outline" size={48} color={colors.gray} />
-                  <Text style={styles.emptyTitle}>No cards yet</Text>
+                  <Text style={styles.emptyTitle}>{t('payments:methods:noCards')}</Text>
                   <Text style={styles.emptySubtitle}>
                     Add a card for fast and secure payments
                   </Text>
@@ -447,7 +449,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
             ) : (
               <>
                 <Ionicons name="add-circle" size={24} color="white" />
-                <Text style={styles.addCardLargeText}>Add a new card</Text>
+                <Text style={styles.addCardLargeText}>{t('payments:methods:addCard')}</Text>
               </>
             )}
           </LinearGradient>
@@ -460,8 +462,8 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
               <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
             </View>
             <View style={styles.securityText}>
-              <Text style={styles.securityTitle}>SSL Encryption</Text>
-              <Text style={styles.securityDesc}>End-to-end encrypted data</Text>
+              <Text style={styles.securityTitle}>{t('payments:methods:sslEncryption')}</Text>
+              <Text style={styles.securityDesc}>{t('payments:methods:sslDesc')}</Text>
             </View>
           </View>
           <View style={styles.securityItem}>

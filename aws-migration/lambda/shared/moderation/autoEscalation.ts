@@ -12,6 +12,8 @@
 
 import { Pool } from 'pg';
 import { createLogger } from '../../api/utils/logger';
+import { sendPushToUser } from '../../api/services/push-notification';
+import { SYSTEM_MODERATOR_ID } from './constants';
 
 const log = createLogger('auto-escalation');
 
@@ -40,13 +42,24 @@ export async function checkPostEscalation(
   const count = parseInt(result.rows[0].cnt, 10);
 
   if (count >= 3) {
-    // Auto-hide the post
-    await db.query(
-      `UPDATE posts SET visibility = 'private' WHERE id = $1 AND visibility != 'private'`,
+    // Auto-hide the post (use 'hidden' — distinct from user 'private')
+    const hideResult = await db.query(
+      `UPDATE posts SET visibility = 'hidden' WHERE id = $1 AND visibility NOT IN ('private', 'hidden')
+       RETURNING author_id`,
       [postId],
     );
 
     log.info('Auto-hid post due to report threshold', { postId, reportCount: count });
+
+    // Send push notification to the post author (non-blocking)
+    if (hideResult.rows.length > 0) {
+      const authorId = hideResult.rows[0].author_id;
+      sendPushToUser(db, authorId, {
+        title: 'Post Hidden',
+        body: 'Your post has been hidden due to multiple reports. You can appeal this decision.',
+        data: { type: 'post_hidden', postId },
+      }).catch(err => log.error('Push notification failed for post hide', err));
+    }
 
     return {
       action: 'hide_post',
@@ -79,7 +92,11 @@ export async function checkUserEscalation(
        UNION ALL
        SELECT reporter_id FROM comment_reports cr
          JOIN comments c ON c.id = cr.comment_id
-         WHERE c.author_id = $1 AND cr.created_at > NOW() - INTERVAL '24 hours'
+         WHERE c.user_id = $1 AND cr.created_at > NOW() - INTERVAL '24 hours'
+       UNION ALL
+       SELECT reporter_id FROM peak_reports pkr
+         JOIN peaks pk ON pk.id = pkr.peak_id
+         WHERE pk.author_id = $1 AND pkr.created_at > NOW() - INTERVAL '24 hours'
      ) all_reports`,
     [targetUserId],
   );
@@ -105,14 +122,21 @@ export async function checkUserEscalation(
         [targetUserId],
       );
 
-      // Log in moderation_log (use system moderator ID placeholder)
+      // Log in moderation_log with system moderator ID
       await db.query(
         `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, reason)
-         VALUES ($1, 'suspend', $1, 'Auto-escalation: 5+ reports in 24h')`,
-        [targetUserId],
+         VALUES ($1, 'suspend', $2, 'Auto-escalation: 5+ reports in 24h')`,
+        [SYSTEM_MODERATOR_ID, targetUserId],
       );
 
       log.info('Auto-suspended user due to report threshold', { targetUserId, reportCount: count24h });
+
+      // Send push notification to suspended user (non-blocking)
+      sendPushToUser(db, targetUserId, {
+        title: 'Account Suspended',
+        body: 'Your account has been suspended for 24 hours due to multiple reports.',
+        data: { type: 'account_suspended' },
+      }).catch(err => log.error('Push notification failed for user suspend', err));
 
       return {
         action: 'suspend_user',
@@ -134,7 +158,11 @@ export async function checkUserEscalation(
        UNION ALL
        SELECT id FROM comment_reports cr
          JOIN comments c ON c.id = cr.comment_id
-         WHERE c.author_id = $1 AND cr.status = 'resolved' AND cr.created_at > NOW() - INTERVAL '30 days'
+         WHERE c.user_id = $1 AND cr.status = 'resolved' AND cr.created_at > NOW() - INTERVAL '30 days'
+       UNION ALL
+       SELECT id FROM peak_reports pkr
+         JOIN peaks pk ON pk.id = pkr.peak_id
+         WHERE pk.author_id = $1 AND pkr.status = 'resolved' AND pkr.created_at > NOW() - INTERVAL '30 days'
      ) confirmed_reports`,
     [targetUserId],
   );
@@ -144,6 +172,17 @@ export async function checkUserEscalation(
   // 10+ confirmed reports in 30 days → flag for ban
   if (count30d >= 10) {
     log.info('User flagged for ban review', { targetUserId, confirmedReportCount: count30d });
+
+    // Insert moderation_log entry for flag_for_ban
+    try {
+      await db.query(
+        `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, reason)
+         VALUES ($1, 'flag_for_ban', $2, $3)`,
+        [SYSTEM_MODERATOR_ID, targetUserId, `Auto-escalation: ${count30d} confirmed reports in 30 days`],
+      );
+    } catch (logErr) {
+      log.error('Failed to log flag_for_ban (non-blocking)', logErr);
+    }
 
     return {
       action: 'flag_for_ban',

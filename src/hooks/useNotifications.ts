@@ -17,7 +17,7 @@ import {
   scheduleLocalNotification,
   NotificationData,
 } from '../services/notifications';
-import { useUserStore } from '../stores';
+import { useUserStore } from '../stores/userStore';
 import type { MainStackParamList } from '../types';
 
 // ============================================

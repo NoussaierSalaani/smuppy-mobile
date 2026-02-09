@@ -38,7 +38,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 import { LiquidTabs } from '../../components/LiquidTabs';

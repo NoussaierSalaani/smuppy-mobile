@@ -1,0 +1,273 @@
+{
+  "settings": {
+    "title": "Configurações",
+    "account": "Conta",
+    "preferences": "Preferências",
+    "support": "Suporte",
+    "about": "Sobre",
+    "payments": "Pagamentos e monetização",
+    "premium": "Desbloqueie gorjetas, eventos ilimitados e mais",
+
+    "accountSettings": {
+      "title": "Configurações da conta",
+      "editProfile": "Editar perfil",
+      "changePassword": "Alterar senha",
+      "privacy": "Privacidade",
+      "notifications": "Notificações",
+      "language": "Idioma",
+      "blockedUsers": "Usuários bloqueados",
+      "mutedUsers": "Usuários silenciados",
+      "deleteAccount": "Excluir conta",
+      "logout": "Sair",
+      "interests": "Interesses",
+      "businessCategory": "Categoria de negócio",
+      "upgradeToPro": "Atualizar para Criador Pro",
+      "identityVerification": "Verificação de identidade"
+    },
+
+    "language": {
+      "title": "Idioma",
+      "selectLanguage": "Selecionar idioma",
+      "current": "Idioma atual",
+      "reloadRequired": "Reinício necessário",
+      "reloadMessage": "O aplicativo precisa reiniciar para aplicar o novo idioma",
+      "reloadNow": "Reiniciar agora",
+      "later": "Depois",
+      "languages": {
+        "en": "English",
+        "fr": "Français",
+        "es": "Español",
+        "pt-BR": "Português (BR)",
+        "ar": "العربية"
+      }
+    },
+
+    "notifications": {
+      "title": "Notificações",
+      "pushNotifications": "Notificações push",
+      "emailNotifications": "Notificações por email",
+      "newFollowers": "Novos seguidores",
+      "messages": "Mensagens",
+      "likes": "Curtidas",
+      "comments": "Comentários",
+      "mentions": "Menções",
+      "sessionReminders": "Lembretes de sessões",
+      "promotions": "Promoções e ofertas",
+      "sound": "Som",
+      "vibration": "Vibração"
+    },
+
+    "privacy": {
+      "title": "Privacidade",
+      "privateAccount": "Conta privada",
+      "privateAccountDesc": "Apenas seguidores aprovados podem ver seu conteúdo",
+      "showActivity": "Mostrar atividade",
+      "allowTags": "Permitir tags",
+      "allowMentions": "Permitir menções",
+      "dataUsage": "Uso de dados",
+      "downloadData": "Baixar meus dados"
+    },
+
+    "support": {
+      "title": "Suporte",
+      "helpCenter": "Central de ajuda",
+      "reportProblem": "Reportar um problema",
+      "contactUs": "Fale conosco",
+      "feedback": "Enviar feedback"
+    },
+
+    "about": {
+      "title": "Sobre",
+      "version": "Versão",
+      "terms": "Termos de serviço",
+      "privacy": "Política de privacidade",
+      "licenses": "Licenças de código aberto",
+      "credits": "Créditos"
+    },
+
+    "editProfile": {
+      "title": "Editar perfil",
+      "displayName": "Nome de exibição",
+      "username": "Nome de usuário",
+      "bio": "Biografia",
+      "location": "Localização",
+      "website": "Site",
+      "interests": "Interesses",
+      "expertise": "Especialidade",
+      "save": "Salvar",
+      "saving": "Salvando...",
+      "changePhoto": "Alterar foto de perfil",
+      "changeCover": "Alterar foto de capa"
+    },
+
+    "editInterests": {
+      "title": "Editar interesses",
+      "subtitle": "Selecione temas que te interessem",
+      "search": "Buscar interesses...",
+      "selected": "{{count}} selecionados",
+      "save": "Salvar",
+      "saving": "Salvando...",
+      "maxReached": "Você pode selecionar até {{max}} interesses"
+    },
+
+    "editExpertise": {
+      "title": "Editar especialidade",
+      "subtitle": "Selecione suas áreas de especialidade",
+      "search": "Buscar especialidade...",
+      "selected": "{{count}} selecionados",
+      "save": "Salvar",
+      "saving": "Salvando...",
+      "maxReached": "Você pode selecionar até {{max}} áreas"
+    },
+
+    "businessCategory": {
+      "title": "Categoria de negócio",
+      "subtitle": "Selecione sua categoria de negócio",
+      "search": "Buscar categorias...",
+      "save": "Salvar"
+    },
+
+    "password": {
+      "title": "Alterar senha",
+      "current": "Senha atual",
+      "new": "Nova senha",
+      "confirm": "Confirmar nova senha",
+      "save": "Salvar",
+      "saving": "Salvando...",
+      "success": "Senha atualizada!",
+      "successMessage": "Todos os outros dispositivos foram desconectados.",
+      "forgot": "Esqueceu a senha?",
+      "emailSent": "Email enviado!",
+      "resetLinkSent": "Um link de redefinição foi enviado para seu email.",
+      "strength": {
+        "weak": "Fraca",
+        "fair": "Regular",
+        "good": "Boa",
+        "strong": "Forte"
+      },
+      "rules": {
+        "minLength": "Pelo menos 8 caracteres",
+        "uppercase": "Uma letra maiúscula",
+        "lowercase": "Uma letra minúscula",
+        "number": "Um número",
+        "special": "Um caractere especial"
+      },
+      "match": "Senhas correspondem",
+      "noMatch": "Senhas não correspondem",
+      "info": "Alterar sua senha desconectará todos os outros dispositivos."
+    },
+
+    "blockedUsers": {
+      "title": "Usuários bloqueados",
+      "empty": "Nenhum usuário bloqueado",
+      "emptyDesc": "Usuários bloqueados aparecerão aqui",
+      "unblock": "Desbloquear",
+      "confirmUnblock": "Desbloquear {{name}}?",
+      "confirmMessage": "Eles poderão ver suas publicações e interagir com você novamente."
+    },
+
+    "mutedUsers": {
+      "title": "Usuários silenciados",
+      "empty": "Nenhum usuário silenciado",
+      "emptyDesc": "Usuários silenciados aparecerão aqui",
+      "unmute": "Ativar",
+      "confirmUnmute": "Ativar {{name}}?",
+      "confirmMessage": "As publicações deles aparecerão nos seus feeds novamente."
+    },
+
+    "reportProblem": {
+      "title": "Reportar problema",
+      "subtitle": "Ajude-nos a melhorar reportando problemas",
+      "description": "Descreva o problema",
+      "descriptionPlaceholder": "Descreva o que aconteceu...",
+      "email": "Seu email (opcional)",
+      "send": "Enviar relatório",
+      "sending": "Enviando...",
+      "success": "Problema reportado com sucesso!",
+      "successDesc": "Obrigado por nos ajudar a melhorar.",
+      "categories": {
+        "bug": "Bug ou crash",
+        "feature": "Solicitação de recurso",
+        "performance": "Problema de performance",
+        "other": "Outro"
+      }
+    },
+
+    "termsPolicies": {
+      "title": "Termos e políticas",
+      "terms": "Termos de serviço",
+      "privacy": "Política de privacidade",
+      "cookies": "Política de cookies",
+      "community": "Diretrizes da comunidade",
+      "contact": "Perguntas?",
+      "email": "legal@smuppy.app"
+    },
+
+    "upgradeToPro": {
+      "title": "Tornar-se Criador Pro",
+      "confirmTitle": "Confirmar atualização",
+      "heroTitle": "Libere seu potencial",
+      "personal": "Pessoal",
+      "pro": "Criador Pro",
+      "price": "{{amount}}/mês • Cancele quando quiser",
+      "upgradeNow": "Atualizar agora",
+      "oneWayTitle": "Atualização irreversível",
+      "terms": {
+        "permanent": "Esta atualização é permanente e não pode ser revertida",
+        "verification": "Você precisará completar a verificação de identidade",
+        "fee": "A plataforma retém 20% de taxa sobre ganhos",
+        "tos": "Você concorda com os Termos de serviço Pro"
+      },
+      "features": {
+        "tips": {
+          "title": "Receber gorjetas",
+          "desc": "Fãs podem enviar gorjetas"
+        },
+        "sessions": {
+          "title": "Sessões privadas",
+          "desc": "Organize sessões pagas 1 a 1"
+        },
+        "analytics": { "title": "Análises", "desc": "Estatísticas detalhadas" },
+        "badge": { "title": "Badge Pro", "desc": "Badge Pro verificado" }
+      }
+    },
+
+    "logout": {
+      "title": "Sair",
+      "message": "Tem certeza de que deseja sair?",
+      "cancel": "Cancelar",
+      "confirm": "Sim, sair"
+    },
+
+    "deleteAccount": {
+      "title": "Excluir conta",
+      "message": "Esta ação é permanente e não pode ser desfeita. Todos seus dados, publicações e conexões serão excluídos.",
+      "cancel": "Cancelar",
+      "confirm": "Excluir",
+      "deleting": "Excluindo..."
+    },
+
+    "prescriptionPreferences": {
+      "title": "Preferências de prescrição",
+      "categories": "Categorias",
+      "activityLevel": "Nível de atividade",
+      "outdoor": "Atividades ao ar livre",
+      "frequency": "Frequência"
+    },
+
+    "errors": {
+      "saveInterests": "Erro ao salvar interesses. Tente novamente.",
+      "saveExpertise": "Erro ao salvar especialidade. Tente novamente.",
+      "saveBusinessCategory": "Erro ao salvar categoria. Tente novamente.",
+      "unmuteUser": "Erro ao ativar usuário. Tente novamente.",
+      "unblockUser": "Erro ao desbloquear usuário. Tente novamente.",
+      "sendReport": "Erro ao enviar relatório. Tente novamente.",
+      "openLink": "Erro ao abrir link. Verifique sua conexão.",
+      "privacyUpdate": "Erro ao atualizar configuração de privacidade.",
+      "userNotFound": "Usuário não encontrado",
+      "deleteAccount": "Erro ao excluir conta. Tente novamente.",
+      "upgradeFailed": "Erro de atualização",
+      "upgradeLater": "Tente novamente mais tarde."
+    }
+  }
+}

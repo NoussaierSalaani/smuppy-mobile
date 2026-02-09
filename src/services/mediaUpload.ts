@@ -4,6 +4,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { ENV } from '../config/env';
 import { captureException } from '../lib/sentry';
 import {
@@ -654,6 +655,20 @@ export const uploadPeakMedia = (
   return uploadVideo(userId, videoUri, { folder: 'peaks', onProgress });
 };
 
+/**
+ * Generate a thumbnail image from a video URI
+ * Returns the local thumbnail URI or null on failure
+ */
+export const generateVideoThumbnail = async (videoUri: string): Promise<string | null> => {
+  try {
+    const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, { time: 1000 });
+    return uri;
+  } catch {
+    if (__DEV__) console.warn('[generateVideoThumbnail] Failed');
+    return null;
+  }
+};
+
 // ============================================
 // DELETE FUNCTIONS
 // ============================================
@@ -687,6 +702,8 @@ export default {
   uploadAvatar,
   uploadCoverImage,
   uploadPostMedia,
+  uploadPeakMedia,
+  generateVideoThumbnail,
   deleteFromS3,
   getCloudFrontUrl,
   s3ToCloudFront,

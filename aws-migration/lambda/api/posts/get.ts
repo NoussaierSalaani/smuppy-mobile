@@ -22,7 +22,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Use reader pool for read operations
     const db = await getReaderPool();
 
-    // SECURITY: Include author's privacy setting in query
+    // SECURITY: Include author's privacy + moderation setting in query
     const result = await db.query(
       `SELECT
         p.id, p.author_id, p.content, p.caption, p.media_urls, p.media_url,
@@ -31,6 +31,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.location, p.tags, p.created_at, p.updated_at,
         pr.is_private as author_is_private,
         pr.cognito_sub as author_cognito_sub,
+        pr.moderation_status as author_moderation_status,
         json_build_object(
           'id', pr.id,
           'username', pr.username,
@@ -54,6 +55,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const post = result.rows[0];
+
+    // SECURITY: Hide posts from banned/shadow_banned users (unless requester is the author)
+    const isAuthorByModeration = currentUserId && currentUserId === post.author_cognito_sub;
+    if (!isAuthorByModeration) {
+      const authorStatus = post.author_moderation_status;
+      if (authorStatus === 'banned' || authorStatus === 'shadow_banned') {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'Post not found' }),
+        };
+      }
+      if (post.visibility === 'hidden') {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'Post not found' }),
+        };
+      }
+    }
 
     // SECURITY: Check visibility for private profiles
     if (post.author_is_private) {

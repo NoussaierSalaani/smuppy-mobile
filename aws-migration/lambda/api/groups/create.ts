@@ -9,6 +9,9 @@ import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { sanitizeInput } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('groups-create');
 
@@ -69,6 +72,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 429,
         body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       });
+    }
+
+    // Account status check (suspended/banned users cannot create groups)
+    const accountCheck = await requireActiveAccount(cognitoSub, {});
+    if (isAccountError(accountCheck)) {
+      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
     }
 
     // Resolve profile
@@ -185,6 +194,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const sanitizedSportType = sportType ? sanitizeInput(sportType, 100) : null;
     const sanitizedAddress = address ? sanitizeInput(address, 500) : null;
     const sanitizedRouteProfile = routeProfile ? sanitizeInput(routeProfile, 50) : null;
+
+    // Moderation: check name and description for violations
+    const textsToCheck = [sanitizedName, sanitizedDescription].filter(Boolean) as string[];
+    for (const text of textsToCheck) {
+      const filterResult = await filterText(text);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Group text blocked by filter', { userId: cognitoSub.substring(0, 8) + '***', severity: filterResult.severity });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
+      const toxicityResult = await analyzeTextToxicity(text);
+      if (toxicityResult.action === 'block') {
+        log.warn('Group text blocked by toxicity', { userId: cognitoSub.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
+    }
 
     await client.query('BEGIN');
 

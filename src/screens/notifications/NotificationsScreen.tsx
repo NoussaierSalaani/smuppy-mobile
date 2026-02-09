@@ -18,9 +18,9 @@ import { GRADIENTS, SIZES, SPACING, HIT_SLOP } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { useAppStore } from '../../stores';
+import { useAppStore } from '../../stores/appStore';
 import { NotificationsSkeleton } from '../../components/skeleton';
-import { usePrefetchProfile } from '../../hooks';
+import { usePrefetchProfile } from '../../hooks/queries';
 import { formatTimeAgo } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 
@@ -468,7 +468,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       return;
     }
     if (notif.postId && isValidUUID(notif.postId)) {
-      navigation.navigate('PostDetail', { postId: notif.postId });
+      navigation.navigate('PostDetailFanFeed', { postId: notif.postId });
       return;
     }
     if (notif.eventId && isValidUUID(notif.eventId)) {
@@ -480,7 +480,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       return;
     }
     if (notif.challengeId && isValidUUID(notif.challengeId)) {
-      navigation.navigate('ChallengeDetail', { challengeId: notif.challengeId });
+      navigation.navigate('Challenges', undefined);
       return;
     }
     if (notif.battleId && isValidUUID(notif.battleId)) {
@@ -488,7 +488,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       return;
     }
     if (notif.streamId && isValidUUID(notif.streamId)) {
-      navigation.navigate('LiveStream', { streamId: notif.streamId });
+      navigation.navigate('ViewerLiveStream', { channelName: notif.streamId, hostUsername: '', hostAvatar: '' });
       return;
     }
     // Fallback: navigate to user profile if no content ID

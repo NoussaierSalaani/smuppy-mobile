@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAuth } from '../../services/aws-auth';
-import { uploadPeakMedia } from '../../services/mediaUpload';
+import { uploadPeakMedia, generateVideoThumbnail, uploadImage } from '../../services/mediaUpload';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, isValidCoordinate, NominatimSearchResult, formatNominatimResult } from '../../config/api';
@@ -185,11 +185,29 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         throw new Error(uploadResult.error || 'Failed to upload video');
       }
 
+      // Generate and upload thumbnail
+      let thumbnailUrl: string | undefined;
+      try {
+        const thumbUri = await generateVideoThumbnail(videoUri);
+        if (thumbUri) {
+          const thumbResult = await uploadImage(user.id, thumbUri, {
+            folder: 'peaks',
+            compressionOptions: { maxWidth: 480, maxHeight: 480, quality: 0.7, format: 'jpeg' },
+          });
+          if (thumbResult.success) {
+            thumbnailUrl = thumbResult.cdnUrl || thumbResult.url;
+          }
+        }
+      } catch {
+        if (__DEV__) console.warn('[PeakPublish] Thumbnail generation failed, continuing without');
+      }
+
       // Create peak via dedicated peaks API
       const mediaUrl = uploadResult.cdnUrl || uploadResult.url || '';
       const hashtags = textOverlay ? extractHashtags(textOverlay) : [];
       const peakResult = await awsAPI.createPeak({
         videoUrl: mediaUrl,
+        thumbnailUrl,
         caption: textOverlay || undefined,
         duration: duration,
         replyToPeakId: replyTo || undefined,

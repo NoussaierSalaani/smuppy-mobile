@@ -34,7 +34,7 @@ import {
   DraggableOverlay,
   OverlayPosition,
 } from '../../filters';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { isValidUUID } from '../../utils/formatters';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');

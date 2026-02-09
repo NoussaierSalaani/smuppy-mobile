@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ChallengeCard, { type Challenge } from '../../components/peaks/ChallengeCard';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 
 const { width } = Dimensions.get('window');
 

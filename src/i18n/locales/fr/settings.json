@@ -1,0 +1,276 @@
+{
+  "settings": {
+    "title": "Paramètres",
+    "account": "Compte",
+    "preferences": "Préférences",
+    "support": "Support",
+    "about": "À propos",
+    "payments": "Paiements et monétisation",
+    "premium": "Débloquez les pourboires, événements illimités et plus",
+
+    "accountSettings": {
+      "title": "Paramètres du compte",
+      "editProfile": "Modifier le profil",
+      "changePassword": "Changer le mot de passe",
+      "privacy": "Confidentialité",
+      "notifications": "Notifications",
+      "language": "Langue",
+      "blockedUsers": "Utilisateurs bloqués",
+      "mutedUsers": "Utilisateurs masqués",
+      "deleteAccount": "Supprimer le compte",
+      "logout": "Déconnexion",
+      "interests": "Intérêts",
+      "businessCategory": "Catégorie d'entreprise",
+      "upgradeToPro": "Passer à Pro Créateur",
+      "identityVerification": "Vérification d'identité"
+    },
+
+    "language": {
+      "title": "Langue",
+      "selectLanguage": "Sélectionner la langue",
+      "current": "Langue actuelle",
+      "reloadRequired": "Redémarrage nécessaire",
+      "reloadMessage": "L'application doit être redémarrée pour appliquer la nouvelle langue",
+      "reloadNow": "Redémarrer maintenant",
+      "later": "Plus tard",
+      "languages": {
+        "en": "English",
+        "fr": "Français",
+        "es": "Español",
+        "pt-BR": "Português (BR)",
+        "ar": "العربية"
+      }
+    },
+
+    "notifications": {
+      "title": "Notifications",
+      "pushNotifications": "Notifications push",
+      "emailNotifications": "Notifications email",
+      "newFollowers": "Nouveaux abonnés",
+      "messages": "Messages",
+      "likes": "J'aime",
+      "comments": "Commentaires",
+      "mentions": "Mentions",
+      "sessionReminders": "Rappels de session",
+      "promotions": "Promotions et offres",
+      "sound": "Son",
+      "vibration": "Vibration"
+    },
+
+    "privacy": {
+      "title": "Confidentialité",
+      "privateAccount": "Compte privé",
+      "privateAccountDesc": "Seuls vos abonnés approuvés peuvent voir votre contenu",
+      "showActivity": "Afficher l'activité",
+      "allowTags": "Autoriser les tags",
+      "allowMentions": "Autoriser les mentions",
+      "dataUsage": "Utilisation des données",
+      "downloadData": "Télécharger mes données"
+    },
+
+    "support": {
+      "title": "Support",
+      "helpCenter": "Centre d'aide",
+      "reportProblem": "Signaler un problème",
+      "contactUs": "Nous contacter",
+      "feedback": "Envoyer un feedback"
+    },
+
+    "about": {
+      "title": "À propos",
+      "version": "Version",
+      "terms": "Conditions d'utilisation",
+      "privacy": "Politique de confidentialité",
+      "licenses": "Licences open source",
+      "credits": "Crédits"
+    },
+
+    "editProfile": {
+      "title": "Modifier le profil",
+      "displayName": "Nom d'affichage",
+      "username": "Nom d'utilisateur",
+      "bio": "Bio",
+      "location": "Localisation",
+      "website": "Site web",
+      "interests": "Intérêts",
+      "expertise": "Expertise",
+      "save": "Enregistrer",
+      "saving": "Enregistrement...",
+      "changePhoto": "Changer la photo de profil",
+      "changeCover": "Changer la photo de couverture"
+    },
+
+    "editInterests": {
+      "title": "Modifier les intérêts",
+      "subtitle": "Sélectionnez les sujets qui vous intéressent",
+      "search": "Rechercher des intérêts...",
+      "selected": "{{count}} sélectionnés",
+      "save": "Enregistrer",
+      "saving": "Enregistrement...",
+      "maxReached": "Vous pouvez sélectionner jusqu'à {{max}} intérêts"
+    },
+
+    "editExpertise": {
+      "title": "Modifier l'expertise",
+      "subtitle": "Sélectionnez vos domaines d'expertise",
+      "search": "Rechercher une expertise...",
+      "selected": "{{count}} sélectionnés",
+      "save": "Enregistrer",
+      "saving": "Enregistrement...",
+      "maxReached": "Vous pouvez sélectionner jusqu'à {{max}} domaines"
+    },
+
+    "businessCategory": {
+      "title": "Catégorie d'entreprise",
+      "subtitle": "Sélectionnez votre catégorie d'entreprise",
+      "search": "Rechercher des catégories...",
+      "save": "Enregistrer"
+    },
+
+    "password": {
+      "title": "Changer le mot de passe",
+      "current": "Mot de passe actuel",
+      "new": "Nouveau mot de passe",
+      "confirm": "Confirmer le nouveau mot de passe",
+      "save": "Enregistrer",
+      "saving": "Enregistrement...",
+      "success": "Mot de passe mis à jour !",
+      "successMessage": "Tous les autres appareils ont été déconnectés.",
+      "forgot": "Mot de passe oublié ?",
+      "emailSent": "Email envoyé !",
+      "resetLinkSent": "Un lien de réinitialisation a été envoyé à votre email.",
+      "strength": {
+        "weak": "Faible",
+        "fair": "Moyen",
+        "good": "Bon",
+        "strong": "Fort"
+      },
+      "rules": {
+        "minLength": "Au moins 8 caractères",
+        "uppercase": "Une majuscule",
+        "lowercase": "Une minuscule",
+        "number": "Un chiffre",
+        "special": "Un caractère spécial"
+      },
+      "match": "Les mots de passe correspondent",
+      "noMatch": "Les mots de passe ne correspondent pas",
+      "info": "Changer votre mot de passe déconnectera tous les autres appareils."
+    },
+
+    "blockedUsers": {
+      "title": "Utilisateurs bloqués",
+      "empty": "Aucun utilisateur bloqué",
+      "emptyDesc": "Les utilisateurs bloqués apparaîtront ici",
+      "unblock": "Débloquer",
+      "confirmUnblock": "Débloquer {{name}} ?",
+      "confirmMessage": "Ils pourront voir vos publications et interagir avec vous à nouveau."
+    },
+
+    "mutedUsers": {
+      "title": "Utilisateurs masqués",
+      "empty": "Aucun utilisateur masqué",
+      "emptyDesc": "Les utilisateurs masqués apparaîtront ici",
+      "unmute": "Afficher",
+      "confirmUnmute": "Afficher {{name}} ?",
+      "confirmMessage": "Leurs publications réapparaîtront dans vos fils."
+    },
+
+    "reportProblem": {
+      "title": "Signaler un problème",
+      "subtitle": "Aidez-nous à nous améliorer en signalant des problèmes",
+      "description": "Décrivez le problème",
+      "descriptionPlaceholder": "Décrivez ce qui s'est passé...",
+      "email": "Votre email (optionnel)",
+      "send": "Envoyer le rapport",
+      "sending": "Envoi...",
+      "success": "Problème signalé avec succès !",
+      "successDesc": "Merci de nous aider à nous améliorer.",
+      "categories": {
+        "bug": "Bug ou crash",
+        "feature": "Demande de fonctionnalité",
+        "performance": "Problème de performance",
+        "other": "Autre"
+      }
+    },
+
+    "termsPolicies": {
+      "title": "Conditions et politiques",
+      "terms": "Conditions d'utilisation",
+      "privacy": "Politique de confidentialité",
+      "cookies": "Politique de cookies",
+      "community": "Règles de la communauté",
+      "contact": "Questions ?",
+      "email": "legal@smuppy.app"
+    },
+
+    "upgradeToPro": {
+      "title": "Devenir Pro Créateur",
+      "confirmTitle": "Confirmer la mise à niveau",
+      "heroTitle": "Libérez votre potentiel",
+      "personal": "Personnel",
+      "pro": "Pro Créateur",
+      "price": "{{amount}}/mois • Annulation à tout moment",
+      "upgradeNow": "Passer à Pro maintenant",
+      "oneWayTitle": "Mise à niveau irréversible",
+      "terms": {
+        "permanent": "Cette mise à niveau est permanente et ne peut pas être annulée",
+        "verification": "Vous devrez compléter la vérification d'identité",
+        "fee": "La plateforme prend 20% de commission sur les revenus",
+        "tos": "Vous acceptez les Conditions d'utilisation Pro"
+      },
+      "features": {
+        "tips": {
+          "title": "Recevoir des pourboires",
+          "desc": "Les fans peuvent vous envoyer des pourboires"
+        },
+        "sessions": {
+          "title": "Sessions privées",
+          "desc": "Héberger des sessions payantes 1 à 1"
+        },
+        "analytics": {
+          "title": "Analytiques",
+          "desc": "Statistiques détaillées"
+        },
+        "badge": { "title": "Badge Pro", "desc": "Badge Pro vérifié" }
+      }
+    },
+
+    "logout": {
+      "title": "Déconnexion",
+      "message": "Êtes-vous sûr de vouloir vous déconnecter ?",
+      "cancel": "Annuler",
+      "confirm": "Oui, me déconnecter"
+    },
+
+    "deleteAccount": {
+      "title": "Supprimer le compte",
+      "message": "Cette action est permanente et ne peut pas être annulée. Toutes vos données, publications et connexions seront supprimées.",
+      "cancel": "Annuler",
+      "confirm": "Supprimer",
+      "deleting": "Suppression..."
+    },
+
+    "prescriptionPreferences": {
+      "title": "Préférences de prescription",
+      "categories": "Catégories",
+      "activityLevel": "Niveau d'activité",
+      "outdoor": "Activités de plein air",
+      "frequency": "Fréquence"
+    },
+
+    "errors": {
+      "saveInterests": "Échec de l'enregistrement des intérêts. Veuillez réessayer.",
+      "saveExpertise": "Échec de l'enregistrement de l'expertise. Veuillez réessayer.",
+      "saveBusinessCategory": "Échec de l'enregistrement de la catégorie. Veuillez réessayer.",
+      "unmuteUser": "Échec de l'affichage de l'utilisateur. Veuillez réessayer.",
+      "unblockUser": "Échec du déblocage de l'utilisateur. Veuillez réessayer.",
+      "sendReport": "Échec de l'envoi du rapport. Veuillez réessayer.",
+      "openLink": "Échec de l'ouverture du lien. Vérifiez votre connexion.",
+      "privacyUpdate": "Échec de la mise à jour des paramètres de confidentialité.",
+      "userNotFound": "Utilisateur non trouvé",
+      "deleteAccount": "Échec de la suppression du compte. Veuillez réessayer.",
+      "upgradeFailed": "Échec de la mise à niveau",
+      "upgradeLater": "Veuillez réessayer plus tard."
+    }
+  }
+}

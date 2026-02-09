@@ -7,8 +7,11 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
+import { isValidUUID, sanitizeInput } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('challenges-create');
 
@@ -50,6 +53,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
     }
 
+    // Account status check (suspended/banned users cannot create challenges)
+    const accountCheck = await requireActiveAccount(userId, {});
+    if (isAccountError(accountCheck)) {
+      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+    }
+
     // Resolve cognito_sub to profile ID
     const profileResult = await client.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
@@ -82,7 +91,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       tipsEnabled = false,
     } = body;
 
-    if (!peakId || !title) {
+    // Sanitize text fields
+    const sanitizedTitle = title ? sanitizeInput(title, 200) : '';
+    const sanitizedDescription = description ? sanitizeInput(description, 2000) : undefined;
+    const sanitizedRules = rules ? sanitizeInput(rules, 2000) : undefined;
+    const sanitizedPrizeDescription = prizeDescription ? sanitizeInput(prizeDescription, 500) : undefined;
+
+    if (!peakId || !sanitizedTitle) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({
@@ -90,6 +105,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           message: 'Peak ID and title are required',
         }),
       });
+    }
+
+    // Moderation: check text fields for violations
+    const textsToCheck = [sanitizedTitle, sanitizedDescription, sanitizedRules].filter(Boolean) as string[];
+    for (const text of textsToCheck) {
+      const filterResult = await filterText(text);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Challenge text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
+      const toxicityResult = await analyzeTextToxicity(text);
+      if (toxicityResult.action === 'block') {
+        log.warn('Challenge text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
     }
 
     if (!isValidUUID(peakId) || (challengeTypeId && !isValidUUID(challengeTypeId)) || !taggedUserIds.every(isValidUUID)) {
@@ -174,16 +204,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         peakId,
         profileId,
         challengeTypeId || null,
-        title,
-        description || null,
-        rules || null,
+        sanitizedTitle,
+        sanitizedDescription || null,
+        sanitizedRules || null,
         durationSeconds || null,
         endsAt ? new Date(endsAt) : null,
         isPublic,
         allowAnyone,
         maxParticipants || null,
         hasPrize,
-        prizeDescription || null,
+        sanitizedPrizeDescription || null,
         prizeAmount || null,
         tipsEnabled,
       ]

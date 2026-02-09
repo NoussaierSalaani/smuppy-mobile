@@ -4,10 +4,13 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { LambdaStack2 } from './lambda-stack-2';
+import { LambdaStackDisputes } from './lambda-stack-disputes';
+
 
 export interface ApiGateway3StackProps extends cdk.NestedStackProps {
   userPool: cognito.IUserPool;
   lambdaStack2: LambdaStack2;
+  lambdaStackDisputes: LambdaStackDisputes;
   environment: string;
   isProduction: boolean;
 }
@@ -22,7 +25,7 @@ export class ApiGateway3Stack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiGateway3StackProps) {
     super(scope, id, props);
 
-    const { userPool, lambdaStack2, environment, isProduction } = props;
+    const { userPool, lambdaStack2, lambdaStackDisputes, environment, isProduction } = props;
 
     // ========================================
     // API Gateway - REST API
@@ -102,6 +105,50 @@ export class ApiGateway3Stack extends cdk.NestedStack {
     // POST /businesses/subscriptions/{subscriptionId}/reactivate - Reactivate subscription
     const reactivate = subscriptionById.addResource('reactivate');
     reactivate.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authMethodOptions);
+
+    // ========================================
+    // Spots Endpoints (moved from ApiGateway2Stack — CloudFormation 500 resource limit)
+    // ========================================
+    const bodyValidator = new apigateway.RequestValidator(this, 'BodyValidator3', {
+      restApi: this.api,
+      requestValidatorName: 'body-validator-3',
+      validateRequestBody: true,
+    });
+
+    const authWithBodyValidation: apigateway.MethodOptions = {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      requestValidator: bodyValidator,
+    };
+
+    const spots = this.api.root.addResource('spots');
+    spots.addMethod('GET', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsListFn), authMethodOptions);
+    spots.addMethod('POST', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsCreateFn), authWithBodyValidation);
+
+    const spotsNearby = spots.addResource('nearby');
+    spotsNearby.addMethod('GET', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsNearbyFn), authMethodOptions);
+
+    const spotsSaved = spots.addResource('saved');
+    spotsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsSavedListFn), authMethodOptions);
+
+    const spotById = spots.addResource('{id}');
+    spotById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsGetFn), authMethodOptions);
+    spotById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsUpdateFn), authWithBodyValidation);
+    spotById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsDeleteFn), authMethodOptions);
+
+    const spotSave = spotById.addResource('save');
+    spotSave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsSaveFn), authMethodOptions);
+    spotSave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsUnsaveFn), authMethodOptions);
+
+    const spotIsSaved = spotById.addResource('is-saved');
+    spotIsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsIsSavedFn), authMethodOptions);
+
+    const spotReviews = spotById.addResource('reviews');
+    spotReviews.addMethod('GET', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsReviewsListFn), authMethodOptions);
+    spotReviews.addMethod('POST', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsReviewsCreateFn), authWithBodyValidation);
+
+    const spotReviewById = spotReviews.addResource('{reviewId}');
+    spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsReviewsDeleteFn), authMethodOptions);
 
     // ========================================
     // WAF for API 3

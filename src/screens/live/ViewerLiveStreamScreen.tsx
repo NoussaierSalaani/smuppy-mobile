@@ -24,7 +24,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { useAgora } from '../../hooks/useAgora';
-import { useLiveStream, LiveComment, LiveReaction } from '../../hooks';
+import { useLiveStream, LiveComment, LiveReaction } from '../../hooks/useLiveStream';
 import { RemoteVideoView } from '../../components/AgoraVideoView';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';

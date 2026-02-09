@@ -12,6 +12,7 @@ import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 
 const log = createLogger('peaks-create');
 
@@ -130,6 +131,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Sanitize caption
     const sanitizedCaption = caption ? sanitizeText(caption, 500) : null;
 
+    // Comprehend flag tracking
+    let contentFlagged = false;
+    let flagCategory: string | null = null;
+    let flagScore: number | null = null;
+
     // Backend content moderation check on caption
     if (sanitizedCaption) {
       const filterResult = await filterText(sanitizedCaption);
@@ -151,6 +157,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ message: 'Content policy violation' }),
         };
       }
+      if (toxicity.action === 'flag') {
+        contentFlagged = true;
+        flagCategory = toxicity.topCategory;
+        flagScore = toxicity.maxScore;
+      }
     }
 
     // Validate reply parent exists if provided
@@ -170,13 +181,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Create peak
     const result = await db.query(
-      `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, expires_at, saved_to_profile)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + $10 * INTERVAL '1 hour', $11)
+      `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, expires_at, saved_to_profile, content_status, toxicity_score, toxicity_category)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + $10 * INTERVAL '1 hour', $11, $12, $13, $14)
        RETURNING id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, likes_count, comments_count, views_count, created_at, expires_at, saved_to_profile`,
-      [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration, replyToPeakId || null, validFilterId, validFilterIntensity, validOverlays, validFeedDuration, validSaveToProfile]
+      [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration, replyToPeakId || null, validFilterId, validFilterIntensity, validOverlays, validFeedDuration, validSaveToProfile, contentFlagged ? 'flagged' : 'clean', flagScore, flagCategory]
     );
 
     const peak = result.rows[0];
+
+    // Log flagged peak for moderator review (non-blocking)
+    if (contentFlagged) {
+      try {
+        await db.query(
+          `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, reason)
+           VALUES ($1, 'flag_content', $2, $3)`,
+          [SYSTEM_MODERATOR_ID, profile.id, `Comprehend toxicity on peak ${peak.id}: ${flagCategory} score=${flagScore}`],
+        );
+      } catch (flagErr) {
+        log.error('Failed to log flagged peak (non-blocking)', flagErr);
+      }
+    }
 
     // Send notification to parent peak author if this is a reply
     if (replyToPeakId) {

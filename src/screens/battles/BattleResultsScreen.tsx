@@ -25,7 +25,7 @@ import { AccountBadge } from '../../components/Badge';
 import TipLeaderboard from '../../components/tips/TipLeaderboard';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { awsAPI } from '../../services/aws-api';
 import { GRADIENTS } from '../../config/theme';
 

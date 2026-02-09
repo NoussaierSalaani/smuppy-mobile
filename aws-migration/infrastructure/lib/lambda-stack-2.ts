@@ -40,6 +40,8 @@ export class LambdaStack2 extends cdk.NestedStack {
   public readonly peaksExpiredFn: NodejsFunction;
   public readonly peaksSaveDecisionFn: NodejsFunction;
 
+  // Disputes handlers moved to LambdaStackDisputes to stay under CloudFormation limits
+
   constructor(scope: Construct, id: string, props: LambdaStack2Props) {
     super(scope, id, props);
 

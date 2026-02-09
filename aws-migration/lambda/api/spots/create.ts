@@ -9,6 +9,9 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sanitizeText } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('spots-create');
 
@@ -38,6 +41,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
+
+    // Account status check (suspended/banned users cannot create spots)
+    const accountCheck = await requireActiveAccount(userId, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
 
     let body;
     try {
@@ -189,6 +196,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     void _sanitizedSubcategory;
     void _sanitizedInitialRating;
     void _sanitizedInitialReview;
+
+    // Moderation: check name and description for violations
+    const textsToCheck = [sanitizedName, sanitizedDescription].filter(Boolean) as string[];
+    for (const text of textsToCheck) {
+      const filterResult = await filterText(text);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Spot text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Your content contains text that violates our community guidelines.' }),
+        };
+      }
+      const toxicityResult = await analyzeTextToxicity(text);
+      if (toxicityResult.action === 'block') {
+        log.warn('Spot text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Your content contains text that violates our community guidelines.' }),
+        };
+      }
+    }
 
     const result = await db.query(
       `INSERT INTO spots (

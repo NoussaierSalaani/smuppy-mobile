@@ -98,6 +98,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (type === 'following' && requesterId) {
       // FanFeed: posts from people I follow OR people who follow me (mutual fan relationship)
       // Exclude business account posts — they belong in Xplorer, not FanFeed
+      // Exclude banned/shadow_banned users and hidden posts
       query = `
         SELECT DISTINCT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
@@ -114,27 +115,37 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         )
         AND p.author_id != $1
         AND u.account_type != 'pro_business'
+        AND u.moderation_status NOT IN ('banned', 'shadow_banned')
+        AND p.visibility != 'hidden'
         ${cursor ? 'AND p.created_at < $3' : ''}
         ORDER BY p.created_at DESC LIMIT $2
       `;
       params = cursor ? [requesterId, parsedLimit + 1, new Date(parseInt(cursor))] : [requesterId, parsedLimit + 1];
     } else if (userId) {
+      // User profile: show own posts normally, filter moderation for other users
+      const isOwnProfile = requesterId === userId;
+      const moderationFilter = isOwnProfile
+        ? ''
+        : `AND u.moderation_status NOT IN ('banned', 'shadow_banned') AND p.visibility != 'hidden'`;
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
         FROM posts p JOIN profiles u ON p.author_id = u.id
-        WHERE p.author_id = $1 ${cursor ? 'AND p.created_at < $3' : ''}
+        WHERE p.author_id = $1 ${moderationFilter} ${cursor ? 'AND p.created_at < $3' : ''}
         ORDER BY p.created_at DESC LIMIT $2
       `;
       params = cursor ? [userId, parsedLimit + 1, new Date(parseInt(cursor))] : [userId, parsedLimit + 1];
     } else {
+      // Explore/public feed: exclude banned/shadow_banned users and hidden posts
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
         FROM posts p JOIN profiles u ON p.author_id = u.id
-        WHERE 1=1 ${cursor ? 'AND p.created_at < $2' : ''}
+        WHERE u.moderation_status NOT IN ('banned', 'shadow_banned')
+        AND p.visibility != 'hidden'
+        ${cursor ? 'AND p.created_at < $2' : ''}
         ORDER BY CASE WHEN p.created_at > NOW() - INTERVAL '24 hours' THEN p.likes_count * 2 + p.comments_count ELSE p.likes_count + p.comments_count END DESC, p.created_at DESC
         LIMIT $1
       `;

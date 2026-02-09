@@ -14,7 +14,8 @@ import {
   Image,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUserStore, useUserSafetyStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +24,7 @@ import type { MainStackParamList } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { HIT_SLOP } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useProfile } from '../../hooks';
+import { useProfile } from '../../hooks/queries';
 import { queryKeys } from '../../lib/queryClient';
 import { followUser, unfollowUser, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest, isFollowing as checkIsFollowing } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -247,7 +248,7 @@ const UserProfileScreen = () => {
           if (!isFollowing) {
             hasPendingFollowRequest(userId).then(({ pending }) => {
               if (!cancelled) setIsRequested(pending);
-            });
+            }).catch(() => { /* keep existing state */ });
           } else {
             setIsRequested(false);
           }
@@ -280,7 +281,7 @@ const UserProfileScreen = () => {
             // Re-check pending requests when we're truly not following
             hasPendingFollowRequest(userId).then(({ pending }) => {
               if (!cancelled) setIsRequested(pending);
-            });
+            }).catch(() => { /* keep existing state */ });
             queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) =>
               old ? { ...old, is_following: false } : old
             );
@@ -300,7 +301,7 @@ const UserProfileScreen = () => {
     if (!isFollowingFromApi && userId) {
       hasPendingFollowRequest(userId).then(({ pending }) => {
         if (!cancelled) setIsRequested(pending);
-      });
+      }).catch(() => { /* keep existing state */ });
     } else {
       setIsRequested(false);
     }
@@ -343,7 +344,7 @@ const UserProfileScreen = () => {
       if (!userId) return;
       getPostsByUser(userId, 0, 50).then(({ data, error }) => {
         if (!error && data) setUserPosts(data);
-      });
+      }).catch(() => { /* silent refetch failure — stale data remains */ });
     }, [userId])
   );
 

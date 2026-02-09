@@ -13,6 +13,9 @@ import {
   hasReportedUser as dbHasReportedUser,
 } from '../services/database';
 
+// Memory bounds — server is source of truth, these are just local caches
+const MAX_REPORTED_ITEMS = 500;
+
 // Types
 export type ContentStatus = 'active' | 'under_review';
 
@@ -21,6 +24,24 @@ interface ReportResult {
   message: string;
   alreadyReported: boolean;
 }
+
+/** Trim array to last N items if it exceeds the cap */
+const trimToMax = (arr: string[]): void => {
+  if (arr.length > MAX_REPORTED_ITEMS) {
+    arr.splice(0, arr.length - MAX_REPORTED_ITEMS);
+  }
+};
+
+/** Trim Record keys to last N entries if it exceeds the cap */
+const trimRecordToMax = (record: Record<string, ContentStatus>): void => {
+  const keys = Object.keys(record);
+  if (keys.length > MAX_REPORTED_ITEMS) {
+    const toRemove = keys.slice(0, keys.length - MAX_REPORTED_ITEMS);
+    for (const key of toRemove) {
+      delete record[key];
+    }
+  }
+};
 
 interface ContentState {
   // State
@@ -91,6 +112,7 @@ export const useContentStore = create<ContentState>()(
         set((state) => {
           if (!state.reportedPosts.includes(postId)) {
             state.reportedPosts.push(postId);
+            trimToMax(state.reportedPosts);
           }
         });
         return {
@@ -111,8 +133,10 @@ export const useContentStore = create<ContentState>()(
       set((state) => {
         if (!state.reportedPosts.includes(postId)) {
           state.reportedPosts.push(postId);
+          trimToMax(state.reportedPosts);
         }
         state.contentStatus[postId] = 'under_review';
+        trimRecordToMax(state.contentStatus);
       });
 
       return {
@@ -140,6 +164,7 @@ export const useContentStore = create<ContentState>()(
         set((state) => {
           if (!state.reportedPeaks.includes(peakId)) {
             state.reportedPeaks.push(peakId);
+            trimToMax(state.reportedPeaks);
           }
         });
         return {
@@ -160,8 +185,10 @@ export const useContentStore = create<ContentState>()(
       set((state) => {
         if (!state.reportedPeaks.includes(peakId)) {
           state.reportedPeaks.push(peakId);
+          trimToMax(state.reportedPeaks);
         }
         state.contentStatus[peakId] = 'under_review';
+        trimRecordToMax(state.contentStatus);
       });
 
       return {
@@ -189,6 +216,7 @@ export const useContentStore = create<ContentState>()(
         set((state) => {
           if (!state.reportedUsers.includes(userId)) {
             state.reportedUsers.push(userId);
+            trimToMax(state.reportedUsers);
           }
         });
         return {
@@ -209,6 +237,7 @@ export const useContentStore = create<ContentState>()(
       set((state) => {
         if (!state.reportedUsers.includes(userId)) {
           state.reportedUsers.push(userId);
+          trimToMax(state.reportedUsers);
         }
       });
 
@@ -234,8 +263,10 @@ export const useContentStore = create<ContentState>()(
       set((state) => {
         if (!state.reportedPosts.includes(contentId)) {
           state.reportedPosts.push(contentId);
+          trimToMax(state.reportedPosts);
         }
         state.contentStatus[contentId] = 'under_review';
+        trimRecordToMax(state.contentStatus);
       });
 
       // Fire and forget
@@ -257,6 +288,7 @@ export const useContentStore = create<ContentState>()(
         set((state) => {
           if (!state.reportedPosts.includes(postId)) {
             state.reportedPosts.push(postId);
+            trimToMax(state.reportedPosts);
           }
         });
       }
@@ -272,6 +304,7 @@ export const useContentStore = create<ContentState>()(
         set((state) => {
           if (!state.reportedUsers.includes(userId)) {
             state.reportedUsers.push(userId);
+            trimToMax(state.reportedUsers);
           }
         });
       }

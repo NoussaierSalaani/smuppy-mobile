@@ -166,27 +166,27 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly tipsHistoryFn: NodejsFunction;
   public readonly tipsLeaderboardFn: NodejsFunction;
 
-  // Challenges
-  public readonly challengesCreateFn: NodejsFunction;
-  public readonly challengesListFn: NodejsFunction;
-  public readonly challengesRespondFn: NodejsFunction;
-  public readonly challengesResponsesFn: NodejsFunction;
+  // Challenges - MOVED to LambdaStack3
+  // public readonly challengesCreateFn: NodejsFunction;
+  // public readonly challengesListFn: NodejsFunction;
+  // public readonly challengesRespondFn: NodejsFunction;
+  // public readonly challengesResponsesFn: NodejsFunction;
 
-  // Battles
-  public readonly battlesCreateFn: NodejsFunction;
-  public readonly battlesJoinFn: NodejsFunction;
+  // Battles - MOVED to LambdaStack3
+  // public readonly battlesCreateFn: NodejsFunction;
+  // public readonly battlesJoinFn: NodejsFunction;
 
-  // Events
-  public readonly eventsCreateFn: NodejsFunction;
-  public readonly eventsListFn: NodejsFunction;
-  public readonly eventsJoinFn: NodejsFunction;
+  // Events - MOVED to LambdaStack3
+  // public readonly eventsCreateFn: NodejsFunction;
+  // public readonly eventsListFn: NodejsFunction;
+  // public readonly eventsJoinFn: NodejsFunction;
 
-  // Groups
-  public readonly groupsCreateFn: NodejsFunction;
-  public readonly groupsListFn: NodejsFunction;
-  public readonly groupsGetFn: NodejsFunction;
-  public readonly groupsJoinFn: NodejsFunction;
-  public readonly groupsLeaveFn: NodejsFunction;
+  // Groups - MOVED to LambdaStack3
+  // public readonly groupsCreateFn: NodejsFunction;
+  // public readonly groupsListFn: NodejsFunction;
+  // public readonly groupsGetFn: NodejsFunction;
+  // public readonly groupsJoinFn: NodejsFunction;
+  // public readonly groupsLeaveFn: NodejsFunction;
 
   // Content Moderation: Reports
   public readonly reportsPostFn: NodejsFunction;
@@ -206,24 +206,24 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly profilesGetMutedFn: NodejsFunction;
   public readonly profilesCreationLimitsFn: NodejsFunction;
 
-  // Search & Discovery
-  public readonly postsSearchFn: NodejsFunction;
-  public readonly peaksSearchFn: NodejsFunction;
-  public readonly hashtagsTrendingFn: NodejsFunction;
+  // Search & Discovery - MOVED to LambdaStack3
+  // public readonly postsSearchFn: NodejsFunction;
+  // public readonly peaksSearchFn: NodejsFunction;
+  // public readonly hashtagsTrendingFn: NodejsFunction;
 
-  // Feed Variants
-  public readonly feedOptimizedFn: NodejsFunction;
-  public readonly feedFollowingFn: NodejsFunction;
-  public readonly feedDiscoverFn: NodejsFunction;
+  // Feed Variants - MOVED to LambdaStack3
+  // public readonly feedOptimizedFn: NodejsFunction;
+  // public readonly feedFollowingFn: NodejsFunction;
+  // public readonly feedDiscoverFn: NodejsFunction;
 
-  // Posts Batch & Saved
-  public readonly postsLikesBatchFn: NodejsFunction;
-  public readonly postsSavesBatchFn: NodejsFunction;
+  // Posts Batch - PARTIALLY MOVED to LambdaStack3
+  // public readonly postsLikesBatchFn: NodejsFunction;
+  // public readonly postsSavesBatchFn: NodejsFunction;
   public readonly postsSavedListFn: NodejsFunction;
 
-  // Interests & Expertise
-  public readonly interestsListFn: NodejsFunction;
-  public readonly expertiseListFn: NodejsFunction;
+  // Interests & Expertise - MOVED to LambdaStack3
+  // public readonly interestsListFn: NodejsFunction;
+  // public readonly expertiseListFn: NodejsFunction;
 
   // Follow Requests - Extended
   public readonly followRequestsCountFn: NodejsFunction;
@@ -233,25 +233,24 @@ export class LambdaStack extends cdk.NestedStack {
   // Media - Voice Upload
   public readonly mediaUploadVoiceFn: NodejsFunction;
 
-  // Spots
-  public readonly spotsListFn: NodejsFunction;
-  public readonly spotsGetFn: NodejsFunction;
-  public readonly spotsCreateFn: NodejsFunction;
-  public readonly spotsUpdateFn: NodejsFunction;
-  public readonly spotsDeleteFn: NodejsFunction;
-  public readonly spotsNearbyFn: NodejsFunction;
-  public readonly spotsSaveFn: NodejsFunction;
-  public readonly spotsUnsaveFn: NodejsFunction;
-  public readonly spotsIsSavedFn: NodejsFunction;
-  public readonly spotsSavedListFn: NodejsFunction;
-  public readonly spotsReviewsListFn: NodejsFunction;
-  public readonly spotsReviewsCreateFn: NodejsFunction;
-  public readonly spotsReviewsDeleteFn: NodejsFunction;
+  // Spots handlers moved to LambdaStackDisputes to stay under CloudFormation limits
 
   // Live Streams
   public readonly liveStreamsStartFn: NodejsFunction;
   public readonly liveStreamsEndFn: NodejsFunction;
   public readonly liveStreamsActiveFn: NodejsFunction;
+
+  // Provisioned Concurrency Aliases (for API Gateway integration)
+  public readonly feedGetAlias: lambda.IFunction;
+  public readonly postsListAlias: lambda.IFunction;
+  public readonly postsCreateAlias: lambda.IFunction;
+  public readonly profilesGetAlias: lambda.IFunction;
+  public readonly peaksListAlias: lambda.IFunction;
+  public readonly conversationsListAlias: lambda.IFunction;
+  public readonly conversationsSendMessageAlias: lambda.IFunction;
+  public readonly notificationsListAlias: lambda.IFunction;
+  public readonly signupAuthAlias: lambda.IFunction;
+  public readonly appleAuthAlias: lambda.IFunction;
 
   // Settings
   public readonly settingsCurrencyFn: NodejsFunction;
@@ -457,34 +456,34 @@ export class LambdaStack extends cdk.NestedStack {
     this.tipsLeaderboardFn = createLambda('TipsLeaderboardFunction', 'tips/leaderboard');
 
     // ========================================
-    // Challenges Lambda Functions
+    // Challenges Lambda Functions - MOVED to LambdaStack3
     // ========================================
-    this.challengesCreateFn = createLambda('ChallengesCreateFunction', 'challenges/create');
-    this.challengesListFn = createLambda('ChallengesListFunction', 'challenges/list');
-    this.challengesRespondFn = createLambda('ChallengesRespondFunction', 'challenges/respond');
-    this.challengesResponsesFn = createLambda('ChallengesResponsesFunction', 'challenges/responses');
+    // this.challengesCreateFn = createLambda('ChallengesCreateFunction', 'challenges/create');
+    // this.challengesListFn = createLambda('ChallengesListFunction', 'challenges/list');
+    // this.challengesRespondFn = createLambda('ChallengesRespondFunction', 'challenges/respond');
+    // this.challengesResponsesFn = createLambda('ChallengesResponsesFunction', 'challenges/responses');
 
     // ========================================
-    // Live Battles Lambda Functions
+    // Live Battles Lambda Functions - MOVED to LambdaStack3
     // ========================================
-    this.battlesCreateFn = createLambda('BattlesCreateFunction', 'battles/create');
-    this.battlesJoinFn = createLambda('BattlesJoinFunction', 'battles/join');
+    // this.battlesCreateFn = createLambda('BattlesCreateFunction', 'battles/create');
+    // this.battlesJoinFn = createLambda('BattlesJoinFunction', 'battles/join');
 
     // ========================================
-    // Events Lambda Functions (Xplorer)
+    // Events Lambda Functions (Xplorer) - MOVED to LambdaStack3
     // ========================================
-    this.eventsCreateFn = createLambda('EventsCreateFunction', 'events/create');
-    this.eventsListFn = createLambda('EventsListFunction', 'events/list');
-    this.eventsJoinFn = createLambda('EventsJoinFunction', 'events/join');
+    // this.eventsCreateFn = createLambda('EventsCreateFunction', 'events/create');
+    // this.eventsListFn = createLambda('EventsListFunction', 'events/list');
+    // this.eventsJoinFn = createLambda('EventsJoinFunction', 'events/join');
 
     // ========================================
-    // Groups Lambda Functions
+    // Groups Lambda Functions - MOVED to LambdaStack3
     // ========================================
-    this.groupsCreateFn = createLambda('GroupsCreateFunction', 'groups/create');
-    this.groupsListFn = createLambda('GroupsListFunction', 'groups/list');
-    this.groupsGetFn = createLambda('GroupsGetFunction', 'groups/get');
-    this.groupsJoinFn = createLambda('GroupsJoinFunction', 'groups/join');
-    this.groupsLeaveFn = createLambda('GroupsLeavFunction', 'groups/leave');
+    // this.groupsCreateFn = createLambda('GroupsCreateFunction', 'groups/create');
+    // this.groupsListFn = createLambda('GroupsListFunction', 'groups/list');
+    // this.groupsGetFn = createLambda('GroupsGetFunction', 'groups/get');
+    // this.groupsJoinFn = createLambda('GroupsJoinFunction', 'groups/join');
+    // this.groupsLeaveFn = createLambda('GroupsLeaveFunction', 'groups/leave');
 
     // ========================================
     // Content Moderation: Reports Lambda Functions
@@ -562,31 +561,31 @@ export class LambdaStack extends cdk.NestedStack {
     dbCredentials.grantRead(this.businessCheckoutFn);
 
     // ========================================
-    // Search & Discovery Lambda Functions
+    // Search & Discovery Lambda Functions - MOVED to LambdaStack3
     // ========================================
-    this.postsSearchFn = createLambda('PostsSearchFunction', 'posts/search', { memory: 1024 });
-    this.peaksSearchFn = createLambda('PeaksSearchFunction', 'peaks/search', { memory: 1024 });
-    this.hashtagsTrendingFn = createLambda('HashtagsTrendingFunction', 'hashtags/trending');
+    // this.postsSearchFn = createLambda('PostsSearchFunction', 'posts/search', { memory: 1024 });
+    // this.peaksSearchFn = createLambda('PeaksSearchFunction', 'peaks/search', { memory: 1024 });
+    // this.hashtagsTrendingFn = createLambda('HashtagsTrendingFunction', 'hashtags/trending');
 
     // ========================================
-    // Feed Variants Lambda Functions
+    // Feed Variants Lambda Functions - MOVED to LambdaStack3
     // ========================================
-    this.feedOptimizedFn = createLambda('FeedOptimizedFunction', 'feed/optimized', { memory: 2048, timeout: 60 });
-    this.feedFollowingFn = createLambda('FeedFollowingFunction', 'feed/following', { memory: 1024 });
-    this.feedDiscoverFn = createLambda('FeedDiscoverFunction', 'feed/discover', { memory: 1024 });
+    // this.feedOptimizedFn = createLambda('FeedOptimizedFunction', 'feed/optimized', { memory: 2048, timeout: 60 });
+    // this.feedFollowingFn = createLambda('FeedFollowingFunction', 'feed/following', { memory: 1024 });
+    // this.feedDiscoverFn = createLambda('FeedDiscoverFunction', 'feed/discover', { memory: 1024 });
 
     // ========================================
-    // Posts Batch & Saved Lambda Functions
+    // Posts Batch & Saved Lambda Functions - PARTIALLY MOVED to LambdaStack3
     // ========================================
-    this.postsLikesBatchFn = createLambda('PostsLikesBatchFunction', 'posts/likes-batch');
-    this.postsSavesBatchFn = createLambda('PostsSavesBatchFunction', 'posts/saves-batch');
+    // this.postsLikesBatchFn = createLambda('PostsLikesBatchFunction', 'posts/likes-batch');
+    // this.postsSavesBatchFn = createLambda('PostsSavesBatchFunction', 'posts/saves-batch');
     this.postsSavedListFn = createLambda('PostsSavedListFunction', 'posts/saved-list');
 
     // ========================================
-    // Interests & Expertise Lambda Functions
+    // Interests & Expertise Lambda Functions - MOVED to LambdaStack3
     // ========================================
-    this.interestsListFn = createLambda('InterestsListFunction', 'interests/list');
-    this.expertiseListFn = createLambda('ExpertiseListFunction', 'expertise/list');
+    // this.interestsListFn = createLambda('InterestsListFunction', 'interests/list');
+    // this.expertiseListFn = createLambda('ExpertiseListFunction', 'expertise/list');
 
     // ========================================
     // Follow Requests Extended Lambda Functions
@@ -595,22 +594,9 @@ export class LambdaStack extends cdk.NestedStack {
     this.followRequestsCheckPendingFn = createLambda('FollowRequestsCheckPendingFunction', 'follow-requests/check-pending');
     this.followRequestsCancelFn = createLambda('FollowRequestsCancelFunction', 'follow-requests/cancel');
 
-    // ========================================
-    // Spots Lambda Functions
-    // ========================================
-    this.spotsListFn = createLambda('SpotsListFunction', 'spots/list', { memory: 1024 });
-    this.spotsGetFn = createLambda('SpotsGetFunction', 'spots/get');
-    this.spotsCreateFn = createLambda('SpotsCreateFunction', 'spots/create');
-    this.spotsUpdateFn = createLambda('SpotsUpdateFunction', 'spots/update');
-    this.spotsDeleteFn = createLambda('SpotsDeleteFunction', 'spots/delete');
-    this.spotsNearbyFn = createLambda('SpotsNearbyFunction', 'spots/nearby', { memory: 1024 });
-    this.spotsSaveFn = createLambda('SpotsSaveFunction', 'spots/save');
-    this.spotsUnsaveFn = createLambda('SpotsUnsaveFunction', 'spots/unsave');
-    this.spotsIsSavedFn = createLambda('SpotsIsSavedFunction', 'spots/is-saved');
-    this.spotsSavedListFn = createLambda('SpotsSavedListFunction', 'spots/saved-list');
-    this.spotsReviewsListFn = createLambda('SpotsReviewsListFunction', 'spots/reviews-list');
-    this.spotsReviewsCreateFn = createLambda('SpotsReviewsCreateFunction', 'spots/reviews-create');
-    this.spotsReviewsDeleteFn = createLambda('SpotsReviewsDeleteFunction', 'spots/reviews-delete');
+    // Note: Spots handlers (list, get, create, update, delete, nearby, save, unsave,
+    // is-saved, saved-list, reviews-list, reviews-create, reviews-delete)
+    // are deployed via LambdaStackDisputes to stay under CloudFormation limits
 
     // ========================================
     // Phase 5: Notifications Lambda Functions
@@ -1567,5 +1553,50 @@ export class LambdaStack extends cdk.NestedStack {
       alarmDescription: 'Messages in critical DLQ — failed Lambda invocations',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+
+    // ========================================
+    // Provisioned Concurrency with Auto-Scaling
+    // Reduces cold starts for critical user-facing paths
+    // ========================================
+    const addProvisionedConcurrency = (
+      fn: NodejsFunction,
+      name: string,
+      minCapacity: number,
+      maxCapacity: number,
+    ): lambda.IFunction => {
+      const alias = new lambda.Alias(this, `${name}Alias`, {
+        aliasName: 'live',
+        version: fn.currentVersion,
+        provisionedConcurrentExecutions: minCapacity,
+      });
+
+      const scalingTarget = alias.addAutoScaling({
+        minCapacity,
+        maxCapacity,
+      });
+      scalingTarget.scaleOnUtilization({
+        utilizationTarget: 0.7,
+        scaleInCooldown: cdk.Duration.minutes(3),
+        scaleOutCooldown: cdk.Duration.minutes(1),
+      });
+
+      return alias;
+    };
+
+    const minPC = isProduction ? 5 : 1;
+    const maxPC = isProduction ? 50 : 5;
+    const minPCHigh = isProduction ? 10 : 2;
+    const maxPCHigh = isProduction ? 100 : 10;
+
+    this.feedGetAlias = addProvisionedConcurrency(this.feedGetFn, 'FeedGet', minPCHigh, maxPCHigh);
+    this.postsListAlias = addProvisionedConcurrency(this.postsListFn, 'PostsList', minPC, maxPC);
+    this.postsCreateAlias = addProvisionedConcurrency(this.postsCreateFn, 'PostsCreate', minPC, maxPC);
+    this.profilesGetAlias = addProvisionedConcurrency(this.profilesGetFn, 'ProfilesGet', minPC, maxPC);
+    this.peaksListAlias = addProvisionedConcurrency(this.peaksListFn, 'PeaksList', minPC, maxPC);
+    this.conversationsListAlias = addProvisionedConcurrency(this.conversationsListFn, 'ConversationsList', minPC, maxPC);
+    this.conversationsSendMessageAlias = addProvisionedConcurrency(this.conversationsSendMessageFn, 'ConversationsSendMessage', minPC, maxPC);
+    this.notificationsListAlias = addProvisionedConcurrency(this.notificationsListFn, 'NotificationsList', minPC, maxPC);
+    this.signupAuthAlias = addProvisionedConcurrency(this.signupAuthFn, 'SignupAuth', minPC, maxPC);
+    this.appleAuthAlias = addProvisionedConcurrency(this.appleAuthFn, 'AppleAuth', minPC, maxPC);
   }
 }

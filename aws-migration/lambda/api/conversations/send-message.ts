@@ -10,6 +10,9 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('conversations-send-message');
 
@@ -57,7 +60,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};
-    const { content, mediaUrl, mediaType } = body;
+    const { content, mediaUrl, mediaType, replyToMessageId } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return {
@@ -86,6 +89,32 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Sanitize content: strip HTML tags and control characters
     const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
+
+    // Check account status (suspended/banned users cannot send messages)
+    const accountCheck = await requireActiveAccount(userId, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
+
+    // Moderation: wordlist filter
+    const filterResult = await filterText(sanitizedContent);
+    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      log.warn('DM blocked by text filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+      };
+    }
+
+    // Moderation: Comprehend toxicity analysis
+    const toxicityResult = await analyzeTextToxicity(sanitizedContent);
+    if (toxicityResult.action === 'block') {
+      log.warn('DM blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+      };
+    }
 
     const db = await getPool();
 
@@ -147,11 +176,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
+      // Validate replyToMessageId if provided
+      let validReplyToMessageId = null;
+      if (replyToMessageId && isValidUUID(replyToMessageId)) {
+        // Verify the replied message exists in this conversation
+        const replyCheck = await client.query(
+          'SELECT 1 FROM messages WHERE id = $1 AND conversation_id = $2 LIMIT 1',
+          [replyToMessageId, conversationId]
+        );
+        if (replyCheck.rows.length > 0) {
+          validReplyToMessageId = replyToMessageId;
+        }
+      }
+
       const messageResult = await client.query(
-        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, read, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, false, NOW())
-         RETURNING id, content, media_url, media_type, sender_id, recipient_id, read, created_at`,
-        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType]
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, reply_to_message_id, read, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, false, NOW())
+         RETURNING id, content, media_url, media_type, sender_id, recipient_id, reply_to_message_id, read, created_at`,
+        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validReplyToMessageId]
       );
 
       await client.query(

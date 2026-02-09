@@ -10,6 +10,7 @@ import {
   Switch,
   ScrollView,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,16 +18,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as backend from '../../services/backend';
 import { awsAPI } from '../../services/aws-api';
 import { unregisterPushToken } from '../../services/notifications';
-import { useCurrentProfile, useUpdateProfile } from '../../hooks';
+import { useCurrentProfile, useUpdateProfile } from '../../hooks/queries';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../hooks/useTheme';
-import { resetAllStores, useUserStore } from '../../stores';
+import { resetAllStores } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import type { ThemePreference } from '../../stores/themeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { HIT_SLOP } from '../../config/theme';
 import { hapticButtonPress, hapticDestructive } from '../../utils/haptics';
 import { VerifiedBadge } from '../../components/Badge';
+import { LANGUAGES } from '../../i18n/config';
 
 const COVER_HEIGHT = 160;
 
@@ -50,6 +53,7 @@ const APPEARANCE_OPTIONS: { value: ThemePreference; label: string }[] = [
 ];
 
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const { preference, setTheme, colors, isDark: _isDark } = useTheme();
   const { showError } = useSmuppyAlert();
@@ -143,7 +147,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       await refetch();
     } catch (error) {
       if (__DEV__) console.warn('Toggle privacy error:', error);
-      showError('Error', 'Failed to update privacy setting.');
+      showError(t('common:error'), t('settings:errors:privacyUpdate'));
     } finally {
       setTogglingPrivacy(false);
     }
@@ -155,23 +159,24 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const isPro = isProCreator || isProBusiness;
 
   const ACCOUNT_ITEMS = [
-    { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
-    ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
-    ...(isProBusiness ? [{ id: 'category', icon: 'storefront-outline' as const, label: 'Business Category', screen: 'EditBusinessCategory', params: { currentCategory: user?.businessCategory } }] : []),
-    ...(isPro ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
-    { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
+    { id: 'profile', icon: 'person-outline' as const, label: t('settings:accountSettings:editProfile'), screen: 'EditProfile' },
+    ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: t('settings:accountSettings:interests'), screen: 'EditInterests', params: { currentInterests: interests } }] : []),
+    ...(isProBusiness ? [{ id: 'category', icon: 'storefront-outline' as const, label: t('settings:accountSettings:businessCategory'), screen: 'EditBusinessCategory', params: { currentCategory: user?.businessCategory } }] : []),
+    ...(isPro ? [{ id: 'expertise', icon: 'school-outline' as const, label: t('onboarding:expertise:title'), screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
+    { id: 'password', icon: 'lock-closed-outline' as const, label: t('settings:accountSettings:changePassword'), screen: 'PasswordManager' },
+    { id: 'language', icon: 'language-outline' as const, label: t('settings:accountSettings:language'), screen: 'LanguageSettings' },
   ];
 
   const PREFERENCES_ITEMS = [
-    { id: 'notifications', icon: 'notifications-outline' as const, label: 'Notifications', screen: 'NotificationSettings' },
-    { id: 'followRequests', icon: 'person-add-outline' as const, label: 'Follow Requests', screen: 'FollowRequests' },
+    { id: 'notifications', icon: 'notifications-outline' as const, label: t('settings:accountSettings:notifications'), screen: 'NotificationSettings' },
+    { id: 'followRequests', icon: 'person-add-outline' as const, label: t('notifications:followRequests:title'), screen: 'FollowRequests' },
   ];
 
   const SUPPORT_ITEMS = [
-    { id: 'blocked', icon: 'ban-outline' as const, label: 'Blocked Users', screen: 'BlockedUsers' },
-    { id: 'muted', icon: 'volume-mute-outline' as const, label: 'Muted Users', screen: 'MutedUsers' },
-    { id: 'report', icon: 'alert-circle-outline' as const, label: 'Report a Problem', screen: 'ReportProblem' },
-    { id: 'terms', icon: 'document-text-outline' as const, label: 'Terms & Policies', screen: 'TermsPolicies' },
+    { id: 'blocked', icon: 'ban-outline' as const, label: t('settings:accountSettings:blockedUsers'), screen: 'BlockedUsers' },
+    { id: 'muted', icon: 'volume-mute-outline' as const, label: t('settings:accountSettings:mutedUsers'), screen: 'MutedUsers' },
+    { id: 'report', icon: 'alert-circle-outline' as const, label: t('settings:support:reportProblem'), screen: 'ReportProblem' },
+    { id: 'terms', icon: 'document-text-outline' as const, label: t('settings:about:terms'), screen: 'TermsPolicies' },
   ];
 
   const handleLogout = useCallback(async () => {
@@ -215,7 +220,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     try {
       const currentUser = await backend.getCurrentUser();
       if (!currentUser) {
-        showError('Error', 'User not found');
+        showError(t('common:error'), t('settings:errors:userNotFound'));
         return;
       }
 
@@ -251,7 +256,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     } finally {
       setDeleting(false);
     }
-  }, [user?.id, showError]);
+  }, [user?.id, showError, t]);
 
   const handleMenuItemPress = useCallback((item: { screen: string; params?: Record<string, unknown> }) => {
     hapticButtonPress();
@@ -355,14 +360,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <View style={styles.modalIconBox}>
             <Ionicons name="log-out-outline" size={32} color="#FF3B30" />
           </View>
-          <Text style={styles.modalTitle}>Log out</Text>
-          <Text style={styles.modalMessage}>Are you sure you want to log out of your account?</Text>
+          <Text style={styles.modalTitle}>{t('settings:logout:title')}</Text>
+          <Text style={styles.modalMessage}>{t('settings:logout:message')}</Text>
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleCancelLogout} disabled={loggingOut}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('settings:logout:cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleConfirmLogout} disabled={loggingOut}>
-              {loggingOut ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Yes, Logout</Text>}
+              {loggingOut ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>{t('settings:logout:confirm')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -377,14 +382,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <View style={styles.modalIconBox}>
             <Ionicons name="trash-outline" size={32} color="#FF3B30" />
           </View>
-          <Text style={styles.modalTitle}>Delete Account</Text>
-          <Text style={styles.modalMessage}>This action is permanent and cannot be undone. All your data, posts, and connections will be deleted.</Text>
+          <Text style={styles.modalTitle}>{t('settings:deleteAccount:title')}</Text>
+          <Text style={styles.modalMessage}>{t('settings:deleteAccount:message')}</Text>
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleCancelDelete} disabled={deleting}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('settings:deleteAccount:cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleConfirmDelete} disabled={deleting}>
-              {deleting ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Delete</Text>}
+              {deleting ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>{t('settings:deleteAccount:confirm')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -432,7 +437,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           </TouchableOpacity>
 
           {/* Settings Title */}
-          <Text style={[styles.headerTitle, headerTitleTopStyle]}>Settings</Text>
+          <Text style={[styles.headerTitle, headerTitleTopStyle]}>{t('settings:title')}</Text>
 
           {/* Profile Info on Cover */}
           <View style={styles.profileOnCover}>
@@ -456,14 +461,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
         {/* Menu Sections */}
         <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>{t('settings:account')}</Text>
           <View style={styles.menuCard}>
             {ACCOUNT_ITEMS.map((item, index) => renderMenuItem(item, index))}
           </View>
         </View>
 
         <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
+          <Text style={styles.sectionTitle}>{t('settings:preferences')}</Text>
           <View style={styles.menuCard}>
             {PREFERENCES_ITEMS.map((item, index) => renderMenuItem(item, index))}
 
@@ -473,9 +478,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 <Ionicons name={isPrivate ? 'lock-closed-outline' : 'lock-open-outline'} size={20} color={colors.primary} />
               </View>
               <View style={styles.menuItemContent}>
-                <Text style={styles.menuItemLabel}>Private Account</Text>
+                <Text style={styles.menuItemLabel}>{t('settings:privacy:privateAccount')}</Text>
                 <Text style={styles.menuItemSubtitle}>
-                  {isPrivate ? 'Only fans see your content' : 'Everyone can see'}
+                  {isPrivate ? t('settings:privacy:privateAccountDesc') : t('common:all')}
                 </Text>
               </View>
               <Switch
@@ -493,7 +498,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <View style={styles.menuItemIcon}>
                 <Ionicons name="contrast-outline" size={20} color={colors.primary} />
               </View>
-              <Text style={styles.menuItemLabel}>Appearance</Text>
+              <Text style={styles.menuItemLabel}>{t('settings:preferences')}</Text>
               <View style={styles.appearanceChips}>
                 {APPEARANCE_OPTIONS.map((opt) => (
                   <TouchableOpacity
@@ -521,7 +526,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         </View>
 
         <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Support</Text>
+          <Text style={styles.sectionTitle}>{t('settings:support:title')}</Text>
           <View style={styles.menuCard}>
             {SUPPORT_ITEMS.map((item, index) => renderMenuItem(item, index))}
           </View>
@@ -529,7 +534,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
         {/* Payments & Monetization */}
         <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Payments & Monetization</Text>
+          <Text style={styles.sectionTitle}>{t('settings:payments')}</Text>
           <View style={styles.menuCard}>
             {/* Upgrade to Pro Creator - Only for personal accounts */}
             {user?.accountType === 'personal' && (
@@ -548,8 +553,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                     <Ionicons name="star" size={20} color="#FFF" />
                   </View>
                   <View style={styles.upgradeTextContainer}>
-                    <Text style={styles.upgradeTitle}>Upgrade to Pro Creator</Text>
-                    <Text style={styles.upgradeSubtitle}>Unlock tips, unlimited events & more</Text>
+                    <Text style={styles.upgradeTitle}>{t('settings:accountSettings:upgradeToPro')}</Text>
+                    <Text style={styles.upgradeSubtitle}>{t('settings:premium')}</Text>
                   </View>
                   <View style={styles.upgradeArrow}>
                     <Ionicons name="arrow-forward" size={18} color="#FFF" />
@@ -568,7 +573,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <View style={[styles.menuItemIcon, styles.menuItemIconWallet]}>
                 <Ionicons name="wallet-outline" size={20} color="#22C55E" />
               </View>
-              <Text style={styles.menuItemLabel}>Creator Wallet</Text>
+              <Text style={styles.menuItemLabel}>{t('payments:wallet:title')}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
             )}
@@ -597,7 +602,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 <VerifiedBadge size={20} />
               </View>
               <View style={styles.menuItemContent}>
-                <Text style={styles.menuItemLabel}>Identity Verification</Text>
+                <Text style={styles.menuItemLabel}>{t('settings:accountSettings:identityVerification')}</Text>
                 <Text style={styles.menuItemSubtitle}>
                   {user?.isVerified ? 'Active' : 'Not verified'}
                 </Text>
@@ -618,7 +623,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <View style={[styles.menuItemIcon, styles.menuItemIconPayment]}>
                 <Ionicons name="card-outline" size={20} color="#9C27B0" />
               </View>
-              <Text style={styles.menuItemLabel}>Payment Methods</Text>
+              <Text style={styles.menuItemLabel}>{t('payments:paymentMethods')}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
 
@@ -632,7 +637,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <View style={[styles.menuItemIcon, styles.menuItemIconSessions]}>
                 <Ionicons name="videocam-outline" size={20} color="#FF9800" />
               </View>
-              <Text style={styles.menuItemLabel}>Private Sessions</Text>
+              <Text style={styles.menuItemLabel}>{t('sessions:sessions')}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
             )}
@@ -650,7 +655,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <View style={[styles.menuItemIcon, styles.dangerIcon]}>
                 <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
               </View>
-              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>Logout</Text>
+              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>{t('settings:accountSettings:logout')}</Text>
               <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
             </TouchableOpacity>
 
@@ -662,7 +667,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <View style={[styles.menuItemIcon, styles.dangerIcon]}>
                 <Ionicons name="trash-outline" size={20} color="#FF3B30" />
               </View>
-              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>Delete Account</Text>
+              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>{t('settings:accountSettings:deleteAccount')}</Text>
               <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
             </TouchableOpacity>
           </View>

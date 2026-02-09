@@ -8,7 +8,7 @@ import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { createProfile } from '../../services/database';
 import { uploadProfileImage } from '../../services/imageUpload';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';

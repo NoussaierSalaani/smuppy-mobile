@@ -19,9 +19,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTranslation } from 'react-i18next';
 import { SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -52,18 +53,18 @@ const PLANS: SubscriptionPlan[] = [
     name: 'Pro Creator',
     price: 9900,
     priceText: '$99',
-    description: 'For influencers & content creators who want to monetize their audience',
+    description: 'pro_creator_desc',
     popular: true,
     gradient: ['#667EEA', '#764BA2'] as const,
     features: [
-      { icon: 'videocam', text: 'Unlimited live streaming', highlight: true },
-      { icon: 'cash', text: 'Monetize with channel subscriptions' },
-      { icon: 'calendar', text: 'Sell 1:1 sessions & packs' },
-      { icon: 'analytics', text: 'Advanced analytics dashboard' },
-      { icon: 'shield-checkmark', text: 'Identity verification badge' },
-      { icon: 'trending-up', text: 'Up to 80% revenue share' },
-      { icon: 'megaphone', text: 'Priority support' },
-      { icon: 'sparkles', text: 'Exclusive creator features' },
+      { icon: 'videocam', text: 'unlimitedLive', highlight: true },
+      { icon: 'cash', text: 'monetize' },
+      { icon: 'calendar', text: 'sellSessions' },
+      { icon: 'analytics', text: 'analytics' },
+      { icon: 'shield-checkmark', text: 'identityBadge' },
+      { icon: 'trending-up', text: 'revenueShare' },
+      { icon: 'megaphone', text: 'prioritySupport' },
+      { icon: 'sparkles', text: 'exclusiveFeatures' },
     ],
   },
   {
@@ -71,22 +72,23 @@ const PLANS: SubscriptionPlan[] = [
     name: 'Pro Business',
     price: 4900,
     priceText: '$49',
-    description: 'For local businesses & professionals offering services',
+    description: 'pro_business_desc',
     gradient: ['#11998E', '#38EF7D'] as const,
     features: [
-      { icon: 'storefront', text: 'Business profile badge' },
-      { icon: 'calendar', text: 'Sell sessions & consultations' },
-      { icon: 'location', text: 'Local discovery features' },
-      { icon: 'people', text: 'Client management tools' },
-      { icon: 'cash', text: 'Accept payments directly' },
-      { icon: 'analytics', text: 'Business analytics' },
-      { icon: 'chatbubbles', text: 'Priority messaging' },
-      { icon: 'star', text: 'Reviews & ratings' },
+      { icon: 'storefront', text: 'businessBadge' },
+      { icon: 'calendar', text: 'consultations' },
+      { icon: 'location', text: 'localDiscovery' },
+      { icon: 'people', text: 'clientManagement' },
+      { icon: 'cash', text: 'acceptPayments' },
+      { icon: 'analytics', text: 'businessAnalytics' },
+      { icon: 'chatbubbles', text: 'priorityMessaging' },
+      { icon: 'star', text: 'reviews' },
     ],
   },
 ];
 
 export default function PlatformSubscriptionScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const insets = useSafeAreaInsets();
   const user = useUserStore((state) => state.user);
@@ -137,7 +139,7 @@ export default function PlatformSubscriptionScreen() {
 
   const handleSubscribe = async () => {
     if (currentPlan === selectedPlan) {
-      showSuccess('Already Subscribed', 'You are already on this plan.');
+      showSuccess(t('payments:subscription:success:alreadySubscribed'), t('payments:subscription:success:onPlan'));
       return;
     }
 
@@ -152,11 +154,11 @@ export default function PlatformSubscriptionScreen() {
         const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
         if (checkoutResult.status === 'success') {
-          showSuccess('Subscribed!', 'Your subscription is now active.');
+          showSuccess(t('payments:subscription:success:subscribed'), t('payments:subscription:success:active'));
         } else if (checkoutResult.status === 'pending') {
           showWarning('Processing', checkoutResult.message);
         } else if (checkoutResult.status === 'failed') {
-          showError('Payment Failed', checkoutResult.message);
+          showError(t('payments:subscription:errors:paymentFailed'), checkoutResult.message);
         }
         // cancelled — do nothing
       } else if (response.success && response.checkoutUrl) {
@@ -164,10 +166,10 @@ export default function PlatformSubscriptionScreen() {
         navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Payment' });
       } else {
         // Generic error message per CLAUDE.md - never expose response.error to client
-        showError('Error', 'Failed to start subscription. Please try again.');
+        showError(t('common:error'), t('payments:subscription:errors:startSubscription'));
       }
     } catch (_error: unknown) {
-      showError('Error', 'Something went wrong. Please try again.');
+      showError(t('common:error'), t('payments:generic:error'));
     } finally {
       setLoading(false);
     }
@@ -193,12 +195,12 @@ export default function PlatformSubscriptionScreen() {
 
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>
-            {user?.accountType === 'pro_creator' ? 'Premium Subscription' : 'Go Pro'}
+            {user?.accountType === 'pro_creator' ? t('payments:subscription:premiumTitle') : t('payments:subscription:title')}
           </Text>
           <Text style={styles.headerSubtitle}>
             {user?.accountType === 'pro_creator'
-              ? 'Unlock premium creator features'
-              : 'Unlock your full potential'}
+              ? t('payments:subscription:unlockFeatures')
+              : t('payments:subscription:unlockPotential')}
           </Text>
         </View>
 
@@ -238,12 +240,12 @@ export default function PlatformSubscriptionScreen() {
               >
                 {plan.popular && (
                   <View style={styles.popularBadge}>
-                    <Text style={styles.popularText}>Most Popular</Text>
+                    <Text style={styles.popularText}>{t('payments:subscription:popular')}</Text>
                   </View>
                 )}
                 {currentPlan === plan.id && (
                   <View style={styles.currentBadge}>
-                    <Text style={styles.currentText}>Current Plan</Text>
+                    <Text style={styles.currentText}>{t('payments:subscription:currentPlan')}</Text>
                   </View>
                 )}
 
@@ -263,7 +265,7 @@ export default function PlatformSubscriptionScreen() {
                 <Text style={styles.planName}>{plan.name}</Text>
                 <View style={styles.priceContainer}>
                   <Text style={styles.planPrice}>{formatAmount(plan.price)}</Text>
-                  <Text style={styles.planPeriod}>/month</Text>
+                  <Text style={styles.planPeriod}>{t('payments:subscription:perMonth')}</Text>
                 </View>
                 <Text style={styles.planDescription}>{plan.description}</Text>
 
@@ -280,7 +282,7 @@ export default function PlatformSubscriptionScreen() {
         {/* Features */}
         <View style={styles.featuresSection}>
           <Text style={styles.featuresTitle}>
-            {selectedPlanData.name} includes
+            {t('payments:subscription:includes', { plan: selectedPlanData.name })}
           </Text>
           {selectedPlanData.features.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
@@ -291,7 +293,7 @@ export default function PlatformSubscriptionScreen() {
                 <Ionicons name={feature.icon as keyof typeof Ionicons.glyphMap} size={18} color="white" />
               </LinearGradient>
               <Text style={[styles.featureText, feature.highlight && styles.featureTextHighlight]}>
-                {feature.text}
+                {t(`payments:subscription:features:${feature.text}`)}
               </Text>
             </View>
           ))}
@@ -301,8 +303,8 @@ export default function PlatformSubscriptionScreen() {
         <View style={styles.guaranteeSection}>
           <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
           <View style={styles.guaranteeText}>
-            <Text style={styles.guaranteeTitle}>Cancel anytime</Text>
-            <Text style={styles.guaranteeSubtitle}>No commitment, cancel whenever you want</Text>
+            <Text style={styles.guaranteeTitle}>{t('payments:subscription:cancelAnytime')}</Text>
+            <Text style={styles.guaranteeSubtitle}>{t('payments:subscription:noCommitment')}</Text>
           </View>
         </View>
       </ScrollView>
@@ -326,7 +328,7 @@ export default function PlatformSubscriptionScreen() {
             ) : (
               <>
                 <Text style={styles.subscribeText}>
-                  {currentPlan === selectedPlan ? 'Current Plan' : `Subscribe for ${formatAmount(selectedPlanData.price)}/mo`}
+                  {currentPlan === selectedPlan ? t('payments:subscription:currentPlan') : t('payments:subscription:subscribeFor', { price: formatAmount(selectedPlanData.price) })}
                 </Text>
                 {currentPlan !== selectedPlan && (
                   <Ionicons name="arrow-forward" size={20} color="white" />
@@ -337,7 +339,7 @@ export default function PlatformSubscriptionScreen() {
         </TouchableOpacity>
 
         <Text style={styles.termsText}>
-          By subscribing, you agree to our Terms of Service
+          {t('payments:subscription:termsAgreement')}
         </Text>
       </View>
     </View>

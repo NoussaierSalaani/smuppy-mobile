@@ -61,6 +61,9 @@ const PROD_FEATURES = {
   IDENTITY_VERIFICATION: false, // V3: Stripe Identity — tied to monetization
   PLATFORM_SUBSCRIPTION: false, // V3: Stripe subscription — needs Apple IAP
 
+  // ─── Disputes & Resolution ─────────────────────
+  DISPUTES: true,               // V3: ENABLED - deployed 2026-02-09
+
   // ─── Vibe Ecosystem ────────────────────────────
   VIBE_GUARDIAN: true,            // V1: anti-doom-scroll breathing overlay
   EMOTIONAL_RIPPLE: true,         // V1: positive interaction ripple on profile

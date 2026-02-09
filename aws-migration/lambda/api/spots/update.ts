@@ -9,6 +9,9 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sanitizeText, isValidUUID } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('spots-update');
 
@@ -40,6 +43,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
     }
+
+    // Account status check
+    const accountCheck = await requireActiveAccount(userId, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
 
     const rateLimit = await checkRateLimit({ prefix: 'spot-update', identifier: userId, windowSeconds: 60, maxRequests: 10 });
     if (!rateLimit.allowed) {
@@ -90,6 +97,32 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         setClauses.push(`${config.column} = $${paramIndex}`);
         params.push(value !== null ? JSON.stringify(value) : null);
         paramIndex++;
+      }
+    }
+
+    // Moderate text fields (name and description)
+    const textFieldsToModerate: Array<{ key: string; value: string }> = [];
+    if (body.name && typeof body.name === 'string') textFieldsToModerate.push({ key: 'name', value: body.name });
+    if (body.description && typeof body.description === 'string') textFieldsToModerate.push({ key: 'description', value: body.description });
+
+    for (const field of textFieldsToModerate) {
+      const filterResult = await filterText(field.value);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Spot update blocked by filter', { userId: userId.substring(0, 8) + '***', field: field.key });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: `Your spot ${field.key} contains content that violates our community guidelines.` }),
+        };
+      }
+      const toxicityResult = await analyzeTextToxicity(field.value);
+      if (toxicityResult.action === 'block') {
+        log.warn('Spot update blocked by toxicity', { userId: userId.substring(0, 8) + '***', field: field.key });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: `Your spot ${field.key} contains content that violates our community guidelines.` }),
+        };
       }
     }
 

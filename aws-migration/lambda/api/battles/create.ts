@@ -7,9 +7,12 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { v4 as uuidv4 } from 'uuid';
 import { cors, handleOptions } from '../utils/cors';
-import { isValidUUID } from '../utils/security';
+import { isValidUUID, sanitizeInput } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 interface CreateBattleRequest {
   title?: string;
@@ -43,6 +46,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
     }
 
+    // Account status check (suspended/banned users cannot create battles)
+    const accountCheck = await requireActiveAccount(userId, {});
+    if (isAccountError(accountCheck)) {
+      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+    }
+
     // Resolve cognito_sub to profile ID
     const profileResult = await client.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
@@ -66,6 +75,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       scheduledAt,
       invitedUserIds,
     } = body;
+
+    // Sanitize text fields
+    const sanitizedTitle = title ? sanitizeInput(title, 200) : undefined;
+    const sanitizedDescription = description ? sanitizeInput(description, 2000) : undefined;
+
+    // Moderation: check title and description for violations
+    const textsToCheck = [sanitizedTitle, sanitizedDescription].filter(Boolean) as string[];
+    for (const text of textsToCheck) {
+      const filterResult = await filterText(text);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Battle text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
+      const toxicityResult = await analyzeTextToxicity(text);
+      if (toxicityResult.action === 'block') {
+        log.warn('Battle text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
+    }
 
     if (!invitedUserIds || invitedUserIds.length === 0) {
       return cors({
@@ -152,8 +180,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       RETURNING id, title, description, battle_type, max_participants, duration_minutes, scheduled_at, agora_channel_name, status, created_at`,
       [
         profileId,
-        title || `${host.display_name}'s Battle`,
-        description,
+        sanitizedTitle || `${host.display_name}'s Battle`,
+        sanitizedDescription,
         battleType,
         maxParticipants,
         durationMinutes,

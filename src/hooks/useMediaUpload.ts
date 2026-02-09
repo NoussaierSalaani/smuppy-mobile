@@ -16,7 +16,7 @@ import {
   UploadOptions,
   MediaFile,
 } from '../services/mediaUpload';
-import { useUserStore } from '../stores';
+import { useUserStore } from '../stores/userStore';
 import { captureException } from '../lib/sentry';
 
 // ============================================

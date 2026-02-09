@@ -25,10 +25,11 @@ config.server = {
   },
 };
 
-// Asset resolution
+// Asset resolution + tree-shaking via package.json exports fields
 config.resolver = {
   ...config.resolver,
   assetExts: [...config.resolver.assetExts, 'pem', 'crt', 'key'],
+  unstable_enablePackageExports: true,
 };
 
 module.exports = config;

@@ -10,7 +10,7 @@ import * as cdk from 'aws-cdk-lib';
 
 // Load environment variables from .env file
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
-import { SmuppyStack } from '../lib/smuppy-stack';
+import { SmuppyStack, SmuppyStackProps } from '../lib/smuppy-stack';
 import { SmuppyGlobalStack } from '../lib/smuppy-global-stack';
 import { SecurityPhase2Stack } from '../lib/security-phase2-stack';
 
@@ -42,7 +42,7 @@ const envConfig = {
   staging: {
     skipSecurityStack: false,
     alertEmail: 'staging-alerts@smuppy.com',
-    apiDomain: 'api-staging.smuppy.com',
+    apiDomain: undefined,  // Disabled: no Route53 hosted zone for staging DNS validation
     graphqlDomain: 'graphql-staging.smuppy.com',
   },
   production: {
@@ -66,6 +66,9 @@ const coreStack = new SmuppyStack(app, `SmuppyStack-${environment}`, {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: primaryRegion,
   },
+  alertEmail: config.alertEmail,
+  apiDomain: config.apiDomain,
+  hostedZoneId: process.env.HOSTED_ZONE_ID,
   description: `Smuppy Core Infrastructure - ${environment}`,
   tags: {
     Project: 'Smuppy',

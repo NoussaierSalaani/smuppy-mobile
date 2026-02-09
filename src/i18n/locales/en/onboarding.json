@@ -1,0 +1,94 @@
+{
+  "onboarding": {
+    "getStarted": "Get Started",
+    "next": "Next",
+    "skip": "Skip",
+    "done": "Done",
+    "back": "Back",
+
+    "interests": {
+      "title": "What are your interests?",
+      "subtitle": "Select at least 3 topics you're passionate about",
+      "search": "Search interests",
+      "selected": "{{count}} selected",
+      "minRequired": "Minimum 3 required"
+    },
+
+    "expertise": {
+      "title": "What's your expertise?",
+      "subtitle": "Select your areas of expertise",
+      "search": "Search expertise",
+      "selected": "{{count}} selected"
+    },
+
+    "profile": {
+      "title": "Create your profile",
+      "subtitle": "Personalize your presence on Smuppy",
+      "uploadPhoto": "Add photo",
+      "changePhoto": "Change photo",
+      "displayName": "Display name",
+      "username": "Username",
+      "bio": "Bio",
+      "bioPlaceholder": "Tell us about yourself...",
+      "location": "Location",
+      "website": "Website"
+    },
+
+    "accountType": {
+      "title": "Choose your account type",
+      "subtitle": "You can always change this later",
+      "personal": {
+        "title": "Personal",
+        "description": "For users who want to discover and connect"
+      },
+      "creator": {
+        "title": "Pro Creator",
+        "description": "For coaches, trainers, and content creators"
+      },
+      "business": {
+        "title": "Pro Business",
+        "description": "For gyms, studios, and businesses"
+      }
+    },
+
+    "businessInfo": {
+      "title": "Business information",
+      "businessName": "Business name",
+      "category": "Category",
+      "address": "Address",
+      "phone": "Phone",
+      "description": "Description",
+      "selectCategory": "Select category"
+    },
+
+    "guidelines": {
+      "title": "Community Guidelines",
+      "subtitle": "Smuppy is a supportive community",
+      "respect": "Be respectful",
+      "respectDesc": "Treat others as you'd like to be treated",
+      "authentic": "Be authentic",
+      "authenticDesc": "Be yourself and share your journey sincerely",
+      "safe": "Stay safe",
+      "safeDesc": "Don't share sensitive personal information",
+      "agree": "I agree to follow these guidelines"
+    },
+
+    "findFriends": {
+      "title": "Find your friends",
+      "subtitle": "Connect with people you know",
+      "connectContacts": "Connect your contacts",
+      "skipForNow": "Skip for now",
+      "search": "Search users",
+      "follow": "Follow",
+      "following": "Following"
+    },
+
+    "success": {
+      "title": "You're all set!",
+      "subtitle": "Welcome to Smuppy {{name}}",
+      "description": "Your account is set up and you can now explore the community",
+      "goToFeed": "Go to feed",
+      "completeProfile": "Complete my profile"
+    }
+  }
+}

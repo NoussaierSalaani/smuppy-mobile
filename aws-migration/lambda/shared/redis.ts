@@ -2,20 +2,24 @@
  * Shared Redis Connection Module
  * Provides secure Redis connection for all Lambda handlers
  *
+ * Supports both standalone and cluster mode:
+ * - Standalone: staging (numNodeGroups: 1, replicasPerNodeGroup: 0)
+ * - Cluster: production (numNodeGroups: 2, replicasPerNodeGroup: 2)
+ *
  * SECURITY:
  * - Uses TLS for transit encryption
  * - Uses auth token from Secrets Manager
  * - Caches connection across Lambda invocations
  */
 
-import Redis from 'ioredis';
+import Redis, { Cluster } from 'ioredis';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { createLogger } from '../api/utils/logger';
 
 const log = createLogger('redis');
 
 // Cached Redis instance (reused across Lambda invocations)
-let redis: Redis | null = null;
+let redis: Redis | Cluster | null = null;
 let cachedAuthToken: { token: string; expiresAt: number } | null = null;
 
 // Auth token cache TTL: 30 minutes (allows for credential rotation)
@@ -71,8 +75,11 @@ async function getRedisAuthToken(): Promise<string | null> {
 /**
  * Get or create Redis connection
  * Returns null if Redis is not configured (graceful degradation)
+ *
+ * Automatically uses Redis.Cluster when REDIS_CLUSTER_MODE=true (production),
+ * and standalone Redis otherwise (staging).
  */
-export async function getRedis(): Promise<Redis | null> {
+export async function getRedis(): Promise<Redis | Cluster | null> {
   const redisEndpoint = process.env.REDIS_ENDPOINT;
 
   if (!redisEndpoint) {
@@ -95,42 +102,66 @@ export async function getRedis(): Promise<Redis | null> {
 
   // Get auth token
   const authToken = await getRedisAuthToken();
+  const port = parseInt(process.env.REDIS_PORT || '6379');
+  const isClusterMode = process.env.REDIS_CLUSTER_MODE === 'true';
 
-  // Create new connection with security settings
-  redis = new Redis({
-    host: redisEndpoint,
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    // SECURITY: TLS required - ElastiCache has transit encryption enabled
-    tls: {},
-    // SECURITY: Auth token for authentication
-    password: authToken || undefined,
-    // Connection settings optimized for Lambda
-    maxRetriesPerRequest: 3,
-    connectTimeout: 5000,
-    commandTimeout: 3000,
-    // Reconnect settings
-    retryStrategy: (times: number) => {
-      if (times > 3) {
-        return null; // Stop retrying after 3 attempts
-      }
-      return Math.min(times * 100, 1000); // Exponential backoff
-    },
-    // Enable offline queue to handle reconnections
-    enableOfflineQueue: true,
-    lazyConnect: true,
-  });
-
-  // Handle connection errors
-  redis.on('error', (err: Error) => {
-    log.error('Connection error', err);
-  });
-
-  redis.on('close', () => {
-    log.info('Connection closed');
-  });
-
-  // Connect
   try {
+    if (isClusterMode) {
+      // Cluster mode: production with multiple shards
+      // Redis.Cluster auto-discovers all shards from the configuration endpoint
+      redis = new Cluster(
+        [{ host: redisEndpoint, port }],
+        {
+          redisOptions: {
+            tls: {},
+            password: authToken || undefined,
+            connectTimeout: 5000,
+            commandTimeout: 3000,
+          },
+          clusterRetryStrategy: (times: number) => {
+            if (times > 3) {
+              return null;
+            }
+            return Math.min(times * 100, 1000);
+          },
+          enableOfflineQueue: true,
+          lazyConnect: true,
+          dnsLookup: (address, callback) => callback(null, address),
+          slotsRefreshTimeout: 10000,
+          slotsRefreshInterval: 5000,
+        }
+      );
+    } else {
+      // Standalone mode: staging with single node
+      redis = new Redis({
+        host: redisEndpoint,
+        port,
+        tls: {},
+        password: authToken || undefined,
+        maxRetriesPerRequest: 3,
+        connectTimeout: 5000,
+        commandTimeout: 3000,
+        retryStrategy: (times: number) => {
+          if (times > 3) {
+            return null;
+          }
+          return Math.min(times * 100, 1000);
+        },
+        enableOfflineQueue: true,
+        lazyConnect: true,
+      });
+    }
+
+    // Handle connection errors
+    redis.on('error', (err: Error) => {
+      log.error('Connection error', err);
+    });
+
+    redis.on('close', () => {
+      log.info('Connection closed');
+    });
+
+    // Connect
     await redis.connect();
   } catch (error) {
     log.error('Failed to connect', error);
@@ -140,4 +171,3 @@ export async function getRedis(): Promise<Redis | null> {
 
   return redis;
 }
-

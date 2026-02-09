@@ -118,6 +118,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
         WHERE to_tsvector('english', p.content) @@ plainto_tsquery('english', $1)
+          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+          AND p.visibility != 'hidden'
         ORDER BY p.created_at DESC
         LIMIT $2 OFFSET $3
       `;
@@ -140,6 +142,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
         WHERE p.content ILIKE $1
+          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+          AND p.visibility != 'hidden'
         ORDER BY p.created_at DESC
         LIMIT $2 OFFSET $3
       `;

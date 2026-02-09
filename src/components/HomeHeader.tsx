@@ -16,7 +16,8 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { SmuppyText } from './SmuppyLogo';
 import { useTabBar } from '../context/TabBarContext';
 import { useTheme } from '../hooks/useTheme';
-import { useUserStore, useAppStore } from '../stores';
+import { useUserStore } from '../stores/userStore';
+import { useAppStore } from '../stores/appStore';
 import { LiquidTabs } from './LiquidTabs';
 import { HIT_SLOP } from '../config/theme';
 

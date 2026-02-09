@@ -791,6 +791,16 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goToUserProfile, handleTrackUser, trackingUserIds]);
 
+  const handleCloseMenu = useCallback(() => setMenuVisible(false), []);
+
+  const handleNavigateSearch = useCallback(() => {
+    navigation.navigate('Search');
+  }, [navigation]);
+
+  const handleRetryFetch = useCallback(() => {
+    fetchPosts(undefined, true);
+  }, [fetchPosts]);
+
   const handleLikersPress = useCallback((postId: string) => {
     navigation.navigate('PostLikers', { postId });
   }, [navigation]);
@@ -830,7 +840,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       <View style={styles.suggestionsSectionHeader}>
         <Text style={styles.suggestionsSectionTitle}>Suggestions</Text>
         <TouchableOpacity
-          onPress={() => navigation.navigate('Search')}
+          onPress={handleNavigateSearch}
           accessibilityLabel="See all suggestions"
           accessibilityRole="button"
           accessibilityHint="Opens search to find more users"
@@ -870,7 +880,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             <Text style={styles.suggestionsEmptyText}>No recommendations available right now</Text>
             <TouchableOpacity
               style={styles.suggestionsEmptyCTA}
-              onPress={() => navigation.navigate('Search')}
+              onPress={handleNavigateSearch}
               accessibilityRole="button"
               accessibilityLabel="Explore users"
               accessibilityHint="Opens search to find people to follow"
@@ -893,7 +903,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       </View>
     </View>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [suggestions, suggestionsExhausted, renderSuggestion, navigation, inviteFriends]);
+  ), [suggestions, suggestionsExhausted, renderSuggestion, handleNavigateSearch, inviteFriends]);
 
   // List footer with loading indicator
   const ListFooter = useCallback(() => {
@@ -936,20 +946,20 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       {loadError ? (
         <TouchableOpacity
           style={styles.emptyStateButton}
-          onPress={() => fetchPosts(undefined, true)}
+          onPress={handleRetryFetch}
         >
           <Text style={styles.emptyStateButtonText}>Retry</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
           style={styles.emptyStateButton}
-          onPress={() => navigation.navigate('Search')}
+          onPress={handleNavigateSearch}
         >
           <Text style={styles.emptyStateButtonText}>Find People</Text>
         </TouchableOpacity>
       )}
     </View>
-  ), [navigation, styles, colors, loadError, fetchPosts]);
+  ), [handleNavigateSearch, styles, colors, loadError, handleRetryFetch]);
 
   // Navigate to Peaks screen - MUST be before any conditional returns (Rules of Hooks)
   const openPeaks = useCallback(() => {
@@ -1005,12 +1015,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         visible={menuVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
+        onRequestClose={handleCloseMenu}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
           activeOpacity={1}
-          onPress={() => setMenuVisible(false)}
+          onPress={handleCloseMenu}
         >
           <View style={styles.menuContainer}>
             <TouchableOpacity style={styles.menuItem} onPress={handleReportPost}>
@@ -1023,7 +1033,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemLast]}
-              onPress={() => setMenuVisible(false)}
+              onPress={handleCloseMenu}
             >
               <Ionicons name="close-outline" size={22} color={colors.gray} />
               <Text style={[styles.menuItemText, styles.menuItemTextCancel]}>Cancel</Text>

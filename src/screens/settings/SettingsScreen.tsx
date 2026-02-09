@@ -147,7 +147,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       await refetch();
     } catch (error) {
       if (__DEV__) console.warn('Toggle privacy error:', error);
-      showError('Error', 'Failed to update privacy setting.');
+      showError(t('common:error'), t('settings:errors:privacyUpdate'));
     } finally {
       setTogglingPrivacy(false);
     }
@@ -220,7 +220,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     try {
       const currentUser = await backend.getCurrentUser();
       if (!currentUser) {
-        showError('Error', 'User not found');
+        showError(t('common:error'), t('settings:errors:userNotFound'));
         return;
       }
 
@@ -256,7 +256,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     } finally {
       setDeleting(false);
     }
-  }, [user?.id, showError]);
+  }, [user?.id, showError, t]);
 
   const handleMenuItemPress = useCallback((item: { screen: string; params?: Record<string, unknown> }) => {
     hapticButtonPress();
@@ -360,14 +360,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <View style={styles.modalIconBox}>
             <Ionicons name="log-out-outline" size={32} color="#FF3B30" />
           </View>
-          <Text style={styles.modalTitle}>Log out</Text>
-          <Text style={styles.modalMessage}>Are you sure you want to log out of your account?</Text>
+          <Text style={styles.modalTitle}>{t('settings:logout:title')}</Text>
+          <Text style={styles.modalMessage}>{t('settings:logout:message')}</Text>
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleCancelLogout} disabled={loggingOut}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('settings:logout:cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleConfirmLogout} disabled={loggingOut}>
-              {loggingOut ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Yes, Logout</Text>}
+              {loggingOut ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>{t('settings:logout:confirm')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -382,14 +382,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           <View style={styles.modalIconBox}>
             <Ionicons name="trash-outline" size={32} color="#FF3B30" />
           </View>
-          <Text style={styles.modalTitle}>Delete Account</Text>
-          <Text style={styles.modalMessage}>This action is permanent and cannot be undone. All your data, posts, and connections will be deleted.</Text>
+          <Text style={styles.modalTitle}>{t('settings:deleteAccount:title')}</Text>
+          <Text style={styles.modalMessage}>{t('settings:deleteAccount:message')}</Text>
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleCancelDelete} disabled={deleting}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('settings:deleteAccount:cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleConfirmDelete} disabled={deleting}>
-              {deleting ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Delete</Text>}
+              {deleting ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>{t('settings:deleteAccount:confirm')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -655,7 +655,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <View style={[styles.menuItemIcon, styles.dangerIcon]}>
                 <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
               </View>
-              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>Logout</Text>
+              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>{t('settings:accountSettings:logout')}</Text>
               <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
             </TouchableOpacity>
 
@@ -667,7 +667,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <View style={[styles.menuItemIcon, styles.dangerIcon]}>
                 <Ionicons name="trash-outline" size={20} color="#FF3B30" />
               </View>
-              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>Delete Account</Text>
+              <Text style={[styles.menuItemLabel, styles.dangerLabel]}>{t('settings:accountSettings:deleteAccount')}</Text>
               <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
             </TouchableOpacity>
           </View>

@@ -14,6 +14,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { BlockedUser } from '../../services/database';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTranslation } from 'react-i18next';
 import { resolveDisplayName } from '../../types/profile';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
@@ -22,6 +23,7 @@ interface BlockedUsersScreenProps {
 }
 
 const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { showConfirm, showError } = useSmuppyAlert();
@@ -58,14 +60,14 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
           if (!error) {
             setBlockedUsers(prev => prev.filter(u => u.blocked_user_id !== userId));
           } else {
-            showError('Error', 'Failed to unblock user. Please try again.');
+            showError(t('common:error'), t('settings:errors:unblockUser'));
           }
         } finally {
           setUnblocking(prev => ({ ...prev, [userId]: false }));
         }
       }
     );
-  }, [unblock, showConfirm, showError]);
+  }, [unblock, showConfirm, showError, t]);
 
   const renderBlockedUser = useCallback(({ item }: { item: BlockedUser }) => {
     const user = item.blocked_user;
@@ -93,19 +95,19 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
           {isUnblocking ? (
             <ActivityIndicator size="small" color={colors.primaryGreen} />
           ) : (
-            <Text style={styles.unblockBtnText}>Unblock</Text>
+            <Text style={styles.unblockBtnText}>{t('settings:blockedUsers:unblock')}</Text>
           )}
         </TouchableOpacity>
       </View>
     );
-  }, [unblocking, handleUnblock, navigation, styles, colors]);
+  }, [unblocking, handleUnblock, navigation, styles, colors, t]);
 
   const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
         <Ionicons name="ban-outline" size={48} color={colors.gray} />
       </View>
-      <Text style={styles.emptyTitle}>No Blocked Users</Text>
+      <Text style={styles.emptyTitle}>{t('settings:blockedUsers:empty')}</Text>
       <Text style={styles.emptySubtitle}>
         Users you block won't be able to see your content or interact with you.
       </Text>
@@ -121,7 +123,7 @@ const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Blocked Users</Text>
+        <Text style={styles.headerTitle}>{t('settings:blockedUsers:title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 

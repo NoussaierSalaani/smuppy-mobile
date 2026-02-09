@@ -8,6 +8,7 @@ import { ALL_BUSINESS_CATEGORIES } from '../../config/businessCategories';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks/queries';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTranslation } from 'react-i18next';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface EditBusinessCategoryScreenProps {
@@ -16,6 +17,7 @@ interface EditBusinessCategoryScreenProps {
 }
 
 export default function EditBusinessCategoryScreen({ navigation, route }: EditBusinessCategoryScreenProps) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
@@ -48,7 +50,7 @@ export default function EditBusinessCategoryScreen({ navigation, route }: EditBu
       await refetch();
       navigation.goBack();
     } catch (_error: unknown) {
-      showError('Error', 'Failed to save business category. Please try again.');
+      showError(t('common:error'), t('settings:errors:saveBusinessCategory'));
     } finally {
       setIsSaving(false);
     }
@@ -102,7 +104,7 @@ export default function EditBusinessCategoryScreen({ navigation, route }: EditBu
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Business Category</Text>
+        <Text style={styles.headerTitle}>{t('settings:businessCategory:title')}</Text>
         <TouchableOpacity
           style={[styles.saveButton, (!hasChanges || isSaving) && styles.saveButtonDisabled]}
           onPress={handleSave}

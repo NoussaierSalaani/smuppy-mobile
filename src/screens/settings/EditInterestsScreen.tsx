@@ -8,6 +8,7 @@ import { ALL_INTERESTS } from '../../config/interests';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks/queries';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTranslation } from 'react-i18next';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface EditInterestsScreenProps {
@@ -16,6 +17,7 @@ interface EditInterestsScreenProps {
 }
 
 export default function EditInterestsScreen({ navigation, route }: EditInterestsScreenProps) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
@@ -70,7 +72,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
 
       navigation.goBack();
     } catch (_error: unknown) {
-      showError('Error', 'Failed to save interests. Please try again.');
+      showError(t('common:error'), t('settings:errors:saveInterests'));
     } finally {
       setIsSaving(false);
     }
@@ -123,7 +125,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Interests</Text>
+        <Text style={styles.headerTitle}>{t('settings:editInterests:title')}</Text>
         <TouchableOpacity
           style={[styles.saveButton, (!hasChanges || isSaving) && styles.saveButtonDisabled]}
           onPress={handleSave}

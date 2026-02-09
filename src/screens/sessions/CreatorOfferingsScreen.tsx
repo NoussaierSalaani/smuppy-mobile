@@ -208,29 +208,38 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
     }
   };
 
-  const handleBookSession = (offering: SessionOffering) => {
+  const handleBookSession = useCallback((offering: SessionOffering) => {
     if (!creator) return;
     navigation.navigate('BookSession', {
       creatorId: creator.id,
       preselectedDuration: offering.duration,
     });
-  };
+  }, [creator, navigation]);
 
-  const handleBuyPack = (pack: Pack) => {
+  const handleBuyPack = useCallback((pack: Pack) => {
     if (!creator) return;
     navigation.navigate('PackPurchase', {
       creatorId: creator.id,
       pack,
     });
-  };
+  }, [creator, navigation]);
 
-  const handleSubscribeChannel = (tier: ChannelTier) => {
+  const handleSubscribeChannel = useCallback((tier: ChannelTier) => {
     if (!creator) return;
     navigation.navigate('ChannelSubscribe', {
       creatorId: creator.id,
       tier,
     });
-  };
+  }, [creator, navigation]);
+
+  // Extracted handlers
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleTabSessions = useCallback(() => setActiveTab('sessions'), []);
+  const handleTabPacks = useCallback(() => setActiveTab('packs'), []);
+  const handleTabChannel = useCallback(() => setActiveTab('channel'), []);
+  const handleNavigateCreatorProfile = useCallback(() => {
+    if (creator) navigation.navigate('UserProfile', { userId: creator.id });
+  }, [creator, navigation]);
 
   const renderSessionsTab = () => (
     <View style={styles.tabContent}>
@@ -238,9 +247,9 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         Book a 1:1 video session with {creator?.name || 'this creator'}
       </Text>
       {sessionOfferings.length === 0 ? (
-        <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+        <View style={styles.emptyStateContainer}>
           <Ionicons name="videocam-outline" size={48} color={colors.gray} />
-          <Text style={{ color: colors.gray, marginTop: 12 }}>No sessions available</Text>
+          <Text style={styles.emptyStateText}>No sessions available</Text>
         </View>
       ) : null}
       {sessionOfferings.map(offering => (
@@ -272,9 +281,9 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         Save with monthly session packs
       </Text>
       {packs.length === 0 ? (
-        <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+        <View style={styles.emptyStateContainer}>
           <Ionicons name="cube-outline" size={48} color={colors.gray} />
-          <Text style={{ color: colors.gray, marginTop: 12 }}>No packs available</Text>
+          <Text style={styles.emptyStateText}>No packs available</Text>
         </View>
       ) : null}
       {packs.map(pack => (
@@ -376,7 +385,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
                 <Text style={styles.subscribeButtonText}>Subscribe</Text>
               </LinearGradient>
             ) : (
-              <Text style={[styles.subscribeButtonText, { color: colors.primary }]}>Subscribe</Text>
+              <Text style={styles.subscribeButtonTextOutline}>Subscribe</Text>
             )}
           </TouchableOpacity>
         </TouchableOpacity>
@@ -385,31 +394,34 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
   );
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const containerStyle = useMemo(() => [styles.container, { paddingTop: insets.top }], [styles.container, insets.top]);
+  const errorContainerStyle = useMemo(() => [styles.container, { paddingTop: insets.top, justifyContent: 'center' as const, alignItems: 'center' as const }], [styles.container, insets.top]);
+  const bottomSpacerStyle = useMemo(() => ({ height: insets.bottom + 20 }), [insets.bottom]);
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={containerStyle}>
         <View style={styles.header}>
           <SkeletonBase width={40} height={40} borderRadius={20} />
           <SkeletonBase width={100} height={20} borderRadius={10} />
-          <View style={{ width: 40 }} />
+          <View style={styles.skeletonHeaderSpacer} />
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 20, padding: 16 }}>
+        <View style={styles.skeletonCreatorRow}>
           <SkeletonBase width={64} height={64} borderRadius={32} />
-          <View style={{ marginLeft: 14, flex: 1 }}>
+          <View style={styles.skeletonNameContainer}>
             <SkeletonLine width="60%" height={18} />
-            <SkeletonLine width="40%" height={13} style={{ marginTop: 8 }} />
+            <SkeletonLine width="40%" height={13} style={styles.skeletonLineSpacing} />
           </View>
         </View>
-        <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 20, gap: 8 }}>
+        <View style={styles.skeletonTabsRow}>
           <SkeletonBase width={100} height={44} borderRadius={10} />
           <SkeletonBase width={100} height={44} borderRadius={10} />
           <SkeletonBase width={100} height={44} borderRadius={10} />
         </View>
-        <View style={{ paddingHorizontal: 16 }}>
+        <View style={styles.skeletonContent}>
           <SkeletonLine width="70%" height={14} />
-          <SkeletonBase width={340} height={120} borderRadius={16} style={{ marginTop: 16 }} />
-          <SkeletonBase width={340} height={120} borderRadius={16} style={{ marginTop: 12 }} />
+          <SkeletonBase width={340} height={120} borderRadius={16} style={styles.skeletonCardFirst} />
+          <SkeletonBase width={340} height={120} borderRadius={16} style={styles.skeletonCardNext} />
         </View>
       </View>
     );
@@ -417,21 +429,21 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
 
   if (!creator) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={errorContainerStyle}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.gray} />
-        <Text style={{ color: colors.gray, marginTop: 16 }}>Creator not found</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.primary }}>Go back</Text>
+        <Text style={styles.errorText}>Creator not found</Text>
+        <TouchableOpacity onPress={handleGoBack} style={styles.errorGoBackButton}>
+          <Text style={styles.errorGoBackText}>Go back</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={containerStyle}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>Offerings</Text>
@@ -442,7 +454,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         {/* Creator Info */}
         <TouchableOpacity
           style={styles.creatorCard}
-          onPress={() => navigation.navigate('UserProfile', { userId: creator.id })}
+          onPress={handleNavigateCreatorProfile}
         >
           <AvatarImage source={creator.avatar} size={64} style={styles.creatorAvatar} />
           <View style={styles.creatorInfo}>
@@ -462,7 +474,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         <View style={styles.tabsContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'sessions' && styles.activeTab]}
-            onPress={() => setActiveTab('sessions')}
+            onPress={handleTabSessions}
           >
             <Ionicons
               name="videocam"
@@ -475,7 +487,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'packs' && styles.activeTab]}
-            onPress={() => setActiveTab('packs')}
+            onPress={handleTabPacks}
           >
             <Ionicons
               name="cube"
@@ -488,7 +500,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'channel' && styles.activeTab]}
-            onPress={() => setActiveTab('channel')}
+            onPress={handleTabChannel}
           >
             <Ionicons
               name="heart"
@@ -506,7 +518,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         {activeTab === 'packs' && renderPacksTab()}
         {activeTab === 'channel' && renderChannelTab()}
 
-        <View style={{ height: insets.bottom + 20 }} />
+        <View style={bottomSpacerStyle} />
       </ScrollView>
     </View>
   );
@@ -840,6 +852,63 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     color: colors.white,
     textAlign: 'center',
     paddingVertical: 14,
+  },
+  subscribeButtonTextOutline: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlign: 'center',
+    paddingVertical: 14,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyStateText: {
+    color: colors.gray,
+    marginTop: 12,
+  },
+  errorText: {
+    color: colors.gray,
+    marginTop: 16,
+  },
+  errorGoBackButton: {
+    marginTop: 16,
+  },
+  errorGoBackText: {
+    color: colors.primary,
+  },
+  skeletonHeaderSpacer: {
+    width: 40,
+  },
+  skeletonCreatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 20,
+    padding: 16,
+  },
+  skeletonNameContainer: {
+    marginLeft: 14,
+    flex: 1,
+  },
+  skeletonLineSpacing: {
+    marginTop: 8,
+  },
+  skeletonTabsRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 20,
+    gap: 8,
+  },
+  skeletonContent: {
+    paddingHorizontal: 16,
+  },
+  skeletonCardFirst: {
+    marginTop: 16,
+  },
+  skeletonCardNext: {
+    marginTop: 12,
   },
 });
 

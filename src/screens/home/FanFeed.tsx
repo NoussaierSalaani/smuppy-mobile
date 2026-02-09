@@ -357,8 +357,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         if (refresh) {
           showError('Refresh failed', error);
         }
+        // Keep existing posts on error — only clear if no cached posts
         if (refresh || isInitial) {
-          setPosts([]);
+          setPosts(prev => prev.length > 0 ? prev : []);
           setHasMore(false);
           setLoadError(error);
         }
@@ -412,7 +413,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     } catch (err) {
       if (__DEV__) console.warn('[FanFeed] Error:', err);
       if (refresh || isInitial) {
-        setPosts([]);
+        // Keep existing posts on error — only clear if no cached posts
+        setPosts(prev => prev.length > 0 ? prev : []);
         setHasMore(false);
         setLoadError('Unable to load feed. Check your connection and try again.');
       }

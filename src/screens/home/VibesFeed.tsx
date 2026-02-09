@@ -71,6 +71,23 @@ export const clearVibesFeedCache = () => {
 
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
 
+// Gradient palettes for text-only posts (no media) — deterministic by post ID
+const TEXT_POST_GRADIENTS: readonly [string, string][] = [
+  ['#667eea', '#764ba2'],
+  ['#f093fb', '#f5576c'],
+  ['#4facfe', '#00f2fe'],
+  ['#43e97b', '#38f9d7'],
+  ['#fa709a', '#fee140'],
+  ['#a18cd1', '#fbc2eb'],
+  ['#ffecd2', '#fcb69f'],
+  ['#89f7fe', '#66a6ff'],
+] as const;
+
+const getTextPostGradient = (postId: string): readonly [string, string] => {
+  const index = Math.abs(postId.charCodeAt(0) + postId.charCodeAt(postId.length - 1)) % TEXT_POST_GRADIENTS.length;
+  return TEXT_POST_GRADIENTS[index];
+};
+
 // UUID validation regex (CLAUDE.md compliance)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -245,7 +262,9 @@ interface VibeCardProps {
   onUserPress: (userId: string) => void;
 }
 
-const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onUserPress }) => (
+const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onUserPress }) => {
+  const hasMedia = !!post.media;
+  return (
   <DoubleTapLike
     key={post.id}
     onDoubleTap={() => { if (!post.isLiked) onLike(post.id); }}
@@ -253,7 +272,16 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
     showAnimation={!post.isLiked}
     style={[styles.vibeCard, { height: post.height }]}
   >
-    <OptimizedImage source={post.media} style={styles.vibeImage} recyclingKey={post.id} />
+    {hasMedia ? (
+      <OptimizedImage source={post.media} style={styles.vibeImage} recyclingKey={post.id} />
+    ) : (
+      <LinearGradient
+        colors={getTextPostGradient(post.id) as unknown as [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.vibeImage}
+      />
+    )}
 
     {post.type === 'video' && (
       <View style={styles.videoIndicator}>
@@ -294,7 +322,8 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
       </BlurView>
     </View>
   </DoubleTapLike>
-), (prev, next) =>
+  );
+}, (prev, next) =>
   prev.post.id === next.post.id &&
   prev.post.isLiked === next.post.isLiked &&
   prev.post.likes === next.post.likes &&
@@ -1159,7 +1188,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         renderItem={renderGridItem}
         keyExtractor={keyExtractor}
         numColumns={2}
-        {...{ estimatedItemSize: 200 } as Record<string, number>}
+        masonry
+        optimizeItemArrangement
+        {...{ estimatedItemSize: 230 } as Record<string, number>}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight } : undefined}
         onScroll={handleCombinedScroll}

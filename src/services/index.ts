@@ -1,3 +1,2 @@
-// Export all database services
-export * from './database';
-export * from './imageUpload';
+// Barrel intentionally empty — import directly from individual service files
+// e.g., import { ... } from '../services/database'

@@ -728,6 +728,7 @@ export type MainStackParamList = {
   EditBusinessCategory: { currentCategory?: string; returnTo?: string } | undefined;
   PasswordManager: undefined;
   NotificationSettings: undefined;
+  LanguageSettings: undefined;
   ReportProblem: undefined;
   TermsPolicies: undefined;
   BlockedUsers: undefined;
@@ -740,6 +741,14 @@ export type MainStackParamList = {
   ChannelSubscription: { creatorId: string; creatorName?: string; creatorAvatar?: string; creatorUsername?: string; subscriberCount?: number; tier?: string };
   IdentityVerification: undefined;
   PaymentMethods: undefined;
+
+  // Dispute Center
+  DisputeCenter: undefined;
+  CreateDispute: undefined;
+  DisputeDetail: { disputeId: string };
+
+  // Admin
+  AdminDisputes: undefined;
 
   // Private Sessions - Fan
   MySessions: undefined;

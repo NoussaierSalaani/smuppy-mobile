@@ -8,7 +8,8 @@ import { useQuery, useMutation, useInfiniteQuery, useQueryClient } from '@tansta
 import { queryKeys } from '../../lib/queryClient';
 import * as database from '../../services/database';
 import type { Post, Profile } from '../../services/database';
-import { useFeedStore, useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
+import { useFeedStore } from '../../stores/feedStore';
 
 // ============================================
 // USER HOOKS

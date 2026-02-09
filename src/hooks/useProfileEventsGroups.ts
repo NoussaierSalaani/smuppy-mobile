@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import awsAPI from '../services/aws-api';
-import { useUserStore } from '../stores';
+import { useUserStore } from '../stores/userStore';
 
 export interface EventItem {
   id: string;

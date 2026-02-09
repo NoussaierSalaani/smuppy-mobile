@@ -33,6 +33,7 @@ const API2_PREFIXES = [
   '/businesses', '/spots', '/interests', '/expertise', '/hashtags',
   '/devices', '/contacts', '/support', '/account', '/categories',
   '/groups', '/reviews', '/map', '/search/map', '/live-streams',
+  '/disputes',
 ] as const;
 
 interface RequestOptions {

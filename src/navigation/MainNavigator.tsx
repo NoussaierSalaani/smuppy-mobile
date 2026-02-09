@@ -2,7 +2,8 @@ import React, { useState, useEffect, ComponentType } from 'react';
 import { AppState } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useUserStore, useAppStore } from '../stores';
+import { useUserStore } from '../stores/userStore';
+import { useAppStore } from '../stores/appStore';
 import { getCurrentProfile, getConversations } from '../services/database';
 import { awsAPI } from '../services/aws-api';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
@@ -120,6 +121,7 @@ const EditExpertiseScreen = lazyScreen(() => import('../screens/settings/EditExp
 const EditBusinessCategoryScreen = lazyScreen(() => import('../screens/settings/EditBusinessCategoryScreen'));
 const PasswordManagerScreen = lazyScreen(() => import('../screens/settings/PasswordManagerScreen'));
 const NotificationSettingsScreen = lazyScreen(() => import('../screens/settings/NotificationSettingsScreen'));
+const LanguageSettingsScreen = lazyScreen(() => import('../screens/settings/LanguageSettingsScreen'));
 const ReportProblemScreen = lazyScreen(() => import('../screens/settings/ReportProblemScreen'));
 const TermsPoliciesScreen = lazyScreen(() => import('../screens/settings/TermsPoliciesScreen'));
 const BlockedUsersScreen = lazyScreen(() => import('../screens/settings/BlockedUsersScreen'));
@@ -204,6 +206,12 @@ const WebViewScreen = (props: Record<string, unknown>) => (
     </React.Suspense>
   </ErrorBoundary>
 );
+
+// Disputes & Resolution
+const DisputeCenterScreen = lazyScreen(() => import('../screens/disputes/DisputeCenterScreen'));
+const CreateDisputeScreen = lazyScreen(() => import('../screens/disputes/CreateDisputeScreen'));
+const DisputeDetailScreen = lazyScreen(() => import('../screens/disputes/DisputeDetailScreen'));
+const AdminDisputesScreen = lazyScreen(() => import('../screens/admin/AdminDisputesScreen'));
 
 // Find Friends (standalone popup)
 const FindFriendsScreen = lazyScreen(() => import('../screens/onboarding/FindFriendsScreen'));
@@ -408,6 +416,7 @@ export default function MainNavigator() {
       <Stack.Screen name="EditBusinessCategory" component={EditBusinessCategoryScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="LanguageSettings" component={LanguageSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="TermsPolicies" component={TermsPoliciesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
@@ -542,6 +551,16 @@ export default function MainNavigator() {
       )}
       <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="WebView" component={WebViewScreen} options={{ animation: 'slide_from_bottom' }} />
+
+      {/* Disputes & Resolution */}
+      {FEATURES.DISPUTES && (
+      <>
+      <Stack.Screen name="DisputeCenter" component={DisputeCenterScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="CreateDispute" component={CreateDisputeScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="DisputeDetail" component={DisputeDetailScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="AdminDisputes" component={AdminDisputesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      </>
+      )}
 
       {/* Find Friends (standalone popup) */}
       <Stack.Screen name="FindFriends" component={FindFriendsScreen} options={{ animation: 'slide_from_bottom' }} />

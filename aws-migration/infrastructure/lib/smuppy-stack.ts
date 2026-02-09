@@ -22,11 +22,22 @@ import { Construct } from 'constructs';
 import * as path from 'path';
 import { LambdaStack } from './lambda-stack';
 import { LambdaStack2 } from './lambda-stack-2';
+import { LambdaStack3 } from './lambda-stack-3';
 import { LambdaStackDisputes } from './lambda-stack-disputes';
 import { ApiGatewayStack } from './api-gateway-stack';
 import { ApiGateway2Stack } from './api-gateway-2-stack';
 import { ApiGateway3Stack } from './api-gateway-3-stack';
 import { ApiGatewayDisputesStack } from './api-gateway-disputes-stack';
+import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+
+export interface SmuppyStackProps extends cdk.StackProps {
+  alertEmail?: string;
+  apiDomain?: string;
+  hostedZoneId?: string;
+}
 
 /**
  * Smuppy AWS Infrastructure Stack
@@ -38,7 +49,7 @@ import { ApiGatewayDisputesStack } from './api-gateway-disputes-stack';
  * - Low latency for social network features
  */
 export class SmuppyStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: SmuppyStackProps) {
     super(scope, id, props);
 
     const environment = this.node.tryGetContext('environment') || 'staging';
@@ -907,10 +918,17 @@ export class SmuppyStack extends cdk.Stack {
       FCM_SECRET_ARN: `smuppy/${environment}/fcm-credentials`,
     };
 
-    // Pass Redis replication group ID to Lambdas - they will look up endpoint at runtime
-    // This avoids CloudFormation validation issues with attrPrimaryEndPointAddress
-    lambdaEnvironment.REDIS_REPLICATION_GROUP_ID = redisReplicationGroup.ref;
-    lambdaEnvironment.REDIS_PORT = '6379';
+    // Pass Redis configuration endpoint to Lambdas
+    // For cluster mode (numNodeGroups >= 1), use the configuration endpoint
+    // Use PrimaryEndpoint for cluster-mode-disabled Redis (staging: 1 node, 0 replicas)
+    // Use ConfigurationEndpoint for cluster-mode-enabled Redis (production: 2+ nodes)
+    lambdaEnvironment.REDIS_ENDPOINT = isProduction 
+      ? redisReplicationGroup.attrConfigurationEndPointAddress 
+      : redisReplicationGroup.attrPrimaryEndPointAddress;
+    lambdaEnvironment.REDIS_PORT = isProduction 
+      ? redisReplicationGroup.attrConfigurationEndPointPort 
+      : redisReplicationGroup.attrPrimaryEndPointPort;
+    lambdaEnvironment.REDIS_CLUSTER_MODE = isProduction ? 'true' : 'false';
     lambdaEnvironment.REDIS_AUTH_SECRET_ARN = redisAuthToken.secretArn;
     lambdaEnvironment.AWS_REGION_NAME = this.region;
 
@@ -1009,12 +1027,30 @@ export class SmuppyStack extends cdk.Stack {
     });
 
     // ========================================
+    // Lambda Stack 3 - Groups, Events, Battles, Challenges, Feed, Search
+    // ========================================
+    const lambdaStack3 = new LambdaStack3(this, 'LambdaStack3', {
+      vpc,
+      lambdaSecurityGroup,
+      dbCredentials,
+      redisAuthSecret: redisAuthToken,
+      lambdaEnvironment,
+      environment,
+      isProduction,
+      apiLogGroup,
+      rdsProxyArn: cdk.Fn.sub('arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${ProxyId}/*', {
+        ProxyId: cdk.Fn.select(6, cdk.Fn.split(':', rdsProxy.dbProxyArn)),
+      }),
+    });
+
+    // ========================================
     // API Gateway - Nested Stack (to stay under 500 resource limit)
     // ========================================
     const apiGatewayStack = new ApiGatewayStack(this, 'ApiGatewayStack', {
       userPool,
       lambdaStack,
       lambdaStack2,
+      lambdaStack3,
       environment,
       isProduction,
     });
@@ -1027,6 +1063,7 @@ export class SmuppyStack extends cdk.Stack {
       userPool,
       lambdaStack,
       lambdaStack2,
+      lambdaStack3,
       environment,
       isProduction,
     });
@@ -1610,6 +1647,13 @@ export class SmuppyStack extends cdk.Stack {
       masterKey: snsEncryptionKey,
     });
 
+    // Subscribe alert email to receive alarm notifications
+    if (props.alertEmail) {
+      alertsTopic.addSubscription(
+        new snsSubscriptions.EmailSubscription(props.alertEmail)
+      );
+    }
+
     // API Gateway 5xx errors alarm
     const api5xxAlarm = new cloudwatch.Alarm(this, 'Api5xxAlarm', {
       alarmName: `smuppy-${environment}-api-5xx-errors`,
@@ -1793,6 +1837,345 @@ export class SmuppyStack extends cdk.Stack {
     wafBlockedAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertsTopic));
 
     // ========================================
+    // Backup Staleness Alarm
+    // Alert if no backup completed in 26 hours (daily + margin)
+    // ========================================
+    const backupStalenessAlarm = new cloudwatch.Alarm(this, 'BackupStalenessAlarm', {
+      alarmName: `smuppy-${environment}-backup-stale`,
+      alarmDescription: 'No backup completed in last 26 hours',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/Backup',
+        metricName: 'NumberOfRecoveryPointsCompleted',
+        statistic: 'Sum',
+        period: cdk.Duration.hours(26),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+    });
+    backupStalenessAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertsTopic));
+
+    // ========================================
+    // CloudWatch Dashboards - System Observability
+    // ========================================
+
+    // Dashboard 1: API Health
+    const apiDashboard = new cloudwatch.Dashboard(this, 'ApiHealthDashboard', {
+      dashboardName: `smuppy-api-health-${environment}`,
+      periodOverride: cloudwatch.PeriodOverride.AUTO,
+    });
+
+    const apiNames = [
+      `smuppy-api-${environment}`,
+      `smuppy-api2-${environment}`,
+      `smuppy-api3-${environment}`,
+      `smuppy-disputes-api-${environment}`,
+    ];
+
+    const api5xxMetrics = apiNames.map(name => new cloudwatch.Metric({
+      namespace: 'AWS/ApiGateway',
+      metricName: '5XXError',
+      dimensionsMap: { ApiName: name },
+      statistic: 'Sum',
+      period: cdk.Duration.minutes(5),
+    }));
+
+    const api4xxMetrics = apiNames.map(name => new cloudwatch.Metric({
+      namespace: 'AWS/ApiGateway',
+      metricName: '4XXError',
+      dimensionsMap: { ApiName: name },
+      statistic: 'Sum',
+      period: cdk.Duration.minutes(5),
+    }));
+
+    const apiLatencyP50Metrics = apiNames.map(name => new cloudwatch.Metric({
+      namespace: 'AWS/ApiGateway',
+      metricName: 'Latency',
+      dimensionsMap: { ApiName: name },
+      statistic: 'p50',
+      period: cdk.Duration.minutes(5),
+    }));
+
+    const apiLatencyP95Metrics = apiNames.map(name => new cloudwatch.Metric({
+      namespace: 'AWS/ApiGateway',
+      metricName: 'Latency',
+      dimensionsMap: { ApiName: name },
+      statistic: 'p95',
+      period: cdk.Duration.minutes(5),
+    }));
+
+    const apiRequestCountMetrics = apiNames.map(name => new cloudwatch.Metric({
+      namespace: 'AWS/ApiGateway',
+      metricName: 'Count',
+      dimensionsMap: { ApiName: name },
+      statistic: 'Sum',
+      period: cdk.Duration.minutes(5),
+    }));
+
+    apiDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'API 5xx Errors',
+        left: api5xxMetrics,
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'API 4xx Errors',
+        left: api4xxMetrics,
+        width: 12,
+      }),
+    );
+    apiDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'API Latency (p50)',
+        left: apiLatencyP50Metrics,
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'API Latency (p95)',
+        left: apiLatencyP95Metrics,
+        width: 12,
+      }),
+    );
+    apiDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'API Request Count',
+        left: apiRequestCountMetrics,
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'WAF Blocked Requests',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/WAFV2',
+          metricName: 'BlockedRequests',
+          dimensionsMap: {
+            WebACL: `smuppy-waf-${environment}`,
+            Region: this.region,
+            Rule: 'ALL',
+          },
+          statistic: 'Sum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 12,
+      }),
+    );
+
+    // Dashboard 2: Database & Cache
+    const dbDashboard = new cloudwatch.Dashboard(this, 'DatabaseCacheDashboard', {
+      dashboardName: `smuppy-database-cache-${environment}`,
+      periodOverride: cloudwatch.PeriodOverride.AUTO,
+    });
+
+    dbDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'RDS CPU Utilization',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/RDS',
+          metricName: 'CPUUtilization',
+          dimensionsMap: { DBClusterIdentifier: dbCluster.clusterIdentifier },
+          statistic: 'Average',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'RDS Database Connections',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/RDS',
+          metricName: 'DatabaseConnections',
+          dimensionsMap: { DBClusterIdentifier: dbCluster.clusterIdentifier },
+          statistic: 'Maximum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'RDS Freeable Memory',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/RDS',
+          metricName: 'FreeableMemory',
+          dimensionsMap: { DBClusterIdentifier: dbCluster.clusterIdentifier },
+          statistic: 'Minimum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+    );
+    dbDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'RDS Read Latency',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/RDS',
+          metricName: 'ReadLatency',
+          dimensionsMap: { DBClusterIdentifier: dbCluster.clusterIdentifier },
+          statistic: 'Average',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'RDS Write Latency',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/RDS',
+          metricName: 'WriteLatency',
+          dimensionsMap: { DBClusterIdentifier: dbCluster.clusterIdentifier },
+          statistic: 'Average',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'RDS Proxy Client Connections',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/RDS',
+          metricName: 'ClientConnections',
+          dimensionsMap: { ProxyName: `smuppy-proxy-${environment}` },
+          statistic: 'Maximum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+    );
+    dbDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'RDS Proxy Borrow Latency',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/RDS',
+          metricName: 'QueryResponseLatency',
+          dimensionsMap: { ProxyName: `smuppy-proxy-${environment}` },
+          statistic: 'p95',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Redis Connections',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/ElastiCache',
+          metricName: 'CurrConnections',
+          dimensionsMap: { ReplicationGroupId: redisReplicationGroup.ref },
+          statistic: 'Maximum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 12,
+      }),
+    );
+
+    // Dashboard 3: Lambda Performance
+    const lambdaDashboard = new cloudwatch.Dashboard(this, 'LambdaPerformanceDashboard', {
+      dashboardName: `smuppy-lambda-performance-${environment}`,
+      periodOverride: cloudwatch.PeriodOverride.AUTO,
+    });
+
+    lambdaDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Invocations (All)',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Invocations',
+          statistic: 'Sum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Errors (All)',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Errors',
+          statistic: 'Sum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Throttles (All)',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Throttles',
+          statistic: 'Sum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 8,
+      }),
+    );
+    lambdaDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Concurrent Executions',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'ConcurrentExecutions',
+          statistic: 'Maximum',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 12,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Lambda Duration (p95)',
+        left: [new cloudwatch.Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Duration',
+          statistic: 'p95',
+          period: cdk.Duration.minutes(5),
+        })],
+        width: 12,
+      }),
+    );
+
+    // ========================================
+    // Custom Domain + SSL (api.smuppy.com)
+    // ========================================
+    if (props.apiDomain) {
+      // ACM Certificate (DNS-validated)
+      const certificate = new acm.Certificate(this, 'ApiCertificate', {
+        domainName: props.apiDomain,
+        validation: props.hostedZoneId
+          ? acm.CertificateValidation.fromDns(
+              route53.HostedZone.fromHostedZoneAttributes(this, 'CertValidationZone', {
+                hostedZoneId: props.hostedZoneId,
+                zoneName: 'smuppy.com',
+              })
+            )
+          : acm.CertificateValidation.fromEmail(),
+      });
+
+      // Custom domain on primary API Gateway
+      const customDomain = new apigateway.DomainName(this, 'ApiCustomDomain', {
+        domainName: props.apiDomain,
+        certificate,
+        endpointType: apigateway.EndpointType.REGIONAL,
+        securityPolicy: apigateway.SecurityPolicy.TLS_1_2,
+      });
+
+      // Base path mapping — map / to primary API
+      new apigateway.BasePathMapping(this, 'ApiMapping', {
+        domainName: customDomain,
+        restApi: api,
+      });
+
+      // Route53 A record (if hosted zone provided)
+      if (props.hostedZoneId) {
+        const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+          hostedZoneId: props.hostedZoneId,
+          zoneName: 'smuppy.com',
+        });
+        new route53.ARecord(this, 'ApiARecord', {
+          zone,
+          recordName: props.apiDomain,
+          target: route53.RecordTarget.fromAlias(
+            new route53Targets.ApiGatewayDomain(customDomain)
+          ),
+        });
+      }
+
+      new cdk.CfnOutput(this, 'ApiCustomDomainEndpoint', {
+        value: `https://${props.apiDomain}`,
+        description: 'Custom domain API endpoint',
+        exportName: `${id}-ApiCustomDomainEndpoint`,
+      });
+    }
+
+    // ========================================
     // Outputs
     // ========================================
     new cdk.CfnOutput(this, 'AlertsTopicArn', {
@@ -1869,8 +2252,16 @@ export class SmuppyStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'RedisReplicationGroupId', {
       value: redisReplicationGroup.ref,
-      description: 'Redis Replication Group ID (use AWS CLI to get endpoint)',
+      description: 'Redis Replication Group ID',
       exportName: `${id}-RedisReplicationGroupId`,
+    });
+
+    new cdk.CfnOutput(this, 'RedisEndpoint', {
+      value: isProduction 
+        ? redisReplicationGroup.attrConfigurationEndPointAddress 
+        : redisReplicationGroup.attrPrimaryEndPointAddress,
+      description: 'Redis configuration endpoint (used by Lambda)',
+      exportName: `${id}-RedisEndpoint`,
     });
 
     new cdk.CfnOutput(this, 'WebSocketEndpoint', {

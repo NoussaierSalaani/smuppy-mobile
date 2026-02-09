@@ -10,7 +10,7 @@
  */
 
 import { S3Client, CopyObjectCommand, DeleteObjectCommand, PutObjectTaggingCommand, GetObjectTaggingCommand } from '@aws-sdk/client-s3';
-import { RekognitionClient, DetectModerationLabelsCommand } from '@aws-sdk/client-rekognition';
+import { RekognitionClient, DetectModerationLabelsCommand, type ModerationLabel } from '@aws-sdk/client-rekognition';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { createLogger } from '../utils/logger';
 
@@ -82,7 +82,7 @@ export async function handler(event: EventBridgeS3Event): Promise<void> {
       }),
     );
 
-    const labels = rekResponse.ModerationLabels || [];
+    const labels: ModerationLabel[] = rekResponse.ModerationLabels || [];
 
     if (labels.length === 0) {
       // Clean image — tag as passed

@@ -171,6 +171,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const newReply = result.rows[0];
 
+      // Increment reply count on parent peak
+      await db.query(
+        'UPDATE peaks SET peak_replies_count = peak_replies_count + 1, updated_at = NOW() WHERE id = $1',
+        [peakId]
+      );
+
       // Get author info
       const authorResult = await db.query(
         'SELECT id, username, display_name, full_name, avatar_url, is_verified FROM profiles WHERE id = $1',

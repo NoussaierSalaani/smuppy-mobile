@@ -16,6 +16,7 @@ interface AccountStatusResult {
   fullName: string | null;
   avatarUrl: string | null;
   isVerified: boolean;
+  accountType: string;
   moderationStatus: string;
 }
 
@@ -33,7 +34,7 @@ export async function requireActiveAccount(
   const db = await getReaderPool();
 
   const result = await db.query(
-    `SELECT id, username, full_name, avatar_url, is_verified, moderation_status, suspended_until, ban_reason
+    `SELECT id, username, full_name, avatar_url, is_verified, account_type, moderation_status, suspended_until, ban_reason
      FROM profiles
      WHERE cognito_sub = $1`,
     [cognitoSub],
@@ -100,6 +101,7 @@ export async function requireActiveAccount(
     fullName: profile.full_name,
     avatarUrl: profile.avatar_url,
     isVerified: profile.is_verified,
+    accountType: profile.account_type || 'personal',
     moderationStatus: status,
   };
 }

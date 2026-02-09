@@ -121,6 +121,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       full_name: accountCheck.fullName,
       avatar_url: accountCheck.avatarUrl,
       is_verified: accountCheck.isVerified,
+      account_type: accountCheck.accountType,
     };
 
     const db = await getPool();

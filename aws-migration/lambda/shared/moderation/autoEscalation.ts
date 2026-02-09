@@ -15,7 +15,8 @@ import { createLogger } from '../../api/utils/logger';
 
 const log = createLogger('auto-escalation');
 
-interface EscalationResult {
+export interface EscalationResult {
+  [key: string]: unknown;
   action: 'none' | 'hide_post' | 'suspend_user' | 'flag_for_ban';
   targetId: string;
   reason: string;

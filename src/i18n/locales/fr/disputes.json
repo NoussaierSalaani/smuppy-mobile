@@ -1,0 +1,113 @@
+{
+  "disputeCenter": "Centre de litiges",
+  "newDispute": "Nouveau litige",
+  "createDispute": "Créer un litige",
+  "disputeNumber": "Litige #{{number}}",
+  "myDisputes": "Mes litiges",
+  "asComplainant": "En tant que plaignant",
+  "asRespondent": "En tant que défendeur",
+  "allDisputes": "Tous les litiges",
+  "openDisputes": "En cours",
+  "resolvedDisputes": "Résolus",
+  "noDisputes": "Aucun litige",
+  "noDisputesDesc": "Vous n'avez aucun litige en cours",
+  "openDispute": "Ouvrir un litige",
+
+  "types": {
+    "no_show": "Absence du créateur",
+    "incomplete": "Session incomplète",
+    "quality": "Problème de qualité",
+    "technical": "Problème technique",
+    "other": "Autre"
+  },
+
+  "status": {
+    "open": "Ouvert",
+    "under_review": "En cours",
+    "evidence_requested": "Preuves requises",
+    "resolved": "Résolu",
+    "closed": "Fermé"
+  },
+
+  "priority": {
+    "low": "Basse",
+    "normal": "Normale",
+    "high": "Haute",
+    "urgent": "Urgente"
+  },
+
+  "resolution": {
+    "full_refund": "Remboursement total",
+    "partial_refund": "Remboursement partiel",
+    "no_refund": "Aucun remboursement"
+  },
+
+  "selectSession": "Sélectionnez une session",
+  "eligibleSessions": "Sessions éligibles pour un litige (moins de 24h)",
+  "disputeType": "Type de litige",
+  "describeProblem": "Décrivez le problème",
+  "descriptionPlaceholder": "Décrivez en détail ce qui s'est passé...",
+  "minChars": "{{count}} caractères minimum",
+  "refundRequested": "Remboursement demandé",
+  "fullRefund": "Remboursement total",
+  "partialRefund": "Remboursement partiel",
+  "noRefund": "Aucun remboursement",
+
+  "evidence": {
+    "title": "Preuves",
+    "add": "Ajouter une preuve",
+    "yourEvidence": "Vos preuves",
+    "theirEvidence": "Preuves adverses",
+    "none": "Aucune preuve soumise",
+    "screenshot": "Capture d'écran",
+    "recording": "Enregistrement",
+    "document": "Document",
+    "text": "Texte",
+    "maxReached": "Maximum 10 preuves atteint",
+    "description": "Description",
+    "uploaded": "Soumis le {{date}}"
+  },
+
+  "timeline": {
+    "title": "Historique",
+    "disputeOpened": "Litige ouvert",
+    "evidenceSubmitted": "Preuve soumise",
+    "statusChanged": "Statut changé en {{status}}",
+    "resolved": "Litige résolu"
+  },
+
+  "autoVerification": {
+    "title": "Vérification automatique",
+    "approveRefund": "Remboursement recommandé",
+    "investigate": "Investigation requise",
+    "reject": "Aucun remboursement recommandé",
+    "userPresent": "Utilisateur présent",
+    "creatorPresent": "Créateur présent",
+    "expectedDuration": "Durée prévue",
+    "actualDuration": "Durée réelle",
+    "overlap": "Temps ensemble",
+    "connectionQuality": "Qualité de connexion",
+    "qualityGood": "Bonne",
+    "qualityFair": "Moyenne",
+    "qualityPoor": "Faible"
+  },
+
+  "deadline": {
+    "title": "Date limite de soumission",
+    "expired": "Date limite dépassée",
+    "remaining": "{{time}} restant"
+  },
+
+  "actions": {
+    "submitEvidence": "Soumettre une preuve",
+    "acceptResolution": "Accepter la résolution",
+    "appeal": "Contester la décision",
+    "contactSupport": "Contacter le support"
+  },
+
+  "notifications": {
+    "created": "Litige #{{number}} créé avec succès",
+    "evidenceSubmitted": "Preuve soumise avec succès",
+    "resolved": "Litige résolu : {{resolution}}"
+  }
+}

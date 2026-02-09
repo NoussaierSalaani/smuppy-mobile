@@ -14,6 +14,7 @@ import {
   AppState,
   Animated,
   Alert,
+  InteractionManager,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { FlashList } from '@shopify/flash-list';
@@ -30,7 +31,7 @@ import SharedPostBubble from '../../components/SharedPostBubble';
 import { GRADIENTS, SPACING } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { useAppStore } from '../../stores';
+import { useAppStore } from '../../stores/appStore';
 import {
   getMessages,
   sendMessage as sendMessageToDb,
@@ -385,35 +386,37 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   // Track initialization error
   const [initError, setInitError] = useState<string | null>(null);
 
-  // Load or create conversation
+  // Load or create conversation — deferred until after navigation animation
   useEffect(() => {
     let mounted = true;
-    const initConversation = async () => {
-      if (mounted) setInitError(null);
-      if (initialConversationId) {
-        if (mounted) setConversationId(initialConversationId);
-      } else if (userId) {
-        const { data, error } = await getOrCreateConversation(userId);
-        if (!mounted) return;
-        if (error) {
-          if (__DEV__) console.warn('[ChatScreen] Failed to create conversation:', error);
-          setInitError(error);
-          setLoading(false);
-        } else if (data) {
-          setConversationId(data);
+    const task = InteractionManager.runAfterInteractions(() => {
+      const initConversation = async () => {
+        if (mounted) setInitError(null);
+        if (initialConversationId) {
+          if (mounted) setConversationId(initialConversationId);
+        } else if (userId) {
+          const { data, error } = await getOrCreateConversation(userId);
+          if (!mounted) return;
+          if (error) {
+            if (__DEV__) console.warn('[ChatScreen] Failed to create conversation:', error);
+            setInitError(error);
+            setLoading(false);
+          } else if (data) {
+            setConversationId(data);
+          } else {
+            setInitError('Failed to initialize conversation');
+            setLoading(false);
+          }
         } else {
-          setInitError('Failed to initialize conversation');
-          setLoading(false);
+          if (mounted) {
+            setInitError('No conversation or user specified');
+            setLoading(false);
+          }
         }
-      } else {
-        if (mounted) {
-          setInitError('No conversation or user specified');
-          setLoading(false);
-        }
-      }
-    };
-    initConversation();
-    return () => { mounted = false; };
+      };
+      initConversation();
+    });
+    return () => { mounted = false; task.cancel(); };
   }, [initialConversationId, userId]);
 
   // Load messages

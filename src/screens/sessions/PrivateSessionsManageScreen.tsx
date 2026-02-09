@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { GRADIENTS } from '../../config/theme';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI, Session, SessionPack as APISessionPack } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';

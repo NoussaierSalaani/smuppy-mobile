@@ -1,0 +1,17 @@
+{
+  "live": "Ao Vivo",
+  "goLive": "Transmitir Ao Vivo",
+  "liveNow": "Ao Vivo Agora",
+  "upcomingLive": "Próximas Transmissões",
+  "watchLive": "Assistir Ao Vivo",
+  "joinLive": "Entrar no Ao Vivo",
+  "liveChat": "Chat Ao Vivo",
+  "sendMessage": "Enviar mensagem...",
+  "viewers": "espectadores",
+  "endLive": "Encerrar Transmissão",
+  "areYouSureEnd": "Tem certeza de que deseja encerrar a transmissão?",
+  "streamEnded": "Transmissão Encerrada",
+  "replay": "Repetição",
+  "scheduleLive": "Agendar Transmissão",
+  "setReminder": "Definir Lembrete"
+}

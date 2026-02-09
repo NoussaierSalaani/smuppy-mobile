@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
-import { useUserSafetyStore } from '../../stores';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { MutedUser } from '../../services/database';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';

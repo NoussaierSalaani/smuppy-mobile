@@ -1,0 +1,103 @@
+{
+  "settings": {
+    "title": "Settings",
+    "account": "Account",
+    "preferences": "Preferences",
+    "support": "Support",
+    "about": "About",
+    "payments": "Payments & Monetization",
+    "premium": "Unlock tips, unlimited events & more",
+
+    "accountSettings": {
+      "title": "Account Settings",
+      "editProfile": "Edit Profile",
+      "changePassword": "Change Password",
+      "privacy": "Privacy",
+      "notifications": "Notifications",
+      "language": "Language",
+      "blockedUsers": "Blocked Users",
+      "mutedUsers": "Muted Users",
+      "deleteAccount": "Delete Account",
+      "logout": "Log Out",
+      "interests": "Interests",
+      "businessCategory": "Business Category",
+      "upgradeToPro": "Upgrade to Pro Creator",
+      "identityVerification": "Identity Verification"
+    },
+
+    "language": {
+      "title": "Language",
+      "selectLanguage": "Select Language",
+      "current": "Current Language",
+      "reloadRequired": "Reload Required",
+      "reloadMessage": "The app needs to restart to apply the new language",
+      "reloadNow": "Reload Now",
+      "later": "Later",
+      "languages": {
+        "en": "English",
+        "fr": "Français",
+        "es": "Español",
+        "pt-BR": "Português (BR)",
+        "ar": "العربية"
+      }
+    },
+
+    "notifications": {
+      "title": "Notifications",
+      "pushNotifications": "Push Notifications",
+      "emailNotifications": "Email Notifications",
+      "newFollowers": "New Followers",
+      "messages": "Messages",
+      "likes": "Likes",
+      "comments": "Comments",
+      "mentions": "Mentions",
+      "sessionReminders": "Session Reminders",
+      "promotions": "Promotions and Offers",
+      "sound": "Sound",
+      "vibration": "Vibration"
+    },
+
+    "privacy": {
+      "title": "Privacy",
+      "privateAccount": "Private Account",
+      "privateAccountDesc": "Only approved followers can see your content",
+      "showActivity": "Show Activity",
+      "allowTags": "Allow Tags",
+      "allowMentions": "Allow Mentions",
+      "dataUsage": "Data Usage",
+      "downloadData": "Download My Data"
+    },
+
+    "support": {
+      "title": "Support",
+      "helpCenter": "Help Center",
+      "reportProblem": "Report a Problem",
+      "contactUs": "Contact Us",
+      "feedback": "Send Feedback"
+    },
+
+    "about": {
+      "title": "About",
+      "version": "Version",
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "licenses": "Open Source Licenses",
+      "credits": "Credits"
+    },
+
+    "editProfile": {
+      "title": "Edit Profile",
+      "displayName": "Display Name",
+      "username": "Username",
+      "bio": "Bio",
+      "location": "Location",
+      "website": "Website",
+      "interests": "Interests",
+      "expertise": "Expertise",
+      "save": "Save",
+      "saving": "Saving...",
+      "changePhoto": "Change Profile Photo",
+      "changeCover": "Change Cover Photo"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "required": "Este campo é obrigatório",
+  "emailInvalid": "Por favor, insira um e-mail válido",
+  "passwordTooShort": "A senha deve ter pelo menos {{min}} caracteres",
+  "passwordRequirements": "A senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número",
+  "usernameTooShort": "O nome de usuário deve ter pelo menos {{min}} caracteres",
+  "usernameInvalid": "O nome de usuário só pode conter letras, números e underscores",
+  "displayNameTooLong": "O nome de exibição não pode exceder {{max}} caracteres",
+  "bioTooLong": "A biografia não pode exceder {{max}} caracteres",
+  "urlInvalid": "Por favor, insira uma URL válida",
+  "phoneInvalid": "Por favor, insira um número de telefone válido",
+  "codeLength": "O código deve ter {{length}} caracteres",
+  "maxFileSize": "O arquivo não pode exceder {{size}}MB",
+  "captionTooLong": "A legenda não pode exceder {{max}} caracteres"
+}

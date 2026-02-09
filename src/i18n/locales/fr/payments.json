@@ -1,0 +1,79 @@
+{
+  "payments": "Paiements",
+  "paymentMethods": "Moyens de paiement",
+  "addPaymentMethod": "Ajouter un moyen de paiement",
+  "removePaymentMethod": "Supprimer le moyen de paiement",
+  "default": "Par défaut",
+  "setAsDefault": "Définir par défaut",
+
+  "methods": {
+    "card": "Carte",
+    "bank": "Virement bancaire",
+    "paypal": "PayPal",
+    "apple_pay": "Apple Pay",
+    "google_pay": "Google Pay"
+  },
+
+  "card": {
+    "number": "Numéro de carte",
+    "expiry": "Date d'expiration",
+    "cvc": "CVC",
+    "holderName": "Nom du titulaire"
+  },
+
+  "status": {
+    "pending": "En attente",
+    "processing": "En cours",
+    "succeeded": "Réussi",
+    "failed": "Échoué",
+    "refunded": "Remboursé",
+    "disputed": "Contesté"
+  },
+
+  "actions": {
+    "pay": "Payer",
+    "confirm": "Confirmer le paiement",
+    "retry": "Réessayer",
+    "refund": "Rembourser",
+    "downloadReceipt": "Télécharger le reçu"
+  },
+
+  "errors": {
+    "cardDeclined": "Carte refusée",
+    "insufficientFunds": "Fonds insuffisants",
+    "expiredCard": "Carte expirée",
+    "invalidCard": "Carte invalide",
+    "processingError": "Erreur de traitement",
+    "tryAgain": "Veuillez réessayer"
+  },
+
+  "wallet": {
+    "title": "Portefeuille",
+    "balance": "Solde",
+    "earnings": "Gains",
+    "withdraw": "Retirer",
+    "withdrawalHistory": "Historique des retraits",
+    "minimumWithdrawal": "Retrait minimum",
+    "instant": "Instantané",
+    "standard": "Standard (2-3 jours)"
+  },
+
+  "subscription": {
+    "title": "Abonnement",
+    "plan": "Formule",
+    "monthly": "Mensuel",
+    "yearly": "Annuel",
+    "cancel": "Annuler l'abonnement",
+    "renew": "Renouveler",
+    "upgrade": "Passer à",
+    "downgrade": "Passer à",
+    "benefits": "Avantages",
+    "manage": "Gérer l'abonnement"
+  },
+
+  "history": {
+    "title": "Historique",
+    "noTransactions": "Aucune transaction",
+    "viewDetails": "Voir les détails"
+  }
+}

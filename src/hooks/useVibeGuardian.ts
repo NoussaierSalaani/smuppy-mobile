@@ -15,7 +15,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { vibeGuardian, VibeHealthStatus, SessionRecap } from '../services/vibeGuardian';
 import { buildVibeProfile } from '../services/vibeProfile';
 import { isFeatureEnabled } from '../config/featureFlags';
-import { useUserStore } from '../stores';
+import { useUserStore } from '../stores/userStore';
 
 const HEALTH_CHECK_INTERVAL_MS = 15_000; // Check every 15s
 

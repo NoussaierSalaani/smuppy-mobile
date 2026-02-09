@@ -14,7 +14,8 @@ import {
   Image,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUserStore, useUserSafetyStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +24,7 @@ import type { MainStackParamList } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { HIT_SLOP } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useProfile } from '../../hooks';
+import { useProfile } from '../../hooks/queries';
 import { queryKeys } from '../../lib/queryClient';
 import { followUser, unfollowUser, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest, isFollowing as checkIsFollowing } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';

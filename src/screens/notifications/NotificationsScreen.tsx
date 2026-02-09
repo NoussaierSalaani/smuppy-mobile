@@ -18,9 +18,9 @@ import { GRADIENTS, SIZES, SPACING, HIT_SLOP } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { useAppStore } from '../../stores';
+import { useAppStore } from '../../stores/appStore';
 import { NotificationsSkeleton } from '../../components/skeleton';
-import { usePrefetchProfile } from '../../hooks';
+import { usePrefetchProfile } from '../../hooks/queries';
 import { formatTimeAgo } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 

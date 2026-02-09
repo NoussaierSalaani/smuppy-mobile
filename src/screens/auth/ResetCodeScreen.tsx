@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, Animated, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { SIZES } from '../../config/theme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
@@ -50,6 +51,7 @@ interface ResetCodeScreenProps {
 }
 
 export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenProps) {
+  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const [code, setCode] = useState(Array(CODE_LENGTH).fill(''));
   const [error, setError] = useState('');
@@ -94,12 +96,12 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
         // Navigate to new password screen with the code
         navigate('NewPassword', { email, code: fullCode });
       } else {
-        setError('Please enter a valid 6-digit code.');
+        setError(t('auth:invalidCode'));
         triggerShake();
       }
     } catch (err) {
       if (__DEV__) console.warn('[ResetCode] Verification error:', err);
-      setError('An error occurred. Please try again.');
+      setError(t('errors:generic'));
       triggerShake();
     } finally {
       setIsVerifying(false);
@@ -134,7 +136,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
       const normalizedEmail = email.trim().toLowerCase();
       const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-resend');
       if (!awsCheck.allowed) {
-        setError(`Too many attempts. Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
+        setError(t('errors:waitMinutes', { minutes: Math.ceil((awsCheck.retryAfter || 300) / 60) }));
         return;
       }
 
@@ -170,14 +172,14 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
 
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>Verify your identity</Text>
+              <Text style={styles.title}>{t('auth:verifyIdentity')}</Text>
               <Text style={styles.subtitle}>
-                An authentication code has been sent to <Text style={styles.emailText}>{maskEmail(email)}</Text>
+                {t('auth:codeSentTo')} <Text style={styles.emailText}>{maskEmail(email)}</Text>
               </Text>
             </View>
 
             {/* Code Input */}
-            <Text style={styles.label}>Code</Text>
+            <Text style={styles.label}>{t('auth:verificationCode')}</Text>
             <Animated.View style={[styles.codeRow, { transform: [{ translateX: shakeAnim }] }]}>
               {Array.from({ length: CODE_LENGTH }, (_, i) => (
                 <TextInput
@@ -209,10 +211,10 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
 
             {/* Resend */}
             <View style={styles.resendRow}>
-              <Text style={styles.resendText}>Didn't receive a code? </Text>
+              <Text style={styles.resendText}>{t('auth:didntReceiveCode')} </Text>
               <TouchableOpacity onPress={handleResend} disabled={isVerifying}>
                 <Text style={[styles.resendLink, isVerifying && styles.resendDisabled]}>
-                  {canAction ? 'Resend Code' : `Wait ${remainingTime}s`}
+                  {canAction ? t('auth:resendCode') : t('auth:waitSeconds', { seconds: remainingTime })}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -232,8 +234,8 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
           visible={showModal}
           onClose={() => setShowModal(false)}
           seconds={remainingTime || 30}
-          title={canAction ? 'Code Sent!' : 'Please wait'}
-          message={canAction ? 'A new verification code has been sent to your email. You can request another one in' : 'You can request a new code in'}
+          title={canAction ? t('auth:codeSentTitle') : t('common:pleaseWait')}
+          message={canAction ? t('auth:codeSentWithCooldown') : t('auth:requestNewCodeIn')}
         />
       </SafeAreaView>
     </TouchableWithoutFeedback>

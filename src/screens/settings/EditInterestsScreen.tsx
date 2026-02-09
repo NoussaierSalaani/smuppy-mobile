@@ -5,8 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GRADIENTS } from '../../config/theme';
 import { ALL_INTERESTS } from '../../config/interests';
-import { useUpdateProfile, useCurrentProfile } from '../../hooks';
-import { useUserStore } from '../../stores';
+import { useUpdateProfile, useCurrentProfile } from '../../hooks/queries';
+import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 

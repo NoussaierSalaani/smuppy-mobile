@@ -22,7 +22,7 @@ import { GRADIENTS, COLORS } from '../../config/theme';
 
 const STAR_COLOR = COLORS.gold;
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
 import AddReviewSheet from '../../components/AddReviewSheet';
 import type { ReviewData } from '../../components/AddReviewSheet';

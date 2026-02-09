@@ -1,0 +1,97 @@
+{
+  "settings": {
+    "title": "Paramètres",
+    "account": "Compte",
+    "preferences": "Préférences",
+    "support": "Support",
+    "about": "À propos",
+
+    "accountSettings": {
+      "title": "Paramètres du compte",
+      "editProfile": "Modifier le profil",
+      "changePassword": "Changer le mot de passe",
+      "privacy": "Confidentialité",
+      "notifications": "Notifications",
+      "language": "Langue",
+      "blockedUsers": "Utilisateurs bloqués",
+      "mutedUsers": "Utilisateurs masqués",
+      "deleteAccount": "Supprimer le compte",
+      "logout": "Déconnexion"
+    },
+
+    "language": {
+      "title": "Langue",
+      "selectLanguage": "Sélectionner la langue",
+      "current": "Langue actuelle",
+      "reloadRequired": "Redémarrage nécessaire",
+      "reloadMessage": "L'application doit être redémarrée pour appliquer la nouvelle langue",
+      "reloadNow": "Redémarrer maintenant",
+      "later": "Plus tard",
+      "languages": {
+        "en": "English",
+        "fr": "Français",
+        "es": "Español",
+        "pt-BR": "Português (BR)",
+        "ar": "العربية"
+      }
+    },
+
+    "notifications": {
+      "title": "Notifications",
+      "pushNotifications": "Notifications push",
+      "emailNotifications": "Notifications email",
+      "newFollowers": "Nouveaux abonnés",
+      "messages": "Messages",
+      "likes": "J'aime",
+      "comments": "Commentaires",
+      "mentions": "Mentions",
+      "sessionReminders": "Rappels de session",
+      "promotions": "Promotions et offres",
+      "sound": "Son",
+      "vibration": "Vibration"
+    },
+
+    "privacy": {
+      "title": "Confidentialité",
+      "privateAccount": "Compte privé",
+      "privateAccountDesc": "Seuls vos abonnés approuvés peuvent voir votre contenu",
+      "showActivity": "Afficher l'activité",
+      "allowTags": "Autoriser les tags",
+      "allowMentions": "Autoriser les mentions",
+      "dataUsage": "Utilisation des données",
+      "downloadData": "Télécharger mes données"
+    },
+
+    "support": {
+      "title": "Support",
+      "helpCenter": "Centre d'aide",
+      "reportProblem": "Signaler un problème",
+      "contactUs": "Nous contacter",
+      "feedback": "Envoyer un feedback"
+    },
+
+    "about": {
+      "title": "À propos",
+      "version": "Version",
+      "terms": "Conditions d'utilisation",
+      "privacy": "Politique de confidentialité",
+      "licenses": "Licences open source",
+      "credits": "Crédits"
+    },
+
+    "editProfile": {
+      "title": "Modifier le profil",
+      "displayName": "Nom d'affichage",
+      "username": "Nom d'utilisateur",
+      "bio": "Bio",
+      "location": "Localisation",
+      "website": "Site web",
+      "interests": "Intérêts",
+      "expertise": "Expertise",
+      "save": "Enregistrer",
+      "saving": "Enregistrement...",
+      "changePhoto": "Changer la photo de profil",
+      "changeCover": "Changer la photo de couverture"
+    }
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "settings": {
+    "title": "Configuración",
+    "account": "Cuenta",
+    "preferences": "Preferencias",
+    "support": "Soporte",
+    "about": "Acerca de",
+    "payments": "Pagos y Monetización",
+    "premium": "Desbloquea propinas, eventos ilimitados y más",
+
+    "accountSettings": {
+      "title": "Configuración de la Cuenta",
+      "editProfile": "Editar Perfil",
+      "changePassword": "Cambiar Contraseña",
+      "privacy": "Privacidad",
+      "notifications": "Notificaciones",
+      "language": "Idioma",
+      "blockedUsers": "Usuarios Bloqueados",
+      "mutedUsers": "Usuarios Silenciados",
+      "deleteAccount": "Eliminar Cuenta",
+      "logout": "Cerrar Sesión",
+      "interests": "Intereses",
+      "businessCategory": "Categoría de Negocio",
+      "upgradeToPro": "Actualizar a Creador Pro",
+      "identityVerification": "Verificación de Identidad"
+    },
+
+    "language": {
+      "title": "Idioma",
+      "selectLanguage": "Seleccionar idioma",
+      "current": "Idioma actual",
+      "reloadRequired": "Reinicio necesario",
+      "reloadMessage": "La aplicación debe reiniciarse para aplicar el nuevo idioma",
+      "reloadNow": "Reiniciar ahora",
+      "later": "Más tarde",
+      "languages": {
+        "en": "English",
+        "fr": "Français",
+        "es": "Español",
+        "pt-BR": "Português (BR)",
+        "ar": "العربية"
+      }
+    },
+
+    "notifications": {
+      "title": "Notificaciones",
+      "pushNotifications": "Notificaciones Push",
+      "emailNotifications": "Notificaciones por Correo",
+      "newFollowers": "Nuevos Seguidores",
+      "messages": "Mensajes",
+      "likes": "Me gusta",
+      "comments": "Comentarios",
+      "mentions": "Menciones",
+      "sessionReminders": "Recordatorios de Sesiones",
+      "promotions": "Promociones y Ofertas",
+      "sound": "Sonido",
+      "vibration": "Vibración"
+    },
+
+    "privacy": {
+      "title": "Privacidad",
+      "privateAccount": "Cuenta Privada",
+      "privateAccountDesc": "Solo los seguidores aprobados pueden ver tu contenido",
+      "showActivity": "Mostrar Actividad",
+      "allowTags": "Permitir Etiquetas",
+      "allowMentions": "Permitir Menciones",
+      "dataUsage": "Uso de Datos",
+      "downloadData": "Descargar Mis Datos"
+    },
+
+    "support": {
+      "title": "Soporte",
+      "helpCenter": "Centro de Ayuda",
+      "reportProblem": "Reportar un Problema",
+      "contactUs": "Contactarnos",
+      "feedback": "Enviar Comentarios"
+    },
+
+    "about": {
+      "title": "Acerca de",
+      "version": "Versión",
+      "terms": "Términos de Servicio",
+      "privacy": "Política de Privacidad",
+      "licenses": "Licencias de Código Abierto",
+      "credits": "Créditos"
+    },
+
+    "editProfile": {
+      "title": "Editar Perfil",
+      "displayName": "Nombre para Mostrar",
+      "username": "Nombre de Usuario",
+      "bio": "Biografía",
+      "location": "Ubicación",
+      "website": "Sitio Web",
+      "interests": "Intereses",
+      "expertise": "Experiencia",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "changePhoto": "Cambiar Foto de Perfil",
+      "changeCover": "Cambiar Foto de Portada"
+    }
+  }
+}

@@ -26,7 +26,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Activity {

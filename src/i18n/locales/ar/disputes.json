@@ -1,0 +1,17 @@
+{
+  "disputes": "النزاعات",
+  "openDispute": "فتح نزاع",
+  "disputeHistory": "سجل النزاعات",
+  "noDisputes": "لا توجد نزاعات",
+  "noDisputesYet": "ليس لديك نزاعات نشطة",
+  "reason": "السبب",
+  "status": "الحالة",
+  "pending": "قيد الانتظار",
+  "resolved": "تم الحل",
+  "inReview": "قيد المراجعة",
+  "description": "الوصف",
+  "submit": "إرسال النزاع",
+  "disputeSubmitted": "تم إرسال النزاع",
+  "disputeSubmittedDesc": "تم تسجيل نزاعك وسيتم مراجعته قريباً.",
+  "viewDetails": "عرض التفاصيل"
+}

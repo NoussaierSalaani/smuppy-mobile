@@ -27,7 +27,7 @@ import { GRADIENTS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import RouteMapPicker from '../../components/RouteMapPicker';
 import type { RouteResult, Coordinate } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';

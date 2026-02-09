@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions, ImageBackground, Animated, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { GRADIENTS } from '../../config/theme';
 import { SmuppyIcon, SmuppyText } from '../../components/SmuppyLogo';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -15,6 +16,7 @@ interface WelcomeScreenProps {
 }
 
 const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
+  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(height * 0.4)).current;
@@ -55,22 +57,22 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
 
         <View style={styles.centerContainer}>
           <Animated.View style={[styles.contentContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <Text style={styles.welcomeText}>Welcome To</Text>
-            <Text style={styles.brandText}>Smuppy</Text>
-            <Text style={styles.taglineText}>The future of physical activities{'\n'}and wellbeing</Text>
+            <Text style={styles.welcomeText}>{t('auth:welcomeTo')}</Text>
+            <Text style={styles.brandText}>{t('appName')}</Text>
+            <Text style={styles.taglineText}>{t('auth:tagline')}</Text>
           </Animated.View>
         </View>
 
         <Animated.View style={[styles.buttonContainer, { opacity: buttonsAnim }]}>
           <TouchableOpacity style={styles.primaryButtonWrapper} onPress={() => navigation.navigate('Signup')} activeOpacity={0.8} testID="signup-button" accessible={true} accessibilityLabel="signup-button" accessibilityRole="button">
             <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Create an Account?</Text>
+              <Text style={styles.primaryButtonText}>{t('auth:createAccountQuestion')}</Text>
               <Text style={styles.arrowIcon}>→</Text>
             </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Login')} activeOpacity={0.8} testID="login-button" accessible={true} accessibilityLabel="login-button" accessibilityRole="button">
-            <Text style={styles.secondaryButtonText}>Login</Text>
+            <Text style={styles.secondaryButtonText}>{t('auth:login')}</Text>
             <Text style={styles.arrowIconSecondary}>→</Text>
           </TouchableOpacity>
         </Animated.View>

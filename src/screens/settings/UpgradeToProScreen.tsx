@@ -22,8 +22,8 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
-import { useUserStore } from '../../stores';
-import { useCurrentProfile } from '../../hooks';
+import { useUserStore } from '../../stores/userStore';
+import { useCurrentProfile } from '../../hooks/queries';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useCurrency } from '../../hooks/useCurrency';
 

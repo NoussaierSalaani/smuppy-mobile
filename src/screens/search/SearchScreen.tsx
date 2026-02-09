@@ -27,7 +27,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { resolveDisplayName } from '../../types/profile';
 import { SearchSkeleton } from '../../components/skeleton';
-import { usePrefetchProfile } from '../../hooks';
+import { usePrefetchProfile } from '../../hooks/queries';
 import {
   searchProfiles,
   searchPosts,

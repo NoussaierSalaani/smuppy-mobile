@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { GRADIENTS, SPACING } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -32,6 +33,7 @@ export default function EmailVerificationPendingScreen({
 }: {
   route: RouteProp<EmailVerificationRouteParams, 'EmailVerificationPending'>
 }): React.ReactNode {
+  const { t } = useTranslation();
   const { colors, isDark: _isDark } = useTheme();
   const { showError, showSuccess, showAlert, showDestructiveConfirm } = useSmuppyAlert();
   const [isResending, setIsResending] = useState(false);
@@ -76,7 +78,7 @@ export default function EmailVerificationPendingScreen({
     const normalizedEmail = email.trim().toLowerCase();
     const awsCheck = await checkAWSRateLimit(normalizedEmail, 'auth-resend');
     if (!awsCheck.allowed) {
-      showError('Too many attempts', `Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
+      showError(t('errors:tooManyAttempts'), t('errors:waitMinutes', { minutes: Math.ceil((awsCheck.retryAfter || 300) / 60) }));
       return;
     }
 
@@ -86,15 +88,15 @@ export default function EmailVerificationPendingScreen({
       // Use AWS Cognito to resend confirmation code
       await awsAuth.resendConfirmationCode(normalizedEmail);
       setResendCooldown(60);
-      showSuccess('Code Sent', 'A new verification code has been sent to your inbox.');
+      showSuccess(t('auth:codeSent'), t('auth:codeSentToInbox'));
     } catch (err: unknown) {
       if (__DEV__) console.warn('[EmailPending] Resend error:', err);
       const errorMessage = (err as Error)?.message || '';
 
       if (errorMessage.includes('LimitExceededException') || errorMessage.includes('rate')) {
-        showError('Too many attempts', 'Please try again in a few moments.');
+        showError(t('errors:tooManyAttempts'), t('errors:tryAgainLater'));
       } else {
-        showError('Error', 'Unable to resend verification code. Please try again.');
+        showError(t('common:error'), t('auth:resendCodeError'));
       }
     } finally {
       setIsResending(false);
@@ -112,10 +114,10 @@ export default function EmailVerificationPendingScreen({
         return;
       } else {
         showAlert({
-          title: 'Not Verified Yet',
-          message: 'Your email has not been verified yet. Please check your inbox and enter the verification code.',
+          title: t('auth:notVerifiedYet'),
+          message: t('auth:notVerifiedMessage'),
           type: 'warning',
-          buttons: [{ text: 'OK' }],
+          buttons: [{ text: t('common:ok') }],
         });
       }
     } catch (err) {
@@ -127,8 +129,8 @@ export default function EmailVerificationPendingScreen({
 
   const handleSignOut = useCallback(async () => {
     showDestructiveConfirm(
-      'Sign Out',
-      'Are you sure you want to sign out and use a different email?',
+      t('auth:signOut'),
+      t('auth:signOutConfirmMessage'),
       async () => {
         try {
           await storage.clear([
@@ -141,7 +143,7 @@ export default function EmailVerificationPendingScreen({
           if (__DEV__) console.warn('[EmailPending] Sign out error:', err);
         }
       },
-      'Sign Out'
+      t('auth:signOut')
     );
   }, [showDestructiveConfirm]);
 
@@ -159,40 +161,40 @@ export default function EmailVerificationPendingScreen({
         </LinearGradient>
 
         {/* Title */}
-        <Text style={styles.title}>Verify your email</Text>
+        <Text style={styles.title}>{t('auth:verifyEmail')}</Text>
         <Text style={styles.subtitle}>
-          We've sent a verification link to your email address
+          {t('auth:verifyEmailSubtitle')}
         </Text>
 
         {/* Email Display */}
         <View style={styles.emailBox}>
-          <Text style={styles.emailLabel}>Email sent to:</Text>
+          <Text style={styles.emailLabel}>{t('auth:emailSentTo')}</Text>
           <Text style={styles.emailText}>{email}</Text>
         </View>
 
         {/* Instructions */}
         <View style={styles.instructionsBox}>
-          <Text style={styles.instructionsTitle}>To continue:</Text>
+          <Text style={styles.instructionsTitle}>{t('auth:toContinue')}:</Text>
 
           <View style={styles.instructionRow}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>1</Text>
             </View>
-            <Text style={styles.instructionText}>Check your inbox (and spam folder)</Text>
+            <Text style={styles.instructionText}>{t('auth:checkInbox')}</Text>
           </View>
 
           <View style={styles.instructionRow}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>2</Text>
             </View>
-            <Text style={styles.instructionText}>Click the verification link in the email</Text>
+            <Text style={styles.instructionText}>{t('auth:clickVerificationLink')}</Text>
           </View>
 
           <View style={styles.instructionRow}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>3</Text>
             </View>
-            <Text style={styles.instructionText}>Return here - you'll be automatically redirected</Text>
+            <Text style={styles.instructionText}>{t('auth:returnHere')}</Text>
           </View>
         </View>
 
@@ -213,7 +215,7 @@ export default function EmailVerificationPendingScreen({
               <ActivityIndicator color={colors.white} />
             ) : (
               <>
-                <Text style={styles.btnText}>I've verified my email</Text>
+                <Text style={styles.btnText}>{t('auth:iveVerified')}</Text>
                 <Ionicons name="arrow-forward" size={20} color={colors.white} />
               </>
             )}
@@ -224,14 +226,14 @@ export default function EmailVerificationPendingScreen({
         <View style={styles.resendRow}>
           {resendCooldown > 0 ? (
             <Text style={styles.resendCooldownText}>
-              Resend email in <Text style={styles.resendCooldownTime}>{resendCooldown}s</Text>
+              {t('auth:resendEmailIn')} <Text style={styles.resendCooldownTime}>{resendCooldown}s</Text>
             </Text>
           ) : (
             <TouchableOpacity onPress={handleResendEmail} disabled={isResending}>
               {isResending ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Text style={styles.resendLink}>Didn't receive the email? Resend</Text>
+                <Text style={styles.resendLink}>{t('auth:didntReceiveEmail')}</Text>
               )}
             </TouchableOpacity>
           )}
@@ -240,7 +242,7 @@ export default function EmailVerificationPendingScreen({
         {/* Sign Out Option */}
         <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut}>
           <Ionicons name="log-out-outline" size={18} color={colors.gray} />
-          <Text style={styles.signOutText}>Sign out and use a different email</Text>
+          <Text style={styles.signOutText}>{t('auth:signOutDifferentEmail')}</Text>
         </TouchableOpacity>
 
         {/* Footer */}

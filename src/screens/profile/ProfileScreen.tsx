@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Dimensions,
+  InteractionManager,
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -21,8 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useUserStore } from '../../stores';
-import { useCurrentProfile, useUserPosts, useSavedPosts, useProfile, useIsFollowing } from '../../hooks';
+import { useUserStore } from '../../stores/userStore';
+import { useCurrentProfile, useUserPosts, useSavedPosts, useProfile, useIsFollowing } from '../../hooks/queries';
 import { useProfileEventsGroups } from '../../hooks/useProfileEventsGroups';
 import EventGroupCard from '../../components/EventGroupCard';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
@@ -211,6 +212,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   useEffect(() => {
     if (!userId) return;
     let isMounted = true;
+    const task = InteractionManager.runAfterInteractions(() => {
     const toCdn = (url?: string | null) => {
       if (!url) return null;
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
@@ -284,7 +286,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       if (__DEV__) console.warn('[Profile] Peaks fetch failed:', err);
     });
 
-    return () => { isMounted = false; };
+    }); // end runAfterInteractions
+    return () => { isMounted = false; task.cancel(); };
   }, [userId, peaksUserId]);
 
   // Get saved posts (collections) - only for own profile

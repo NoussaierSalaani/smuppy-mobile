@@ -1,0 +1,103 @@
+{
+  "settings": {
+    "title": "الإعدادات",
+    "account": "الحساب",
+    "preferences": "التفضيلات",
+    "support": "الدعم",
+    "about": "حول",
+    "payments": "المدفوعات والتحقيق من الأرباح",
+    "premium": "فك قفل الإكراميات والأحداث غير المحدودة والمزيد",
+
+    "accountSettings": {
+      "title": "إعدادات الحساب",
+      "editProfile": "تعديل الملف الشخصي",
+      "changePassword": "تغيير كلمة المرور",
+      "privacy": "الخصوصية",
+      "notifications": "الإشعارات",
+      "language": "اللغة",
+      "blockedUsers": "المستخدمون المحظورون",
+      "mutedUsers": "المستخدمون المكتومون",
+      "deleteAccount": "حذف الحساب",
+      "logout": "تسجيل الخروج",
+      "interests": "الاهتمامات",
+      "businessCategory": "فئة العمل",
+      "upgradeToPro": "الترقية إلى منشئ محترف",
+      "identityVerification": "التحقق من الهوية"
+    },
+
+    "language": {
+      "title": "اللغة",
+      "selectLanguage": "اختيار اللغة",
+      "current": "اللغة الحالية",
+      "reloadRequired": "إعادة التشغيل مطلوبة",
+      "reloadMessage": "يجب إعادة تشغيل التطبيق لتطبيق اللغة الجديدة",
+      "reloadNow": "إعادة التشغيل الآن",
+      "later": "لاحقاً",
+      "languages": {
+        "en": "English",
+        "fr": "Français",
+        "es": "Español",
+        "pt-BR": "Português (BR)",
+        "ar": "العربية"
+      }
+    },
+
+    "notifications": {
+      "title": "الإشعارات",
+      "pushNotifications": "إشعارات الدفع",
+      "emailNotifications": "إشعارات البريد",
+      "newFollowers": "المتابعون الجدد",
+      "messages": "الرسائل",
+      "likes": "الإعجابات",
+      "comments": "التعليقات",
+      "mentions": "الإشارات",
+      "sessionReminders": "تذكيرات الجلسات",
+      "promotions": "العروض والترويجات",
+      "sound": "الصوت",
+      "vibration": "الاهتزاز"
+    },
+
+    "privacy": {
+      "title": "الخصوصية",
+      "privateAccount": "حساب خاص",
+      "privateAccountDesc": "يمكن للمتابعين المعتمدين فقط رؤية محتواك",
+      "showActivity": "إظهار النشاط",
+      "allowTags": "السماح بالوسوم",
+      "allowMentions": "السماح بالإشارات",
+      "dataUsage": "استخدام البيانات",
+      "downloadData": "تحميل بياناتي"
+    },
+
+    "support": {
+      "title": "الدعم",
+      "helpCenter": "مركز المساعدة",
+      "reportProblem": "الإبلاغ عن مشكلة",
+      "contactUs": "اتصل بنا",
+      "feedback": "إرسال ملاحظات"
+    },
+
+    "about": {
+      "title": "حول",
+      "version": "الإصدار",
+      "terms": "شروط الخدمة",
+      "privacy": "سياسة الخصوصية",
+      "licenses": "تراخيص مفتوحة المصدر",
+      "credits": "الاعتمادات"
+    },
+
+    "editProfile": {
+      "title": "تعديل الملف الشخصي",
+      "displayName": "اسم العرض",
+      "username": "اسم المستخدم",
+      "bio": "النبذة",
+      "location": "الموقع",
+      "website": "الموقع الإلكتروني",
+      "interests": "الاهتمامات",
+      "expertise": "الخبرة",
+      "save": "حفظ",
+      "saving": "جاري الحفظ...",
+      "changePhoto": "تغيير صورة الملف الشخصي",
+      "changeCover": "تغيير صورة الغلاف"
+    }
+  }
+}

@@ -39,7 +39,7 @@ import {
 } from '../../config/api';
 import { awsAuth } from '../../services/aws-auth';
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { createPost } from '../../services/database';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
@@ -49,7 +49,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { queryClient, queryKeys } from '../../lib/queryClient';
-import { useFeedStore } from '../../stores';
+import { useFeedStore } from '../../stores/feedStore';
 import { filterContent } from '../../utils/contentFilters';
 
 const { width } = Dimensions.get('window');

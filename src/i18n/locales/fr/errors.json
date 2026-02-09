@@ -1,0 +1,43 @@
+{
+  "errors": {
+    "generic": "Une erreur est survenue",
+    "tryAgain": "Veuillez réessayer",
+    "retry": "Réessayer",
+
+    "network": {
+      "title": "Erreur de connexion",
+      "message": "Vérifiez votre connexion internet et réessayez",
+      "offline": "Vous êtes hors ligne"
+    },
+
+    "auth": {
+      "sessionExpired": "Votre session a expiré",
+      "unauthorized": "Non autorisé",
+      "forbidden": "Accès interdit"
+    },
+
+    "validation": {
+      "required": "Ce champ est requis",
+      "invalidEmail": "Adresse email invalide",
+      "invalidPassword": "Mot de passe invalide",
+      "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+      "passwordsDontMatch": "Les mots de passe ne correspondent pas",
+      "invalidUsername": "Nom d'utilisateur invalide",
+      "usernameTaken": "Ce nom d'utilisateur est déjà pris"
+    },
+
+    "server": {
+      "title": "Erreur serveur",
+      "message": "Le serveur a rencontré une erreur. Veuillez réessayer plus tard."
+    },
+
+    "notFound": {
+      "title": "Non trouvé",
+      "message": "La ressource demandée n'existe pas"
+    },
+
+    "tooManyAttempts": "Trop de tentatives",
+    "waitMinutes": "Veuillez patienter {{minutes}} minutes.",
+    "tryAgainLater": "Veuillez réessayer dans quelques instants."
+  }
+}

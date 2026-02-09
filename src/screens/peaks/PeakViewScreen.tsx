@@ -39,7 +39,9 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
 import { savePost, unsavePost } from '../../services/database';
-import { useContentStore, useUserStore, useFeedStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
+import { useFeedStore } from '../../stores/feedStore';
+import { useContentStore } from '../../stores/contentStore';
 import { awsAPI } from '../../services/aws-api';
 
 const { width, height: screenHeight } = Dimensions.get('window');

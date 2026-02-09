@@ -1,0 +1,69 @@
+{
+  "profile": {
+    "title": "Profil",
+    "edit": "Modifier",
+    "share": "Partager",
+    "follow": "Suivre",
+    "unfollow": "Ne plus suivre",
+    "following": "Abonnements",
+    "followers": "Abonnés",
+    "fans": "Fans",
+    "posts": "Publications",
+    "message": "Message",
+    "bookSession": "Réserver une session",
+    "subscribe": "S'abonner",
+    "subscribed": "Abonné",
+
+    "tabs": {
+      "posts": "Publications",
+      "media": "Médias",
+      "likes": "J'aime",
+      "sessions": "Sessions",
+      "about": "À propos"
+    },
+
+    "about": {
+      "title": "À propos",
+      "bio": "Bio",
+      "location": "Localisation",
+      "website": "Site web",
+      "joined": "A rejoint",
+      "interests": "Intérêts",
+      "expertise": "Expertise",
+      "noBio": "Aucune bio pour l'instant"
+    },
+
+    "actions": {
+      "block": "Bloquer",
+      "unblock": "Débloquer",
+      "report": "Signaler",
+      "mute": "Masquer",
+      "unmute": "Afficher",
+      "restrict": "Restreindre",
+      "copyProfileUrl": "Copier le lien du profil"
+    },
+
+    "fansList": {
+      "title": "Fans",
+      "empty": "Aucun fan pour l'instant",
+      "beFirst": "Soyez le premier à devenir fan"
+    },
+
+    "followingList": {
+      "title": "Abonnements",
+      "empty": "Aucun abonnement"
+    },
+
+    "followersList": {
+      "title": "Abonnés",
+      "empty": "Aucun abonné pour l'instant"
+    },
+
+    "verification": {
+      "verified": "Compte vérifié",
+      "creator": "Créateur",
+      "business": "Business",
+      "premium": "Premium"
+    }
+  }
+}

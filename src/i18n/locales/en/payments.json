@@ -1,0 +1,107 @@
+{
+  "payments": "Payments",
+  "paymentMethods": "Payment Methods",
+  "addPaymentMethod": "Add Payment Method",
+  "removePaymentMethod": "Remove Payment Method",
+
+  "methods": {
+    "creditCard": "Credit Card",
+    "debitCard": "Debit Card",
+    "paypal": "PayPal",
+    "applePay": "Apple Pay",
+    "googlePay": "Google Pay"
+  },
+
+  "card": {
+    "number": "Card Number",
+    "expiry": "Expiry Date",
+    "cvc": "CVC",
+    "holderName": "Cardholder Name",
+    "endingIn": "Ending in {{last4}}"
+  },
+
+  "wallet": {
+    "title": "Wallet",
+    "balance": "Balance",
+    "addFunds": "Add Funds",
+    "withdraw": "Withdraw",
+    "withdrawToBank": "Withdraw to Bank",
+    "minWithdrawal": "Minimum withdrawal: {{amount}}",
+    "insufficientFunds": "Insufficient funds"
+  },
+
+  "transactions": {
+    "title": "Transactions",
+    "all": "All Transactions",
+    "incoming": "Incoming",
+    "outgoing": "Outgoing",
+    "transactionId": "Transaction #{{id}}",
+    "date": "Date",
+    "amount": "Amount",
+    "status": "Status",
+    "description": "Description"
+  },
+
+  "transactionTypes": {
+    "session_payment": "Session Payment",
+    "tip": "Tip",
+    "subscription": "Subscription",
+    "refund": "Refund",
+    "withdrawal": "Withdrawal",
+    "deposit": "Deposit",
+    "fee": "Platform Fee"
+  },
+
+  "status": {
+    "pending": "Pending",
+    "completed": "Completed",
+    "failed": "Failed",
+    "refunded": "Refunded",
+    "cancelled": "Cancelled"
+  },
+
+  "checkout": {
+    "title": "Checkout",
+    "orderSummary": "Order Summary",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "platformFee": "Platform Fee",
+    "total": "Total",
+    "payNow": "Pay Now",
+    "processing": "Processing...",
+    "paymentSuccessful": "Payment Successful!",
+    "paymentFailed": "Payment Failed",
+    "tryAgain": "Try Again"
+  },
+
+  "earnings": {
+    "title": "Earnings",
+    "thisMonth": "This Month",
+    "lastMonth": "Last Month",
+    "allTime": "All Time",
+    "pending": "Pending Clearance",
+    "available": "Available for Withdrawal",
+    "withdrawn": "Withdrawn"
+  },
+
+  "subscriptions": {
+    "title": "Subscriptions",
+    "active": "Active Subscriptions",
+    "manage": "Manage Subscriptions",
+    "cancel": "Cancel Subscription",
+    "renewalDate": "Renews on {{date}}",
+    "expiryDate": "Expires on {{date}}"
+  },
+
+  "payouts": {
+    "title": "Payout Settings",
+    "bankAccount": "Bank Account",
+    "routingNumber": "Routing Number",
+    "accountNumber": "Account Number",
+    "accountHolder": "Account Holder",
+    "payoutSchedule": "Payout Schedule",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "instant": "Instant (Fee applies)"
+  }
+}

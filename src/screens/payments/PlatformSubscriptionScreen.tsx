@@ -21,7 +21,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useCurrency } from '../../hooks/useCurrency';

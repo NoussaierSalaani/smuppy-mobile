@@ -1,0 +1,20 @@
+{
+  "notifications": "Notificaciones",
+  "markAllRead": "Marcar todo como leído",
+  "noNotifications": "Sin notificaciones",
+  "noNotificationsYet": "No tienes notificaciones nuevas",
+  "today": "Hoy",
+  "thisWeek": "Esta semana",
+  "earlier": "Anterior",
+  "likedYourPost": "le gustó tu publicación",
+  "commentedOnYourPost": "comentó en tu publicación",
+  "startedFollowingYou": "comenzó a seguirte",
+  "mentionedYou": "te mencionó",
+  "sentYouMessage": "te envió un mensaje",
+  "likedYourComment": "le gustó tu comentario",
+  "repliedToYourComment": "respondió a tu comentario",
+  "taggedYou": "te etiquetó en una publicación",
+  "sharedYourPost": "compartió tu publicación",
+  "liveNow": "está en vivo ahora",
+  "newPost": "publicó algo nuevo"
+}

@@ -1,0 +1,21 @@
+{
+  "sessions": "Sesiones",
+  "mySessions": "Mis Sesiones",
+  "bookSession": "Reservar Sesión",
+  "upcoming": "Próximas",
+  "past": "Pasadas",
+  "cancelled": "Canceladas",
+  "noSessions": "No hay sesiones",
+  "noSessionsYet": "No tienes sesiones programadas",
+  "sessionDetails": "Detalles de la Sesión",
+  "date": "Fecha",
+  "time": "Hora",
+  "duration": "Duración",
+  "price": "Precio",
+  "status": "Estado",
+  "cancelSession": "Cancelar Sesión",
+  "reschedule": "Reprogramar",
+  "joinCall": "Unirse a la Llamada",
+  "leaveReview": "Dejar Reseña",
+  "minutes": "minutos"
+}

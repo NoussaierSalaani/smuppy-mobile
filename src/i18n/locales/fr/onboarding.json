@@ -1,0 +1,94 @@
+{
+  "onboarding": {
+    "getStarted": "Commencer",
+    "next": "Suivant",
+    "skip": "Passer",
+    "done": "Terminer",
+    "back": "Retour",
+
+    "interests": {
+      "title": "Quels sont vos intérêts ?",
+      "subtitle": "Sélectionnez au moins 3 sujets qui vous passionnent",
+      "search": "Rechercher des intérêts",
+      "selected": "{{count}} sélectionnés",
+      "minRequired": "Minimum 3 requis"
+    },
+
+    "expertise": {
+      "title": "Quelle est votre expertise ?",
+      "subtitle": "Sélectionnez vos domaines de compétence",
+      "search": "Rechercher une expertise",
+      "selected": "{{count}} sélectionnées"
+    },
+
+    "profile": {
+      "title": "Créez votre profil",
+      "subtitle": "Personnalisez votre présence sur Smuppy",
+      "uploadPhoto": "Ajouter une photo",
+      "changePhoto": "Changer la photo",
+      "displayName": "Nom d'affichage",
+      "username": "Nom d'utilisateur",
+      "bio": "Bio",
+      "bioPlaceholder": "Parlez-nous de vous...",
+      "location": "Localisation",
+      "website": "Site web"
+    },
+
+    "accountType": {
+      "title": "Choisissez votre type de compte",
+      "subtitle": "Vous pourrez toujours changer cela plus tard",
+      "personal": {
+        "title": "Personnel",
+        "description": "Pour les utilisateurs qui veulent découvrir et se connecter"
+      },
+      "creator": {
+        "title": "Créateur Pro",
+        "description": "Pour les coachs, formateurs et créateurs de contenu"
+      },
+      "business": {
+        "title": "Business Pro",
+        "description": "Pour les salles de sport, studios et entreprises"
+      }
+    },
+
+    "businessInfo": {
+      "title": "Informations entreprise",
+      "businessName": "Nom de l'entreprise",
+      "category": "Catégorie",
+      "address": "Adresse",
+      "phone": "Téléphone",
+      "description": "Description",
+      "selectCategory": "Sélectionner une catégorie"
+    },
+
+    "guidelines": {
+      "title": "Règles de la communauté",
+      "subtitle": "Smuppy est une communauté bienveillante",
+      "respect": "Soyez respectueux",
+      "respectDesc": "Traitez les autres comme vous aimeriez être traité",
+      "authentic": "Soyez authentique",
+      "authenticDesc": "Soyez vous-même et partagez votre parcours sincèrement",
+      "safe": "Gardez la sécurité",
+      "safeDesc": "Ne partagez pas d'informations personnelles sensibles",
+      "agree": "J'accepte de respecter ces règles"
+    },
+
+    "findFriends": {
+      "title": "Trouvez vos amis",
+      "subtitle": "Connectez-vous avec des personnes que vous connaissez",
+      "connectContacts": "Connecter vos contacts",
+      "skipForNow": "Passer pour l'instant",
+      "search": "Rechercher des utilisateurs",
+      "follow": "Suivre",
+      "following": "Suivi"
+    },
+
+    "success": {
+      "title": "Vous êtes prêt !",
+      "subtitle": "Bienvenue sur Smuppy {{name}}",
+      "description": "Votre compte est configuré et vous pouvez maintenant explorer la communauté",
+      "goToFeed": "Aller au fil d'actualité",
+      "completeProfile": "Compléter mon profil"
+    }
+  }
+}

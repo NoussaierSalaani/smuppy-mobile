@@ -27,7 +27,7 @@ import { GRADIENTS } from '../../config/theme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';

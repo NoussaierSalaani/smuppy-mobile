@@ -22,7 +22,7 @@ import { AccountBadge } from '../../components/Badge';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
 import { searchProfiles, getFollowers, Profile } from '../../services/database';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { resolveDisplayName } from '../../types/profile';
 import { isValidUUID } from '../../utils/formatters';

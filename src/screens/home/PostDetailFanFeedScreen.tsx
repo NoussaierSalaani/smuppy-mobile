@@ -22,9 +22,13 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useTranslation } from 'react-i18next';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
+import { useFeedStore } from '../../stores/feedStore';
+import { useContentStore } from '../../stores/contentStore';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
@@ -63,6 +67,7 @@ interface FanFeedPost {
 type LoadingRecord = Record<string, boolean>;
 
 const PostDetailFanFeedScreen = () => {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
@@ -270,13 +275,13 @@ const PostDetailFanFeedScreen = () => {
         const { error } = await unsavePost(pId);
         if (!error) {
           setBookmarkedPosts(prev => ({ ...prev, [pId]: false }));
-          showSuccess('Removed', 'Post removed from saved.');
+          showSuccess(t('feed:success:removed'), t('feed:success:postRemoved'));
         }
       } else {
         const { error } = await savePost(pId);
         if (!error) {
           setBookmarkedPosts(prev => ({ ...prev, [pId]: true }));
-          showSuccess('Saved', 'Post added to your collection.');
+          showSuccess(t('feed:success:saved'), t('feed:success:postAdded'));
         }
       }
     } catch (error) {
@@ -284,7 +289,7 @@ const PostDetailFanFeedScreen = () => {
     } finally {
       setBookmarkLoading(prev => ({ ...prev, [pId]: false }));
     }
-  }, [bookmarkLoading, bookmarkedPosts, showSuccess]);
+  }, [bookmarkLoading, bookmarkedPosts, showSuccess, t]);
 
   // Become fan with anti spam-click - using real database
   const becomeFan = useCallback(async (userId: string) => {
@@ -388,9 +393,9 @@ const PostDetailFanFeedScreen = () => {
     setShowMenu(false);
     const copied = await copyPostLink(currentPost.id);
     if (copied) {
-      showSuccess('Copied!', 'Post link copied to clipboard');
+      showSuccess(t('feed:success:copied'), t('feed:success:linkCopied'));
     }
-  }, [currentPost, showSuccess]);
+  }, [currentPost, showSuccess, t]);
 
   // Report post with anti spam-click
   const handleReport = useCallback(async () => {
@@ -401,13 +406,13 @@ const PostDetailFanFeedScreen = () => {
 
       // Check if already reported (anti-spam)
       if (hasUserReported(currentPost.id)) {
-        showError('Already Reported', 'You have already reported this content. It is under review.');
+        showError(t('feed:report:alreadyReported'), t('feed:report:alreadyReportedDesc'));
         return;
       }
 
       // Check if content is already under review
       if (isUnderReview(currentPost.id)) {
-        showError('Under Review', 'This content is already being reviewed by our team.');
+        showError(t('feed:report:underReview'), t('feed:report:underReviewDesc'));
         return;
       }
 
@@ -416,7 +421,7 @@ const PostDetailFanFeedScreen = () => {
     } finally {
       setReportLoading(false);
     }
-  }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError]);
+  }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError, t]);
 
   // Submit report to store
   const submitReport = useCallback((reason: string) => {
@@ -427,13 +432,13 @@ const PostDetailFanFeedScreen = () => {
     const result = storeSubmitReport(currentPost.id, reason);
 
     if (result.alreadyReported) {
-      showError('Already Reported', result.message);
+      showError(t('feed:report:alreadyReported'), result.message);
     } else if (result.success) {
-      showSuccess('Reported', result.message);
+      showSuccess(t('feed:success:reported'), result.message);
     } else {
-      showError('Error', 'Something went wrong. Please try again.');
+      showError(t('common:error'), t('feed:error:generic'));
     }
-  }, [currentPost, storeSubmitReport, showError, showSuccess]);
+  }, [currentPost, storeSubmitReport, showError, showSuccess, t]);
 
   // --- Extracted inline handlers ---
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
@@ -464,29 +469,29 @@ const PostDetailFanFeedScreen = () => {
     // Check if already muted
     if (isUserMuted(userId)) {
       setShowMenu(false);
-      showError('Already Muted', 'This user is already muted.');
+      showError(t('feed:error:alreadyMuted'), t('feed:error:userAlreadyMuted'));
       return;
     }
 
     setShowMenu(false);
     showDestructiveConfirm(
-      'Mute this user?',
-      'You will no longer see their posts in your feeds.',
+      t('feed:menu:muteUser'),
+      t('feed:menu:muteConfirmDesc'),
       async () => {
         setMuteLoading(true);
         try {
           const { error } = await mute(userId);
           if (error) {
-            showError('Error', 'Could not mute this user.');
+            showError(t('common:error'), t('feed:error:couldNotMute'));
           } else {
-            showSuccess('User Muted', 'You will no longer see their posts.');
+            showSuccess(t('feed:success:userMuted'), t('feed:success:userMutedDesc'));
           }
         } finally {
           setMuteLoading(false);
         }
       }
     );
-  }, [muteLoading, currentPost, isUserMuted, showError, showDestructiveConfirm, mute, showSuccess]);
+  }, [muteLoading, currentPost, isUserMuted, showError, showDestructiveConfirm, mute, showSuccess, t]);
 
   // Block user with anti spam-click
   const handleBlock = useCallback(async () => {
@@ -497,29 +502,29 @@ const PostDetailFanFeedScreen = () => {
     // Check if already blocked
     if (isBlocked(userId)) {
       setShowMenu(false);
-      showError('Already Blocked', 'This user is already blocked.');
+      showError(t('feed:error:alreadyBlocked'), t('feed:error:userAlreadyBlocked'));
       return;
     }
 
     setShowMenu(false);
     showDestructiveConfirm(
-      'Block this user?',
-      'You will no longer see their posts and they will not be able to interact with you.',
+      t('feed:menu:blockUser'),
+      t('feed:menu:blockConfirmDesc'),
       async () => {
         setBlockLoading(true);
         try {
           const { error } = await block(userId);
           if (error) {
-            showError('Error', 'Could not block this user.');
+            showError(t('common:error'), t('feed:error:couldNotBlock'));
           } else {
-            showSuccess('User Blocked', 'You will no longer see their posts.');
+            showSuccess(t('feed:success:userBlocked'), t('feed:success:userBlockedDesc'));
           }
         } finally {
           setBlockLoading(false);
         }
       }
     );
-  }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess]);
+  }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess, t]);
   
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -627,7 +632,7 @@ const PostDetailFanFeedScreen = () => {
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={handleGoBack}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('common:back')}
               accessibilityRole="button"
             >
               <Ionicons name="chevron-back" size={28} color="#FFF" />
@@ -636,7 +641,7 @@ const PostDetailFanFeedScreen = () => {
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={handleShowMenu}
-              accessibilityLabel="Open menu"
+              accessibilityLabel={t('common:menu')}
               accessibilityRole="button"
             >
               <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
@@ -649,7 +654,7 @@ const PostDetailFanFeedScreen = () => {
               style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
               onPress={handleShare}
               disabled={shareLoading}
-              accessibilityLabel="Share post"
+              accessibilityLabel={t('feed:actions:share')}
               accessibilityRole="button"
             >
               {shareLoading ? (
@@ -663,7 +668,7 @@ const PostDetailFanFeedScreen = () => {
               style={[styles.actionBtn, likeLoading[item.id] && styles.actionBtnDisabled]}
               onPress={() => toggleLike(item.id)}
               disabled={likeLoading[item.id]}
-              accessibilityLabel={isLiked ? 'Unlike this post' : 'Like this post'}
+              accessibilityLabel={isLiked ? t('feed:actions:unlike') : t('feed:actions:like')}
               accessibilityRole="button"
               accessibilityState={{ selected: isLiked }}
             >
@@ -682,7 +687,7 @@ const PostDetailFanFeedScreen = () => {
               style={[styles.actionBtn, bookmarkLoading[item.id] && styles.actionBtnDisabled]}
               onPress={() => toggleBookmark(item.id)}
               disabled={bookmarkLoading[item.id]}
-              accessibilityLabel={isBookmarked ? 'Remove from saved' : 'Save this post'}
+              accessibilityLabel={isBookmarked ? t('feed:actions:unsave') : t('feed:actions:save')}
               accessibilityRole="button"
               accessibilityState={{ selected: isBookmarked }}
             >
@@ -701,7 +706,7 @@ const PostDetailFanFeedScreen = () => {
               <TouchableOpacity
                 style={styles.actionBtn}
                 onPress={handleToggleAudioMute}
-                accessibilityLabel={isAudioMuted ? 'Unmute audio' : 'Mute audio'}
+                accessibilityLabel={isAudioMuted ? t('feed:actions:unmute') : t('feed:actions:mute')}
                 accessibilityRole="button"
               >
                 <Ionicons
@@ -745,7 +750,7 @@ const PostDetailFanFeedScreen = () => {
                         <Ionicons name="add" size={16} color={colors.primaryGreen} />
                       )}
                       <Text style={styles.fanBtnText}>
-                        {userFollowsMe ? 'Track' : 'Fan'}
+                        {userFollowsMe ? t('feed:actions:track') : t('feed:actions:fan')}
                       </Text>
                     </>
                   )}
@@ -766,7 +771,7 @@ const PostDetailFanFeedScreen = () => {
               <View style={styles.taggedRow}>
                 <Ionicons name="people" size={14} color={colors.primary} />
                 <Text style={styles.taggedText}>
-                  {item.taggedUsers.map(t => t.fullName || t.username || 'User').join(', ')}
+                  {item.taggedUsers.map(taggedUser => taggedUser.fullName || taggedUser.username || t('common:user')).join(', ')}
                 </Text>
               </View>
             ) : null}

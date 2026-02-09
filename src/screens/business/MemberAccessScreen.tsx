@@ -20,7 +20,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateShort } from '../../utils/dateFormatters';
 

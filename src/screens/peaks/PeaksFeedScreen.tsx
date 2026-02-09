@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PeakCard from '../../components/peaks/PeakCard';
 import { PeakGridSkeleton } from '../../components/skeleton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { useUserStore } from '../../stores';
+import { useUserStore } from '../../stores/userStore';
 import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');

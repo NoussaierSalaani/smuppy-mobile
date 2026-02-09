@@ -22,9 +22,9 @@ import {
   getConversations,
   Conversation,
 } from '../../services/database';
-import { useAppStore } from '../../stores';
+import { useAppStore } from '../../stores/appStore';
 import { ConversationListSkeleton } from '../../components/skeleton';
-import { usePrefetchProfile } from '../../hooks';
+import { usePrefetchProfile } from '../../hooks/queries';
 import { formatRelativeTimeShort } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 

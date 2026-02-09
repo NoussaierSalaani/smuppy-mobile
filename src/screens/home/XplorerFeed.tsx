@@ -653,6 +653,33 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     return markers;
   }, [activeFilters, activeSubFilters, allMarkers, searchQuery]);
 
+  const handleCloseSubFilterSheet = useCallback(() => setSubFilterSheet(null), []);
+  const handleMapFailLoading = useCallback(() => setMapError(true), []);
+  const handleMapDismiss = useCallback(() => {
+    Keyboard.dismiss();
+    setShowAddressSuggestions(false);
+  }, []);
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setAddressSuggestions([]);
+    setShowAddressSuggestions(false);
+  }, []);
+  const handleCloseFab = useCallback(() => setFabOpen(false), []);
+  const handleFabPress = useCallback(() => {
+    if (fabActions.length === 1) {
+      handleFabAction(fabActions[0].action);
+    } else {
+      setFabOpen(prev => !prev);
+    }
+  }, [fabActions, handleFabAction]);
+  const handleActivateLocation = useCallback(async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status === 'granted') {
+      setShowPermissionModal(false);
+      requestLocation();
+    }
+  }, [requestLocation]);
+
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // ============================================
@@ -776,8 +803,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     const activeSubs = activeSubFilters[subFilterSheet] || [];
 
     return (
-      <Modal visible transparent animationType="slide" onRequestClose={() => setSubFilterSheet(null)}>
-        <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setSubFilterSheet(null)}>
+      <Modal visible transparent animationType="slide" onRequestClose={handleCloseSubFilterSheet}>
+        <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={handleCloseSubFilterSheet}>
           <View style={[styles.sheetContainer, { paddingBottom: insets.bottom + hp(3) }]} onStartShouldSetResponder={() => true}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
@@ -801,7 +828,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             </View>
             <LiquidButton
               label="Done"
-              onPress={() => setSubFilterSheet(null)}
+              onPress={handleCloseSubFilterSheet}
               size="md"
               style={styles.sheetApplyButton}
             />
@@ -826,13 +853,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           <Text style={styles.permissionText}>Discover what your friends nearby are up to</Text>
           <LiquidButton
             label="Activate"
-            onPress={async () => {
-              const { status } = await Location.requestForegroundPermissionsAsync();
-              if (status === 'granted') {
-                setShowPermissionModal(false);
-                requestLocation();
-              }
-            }}
+            onPress={handleActivateLocation}
             size="md"
             style={styles.permissionButton}
           />
@@ -1027,11 +1048,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         logoEnabled={false}
         attributionEnabled={false}
         scaleBarEnabled={false}
-        onDidFailLoadingMap={() => setMapError(true)}
-        onPress={() => {
-          Keyboard.dismiss();
-          setShowAddressSuggestions(false);
-        }}
+        onDidFailLoadingMap={handleMapFailLoading}
+        onPress={handleMapDismiss}
       >
         <Camera
           ref={cameraRef}
@@ -1090,11 +1108,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             </View>
           )}
           {searchQuery.length > 0 && !isSearchingAddress && (
-            <TouchableOpacity onPress={() => {
-              setSearchQuery('');
-              setAddressSuggestions([]);
-              setShowAddressSuggestions(false);
-            }}>
+            <TouchableOpacity onPress={handleClearSearch}>
               <Ionicons name="close-circle" size={normalize(18)} color={colors.grayMuted} />
             </TouchableOpacity>
           )}
@@ -1189,7 +1203,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         <TouchableOpacity
           style={styles.fabOverlay}
           activeOpacity={1}
-          onPress={() => setFabOpen(false)}
+          onPress={handleCloseFab}
         />
       )}
 
@@ -1223,13 +1237,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           {/* Main FAB — LiquidButton */}
           <LiquidButton
             label={fabOpen ? '' : 'Create'}
-            onPress={() => {
-              if (fabActions.length === 1) {
-                handleFabAction(fabActions[0].action);
-              } else {
-                setFabOpen(prev => !prev);
-              }
-            }}
+            onPress={handleFabPress}
             size="md"
             colorScheme="green"
             icon={<Ionicons name={fabOpen ? 'close' : 'add'} size={normalize(20)} color={colors.white} />}

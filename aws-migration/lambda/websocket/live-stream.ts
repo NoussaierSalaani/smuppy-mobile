@@ -9,6 +9,8 @@ import { getPool } from '../shared/db';
 import type { Pool } from 'pg';
 import { createLogger } from '../api/utils/logger';
 import { hasStatusCode } from '../api/utils/error-handler';
+import { filterText } from '../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../shared/moderation/textModeration';
 
 const log = createLogger('websocket-live-stream');
 
@@ -61,6 +63,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const userId = connectionResult.rows[0].user_id;
+
+    // Check account status (suspended/banned users cannot participate in live streams)
+    const statusResult = await db.query(
+      'SELECT moderation_status FROM profiles WHERE id = $1',
+      [userId]
+    );
+    const moderationStatus = statusResult.rows[0]?.moderation_status || 'active';
+    if (moderationStatus === 'suspended' || moderationStatus === 'banned') {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: 'Your account is restricted.' }),
+      };
+    }
 
     // Parse body
     const body: LiveStreamAction = event.body ? JSON.parse(event.body) : {};
@@ -157,6 +172,40 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           };
         }
 
+        // Sanitize: strip HTML tags and control characters, limit length
+        const sanitizedComment = content
+          .substring(0, 500)
+          .replace(/<[^>]*>/g, '')
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+          .trim();
+
+        if (!sanitizedComment) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ message: 'Comment cannot be empty' }),
+          };
+        }
+
+        // Moderation: wordlist filter
+        const filterResult = await filterText(sanitizedComment);
+        if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+          log.warn('Live comment blocked by filter', { userId: userId.substring(0, 8) + '***' });
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ message: 'Your comment violates community guidelines.' }),
+          };
+        }
+
+        // Moderation: Comprehend toxicity analysis
+        const toxicityResult = await analyzeTextToxicity(sanitizedComment);
+        if (toxicityResult.action === 'block') {
+          log.warn('Live comment blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ message: 'Your comment violates community guidelines.' }),
+          };
+        }
+
         const comment = {
           id: `${Date.now()}-${userId}`,
           user: {
@@ -165,7 +214,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             displayName: user.display_name,
             avatarUrl: user.avatar_url,
           },
-          content: content.substring(0, 500), // Limit comment length
+          content: sanitizedComment,
           timestamp: new Date().toISOString(),
         };
 

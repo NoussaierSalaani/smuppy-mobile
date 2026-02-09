@@ -8,6 +8,9 @@ import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('events-create');
 
@@ -60,6 +63,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
     }
 
+    // Account status check (suspended/banned users cannot create events)
+    const accountCheck = await requireActiveAccount(userId, {});
+    if (isAccountError(accountCheck)) {
+      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+    }
+
     // Resolve cognito_sub to profile ID
     const profileResult = await client.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
@@ -108,6 +117,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const sanitizedDescription = description ? sanitize(description) : description;
     const sanitizedLocationName = sanitize(locationName || '');
     const sanitizedAddress = address ? sanitize(address) : address;
+
+    // Moderation: check title and description for violations
+    const textsToCheck = [sanitizedTitle, sanitizedDescription].filter(Boolean) as string[];
+    for (const text of textsToCheck) {
+      const filterResult = await filterText(text);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Event text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
+      const toxicityResult = await analyzeTextToxicity(text);
+      if (toxicityResult.action === 'block') {
+        log.warn('Event text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
+    }
 
     // Validation
     if (!title || !categorySlug || !locationName || !latitude || !longitude || !startsAt) {

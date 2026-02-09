@@ -12,6 +12,7 @@ import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/valida
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID } from '../utils/security';
 
@@ -83,6 +84,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // AI toxicity detection (AWS Comprehend)
+    let contentFlagged = false;
+    let flagCategory: string | null = null;
+    let flagScore: number | null = null;
+
     const toxicity = await analyzeTextToxicity(sanitizedText);
     if (toxicity.action === 'block') {
       log.info('Comment blocked by Comprehend', { topCategory: toxicity.topCategory, score: toxicity.maxScore });
@@ -91,6 +96,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ message: 'Content policy violation' }),
       };
+    }
+    if (toxicity.action === 'flag') {
+      contentFlagged = true;
+      flagCategory = toxicity.topCategory;
+      flagScore = toxicity.maxScore;
     }
 
     // Check account moderation status
@@ -147,10 +157,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Insert comment
       const commentResult = await client.query(
-        `INSERT INTO comments (user_id, post_id, text, parent_comment_id)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO comments (user_id, post_id, text, parent_comment_id, content_status, toxicity_score, toxicity_category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id, text, parent_comment_id, created_at, updated_at`,
-        [profile.id, postId, sanitizedText, parentCommentId || null]
+        [profile.id, postId, sanitizedText, parentCommentId || null, contentFlagged ? 'flagged' : 'clean', flagScore, flagCategory]
       );
 
       const comment = commentResult.rows[0];
@@ -169,6 +179,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       await client.query('COMMIT');
+
+      // Log flagged comment for moderator review (non-blocking)
+      if (contentFlagged) {
+        try {
+          await db.query(
+            `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, reason)
+             VALUES ($1, 'flag_content', $2, $3)`,
+            [SYSTEM_MODERATOR_ID, profile.id, `Comprehend toxicity on comment ${comment.id}: ${flagCategory} score=${flagScore}`],
+          );
+        } catch (flagErr) {
+          log.error('Failed to log flagged comment (non-blocking)', flagErr);
+        }
+      }
 
       // Send push notification to post author (non-blocking)
       if (post.author_id !== profile.id) {

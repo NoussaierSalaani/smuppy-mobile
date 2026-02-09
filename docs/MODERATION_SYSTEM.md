@@ -1,7 +1,7 @@
 # Systeme de Moderation Smuppy — Documentation Technique
 
-> **Version:** 1.0
-> **Date:** 2026-02-08
+> **Version:** 2.0
+> **Date:** 2026-02-09
 > **Stack:** React Native (Expo 54) + AWS Lambda + PostgreSQL + Cognito + S3 + Rekognition
 > **Statut:** Production-ready
 
@@ -187,15 +187,63 @@ interface TextFilterResult {
 - **Detections** : profanite, hate_speech, harassment, spam, phishing
 - **Normalisation** : leetspeak (@ → a, 0 → o, 3 → e, 1 → i, 5 → s, $ → s)
 
-### Handlers integres
+### Handlers integres (filterText + analyzeTextToxicity)
 
-| Handler | Fichier | Comportement si violation |
-|---------|---------|---------------------------|
-| Create Post | `posts/create.ts` | 400 `Content policy violation` |
-| Create Comment | `comments/create.ts` | 400 `Content policy violation` |
-| Create Peak | `peaks/create.ts` | 400 `Content policy violation` |
+| Handler | Fichier | Champs moderes | Comportement si violation |
+|---------|---------|----------------|---------------------------|
+| Create Post | `posts/create.ts` | caption | 400 + content_status persiste |
+| Create Comment | `comments/create.ts` | text | 400 + content_status persiste |
+| Create Peak | `peaks/create.ts` | title, description | 400 + content_status persiste |
+| Update Comment | `comments/update.ts` | text | 400 `violates community guidelines` |
+| Create Spot Review | `spots/reviews-create.ts` | comment | 400 `violates community guidelines` |
+| Update Spot | `spots/update.ts` | name, description | 400 `violates community guidelines` |
+| Create Spot | `spots/create.ts` | name, description | 400 `violates community guidelines` |
+| Create Group | `groups/create.ts` | name, description | 400 `violates community guidelines` |
+| Create Event | `events/create.ts` | title, description | 400 `violates community guidelines` |
+| Create Battle | `battles/create.ts` | title, description | 400 `violates community guidelines` |
+| Create Challenge | `challenges/create.ts` | title, description, rules, prizeDescription | 400 `violates community guidelines` |
+| Create Dispute | `disputes/create.ts` | description | 400 `violates community guidelines` |
+| Peak Comment | `peaks/comment.ts` | text | 400 `violates community guidelines` |
+| Update Profile | `profiles/update.ts` | bio, fullName, displayName | 400 `violates community guidelines` |
+| Send Tip (message) | `tips/send.ts` | message (optional) | 400 `violates community guidelines` |
+| Start Live Stream | `live-streams/start.ts` | title | 400 `violates community guidelines` |
+| Send DM (REST) | `conversations/send-message.ts` | content | 400 `violates community guidelines` |
+| Send DM (WebSocket) | `websocket/send-message.ts` | content | WebSocket error response |
+| Live Chat (WebSocket) | `websocket/live-stream.ts` | comment | WebSocket error response |
 
 Seules les violations `critical` et `high` bloquent la creation. Les violations `medium` et `low` sont publiees normalement (le filtre client les a deja traitees).
+
+### AWS Comprehend DetectToxicContent
+
+**Fichier**: `aws-migration/lambda/shared/moderation/textModeration.ts`
+
+```typescript
+analyzeTextToxicity(text: string): Promise<ToxicityResult>
+
+interface ToxicityResult {
+  action: 'pass' | 'flag' | 'block';
+  topCategory: ToxicityCategory | null;
+  maxScore: number;
+  categories: Array<{ name: ToxicityCategory; score: number }>;
+}
+```
+
+**Seuils de decision:**
+
+| Score | Action | Persistance |
+|-------|--------|-------------|
+| > 0.9 | `block` — rejet 400 | `content_status = 'blocked'` |
+| 0.7-0.9 | `flag` — publie mais marque | `content_status = 'flagged'` |
+| < 0.7 | `pass` — publie normalement | `content_status = 'clean'` |
+
+**Categories:** HATE_SPEECH, INSULT, THREAT, SEXUAL, PROFANITY, GRAPHIC, HARASSMENT, VIOLENCE_OR_THREAT
+
+**Colonnes de persistance (migration-047):**
+- `content_status VARCHAR(20) DEFAULT 'clean'` — sur posts, comments, peaks
+- `toxicity_score DECIMAL(4,3)` — score Comprehend
+- `toxicity_category VARCHAR(50)` — categorie dominante
+
+Les create handlers (posts, comments, peaks) persistent ces colonnes. Les autres handlers (DM, live chat, etc.) bloquent uniquement sans persistence.
 
 ---
 
@@ -343,29 +391,36 @@ Validation des **magic bytes** (headers de fichier) :
 
 | Seuil | Periode | Action automatique | Reversible |
 |-------|---------|--------------------|------------|
-| **3 reports** sur un post | 1 heure | Masquer le post (`visibility = 'private'`) | Oui (moderateur) |
-| **5 reporters uniques** sur un user | 24 heures | Suspension 24h (`moderation_status = 'suspended'`) | Auto (expiration) |
-| **10 reports confirmes** sur un user | 30 jours | Flag pour ban review (`action = 'flag_for_ban'`) | Moderateur requis |
+| **3 reports** sur un post | 1 heure | Masquer le post (`visibility = 'hidden'`) + push notification auteur | Oui (moderateur) |
+| **5 reporters uniques** sur un user | 24 heures | Suspension 24h (`moderation_status = 'suspended'`) + push notification | Auto (expiration) |
+| **10 reports confirmes** sur un user | 30 jours | Flag pour ban review (`action = 'flag_for_ban'`) + moderation_log | Moderateur requis |
 
 ### Fonctions
 
 ```typescript
 checkPostEscalation(db: Pool, postId: string): Promise<EscalationResult>
 // Compte post_reports WHERE created_at > NOW() - INTERVAL '1 hour'
-// Si >= 3 → UPDATE posts SET visibility = 'private'
+// Si >= 3 → UPDATE posts SET visibility = 'hidden'
+// + push notification a l'auteur du post
 
 checkUserEscalation(db: Pool, targetUserId: string): Promise<EscalationResult>
-// Compte DISTINCT reporter_id across post_reports + user_reports + comment_reports
-// Si >= 5 en 24h → suspend (si pas deja suspendu)
-// Si >= 10 resolved en 30j → flag_for_ban
+// Compte DISTINCT reporter_id across post_reports + user_reports + comment_reports + peak_reports
+// Si >= 5 en 24h → suspend (si pas deja suspendu) + push notification
+// Si >= 10 resolved en 30j → flag_for_ban + moderation_log entry
 ```
+
+### Constantes
+- `SYSTEM_MODERATOR_ID = '00000000-0000-0000-0000-000000000000'` — utilise pour les entrees moderation_log automatiques
+- Defini dans `aws-migration/lambda/shared/moderation/constants.ts`
 
 ### Integration
 Appele automatiquement apres chaque insertion de report dans :
 - `report-post.ts` — checkPostEscalation + checkUserEscalation
-- `report-comment.ts` — checkUserEscalation (auteur du commentaire)
+- `report-comment.ts` — checkUserEscalation (auteur du commentaire, colonne `user_id`)
 - `report-livestream.ts` — checkUserEscalation (host du stream)
 - `report-message.ts` — checkUserEscalation (expediteur du message)
+- `report-user.ts` — checkUserEscalation (utilisateur signale)
+- `report-peak.ts` — checkUserEscalation (auteur du peak)
 
 Les checks sont **non-bloquants** (try/catch) : si l'escalation echoue, le report est quand meme cree.
 
@@ -390,6 +445,7 @@ CREATE INDEX idx_profiles_moderation_status
 
 ```typescript
 requireActiveAccount(cognitoSub, headers): Promise<AccountStatusResult | APIGatewayProxyResult>
+isAccountError(value): value is APIGatewayProxyResult  // type guard
 ```
 
 | Statut | Comportement |
@@ -399,6 +455,34 @@ requireActiveAccount(cognitoSub, headers): Promise<AccountStatusResult | APIGate
 | `suspended` (actif) | 403 Forbidden avec `{ moderationStatus, reason, suspendedUntil }` |
 | `banned` | 403 Forbidden permanent avec `{ moderationStatus, reason }` |
 | `shadow_banned` | Requete autorisee (l'utilisateur ne sait pas qu'il est shadow ban) |
+
+### Handlers proteges par requireActiveAccount
+
+Tous les handlers de mutation sont proteges :
+
+| Handler | Fichier | Pattern |
+|---------|---------|---------|
+| Create Post | `posts/create.ts` | `requireActiveAccount(userId, headers)` |
+| Create Comment | `comments/create.ts` | `requireActiveAccount(userId, headers)` |
+| Update Comment | `comments/update.ts` | `requireActiveAccount(userId, headers)` |
+| Create Peak | `peaks/create.ts` | `requireActiveAccount(userId, headers)` |
+| Peak Comment | `peaks/comment.ts` | `requireActiveAccount(userId, headers)` |
+| Update Profile | `profiles/update.ts` | `requireActiveAccount(userId, headers)` (skip pour onboarding) |
+| Create Spot | `spots/create.ts` | `requireActiveAccount(userId, headers)` |
+| Update Spot | `spots/update.ts` | `requireActiveAccount(userId, headers)` |
+| Create Spot Review | `spots/reviews-create.ts` | `requireActiveAccount(userId, headers)` |
+| Create Group | `groups/create.ts` | `requireActiveAccount(cognitoSub, {})` + `cors()` |
+| Create Event | `events/create.ts` | `requireActiveAccount(userId, {})` + `cors()` |
+| Create Battle | `battles/create.ts` | `requireActiveAccount(cognitoSub, {})` + `cors()` |
+| Create Challenge | `challenges/create.ts` | `requireActiveAccount(cognitoSub, {})` + `cors()` |
+| Create Dispute | `disputes/create.ts` | `requireActiveAccount(user.sub, headers)` |
+| Send Tip | `tips/send.ts` | `requireActiveAccount(userId, {})` + `cors()` |
+| Start Live Stream | `live-streams/start.ts` | `requireActiveAccount(cognitoSub, headers)` |
+| Send DM (REST) | `conversations/send-message.ts` | `requireActiveAccount(userId, headers)` |
+| Send DM (WebSocket) | `websocket/send-message.ts` | Direct DB query `moderation_status` |
+| Live Chat (WebSocket) | `websocket/live-stream.ts` | Direct DB query `moderation_status` |
+
+**Note:** Les handlers WebSocket n'utilisent pas `requireActiveAccount()` car ils resolvent l'utilisateur via la table `websocket_connections` (profile ID, pas cognitoSub). A la place, une requete directe verifie `moderation_status` dans la table `profiles`.
 
 ### Ecrans frontend
 
@@ -671,6 +755,24 @@ blocked_users     (id, blocker_id, blocked_id, created_at)
 muted_users       (id, muter_id, muted_id, created_at)
 ```
 
+### Shadow ban & feed filtering
+
+Les contenus des utilisateurs `banned` et `shadow_banned` sont exclus de tous les feeds et recherches pour les autres utilisateurs. L'utilisateur shadow-banne voit toujours son propre contenu.
+
+**Handlers avec filtrage:**
+
+| Handler | Fichier | Filtre |
+|---------|---------|--------|
+| Posts feed | `posts/list.ts` | `moderation_status NOT IN ('banned', 'shadow_banned')` + `visibility != 'hidden'` (3 branches) |
+| Post detail | `posts/get.ts` | Check auteur shadow_banned/banned si requester != author → 404 |
+| Post search | `posts/search.ts` | Filtre sur les 2 branches (FTS + ILIKE) |
+| Comments list | `comments/list.ts` | Filtre auteur + self-view escape |
+| Peaks list | `peaks/list.ts` | Filtre auteur + self-view escape |
+| Peak search | `peaks/search.ts` | Filtre sur les 3 branches (hashtag, FTS, ILIKE) |
+| Peak comments | `peaks/comment.ts` | Filtre sur les 2 branches (cursor + non-cursor) |
+
+**Principe du self-view:** Si `currentProfileId === author_id`, le contenu est toujours visible (le shadow-banne ne sait pas qu'il est banne).
+
 ### Migrations
 
 | Migration | Description |
@@ -681,25 +783,31 @@ muted_users       (id, muter_id, muted_id, created_at)
 | migration-044 | Table peak_reports, index optimisation |
 | migration-045 | Colonnes moderation_status, suspended_until, ban_reason sur profiles |
 | migration-046 | Tables live_stream_reports, message_reports |
+| migration-047 | Colonnes content_status, toxicity_score, toxicity_category sur posts/comments/peaks + profil systeme moderateur |
 
 ---
 
-## 17. Roadmap (prochaines phases)
+## 17. Roadmap
 
-### Phase 3 — Moderation temps reel (a venir)
-- [ ] AWS Comprehend DetectToxicContent dans les handlers de creation
-- [ ] Moderation du chat live via WebSocket (Comprehend async <200ms)
+### Phase 3 — Moderation temps reel (COMPLETE)
+- [x] AWS Comprehend DetectToxicContent dans tous les handlers de creation (19 handlers)
+- [x] Moderation du chat live via WebSocket (`websocket/live-stream.ts`)
+- [x] Moderation DMs via REST (`conversations/send-message.ts`) et WebSocket (`websocket/send-message.ts`)
+- [x] Shadow ban effectif : exclusion des feeds/search pour les autres users (7 handlers)
+- [x] Feed filtering : posts hidden exclus des feeds
+- [x] requireActiveAccount sur tous les handlers de mutation (19 handlers)
+- [x] Notifications push de moderation (post masque, suspension)
+- [x] Content status persistence (content_status, toxicity_score, toxicity_category)
+- [x] Auto-escalation complete (peak_reports inclus, SYSTEM_MODERATOR_ID, notifications)
 - [ ] Cooldown live chat : 1 message/3s, auto-mute apres 3 messages bloques en 5min
-- [ ] Shadow ban effectif : exclusion des feeds/search pour les autres users
-- [ ] Notifications de moderation push + in-app (contenu supprime, avertissement, suspension)
 
-### Phase 4 — Dashboard moderateur + appels
+### Phase 4 — Dashboard moderateur + appels (a venir)
 - [ ] API admin `/admin/reports` (liste, detail, action) avec auth Cognito group `Moderators`
 - [ ] Dashboard web React (Vite + CloudFront) pour traitement des reports
 - [ ] Systeme d'appels : table `appeals`, soumission par user, review par moderateur
 - [ ] Bulk actions et stats en temps reel
 
-### Phase 5 — Trust score & analytics
+### Phase 5 — Trust score & analytics (a venir)
 - [ ] Score de reputation par utilisateur (historique reports, actions, anciennete)
 - [ ] Priorisation automatique de la queue moderateur
 - [ ] Detection de patterns de spam (contenu similaire, creation en rafale)
@@ -708,5 +816,5 @@ muted_users       (id, muter_id, muted_id, created_at)
 
 ---
 
-> **Derniere mise a jour** : 2026-02-08
+> **Derniere mise a jour** : 2026-02-09
 > **Maintenu par** : Equipe Smuppy

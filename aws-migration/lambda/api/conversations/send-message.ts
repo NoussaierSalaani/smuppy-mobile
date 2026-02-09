@@ -10,6 +10,9 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('conversations-send-message');
 
@@ -86,6 +89,32 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Sanitize content: strip HTML tags and control characters
     const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
+
+    // Check account status (suspended/banned users cannot send messages)
+    const accountCheck = await requireActiveAccount(userId, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
+
+    // Moderation: wordlist filter
+    const filterResult = await filterText(sanitizedContent);
+    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      log.warn('DM blocked by text filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+      };
+    }
+
+    // Moderation: Comprehend toxicity analysis
+    const toxicityResult = await analyzeTextToxicity(sanitizedContent);
+    if (toxicityResult.action === 'block') {
+      log.warn('DM blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+      };
+    }
 
     const db = await getPool();
 

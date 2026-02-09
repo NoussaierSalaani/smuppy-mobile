@@ -8,6 +8,9 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { sanitizeText, isValidUUID } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('comments-update');
 
@@ -23,6 +26,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
     }
+
+    // Account status check
+    const accountCheck = await requireActiveAccount(userId, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
 
     const commentId = event.pathParameters?.id;
     if (!commentId) {
@@ -61,6 +68,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 400,
         headers,
         body: JSON.stringify({ message: 'Comment text cannot be empty' }),
+      };
+    }
+
+    // Moderate comment text
+    const filterResult = await filterText(sanitizedText);
+    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      log.warn('Comment update blocked by filter', { userId: userId.substring(0, 8) + '***' });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Your comment contains content that violates our community guidelines.' }),
+      };
+    }
+    const toxicityResult = await analyzeTextToxicity(sanitizedText);
+    if (toxicityResult.action === 'block') {
+      log.warn('Comment update blocked by toxicity', { userId: userId.substring(0, 8) + '***' });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Your comment contains content that violates our community guidelines.' }),
       };
     }
 

@@ -9,6 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { checkUserEscalation } from '../../shared/moderation/autoEscalation';
 
 const log = createLogger('reports-peak');
 const MAX_REASON_LENGTH = 100;
@@ -110,6 +111,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     log.info('Peak report created', { reportId: result.rows[0].id });
+
+    // Auto-escalation: check if peak author should be escalated
+    try {
+      const peakAuthorResult = await db.query('SELECT author_id FROM peaks WHERE id = $1', [peakId]);
+      if (peakAuthorResult.rows.length > 0) {
+        const userEscalation = await checkUserEscalation(db, peakAuthorResult.rows[0].author_id);
+        if (userEscalation.action !== 'none') {
+          log.info('User escalation triggered from peak report', userEscalation);
+        }
+      }
+    } catch (escErr) {
+      log.error('Auto-escalation check failed (non-blocking)', escErr);
+    }
 
     return {
       statusCode: 201,

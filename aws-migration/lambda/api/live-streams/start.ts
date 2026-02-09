@@ -8,6 +8,9 @@ import { getPool } from '../../shared/db';
 import { createHeaders, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { sendPushToUser } from '../services/push-notification';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('live-streams-start');
 
@@ -20,6 +23,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!cognitoSub) {
       return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
     }
+
+    // Account status check (suspended/banned users cannot go live)
+    const accountCheck = await requireActiveAccount(cognitoSub, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
 
     const db = await getPool();
 
@@ -48,9 +55,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return { statusCode: 409, headers, body: JSON.stringify({ message: 'You already have an active live stream' }) };
     }
 
-    // Parse optional title
+    // Parse optional title (sanitize: strip HTML + control chars)
     const body = event.body ? JSON.parse(event.body) : {};
-    const title = body.title ? String(body.title).replace(/<[^>]*>/g, '').substring(0, 100) : 'Live';
+    const title = body.title
+      ? String(body.title).replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().substring(0, 100)
+      : 'Live';
+
+    // Moderation: check title for violations (skip default 'Live' title)
+    if (title !== 'Live') {
+      const filterResult = await filterText(title);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Live stream title blocked by filter', { userId: cognitoSub.substring(0, 8) + '***' });
+        return { statusCode: 400, headers, body: JSON.stringify({ message: 'Your title contains content that violates our community guidelines.' }) };
+      }
+      const toxicityResult = await analyzeTextToxicity(title);
+      if (toxicityResult.action === 'block') {
+        log.warn('Live stream title blocked by toxicity', { userId: cognitoSub.substring(0, 8) + '***' });
+        return { statusCode: 400, headers, body: JSON.stringify({ message: 'Your title contains content that violates our community guidelines.' }) };
+      }
+    }
 
     const channelName = `live_${profile.id}`;
 

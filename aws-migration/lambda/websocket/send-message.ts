@@ -8,6 +8,8 @@ import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk
 import { getPool } from '../shared/db';
 import { createLogger } from '../api/utils/logger';
 import { hasStatusCode } from '../api/utils/error-handler';
+import { filterText } from '../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../shared/moderation/textModeration';
 
 const log = createLogger('websocket-send-message');
 
@@ -53,6 +55,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const senderId = connectionResult.rows[0].user_id;
+
+    // Check account status (suspended/banned users cannot send messages)
+    const statusResult = await db.query(
+      'SELECT moderation_status FROM profiles WHERE id = $1',
+      [senderId]
+    );
+    const moderationStatus = statusResult.rows[0]?.moderation_status || 'active';
+    if (moderationStatus === 'suspended' || moderationStatus === 'banned') {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: 'Your account is restricted. You cannot send messages.' }),
+      };
+    }
 
     // Parse message body
     const body = event.body ? JSON.parse(event.body) : {};
@@ -117,6 +132,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 400,
         body: JSON.stringify({ message: 'Message content cannot be empty' }),
+      };
+    }
+
+    // Moderation: wordlist filter
+    const filterResult = await filterText(sanitizedContent);
+    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      log.warn('WS DM blocked by text filter', { senderId: senderId.substring(0, 8) + '***', severity: filterResult.severity });
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+      };
+    }
+
+    // Moderation: Comprehend toxicity analysis
+    const toxicityResult = await analyzeTextToxicity(sanitizedContent);
+    if (toxicityResult.action === 'block') {
+      log.warn('WS DM blocked by toxicity', { senderId: senderId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
       };
     }
 

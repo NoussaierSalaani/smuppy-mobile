@@ -11,6 +11,9 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { filterText } from '../../shared/moderation/textFilter';
+import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('peaks-comment');
 
@@ -64,6 +67,14 @@ async function handleListComments(
 
   const pool = await getReaderPool();
 
+  // Resolve requester for shadow-ban self-view
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  let currentProfileId: string | null = null;
+  if (cognitoSub) {
+    const userResult = await pool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
+    currentProfileId = userResult.rows[0]?.id || null;
+  }
+
   // Verify peak exists
   const peakCheck = await pool.query('SELECT id FROM peaks WHERE id = $1', [peakId]);
   if (peakCheck.rows.length === 0) {
@@ -75,7 +86,7 @@ async function handleListComments(
   }
 
   let query: string;
-  let params: (string | number)[];
+  let params: (string | number | null)[];
 
   if (cursor) {
     if (!isValidUUID(cursor)) {
@@ -92,10 +103,11 @@ async function handleListComments(
       JOIN profiles p ON pc.user_id = p.id
       WHERE pc.peak_id = $1
         AND pc.created_at < (SELECT created_at FROM peak_comments WHERE id = $2)
+        AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pc.user_id = $4)
       ORDER BY pc.created_at DESC
       LIMIT $3
     `;
-    params = [peakId, cursor, limit];
+    params = [peakId, cursor, limit, currentProfileId];
   } else {
     query = `
       SELECT pc.id, pc.text, pc.created_at,
@@ -103,10 +115,11 @@ async function handleListComments(
       FROM peak_comments pc
       JOIN profiles p ON pc.user_id = p.id
       WHERE pc.peak_id = $1
+        AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pc.user_id = $3)
       ORDER BY pc.created_at DESC
       LIMIT $2
     `;
-    params = [peakId, limit];
+    params = [peakId, limit, currentProfileId];
   }
 
   const result = await pool.query(query, params);
@@ -152,6 +165,10 @@ async function handleCreateComment(
     };
   }
 
+  // Account status check (suspended/banned users cannot comment)
+  const accountCheck = await requireActiveAccount(userId, headers);
+  if (isAccountError(accountCheck)) return accountCheck;
+
   // Rate limit: 20 comments per minute
   const rateLimit = await checkRateLimit({
     prefix: 'peak-comment',
@@ -184,6 +201,28 @@ async function handleCreateComment(
       statusCode: 400,
       headers,
       body: JSON.stringify({ message: 'Comment text cannot be empty' }),
+    };
+  }
+
+  // Moderation: wordlist filter
+  const filterResult = await filterText(sanitizedText);
+  if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+    log.warn('Peak comment blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Your comment contains content that violates our community guidelines.' }),
+    };
+  }
+
+  // Moderation: Comprehend toxicity analysis
+  const toxicityResult = await analyzeTextToxicity(sanitizedText);
+  if (toxicityResult.action === 'block') {
+    log.warn('Peak comment blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Your comment contains content that violates our community guidelines.' }),
     };
   }
 

@@ -381,6 +381,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         setCurrentUserId(id);
         currentUserIdRef.current = id;
       }
+    }).catch(() => {
+      // Storage read failure — userId stays null, safe fallback
     });
     return () => { mounted = false; };
   }, []);
@@ -763,6 +765,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     // Load conversations
     getConversations().then(({ data }) => {
       if (data) setConversations(data);
+    }).catch(() => {
+      // Conversation load failed — forward modal shows empty list
     });
   }, []);
 

@@ -420,7 +420,7 @@ const PostDetailVibesFeedScreen = () => {
   const handleUserPress = useCallback(() => {
     if (!currentPost) return;
     if (currentPost.user.id === currentUserId) {
-      navigation.navigate('ProfileTab' as never);
+      navigation.navigate('Tabs', { screen: 'Profile' });
     } else {
       navigation.navigate('UserProfile', { userId: currentPost.user.id });
     }
@@ -436,7 +436,7 @@ const PostDetailVibesFeedScreen = () => {
     setShowMenu(false);
     if (!currentPost) return;
     if (currentPost.user.id === currentUserId) {
-      navigation.navigate('ProfileTab' as never);
+      navigation.navigate('Tabs', { screen: 'Profile' });
     } else {
       navigation.navigate('UserProfile', { userId: currentPost.user.id });
     }

@@ -195,7 +195,7 @@ const PostDetailFanFeedScreen = () => {
       return;
     }
     if (userId === currentUserId) {
-      navigation.navigate('ProfileTab' as never);
+      navigation.navigate('Tabs', { screen: 'Profile' });
     } else {
       navigation.navigate('UserProfile', { userId });
     }

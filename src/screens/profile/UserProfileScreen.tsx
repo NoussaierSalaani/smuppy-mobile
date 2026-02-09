@@ -248,7 +248,7 @@ const UserProfileScreen = () => {
           if (!isFollowing) {
             hasPendingFollowRequest(userId).then(({ pending }) => {
               if (!cancelled) setIsRequested(pending);
-            });
+            }).catch(() => { /* keep existing state */ });
           } else {
             setIsRequested(false);
           }
@@ -281,7 +281,7 @@ const UserProfileScreen = () => {
             // Re-check pending requests when we're truly not following
             hasPendingFollowRequest(userId).then(({ pending }) => {
               if (!cancelled) setIsRequested(pending);
-            });
+            }).catch(() => { /* keep existing state */ });
             queryClient.setQueryData(queryKeys.user.profile(userId), (old: ProfileApiData | undefined) =>
               old ? { ...old, is_following: false } : old
             );
@@ -301,7 +301,7 @@ const UserProfileScreen = () => {
     if (!isFollowingFromApi && userId) {
       hasPendingFollowRequest(userId).then(({ pending }) => {
         if (!cancelled) setIsRequested(pending);
-      });
+      }).catch(() => { /* keep existing state */ });
     } else {
       setIsRequested(false);
     }
@@ -344,7 +344,7 @@ const UserProfileScreen = () => {
       if (!userId) return;
       getPostsByUser(userId, 0, 50).then(({ data, error }) => {
         if (!error && data) setUserPosts(data);
-      });
+      }).catch(() => { /* silent refetch failure — stale data remains */ });
     }, [userId])
   );
 

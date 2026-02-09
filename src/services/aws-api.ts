@@ -11,29 +11,35 @@ import type { Spot, SpotReview, GroupActivity, MapMarker, LivePin, Subcategory }
 const API_BASE_URL = AWS_CONFIG.api.restEndpoint;
 const API_BASE_URL_2 = AWS_CONFIG.api.restEndpoint2;
 const API_BASE_URL_3 = AWS_CONFIG.api.restEndpoint3;
+const API_BASE_URL_DISPUTES = AWS_CONFIG.api.restEndpointDisputes;
 const CDN_URL = AWS_CONFIG.storage.cdnDomain;
 
-// Endpoints routed to API Gateway 3 (business access)
-// These specific endpoints use the dedicated business access API
+// Endpoints routed to API Gateway 3 (business access + spots)
 const API3_ENDPOINTS = [
   '/businesses/validate-access',
   '/businesses/log-entry',
   '/businesses/subscriptions/my',
 ] as const;
 
-// Endpoint prefixes routed to API Gateway 3 (for dynamic routes with IDs)
+// Prefix-based routing to API Gateway 3
 const API3_PREFIXES = [
+  '/spots',
   '/businesses/subscriptions/',
+] as const;
+
+// Prefix-based routing to Disputes API (dedicated API Gateway)
+const DISPUTES_PREFIXES = [
+  '/disputes',
+  '/admin/disputes',
 ] as const;
 
 // Endpoints routed to API Gateway 2 (secondary)
 const API2_PREFIXES = [
   '/sessions', '/packs', '/payments', '/tips', '/earnings',
   '/challenges', '/battles', '/events', '/settings', '/admin',
-  '/businesses', '/spots', '/interests', '/expertise', '/hashtags',
+  '/businesses', '/interests', '/expertise', '/hashtags',
   '/devices', '/contacts', '/support', '/account', '/categories',
   '/groups', '/reviews', '/map', '/search/map', '/live-streams',
-  '/disputes',
 ] as const;
 
 interface RequestOptions {
@@ -374,20 +380,23 @@ class AWSAPIService {
   private async _requestOnce<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
     const { method, body, headers = {}, authenticated = true, timeout = this.defaultTimeout } = options;
 
-    // Determine which API to use:
-    // 1. Check for specific API 3 endpoints first (business access)
-    // 2. Then check for API 3 prefix patterns (subscription routes with IDs)
-    // 3. Then check for API 2 prefixes
-    // 4. Default to API 1
+    // Determine which API to use (checked in priority order):
+    // 1. API 3: exact endpoint matches OR prefix matches (spots, business subscriptions)
+    // 2. Disputes API: /disputes and /admin/disputes prefixes
+    // 3. API 2: all other secondary prefixes
+    // 4. API 1: default
     const isApi3Endpoint = API3_ENDPOINTS.some(ep => endpoint === ep) ||
-      API3_PREFIXES.some(prefix => endpoint.startsWith(prefix) &&
-        (endpoint.includes('/access-pass') || endpoint.includes('/cancel') || endpoint.includes('/reactivate')));
+      API3_PREFIXES.some(prefix => endpoint.startsWith(prefix));
+
+    const isDisputesEndpoint = DISPUTES_PREFIXES.some(prefix => endpoint.startsWith(prefix));
 
     const baseUrl = isApi3Endpoint
       ? API_BASE_URL_3
-      : API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))
-        ? API_BASE_URL_2
-        : API_BASE_URL;
+      : isDisputesEndpoint
+        ? API_BASE_URL_DISPUTES
+        : API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))
+          ? API_BASE_URL_2
+          : API_BASE_URL;
     const url = `${baseUrl}${endpoint}`;
 
     const requestHeaders: Record<string, string> = {

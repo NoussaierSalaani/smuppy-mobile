@@ -185,5 +185,14 @@ export class ApiGatewayDisputesStack extends cdk.NestedStack {
       resourceArn: this.api.deploymentStage.stageArn,
       webAclArn: webAcl.attrArn,
     });
+
+    // ========================================
+    // Outputs
+    // ========================================
+    new cdk.CfnOutput(this, 'ApiDisputesUrl', {
+      value: this.api.url,
+      description: 'Disputes API URL',
+      exportName: `SmuppyApiDisputesUrl-${environment}`,
+    });
   }
 }

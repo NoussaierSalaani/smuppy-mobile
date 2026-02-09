@@ -1561,6 +1561,27 @@ export const reportPost = async (postId: string, reason: string, details?: strin
 };
 
 /**
+ * Report a comment
+ */
+export const reportComment = async (commentId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
+  const user = await awsAuth.getCurrentUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  try {
+    const result = await awsAPI.request<{ id: string }>('/reports/comment', {
+      method: 'POST',
+      body: { commentId, reason, details },
+    });
+    return { data: result, error: null };
+  } catch (error: unknown) {
+    if (getErrorMessage(error)?.includes('already')) {
+      return { data: null, error: 'already_reported' };
+    }
+    return { data: null, error: getErrorMessage(error) };
+  }
+};
+
+/**
  * Report a peak
  */
 export const reportPeak = async (peakId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {

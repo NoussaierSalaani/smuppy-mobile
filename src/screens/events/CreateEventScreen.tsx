@@ -46,6 +46,7 @@ import RouteMapPicker from '../../components/RouteMapPicker';
 import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { filterContent } from '../../utils/contentFilters';
 
 const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
 if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
@@ -341,10 +342,72 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  const handlePrevStep = () => {
+  const handlePrevStep = useCallback(() => {
     if (step > 1) { setStep(step - 1); scrollRef.current?.scrollTo({ y: 0, animated: true }); }
     else { navigation.goBack(); }
-  };
+  }, [step, navigation]);
+
+  const handleSetMode = useCallback((key: string) => setMode(key as CreateMode), []);
+  const handleShowCategoryModal = useCallback(() => setShowCategoryModal(true), []);
+  const handleCloseCategoryModal = useCallback(() => setShowCategoryModal(false), []);
+  const handleShowDatePicker = useCallback(() => setShowDatePicker(true), []);
+  const handleShowTimePicker = useCallback(() => setShowTimePicker(true), []);
+  const handleSetPublicTrue = useCallback(() => setIsPublic(true), []);
+  const handleSetPublicFalse = useCallback(() => setIsPublic(false), []);
+  const handleSetFreeTrue = useCallback(() => setIsFree(true), []);
+  const handleSetPaid = useCallback(() => {
+    if (canUsePaid) {
+      setIsFree(false);
+    } else if (isBusinessNonPremium) {
+      showAlert({
+        title: 'Business Premium Required',
+        message: 'Upgrade to Business Premium to create paid events, receive payments, and access revenue tools.',
+        type: 'info',
+        buttons: [
+          { text: 'Maybe Later', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => navigation.navigate('UpgradeToPro') },
+        ],
+      });
+    } else {
+      showAlert({
+        title: 'Verified Account Required',
+        message: 'Only verified accounts can create paid events and groups.\n\nGet verified to unlock:\n- Paid events & groups\n- Receive tips from fans\n- 80% revenue share\n- Trust badge on your profile',
+        type: 'info',
+        buttons: [
+          { text: 'Maybe Later', style: 'cancel' },
+          { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerification') },
+        ],
+      });
+    }
+  }, [canUsePaid, isBusinessNonPremium, showAlert, navigation]);
+  const handleCoordinateSelect = useCallback((coord: { lat: number; lng: number }) => setCoordinates(coord), []);
+  const handleRouteCalculated = useCallback((result: RouteResult & { start: { lat: number; lng: number }; end: { lat: number; lng: number }; waypoints: { lat: number; lng: number }[]; profile: RouteProfile }) => {
+    setGroupRouteData(result);
+    setCoordinates(result.start);
+  }, []);
+  const handleRouteClear = useCallback(() => setGroupRouteData(null), []);
+  const handleGoBackNav = useCallback(() => navigation.goBack(), [navigation]);
+  const handleUpgradeNav = useCallback(() => navigation.navigate('UpgradeToPro'), [navigation]);
+  const handleDateChange = useCallback((_: unknown, date?: Date) => {
+    setShowDatePicker(false);
+    if (date) {
+      setStartDate(prev => {
+        const updated = new Date(prev);
+        updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+        return updated;
+      });
+    }
+  }, []);
+  const handleTimeChange = useCallback((_: unknown, date?: Date) => {
+    setShowTimePicker(false);
+    if (date) {
+      setStartDate(prev => {
+        const updated = new Date(prev);
+        updated.setHours(date.getHours(), date.getMinutes());
+        return updated;
+      });
+    }
+  }, []);
 
   // ─── Submit ─────────────────────────────────────────────────
   // Sanitize inputs: strip HTML tags and control characters (CLAUDE.md compliance)
@@ -355,6 +418,17 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
       showError('Error', 'Please fill in all required fields');
       return;
     }
+
+    // Content moderation check on user-generated text
+    const textsToCheck = [title, description].filter(t => t.trim());
+    for (const text of textsToCheck) {
+      const filterResult = filterContent(text, { context: 'event' });
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        showError('Content Policy', filterResult.reason || 'Your content contains inappropriate language.');
+        return;
+      }
+    }
+
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
@@ -484,7 +558,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           { key: 'event', label: 'Events' },
         ]}
         activeTab={mode}
-        onTabChange={(key) => setMode(key as CreateMode)}
+        onTabChange={handleSetMode}
         size="medium"
         fullWidth={false}
         style={styles.liquidToggle}
@@ -515,7 +589,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
       {/* Category dropdown */}
       <Text style={styles.label}>Category</Text>
-      <TouchableOpacity style={styles.capsuleInput} onPress={() => setShowCategoryModal(true)}>
+      <TouchableOpacity style={styles.capsuleInput} onPress={handleShowCategoryModal}>
         <View style={styles.dropdownRow}>
           <Text style={selectedCategory ? styles.dropdownValue : styles.dropdownPlaceholder}>
             {selectedCategory?.name || 'Sport'}
@@ -526,7 +600,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
       {/* Date */}
       <Text style={styles.label}>Date</Text>
-      <TouchableOpacity style={styles.capsuleInput} onPress={() => setShowDatePicker(true)}>
+      <TouchableOpacity style={styles.capsuleInput} onPress={handleShowDatePicker}>
         <View style={styles.iconInputRow}>
           <Ionicons name="calendar-outline" size={20} color={colors.primary} />
           <Text style={startDate ? styles.dropdownValue : styles.dropdownPlaceholder}>
@@ -537,7 +611,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
       {/* Time */}
       <Text style={styles.label}>Time</Text>
-      <TouchableOpacity style={styles.capsuleInput} onPress={() => setShowTimePicker(true)}>
+      <TouchableOpacity style={styles.capsuleInput} onPress={handleShowTimePicker}>
         <View style={styles.iconInputRow}>
           <Ionicons name="time-outline" size={20} color={colors.primary} />
           <Text style={styles.dropdownValue}>
@@ -557,7 +631,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
       <View style={styles.visibilityRow}>
         <TouchableOpacity
           style={[styles.radioChip, isPublic && styles.radioChipActive]}
-          onPress={() => setIsPublic(true)}
+          onPress={handleSetPublicTrue}
         >
           <Ionicons name="people-outline" size={18} color={isPublic ? colors.primary : colors.gray} />
           <Text style={[styles.radioChipText, isPublic && styles.radioChipTextActive]}>Public</Text>
@@ -568,7 +642,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
         <TouchableOpacity
           style={[styles.radioChip, !isPublic && styles.radioChipActive]}
-          onPress={() => setIsPublic(false)}
+          onPress={handleSetPublicFalse}
         >
           <Ionicons name="lock-closed-outline" size={18} color={!isPublic ? colors.primary : colors.gray} />
           <Text style={[styles.radioChipText, !isPublic && styles.radioChipTextActive]}>Private</Text>
@@ -608,7 +682,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
       <View style={styles.visibilityRow}>
         <TouchableOpacity
           style={[styles.radioChip, isFree && styles.radioChipActive]}
-          onPress={() => setIsFree(true)}
+          onPress={handleSetFreeTrue}
         >
           <Text style={[styles.radioChipText, isFree && styles.radioChipTextActive]}>Free</Text>
           <View style={[styles.radioCircle, isFree && styles.radioCircleFilled]}>
@@ -617,31 +691,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.radioChip, !isFree && styles.radioChipActive]}
-          onPress={() => {
-            if (canUsePaid) {
-              setIsFree(false);
-            } else if (isBusinessNonPremium) {
-              showAlert({
-                title: 'Business Premium Required',
-                message: 'Upgrade to Business Premium to create paid events, receive payments, and access revenue tools.',
-                type: 'info',
-                buttons: [
-                  { text: 'Maybe Later', style: 'cancel' },
-                  { text: 'Upgrade', onPress: () => navigation.navigate('UpgradeToPro') },
-                ],
-              });
-            } else {
-              showAlert({
-                title: 'Verified Account Required',
-                message: 'Only verified accounts can create paid events and groups.\n\nGet verified to unlock:\n- Paid events & groups\n- Receive tips from fans\n- 80% revenue share\n- Trust badge on your profile',
-                type: 'info',
-                buttons: [
-                  { text: 'Maybe Later', style: 'cancel' },
-                  { text: 'Get Verified', onPress: () => navigation.navigate('IdentityVerification') },
-                ],
-              });
-            }
-          }}
+          onPress={handleSetPaid}
         >
           <Text style={[styles.radioChipText, !isFree && styles.radioChipTextActive]}>Paid</Text>
           {!canUsePaid && (
@@ -683,12 +733,9 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           lockedLocation={lockedLocation}
           locationName={locationName}
           onLocationNameChange={setLocationName}
-          onCoordinateSelect={(coord) => setCoordinates(coord)}
-          onRouteCalculated={(result) => {
-            setGroupRouteData(result);
-            setCoordinates(result.start);
-          }}
-          onRouteClear={() => setGroupRouteData(null)}
+          onCoordinateSelect={handleCoordinateSelect}
+          onRouteCalculated={handleRouteCalculated}
+          onRouteClear={handleRouteClear}
         />
       ) : (
         <>
@@ -718,7 +765,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
                     onPress={() => selectLocationSuggestion(result)}
                   >
                     <Ionicons name="location" size={16} color={colors.primary} />
-                    <View style={{ flex: 1 }}>
+                    <View style={styles.flexOne}>
                       <Text style={styles.suggestionMain} numberOfLines={1}>{formatted.mainText}</Text>
                       {formatted.secondaryText ? (
                         <Text style={styles.suggestionSub} numberOfLines={1}>{formatted.secondaryText}</Text>
@@ -935,11 +982,11 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={handleGoBackNav}>
             <Ionicons name="arrow-back" size={24} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Create Groups and Events</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerSpacer} />
         </View>
         <View style={styles.limitContainer}>
           <Ionicons name="lock-closed" size={48} color={colors.gray300} />
@@ -948,13 +995,13 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
             You've created {eventsThisMonth} event this month.{'\n'}
             Personal accounts can create 1 free event per month.
           </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('UpgradeToPro')}>
+          <TouchableOpacity onPress={handleUpgradeNav}>
             <LinearGradient colors={GRADIENTS.primary} style={styles.limitUpgradeBtn}>
               <Text style={styles.limitUpgradeBtnText}>Upgrade to Pro</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
-            <Text style={{ color: colors.primary, fontWeight: '500', fontSize: 15 }}>Maybe Later</Text>
+          <TouchableOpacity onPress={handleGoBackNav} style={styles.maybeLaterBtn}>
+            <Text style={styles.maybeLaterText}>Maybe Later</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -970,13 +1017,13 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Groups and Events</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {/* Progress segments */}
       <ProgressSegments current={step} total={TOTAL_STEPS} colors={colors} />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flexOne}>
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -1017,7 +1064,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
       {/* Category modal */}
       <Modal visible={showCategoryModal} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowCategoryModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={handleCloseCategoryModal}>
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Select Category</Text>
             <FlatList
@@ -1054,14 +1101,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           mode="date"
           display="spinner"
           minimumDate={new Date()}
-          onChange={(_, date) => {
-            setShowDatePicker(false);
-            if (date) {
-              const updated = new Date(startDate);
-              updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-              setStartDate(updated);
-            }
-          }}
+          onChange={handleDateChange}
         />
       )}
 
@@ -1071,14 +1111,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           value={startDate}
           mode="time"
           display="spinner"
-          onChange={(_, date) => {
-            setShowTimePicker(false);
-            if (date) {
-              const updated = new Date(startDate);
-              updated.setHours(date.getHours(), date.getMinutes());
-              setStartDate(updated);
-            }
-          }}
+          onChange={handleTimeChange}
         />
       )}
     </SafeAreaView>
@@ -1099,6 +1132,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => {
 
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  flexOne: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   // Header
@@ -1115,6 +1149,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => {
     fontWeight: '700',
     color: colors.dark,
   },
+  headerSpacer: { width: 24 },
 
   // Scroll
   scrollContent: { paddingHorizontal: 16, paddingBottom: 120 },
@@ -1371,6 +1406,8 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => {
   limitText: { fontSize: 14, color: colors.gray, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
   limitUpgradeBtn: { paddingVertical: 14, paddingHorizontal: 40, borderRadius: 26 },
   limitUpgradeBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+  maybeLaterBtn: { marginTop: 16 },
+  maybeLaterText: { color: colors.primary, fontWeight: '500', fontSize: 15 },
   });
 };
 

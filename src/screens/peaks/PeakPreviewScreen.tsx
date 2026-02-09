@@ -29,6 +29,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { searchNominatim, isValidCoordinate, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 import { extractHashtags } from '../../utils/hashtags';
+import { filterContent } from '../../utils/contentFilters';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -150,6 +151,16 @@ const PeakPreviewScreen = (): React.JSX.Element => {
     if (isChallenge && !challengeId && !challengeTitle.trim()) {
       alert.error('Challenge Title Required', 'Please enter a title for your challenge');
       return;
+    }
+
+    // Content moderation check on text overlay and challenge title
+    const textsToCheck = [textOverlay, challengeTitle, challengeRules].filter(t => t.trim());
+    for (const text of textsToCheck) {
+      const filterResult = filterContent(text, { context: 'post' });
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        alert.error('Content Policy', filterResult.reason || 'Your content contains inappropriate language.');
+        return;
+      }
     }
 
     setIsPublishing(true);

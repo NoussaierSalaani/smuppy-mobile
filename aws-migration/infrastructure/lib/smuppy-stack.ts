@@ -22,9 +22,11 @@ import { Construct } from 'constructs';
 import * as path from 'path';
 import { LambdaStack } from './lambda-stack';
 import { LambdaStack2 } from './lambda-stack-2';
+import { LambdaStackDisputes } from './lambda-stack-disputes';
 import { ApiGatewayStack } from './api-gateway-stack';
 import { ApiGateway2Stack } from './api-gateway-2-stack';
 import { ApiGateway3Stack } from './api-gateway-3-stack';
+import { ApiGatewayDisputesStack } from './api-gateway-disputes-stack';
 
 /**
  * Smuppy AWS Infrastructure Stack
@@ -989,6 +991,24 @@ export class SmuppyStack extends cdk.Stack {
     });
 
     // ========================================
+    // Lambda Stack Disputes - Disputes & Resolution Handlers
+    // ========================================
+    const lambdaStackDisputes = new LambdaStackDisputes(this, 'LambdaStackDisputes', {
+      vpc,
+      lambdaSecurityGroup,
+      dbCredentials,
+      stripeSecret,
+      redisAuthSecret: redisAuthToken,
+      lambdaEnvironment,
+      environment,
+      isProduction,
+      apiLogGroup,
+      rdsProxyArn: cdk.Fn.sub('arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${ProxyId}/*', {
+        ProxyId: cdk.Fn.select(6, cdk.Fn.split(':', rdsProxy.dbProxyArn)),
+      }),
+    });
+
+    // ========================================
     // API Gateway - Nested Stack (to stay under 500 resource limit)
     // ========================================
     const apiGatewayStack = new ApiGatewayStack(this, 'ApiGatewayStack', {
@@ -1006,6 +1026,15 @@ export class SmuppyStack extends cdk.Stack {
     const apiGateway2Stack = new ApiGateway2Stack(this, 'ApiGateway2Stack', {
       userPool,
       lambdaStack,
+      lambdaStack2,
+      environment,
+      isProduction,
+    });
+
+    // Disputes API Gateway - Nested Stack
+    const apiGatewayDisputesStack = new ApiGatewayDisputesStack(this, 'ApiGatewayDisputesStack', {
+      userPool,
+      lambdaStackDisputes,
       environment,
       isProduction,
     });
@@ -1019,6 +1048,7 @@ export class SmuppyStack extends cdk.Stack {
     const apiGateway3Stack = new ApiGateway3Stack(this, 'ApiGateway3Stack', {
       userPool,
       lambdaStack2,
+      lambdaStackDisputes,
       environment,
       isProduction,
     });

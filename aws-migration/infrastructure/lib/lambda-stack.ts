@@ -233,20 +233,7 @@ export class LambdaStack extends cdk.NestedStack {
   // Media - Voice Upload
   public readonly mediaUploadVoiceFn: NodejsFunction;
 
-  // Spots
-  public readonly spotsListFn: NodejsFunction;
-  public readonly spotsGetFn: NodejsFunction;
-  public readonly spotsCreateFn: NodejsFunction;
-  public readonly spotsUpdateFn: NodejsFunction;
-  public readonly spotsDeleteFn: NodejsFunction;
-  public readonly spotsNearbyFn: NodejsFunction;
-  public readonly spotsSaveFn: NodejsFunction;
-  public readonly spotsUnsaveFn: NodejsFunction;
-  public readonly spotsIsSavedFn: NodejsFunction;
-  public readonly spotsSavedListFn: NodejsFunction;
-  public readonly spotsReviewsListFn: NodejsFunction;
-  public readonly spotsReviewsCreateFn: NodejsFunction;
-  public readonly spotsReviewsDeleteFn: NodejsFunction;
+  // Spots handlers moved to LambdaStackDisputes to stay under CloudFormation limits
 
   // Live Streams
   public readonly liveStreamsStartFn: NodejsFunction;
@@ -595,22 +582,9 @@ export class LambdaStack extends cdk.NestedStack {
     this.followRequestsCheckPendingFn = createLambda('FollowRequestsCheckPendingFunction', 'follow-requests/check-pending');
     this.followRequestsCancelFn = createLambda('FollowRequestsCancelFunction', 'follow-requests/cancel');
 
-    // ========================================
-    // Spots Lambda Functions
-    // ========================================
-    this.spotsListFn = createLambda('SpotsListFunction', 'spots/list', { memory: 1024 });
-    this.spotsGetFn = createLambda('SpotsGetFunction', 'spots/get');
-    this.spotsCreateFn = createLambda('SpotsCreateFunction', 'spots/create');
-    this.spotsUpdateFn = createLambda('SpotsUpdateFunction', 'spots/update');
-    this.spotsDeleteFn = createLambda('SpotsDeleteFunction', 'spots/delete');
-    this.spotsNearbyFn = createLambda('SpotsNearbyFunction', 'spots/nearby', { memory: 1024 });
-    this.spotsSaveFn = createLambda('SpotsSaveFunction', 'spots/save');
-    this.spotsUnsaveFn = createLambda('SpotsUnsaveFunction', 'spots/unsave');
-    this.spotsIsSavedFn = createLambda('SpotsIsSavedFunction', 'spots/is-saved');
-    this.spotsSavedListFn = createLambda('SpotsSavedListFunction', 'spots/saved-list');
-    this.spotsReviewsListFn = createLambda('SpotsReviewsListFunction', 'spots/reviews-list');
-    this.spotsReviewsCreateFn = createLambda('SpotsReviewsCreateFunction', 'spots/reviews-create');
-    this.spotsReviewsDeleteFn = createLambda('SpotsReviewsDeleteFunction', 'spots/reviews-delete');
+    // Note: Spots handlers (list, get, create, update, delete, nearby, save, unsave,
+    // is-saved, saved-list, reviews-list, reviews-create, reviews-delete)
+    // are deployed via LambdaStackDisputes to stay under CloudFormation limits
 
     // ========================================
     // Phase 5: Notifications Lambda Functions

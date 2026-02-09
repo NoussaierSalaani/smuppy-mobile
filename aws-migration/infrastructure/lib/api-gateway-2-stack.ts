@@ -5,9 +5,13 @@ import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { LambdaStack } from './lambda-stack';
 
+import { LambdaStack2 } from './lambda-stack-2';
+
 export interface ApiGateway2StackProps extends cdk.NestedStackProps {
   userPool: cognito.IUserPool;
   lambdaStack: LambdaStack;
+  lambdaStack2: LambdaStack2;
+
   environment: string;
   isProduction: boolean;
 }
@@ -24,7 +28,7 @@ export class ApiGateway2Stack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiGateway2StackProps) {
     super(scope, id, props);
 
-    const { userPool, lambdaStack, environment, isProduction } = props;
+    const { userPool, lambdaStack, lambdaStack2, environment, isProduction } = props;
 
     // ========================================
     // API Gateway - REST API with Throttling (Secondary API)
@@ -288,37 +292,7 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     const expertise = this.api.root.addResource('expertise');
     expertise.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.expertiseListFn), authMethodOptions);
 
-    // ========================================
-    // Spots Endpoints
-    // ========================================
-    const spots = this.api.root.addResource('spots');
-    spots.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsListFn), authMethodOptions);
-    spots.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsCreateFn), authWithBodyValidation);
-
-    const spotsNearby = spots.addResource('nearby');
-    spotsNearby.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsNearbyFn), authMethodOptions);
-
-    const spotsSaved = spots.addResource('saved');
-    spotsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsSavedListFn), authMethodOptions);
-
-    const spotById = spots.addResource('{id}');
-    spotById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsGetFn), authMethodOptions);
-    spotById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.spotsUpdateFn), authWithBodyValidation);
-    spotById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsDeleteFn), authMethodOptions);
-
-    const spotSave = spotById.addResource('save');
-    spotSave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsSaveFn), authMethodOptions);
-    spotSave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsUnsaveFn), authMethodOptions);
-
-    const spotIsSaved = spotById.addResource('is-saved');
-    spotIsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsIsSavedFn), authMethodOptions);
-
-    const spotReviews = spotById.addResource('reviews');
-    spotReviews.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsListFn), authMethodOptions);
-    spotReviews.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsCreateFn), authWithBodyValidation);
-
-    const spotReviewById = spotReviews.addResource('{reviewId}');
-    spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.spotsReviewsDeleteFn), authMethodOptions);
+    // NOTE: Spots endpoints moved to ApiGateway3Stack (CloudFormation 500 resource limit)
 
     // ========================================
     // Business Endpoints

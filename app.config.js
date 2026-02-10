@@ -61,9 +61,9 @@ infoPlist: {
       },
     },
   },
-  // Camera & Microphone for live streaming
-  NSCameraUsageDescription: 'Smuppy needs access to your camera for live streaming and video calls.',
-  NSMicrophoneUsageDescription: 'Smuppy needs access to your microphone for live streaming and video calls.',
+  // Camera & Microphone for Peaks and content creation
+  NSCameraUsageDescription: 'Smuppy needs access to your camera to record Peaks and share content.',
+  NSMicrophoneUsageDescription: 'Smuppy needs access to your microphone to record Peaks with audio.',
   // Photos & Location
   NSPhotoLibraryUsageDescription: 'Smuppy needs access to your photos to share content.',
   NSPhotoLibraryAddUsageDescription: 'Smuppy needs to save photos and videos to your library.',
@@ -73,8 +73,6 @@ infoPlist: {
   NSCalendarsUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
   NSCalendarsFullAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
   NSCalendarsWriteOnlyAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
-  // Bluetooth — required by Agora for speaker/Bluetooth audio routing
-  NSBluetoothAlwaysUsageDescription: 'Smuppy uses Bluetooth to connect to audio devices during live streaming and video calls.',
 },
     },
 android: {
@@ -89,8 +87,6 @@ permissions: [
 'android.permission.RECORD_AUDIO',
 'android.permission.MODIFY_AUDIO_SETTINGS',
 'android.permission.CAMERA',
-'android.permission.BLUETOOTH',
-'android.permission.BLUETOOTH_CONNECT',
 ],
 // Android App Links - associate app with web domain
 intentFilters: [

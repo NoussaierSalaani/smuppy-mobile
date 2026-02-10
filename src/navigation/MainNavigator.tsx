@@ -305,12 +305,10 @@ export default function MainNavigator() {
       }
     };
 
-    syncProfile();
-
-    // Fetch initial unread counts (retry after 3s in case auth token wasn't ready)
-    fetchBadgeCounts();
-    const retryTimer = setTimeout(fetchBadgeCounts, 3000);
-    return () => clearTimeout(retryTimer);
+    // Sequence: sync profile FIRST, then fetch badges (reduces initial parallel API calls)
+    syncProfile().then(() => {
+      fetchBadgeCounts();
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

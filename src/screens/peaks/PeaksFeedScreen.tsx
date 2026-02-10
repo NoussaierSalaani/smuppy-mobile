@@ -11,11 +11,14 @@ import {
   Dimensions,
   ActivityIndicator,
   ListRenderItem,
+  StyleProp,
+  ImageStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import PeakCard from '../../components/peaks/PeakCard';
+import { LinearGradient } from 'expo-linear-gradient';
+import OptimizedImage from '../../components/OptimizedImage';
 import { PeakGridSkeleton } from '../../components/skeleton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
@@ -23,6 +26,18 @@ import { awsAPI } from '../../services/aws-api';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
+
+// Module-level cache — survives navigation but not app restart
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+let peaksFeedCache: { peaks: Peak[]; timestamp: number } = {
+  peaks: [],
+  timestamp: 0,
+};
+
+/** Clear the module-level peaks feed cache (call on logout/account switch) */
+export const clearPeaksFeedCache = () => {
+  peaksFeedCache = { peaks: [], timestamp: 0 };
+};
 
 /** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
 const sanitizeText = (text: string | null | undefined): string => {
@@ -58,6 +73,17 @@ interface Peak {
   isOwnPeak?: boolean;
 }
 
+/** Grouped peaks by user — one card per user, swipable when opened */
+interface PeakGroupData {
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  peakCount: number;
+  latestThumbnail: string;
+  totalViews: number;
+  peaks: Peak[];
+}
+
 type RootStackParamList = {
   PeakView: { peaks: Peak[]; initialIndex: number };
   CreatePeak: undefined;
@@ -74,8 +100,8 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const user = useUserStore((state) => state.user);
   const isBusiness = user?.accountType === 'pro_business';
   const [refreshing, setRefreshing] = useState(false);
-  const [peaks, setPeaks] = useState<Peak[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [peaks, setPeaks] = useState<Peak[]>(peaksFeedCache.peaks);
+  const [loading, setLoading] = useState(() => peaksFeedCache.peaks.length === 0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -133,7 +159,16 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         console.log('[PeaksFeedScreen] Mapped peaks:', mapped.length);
       }
 
-      setPeaks(reset ? mapped : (prev) => [...prev, ...mapped]);
+      if (reset) {
+        setPeaks(mapped);
+        peaksFeedCache = { peaks: mapped, timestamp: Date.now() };
+      } else {
+        setPeaks((prev) => {
+          const updated = [...prev, ...mapped];
+          peaksFeedCache = { peaks: updated, timestamp: Date.now() };
+          return updated;
+        });
+      }
       setCursor(response.nextCursor);
       setHasMore(!!response.nextCursor);
     } catch (error) {
@@ -149,6 +184,11 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   }, [cursor, user?.id]);
 
   useEffect(() => {
+    const isCacheStale = Date.now() - peaksFeedCache.timestamp > CACHE_TTL;
+    if (peaksFeedCache.peaks.length > 0 && !isCacheStale) {
+      setLoading(false);
+      return;
+    }
     fetchPeaks(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -159,15 +199,12 @@ const PeaksFeedScreen = (): React.JSX.Element => {
     fetchPeaks(true);
   }, [fetchPeaks]);
 
-  const handlePeakPress = useCallback((peak: Peak): void => {
-    const index = peaks.findIndex(p => p.id === peak.id);
-    // Bounds check: if not found (-1), default to 0
-    const safeIndex = index >= 0 ? index : 0;
+  const handleGroupPress = useCallback((group: PeakGroupData): void => {
     navigation.navigate('PeakView', {
-      peaks: peaks,
-      initialIndex: safeIndex,
+      peaks: group.peaks,
+      initialIndex: 0,
     });
-  }, [peaks, navigation]);
+  }, [navigation]);
 
   const handleCreatePeak = (): void => {
     navigation.navigate('CreatePeak');
@@ -179,33 +216,107 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const { leftColumn, rightColumn } = useMemo(() => {
-    const left: Peak[] = [];
-    const right: Peak[] = [];
-    peaks.forEach((peak, index) => {
-      if (index % 2 === 0) left.push(peak);
-      else right.push(peak);
-    });
-    return { leftColumn: left, rightColumn: right };
+  // Group peaks by user — one card per user, sorted by most recent peak
+  const peakGroups = useMemo((): PeakGroupData[] => {
+    const groupMap = new Map<string, PeakGroupData>();
+    for (const peak of peaks) {
+      const uid = peak.user.id;
+      const existing = groupMap.get(uid);
+      if (existing) {
+        existing.peaks.push(peak);
+        existing.peakCount++;
+        existing.totalViews += peak.views;
+      } else {
+        groupMap.set(uid, {
+          userId: uid,
+          userName: peak.user.name,
+          userAvatar: peak.user.avatar,
+          peakCount: 1,
+          latestThumbnail: peak.thumbnail,
+          totalViews: peak.views,
+          peaks: [peak],
+        });
+      }
+    }
+    return Array.from(groupMap.values());
   }, [peaks]);
 
-  const renderColumn = useCallback((columnPeaks: Peak[]): React.JSX.Element => (
-    <View style={styles.column}>
-      {columnPeaks.map((peak) => (
-        <View key={peak.id} style={styles.peakCardWrapper}>
-          <PeakCard
-            peak={peak}
-            onPress={handlePeakPress}
-          />
-          {peak.isChallenge && (
-            <View style={styles.challengeBadge}>
-              <Ionicons name="trophy" size={12} color="#FFD700" />
-            </View>
-          )}
-        </View>
-      ))}
+  const { leftColumn, rightColumn } = useMemo(() => {
+    const left: PeakGroupData[] = [];
+    const right: PeakGroupData[] = [];
+    peakGroups.forEach((group, index) => {
+      if (index % 2 === 0) left.push(group);
+      else right.push(group);
+    });
+    return { leftColumn: left, rightColumn: right };
+  }, [peakGroups]);
+
+  const formatViews = useCallback((num: number): string => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+  }, []);
+
+  const renderGroupCard = useCallback((group: PeakGroupData): React.JSX.Element => (
+    <View key={`peak-group-${group.userId}`} style={styles.peakCardWrapper}>
+      <TouchableOpacity
+        style={styles.groupCard}
+        onPress={() => handleGroupPress(group)}
+        activeOpacity={0.9}
+      >
+        {/* Thumbnail */}
+        <OptimizedImage
+          source={group.latestThumbnail || undefined}
+          style={styles.groupThumbnail as StyleProp<ImageStyle>}
+          contentFit="cover"
+          priority="normal"
+        />
+
+        {/* Peak count badge */}
+        {group.peakCount > 1 && (
+          <View style={styles.peakCountBadge}>
+            <Ionicons name="layers" size={12} color="#fff" />
+            <Text style={styles.peakCountText}>{group.peakCount}</Text>
+          </View>
+        )}
+
+        {/* Challenge badge — show if any peak in group is a challenge */}
+        {group.peaks.some(p => p.isChallenge) && (
+          <View style={styles.challengeBadge}>
+            <Ionicons name="trophy" size={12} color={colors.gold} />
+          </View>
+        )}
+
+        {/* Overlay with user info */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.groupOverlay}
+        >
+          <View style={styles.groupUserInfo}>
+            <OptimizedImage
+              source={group.userAvatar || undefined}
+              style={styles.groupAvatar as StyleProp<ImageStyle>}
+              contentFit="cover"
+              priority="high"
+            />
+            <Text style={styles.groupUserName} numberOfLines={1}>
+              {group.userName}
+            </Text>
+          </View>
+          <View style={styles.groupViewsContainer}>
+            <Ionicons name="eye-outline" size={12} color="#fff" />
+            <Text style={styles.groupViewsText}>{formatViews(group.totalViews)}</Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
-  ), [handlePeakPress, styles.column, styles.peakCardWrapper, styles.challengeBadge]);
+  ), [handleGroupPress, formatViews, styles]);
+
+  const renderColumn = useCallback((columnGroups: PeakGroupData[]): React.JSX.Element => (
+    <View style={styles.column}>
+      {columnGroups.map(renderGroupCard)}
+    </View>
+  ), [renderGroupCard, styles.column]);
 
   const renderItem: ListRenderItem<number> = useCallback(() => (
     <View style={styles.masonryContainer}>
@@ -234,7 +345,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
             style={styles.headerIconButton}
             onPress={() => navigation.navigate('Challenges')}
           >
-            <Ionicons name="trophy" size={22} color="#FFD700" />
+            <Ionicons name="trophy" size={22} color={colors.gold} />
           </TouchableOpacity>
 
           {!isBusiness && peaks.length > 0 ? (
@@ -361,17 +472,83 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   peakCardWrapper: {
     position: 'relative',
+    marginBottom: 12,
+  },
+  groupCard: {
+    width: COLUMN_WIDTH,
+    height: COLUMN_WIDTH * 1.6,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: isDark ? '#1C1C1E' : '#F5F5F5',
+  },
+  groupThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  peakCountBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  peakCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
   },
   challengeBadge: {
     position: 'absolute',
-    top: 8,
-    left: 8,
+    top: 10,
+    left: 10,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 10,
     width: 24,
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  groupOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 12,
+    paddingTop: 40,
+  },
+  groupUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  groupAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    marginRight: 8,
+  },
+  groupUserName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  groupViewsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  groupViewsText: {
+    fontSize: 11,
+    color: '#fff',
+    opacity: 0.9,
   },
   emptyScrollContent: {
     flexGrow: 1,

@@ -74,6 +74,18 @@ export const resetAllStores = async () => {
   } catch {
     // Best-effort cleanup
   }
+  try {
+    const { clearFanFeedCache } = await import('../screens/home/FanFeed');
+    clearFanFeedCache();
+  } catch {
+    // Best-effort cleanup
+  }
+  try {
+    const { clearPeaksFeedCache } = await import('../screens/peaks/PeaksFeedScreen');
+    clearPeaksFeedCache();
+  } catch {
+    // Best-effort cleanup
+  }
 
   // Clear React Query cache to prevent cross-user data leaks
   try {

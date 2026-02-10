@@ -38,6 +38,19 @@ import { formatNumber } from '../../utils/formatters';
 
 const { width } = Dimensions.get('window');
 
+// Module-level cache — survives navigation but not app restart
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+let fanFeedCache: { posts: UIFanPost[]; suggestions: UISuggestion[]; timestamp: number } = {
+  posts: [],
+  suggestions: [],
+  timestamp: 0,
+};
+
+/** Clear the module-level feed cache (call on logout/account switch) */
+export const clearFanFeedCache = () => {
+  fanFeedCache = { posts: [], suggestions: [], timestamp: 0 };
+};
+
 // Suggestion interface for the UI
 interface UISuggestion {
   id: string;
@@ -185,7 +198,7 @@ const PostItem = memo<PostItemProps>(({
           >
             <SmuppyHeartIcon
               size={26}
-              color={post.isLiked ? "#FF6B6B" : colors.dark}
+              color={post.isLiked ? colors.heartRed : colors.dark}
               filled={post.isLiked}
             />
           </TouchableOpacity>
@@ -297,22 +310,23 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const { isHidden } = useUserSafetyStore();
   const currentUser = useUserStore((state) => state.user);
 
-  // State for real posts from API
-  const [posts, setPosts] = useState<UIPost[]>([]);
+  // State for real posts from API — initialize from cache for instant display
+  const [posts, setPosts] = useState<UIPost[]>(fanFeedCache.posts);
   const [, setLikedPostIds] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => fanFeedCache.posts.length === 0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const nextCursorRef = useRef<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Suggestions state
-  const [suggestions, setSuggestions] = useState<UISuggestion[]>([]);
+  // Suggestions state — initialize from cache for instant display
+  const [suggestions, setSuggestions] = useState<UISuggestion[]>(fanFeedCache.suggestions);
   const suggestionsOffsetRef = useRef(0);
   const loadingSuggestionsRef = useRef(false);
   const hasMoreSuggestionsRef = useRef(true);
   const suggestionsErrorCountRef = useRef(0);
+  const initialSuggestionsLoadedRef = useRef(false);
   const MAX_SUGGESTIONS_ERRORS = 3;
   const [suggestionsExhausted, setSuggestionsExhausted] = useState(false);
   const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
@@ -397,6 +411,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       if (refresh || isInitial) {
         setPosts(transformedPosts);
         setLikedPostIds(likedIds);
+        fanFeedCache = { ...fanFeedCache, posts: transformedPosts, timestamp: Date.now() };
       } else {
         // Deduplicate when appending — cursor pagination guarantees no overlap,
         // but guard against edge cases (e.g. posts created between requests)
@@ -425,17 +440,28 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Fetch suggestions with pagination - uses refs to avoid re-render loops
   const fetchSuggestions = useCallback(async (append = false, force = false) => {
     // Allow force fetch to bypass loading check (used when following a user)
-    if (loadingSuggestionsRef.current && !force) return;
-    if (!hasMoreSuggestionsRef.current && !force) return;
+    if (loadingSuggestionsRef.current && !force) {
+      if (__DEV__) console.log('[FanFeed:Suggestions] SKIPPED — already loading (force=', force, ')');
+      return;
+    }
+    if (!hasMoreSuggestionsRef.current && !force) {
+      if (__DEV__) console.log('[FanFeed:Suggestions] SKIPPED — no more results (force=', force, ')');
+      return;
+    }
+
+    if (__DEV__) console.log('[FanFeed:Suggestions] STARTING fetch, append=', append, 'force=', force);
 
     try {
       loadingSuggestionsRef.current = true;
       const offset = append ? suggestionsOffsetRef.current : 0;
+      if (__DEV__) console.log('[FanFeed:Suggestions] Calling getSuggestedProfiles(15,', offset, ')');
       const { data, error } = await getSuggestedProfiles(15, offset); // Fetch 15 to have buffer
+
+      if (__DEV__) console.log('[FanFeed:Suggestions] Response: data=', data?.length ?? 'null', 'error=', error);
 
       // Stop retrying after too many consecutive errors
       if (error) {
-        if (__DEV__) console.warn('[FanFeed] Error fetching suggestions:', error);
+        if (__DEV__) console.warn('[FanFeed:Suggestions] ERROR from getSuggestedProfiles:', error);
         suggestionsErrorCountRef.current += 1;
         if (suggestionsErrorCountRef.current >= MAX_SUGGESTIONS_ERRORS) {
           hasMoreSuggestionsRef.current = false;
@@ -450,6 +476,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       setSuggestionsExhausted(false);
 
       if (data && data.length > 0) {
+        if (__DEV__) console.log('[FanFeed:Suggestions] First profile:', JSON.stringify({ id: data[0].id, name: data[0].full_name, username: data[0].username }));
         const transformed: UISuggestion[] = data.map((p: Profile) => ({
           id: p.id,
           name: p.full_name || p.username || 'User',
@@ -459,6 +486,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           accountType: p.account_type || 'personal',
         }));
 
+        if (__DEV__) console.log('[FanFeed:Suggestions] Transformed', transformed.length, 'profiles. followedUserIds size=', followedUserIds.current.size);
+
         if (append) {
           // Filter out duplicates and already followed users
           setSuggestions(prev => {
@@ -466,21 +495,27 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             const newSuggestions = transformed.filter(s =>
               !existingIds.has(s.id) && !followedUserIds.current.has(s.id)
             );
-            return [...prev, ...newSuggestions];
+            const updated = [...prev, ...newSuggestions];
+            fanFeedCache = { ...fanFeedCache, suggestions: updated };
+            if (__DEV__) console.log('[FanFeed:Suggestions] APPEND: prev=', prev.length, 'new=', newSuggestions.length, 'total=', updated.length);
+            return updated;
           });
         } else {
           // Filter out already followed users on initial load too
           const filtered = transformed.filter(s => !followedUserIds.current.has(s.id));
+          if (__DEV__) console.log('[FanFeed:Suggestions] SET: filtered=', filtered.length, '(removed', transformed.length - filtered.length, 'followed)');
           setSuggestions(filtered);
+          fanFeedCache = { ...fanFeedCache, suggestions: filtered };
         }
 
         suggestionsOffsetRef.current = offset + data.length;
         hasMoreSuggestionsRef.current = data.length >= 10;
       } else {
+        if (__DEV__) console.log('[FanFeed:Suggestions] NO DATA received — setting hasMore=false');
         hasMoreSuggestionsRef.current = false;
       }
     } catch (err) {
-      if (__DEV__) console.warn('[FanFeed] Error fetching suggestions:', err);
+      if (__DEV__) console.warn('[FanFeed:Suggestions] CAUGHT ERROR:', err);
       suggestionsErrorCountRef.current += 1;
       if (suggestionsErrorCountRef.current >= MAX_SUGGESTIONS_ERRORS) {
         hasMoreSuggestionsRef.current = false;
@@ -505,10 +540,13 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         isFirstFocus.current = false;
         return;
       }
-      // Reset and refetch suggestions — the API excludes already-followed profiles
-      suggestionsOffsetRef.current = 0;
-      hasMoreSuggestionsRef.current = true;
-      fetchSuggestions(false, true);
+      // Only refetch suggestions if cache is stale (> 5 min)
+      const isSuggestionsStale = Date.now() - fanFeedCache.timestamp > CACHE_TTL;
+      if (isSuggestionsStale) {
+        suggestionsOffsetRef.current = 0;
+        hasMoreSuggestionsRef.current = true;
+        fetchSuggestions(false, true);
+      }
 
       // Immediately apply like overrides from detail screens (no flash)
       const overrides = useFeedStore.getState().optimisticLikes;
@@ -605,17 +643,44 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, [trackingUserIds, posts.length, fetchPosts, fetchSuggestions]);
 
   // Refill suggestions when running low - load more from database
+  // Only after initial load is done to avoid racing with it
   useEffect(() => {
-    // Refill when we have less than 5 suggestions — respect hasMore (no force)
+    if (!initialSuggestionsLoadedRef.current) return;
     if (suggestions.length < 5 && hasMoreSuggestionsRef.current) {
       fetchSuggestions(true);
     }
   }, [suggestions.length, fetchSuggestions]);
 
-  // Initial load
+  // Initial load — skip posts if cache is fresh, but ALWAYS load suggestions if empty
   useEffect(() => {
+    const isCacheStale = Date.now() - fanFeedCache.timestamp > CACHE_TTL;
+    const hasCachedPosts = fanFeedCache.posts.length > 0 && !isCacheStale;
+    const hasCachedSuggestions = fanFeedCache.suggestions.length > 0;
+
+    if (hasCachedPosts && hasCachedSuggestions) {
+      // Both caches are warm — skip loading
+      if (__DEV__) console.log('[FanFeed] Cache warm — posts:', fanFeedCache.posts.length, 'suggestions:', fanFeedCache.suggestions.length);
+      initialSuggestionsLoadedRef.current = true;
+      setIsLoading(false);
+      return;
+    }
+
+    if (hasCachedPosts && !hasCachedSuggestions) {
+      // Posts cached but suggestions missing — fetch suggestions only (force to bypass loading guard)
+      if (__DEV__) console.log('[FanFeed] Posts cached but suggestions empty — fetching suggestions only');
+      fetchSuggestions(false, true).then(() => {
+        initialSuggestionsLoadedRef.current = true;
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // Nothing cached — fetch everything
+    if (__DEV__) console.log('[FanFeed] No cache — fetching posts + suggestions');
     setIsLoading(true);
-    Promise.all([fetchPosts(), fetchSuggestions(false)]).finally(() => setIsLoading(false));
+    Promise.all([fetchPosts(), fetchSuggestions(false)]).then(() => {
+      initialSuggestionsLoadedRef.current = true;
+    }).finally(() => setIsLoading(false));
   }, [fetchPosts, fetchSuggestions]);
 
   // Filter out posts that are under review (SAFETY-2) or from muted/blocked users (SAFETY-3)
@@ -984,6 +1049,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           renderItem={renderPost}
           keyExtractor={keyExtractor}
           getItemType={getItemType}
+          {...{ estimatedItemSize: 450 } as Record<string, number>}
           ListHeaderComponent={ListHeader}
           ListFooterComponent={ListFooter}
           ListEmptyComponent={EmptyState}

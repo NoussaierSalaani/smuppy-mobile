@@ -18,6 +18,7 @@ import Svg, { Path, Rect, LinearGradient as SvgLinearGradient, Stop, Defs } from
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTabBar } from '../context/TabBarContext';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { COLORS } from '../config/theme';
 import { useUserStore } from '../stores/userStore';
 import { useAppStore } from '../stores/appStore';
 import { SmuppyIcon } from './SmuppyLogo';
@@ -31,7 +32,7 @@ interface IconProps {
 }
 
 // Home icon from UI Kit - House shape with tilted roof
-const HomeIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
+const HomeIconFilled = memo(({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 20 21" fill="none">
     {/* House body with roof - filled */}
     <Path
@@ -42,9 +43,9 @@ const HomeIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: 
       transform="translate(-3, 0)"
     />
   </Svg>
-);
+));
 
-const HomeIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
+const HomeIconOutline = memo(({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 20 21" fill="none">
     {/* House body with roof - outline version (same shape) */}
     <Path
@@ -57,10 +58,10 @@ const HomeIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?:
       transform="translate(-3, 0)"
     />
   </Svg>
-);
+));
 
 // Peaks icon from UI Kit - Rounded rectangle with play button
-const PeaksIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
+const PeaksIconFilled = memo(({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 21 21" fill="none">
     {/* Rounded rectangle background - filled */}
     <Path
@@ -73,9 +74,9 @@ const PeaksIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?:
       fill="white"
     />
   </Svg>
-);
+));
 
-const PeaksIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
+const PeaksIconOutline = memo(({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 21 20" fill="none">
     {/* Rounded rectangle with chat bubble tail */}
     <Path
@@ -95,19 +96,19 @@ const PeaksIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?
       fill="none"
     />
   </Svg>
-);
+));
 
 // Messages icon - Chat bubble shape
-const MessagesIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
+const MessagesIconFilled = memo(({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2C6.477 2 2 6.477 2 12C2 13.89 2.525 15.66 3.438 17.168L2.071 20.668C1.872 21.184 2.132 21.764 2.648 21.963C2.813 22.026 2.993 22.037 3.165 21.993L7.415 20.923C8.82 21.612 10.373 22 12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2Z"
       fill={color}
     />
   </Svg>
-);
+));
 
-const MessagesIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
+const MessagesIconOutline = memo(({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 3C7.029 3 3 7.029 3 12C3 13.689 3.466 15.274 4.287 16.628L3.016 19.832C2.76 20.478 3.303 21.14 3.985 20.994L7.789 20.158C9.05 20.693 10.447 21 12 21C16.971 21 21 16.971 21 12C21 7.029 16.971 3 12 3Z"
@@ -118,14 +119,14 @@ const MessagesIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { col
       fill="none"
     />
   </Svg>
-);
+));
 
-const CreateIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
+const CreateIcon = memo(({ size = 24 }: IconProps): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Defs>
       <SvgLinearGradient id="createGradient" x1="0" y1="0" x2="24" y2="24">
         <Stop offset="0" stopColor="#01B6C5" />
-        <Stop offset="1" stopColor="#0EBF8A" />
+        <Stop offset="1" stopColor={COLORS.primary} />
       </SvgLinearGradient>
     </Defs>
     <Path
@@ -136,7 +137,7 @@ const CreateIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
       strokeLinejoin="round"
     />
   </Svg>
-);
+));
 
 // Menu icons for pro_creator popup
 const MenuLiveIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
@@ -147,14 +148,14 @@ const MenuLiveIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
-const MenuPeaksIcon = ({ size = 24, color = '#0EBF8A' }: IconProps & { color?: string }): React.JSX.Element => (
+const MenuPeaksIcon = ({ size = 24, color = COLORS.primary }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x="2" y="4" width="20" height="16" rx="4" stroke={color} strokeWidth="2" />
     <Path d="M15 12L10 9V15L15 12Z" fill={color} />
   </Svg>
 );
 
-const MenuPostIcon = ({ size = 24, color = '#0EBF8A' }: IconProps & { color?: string }): React.JSX.Element => (
+const MenuPostIcon = ({ size = 24, color = COLORS.primary }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x="3" y="3" width="18" height="18" rx="4" stroke={color} strokeWidth="2" />
     <Path d="M12 8V16M8 12H16" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -170,23 +171,23 @@ const MenuSessionsIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
 );
 
 // Dashboard tab icons for pro_business bottom nav
-const DashboardIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
+const DashboardIconFilled = memo(({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x="3" y="3" width="7" height="7" rx="2" fill={color} />
     <Rect x="14" y="3" width="7" height="4" rx="2" fill={color} />
     <Rect x="3" y="14" width="7" height="4" rx="2" fill={color} />
     <Rect x="14" y="11" width="7" height="7" rx="2" fill={color} />
   </Svg>
-);
+));
 
-const DashboardIconOutline = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
+const DashboardIconOutline = memo(({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x="3" y="3" width="7" height="7" rx="2" stroke={color} strokeWidth="1.5" />
     <Rect x="14" y="3" width="7" height="4" rx="2" stroke={color} strokeWidth="1.5" />
     <Rect x="3" y="14" width="7" height="4" rx="2" stroke={color} strokeWidth="1.5" />
     <Rect x="14" y="11" width="7" height="7" rx="2" stroke={color} strokeWidth="1.5" />
   </Svg>
-);
+));
 
 // Menu icons for pro_business popup
 const MenuDashboardIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
@@ -226,6 +227,7 @@ const normalizeCdnUrl = (url: string | undefined): string | undefined => {
 };
 
 const ProfileIcon = ({ imageUri, isActive, size = 26, activeColor }: ProfileIconProps): React.JSX.Element => {
+  const { colors } = useTheme();
   const normalizedUri = normalizeCdnUrl(imageUri);
 
   const profileContainerStyle = React.useMemo(() => ({
@@ -251,8 +253,8 @@ const ProfileIcon = ({ imageUri, isActive, size = 26, activeColor }: ProfileIcon
           style={profileImageStyle}
         />
       ) : (
-        <View style={[profileImageStyle, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5E7EB' }]}>
-          <Ionicons name="person" size={size * 0.6} color="#9CA3AF" />
+        <View style={[profileImageStyle, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.grayBorder }]}>
+          <Ionicons name="person" size={size * 0.6} color={colors.gray400} />
         </View>
       )}
     </View>
@@ -738,7 +740,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     bottom: -1.5,
     borderRadius: 29.5,
     borderWidth: 1.5,
-    borderColor: '#0EBF8A',
+    borderColor: colors.primary,
   },
 
   // ===== PRO CREATOR STYLES =====
@@ -817,7 +819,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: -5,
     right: -8,
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
     borderRadius: 9,
     minWidth: 18,
     height: 18,

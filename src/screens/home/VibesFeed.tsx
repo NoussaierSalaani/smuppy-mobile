@@ -64,9 +64,16 @@ let vibesFeedCache: { posts: UIVibePost[]; timestamp: number; page: number } = {
   page: 0,
 };
 
+// Module-level cache for peaks carousel
+let peaksCache: { data: PeakCardData[]; timestamp: number } = {
+  data: [],
+  timestamp: 0,
+};
+
 /** Clear the module-level feed cache (call on logout/account switch) */
 export const clearVibesFeedCache = () => {
   vibesFeedCache = { posts: [], timestamp: 0, page: 0 };
+  peaksCache = { data: [], timestamp: 0 };
 };
 
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
@@ -119,6 +126,17 @@ interface PeakCardData {
   challengeTitle?: string;
   expiresAt?: string;
   isOwnPeak?: boolean;
+}
+
+// Grouped peaks by user profile (like Stories — one bubble per user)
+interface PeakGroupData {
+  userId: string;
+  userName: string;
+  userAvatar: string | null;
+  hasNew: boolean;
+  peakCount: number;
+  latestThumbnail: string;
+  peaks: PeakCardData[];
 }
 
 // Build unified lookup from interests + expertise + business categories (icon + color per name)
@@ -417,7 +435,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [peaksData, setPeaksData] = useState<PeakCardData[]>([]);
+  const [peaksData, setPeaksData] = useState<PeakCardData[]>(peaksCache.data);
   const [hasMore, setHasMore] = useState(true);
 
   // Share modal state (using shared hook)
@@ -477,37 +495,35 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     }, [])
   );
 
-  // Load user interests/expertise based on account type
+  // Load user interests/expertise based on account type (once, not on every focus)
   // Personal → interests, Pro_creator → expertise, Pro_business → business_category + expertise
-  useFocusEffect(
-    useCallback(() => {
-      const loadUserPreferences = async () => {
-        const { data: profile } = await getCurrentProfile();
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      const { data: profile } = await getCurrentProfile();
 
-        // Choose the right field based on account type
-        if (accountType === 'pro_business') {
-          // Business accounts: business_category + expertise combined
-          const combined: string[] = [];
-          if (profile?.business_category) {
-            combined.push(profile.business_category);
-          }
-          if (profile?.expertise && profile.expertise.length > 0) {
-            profile.expertise.forEach((e: string) => {
-              if (!combined.includes(e)) combined.push(e);
-            });
-          }
-          setUserInterests(combined);
-        } else if (accountType === 'pro_creator') {
-          // Pro creators: expertise only
-          setUserInterests(profile?.expertise?.length ? profile.expertise : []);
-        } else {
-          // Personal accounts: interests only
-          setUserInterests(profile?.interests?.length ? profile.interests : []);
+      // Choose the right field based on account type
+      if (accountType === 'pro_business') {
+        // Business accounts: business_category + expertise combined
+        const combined: string[] = [];
+        if (profile?.business_category) {
+          combined.push(profile.business_category);
         }
-      };
-      loadUserPreferences();
-    }, [accountType])
-  );
+        if (profile?.expertise && profile.expertise.length > 0) {
+          profile.expertise.forEach((e: string) => {
+            if (!combined.includes(e)) combined.push(e);
+          });
+        }
+        setUserInterests(combined);
+      } else if (accountType === 'pro_creator') {
+        // Pro creators: expertise only
+        setUserInterests(profile?.expertise?.length ? profile.expertise : []);
+      } else {
+        // Personal accounts: interests only
+        setUserInterests(profile?.interests?.length ? profile.interests : []);
+      }
+    };
+    loadUserPreferences();
+  }, [accountType]);
 
   // Fetch posts from API - backend filters by user interests, local sorting refines
   const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
@@ -579,17 +595,21 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Fetch peaks for carousel (skip for business accounts — they don't see the carousel)
   useEffect(() => {
     if (isBusiness) return;
-    
+
+    // Skip fetch if cache is fresh
+    const isPeaksCacheStale = Date.now() - peaksCache.timestamp > CACHE_TTL;
+    if (peaksCache.data.length > 0 && !isPeaksCacheStale) return;
+
     if (__DEV__) {
       console.log('[VibesFeed] Fetching peaks...', { currentUserId });
     }
-    
+
     const toCdn = (url?: string | null) => {
       if (!url) return null;
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
     };
-    
-    awsAPI.getPeaks({ limit: 10 })
+
+    awsAPI.getPeaks({ limit: 30 })
       .then((res) => {
         if (__DEV__) {
           console.log('[VibesFeed] Peaks API response:', { 
@@ -632,6 +652,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         }
         
         setPeaksData(mappedPeaks);
+        peaksCache = { data: mappedPeaks, timestamp: Date.now() };
       })
       .catch((err) => {
         if (__DEV__) {
@@ -682,13 +703,39 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     }
   }, [navigation, modalVisible, selectedPost, trackPostExit, currentUserId, prefetchProfile]);
 
-  // Navigate to Peak view — PeakCardData fields match PeakViewScreen's local Peak shape
-  const goToPeakView = useCallback((_peak: PeakCardData, index: number) => {
+  // Group peaks by user profile (one bubble per user, like Stories)
+  const peakGroups = useMemo((): PeakGroupData[] => {
+    const groupMap = new Map<string, PeakGroupData>();
+    // peaksData is already ordered by createdAt DESC from the API
+    for (const peak of peaksData) {
+      const uid = peak.user.id;
+      const existing = groupMap.get(uid);
+      if (existing) {
+        existing.peaks.push(peak);
+        existing.peakCount++;
+        if (peak.hasNew) existing.hasNew = true;
+      } else {
+        groupMap.set(uid, {
+          userId: uid,
+          userName: peak.user.name,
+          userAvatar: peak.user.avatar,
+          hasNew: peak.hasNew,
+          peakCount: 1,
+          latestThumbnail: peak.thumbnail,
+          peaks: [peak],
+        });
+      }
+    }
+    return Array.from(groupMap.values());
+  }, [peaksData]);
+
+  // Navigate to Peak view — opens all peaks from the selected user's group
+  const goToPeakGroupView = useCallback((group: PeakGroupData) => {
     navigation.navigate('PeakView', {
-      peaks: peaksData as unknown as Peak[],
-      initialIndex: index,
+      peaks: group.peaks as unknown as Peak[],
+      initialIndex: 0,
     });
-  }, [navigation, peaksData]);
+  }, [navigation]);
 
   // Sort posts by interests + engagement — feed always stays full, chips boost matching posts
   const filteredPosts = useMemo(() => {
@@ -976,43 +1023,57 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     setLoadingMore(false);
   }, [loadingMore, hasMore, page, fetchPosts]);
 
-  // FlashList renderItem for virtualized grid
+  // FlashList renderItem for virtualized grid — uniform padding creates column + row gap
   const renderGridItem = useCallback(({ item }: { item: UIVibePost }) => (
-    <VibeCard
-      post={item}
-      colors={colors}
-      styles={styles}
-      onLike={toggleLike}
-      onTap={openPostModal}
-      onUserPress={goToUserProfile}
-    />
+    <View style={styles.gridItemWrapper}>
+      <VibeCard
+        post={item}
+        colors={colors}
+        styles={styles}
+        onLike={toggleLike}
+        onTap={openPostModal}
+        onUserPress={goToUserProfile}
+      />
+    </View>
   ), [toggleLike, openPostModal, goToUserProfile, colors, styles]);
 
   const keyExtractor = useCallback((item: UIVibePost) => item.id, []);
 
-  // Render Peak card
-  const renderPeakCard = useCallback((peak: PeakCardData, index: number) => (
+
+  // Render grouped Peak card (one per user, like Stories)
+  const renderPeakGroup = useCallback((group: PeakGroupData) => (
     <TouchableOpacity
-      key={`peak-${index}-${peak.id}`}
+      key={`peak-group-${group.userId}`}
       style={styles.peakCard}
-      onPress={() => goToPeakView(peak, index)}
+      onPress={() => goToPeakGroupView(group)}
       activeOpacity={0.9}
     >
-      <ThumbnailImage source={peak.thumbnail || PEAK_PLACEHOLDER} style={styles.peakThumbnail} />
-      
-      {peak.hasNew && <View style={styles.peakNewIndicator} />}
-      
-      <View style={styles.peakDuration}>
-        <Text style={styles.peakDurationText}>{peak.duration}s</Text>
-      </View>
-      
+      {group.hasNew ? (
+        <LinearGradient
+          colors={[colors.primary, '#00B5C1', '#0081BE']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.peakThumbnailGradientBorder}
+        >
+          <ThumbnailImage source={group.latestThumbnail || PEAK_PLACEHOLDER} style={styles.peakThumbnailInner} />
+        </LinearGradient>
+      ) : (
+        <ThumbnailImage source={group.latestThumbnail || PEAK_PLACEHOLDER} style={styles.peakThumbnail} />
+      )}
+
+      {group.peakCount > 1 && (
+        <View style={styles.peakCountBadge}>
+          <Text style={styles.peakCountText}>{group.peakCount}</Text>
+        </View>
+      )}
+
       <View style={styles.peakAvatarContainer}>
-        <AvatarImage source={peak.user.avatar} size={36} style={styles.peakAvatar} />
+        <AvatarImage source={group.userAvatar} size={36} style={styles.peakAvatar} />
       </View>
-      
-      <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeText(peak.user.name)}</Text>
+
+      <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeText(group.userName)}</Text>
     </TouchableOpacity>
-  ), [goToPeakView, styles]);
+  ), [goToPeakGroupView, styles]);
 
   // Render modal - Full screen post
   const renderModal = () => (
@@ -1118,7 +1179,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   >
                     <SmuppyHeartIcon
                       size={24}
-                      color={selectedPost.isLiked ? "#FF6B6B" : colors.dark}
+                      color={selectedPost.isLiked ? colors.heartRed : colors.dark}
                       filled={selectedPost.isLiked}
                     />
                     <Text style={styles.modalActionText}>{formatNumber(selectedPost.likes)}</Text>
@@ -1190,9 +1251,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         numColumns={2}
         masonry
         optimizeItemArrangement
-        {...{ estimatedItemSize: 230 } as Record<string, number>}
+        {...{ estimatedItemSize: 250 } as Record<string, number>}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight } : undefined}
+        contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight, paddingHorizontal: GRID_PADDING - GRID_GAP / 2 } : { paddingHorizontal: GRID_PADDING - GRID_GAP / 2 }}
         onScroll={handleCombinedScroll}
         scrollEventThrottle={16}
         onEndReached={onLoadMore}
@@ -1218,7 +1279,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             )}
 
             {/* PEAKS SECTION */}
-            {!isBusiness && <View style={styles.peaksSection}>
+            {!isBusiness && peakGroups.length > 0 && <View style={styles.peaksSection}>
               <View style={styles.peaksSectionHeader}>
                 <Text style={styles.peaksSectionTitle}>Peaks</Text>
                 <TouchableOpacity
@@ -1234,7 +1295,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.peaksScrollContent}
               >
-                {peaksData.map((peak, index) => renderPeakCard(peak, index))}
+                {peakGroups.map((group) => renderPeakGroup(group))}
               </ScrollView>
             </View>}
 
@@ -1499,30 +1560,36 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderRadius: 16,
     backgroundColor: colors.gray900,
   },
-  peakNewIndicator: {
+  peakThumbnailGradientBorder: {
+    width: PEAK_CARD_WIDTH,
+    height: PEAK_CARD_HEIGHT,
+    borderRadius: 16,
+    padding: 2,
+  },
+  peakThumbnailInner: {
+    width: PEAK_CARD_WIDTH - 4,
+    height: PEAK_CARD_HEIGHT - 4,
+    borderRadius: 14,
+    backgroundColor: colors.gray900,
+  },
+  peakCountBadge: {
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
     backgroundColor: colors.primary,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
     borderWidth: 2,
     borderColor: colors.background,
   },
-  peakDuration: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  peakDurationText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 10,
-    color: '#fff',
+  peakCountText: {
+    fontFamily: 'Poppins-Bold',
+    fontSize: 11,
+    color: colors.dark,
   },
   peakAvatarContainer: {
     position: 'absolute',
@@ -1619,13 +1686,16 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   column: {
     width: COLUMN_WIDTH,
   },
+  gridItemWrapper: {
+    paddingHorizontal: GRID_GAP / 2,
+    paddingBottom: GRID_GAP,
+  },
 
   // Vibe Card
   vibeCard: {
     borderRadius: SIZES.radiusMd,
     overflow: 'hidden',
-    marginBottom: SECTION_GAP,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.background,
   },
   vibeImage: {
     width: '100%',

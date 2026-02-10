@@ -43,7 +43,7 @@ const ChallengesScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const user = useUserStore((state) => state.user);
-  const isBusiness = user?.accountType === 'pro_business';
+
 
   const [trendingChallenges, setTrendingChallenges] = useState<Challenge[]>([]);
   const [newChallenges, setNewChallenges] = useState<Challenge[]>([]);
@@ -121,9 +121,10 @@ const ChallengesScreen = (): React.JSX.Element => {
       initialIndex: 0,
     });
   }, [navigation]);
+  const isBusiness = user?.accountType === 'pro_business';
 
   const handleAcceptChallenge = useCallback((challenge: Challenge) => {
-    if (isBusiness) return; // Business accounts cannot accept challenges
+    if (isBusiness) return;
     navigation.navigate('CreatePeak', {
       challengeId: challenge.id,
       challengeTitle: challenge.title,

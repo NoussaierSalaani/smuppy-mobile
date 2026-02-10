@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import type { MainStackParamList } from '../../types';
+import { resolveDisplayName } from '../../types/profile';
 import { GRADIENTS, SPACING, HIT_SLOP } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -479,7 +480,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         if (__DEV__) console.log('[FanFeed:Suggestions] First profile:', JSON.stringify({ id: data[0].id, name: data[0].full_name, username: data[0].username }));
         const transformed: UISuggestion[] = data.map((p: Profile) => ({
           id: p.id,
-          name: p.full_name || p.username || 'User',
+          name: resolveDisplayName(p),
           username: p.username || 'user',
           avatar: p.avatar_url || null,
           isVerified: p.is_verified || false,

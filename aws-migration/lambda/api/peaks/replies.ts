@@ -81,7 +81,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                p.likes_count, p.comments_count, p.views_count, p.peak_replies_count,
                p.duration, p.created_at,
                p.filter_id, p.filter_intensity, p.overlays,
-               pr.id as profile_id, pr.username, pr.display_name, pr.full_name, pr.avatar_url, pr.is_verified,
+               pr.id as profile_id, pr.username, pr.display_name, pr.full_name, pr.business_name, pr.account_type, pr.avatar_url, pr.is_verified,
                EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $2) as is_liked
         FROM peaks p
         JOIN profiles pr ON p.author_id = pr.id
@@ -120,7 +120,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         author: {
           id: row.profile_id,
           username: row.username,
-          displayName: row.display_name || row.full_name,
+          displayName: (row.account_type === 'pro_business' && row.business_name) ? row.business_name : (row.display_name || row.full_name),
           avatarUrl: row.avatar_url,
           isVerified: row.is_verified,
         },
@@ -179,7 +179,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Get author info
       const authorResult = await db.query(
-        'SELECT id, username, display_name, full_name, avatar_url, is_verified FROM profiles WHERE id = $1',
+        'SELECT id, username, display_name, full_name, business_name, account_type, avatar_url, is_verified FROM profiles WHERE id = $1',
         [profileId]
       );
 
@@ -192,7 +192,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
            VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
           [
             parentPeak.author_id,
-            `${author.display_name || author.full_name || author.username} replied to your Peak`,
+            `${(author.account_type === 'pro_business' && author.business_name) ? author.business_name : (author.display_name || author.full_name || author.username)} replied to your Peak`,
             JSON.stringify({ replyToPeakId: peakId, authorId: profileId, replyId: newReply.id })
           ]
         );
@@ -219,7 +219,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           author: {
             id: author.id,
             username: author.username,
-            displayName: author.display_name || author.full_name,
+            displayName: (author.account_type === 'pro_business' && author.business_name) ? author.business_name : (author.display_name || author.full_name),
             avatarUrl: author.avatar_url,
             isVerified: author.is_verified,
           },

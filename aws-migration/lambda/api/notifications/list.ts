@@ -62,7 +62,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         n.created_at,
         p.id AS actor_id,
         p.username AS actor_username,
-        p.full_name AS actor_full_name,
+        CASE WHEN p.account_type = 'pro_business' AND p.business_name IS NOT NULL AND p.business_name != '' THEN p.business_name ELSE p.full_name END AS actor_full_name,
         p.avatar_url AS actor_avatar_url,
         p.is_verified AS actor_is_verified,
         p.account_type AS actor_account_type,

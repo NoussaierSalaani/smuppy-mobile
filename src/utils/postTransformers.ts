@@ -4,6 +4,7 @@
  */
 
 import { Post } from '../services/database';
+import { resolveDisplayName } from '../types/profile';
 
 // ============================================
 // TIME UTILITIES
@@ -153,7 +154,7 @@ export const transformToFanPost = (
     slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     user: {
       id: post.author?.id || post.author_id,
-      name: post.author?.full_name || 'User',
+      name: resolveDisplayName(post.author),
       username: `@${post.author?.username || 'user'}`,
       avatar: post.author?.avatar_url || null,
       isVerified: post.author?.is_verified || false,
@@ -198,7 +199,7 @@ export const transformToVibePost = (
     slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     user: {
       id: post.author?.id || post.author_id,
-      name: post.author?.full_name || post.author?.username || 'User',
+      name: resolveDisplayName(post.author),
       avatar: post.author?.avatar_url || null,
     },
     title: getContentText(post),

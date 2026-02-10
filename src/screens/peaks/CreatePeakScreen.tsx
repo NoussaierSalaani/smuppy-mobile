@@ -87,7 +87,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const challengeId = rawChallengeId && isValidUUID(rawChallengeId) ? rawChallengeId : undefined;
   const { showAlert: showSmuppyAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
-  const isBusiness = user?.accountType === 'pro_business';
+
 
   const cameraRef = useRef<CameraView>(null);
   const videoPreviewRef = useRef<Video>(null);
@@ -337,6 +337,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   };
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const isBusiness = user?.accountType === 'pro_business';
 
   // Business accounts cannot create peaks
   if (isBusiness) {

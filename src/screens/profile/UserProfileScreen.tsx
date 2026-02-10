@@ -1204,8 +1204,8 @@ const UserProfileScreen = () => {
             </View>
           ) : null}
 
-          {/* Row 2: Monetization buttons (pro_creator only, not own profile) */}
-          {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
+          {/* Row 2: Monetization buttons (pro_creator & pro_business, not own profile) */}
+          {!isOwnProfile && (profile.accountType === 'pro_creator' || profile.accountType === 'pro_business') && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
             <View style={styles.actionButtonsRow}>
               {FEATURES.CHANNEL_SUBSCRIBE && (
                 <LiquidButton
@@ -1235,7 +1235,7 @@ const UserProfileScreen = () => {
                 />
               )}
 
-              {FEATURES.TIPPING && (
+              {FEATURES.TIPPING && profile.accountType === 'pro_creator' && (
                 <TipButton
                   recipient={{
                     id: profile.id,
@@ -1250,8 +1250,8 @@ const UserProfileScreen = () => {
             </View>
           )}
 
-          {/* Row 3: Offerings button (pro_creator only, not own profile) */}
-          {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
+          {/* Row 3: Offerings button (pro_creator & pro_business, not own profile) */}
+          {!isOwnProfile && (profile.accountType === 'pro_creator' || profile.accountType === 'pro_business') && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
             <View style={styles.actionButtonsRow}>
               <LiquidButton
                 label="View Offerings"

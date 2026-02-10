@@ -112,7 +112,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
                p.media_type as "mediaType", p.likes_count as "likesCount",
                p.comments_count as "commentsCount", p.created_at as "createdAt",
-               pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
+               pr.username, CASE WHEN pr.account_type = 'pro_business' AND pr.business_name IS NOT NULL AND pr.business_name != '' THEN pr.business_name ELSE pr.full_name END as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType"
                ${likedSelect}
         FROM posts p
@@ -134,7 +134,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
                p.media_type as "mediaType", p.likes_count as "likesCount",
                p.comments_count as "commentsCount", p.created_at as "createdAt",
-               pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
+               pr.username, CASE WHEN pr.account_type = 'pro_business' AND pr.business_name IS NOT NULL AND pr.business_name != '' THEN pr.business_name ELSE pr.full_name END as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType"
                ${likedSelect}
         FROM posts p

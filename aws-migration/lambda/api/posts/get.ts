@@ -34,7 +34,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         json_build_object(
           'id', pr.id,
           'username', pr.username,
-          'fullName', pr.full_name,
+          'fullName', CASE WHEN pr.account_type = 'pro_business' AND pr.business_name IS NOT NULL AND pr.business_name != '' THEN pr.business_name ELSE pr.full_name END,
           'avatarUrl', pr.avatar_url,
           'isVerified', pr.is_verified,
           'accountType', pr.account_type

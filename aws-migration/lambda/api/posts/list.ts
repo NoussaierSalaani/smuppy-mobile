@@ -100,7 +100,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       query = `
         SELECT DISTINCT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
-               u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType",
+               u.username, CASE WHEN u.account_type = 'pro_business' AND u.business_name IS NOT NULL AND u.business_name != '' THEN u.business_name ELSE u.full_name END as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType",
                EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as "isLiked"
         FROM posts p
         JOIN profiles u ON p.author_id = u.id
@@ -124,7 +124,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
-               u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
+               u.username, CASE WHEN u.account_type = 'pro_business' AND u.business_name IS NOT NULL AND u.business_name != '' THEN u.business_name ELSE u.full_name END as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
         FROM posts p JOIN profiles u ON p.author_id = u.id
         WHERE p.author_id = $1 ${moderationFilter} ${cursor ? 'AND p.created_at < $3' : ''}
         ORDER BY p.created_at DESC LIMIT $2
@@ -135,7 +135,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.views_count as "viewsCount", p.created_at as "createdAt",
-               u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
+               u.username, CASE WHEN u.account_type = 'pro_business' AND u.business_name IS NOT NULL AND u.business_name != '' THEN u.business_name ELSE u.full_name END as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType"
         FROM posts p JOIN profiles u ON p.author_id = u.id
         WHERE 1=1
         ${cursor ? 'AND p.created_at < $2' : ''}

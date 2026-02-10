@@ -18,6 +18,7 @@ import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { resolveDisplayName } from '../../types/profile';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -116,7 +117,7 @@ const PostDetailFanFeedScreen = () => {
           : undefined,
         user: {
           id: post.author?.id || post.author_id,
-          name: post.author?.full_name || post.author?.username || 'User',
+          name: resolveDisplayName(post.author),
           avatar: post.author?.avatar_url || '',
           followsMe: post.author?.is_followed_by || false,
         },

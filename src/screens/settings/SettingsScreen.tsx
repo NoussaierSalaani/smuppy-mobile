@@ -156,7 +156,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
   const ACCOUNT_ITEMS = [
     { id: 'profile', icon: 'person-outline' as const, label: 'Edit Profile', screen: 'EditProfile' },
-    ...(!isPro ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
+    ...(!isProCreator ? [{ id: 'interests', icon: 'heart-outline' as const, label: 'Interests', screen: 'EditInterests', params: { currentInterests: interests } }] : []),
     ...(isProBusiness ? [{ id: 'category', icon: 'storefront-outline' as const, label: 'Business Category', screen: 'EditBusinessCategory', params: { currentCategory: user?.businessCategory } }] : []),
     ...(isPro ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
@@ -623,8 +623,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
 
-            {/* Private Sessions - Creator only */}
-            {isProCreator && (
+            {/* Private Sessions - Creator & Business */}
+            {isPro && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleNavigatePrivateSessions}

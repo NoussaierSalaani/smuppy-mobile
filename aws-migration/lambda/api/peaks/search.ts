@@ -76,7 +76,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                p.likes_count as "likesCount", p.comments_count as "commentsCount",
                p.views_count as "viewsCount", p.created_at as "createdAt",
                p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
-               pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
+               pr.username, CASE WHEN pr.account_type = 'pro_business' AND pr.business_name IS NOT NULL AND pr.business_name != '' THEN pr.business_name ELSE pr.full_name END as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType"
                ${likedSelect}
         FROM peaks p
@@ -104,7 +104,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  p.likes_count as "likesCount", p.comments_count as "commentsCount",
                  p.views_count as "viewsCount", p.created_at as "createdAt",
                  p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
-                 pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
+                 pr.username, CASE WHEN pr.account_type = 'pro_business' AND pr.business_name IS NOT NULL AND pr.business_name != '' THEN pr.business_name ELSE pr.full_name END as "fullName", pr.avatar_url as "avatarUrl",
                  pr.is_verified as "isVerified", pr.account_type as "accountType"
                  ${likedSelectText}
           FROM peaks p
@@ -127,7 +127,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  p.likes_count as "likesCount", p.comments_count as "commentsCount",
                  p.views_count as "viewsCount", p.created_at as "createdAt",
                  p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
-                 pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
+                 pr.username, CASE WHEN pr.account_type = 'pro_business' AND pr.business_name IS NOT NULL AND pr.business_name != '' THEN pr.business_name ELSE pr.full_name END as "fullName", pr.avatar_url as "avatarUrl",
                  pr.is_verified as "isVerified", pr.account_type as "accountType"
                  ${likedSelectText}
           FROM peaks p

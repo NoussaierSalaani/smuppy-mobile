@@ -90,7 +90,9 @@ async function handleListComments(
     }
     query = `
       SELECT pc.id, pc.text, pc.created_at,
-             p.id as author_id, p.username, p.full_name, p.avatar_url, p.is_verified
+             p.id as author_id, p.username,
+             CASE WHEN p.account_type = 'pro_business' AND p.business_name IS NOT NULL AND p.business_name != '' THEN p.business_name ELSE p.full_name END as full_name,
+             p.avatar_url, p.is_verified
       FROM peak_comments pc
       JOIN profiles p ON pc.user_id = p.id
       WHERE pc.peak_id = $1
@@ -102,7 +104,9 @@ async function handleListComments(
   } else {
     query = `
       SELECT pc.id, pc.text, pc.created_at,
-             p.id as author_id, p.username, p.full_name, p.avatar_url, p.is_verified
+             p.id as author_id, p.username,
+             CASE WHEN p.account_type = 'pro_business' AND p.business_name IS NOT NULL AND p.business_name != '' THEN p.business_name ELSE p.full_name END as full_name,
+             p.avatar_url, p.is_verified
       FROM peak_comments pc
       JOIN profiles p ON pc.user_id = p.id
       WHERE pc.peak_id = $1
@@ -219,7 +223,7 @@ async function handleCreateComment(
   const db = await getPool();
 
   const userResult = await db.query(
-    'SELECT id, username, full_name, avatar_url, is_verified FROM profiles WHERE cognito_sub = $1',
+    'SELECT id, username, full_name, business_name, account_type, avatar_url, is_verified FROM profiles WHERE cognito_sub = $1',
     [userId]
   );
   if (userResult.rows.length === 0) {
@@ -295,7 +299,7 @@ async function handleCreateComment(
           author: {
             id: profile.id,
             username: profile.username,
-            fullName: profile.full_name,
+            fullName: (profile.account_type === 'pro_business' && profile.business_name) ? profile.business_name : profile.full_name,
             avatarUrl: profile.avatar_url,
             isVerified: profile.is_verified || false,
           },

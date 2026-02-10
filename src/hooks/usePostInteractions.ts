@@ -78,6 +78,13 @@ export function usePostInteractions<T extends InteractablePost>({
       }
     } catch (err) {
       if (__DEV__) console.warn('[usePostInteractions] Like error:', err);
+      // Rollback optimistic update on network/exception errors
+      setPosts(prev => prev.map(p => {
+        if (p.id !== postId) return p;
+        return wasLiked
+          ? { ...p, isLiked: true, likes: p.likes + 1 }
+          : { ...p, isLiked: false, likes: Math.max(0, p.likes - 1) };
+      }));
     } finally {
       pendingLikes.current.delete(postId);
     }

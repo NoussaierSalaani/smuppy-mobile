@@ -471,16 +471,29 @@ export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag:
 export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbResponse<Profile[]>> => {
   try {
     // Try suggested endpoint first with pagination
+    if (__DEV__) console.log('[Suggested] Calling primary: /profiles/suggested?limit=' + limit + '&offset=' + offset);
     const result = await awsAPI.request<{ profiles?: AWSProfile[]; data?: AWSProfile[] }>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
+    if (__DEV__) console.log('[Suggested] Raw result keys:', Object.keys(result || {}), 'profiles?', !!(result as Record<string, unknown>)?.profiles, 'data?', !!(result as Record<string, unknown>)?.data);
     const profiles = result.profiles || result.data || [];
-    return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
-  } catch {
-    // Fallback: use search for popular profiles
+    if (__DEV__) console.log('[Suggested] Primary endpoint returned', profiles.length, 'profiles');
+    if (__DEV__ && profiles.length > 0) console.log('[Suggested] First profile:', JSON.stringify({ id: profiles[0].id, username: profiles[0].username, fullName: profiles[0].fullName }));
+    const converted = profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[];
+    if (__DEV__) console.log('[Suggested] After convertProfile:', converted.length, 'profiles (filtered', profiles.length - converted.length, 'nulls)');
+    return { data: converted, error: null };
+  } catch (primaryErr) {
+    if (__DEV__) console.warn('[Suggested] Primary endpoint FAILED:', (primaryErr as Error)?.message || primaryErr);
+    // Fallback: use search for popular profiles (public endpoint, no auth required)
     try {
+      if (__DEV__) console.log('[Suggested] Trying fallback: searchProfiles("", ' + limit + ')');
       const profiles = await awsAPI.searchProfiles('', limit);
-      return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
-    } catch {
-      return { data: [], error: null };
+      if (__DEV__) console.log('[Suggested] Fallback returned', profiles?.length ?? 'null/undefined', 'profiles, type:', typeof profiles, 'isArray:', Array.isArray(profiles));
+      if (__DEV__ && profiles?.length > 0) console.log('[Suggested] Fallback first:', JSON.stringify({ id: profiles[0].id, username: profiles[0].username }));
+      const converted = profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[];
+      if (__DEV__) console.log('[Suggested] Fallback after convert:', converted.length, 'profiles');
+      return { data: converted, error: null };
+    } catch (fallbackErr) {
+      if (__DEV__) console.warn('[Suggested] Fallback also FAILED:', (fallbackErr as Error)?.message || fallbackErr);
+      return { data: [], error: 'Both primary and fallback endpoints failed' };
     }
   }
 };
@@ -729,9 +742,9 @@ export const recordPostView = async (postId: string): Promise<{ error: string | 
   try {
     await awsAPI.recordPostView(postId);
     return { error: null };
-  } catch {
-    // Silently fail - view tracking is non-critical
-    return { error: null };
+  } catch (error: unknown) {
+    if (__DEV__) console.warn('[database] recordPostView failed:', error);
+    return { error: getErrorMessage(error) };
   }
 };
 
@@ -781,10 +794,7 @@ export const hasLikedPost = async (postId: string): Promise<{ hasLiked: boolean 
 export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
   const resultMap = new Map<string, boolean>();
 
-  if (postIds.length === 0) {
-    postIds.forEach(id => resultMap.set(id, false));
-    return resultMap;
-  }
+  if (postIds.length === 0) return resultMap;
 
   try {
     const result = await awsAPI.request<{ likes: Record<string, boolean> }>('/posts/likes/batch', {
@@ -792,7 +802,8 @@ export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string,
       body: { postIds },
     });
     postIds.forEach(id => resultMap.set(id, result.likes[id] || false));
-  } catch {
+  } catch (error: unknown) {
+    if (__DEV__) console.warn('[database] hasLikedPostsBatch failed:', error);
     postIds.forEach(id => resultMap.set(id, false));
   }
 
@@ -845,10 +856,7 @@ export const hasSavedPost = async (postId: string): Promise<{ saved: boolean }> 
 export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
   const resultMap = new Map<string, boolean>();
 
-  if (postIds.length === 0) {
-    postIds.forEach(id => resultMap.set(id, false));
-    return resultMap;
-  }
+  if (postIds.length === 0) return resultMap;
 
   try {
     const result = await awsAPI.request<{ saves: Record<string, boolean> }>('/posts/saves/batch', {
@@ -856,7 +864,8 @@ export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string,
       body: { postIds },
     });
     postIds.forEach(id => resultMap.set(id, result.saves[id] || false));
-  } catch {
+  } catch (error: unknown) {
+    if (__DEV__) console.warn('[database] hasSavedPostsBatch failed:', error);
     postIds.forEach(id => resultMap.set(id, false));
   }
 

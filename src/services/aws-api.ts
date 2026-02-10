@@ -781,6 +781,12 @@ class AWSAPIService {
     });
   }
 
+  async recordPeakView(id: string): Promise<void> {
+    return this.request(`/peaks/${id}/view`, {
+      method: 'POST',
+    });
+  }
+
   /**
    * React to a peak with emoji reaction
    */

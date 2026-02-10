@@ -76,6 +76,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly peaksDeleteFn: NodejsFunction;
   public readonly peaksLikeFn: NodejsFunction;
   public readonly peaksUnlikeFn: NodejsFunction;
+  public readonly peaksViewFn: NodejsFunction;
   public readonly peaksCommentFn: NodejsFunction;
 
   // Phase 5: Notifications
@@ -420,6 +421,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.peaksDeleteFn = createLambda('PeaksDeleteFunction', 'peaks/delete');
     this.peaksLikeFn = createLambda('PeaksLikeFunction', 'peaks/like');
     this.peaksUnlikeFn = createLambda('PeaksUnlikeFunction', 'peaks/unlike');
+    this.peaksViewFn = createLambda('PeaksViewFunction', 'peaks/view');
     this.peaksCommentFn = createLambda('PeaksCommentFunction', 'peaks/comment');
     this.peaksReactFn = createLambda('PeaksReactFunction', 'peaks/react');
     this.peaksTagFn = createLambda('PeaksTagFunction', 'peaks/tag');

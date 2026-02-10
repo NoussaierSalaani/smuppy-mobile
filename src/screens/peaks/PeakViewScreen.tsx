@@ -36,6 +36,7 @@ import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import PeakReactions, { ReactionType } from '../../components/PeakReactions';
 import { WorkoutTimer, RepCounter, DayChallenge, CalorieBurn, HeartRatePulse } from '../../filters/overlays';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { COLORS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { copyPeakLink, sharePeak } from '../../utils/share';
 import { savePost, unsavePost } from '../../services/database';
@@ -195,7 +196,7 @@ function renderOverlayWidget(type: string, params: Record<string, unknown>): Rea
             currentDay: (params.currentDay as number) || 1,
             totalDays: (params.totalDays as number) || 30,
             challengeName: (params.challengeName as string) || 'Challenge',
-            color: (params.color as string) || '#FFD700',
+            color: (params.color as string) || COLORS.gold,
           }}
           size={100}
         />
@@ -406,10 +407,13 @@ const PeakViewScreen = (): React.JSX.Element => {
       });
     }
 
-    // Count a view locally (once per peak in this session)
+    // Record view (once per peak in this session) — optimistic local + persist to server
     if (currentPeak.id && !viewedPeaks.has(currentPeak.id)) {
       setViewedPeaks(prev => new Set(prev).add(currentPeak.id));
       setPeaks(prev => prev.map((p, i) => i === currentIndex ? { ...p, views: (p.views || 0) + 1 } : p));
+      awsAPI.recordPeakView(currentPeak.id).catch((err) => {
+        if (__DEV__) console.warn('[PeakView] recordPeakView failed:', err);
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
@@ -1179,7 +1183,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                 >
                   {isSelected ? (
                     <LinearGradient
-                      colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+                      colors={[colors.primary, '#00B5C1', '#0081BE']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.avatarRingGradient}
@@ -1364,7 +1368,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           {currentPeak.isChallenge && (
             <View style={styles.challengeBanner}>
               <View style={styles.challengeBannerHeader}>
-                <Ionicons name="trophy" size={16} color="#FFD700" />
+                <Ionicons name="trophy" size={16} color={colors.gold} />
                 <Text style={styles.challengeBannerTitle}>
                   {currentPeak.challengeTitle || 'Challenge'}
                 </Text>
@@ -1572,7 +1576,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             <View style={styles.responsesHeader}>
               <View style={styles.menuHandle} />
               <View style={styles.responsesTitleRow}>
-                <Ionicons name="trophy" size={18} color="#FFD700" />
+                <Ionicons name="trophy" size={18} color={colors.gold} />
                 <Text style={styles.responsesTitle}>Challenge Responses</Text>
               </View>
             </View>
@@ -1921,7 +1925,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   challengeBannerTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFD700',
+    color: colors.gold,
   },
   challengeBannerRules: {
     fontSize: 13,
@@ -1935,7 +1939,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#FFD700',
+    backgroundColor: colors.gold,
     borderRadius: 8,
     paddingVertical: 8,
     marginTop: 4,

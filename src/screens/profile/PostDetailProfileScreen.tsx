@@ -23,6 +23,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   followUser,
   isFollowing,
@@ -36,6 +37,7 @@ import {
   deletePost,
   recordPostView,
 } from '../../services/database';
+import { queryKeys } from '../../lib/queryClient';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 import { useContentStore } from '../../stores/contentStore';
@@ -123,6 +125,8 @@ const PostDetailProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const currentUserId = useUserStore((state) => state.user?.id);
+  const queryClient = useQueryClient();
+  const removeFromFeed = useFeedStore((state) => state.removeFromFeed);
 
   // Params
   const params = route.params as { postId?: string; profilePosts?: typeof MOCK_PROFILE_POSTS } || {};
@@ -347,6 +351,13 @@ const PostDetailProfileScreen = () => {
           if (error) {
             showError('Error', 'Failed to delete post. Please try again.');
           } else {
+            // Remove from feed store (FanFeed/VibesFeed cross-screen sync)
+            removeFromFeed(currentPost.id);
+            // Invalidate profile posts + main feed caches
+            queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+            if (currentUserId) {
+              queryClient.invalidateQueries({ queryKey: ['posts', 'user', currentUserId] });
+            }
             showSuccess('Deleted', 'Your post has been deleted.');
             navigation.goBack();
           }
@@ -358,7 +369,7 @@ const PostDetailProfileScreen = () => {
       },
       'Delete'
     );
-  }, [currentPost, isOwnPost, showDestructiveConfirm, showError, showSuccess, navigation]);
+  }, [currentPost, isOwnPost, showDestructiveConfirm, showError, showSuccess, navigation, removeFromFeed, queryClient, currentUserId]);
 
   // Share post
   const handleShare = useCallback(async () => {
@@ -819,12 +830,12 @@ const PostDetailProfileScreen = () => {
 
             {isOwnPost ? (
               <TouchableOpacity style={styles.menuItem} onPress={handleDeletePost}>
-                <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+                <Ionicons name="trash-outline" size={24} color={colors.error} />
                 <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
-                <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
+                <Ionicons name="flag-outline" size={24} color={colors.heartRed} />
                 <Text style={[styles.menuItemText, styles.menuItemTextReport]}>Report</Text>
               </TouchableOpacity>
             )}
@@ -1155,10 +1166,10 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     color: '#FFF',
   },
   menuItemTextDanger: {
-    color: '#FF3B30',
+    color: colors.error,
   },
   menuItemTextReport: {
-    color: '#FF6B6B',
+    color: colors.heartRed,
   },
   menuCancel: {
     marginTop: 8,

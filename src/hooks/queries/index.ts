@@ -226,7 +226,9 @@ export const useDeletePost = () => {
       removeFromFeed(postId);
     },
     onSuccess: () => {
+      // Invalidate main feed + all profile post queries
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      queryClient.invalidateQueries({ queryKey: ['posts', 'user'] });
     },
   });
 };

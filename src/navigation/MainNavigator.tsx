@@ -269,16 +269,9 @@ export default function MainNavigator() {
   const isAuthenticated = useUserStore((state) => state.isAuthenticated);
 
   // Sync profile from database to Zustand store on mount
-  // Skip fetch if user is already loaded from persistence (avoid double fetch)
+  // Always fetch fresh to avoid stale AsyncStorage cache after re-login
   useEffect(() => {
     const syncProfile = async () => {
-      // Skip if user already exists in store (loaded from AsyncStorage)
-      // AppNavigator already fetched fresh data, no need to duplicate
-      if (currentUserId && isAuthenticated) {
-        if (__DEV__) console.log('[MainNavigator] User already in store, skipping fetch');
-        return;
-      }
-
       try {
         const { data, error } = await getCurrentProfile();
         if (data && !error) {

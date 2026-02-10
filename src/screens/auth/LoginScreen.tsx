@@ -4,13 +4,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { GRADIENTS, FORM, HIT_SLOP } from '../../config/theme';
+import { HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import {
   createAuthStyles,
   createAuthColors,
   createGetInputIconColor,
   createGetButtonGradient,
+  AUTH_FORM,
 } from '../../components/auth/authStyles';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
@@ -55,33 +56,33 @@ const createLocalStyles = (colors: ThemeColors, authColors: ReturnType<typeof cr
   label: { fontSize: 13, fontWeight: '600', color: colors.dark, marginBottom: 8 },
 
   // Input
-  inputBox: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight, borderWidth: 1.5, borderColor: colors.grayLight, borderRadius: FORM.inputRadius, paddingHorizontal: FORM.inputPaddingHorizontal, backgroundColor: colors.background },
-  inputGradientBorder: { borderRadius: FORM.inputRadius, padding: 2 },
-  inputInner: { flexDirection: 'row', alignItems: 'center', height: FORM.inputHeight - 4, borderRadius: FORM.inputRadius - 2, paddingHorizontal: FORM.inputPaddingHorizontal - 2, backgroundColor: colors.background },
+  inputBox: { flexDirection: 'row', alignItems: 'center', height: AUTH_FORM.inputHeight, borderWidth: 1.5, borderColor: authColors.border, borderRadius: AUTH_FORM.inputRadius, paddingHorizontal: 20, backgroundColor: colors.background },
+  inputGradientBorder: { borderRadius: AUTH_FORM.inputRadius, padding: 2 },
+  inputInner: { flexDirection: 'row', alignItems: 'center', height: AUTH_FORM.inputHeight - 4, borderRadius: AUTH_FORM.inputRadius - 2, paddingHorizontal: 18, backgroundColor: colors.background },
   inputInnerValid: { backgroundColor: authColors.validBg },
   input: { flex: 1, fontSize: 16, color: colors.dark, marginLeft: 12 },
 
   // Remember Me
   rememberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: colors.grayLight, justifyContent: 'center', alignItems: 'center', marginRight: 10, backgroundColor: colors.background },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: authColors.border, justifyContent: 'center', alignItems: 'center', marginRight: 10, backgroundColor: colors.background },
+  checkboxChecked: { backgroundColor: authColors.primary, borderColor: authColors.primary },
   rememberText: { fontSize: 13, fontWeight: '500', color: colors.dark },
 
   // Button
   btnTouchable: { marginBottom: 16 },
-  btn: { height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
+  btn: { height: AUTH_FORM.buttonHeight, borderRadius: AUTH_FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
   btnInner: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   btnText: { color: colors.white, fontSize: 16, fontWeight: '600' },
 
   // Divider
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.grayBorder },
+  dividerLine: { flex: 1, height: 1, backgroundColor: authColors.divider },
   dividerText: { paddingHorizontal: 14, fontSize: 12, color: colors.gray },
 
   // Social
-  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 16 },
-  socialBtn: { width: 64, height: 64, borderRadius: 18, borderWidth: 1.5, borderColor: colors.grayBorder, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+  socialBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: AUTH_FORM.buttonHeight, borderWidth: 1.5, borderColor: authColors.divider, borderRadius: AUTH_FORM.buttonRadius, backgroundColor: colors.background, marginBottom: 12, gap: 10 },
   socialBtnLoading: { opacity: 0.7 },
+  socialBtnText: { fontSize: 15, fontWeight: '500', color: authColors.dark },
 
   // Forgot Password
   forgotBtn: { alignItems: 'center', marginBottom: 10 },
@@ -102,8 +103,8 @@ const createLocalStyles = (colors: ThemeColors, authColors: ReturnType<typeof cr
   modalIconBox: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: colors.dark, marginBottom: 12, textAlign: 'center' },
   modalMessage: { fontSize: 14, color: colors.gray, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
-  modalBtn: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
-  modalBtnGradient: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius },
+  modalBtn: { width: '100%', height: AUTH_FORM.buttonHeight, borderRadius: AUTH_FORM.buttonRadius, justifyContent: 'center', alignItems: 'center' },
+  modalBtnGradient: { width: '100%', height: AUTH_FORM.buttonHeight, borderRadius: AUTH_FORM.buttonRadius },
   modalBtnInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
 });
@@ -115,6 +116,16 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const _iconColor = useMemo(() => createGetInputIconColor(authColors), [authColors]);
   const _btnGradient = useMemo(() => createGetButtonGradient(authColors), [authColors]);
   const styles = useMemo(() => createLocalStyles(colors, authColors), [colors, authColors]);
+  const buttonGradient = useMemo(() => {
+    const valid: [string, string] = [colors.primary, colors.primaryDark];
+    const disabled: [string, string] = [authColors.border, authColors.border];
+    return { valid, disabled };
+  }, [colors, authColors]);
+  const inputGradient = useMemo(() => {
+    const active: [string, string] = [colors.primary, colors.primaryDark];
+    const inactive: [string, string] = [authColors.border, authColors.border];
+    return { active, inactive };
+  }, [colors, authColors]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -349,17 +360,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Email address</Text>
               <LinearGradient
-                colors={(email.length > 0 || emailFocused) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
+                colors={(email.length > 0 || emailFocused) ? inputGradient.active : inputGradient.inactive}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, email.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? colors.primary : colors.grayMuted} />
+                  <Ionicons name="mail-outline" size={20} color={(email.length > 0 || emailFocused) ? authColors.primary : authColors.grayLight} />
                   <TextInput
                     style={styles.input}
                     placeholder="mailusersmuppy@mail.com"
-                    placeholderTextColor={colors.grayMuted}
+                    placeholderTextColor={authColors.grayLight}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -378,17 +389,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Password</Text>
               <LinearGradient
-                colors={(password.length > 0 || passwordFocused) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
+                colors={(password.length > 0 || passwordFocused) ? inputGradient.active : inputGradient.inactive}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.inputGradientBorder}
               >
                 <View style={[styles.inputInner, password.length > 0 && styles.inputInnerValid]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? colors.primary : colors.grayMuted} />
+                  <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || passwordFocused) ? authColors.primary : authColors.grayLight} />
                   <TextInput
                     style={styles.input}
                     placeholder="••••••••••"
-                    placeholderTextColor={colors.grayMuted}
+                    placeholderTextColor={authColors.grayLight}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -406,7 +417,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                     accessibilityHint="Double-tap to toggle password visibility"
                   >
-                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={colors.grayMuted} />
+                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={authColors.grayLight} />
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -443,9 +454,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               accessibilityState={{ disabled: !isFormValid || loading }}
             >
               <LinearGradient
-                colors={isFormValid ? GRADIENTS.primary : GRADIENTS.buttonDisabled}
-                start={GRADIENTS.primaryStart}
-                end={GRADIENTS.primaryEnd}
+                colors={isFormValid ? buttonGradient.valid : buttonGradient.disabled}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.btn}
               >
                 <View style={styles.btnInner}>
@@ -463,42 +474,42 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             </View>
 
             {/* Social Buttons */}
-            <View style={styles.socialRow}>
+            <TouchableOpacity
+              style={[styles.socialBtn, socialLoading === 'google' && styles.socialBtnLoading]}
+              activeOpacity={0.7}
+              onPress={handleGoogleSignInPress}
+              disabled={socialLoading !== null}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={socialLoading === 'google' ? 'Signing in with Google' : 'Sign in with Google'}
+              accessibilityState={{ disabled: socialLoading !== null }}
+            >
+              {socialLoading === 'google' ? (
+                <ActivityIndicator size="small" color={authColors.primary} />
+              ) : (
+                <GoogleLogo size={24} />
+              )}
+              <Text style={styles.socialBtnText}>Continue with Google</Text>
+            </TouchableOpacity>
+            {(Platform.OS === 'ios' && appleAvailable) && (
               <TouchableOpacity
-                style={[styles.socialBtn, socialLoading === 'google' && styles.socialBtnLoading]}
+                style={[styles.socialBtn, socialLoading === 'apple' && styles.socialBtnLoading]}
                 activeOpacity={0.7}
-                onPress={handleGoogleSignInPress}
+                onPress={handleAppleSignIn}
                 disabled={socialLoading !== null}
                 accessible={true}
                 accessibilityRole="button"
-                accessibilityLabel={socialLoading === 'google' ? 'Signing in with Google' : 'Sign in with Google'}
+                accessibilityLabel={socialLoading === 'apple' ? 'Signing in with Apple' : 'Sign in with Apple'}
                 accessibilityState={{ disabled: socialLoading !== null }}
               >
-                {socialLoading === 'google' ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
+                {socialLoading === 'apple' ? (
+                  <ActivityIndicator size="small" color={authColors.dark} />
                 ) : (
-                  <GoogleLogo size={28} />
+                  <Ionicons name="logo-apple" size={26} color={authColors.dark} />
                 )}
+                <Text style={styles.socialBtnText}>Continue with Apple</Text>
               </TouchableOpacity>
-              {(Platform.OS === 'ios' && appleAvailable) && (
-                <TouchableOpacity
-                  style={[styles.socialBtn, socialLoading === 'apple' && styles.socialBtnLoading]}
-                  activeOpacity={0.7}
-                  onPress={handleAppleSignIn}
-                  disabled={socialLoading !== null}
-                  accessible={true}
-                  accessibilityRole="button"
-                  accessibilityLabel={socialLoading === 'apple' ? 'Signing in with Apple' : 'Sign in with Apple'}
-                  accessibilityState={{ disabled: socialLoading !== null }}
-                >
-                  {socialLoading === 'apple' ? (
-                    <ActivityIndicator size="small" color={colors.dark} />
-                  ) : (
-                    <Ionicons name="logo-apple" size={30} color={colors.dark} />
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
 
             {/* Forgot Password - NO cooldown */}
             <TouchableOpacity

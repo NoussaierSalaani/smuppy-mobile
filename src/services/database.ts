@@ -310,9 +310,6 @@ export const getProfileByUsername = async (username: string): Promise<DbResponse
  * Update current user's profile (creates if doesn't exist)
  */
 export const updateProfile = async (updates: Partial<Profile>): Promise<DbResponse<Profile>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const updateData: Record<string, unknown> = {};
 
@@ -472,9 +469,6 @@ export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag:
  * Get suggested profiles (for discovery/explore)
  */
 export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbResponse<Profile[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: [], error: 'Not authenticated' };
-
   try {
     // Try suggested endpoint first with pagination
     const result = await awsAPI.request<{ profiles?: AWSProfile[]; data?: AWSProfile[] }>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
@@ -547,9 +541,6 @@ export const getFeedPosts = async (_page = 0, limit = 10): Promise<DbResponse<Po
  * Get optimized feed with likes/saves status included
  */
 export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[] }>(`/feed/optimized?limit=${limit}&page=${page}`);
     const posts: PostWithStatus[] = result.data.map((p: AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean }) => ({
@@ -683,9 +674,6 @@ export const getPostsByTags = async (
  * Create a new post
  */
 export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Post>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const createData: Record<string, unknown> = {
       content: postData.content || postData.caption,
@@ -738,9 +726,6 @@ export const deletePost = async (postId: string): Promise<{ error: string | null
  * Record a view on a post
  */
 export const recordPostView = async (postId: string): Promise<{ error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { error: 'Not authenticated' };
-
   try {
     await awsAPI.recordPostView(postId);
     return { error: null };
@@ -758,12 +743,9 @@ export const recordPostView = async (postId: string): Promise<{ error: string | 
  * Like a post
  */
 export const likePost = async (postId: string): Promise<DbResponse<Like>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     await awsAPI.likePost(postId);
-    return { data: { id: '', user_id: user.id, post_id: postId, created_at: new Date().toISOString() }, error: null };
+    return { data: { id: '', user_id: '', post_id: postId, created_at: new Date().toISOString() }, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }
@@ -773,9 +755,6 @@ export const likePost = async (postId: string): Promise<DbResponse<Like>> => {
  * Unlike a post
  */
 export const unlikePost = async (postId: string): Promise<{ error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { error: 'Not authenticated' };
-
   try {
     await awsAPI.unlikePost(postId);
     return { error: null };
@@ -788,9 +767,6 @@ export const unlikePost = async (postId: string): Promise<{ error: string | null
  * Check if current user liked a post
  */
 export const hasLikedPost = async (postId: string): Promise<{ hasLiked: boolean }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { hasLiked: false };
-
   try {
     const result = await awsAPI.request<{ hasLiked: boolean }>(`/posts/${postId}/liked`);
     return { hasLiked: result.hasLiked };
@@ -804,9 +780,8 @@ export const hasLikedPost = async (postId: string): Promise<{ hasLiked: boolean 
  */
 export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
   const resultMap = new Map<string, boolean>();
-  const user = await awsAuth.getCurrentUser();
 
-  if (!user || postIds.length === 0) {
+  if (postIds.length === 0) {
     postIds.forEach(id => resultMap.set(id, false));
     return resultMap;
   }
@@ -832,9 +807,6 @@ export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string,
  * Save a post (bookmark)
  */
 export const savePost = async (postId: string): Promise<DbResponse<{ id: string }>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     await awsAPI.request(`/posts/${postId}/save`, { method: 'POST' });
     return { data: { id: postId }, error: null };
@@ -847,9 +819,6 @@ export const savePost = async (postId: string): Promise<DbResponse<{ id: string 
  * Unsave a post (remove bookmark)
  */
 export const unsavePost = async (postId: string): Promise<{ error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { error: 'Not authenticated' };
-
   try {
     await awsAPI.request(`/posts/${postId}/save`, { method: 'DELETE' });
     return { error: null };
@@ -862,9 +831,6 @@ export const unsavePost = async (postId: string): Promise<{ error: string | null
  * Check if current user saved a post
  */
 export const hasSavedPost = async (postId: string): Promise<{ saved: boolean }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { saved: false };
-
   try {
     const result = await awsAPI.request<{ saved: boolean }>(`/posts/${postId}/saved`);
     return { saved: result.saved };
@@ -878,9 +844,8 @@ export const hasSavedPost = async (postId: string): Promise<{ saved: boolean }> 
  */
 export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
   const resultMap = new Map<string, boolean>();
-  const user = await awsAuth.getCurrentUser();
 
-  if (!user || postIds.length === 0) {
+  if (postIds.length === 0) {
     postIds.forEach(id => resultMap.set(id, false));
     return resultMap;
   }
@@ -902,9 +867,6 @@ export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string,
  * Get user's saved posts (collections)
  */
 export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Post[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/saved?limit=${limit}&page=${page}`);
     return { data: result.data.map(convertPost), error: null };
@@ -993,9 +955,6 @@ export const unfollowUser = async (userIdToUnfollow: string): Promise<{
  * Check if current user is following another user
  */
 export const isFollowing = async (targetUserId: string): Promise<{ isFollowing: boolean; following: boolean }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { isFollowing: false, following: false };
-
   try {
     const result = await awsAPI.request<{ isFollowing: boolean }>(`/profiles/${targetUserId}/is-following`);
     return { isFollowing: result.isFollowing, following: result.isFollowing };
@@ -1106,9 +1065,6 @@ export const getComments = async (postId: string, _page = 0, limit = 20): Promis
  * Add a comment to a post
  */
 export const addComment = async (postId: string, text: string, parentId?: string): Promise<DbResponse<Comment>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.createComment(postId, text, parentId);
     const comment: Comment = {
@@ -1242,9 +1198,6 @@ export const getPostById = async (postId: string): Promise<DbResponse<Post>> => 
  * Get notifications for current user
  */
 export const getNotifications = async (_page = 0, limit = 20): Promise<DbResponse<AWSNotification[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.getNotifications({ limit });
     return { data: result.data, error: null };
@@ -1357,9 +1310,6 @@ export const getSpotById = async (spotId: string): Promise<DbResponse<Spot>> => 
  * Create a new spot
  */
 export const createSpot = async (spotData: Partial<Spot>): Promise<DbResponse<Spot>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<Spot>('/spots', {
       method: 'POST',
@@ -1392,9 +1342,6 @@ export const addSpotReview = async (
   comment?: string,
   photos?: string[]
 ): Promise<DbResponse<SpotReview>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<SpotReview>(`/spots/${spotId}/reviews`, {
       method: 'POST',
@@ -1414,9 +1361,6 @@ export const addSpotReview = async (
  * Get conversations for current user
  */
 export const getConversations = async (limit = 20): Promise<DbResponse<Conversation[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     // Lambda returns { conversations: [...], nextCursor, hasMore } with snake_case fields
     const result = await awsAPI.request<{ conversations: Array<{
@@ -1553,9 +1497,6 @@ export const sendMessage = async (
   mediaType?: 'image' | 'video' | 'voice' | 'audio',
   replyToMessageId?: string
 ): Promise<DbResponse<Message>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   // Sanitize content: strip HTML and control characters
   const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F]/g, '');
   if (!sanitizedContent) return { data: null, error: 'Message content is required' };
@@ -1617,9 +1558,6 @@ export const sendMessage = async (
  * Report a post
  */
 export const reportPost = async (postId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ id: string }>('/reports/post', {
       method: 'POST',
@@ -1638,9 +1576,6 @@ export const reportPost = async (postId: string, reason: string, details?: strin
  * Report a comment
  */
 export const reportComment = async (commentId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ id: string }>('/reports/comment', {
       method: 'POST',
@@ -1659,9 +1594,6 @@ export const reportComment = async (commentId: string, reason: string, details?:
  * Report a peak
  */
 export const reportPeak = async (peakId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ id: string }>('/reports/peak', {
       method: 'POST',
@@ -1680,9 +1612,6 @@ export const reportPeak = async (peakId: string, reason: string, details?: strin
  * Report a user
  */
 export const reportUser = async (userId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ id: string }>('/reports/user', {
       method: 'POST',
@@ -1701,9 +1630,6 @@ export const reportUser = async (userId: string, reason: string, details?: strin
  * Report a live stream
  */
 export const reportLivestream = async (liveStreamId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ id: string }>('/reports/livestream', {
       method: 'POST',
@@ -1722,9 +1648,6 @@ export const reportLivestream = async (liveStreamId: string, reason: string, det
  * Report a message
  */
 export const reportMessage = async (messageId: string, conversationId: string, reason: string, details?: string): Promise<{ data: { id: string } | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ id: string }>('/reports/message', {
       method: 'POST',
@@ -1743,9 +1666,6 @@ export const reportMessage = async (messageId: string, conversationId: string, r
  * Block a user
  */
 export const blockUser = async (userId: string): Promise<{ data: BlockedUser | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<BlockedUser>(`/profiles/${userId}/block`, { method: 'POST' });
     return { data: result, error: null };
@@ -1758,9 +1678,6 @@ export const blockUser = async (userId: string): Promise<{ data: BlockedUser | n
  * Unblock a user
  */
 export const unblockUser = async (userId: string): Promise<{ data: { success: boolean } | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     await awsAPI.request(`/profiles/${userId}/unblock`, { method: 'POST' });
     return { data: { success: true }, error: null };
@@ -1773,9 +1690,6 @@ export const unblockUser = async (userId: string): Promise<{ data: { success: bo
  * Get blocked users
  */
 export const getBlockedUsers = async (): Promise<DbResponse<BlockedUser[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ data: BlockedUser[] }>('/profiles/blocked');
     return { data: result.data, error: null };
@@ -1860,9 +1774,6 @@ export interface Conversation {
  * Mute a user
  */
 export const muteUser = async (userId: string): Promise<{ data: MutedUser | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<MutedUser>(`/profiles/${userId}/mute`, { method: 'POST' });
     return { data: result, error: null };
@@ -1875,9 +1786,6 @@ export const muteUser = async (userId: string): Promise<{ data: MutedUser | null
  * Unmute a user
  */
 export const unmuteUser = async (userId: string): Promise<{ data: { success: boolean } | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     await awsAPI.request(`/profiles/${userId}/unmute`, { method: 'POST' });
     return { data: { success: true }, error: null };
@@ -1890,9 +1798,6 @@ export const unmuteUser = async (userId: string): Promise<{ data: { success: boo
  * Get muted users
  */
 export const getMutedUsers = async (): Promise<DbResponse<MutedUser[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ data: MutedUser[] }>('/profiles/muted');
     return { data: result.data, error: null };
@@ -1909,9 +1814,6 @@ export const getMutedUsers = async (): Promise<DbResponse<MutedUser[]>> => {
  * Get pending follow requests
  */
 export const getPendingFollowRequests = async (): Promise<DbResponse<FollowRequest[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ requests: FollowRequest[] }>('/follow-requests');
     return { data: result.requests || [], error: null };
@@ -2186,9 +2088,6 @@ export const deleteSpotReview = async (reviewId: string): Promise<{ error: strin
  * Returns the conversation ID as a string
  */
 export const getOrCreateConversation = async (otherUserId: string): Promise<DbResponse<string>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     // Lambda returns { conversation: { id, ... }, created: boolean }
     const result = await awsAPI.request<{ conversation: { id: string } }>('/conversations', {
@@ -2308,9 +2207,6 @@ export const addMessageReaction = async (
   messageId: string,
   emoji: string
 ): Promise<{ data: MessageReaction | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ reaction: {
       id: string;
@@ -2353,9 +2249,6 @@ export const removeMessageReaction = async (
   messageId: string,
   emoji: string
 ): Promise<{ success: boolean; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { success: false, error: 'Not authenticated' };
-
   try {
     await awsAPI.request(`/messages/${messageId}/reactions`, {
       method: 'DELETE',
@@ -2414,9 +2307,6 @@ export const getMessageReactions = async (
 export const deleteMessage = async (
   messageId: string
 ): Promise<{ success: boolean; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { success: false, error: 'Not authenticated' };
-
   try {
     await awsAPI.request(`/messages/${messageId}`, {
       method: 'DELETE',
@@ -2438,9 +2328,6 @@ export const forwardMessage = async (
   messageId: string,
   targetConversationId: string
 ): Promise<{ data: Message | null; error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ message: {
       id: string; content: string; media_url?: string; media_type?: string;

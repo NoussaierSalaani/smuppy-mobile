@@ -2,13 +2,11 @@
 // Lazy-loaded MapView component to improve initial load performance
 import React, { useState, useEffect, forwardRef, memo } from 'react';
 import { View, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
-import Mapbox from '@rnmapbox/maps';
 import type { Feature } from 'geojson';
 import Constants from 'expo-constants';
 import { useTheme } from '../hooks/useTheme';
 
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
+let tokenSet = false;
 
 // Types for MapView props (Mapbox-compatible)
 interface LazyMapViewProps {
@@ -23,11 +21,15 @@ interface LazyMapViewProps {
 }
 
 // Lazy-loaded MapView component
-const LazyMapView = memo(forwardRef<InstanceType<typeof Mapbox.MapView>, LazyMapViewProps>((props, ref) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Mapbox types not available at top level due to lazy import
+const LazyMapView = memo(forwardRef<any, LazyMapViewProps>((props, ref) => {
   const { colors } = useTheme();
-  const [MapViewComponent, setMapViewComponent] = useState<typeof Mapbox.MapView | null>(null);
-  const [CameraComponent, setCameraComponent] = useState<typeof Mapbox.Camera | null>(null);
-  const [LocationPuckComponent, setLocationPuckComponent] = useState<typeof Mapbox.LocationPuck | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamically loaded native components
+  const [MapViewComponent, setMapViewComponent] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [CameraComponent, setCameraComponent] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [LocationPuckComponent, setLocationPuckComponent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,6 +38,11 @@ const LazyMapView = memo(forwardRef<InstanceType<typeof Mapbox.MapView>, LazyMap
     const loadMapView = async () => {
       try {
         const maps = await import('@rnmapbox/maps');
+        if (!tokenSet) {
+          const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
+          if (mapboxToken) maps.default.setAccessToken(mapboxToken);
+          tokenSet = true;
+        }
         if (mounted) {
           setMapViewComponent(() => maps.default.MapView);
           setCameraComponent(() => maps.default.Camera);
@@ -93,7 +100,8 @@ interface LazyMarkerProps {
 
 // Export MarkerView separately for use in parent components
 export const LazyMarker = memo(({ children, coordinate, coordinateArray }: LazyMarkerProps) => {
-  const [MarkerViewComponent, setMarkerViewComponent] = useState<typeof Mapbox.MarkerView | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamically loaded native component
+  const [MarkerViewComponent, setMarkerViewComponent] = useState<any>(null);
 
   useEffect(() => {
     let mounted = true;

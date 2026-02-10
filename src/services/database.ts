@@ -469,33 +469,61 @@ export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag:
  * Get suggested profiles (for discovery/explore)
  */
 export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbResponse<Profile[]>> => {
+  // Strategy 1: Authenticated /profiles/suggested endpoint
   try {
-    // Try suggested endpoint first with pagination
-    if (__DEV__) console.log('[Suggested] Calling primary: /profiles/suggested?limit=' + limit + '&offset=' + offset);
+    if (__DEV__) console.log('[Suggested] Strategy 1: /profiles/suggested?limit=' + limit + '&offset=' + offset);
     const result = await awsAPI.request<{ profiles?: AWSProfile[]; data?: AWSProfile[] }>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
-    if (__DEV__) console.log('[Suggested] Raw result keys:', Object.keys(result || {}), 'profiles?', !!(result as Record<string, unknown>)?.profiles, 'data?', !!(result as Record<string, unknown>)?.data);
     const profiles = result.profiles || result.data || [];
-    if (__DEV__) console.log('[Suggested] Primary endpoint returned', profiles.length, 'profiles');
-    if (__DEV__ && profiles.length > 0) console.log('[Suggested] First profile:', JSON.stringify({ id: profiles[0].id, username: profiles[0].username, fullName: profiles[0].fullName }));
-    const converted = profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[];
-    if (__DEV__) console.log('[Suggested] After convertProfile:', converted.length, 'profiles (filtered', profiles.length - converted.length, 'nulls)');
-    return { data: converted, error: null };
-  } catch (primaryErr) {
-    if (__DEV__) console.warn('[Suggested] Primary endpoint FAILED:', (primaryErr as Error)?.message || primaryErr);
-    // Fallback: use search for popular profiles (public endpoint, no auth required)
-    try {
-      if (__DEV__) console.log('[Suggested] Trying fallback: searchProfiles("", ' + limit + ')');
-      const profiles = await awsAPI.searchProfiles('', limit);
-      if (__DEV__) console.log('[Suggested] Fallback returned', profiles?.length ?? 'null/undefined', 'profiles, type:', typeof profiles, 'isArray:', Array.isArray(profiles));
-      if (__DEV__ && profiles?.length > 0) console.log('[Suggested] Fallback first:', JSON.stringify({ id: profiles[0].id, username: profiles[0].username }));
+    if (__DEV__) console.log('[Suggested] Strategy 1 returned', profiles.length, 'profiles');
+    if (profiles.length > 0) {
       const converted = profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[];
-      if (__DEV__) console.log('[Suggested] Fallback after convert:', converted.length, 'profiles');
       return { data: converted, error: null };
-    } catch (fallbackErr) {
-      if (__DEV__) console.warn('[Suggested] Fallback also FAILED:', (fallbackErr as Error)?.message || fallbackErr);
-      return { data: [], error: 'Both primary and fallback endpoints failed' };
     }
+  } catch (err1) {
+    if (__DEV__) console.warn('[Suggested] Strategy 1 FAILED:', (err1 as Error)?.message);
   }
+
+  // Strategy 2: Public search endpoint WITHOUT auth (bypasses any token issues)
+  try {
+    if (__DEV__) console.log('[Suggested] Strategy 2: /profiles?search= (no auth)');
+    const profiles = await awsAPI.request<AWSProfile[]>(
+      `/profiles?search=&limit=${limit}`,
+      { method: 'GET', authenticated: false }
+    );
+    if (__DEV__) console.log('[Suggested] Strategy 2 returned', Array.isArray(profiles) ? profiles.length : 'non-array', 'type:', typeof profiles);
+    if (Array.isArray(profiles) && profiles.length > 0) {
+      const converted = profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[];
+      return { data: converted, error: null };
+    }
+  } catch (err2) {
+    if (__DEV__) console.warn('[Suggested] Strategy 2 FAILED:', (err2 as Error)?.message);
+  }
+
+  // Strategy 3: Raw fetch as ultimate fallback (no awsAPI wrapper, no auth, no retry logic)
+  try {
+    if (__DEV__) console.log('[Suggested] Strategy 3: raw fetch to search endpoint');
+    const { default: awsConfig } = await import('../config/aws-config');
+    const url = `${awsConfig.api.restEndpoint}/profiles?search=&limit=${limit}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (response.ok) {
+      const raw = await response.json();
+      const profiles: AWSProfile[] = Array.isArray(raw) ? raw : raw?.profiles || raw?.data || [];
+      if (__DEV__) console.log('[Suggested] Strategy 3 returned', profiles.length, 'profiles');
+      if (profiles.length > 0) {
+        const converted = profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[];
+        return { data: converted, error: null };
+      }
+    } else {
+      if (__DEV__) console.warn('[Suggested] Strategy 3 HTTP', response.status);
+    }
+  } catch (err3) {
+    if (__DEV__) console.warn('[Suggested] Strategy 3 FAILED:', (err3 as Error)?.message);
+  }
+
+  return { data: [], error: 'All suggestion strategies failed' };
 };
 
 /**

@@ -17,6 +17,7 @@ import {
 const { width } = Dimensions.get('window');
 const GRID_SIZE = (width - 4) / 3;
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -71,6 +72,17 @@ type RootStackParamList = {
 };
 
 type SearchTab = 'all' | 'users' | 'posts' | 'peaks' | 'tags';
+
+/** Grouped peaks by author — one card per user */
+interface SearchPeakGroup {
+  userId: string;
+  userName: string;
+  userAvatar: string | undefined;
+  peakCount: number;
+  latestThumbnail: string | undefined;
+  totalViews: number;
+  peaks: Post[];
+}
 
 // ============================================
 // DEFAULT AVATAR
@@ -196,7 +208,7 @@ const SearchScreen = (): React.JSX.Element => {
     return false;
   }, []);
 
-  // Load suggested content
+  // Load suggested content — load immediately on mount, re-filter when currentUserId arrives
   const loadSuggestedContent = useCallback(async (signal?: { aborted: boolean }) => {
     setIsLoading(true);
 
@@ -208,7 +220,10 @@ const SearchScreen = (): React.JSX.Element => {
     if (signal?.aborted) return;
 
     if (profilesRes.data) {
-      setSuggestedProfiles(profilesRes.data.filter(p => p.id !== currentUserId));
+      setSuggestedProfiles(currentUserId
+        ? profilesRes.data.filter(p => p.id !== currentUserId)
+        : profilesRes.data
+      );
     }
     if (hashtagsRes.data) {
       setTrendingHashtags(hashtagsRes.data);
@@ -217,13 +232,12 @@ const SearchScreen = (): React.JSX.Element => {
     setIsLoading(false);
   }, [currentUserId]);
 
+  // Load on mount AND when currentUserId changes (to re-filter self)
   useEffect(() => {
     const signal = { aborted: false };
-    if (currentUserId) {
-      loadSuggestedContent(signal);
-    }
+    loadSuggestedContent(signal);
     return () => { signal.aborted = true; };
-  }, [currentUserId, loadSuggestedContent]);
+  }, [loadSuggestedContent]);
 
   // Perform search based on active tab
   const performSearch = useCallback(async (query: string, tabType: SearchTab, pageNum = 0, append = false) => {
@@ -448,8 +462,34 @@ const SearchScreen = (): React.JSX.Element => {
     navigation.navigate('PostDetailFanFeed', { postId: post.id, fanFeedPosts: transformedPosts });
   }, [postResults, navigation]);
 
-  const handlePeakPress = useCallback((peak: Post, index: number): void => {
-    const transformedPeaks = peakResults.map(p => ({
+  // Group peaks by author — one card per user
+  const peakGroups = useMemo((): SearchPeakGroup[] => {
+    const groupMap = new Map<string, SearchPeakGroup>();
+    for (const peak of peakResults) {
+      const uid = peak.author?.id || peak.author_id;
+      if (!uid) continue;
+      const existing = groupMap.get(uid);
+      if (existing) {
+        existing.peaks.push(peak);
+        existing.peakCount++;
+        existing.totalViews += (peak.views_count || 0);
+      } else {
+        groupMap.set(uid, {
+          userId: uid,
+          userName: resolveDisplayName(peak.author),
+          userAvatar: peak.author?.avatar_url || DEFAULT_AVATAR,
+          peakCount: 1,
+          latestThumbnail: peak.media_urls?.[0] || peak.media_url || undefined,
+          totalViews: peak.views_count || 0,
+          peaks: [peak],
+        });
+      }
+    }
+    return Array.from(groupMap.values());
+  }, [peakResults]);
+
+  const handlePeakGroupPress = useCallback((group: SearchPeakGroup): void => {
+    const transformedPeaks = group.peaks.map(p => ({
       id: p.id,
       thumbnail: p.media_urls?.[0] || p.media_url || '',
       duration: p.peak_duration || 15,
@@ -461,10 +501,10 @@ const SearchScreen = (): React.JSX.Element => {
       views: p.views_count || 0,
       likes: p.likes_count || 0,
       textOverlay: p.content || p.caption || '',
-      createdAt: p.created_at, // Keep as ISO string for React Navigation serialization
+      createdAt: p.created_at,
     }));
-    navigation.navigate('PeakView', { peakData: transformedPeaks, initialIndex: index });
-  }, [peakResults, navigation]);
+    navigation.navigate('PeakView', { peakData: transformedPeaks, initialIndex: 0 });
+  }, [navigation]);
 
   const handleHashtagPress = useCallback((tag: string): void => {
     setSearchQuery(`#${tag}`);
@@ -525,30 +565,40 @@ const SearchScreen = (): React.JSX.Element => {
     );
   }, [styles, colors.grayMuted, handlePostPress]);
 
-  const renderPeakItem = useCallback(({ item: peak, index }: { item: Post; index: number }): React.JSX.Element => {
-    const thumbnail = peak.media_urls?.[0] || peak.media_url;
+  const renderPeakGroupItem = useCallback(({ item: group }: { item: SearchPeakGroup }): React.JSX.Element => {
     return (
       <TouchableOpacity
         style={styles.gridItem}
-        onPress={() => handlePeakPress(peak, index)}
+        onPress={() => handlePeakGroupPress(group)}
       >
-        {thumbnail ? (
-          <OptimizedImage source={thumbnail} style={styles.gridImage} />
+        {group.latestThumbnail ? (
+          <OptimizedImage source={group.latestThumbnail} style={styles.gridImage} />
         ) : (
           <View style={[styles.gridImage, styles.gridPlaceholder]}>
             <Ionicons name="videocam-outline" size={24} color={colors.grayMuted} />
           </View>
         )}
-        <View style={styles.peakDuration}>
-          <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
-        </View>
-        <View style={styles.gridStats}>
-          <Ionicons name="eye" size={12} color="#FFF" />
-          <Text style={styles.gridStatText}>{peak.views_count || 0}</Text>
-        </View>
+        {/* Peak count badge */}
+        {group.peakCount > 1 && (
+          <View style={styles.peakGroupBadge}>
+            <Ionicons name="layers" size={10} color="#fff" />
+            <Text style={styles.peakGroupBadgeText}>{group.peakCount}</Text>
+          </View>
+        )}
+        {/* User overlay */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.peakGroupOverlay}
+        >
+          <Text style={styles.peakGroupUserName} numberOfLines={1}>{group.userName}</Text>
+          <View style={styles.gridStats}>
+            <Ionicons name="eye" size={12} color="#FFF" />
+            <Text style={styles.gridStatText}>{group.totalViews}</Text>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
     );
-  }, [styles, colors.grayMuted, handlePeakPress]);
+  }, [styles, colors.grayMuted, handlePeakGroupPress]);
 
   const renderHashtagPost = useCallback(({ item: post }: { item: Post }): React.JSX.Element => {
     const thumbnail = post.media_urls?.[0] || post.media_url;
@@ -762,39 +812,42 @@ const SearchScreen = (): React.JSX.Element => {
         </View>
       )}
 
-      {/* Peaks Section */}
-      {peakResults.length > 0 && (
+      {/* Peaks Section (grouped by user) */}
+      {peakGroups.length > 0 && (
         <View style={styles.allSection}>
           <View style={styles.allSectionHeader}>
             <Text style={[styles.allSectionTitle, { color: colors.dark }]}>Peaks</Text>
-            {peakResults.length > 6 && (
+            {peakGroups.length > 6 && (
               <TouchableOpacity onPress={handleShowAllPeaks}>
-                <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({peakResults.length})</Text>
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>See all ({peakGroups.length})</Text>
               </TouchableOpacity>
             )}
           </View>
           <View style={styles.allGrid}>
-            {peakResults.slice(0, 6).map((peak, index) => {
-              const thumbnail = peak.media_urls?.[0] || peak.media_url;
-              return (
-                <TouchableOpacity
-                  key={peak.id}
-                  style={styles.allGridItem}
-                  onPress={() => handlePeakPress(peak, index)}
-                >
-                  {thumbnail ? (
-                    <OptimizedImage source={thumbnail} style={[styles.allGridImage, { backgroundColor: colors.gray100 }]} />
-                  ) : (
-                    <View style={[styles.allGridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
-                      <Ionicons name="videocam-outline" size={20} color={colors.grayMuted} />
-                    </View>
-                  )}
-                  <View style={styles.peakDurationSmall}>
-                    <Text style={styles.peakDurationTextSmall}>{peak.peak_duration || 15}s</Text>
+            {peakGroups.slice(0, 6).map((group) => (
+              <TouchableOpacity
+                key={`peak-group-${group.userId}`}
+                style={styles.allGridItem}
+                onPress={() => handlePeakGroupPress(group)}
+              >
+                {group.latestThumbnail ? (
+                  <OptimizedImage source={group.latestThumbnail} style={[styles.allGridImage, { backgroundColor: colors.gray100 }]} />
+                ) : (
+                  <View style={[styles.allGridImage, styles.gridPlaceholder, { backgroundColor: colors.gray100 }]}>
+                    <Ionicons name="videocam-outline" size={20} color={colors.grayMuted} />
                   </View>
-                </TouchableOpacity>
-              );
-            })}
+                )}
+                {group.peakCount > 1 && (
+                  <View style={styles.peakGroupBadge}>
+                    <Ionicons name="layers" size={10} color="#fff" />
+                    <Text style={styles.peakGroupBadgeText}>{group.peakCount}</Text>
+                  </View>
+                )}
+                <View style={styles.peakDurationSmall}>
+                  <Text style={styles.peakDurationTextSmall}>{group.userName}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       )}
@@ -888,8 +941,35 @@ const SearchScreen = (): React.JSX.Element => {
     }
 
     // Posts, Peaks, Tags use grid layout
-    const data = activeTab === 'posts' ? postResults : activeTab === 'peaks' ? peakResults : hashtagResults;
-    const renderItem = activeTab === 'posts' ? renderPostItem : activeTab === 'peaks' ? renderPeakItem : renderHashtagPost;
+    // Peaks use grouped data (one card per user), posts/tags use individual items
+    if (activeTab === 'peaks') {
+      return (
+        <FlatList
+          data={peakGroups}
+          keyExtractor={(item) => item.userId}
+          renderItem={renderPeakGroupItem}
+          numColumns={3}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.gridContainer}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={12}
+          windowSize={5}
+          initialNumToRender={12}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+        />
+      );
+    }
+
+    const data = activeTab === 'posts' ? postResults : hashtagResults;
+    const renderItem = activeTab === 'posts' ? renderPostItem : renderHashtagPost;
 
     return (
       <FlatList
@@ -1222,6 +1302,37 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     fontSize: 10,
     fontWeight: '700',
     color: '#FFF',
+  },
+  peakGroupBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 3,
+  },
+  peakGroupBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  peakGroupOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 6,
+    paddingTop: 20,
+  },
+  peakGroupUserName: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 2,
   },
 
   // Empty State

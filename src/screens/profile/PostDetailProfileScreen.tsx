@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Dimensions,
   StatusBar,
   Modal,
@@ -19,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import DoubleTapLike from '../../components/DoubleTapLike';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores/userStore';
@@ -77,6 +77,7 @@ const MOCK_PROFILE_POSTS: PostItem[] = [];
 interface RawPost {
   id: string;
   media_urls?: string[];
+  media_url?: string;
   media_type?: string;
   content?: string;
   likes_count?: number;
@@ -88,7 +89,8 @@ interface RawPost {
 }
 
 const convertToPostItem = (post: RawPost): PostItem => {
-  const allMedia = post.media_urls?.filter(Boolean) || [];
+  const filtered = post.media_urls?.filter(Boolean);
+  const allMedia = (filtered && filtered.length > 0) ? filtered : (post.media_url ? [post.media_url] : []);
   // Normalize tagged users - can be string IDs or objects
   const rawTagged = post.tagged_users || [];
   const taggedUsers: TaggedUserInfo[] = rawTagged
@@ -505,7 +507,11 @@ const PostDetailProfileScreen = () => {
     const itemIsOwn = item.user?.id === currentUserId;
 
     return (
-      <TouchableWithoutFeedback onPress={handleDoubleTap}>
+      <DoubleTapLike
+        onDoubleTap={() => { if (!isLiked) toggleLike(); }}
+        onSingleTap={() => { if (item.type === 'video') setIsPaused(prev => !prev); }}
+        showAnimation={false}
+      >
         <View style={[styles.postContainer, { height }]}>
           {/* Media */}
           {item.type === 'video' ? (
@@ -521,10 +527,11 @@ const PostDetailProfileScreen = () => {
               usePoster
             />
           ) : item.allMedia && item.allMedia.length > 1 ? (
-            <View style={{ flex: 1 }}>
+            <View style={styles.carouselContainer}>
               <ScrollView
                 horizontal
                 pagingEnabled
+                nestedScrollEnabled
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={(e) => {
                   const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -535,7 +542,8 @@ const PostDetailProfileScreen = () => {
                   <OptimizedImage
                     key={`${item.id}-media-${mediaIndex}`}
                     source={mediaUrl}
-                    style={{ width, height: '100%' }}
+                    style={{ width, height }}
+                    contentFit="cover"
                   />
                 ))}
               </ScrollView>
@@ -740,7 +748,7 @@ const PostDetailProfileScreen = () => {
             </View>
           </View>
         </View>
-      </TouchableWithoutFeedback>
+      </DoubleTapLike>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -748,7 +756,7 @@ const PostDetailProfileScreen = () => {
     isLiked, isBookmarked, isFan, fanLoading, shareLoading, likeLoading,
     bookmarkLoading, localLikes, localViews, currentUserId,
     colors, styles, headerPaddingStyle, bottomContentPaddingStyle,
-    handleDoubleTap, handleShare, handleGoBack, handleShowMenu,
+    handleShare, handleGoBack, handleShowMenu,
     handleToggleMute, handleToggleDescription,
     toggleLike, toggleBookmark, becomeFan,
   ]);
@@ -927,6 +935,11 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   media: {
     width: '100%',
     height: '100%',
+    position: 'absolute',
+  },
+  carouselContainer: {
+    width,
+    height,
     position: 'absolute',
   },
   carouselPagination: {

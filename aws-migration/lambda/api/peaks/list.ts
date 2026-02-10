@@ -83,7 +83,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       FROM peaks pk
       JOIN profiles p ON pk.author_id = p.id
       LEFT JOIN peak_challenges pc ON pc.peak_id = pk.id
-      WHERE (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pk.author_id = ${currentProfileId ? '$1' : 'NULL'})
+      WHERE 1=1
     `;
 
     const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];

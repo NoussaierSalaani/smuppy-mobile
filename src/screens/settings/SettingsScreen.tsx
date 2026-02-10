@@ -160,6 +160,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     ...(isProBusiness ? [{ id: 'category', icon: 'storefront-outline' as const, label: 'Business Category', screen: 'EditBusinessCategory', params: { currentCategory: user?.businessCategory } }] : []),
     ...(isPro ? [{ id: 'expertise', icon: 'school-outline' as const, label: 'Areas of Expertise', screen: 'EditExpertise', params: { currentExpertise: expertise } }] : []),
     { id: 'password', icon: 'lock-closed-outline' as const, label: 'Password', screen: 'PasswordManager' },
+    { id: 'activity', icon: 'time-outline' as const, label: 'Your Activity', screen: 'ActivityHistory' },
   ];
 
   const PREFERENCES_ITEMS = [

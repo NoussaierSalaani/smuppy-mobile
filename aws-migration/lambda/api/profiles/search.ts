@@ -11,6 +11,9 @@ import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('profiles-search');
 
+// Sentinel UUID for the system moderation account — must never appear in user-facing results
+const SYSTEM_ACCOUNT_ID = '00000000-0000-0000-0000-000000000000';
+
 // Rate limit: 60 requests per minute per IP (generous for search)
 const RATE_LIMIT = 60;
 const RATE_WINDOW_SECONDS = 60;
@@ -69,7 +72,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             is_verified, is_private, account_type,
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
-          WHERE is_private = false AND onboarding_completed = true AND id != $1
+          WHERE is_private = false AND (onboarding_completed = true OR is_bot = true)
+            AND id != $1 AND id != $3
           ORDER BY
             CASE WHEN is_verified THEN 0 ELSE 1 END,
             CASE WHEN account_type = 'pro_creator' THEN 0
@@ -78,7 +82,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             fan_count DESC NULLS LAST,
             created_at DESC
           LIMIT $2`,
-          [currentUserId, limit]
+          [currentUserId, limit, SYSTEM_ACCOUNT_ID]
         );
       } else {
         result = await db.query(
@@ -87,7 +91,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             is_verified, is_private, account_type,
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
-          WHERE is_private = false AND onboarding_completed = true
+          WHERE is_private = false AND (onboarding_completed = true OR is_bot = true)
+            AND id != $2
           ORDER BY
             CASE WHEN is_verified THEN 0 ELSE 1 END,
             CASE WHEN account_type = 'pro_creator' THEN 0
@@ -96,7 +101,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             fan_count DESC NULLS LAST,
             created_at DESC
           LIMIT $1`,
-          [limit]
+          [limit, SYSTEM_ACCOUNT_ID]
         );
       }
     } else {
@@ -109,8 +114,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
           WHERE (username ILIKE $1 OR full_name ILIKE $1 OR display_name ILIKE $1)
-            AND is_private = false AND onboarding_completed = true
-            AND id != $5
+            AND is_private = false AND (onboarding_completed = true OR is_bot = true)
+            AND id != $5 AND id != $6
           ORDER BY
             CASE WHEN username = $2 THEN 0
                  WHEN username ILIKE $3 THEN 1
@@ -118,7 +123,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             END,
             fan_count DESC NULLS LAST
           LIMIT $4`,
-          [`%${query}%`, query, `${query}%`, limit, currentUserId]
+          [`%${query}%`, query, `${query}%`, limit, currentUserId, SYSTEM_ACCOUNT_ID]
         );
       } else {
         result = await db.query(
@@ -128,7 +133,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
           WHERE (username ILIKE $1 OR full_name ILIKE $1 OR display_name ILIKE $1)
-            AND is_private = false AND onboarding_completed = true
+            AND is_private = false AND (onboarding_completed = true OR is_bot = true)
+            AND id != $5
           ORDER BY
             CASE WHEN username = $2 THEN 0
                  WHEN username ILIKE $3 THEN 1
@@ -136,7 +142,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             END,
             fan_count DESC NULLS LAST
           LIMIT $4`,
-          [`%${query}%`, query, `${query}%`, limit]
+          [`%${query}%`, query, `${query}%`, limit, SYSTEM_ACCOUNT_ID]
         );
       }
     }

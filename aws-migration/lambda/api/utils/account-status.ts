@@ -1,10 +1,9 @@
 /**
- * Account status middleware for moderation enforcement.
- * Checks if the authenticated user's account is active, suspended, or banned.
+ * Account status middleware.
+ * Verifies the authenticated user's profile exists and returns basic profile data.
  *
- * - active / shadow_banned → allowed (shadow ban is invisible to the user)
- * - suspended → 403 with reason + suspended_until
- * - banned → 403 permanent
+ * NOTE: moderation_status column is not yet deployed to the database.
+ * When the moderation system is ready, re-add moderation checks here.
  */
 
 import { APIGatewayProxyResult } from 'aws-lambda';
@@ -21,11 +20,11 @@ interface AccountStatusResult {
 }
 
 /**
- * Check if the user's account is active and allowed to perform mutations.
+ * Check if the user's account exists and return profile data.
  *
  * @param cognitoSub - The Cognito sub from JWT
  * @param headers - CORS headers for error responses
- * @returns The profile row if active, or an APIGatewayProxyResult error
+ * @returns The profile row if found, or an APIGatewayProxyResult error
  */
 export async function requireActiveAccount(
   cognitoSub: string,
@@ -34,7 +33,7 @@ export async function requireActiveAccount(
   const db = await getReaderPool();
 
   const result = await db.query(
-    `SELECT id, username, full_name, avatar_url, is_verified, account_type, moderation_status, suspended_until, ban_reason
+    `SELECT id, username, full_name, avatar_url, is_verified, account_type
      FROM profiles
      WHERE cognito_sub = $1`,
     [cognitoSub],
@@ -49,52 +48,7 @@ export async function requireActiveAccount(
   }
 
   const profile = result.rows[0];
-  const status: string = profile.moderation_status || 'active';
 
-  // Suspended: check if suspension has expired
-  if (status === 'suspended') {
-    const suspendedUntil = profile.suspended_until
-      ? new Date(profile.suspended_until)
-      : null;
-
-    // If suspension has expired, auto-reactivate
-    if (suspendedUntil && suspendedUntil < new Date()) {
-      const writeDb = await (await import('../../shared/db')).getPool();
-      await writeDb.query(
-        `UPDATE profiles
-         SET moderation_status = 'active', suspended_until = NULL
-         WHERE id = $1`,
-        [profile.id],
-      );
-      // Allow the request to proceed
-    } else {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({
-          message: 'Your account is temporarily suspended.',
-          moderationStatus: 'suspended',
-          reason: profile.ban_reason || 'Community guidelines violation',
-          suspendedUntil: profile.suspended_until,
-        }),
-      };
-    }
-  }
-
-  // Banned: permanent block
-  if (status === 'banned') {
-    return {
-      statusCode: 403,
-      headers,
-      body: JSON.stringify({
-        message: 'Your account has been permanently banned.',
-        moderationStatus: 'banned',
-        reason: profile.ban_reason || 'Repeated community guidelines violations',
-      }),
-    };
-  }
-
-  // active or shadow_banned → proceed normally
   return {
     profileId: profile.id,
     username: profile.username,
@@ -102,7 +56,7 @@ export async function requireActiveAccount(
     avatarUrl: profile.avatar_url,
     isVerified: profile.is_verified,
     accountType: profile.account_type || 'personal',
-    moderationStatus: status,
+    moderationStatus: 'active',
   };
 }
 

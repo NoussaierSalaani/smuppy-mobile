@@ -53,7 +53,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $1) as is_saved
        FROM posts p
        JOIN profiles pr ON p.author_id = pr.id
-       WHERE p.visibility = 'public'
        ORDER BY p.created_at DESC
        LIMIT $2 OFFSET $3`,
       [userId, limit, offset]

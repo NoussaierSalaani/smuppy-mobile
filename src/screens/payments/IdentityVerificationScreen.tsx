@@ -552,7 +552,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   priceDivider: {
     height: 1,
-    backgroundColor: isDark ? colors.border : '#F1F5F9',
+    backgroundColor: colors.grayBorder,
     marginVertical: 16,
   },
   priceInfo: {
@@ -673,7 +673,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingTop: 16,
     backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: isDark ? colors.border : '#F1F5F9',
+    borderTopColor: colors.grayBorder,
   },
   ctaButton: {
     borderRadius: 16,

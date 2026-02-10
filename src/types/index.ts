@@ -577,22 +577,34 @@ export interface MapMarker {
 
 export interface Peak {
   id: string;
-  user_id: string;
-  media_url: string;
-  media_type: 'image' | 'video';
+  user_id?: string;
+  media_url?: string;
+  media_type?: 'image' | 'video';
   duration?: number;
   caption?: string;
   reactions?: Record<string, number>;
   views_count?: number;
-  created_at: string;
-  createdAt?: string; // Alias for compatibility
+  created_at?: string;
+  createdAt?: string;
   expires_at?: string;
+  // Runtime aliases used by PeakViewScreen / PeaksFeedScreen
+  videoUrl?: string;
+  thumbnail?: string;
+  views?: number;
+  likes?: number;
+  repliesCount?: number;
+  commentsCount?: number;
+  isOwnPeak?: boolean;
+  textOverlay?: string;
+  expiresAt?: string;
   user?: {
     id: string;
-    username: string;
-    full_name: string;
+    username?: string;
+    full_name?: string;
     avatar_url?: string | null;
     is_verified?: boolean;
+    name?: string;
+    avatar?: string;
   };
   // Like status (from API when authenticated)
   isLiked?: boolean;
@@ -703,6 +715,7 @@ export type MainStackParamList = {
   BlockedUsers: undefined;
   MutedUsers: undefined;
   FollowRequests: undefined;
+  ActivityHistory: undefined;
 
   // Payments & Subscriptions
   CreatorWallet: undefined;

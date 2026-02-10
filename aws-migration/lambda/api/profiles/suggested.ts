@@ -11,6 +11,9 @@ import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('profiles-suggested');
 
+// Sentinel UUID for the system moderation account — must never appear in user-facing results
+const SYSTEM_ACCOUNT_ID = '00000000-0000-0000-0000-000000000000';
+
 // Rate limit: 30 requests per minute per IP
 const RATE_LIMIT = 30;
 const RATE_WINDOW_SECONDS = 60;
@@ -83,14 +86,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.following_count,
             p.post_count
           FROM profiles p
-          WHERE p.is_private = false AND p.onboarding_completed = true
+          WHERE p.is_private = false
+            AND (p.onboarding_completed = true OR p.is_bot = true)
+            AND p.id != $3
           ORDER BY
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,
             p.fan_count DESC,
             p.created_at DESC
           LIMIT $1 OFFSET $2
         `;
-        params = [limit, offset];
+        params = [limit, offset, SYSTEM_ACCOUNT_ID];
       } else {
         // Authenticated: exclude users already in FanFeed relationship (following or followed by)
         // Use NOT EXISTS instead of NOT IN for better performance
@@ -111,17 +116,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.post_count
           FROM profiles p
           WHERE p.id != $1
+            AND p.id != $4
             AND p.is_private = false
-            AND p.onboarding_completed = true
-            -- Exclude people I follow (NOT EXISTS is faster than NOT IN)
+            AND (p.onboarding_completed = true OR p.is_bot = true)
+            -- Exclude people I already follow
             AND NOT EXISTS (
               SELECT 1 FROM follows f
               WHERE f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
-            )
-            -- Exclude people who follow me
-            AND NOT EXISTS (
-              SELECT 1 FROM follows f
-              WHERE f.following_id = $1 AND f.follower_id = p.id AND f.status = 'accepted'
             )
           ORDER BY
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,
@@ -132,7 +133,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.created_at DESC
           LIMIT $2 OFFSET $3
         `;
-        params = [currentUserId, limit, offset];
+        params = [currentUserId, limit, offset, SYSTEM_ACCOUNT_ID];
       }
     } else {
       // Unauthenticated: just get popular profiles
@@ -152,14 +153,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           p.following_count,
           p.post_count
         FROM profiles p
-        WHERE p.is_private = false AND p.onboarding_completed = true
+        WHERE p.is_private = false
+          AND (p.onboarding_completed = true OR p.is_bot = true)
+          AND p.id != $3
         ORDER BY
           CASE WHEN p.is_verified THEN 0 ELSE 1 END,
           p.fan_count DESC,
           p.created_at DESC
         LIMIT $1 OFFSET $2
       `;
-      params = [limit, offset];
+      params = [limit, offset, SYSTEM_ACCOUNT_ID];
     }
 
     const result = await db.query(query, params);

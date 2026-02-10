@@ -83,7 +83,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         JOIN profiles pr ON p.author_id = pr.id
         JOIN peak_hashtags ph ON ph.peak_id = p.id
         WHERE ph.hashtag = $1
-          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
         ORDER BY p.created_at DESC
         LIMIT $2 OFFSET ${requesterId ? '$4' : '$3'}
       `;
@@ -111,7 +110,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           FROM peaks p
           JOIN profiles pr ON p.author_id = pr.id
           WHERE to_tsvector('english', p.caption) @@ plainto_tsquery('english', $1)
-            AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY p.created_at DESC
           LIMIT $2 OFFSET $3
         `;
@@ -135,7 +133,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           FROM peaks p
           JOIN profiles pr ON p.author_id = pr.id
           WHERE p.caption ILIKE $1
-            AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY p.created_at DESC
           LIMIT $2 OFFSET $3
         `;

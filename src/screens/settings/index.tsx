@@ -9,3 +9,4 @@ export { default as BlockedUsersScreen } from './BlockedUsersScreen';
 export { default as EditExpertiseScreen } from './EditExpertiseScreen';
 export { default as EditBusinessCategoryScreen } from './EditBusinessCategoryScreen';
 export { default as MutedUsersScreen } from './MutedUsersScreen';
+export { default as ActivityHistoryScreen } from './ActivityHistoryScreen';

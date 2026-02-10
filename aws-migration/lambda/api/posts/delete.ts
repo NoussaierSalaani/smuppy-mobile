@@ -78,6 +78,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
+      // Nullify FK references in moderation_log (no CASCADE on these FKs)
+      await client.query('UPDATE moderation_log SET target_post_id = NULL WHERE target_post_id = $1', [postId]);
+
       // Delete the post (CASCADE handles related data, DB trigger auto-decrements post_count)
       await client.query('DELETE FROM posts WHERE id = $1', [postId]);
 

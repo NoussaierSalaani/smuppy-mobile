@@ -53,15 +53,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Resolve requester profile for shadow-ban self-view
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    let requesterId: string | null = null;
-    if (cognitoSub) {
-      const requesterResult = await db.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
-      requesterId = requesterResult.rows[0]?.id || null;
-    }
-
-    // Build query — exclude comments from banned/shadow_banned users (unless it's their own)
+    // Build query
     let query = `
       SELECT
         c.id,
@@ -77,11 +69,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       FROM comments c
       JOIN profiles p ON c.user_id = p.id
       WHERE c.post_id = $1
-        AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR c.user_id = $2)
     `;
 
-    const params: SqlParam[] = [postId, requesterId];
-    let paramIndex = 3;
+    const params: SqlParam[] = [postId];
+    let paramIndex = 2;
 
     // Cursor pagination
     if (cursor) {

@@ -430,6 +430,12 @@ export class ApiGatewayStack extends cdk.NestedStack {
 
     const followRequestCancel = followRequestById.addResource('cancel');
     followRequestCancel.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.followRequestsCancelFn), authMethodOptions);
+
+    // ========================================
+    // Activity History Endpoint
+    // ========================================
+    const activity = this.api.root.addResource('activity');
+    activity.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack2.activityListFn), authMethodOptions);
   }
 
   private createWaf(environment: string, isProduction: boolean) {

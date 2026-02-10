@@ -52,14 +52,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (userId) {
       params.push(userId);
       userIdParamIndex = paramIndex;
-      whereClauses.push(
-        `p.author_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $${paramIndex} AND status = 'accepted')`
-      );
+      // Only exclude own posts — VibesFeed shows ALL content (discovery + followed)
       whereClauses.push(`p.author_id != $${paramIndex}`);
       paramIndex++;
     }
 
-    whereClauses.push(`p.visibility = 'public'`);
+    // visibility column not yet deployed — skipping visibility filter
 
     if (interests.length > 0) {
       params.push(interests);

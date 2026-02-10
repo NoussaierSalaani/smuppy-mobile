@@ -502,7 +502,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     marginBottom: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: isDark ? colors.border : '#F1F5F9',
+    borderBottomColor: colors.grayBorder,
   },
   perksContainer: {
     marginTop: 8,
@@ -548,7 +548,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingTop: 16,
     backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: isDark ? colors.border : '#F1F5F9',
+    borderTopColor: colors.grayBorder,
   },
   subscribeButton: {
     borderRadius: 16,

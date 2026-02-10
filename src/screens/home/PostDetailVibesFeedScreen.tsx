@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Dimensions,
   StatusBar,
   Modal,
@@ -22,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import DoubleTapLike from '../../components/DoubleTapLike';
 import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
@@ -89,6 +89,7 @@ const PostDetailVibesFeedScreen = () => {
   const [muteLoading, setMuteLoading] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [blockLoading, setBlockLoading] = useState(false);
+  const [localViews, setLocalViews] = useState<number | null>(null);
 
   // Animation values
 
@@ -145,6 +146,7 @@ const PostDetailVibesFeedScreen = () => {
     if (viewedPosts.current.has(currentPost.id)) return;
 
     viewedPosts.current.add(currentPost.id);
+    setLocalViews((currentPost.views || 0) + 1);
     recordPostView(currentPost.id);
   }, [currentPost?.id]);
 
@@ -650,7 +652,11 @@ const PostDetailVibesFeedScreen = () => {
       >
         {/* FULLSCREEN VIEW */}
         {viewState === VIEW_STATES.FULLSCREEN && (
-          <TouchableWithoutFeedback onPress={handleDoubleTap}>
+          <DoubleTapLike
+            onDoubleTap={() => { if (!isLiked) toggleLike(); }}
+            onSingleTap={() => { if (currentPost.type === 'video') setIsPaused(prev => !prev); }}
+            showAnimation={false}
+          >
             <View style={[styles.fullscreenContainer, styles.fullscreenHeight]}>
               {/* Media */}
               {currentPost.type === 'video' ? (
@@ -670,6 +676,7 @@ const PostDetailVibesFeedScreen = () => {
                   <ScrollView
                     horizontal
                     pagingEnabled
+                    nestedScrollEnabled
                     showsHorizontalScrollIndicator={false}
                     onMomentumScrollEnd={handleCarouselScroll}
                   >
@@ -876,7 +883,7 @@ const PostDetailVibesFeedScreen = () => {
                   <View style={styles.statDot} />
                   <View style={styles.statItem}>
                     <Ionicons name="eye-outline" size={16} color="rgba(255,255,255,0.7)" />
-                    <Text style={styles.statCount}>{formatNumber(currentPost.views || 0)} views</Text>
+                    <Text style={styles.statCount}>{formatNumber(localViews ?? currentPost.views ?? 0)} views</Text>
                   </View>
                 </View>
 
@@ -887,7 +894,7 @@ const PostDetailVibesFeedScreen = () => {
                 </View>
               </View>
             </View>
-          </TouchableWithoutFeedback>
+          </DoubleTapLike>
         )}
 
         {/* CONDENSED VIEW */}

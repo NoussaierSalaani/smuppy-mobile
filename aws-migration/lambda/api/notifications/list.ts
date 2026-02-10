@@ -66,7 +66,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.avatar_url AS actor_avatar_url,
         p.is_verified AS actor_is_verified,
         p.account_type AS actor_account_type,
-        CASE WHEN f.id IS NOT NULL THEN true ELSE false END AS is_following_actor
+        CASE WHEN f.id IS NOT NULL THEN true ELSE false END AS is_following_actor,
+        -- Content thumbnails for post/peak notifications
+        COALESCE(post.media_urls[1], post.media_url) AS post_image,
+        pk.thumbnail_url AS peak_thumbnail
       FROM notifications n
       LEFT JOIN profiles p ON p.id = COALESCE(
         CASE WHEN n.data->>'followerId' ~ ${UUID_PATTERN} THEN (n.data->>'followerId')::uuid END,
@@ -83,6 +86,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         CASE WHEN n.data->>'actor_id' ~ ${UUID_PATTERN} THEN (n.data->>'actor_id')::uuid END
       )
       LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
+      LEFT JOIN posts post ON n.data->>'postId' ~ ${UUID_PATTERN} AND post.id = (n.data->>'postId')::uuid
+      LEFT JOIN peaks pk ON n.data->>'peakId' ~ ${UUID_PATTERN} AND pk.id = (n.data->>'peakId')::uuid
       WHERE n.user_id = $1
     `;
 
@@ -126,6 +131,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           accountType: n.actor_account_type,
         };
         enrichedData.isFollowing = n.is_following_actor || false;
+      }
+
+      // Inject content thumbnails for post/peak notifications
+      if (n.post_image) {
+        enrichedData.postImage = n.post_image;
+      }
+      if (n.peak_thumbnail) {
+        enrichedData.thumbnailUrl = n.peak_thumbnail;
       }
 
       return {

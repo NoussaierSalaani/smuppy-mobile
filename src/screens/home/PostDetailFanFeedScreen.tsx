@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Dimensions,
   StatusBar,
   Modal,
@@ -24,9 +23,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
+import DoubleTapLike from '../../components/DoubleTapLike';
 import { useContentStore, useUserSafetyStore, useUserStore, useFeedStore } from '../../stores';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
+import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView, getPostById } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
@@ -78,7 +78,60 @@ const PostDetailFanFeedScreen = () => {
 
   // Params
   const params = (route.params as { postId?: string; fanFeedPosts?: FanFeedPost[] }) || {};
-  const { postId, fanFeedPosts = [] } = params;
+  const { postId, fanFeedPosts: passedPosts = [] } = params;
+
+  // When navigated from notifications (only postId, no fanFeedPosts), fetch the post by ID
+  const [fetchedPosts, setFetchedPosts] = useState<FanFeedPost[]>([]);
+  const [fetchingPost, setFetchingPost] = useState(false);
+
+  useEffect(() => {
+    if (passedPosts.length > 0 || !postId || !isValidUUID(postId)) return;
+
+    let mounted = true;
+    setFetchingPost(true);
+    getPostById(postId).then(({ data: post }) => {
+      if (!mounted || !post) {
+        if (mounted) setFetchingPost(false);
+        return;
+      }
+      // Transform database Post to FanFeedPost format
+      const mediaUrls = post.media_urls || (post.media_url ? [post.media_url] : []);
+      const firstMedia = mediaUrls[0] || '';
+      const mediaType = post.media_type === 'video' ? 'video'
+        : mediaUrls.length > 1 ? 'carousel' : 'image';
+
+      const fanPost: FanFeedPost = {
+        id: post.id,
+        type: mediaType as FanFeedPost['type'],
+        media: firstMedia,
+        allMedia: mediaUrls.length > 1 ? mediaUrls : undefined,
+        thumbnail: firstMedia,
+        description: post.content || post.caption || '',
+        likes: post.likes_count || 0,
+        views: post.views_count || 0,
+        comments: post.comments_count || 0,
+        location: post.location || null,
+        taggedUsers: Array.isArray(post.tagged_users)
+          ? post.tagged_users.filter((t): t is { id: string; username: string; fullName?: string | null; avatarUrl?: string | null } => typeof t === 'object' && t !== null && 'id' in t)
+          : undefined,
+        user: {
+          id: post.author?.id || post.author_id,
+          name: post.author?.full_name || post.author?.username || 'User',
+          avatar: post.author?.avatar_url || '',
+          followsMe: post.author?.is_followed_by || false,
+        },
+      };
+      setFetchedPosts([fanPost]);
+      setFetchingPost(false);
+    }).catch(() => {
+      if (mounted) setFetchingPost(false);
+    });
+    return () => { mounted = false; };
+  }, [postId, passedPosts.length]);
+
+  // Use passed posts if available, otherwise use fetched post
+  const fanFeedPosts = passedPosts.length > 0 ? passedPosts : fetchedPosts;
+
   // Find the correct post index - findIndex returns -1 if not found
   const foundIndex = fanFeedPosts.findIndex(p => p.id === postId);
   const initialIndex = foundIndex >= 0 ? foundIndex : 0;
@@ -105,6 +158,7 @@ const PostDetailFanFeedScreen = () => {
   const [reportLoading, setReportLoading] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
+  const [localViews, setLocalViews] = useState<Record<string, number>>({});
   
   // Minimum index (cannot scroll above the initial post)
   const minIndex = initialIndex >= 0 ? initialIndex : 0;
@@ -180,6 +234,7 @@ const PostDetailFanFeedScreen = () => {
     if (viewedPosts.current.has(currentPost.id)) return;
 
     viewedPosts.current.add(currentPost.id);
+    setLocalViews(prev => ({ ...prev, [currentPost.id]: (currentPost.views || 0) + 1 }));
     recordPostView(currentPost.id);
   }, [currentPost?.id]);
 
@@ -542,7 +597,11 @@ const PostDetailFanFeedScreen = () => {
     const postUnderReview = isUnderReview(item.id);
 
     return (
-      <TouchableWithoutFeedback onPress={handleDoubleTap}>
+      <DoubleTapLike
+        onDoubleTap={() => { if (!likedPosts[item.id]) toggleLike(item.id); }}
+        onSingleTap={() => { if (item.type === 'video') setIsPaused(prev => !prev); }}
+        showAnimation={false}
+      >
         <View style={[styles.postContainer, styles.postContainerHeight]}>
           {/* Under Review Overlay */}
           {postUnderReview && (
@@ -573,6 +632,7 @@ const PostDetailFanFeedScreen = () => {
               <ScrollView
                 horizontal
                 pagingEnabled
+                nestedScrollEnabled
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={(e) => {
                   const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -799,21 +859,21 @@ const PostDetailFanFeedScreen = () => {
               </TouchableOpacity>
               <View style={styles.statItem}>
                 <Ionicons name="eye-outline" size={18} color="#FFF" />
-                <Text style={styles.statCount}>{formatNumber(item.views || 0)}</Text>
+                <Text style={styles.statCount}>{formatNumber(localViews[item.id] ?? item.views ?? 0)}</Text>
               </View>
             </View>
           </View>
         </View>
-      </TouchableWithoutFeedback>
+      </DoubleTapLike>
     );
   }, [likedPosts, bookmarkedPosts, currentUserId, fanStatus, fanStatusChecking, isUnderReview,
-      handleDoubleTap, currentIndex, isAudioMuted, isPaused, carouselIndexes, showLikeAnimation,
+      currentIndex, isAudioMuted, isPaused, carouselIndexes, showLikeAnimation, localViews,
       likeAnimationScale, shareLoading, handleShare, likeLoading, toggleLike, bookmarkLoading,
       toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescription,
       styles, colors, navigation, bottomContentPaddingStyle, handleGoBack, handleShowMenu,
       handleToggleAudioMute, handleToggleDescription, headerPaddingStyle]);
 
-  // Early return for empty posts array
+  // Early return for empty posts array (show loading if still fetching)
   if (fanFeedPosts.length === 0) {
     return (
       <View style={[styles.container, styles.emptyStateContainer]}>
@@ -828,8 +888,14 @@ const PostDetailFanFeedScreen = () => {
             <Ionicons name="chevron-back" size={28} color="#FFF" />
           </TouchableOpacity>
         </View>
-        <Ionicons name="images-outline" size={64} color={colors.gray} />
-        <Text style={styles.emptyStateText}>No posts available</Text>
+        {fetchingPost ? (
+          <ActivityIndicator size="large" color={colors.primary} />
+        ) : (
+          <>
+            <Ionicons name="images-outline" size={64} color={colors.gray} />
+            <Text style={styles.emptyStateText}>No posts available</Text>
+          </>
+        )}
       </View>
     );
   }
@@ -923,7 +989,7 @@ const PostDetailFanFeedScreen = () => {
                   accessibilityRole="button"
                   accessibilityHint="Block all interactions with this user"
                 >
-                  <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
+                  <Ionicons name="ban-outline" size={24} color={colors.heartRed} />
                   <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block user</Text>
                 </TouchableOpacity>
               </>
@@ -936,7 +1002,7 @@ const PostDetailFanFeedScreen = () => {
               accessibilityRole="button"
               accessibilityHint="Report inappropriate content"
             >
-              <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
+              <Ionicons name="flag-outline" size={24} color={colors.heartRed} />
               <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
             </TouchableOpacity>
 
@@ -1303,7 +1369,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     color: '#FFF',
   },
   menuItemTextDanger: {
-    color: '#FF6B6B',
+    color: colors.heartRed,
   },
   menuCancel: {
     marginTop: 8,

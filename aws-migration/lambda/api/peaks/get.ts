@@ -113,20 +113,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const peak = result.rows[0];
 
-    // Increment view count with user dedup (fire and forget)
-    // Only count one view per user per peak using INSERT ON CONFLICT
-    if (userId) {
-      db.query(
-        `INSERT INTO peak_views (peak_id, user_id) VALUES ($1, $2)
-         ON CONFLICT (peak_id, user_id) DO NOTHING`,
-        [peakId, userId]
-      ).then((result: { rowCount: number | null }) => {
-        // Only increment if this is a new view (row was inserted)
-        if (result.rowCount && result.rowCount > 0) {
-          return db.query('UPDATE peaks SET views_count = views_count + 1 WHERE id = $1', [peakId]);
-        }
-      }).catch((err: unknown) => log.error('Error incrementing view count', err));
-    }
+    // View recording is handled by the dedicated POST /peaks/{id}/view endpoint
+    // (peaks/view.ts) — called from PeakViewScreen with proper profile UUID dedup.
+    // Do NOT record views here to avoid double-counting (get.ts uses cognito_sub,
+    // view.ts uses profile UUID — different values break dedup).
 
     return {
       statusCode: 200,
@@ -141,7 +131,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           replyToPeakId: peak.reply_to_peak_id || null,
           likesCount: peak.likes_count,
           commentsCount: peak.comments_count,
-          viewsCount: peak.views_count + 1, // Include the current view
+          viewsCount: peak.views_count,
           createdAt: peak.created_at,
           filterId: peak.filter_id || null,
           filterIntensity: peak.filter_intensity ?? null,

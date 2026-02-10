@@ -20,7 +20,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, NavigationProp } from '@react-navigation/native';
-import type { MainStackParamList } from '../../types';
+import type { MainStackParamList, Peak } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { HIT_SLOP } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -220,9 +220,62 @@ const UserProfileScreen = () => {
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
 
-  // Separate posts and peaks
+  // Separate posts (exclude peaks from posts table)
   const posts = useMemo(() => userPosts.filter(p => !p.is_peak), [userPosts]);
-  const peaks = useMemo(() => userPosts.filter(p => p.is_peak), [userPosts]);
+
+  // Peaks — fetched from the dedicated peaks table via /peaks API
+  interface ProfilePeak {
+    id: string;
+    videoUrl?: string;
+    thumbnailUrl?: string;
+    caption?: string;
+    duration: number;
+    likesCount: number;
+    commentsCount: number;
+    viewsCount: number;
+    isLiked: boolean;
+    createdAt: string;
+    authorId: string;
+    authorUsername: string;
+    authorFullName: string;
+    authorAvatarUrl: string | null;
+  }
+  const [peaks, setPeaks] = useState<ProfilePeak[]>([]);
+  const fetchPeaks = useCallback(() => {
+    if (!userId) return;
+    const toCdn = (url?: string | null) => {
+      if (!url) return null;
+      return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+    };
+    awsAPI.getPeaks({ userId, limit: 50 }).then((res) => {
+      const mapped: ProfilePeak[] = (res.data || []).map((p) => {
+        const thumb = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
+        return {
+          id: p.id,
+          videoUrl: toCdn(p.videoUrl) || undefined,
+          thumbnailUrl: thumb,
+          caption: p.caption || undefined,
+          duration: p.duration || 15,
+          likesCount: p.likesCount || 0,
+          commentsCount: p.commentsCount || 0,
+          viewsCount: p.viewsCount || 0,
+          isLiked: p.isLiked || false,
+          createdAt: p.createdAt || new Date().toISOString(),
+          authorId: p.authorId || p.author?.id || '',
+          authorUsername: p.author?.username || '',
+          authorFullName: p.author?.fullName || '',
+          authorAvatarUrl: p.author?.avatarUrl || null,
+        };
+      });
+      setPeaks(mapped);
+    }).catch((err) => {
+      if (__DEV__) console.warn('[UserProfile] Peaks fetch failed:', err);
+    });
+  }, [userId]);
+
+  useEffect(() => {
+    fetchPeaks();
+  }, [fetchPeaks]);
 
   // Sync follow status from profile data (API returns is_following)
   // During the grace period after a follow/unfollow, skip syncing from API to avoid
@@ -342,10 +395,12 @@ const UserProfileScreen = () => {
         return; // Skip first focus — initial load handled by useEffect above
       }
       if (!userId) return;
+      // Re-fetch posts and peaks to sync likes/views changed in detail screens
       getPostsByUser(userId, 0, 50).then(({ data, error }) => {
         if (!error && data) setUserPosts(data);
       }).catch(() => { /* silent refetch failure — stale data remains */ });
-    }, [userId])
+      fetchPeaks();
+    }, [userId, fetchPeaks])
   );
 
   // Pull to refresh
@@ -717,7 +772,8 @@ const UserProfileScreen = () => {
 
     // Transform posts for detail screen (matching PostDetailProfileScreen format)
     const transformedPosts = allPosts.map(p => {
-      const pAllMedia = p.media_urls?.filter(Boolean) || [p.media_url].filter(Boolean);
+      const filtered = p.media_urls?.filter(Boolean);
+      const pAllMedia = (filtered && filtered.length > 0) ? filtered : [p.media_url].filter(Boolean);
       return {
         id: p.id,
         type: p.media_type === 'video' ? 'video' : pAllMedia.length > 1 ? 'carousel' : 'image',
@@ -907,26 +963,39 @@ const UserProfileScreen = () => {
             <TouchableOpacity
               key={`peak-${index}-${peak.id}`}
               style={styles.peakCard}
-              onPress={() => navigation.navigate('PeakView', { peakId: peak.id })}
+              onPress={() => {
+                const transformed: Peak[] = peaks.map(p => ({
+                  id: p.id,
+                  videoUrl: p.videoUrl,
+                  thumbnail: p.thumbnailUrl,
+                  duration: p.duration,
+                  caption: p.caption,
+                  views: p.viewsCount,
+                  likes: p.likesCount,
+                  repliesCount: p.commentsCount,
+                  isLiked: p.isLiked,
+                  createdAt: p.createdAt,
+                  user: {
+                    id: p.authorId,
+                    name: p.authorFullName || p.authorUsername,
+                    avatar: p.authorAvatarUrl || '',
+                  },
+                }));
+                navigation.navigate('PeakView', { peaks: transformed, initialIndex: index });
+              }}
             >
-              {peak.media_urls?.[0] ? (
-                <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />
-              ) : (
-                <View style={[styles.peakThumb, styles.postThumbEmpty]}>
-                  <Ionicons name="videocam-outline" size={24} color={colors.gray} />
-                </View>
-              )}
+              <OptimizedImage source={peak.thumbnailUrl} style={styles.peakThumb} />
               <View style={styles.peakDuration}>
-                <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
+                <Text style={styles.peakDurationText}>{peak.duration}s</Text>
               </View>
               <View style={styles.peakStatsOverlay}>
                 <View style={styles.peakStat}>
-                  <SmuppyHeartIcon size={11} color="#FF6B6B" filled />
-                  <Text style={styles.peakStatText}>{peak.likes_count || 0}</Text>
+                  <SmuppyHeartIcon size={11} color={colors.heartRed} filled />
+                  <Text style={styles.peakStatText}>{peak.likesCount}</Text>
                 </View>
                 <View style={styles.peakStat}>
                   <Ionicons name="eye" size={11} color="#FFF" />
-                  <Text style={styles.peakStatText}>{peak.views_count || 0}</Text>
+                  <Text style={styles.peakStatText}>{peak.viewsCount}</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -1045,7 +1114,7 @@ const UserProfileScreen = () => {
           {/* Fan badge when following */}
           {!isOwnProfile && effectiveIsFan && (
             <View style={styles.fanBadge}>
-              <SmuppyHeartIcon size={10} color="#0EBF8A" filled />
+              <SmuppyHeartIcon size={10} color={colors.primary} filled />
               <Text style={styles.fanBadgeText}>Fan</Text>
             </View>
           )}
@@ -1122,7 +1191,7 @@ const UserProfileScreen = () => {
                 disabled={isLoadingFollow}
               >
                 {isLoadingFollow ? (
-                  <ActivityIndicator size="small" color={isRequested ? '#8E8E93' : '#0EBF8A'} />
+                  <ActivityIndicator size="small" color={isRequested ? colors.gray : colors.primary} />
                 ) : (
                   <Text style={[
                     styles.fanButtonText,
@@ -1190,7 +1259,7 @@ const UserProfileScreen = () => {
                 size="sm"
                 variant="outline"
                 style={styles.flex1}
-                icon={<Ionicons name="pricetag" size={14} color="#0EBF8A" />}
+                icon={<Ionicons name="pricetag" size={14} color={colors.primary} />}
                 iconPosition="left"
                 colorScheme="green"
               />
@@ -1222,7 +1291,7 @@ const UserProfileScreen = () => {
                   onPress={handleJoinLive}
                 >
                   <LinearGradient
-                    colors={['#FF3B30', '#FF6B6B']}
+                    colors={[colors.error, colors.heartRed]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.joinLiveGradient}
@@ -1441,7 +1510,7 @@ const UserProfileScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.menuItem, styles.menuItemDanger]} onPress={handleBlockUser}>
-              <Ionicons name="ban-outline" size={22} color="#FF3B30" />
+              <Ionicons name="ban-outline" size={22} color={colors.error} />
               <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block</Text>
             </TouchableOpacity>
 
@@ -1624,7 +1693,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   fanBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   nameActions: {
     flexDirection: 'row',
@@ -1642,7 +1711,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   teamBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   privateBadge: {
     marginLeft: 6,
@@ -1814,7 +1883,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1911,12 +1980,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     gap: 6,
   },
   reminderButtonActive: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
   },
   reminderButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   reminderButtonTextActive: {
     color: '#FFFFFF',
@@ -1949,7 +2018,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0EBF8A',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -2283,7 +2352,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingTop: 24,
   },
   menuItemTextDanger: {
-    color: '#FF3B30',
+    color: colors.error,
   },
   menuCancel: {
     marginTop: 8,
@@ -2342,7 +2411,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
     alignItems: 'center' as const,
   },
 });

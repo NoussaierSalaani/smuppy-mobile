@@ -96,6 +96,25 @@ interface LeaderboardEntry {
   tipCount: number;
 }
 
+export interface ActivityItem {
+  activityType: 'post_like' | 'peak_like' | 'follow' | 'comment' | 'peak_comment';
+  createdAt: string;
+  targetData: {
+    postId?: string;
+    peakId?: string;
+    mediaUrl?: string;
+    thumbnailUrl?: string;
+    content?: string;
+    text?: string;
+  } | null;
+  targetUser: {
+    id: string;
+    username: string;
+    fullName: string;
+    avatarUrl: string;
+  };
+}
+
 interface ApiChallenge {
   id: string;
   peakId: string;
@@ -993,6 +1012,23 @@ class AWSAPIService {
 
   async getUnreadCount(): Promise<{ unreadCount: number }> {
     return this.request('/notifications/unread-count');
+  }
+
+  // ==========================================
+  // Activity History
+  // ==========================================
+
+  async getActivityHistory(params?: { limit?: number; cursor?: string; type?: string }): Promise<{
+    data: ActivityItem[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
+    if (params?.type) queryParams.set('type', params.type);
+    const query = queryParams.toString();
+    return this.request(`/activity${query ? `?${query}` : ''}`);
   }
 
   // ==========================================

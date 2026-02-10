@@ -143,7 +143,8 @@ export const transformToFanPost = (
   likedPostIds: Set<string>,
   savedPostIds?: Set<string>
 ): UIFanPost => {
-  const allMedia = post.media_urls?.filter(Boolean) || [];
+  const filteredMedia = post.media_urls?.filter(Boolean);
+  const allMedia = (filteredMedia && filteredMedia.length > 0) ? filteredMedia : (post.media_url ? [post.media_url] : []);
   return {
     id: post.id,
     type: normalizeMediaType(post.media_type),
@@ -185,7 +186,8 @@ export const transformToVibePost = (
   // Generate varied heights for masonry layout based on post ID
   const heights = [180, 200, 220, 240, 260, 280];
   const randomHeight = heights[Math.abs(post.id.charCodeAt(0)) % heights.length];
-  const allMedia = post.media_urls?.filter(Boolean) || [];
+  const filteredVibeMedia = post.media_urls?.filter(Boolean);
+  const allMedia = (filteredVibeMedia && filteredVibeMedia.length > 0) ? filteredVibeMedia : (post.media_url ? [post.media_url] : []);
 
   return {
     id: post.id,

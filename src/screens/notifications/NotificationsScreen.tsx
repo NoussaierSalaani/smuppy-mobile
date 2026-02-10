@@ -48,7 +48,7 @@ interface BaseNotification {
 }
 
 interface UserNotification extends BaseNotification {
-  type: 'follow' | 'like' | 'peak_like' | 'live' | 'peak_reply' | 'comment' | 'peak_comment';
+  type: 'follow' | 'like' | 'peak_like' | 'live' | 'peak_reply' | 'comment' | 'peak_comment' | 'post_tag';
   user: NotificationUser;
   message: string;
   isFollowing?: boolean;
@@ -117,10 +117,16 @@ function mapNotificationType(backendType: string): UserNotification['type'] {
       return 'peak_reply';
     case 'live':
       return 'live';
+    case 'post_tag':
+      return 'post_tag';
     default:
       return 'like';
   }
 }
+
+/** Peak-related notification types use thumbnailUrl; post-related use postImage */
+const PEAK_TYPES = new Set(['peak_like', 'peak_reply', 'peak_comment']);
+const POST_TYPES = new Set(['like', 'comment', 'post_tag']);
 
 // Transform API notification to display format
 interface ApiNotification {
@@ -194,7 +200,11 @@ function transformNotification(apiNotif: ApiNotification): Notification {
     },
     message: dynamicMessage,
     isFollowing: apiNotif.data?.isFollowing,
-    postImage: apiNotif.data?.postImage || apiNotif.data?.thumbnailUrl,
+    postImage: PEAK_TYPES.has(mappedType)
+      ? apiNotif.data?.thumbnailUrl
+      : POST_TYPES.has(mappedType)
+        ? apiNotif.data?.postImage
+        : apiNotif.data?.postImage || apiNotif.data?.thumbnailUrl,
     // Include content IDs for navigation
     peakId: apiNotif.data?.peakId,
     postId: apiNotif.data?.postId,
@@ -213,6 +223,7 @@ function getDefaultMessage(type: string): string {
     case 'peak_like': return 'liked your Peak';
     case 'comment': return 'commented on your post';
     case 'peak_reply': return 'replied to your Peak';
+    case 'post_tag': return 'tagged you in a post';
     case 'live': return 'is live now';
     default: return 'interacted with your content';
   }
@@ -478,6 +489,7 @@ export default function NotificationsScreen(): React.JSX.Element {
 
       case 'like':
       case 'comment':
+      case 'post_tag':
         if (notif.postId && isValidUUID(notif.postId)) {
           navigation.navigate('PostDetailFanFeed', { postId: notif.postId });
           return;
@@ -615,6 +627,8 @@ export default function NotificationsScreen(): React.JSX.Element {
         return { name: 'person-add', color: colors.blue };
       case 'comment':
         return { name: 'chatbubble', color: colors.primary };
+      case 'post_tag':
+        return { name: 'pricetag', color: colors.blue };
       case 'peak_reply':
       case 'peak_comment':
         return { name: 'videocam', color: colors.primary };

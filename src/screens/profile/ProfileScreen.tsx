@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -209,10 +210,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     author_id: string | null;
   }
   const [peaks, setPeaks] = useState<ProfilePeak[]>([]);
-  useEffect(() => {
-    if (!userId) return;
-    let isMounted = true;
-    const task = InteractionManager.runAfterInteractions(() => {
+  const peaksInitialLoadDoneRef = useRef(false);
+
+  const fetchPeaks = useCallback(() => {
+    const targetUserId = peaksUserId || userId;
+    if (!targetUserId) return;
+
     const toCdn = (url?: string | null) => {
       if (!url) return null;
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
@@ -233,62 +236,33 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       author_id: p.authorId || p.author?.id || null,
     }));
 
-    const targetUserId = peaksUserId || userId;
-    
-    if (__DEV__) {
-      console.log('[ProfileScreen] Fetching peaks for user:', targetUserId);
-    }
-    
     awsAPI.getPeaks({ userId: targetUserId, limit: 50 }).then((res) => {
-      if (!isMounted) return;
-      
-      if (__DEV__) {
-        console.log('[ProfileScreen] Peaks API response:', { 
-          count: res.data?.length || 0,
-          targetUserId 
-        });
-      }
-      
-      let list = mapPeaks(res.data || []);
-
-      // Filter client-side by author when userId is provided
-      if (targetUserId && list.length > 0) {
-        const filtered = list.filter(p => p.author_id === targetUserId);
-        list = filtered.length > 0 ? filtered : list; // if author missing, keep full list to avoid empty state
-      }
-
-      // If still empty, try an unfiltred fetch and filter client-side (handles gateways that ignore author params)
-      if (targetUserId && list.length === 0) {
-        if (__DEV__) {
-          console.log('[ProfileScreen] Primary fetch empty, trying fallback...');
-        }
-        awsAPI.getPeaks({ limit: 100 }).then((allRes) => {
-          if (!isMounted) return;
-          const mapped = mapPeaks(allRes.data || []);
-          const filtered = mapped.filter(p => p.author_id === targetUserId);
-          
-          if (__DEV__) {
-            console.log('[ProfileScreen] Fallback fetch:', { 
-              total: mapped.length, 
-              filtered: filtered.length 
-            });
-          }
-          
-          setPeaks(filtered.length > 0 ? filtered : mapped); // last resort: show whatever we have
-        }).catch((err) => {
-          if (__DEV__) console.warn('[Profile] Peaks fallback fetch failed:', err);
-        });
-        return;
-      }
-
+      const list = mapPeaks(res.data || []);
       setPeaks(list);
     }).catch((err) => {
       if (__DEV__) console.warn('[Profile] Peaks fetch failed:', err);
     });
-
-    }); // end runAfterInteractions
-    return () => { isMounted = false; task.cancel(); };
   }, [userId, peaksUserId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      fetchPeaks();
+    });
+    return () => { task.cancel(); };
+  }, [userId, fetchPeaks]);
+
+  // Re-fetch peaks + posts on focus to sync likes/views changed in detail screens
+  useFocusEffect(
+    useCallback(() => {
+      if (!peaksInitialLoadDoneRef.current) {
+        peaksInitialLoadDoneRef.current = true;
+        return; // Skip first focus — initial load handled by useEffect above
+      }
+      fetchPeaks();
+      if (userId) refetchPosts();
+    }, [fetchPeaks, userId, refetchPosts])
+  );
 
   // Get saved posts (collections) - only for own profile
   const {
@@ -557,7 +531,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       <RippleVisualization size={AVATAR_SIZE}>
         {hasPeaks ? (
           <LinearGradient
-            colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+            colors={[colors.primary, '#00B5C1', '#0081BE']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.avatarGradientBorder}
@@ -881,7 +855,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // Transform posts array for detail screen
   const transformPostsForDetail = useCallback((allPosts: typeof posts) => {
     return allPosts.map(p => {
-      const allMedia = p.media_urls?.filter(Boolean) || [];
+      const filteredMedia = p.media_urls?.filter(Boolean);
+      const allMedia = (filteredMedia && filteredMedia.length > 0) ? filteredMedia : [p.media_url].filter(Boolean);
       return {
         id: p.id,
         type: p.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
@@ -983,6 +958,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 videoUrl: p.videoUrl,
                 thumbnail: p.media_urls?.[0],
                 duration: p.peak_duration || 15,
+                caption: p.content || undefined,
                 user: {
                   id: displayProfile?.id || user.id,
                   name: displayProfile?.displayName || user.displayName,
@@ -991,6 +967,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 views: p.views_count || 0,
                 likes: p.likes_count || 0,
                 repliesCount: p.comments_count || 0,
+                isLiked: (p as ProfilePeak).is_liked || false,
                 createdAt: p.created_at,
               }));
               navigation.navigate('PeakView', { peaks: transformed, initialIndex: index });
@@ -1008,7 +985,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </View>
             <View style={styles.peakStatsOverlay}>
               <View style={styles.peakStat}>
-                <SmuppyHeartIcon size={11} color="#FF6B6B" filled />
+                <SmuppyHeartIcon size={11} color={colors.heartRed} filled />
                 <Text style={styles.peakStatText}>{peak.likes_count || 0}</Text>
               </View>
               <View style={styles.peakStat}>
@@ -1033,7 +1010,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         style={styles.collectionCard}
         onPress={() => {
           const collectionForDetail = collections.map(p => {
-            const allMedia = p.media_urls?.filter(Boolean) || [];
+            const filteredMedia = p.media_urls?.filter(Boolean);
+            const allMedia = (filteredMedia && filteredMedia.length > 0) ? filteredMedia : [p.media_url].filter(Boolean);
             const author = p.author || (p['user'] as typeof p.author);
             return {
               id: p.id,
@@ -1091,7 +1069,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             <View style={styles.collectionMeta}>
               <AvatarImage source={post.author.avatar_url} size={18} />
               <Text style={styles.collectionAuthorName}>{post.author.full_name || post.author.username}</Text>
-              <SmuppyHeartIcon size={12} color="#FF6B6B" filled />
+              <SmuppyHeartIcon size={12} color={colors.heartRed} filled />
               <Text style={styles.collectionLikes}>{post.likes_count || 0}</Text>
             </View>
           )}
@@ -1149,10 +1127,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     const getVisibilityColor = () => {
       switch (video.visibility) {
         case 'public': return colors.primary;
-        case 'subscribers': return '#FFD700'; // Gold for premium/subscribers
+        case 'subscribers': return colors.gold;
         case 'fans': return '#0081BE';
-        case 'private': return '#8E8E93';
-        case 'hidden': return '#8E8E93';
+        case 'private': return colors.gray;
+        case 'hidden': return colors.gray;
         default: return colors.primary;
       }
     };

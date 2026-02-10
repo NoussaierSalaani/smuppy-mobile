@@ -362,7 +362,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const { handleScroll, showBars } = useTabBar();
-  const scrollRef = useRef<any>(null);
+  const scrollRef = useRef<React.ElementRef<typeof FlashList<UIVibePost>>>(null);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -1073,7 +1073,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeText(group.userName)}</Text>
     </TouchableOpacity>
-  ), [goToPeakGroupView, styles]);
+  ), [goToPeakGroupView, styles, colors.primary]);
 
   // Render modal - Full screen post
   const renderModal = () => (

@@ -206,7 +206,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     borderTopLeftRadius: normalize(28),
     borderTopRightRadius: normalize(28),
     padding: wp(5),

@@ -115,7 +115,7 @@ interface ActivityItemRowProps {
 const ActivityItemRow = React.memo(function ActivityItemRow({
   item,
   styles,
-  colors,
+  colors: _colors,
   onPress,
   onAvatarPress,
 }: ActivityItemRowProps) {

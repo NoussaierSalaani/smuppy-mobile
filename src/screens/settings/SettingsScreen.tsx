@@ -25,6 +25,7 @@ import { resetAllStores, useUserStore } from '../../stores';
 import type { ThemePreference } from '../../stores/themeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { HIT_SLOP } from '../../config/theme';
+import { FEATURES } from '../../config/featureFlags';
 import { hapticButtonPress, hapticDestructive } from '../../utils/haptics';
 import { VerifiedBadge } from '../../components/Badge';
 
@@ -528,12 +529,13 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           </View>
         </View>
 
-        {/* Payments & Monetization */}
+        {/* Payments & Monetization — each item gated by feature flag */}
+        {(FEATURES.UPGRADE_TO_PRO || FEATURES.CREATOR_WALLET || FEATURES.PLATFORM_SUBSCRIPTION || FEATURES.IDENTITY_VERIFICATION || FEATURES.PRIVATE_SESSIONS) && (
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Payments & Monetization</Text>
           <View style={styles.menuCard}>
             {/* Upgrade to Pro Creator - Only for personal accounts */}
-            {user?.accountType === 'personal' && (
+            {FEATURES.UPGRADE_TO_PRO && user?.accountType === 'personal' && (
               <TouchableOpacity
                 style={[styles.menuItem, styles.menuItemFirst, styles.upgradeItem]}
                 onPress={handleNavigateUpgradeToPro}
@@ -560,7 +562,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             )}
 
             {/* Creator Wallet - Not for personal accounts */}
-            {user?.accountType !== 'personal' && (
+            {FEATURES.CREATOR_WALLET && user?.accountType !== 'personal' && (
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemFirst]}
               onPress={handleNavigateCreatorWallet}
@@ -575,7 +577,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             )}
 
             {/* Go Pro - Not for personal accounts */}
-            {user?.accountType !== 'personal' && (
+            {FEATURES.PLATFORM_SUBSCRIPTION && user?.accountType !== 'personal' && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleNavigatePlatformSubscription}
@@ -589,6 +591,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             </TouchableOpacity>
             )}
 
+            {FEATURES.IDENTITY_VERIFICATION && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleNavigateIdentityVerification}
@@ -609,8 +612,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 <Ionicons name="chevron-forward" size={18} color={colors.primary} />
               )}
             </TouchableOpacity>
+            )}
 
-            {/* Payment Methods - All users */}
+            {/* Payment Methods - visible only when payment features are enabled */}
+            {(FEATURES.TIPPING || FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS) && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleNavigatePaymentMethods}
@@ -622,9 +627,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Text style={styles.menuItemLabel}>Payment Methods</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
             </TouchableOpacity>
+            )}
 
             {/* Private Sessions - Creator & Business */}
-            {isPro && (
+            {FEATURES.PRIVATE_SESSIONS && isPro && (
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleNavigatePrivateSessions}
@@ -639,6 +645,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             )}
           </View>
         </View>
+        )}
 
         {/* Danger Zone */}
         <View style={styles.menuSection}>

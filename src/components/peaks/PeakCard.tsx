@@ -106,7 +106,7 @@ const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
 
 PeakCard.displayName = 'PeakCard';
 
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,

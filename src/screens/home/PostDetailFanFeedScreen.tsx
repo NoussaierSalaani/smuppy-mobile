@@ -168,7 +168,6 @@ const PostDetailFanFeedScreen = () => {
   const videoRef = useRef<Video>(null);
   const flatListRef = useRef<React.ElementRef<typeof FlashList<FanFeedPost>>>(null);
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
-  const lastTap = useRef(0);
   const viewedPosts = useRef<Set<string>>(new Set());
   
   // Current post - with bounds check to prevent crash on empty array
@@ -237,7 +236,7 @@ const PostDetailFanFeedScreen = () => {
     viewedPosts.current.add(currentPost.id);
     setLocalViews(prev => ({ ...prev, [currentPost.id]: (currentPost.views || 0) + 1 }));
     recordPostView(currentPost.id);
-  }, [currentPost?.id]);
+  }, [currentPost?.id, currentPost?.views]);
 
   // Navigate to user profile (own profile → Profile tab, others → UserProfile)
   const navigateToProfile = useCallback((userId: string) => {
@@ -362,26 +361,6 @@ const PostDetailFanFeedScreen = () => {
       setFanLoading(prev => ({ ...prev, [userId]: false }));
     }
   }, [fanLoading]);
-
-  // Double tap to like
-  const handleDoubleTap = useCallback(() => {
-    if (!currentPost) return;
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected - Like (only if not already liked)
-      if (!likedPosts[currentPost.id]) {
-        toggleLike(currentPost.id); // Call API to persist the like
-      }
-    } else {
-      // Single tap - toggle pause/play for video
-      if (currentPost.type === 'video') {
-        setIsPaused(prev => !prev);
-      }
-    }
-    lastTap.current = now;
-  }, [currentPost, likedPosts, toggleLike]);
 
   // Handle scroll - prevents scrolling above the initial post
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {

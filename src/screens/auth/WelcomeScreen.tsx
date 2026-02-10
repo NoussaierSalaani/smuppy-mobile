@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, ImageBackground, Animated, TouchableOpacity } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GRADIENTS } from '../../config/theme';
@@ -22,6 +23,9 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
   const buttonsAnim = useRef(new Animated.Value(0)).current;
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  const handleOpenTerms = useCallback(() => { WebBrowser.openBrowserAsync('https://smuppy.com/terms'); }, []);
+  const handleOpenPrivacy = useCallback(() => { WebBrowser.openBrowserAsync('https://smuppy.com/privacy'); }, []);
 
   useEffect(() => {
     const animation = Animated.sequence([
@@ -75,6 +79,15 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
           </TouchableOpacity>
         </Animated.View>
 
+        <Animated.View style={[styles.legalRow, { opacity: buttonsAnim }]}>
+          <Text style={styles.legalText}>
+            By continuing, you agree to our{' '}
+            <Text style={styles.legalLink} onPress={handleOpenTerms} accessibilityRole="link">Terms</Text>
+            {' '}and{' '}
+            <Text style={styles.legalLink} onPress={handleOpenPrivacy} accessibilityRole="link">Privacy Policy</Text>.
+          </Text>
+        </Animated.View>
+
         <View style={styles.homeIndicator} />
       </SafeAreaView>
     </View>
@@ -102,6 +115,9 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   secondaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 24, borderRadius: 30, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: 'transparent', gap: 8 },
   secondaryButtonText: { fontSize: 16, fontWeight: '600', color: colors.primary },
   arrowIconSecondary: { fontSize: 18, color: colors.primary, marginLeft: 4 },
+  legalRow: { alignItems: 'center', paddingHorizontal: 32, marginBottom: 8 },
+  legalText: { fontSize: 12, color: 'rgba(255, 255, 255, 0.5)', textAlign: 'center', lineHeight: 18 },
+  legalLink: { color: 'rgba(255, 255, 255, 0.8)', textDecorationLine: 'underline' },
   homeIndicator: { height: 8 },
 });
 

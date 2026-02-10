@@ -94,18 +94,17 @@ const PostDetailVibesFeedScreen = () => {
   // Animation values
 
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
-  const lastTap = useRef(0);
   const videoRef = useRef(null);
 
   // Card press animation refs
   const cardScales = useRef<{ [key: string]: Animated.Value }>({}).current;
   const viewedPosts = useRef<Set<string>>(new Set());
-  const getCardScale = (id: string) => {
+  const getCardScale = useCallback((id: string) => {
     if (!cardScales[id]) {
       cardScales[id] = new Animated.Value(1);
     }
     return cardScales[id];
-  };
+  }, [cardScales]);
 
   // User follows me?
   const _theyFollowMe = currentPost?.user?.followsMe || false;
@@ -148,7 +147,7 @@ const PostDetailVibesFeedScreen = () => {
     viewedPosts.current.add(currentPost.id);
     setLocalViews((currentPost.views || 0) + 1);
     recordPostView(currentPost.id);
-  }, [currentPost?.id]);
+  }, [currentPost?.id, currentPost?.views]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -283,24 +282,6 @@ const PostDetailVibesFeedScreen = () => {
       setFanLoading(false);
     }
   }, [fanLoading, currentPost?.user?.id]);
-
-  // Double tap to like
-  const handleDoubleTap = useCallback(() => {
-    if (!currentPost) return;
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      if (!isLiked) {
-        toggleLike(); // Call API to persist the like
-      }
-    } else {
-      if (currentPost.type === 'video') {
-        setIsPaused(prev => !prev);
-      }
-    }
-    lastTap.current = now;
-  }, [currentPost, isLiked, toggleLike]);
 
   // Handle swipe down
   const handleSwipeDown = useCallback(() => {

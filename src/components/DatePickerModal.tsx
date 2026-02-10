@@ -291,7 +291,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   container: {
     width: '100%',
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     borderRadius: 24,
     overflow: 'hidden',
   },

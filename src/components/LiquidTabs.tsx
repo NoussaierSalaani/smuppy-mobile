@@ -216,7 +216,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = React.memo(({
       </View>
 
       {/* Outer border glow - only when not fullWidth */}
-      {!fullWidth && <View style={[styles.borderGlow, { borderRadius: config.radius }]} />}
+      {!fullWidth && <View style={[styles.borderGlow, isDark && styles.borderGlowDark, { borderRadius: config.radius }]} />}
     </View>
   );
 });
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   tabLabelInactive: {
-    color: '#6B7280',
+    color: COLORS.gray500,
   },
   // Dark mode variants
   glassOverlayDark: {
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A1A1A',
   },
   tabLabelInactiveDark: {
-    color: '#9CA3AF',
+    color: COLORS.gray400,
   },
 
   // Border glow
@@ -371,7 +371,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.9)',
-    pointerEvents: 'none',
+    pointerEvents: 'none' as const,
+  },
+  borderGlowDark: {
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
 });
 

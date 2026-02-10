@@ -185,7 +185,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
       case 'suspended': return '#FFD93D';
       default: return colors.gray;
     }
-  }, [colors.gray]);
+  }, [colors.gray, colors.heartRed, colors.primary]);
 
   const getStatusText = useCallback((status: string) => {
     switch (status) {

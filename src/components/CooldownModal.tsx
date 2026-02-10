@@ -262,7 +262,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
 
   container: {
     width: '100%',
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     borderRadius: SIZES.radiusXl,
     padding: SPACING['2xl'],
     alignItems: 'center',

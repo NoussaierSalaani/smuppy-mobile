@@ -554,7 +554,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
               <TouchableOpacity
                 onPress={toggleAgreeTerms}
                 activeOpacity={0.7}
-                accessibilityLabel="I agree to the Terms and Conditions, Privacy Policy, and Content Policy"
+                accessibilityLabel="I am at least 13 years old and agree to the Terms and Conditions, Privacy Policy, and Content Policy"
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: agreeTerms }}
                 accessibilityHint="Required to create an account"
@@ -564,7 +564,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                 </View>
               </TouchableOpacity>
               <Text style={styles.termsText}>
-                I agree to the{' '}
+                I am at least 13 years old and agree to the{' '}
                 <Text style={styles.termsLink} onPress={handleOpenTerms} accessibilityRole="link">Terms and Conditions</Text>
                 ,{' '}
                 <Text style={styles.termsLink} onPress={handleOpenPrivacy} accessibilityRole="link">Privacy Policy</Text>

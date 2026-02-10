@@ -266,9 +266,6 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
 
 export default function MainNavigator() {
   const setUser = useUserStore((state) => state.setUser);
-  const currentUserId = useUserStore((state) => state.user?.id);
-  const isAuthenticated = useUserStore((state) => state.isAuthenticated);
-
   // Sync profile from database to Zustand store on mount
   // Always fetch fresh to avoid stale AsyncStorage cache after re-login
   useEffect(() => {

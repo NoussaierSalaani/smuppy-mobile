@@ -47,7 +47,7 @@ function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): Reac
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { topBarTranslate, barsOpacity, xplorerFullscreen } = useTabBar();
   const { colors, gradients, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const unreadNotifications = useAppStore((state) => state.unreadNotifications);
 
   // Check if user is pro_creator or pro_business for special styling
@@ -242,7 +242,7 @@ function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): Reac
 
 export default React.memo(HomeHeader);
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   wrapper: {
     position: 'absolute',
     top: 0,
@@ -253,7 +253,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
 
   // ===== FIXED HEADER =====
   fixedHeader: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: isDark ? 'rgba(13, 13, 13, 0.85)' : 'rgba(255, 255, 255, 0.85)',
   },
   fixedHeaderContent: {
     flexDirection: 'row',
@@ -312,7 +312,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   floatingHeaderContent: {
     borderRadius: 26,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: isDark ? 'rgba(13, 13, 13, 0.92)' : 'rgba(255, 255, 255, 0.92)',
     paddingVertical: 8,
     paddingHorizontal: 10,
   },
@@ -326,7 +326,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(10, 37, 47, 0.04)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(10, 37, 47, 0.04)',
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,

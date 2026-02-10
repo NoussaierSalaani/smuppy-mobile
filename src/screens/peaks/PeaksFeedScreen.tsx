@@ -310,7 +310,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         </LinearGradient>
       </TouchableOpacity>
     </View>
-  ), [handleGroupPress, formatViews, styles]);
+  ), [handleGroupPress, formatViews, styles, colors.gold]);
 
   const renderColumn = useCallback((columnGroups: PeakGroupData[]): React.JSX.Element => (
     <View style={styles.column}>

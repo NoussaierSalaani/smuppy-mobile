@@ -284,7 +284,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
   const { bottomBarTranslate, barsOpacity, bottomBarHidden } = useTabBar();
   const { colors, isDark, gradients } = useTheme();
 
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const styles = React.useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Separate checks: creator-only features vs shared pro styling
   const user = useUserStore((state) => state.user);
@@ -655,7 +655,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
 
 export default BottomNav;
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     position: 'absolute',
     left: 20,
@@ -665,7 +665,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   blurContainer: {
     borderRadius: 28,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: isDark ? 'rgba(13, 13, 13, 0.92)' : 'rgba(255, 255, 255, 0.92)',
     shadowColor: '#0A252F',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
@@ -690,7 +690,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: isDark ? 'rgba(13, 13, 13, 0.95)' : 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -782,7 +782,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   menuBlur: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: isDark ? 'rgba(13, 13, 13, 0.95)' : 'rgba(255, 255, 255, 0.95)',
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',

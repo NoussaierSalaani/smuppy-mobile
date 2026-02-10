@@ -166,7 +166,6 @@ const PostDetailProfileScreen = () => {
   const videoRef = useRef(null);
   const flatListRef = useRef(null);
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
-  const lastTap = useRef(0);
 
   const getItemType = useCallback((item: PostItem) => {
     if (item.allMedia && item.allMedia.length > 1) return 'carousel';
@@ -429,22 +428,6 @@ const PostDetailProfileScreen = () => {
       showError('Error', 'An error occurred. Please try again.');
     }
   }, [currentPost, storeSubmitReport, showWarning, showSuccess, showError]);
-
-  // Double tap to like
-  const handleDoubleTap = useCallback(() => {
-    if (!currentPost) return;
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      if (!isLiked) toggleLike();
-    } else {
-      if (currentPost.type === 'video') {
-        setIsPaused(prev => !prev);
-      }
-    }
-    lastTap.current = now;
-  }, [currentPost, isLiked, toggleLike]);
 
   // Like animation
   const triggerLikeAnimation = useCallback(() => {

@@ -846,7 +846,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     <Modal visible={showPermissionModal} transparent animationType="fade">
       <View style={styles.permissionOverlay}>
         <View style={styles.permissionModal}>
-          <LinearGradient colors={['#E7FCF6', '#E0F7FA']} style={styles.permissionIcon}>
+          <LinearGradient colors={[colors.primaryLight, colors.primaryLight]} style={styles.permissionIcon}>
             <Ionicons name="location" size={normalize(40)} color={colors.primary} />
           </LinearGradient>
           <Text style={styles.permissionTitle}>Enable your location</Text>
@@ -1272,7 +1272,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
   mapErrorContainer: {
-    backgroundColor: isDark ? '#1a1a2e' : '#e8f4f8',
+    backgroundColor: isDark ? colors.gray900 : colors.primaryLight,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   },
@@ -1538,7 +1538,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   businessRow: { flexDirection: 'row', alignItems: 'center', marginBottom: hp(0.8) },
   businessText: { fontSize: normalize(14), color: colors.gray, marginLeft: wp(2), flex: 1 },
   expertiseTags: { flexDirection: 'row', flexWrap: 'wrap', marginTop: hp(1.2), marginBottom: hp(0.8) },
-  expertiseTag: { backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E7FCF6', paddingHorizontal: wp(3), paddingVertical: hp(0.8), borderRadius: normalize(16), marginRight: wp(2), marginBottom: hp(1) },
+  expertiseTag: { backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : colors.primaryLight, paddingHorizontal: wp(3), paddingVertical: hp(0.8), borderRadius: normalize(16), marginRight: wp(2), marginBottom: hp(1) },
   expertiseTagText: { fontSize: normalize(12), color: colors.primary, fontWeight: '500' },
 
   // Sub-filter bottom sheet
@@ -1629,14 +1629,14 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     height: normalize(40),
     borderRadius: normalize(20),
     borderWidth: 3,
-    borderColor: '#FF0000',
+    borderColor: colors.error,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
   },
   liveBadge: {
-    backgroundColor: '#FF0000',
+    backgroundColor: colors.error,
     borderRadius: normalize(6),
     paddingHorizontal: normalize(4),
     paddingVertical: normalize(1),
@@ -1728,12 +1728,12 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderRadius: normalize(20),
     backgroundColor: isDark ? 'rgba(255, 68, 68, 0.2)' : '#FFE5E5',
     borderWidth: 1,
-    borderColor: '#FF4444',
+    borderColor: colors.error,
   },
   eventLeaveBtnText: {
     fontSize: normalize(14),
     fontWeight: '600',
-    color: '#FF4444',
+    color: colors.error,
   },
   eventBadgesScroll: {
     marginBottom: hp(1),

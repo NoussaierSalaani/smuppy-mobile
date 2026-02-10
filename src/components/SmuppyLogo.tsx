@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { COLORS } from '../config/theme';
 
 /**
  * SmuppyLogo Component System
@@ -82,7 +83,7 @@ export const SmuppyIcon: React.FC<SmuppyIconProps> = React.memo(({ size = 80, va
       <Defs>
         {isGradient && (
           <LinearGradient id="iconBgGradient" x1="0" y1="0" x2="57.9282" y2="80.0519" gradientUnits="userSpaceOnUse">
-            <Stop offset="0" stopColor="#0EBF8A" />
+            <Stop offset="0" stopColor={COLORS.primary} />
             <Stop offset="1" stopColor="#00B3C7" />
           </LinearGradient>
         )}
@@ -93,7 +94,7 @@ export const SmuppyIcon: React.FC<SmuppyIconProps> = React.memo(({ size = 80, va
         </LinearGradient>
         {/* Green/cyan gradient S (for dark background) */}
         <LinearGradient id="iconSGradient" x1="18" y1="16" x2="55" y2="58" gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor="#0EBF8A" />
+          <Stop offset="0" stopColor={COLORS.primary} />
           <Stop offset="1" stopColor="#00B3C7" />
         </LinearGradient>
       </Defs>
@@ -144,7 +145,7 @@ export const SmuppyText: React.FC<SmuppyTextProps> = React.memo(({ width = 100, 
       <Defs>
         {/* Green/cyan gradient */}
         <LinearGradient id="textGradient" x1="0" y1="0" x2="11.5723" y2="74.4849" gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor="#0EBF8A" />
+          <Stop offset="0" stopColor={COLORS.primary} />
           <Stop offset="1" stopColor="#00B3C7" />
         </LinearGradient>
         {/* Dark gradient */}

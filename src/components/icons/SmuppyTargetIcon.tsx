@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
+import { COLORS } from '../../config/theme';
 
 interface SmuppyTargetIconProps {
   size?: number;
@@ -16,7 +17,7 @@ interface SmuppyTargetIconProps {
  */
 const SmuppyTargetIcon: React.FC<SmuppyTargetIconProps> = ({
   size = 24,
-  color = '#FF6B6B',
+  color = COLORS.heartRed,
   filled = false,
   style,
 }) => {

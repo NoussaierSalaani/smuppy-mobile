@@ -152,7 +152,7 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <View style={styles.closeButtonBg}>
-              <Ionicons name="close" size={22} color="#fff" />
+              <Ionicons name="close" size={22} color={colors.white} />
             </View>
           </TouchableOpacity>
 
@@ -191,7 +191,7 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
           {/* Stats row */}
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Ionicons name="heart" size={16} color="#FF375F" />
+              <Ionicons name="heart" size={16} color={colors.heartRed} />
               <Text style={styles.statText}>{currentPeak.likesCount}</Text>
             </View>
             <View style={styles.stat}>
@@ -214,14 +214,14 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#0EBF8A', '#0A9B6F']}
+                colors={[colors.primary, colors.primary]}
                 style={styles.actionGradient}
               >
                 {loading === 'save' ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.white} size="small" />
                 ) : (
                   <>
-                    <Ionicons name="bookmark-outline" size={22} color="#fff" />
+                    <Ionicons name="bookmark-outline" size={22} color={colors.white} />
                     <Text style={styles.actionText}>Keep on profile</Text>
                   </>
                 )}
@@ -256,10 +256,10 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
             >
               <View style={styles.actionDestructive}>
                 {loading === 'delete' ? (
-                  <ActivityIndicator color="#FF453A" size="small" />
+                  <ActivityIndicator color={colors.error} size="small" />
                 ) : (
                   <>
-                    <Ionicons name="trash-outline" size={22} color="#FF453A" />
+                    <Ionicons name="trash-outline" size={22} color={colors.error} />
                     <Text style={styles.actionTextDestructive}>Delete</Text>
                   </>
                 )}
@@ -309,12 +309,12 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     paddingVertical: 4,
   },
   counterText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 13,
     fontWeight: '600',
   },
   title: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
@@ -379,7 +379,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     borderRadius: 14,
   },
   actionText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -409,7 +409,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     borderColor: 'rgba(255,69,58,0.3)',
   },
   actionTextDestructive: {
-    color: '#FF453A',
+    color: colors.error,
     fontSize: 16,
     fontWeight: '600',
   },

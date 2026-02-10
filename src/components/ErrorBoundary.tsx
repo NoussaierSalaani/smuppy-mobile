@@ -1,7 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING } from '../config/theme';
+import { COLORS, SPACING } from '../config/theme';
 import { captureException, addBreadcrumb } from '../lib/sentry';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
@@ -84,7 +84,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   render() {
     const { colors: propColors, isDark: _isDark } = this.props;
-    const colors = propColors || { background: '#FFFFFF', dark: '#0a252f', gray: '#6b7280', error: '#EF4444', errorLight: '#FEE2E2', primary: '#0EBF8A', white: '#FFFFFF' } as ThemeColors;
+    const colors = propColors || { background: COLORS.white, dark: COLORS.dark, gray: COLORS.gray, error: COLORS.error, errorLight: COLORS.errorLight, primary: COLORS.primary, white: COLORS.white } as ThemeColors;
     const styles = createStyles(colors, _isDark || false);
 
     if (this.state.hasError) {
@@ -109,7 +109,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       return (
         <View style={styles.container}>
           <View style={styles.iconContainer}>
-            <Ionicons name="warning-outline" size={48} color={colors?.error || '#EF4444'} />
+            <Ionicons name="warning-outline" size={48} color={colors?.error || COLORS.error} />
           </View>
 
           <Text style={styles.title}>
@@ -135,7 +135,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               onPress={this.handleRetry}
               activeOpacity={0.8}
             >
-              <Ionicons name="refresh-outline" size={18} color="#FFFFFF" />
+              <Ionicons name="refresh-outline" size={18} color={colors?.white || COLORS.white} />
               <Text style={styles.retryText}>Try Again</Text>
             </TouchableOpacity>
 
@@ -218,7 +218,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     retryText: {
       fontFamily: 'Poppins-SemiBold',
       fontSize: 15,
-      color: '#FFFFFF',
+      color: colors.white,
     },
     reportButton: {
       paddingVertical: 10,

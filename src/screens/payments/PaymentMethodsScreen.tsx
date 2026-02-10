@@ -271,7 +271,7 @@ const PaymentMethodsScreen = (): React.JSX.Element => {
             {/* Chip Icon */}
             <View style={styles.chipIcon}>
               <LinearGradient
-                colors={['#FFD700', '#FFA500', '#FFD700']}
+                colors={[colors.gold, '#FFA500', colors.gold]}
                 style={styles.chipGradient}
               />
             </View>

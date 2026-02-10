@@ -171,7 +171,7 @@ const PostItem = memo<PostItemProps>(({
               {post.type === 'video' && (
                 <View style={styles.videoOverlay}>
                   <View style={styles.playButton}>
-                    <Ionicons name="play" size={30} color="#fff" />
+                    <Ionicons name="play" size={30} color={colors.white} />
                   </View>
                   <View style={styles.videoDuration}>
                     <Text style={styles.videoDurationText}>{post.duration}</Text>
@@ -651,36 +651,25 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     }
   }, [suggestions.length, fetchSuggestions]);
 
-  // Initial load — skip posts if cache is fresh, but ALWAYS load suggestions if empty
+  // Initial load — fetch posts (with cache) and ALWAYS fetch suggestions
   useEffect(() => {
     const isCacheStale = Date.now() - fanFeedCache.timestamp > CACHE_TTL;
     const hasCachedPosts = fanFeedCache.posts.length > 0 && !isCacheStale;
-    const hasCachedSuggestions = fanFeedCache.suggestions.length > 0;
 
-    if (hasCachedPosts && hasCachedSuggestions) {
-      // Both caches are warm — skip loading
-      if (__DEV__) console.log('[FanFeed] Cache warm — posts:', fanFeedCache.posts.length, 'suggestions:', fanFeedCache.suggestions.length);
+    // ALWAYS fetch suggestions on mount (force=true bypasses loading guard)
+    // This is the core fix: suggestions must load regardless of cache state
+    fetchSuggestions(false, true).then(() => {
       initialSuggestionsLoadedRef.current = true;
-      setIsLoading(false);
-      return;
-    }
+    });
 
-    if (hasCachedPosts && !hasCachedSuggestions) {
-      // Posts cached but suggestions missing — fetch suggestions only (force to bypass loading guard)
-      if (__DEV__) console.log('[FanFeed] Posts cached but suggestions empty — fetching suggestions only');
-      fetchSuggestions(false, true).then(() => {
-        initialSuggestionsLoadedRef.current = true;
-      });
+    if (hasCachedPosts) {
+      if (__DEV__) console.log('[FanFeed] Posts cache warm:', fanFeedCache.posts.length);
       setIsLoading(false);
-      return;
+    } else {
+      if (__DEV__) console.log('[FanFeed] No post cache — fetching posts');
+      setIsLoading(true);
+      fetchPosts().finally(() => setIsLoading(false));
     }
-
-    // Nothing cached — fetch everything
-    if (__DEV__) console.log('[FanFeed] No cache — fetching posts + suggestions');
-    setIsLoading(true);
-    Promise.all([fetchPosts(), fetchSuggestions(false)]).then(() => {
-      initialSuggestionsLoadedRef.current = true;
-    }).finally(() => setIsLoading(false));
   }, [fetchPosts, fetchSuggestions]);
 
   // Filter out posts that are under review (SAFETY-2) or from muted/blocked users (SAFETY-3)

@@ -355,7 +355,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
             <Ionicons name="pencil" size={18} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.activityActionButton} onPress={() => handleDeleteActivity(item)}>
-            <Ionicons name="trash" size={18} color="#FF3B30" />
+            <Ionicons name="trash" size={18} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
@@ -373,7 +373,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
         )}
       </View>
       <TouchableOpacity style={styles.slotDelete} onPress={() => handleDeleteSlot(slot)}>
-        <Ionicons name="close-circle" size={22} color="#FF3B30" />
+        <Ionicons name="close-circle" size={22} color={colors.error} />
       </TouchableOpacity>
     </View>
   );

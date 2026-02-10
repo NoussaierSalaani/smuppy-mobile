@@ -303,14 +303,14 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
 
     {post.type === 'video' && (
       <View style={styles.videoIndicator}>
-        <Ionicons name="play" size={12} color="#fff" />
+        <Ionicons name="play" size={12} color={colors.white} />
         <Text style={styles.videoDuration}>{post.duration}</Text>
       </View>
     )}
 
     {post.type === 'carousel' && (
       <View style={styles.carouselIndicator}>
-        <Ionicons name="copy" size={14} color="#fff" />
+        <Ionicons name="copy" size={14} color={colors.white} />
       </View>
     )}
 
@@ -1719,7 +1719,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   vibeTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
-    color: '#fff',
+    color: colors.white,
     marginBottom: 6,
     textShadowColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
@@ -1740,7 +1740,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   vibeUserName: {
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
-    color: '#fff',
+    color: colors.white,
     flex: 1,
   },
   vibeLikes: {
@@ -1750,7 +1750,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   vibeLikesText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 11,
-    color: '#fff',
+    color: colors.white,
     marginLeft: 4,
   },
   vibeLikesTextLiked: {

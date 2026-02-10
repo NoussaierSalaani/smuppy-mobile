@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { SmuppyText } from './SmuppyLogo';
 import { useTabBar } from '../context/TabBarContext';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { useUserStore } from '../stores/userStore';
 import { useAppStore } from '../stores/appStore';
 import { LiquidTabs } from './LiquidTabs';
@@ -47,6 +47,7 @@ function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): Reac
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { topBarTranslate, barsOpacity, xplorerFullscreen } = useTabBar();
   const { colors, gradients, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const unreadNotifications = useAppStore((state) => state.unreadNotifications);
 
   // Check if user is pro_creator or pro_business for special styling
@@ -241,7 +242,7 @@ function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): Reac
 
 export default React.memo(HomeHeader);
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   wrapper: {
     position: 'absolute',
     top: 0,
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     right: -10,
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
     borderRadius: 10,
     paddingHorizontal: 6,
     minWidth: 20,
@@ -353,7 +354,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 10,
     fontWeight: '700',
   },

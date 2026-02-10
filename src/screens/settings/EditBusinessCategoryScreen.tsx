@@ -190,7 +190,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   hintText: {
     fontSize: 12,
-    color: isDark ? colors.gray : '#8E8E93',
+    color: colors.gray,
     marginTop: 4,
   },
 
@@ -221,7 +221,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
     paddingHorizontal: 12.5,
     borderRadius: 18.5,
-    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E6FAF8',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : colors.primaryLight,
     gap: 8,
   },
   chipText: {

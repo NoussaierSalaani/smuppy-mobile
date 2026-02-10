@@ -416,13 +416,13 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     ...SHADOWS.cardMedium,
   },
   planCardCurrent: {
-    borderColor: '#FFD700',
+    borderColor: colors.gold,
   },
   popularBadge: {
     position: 'absolute',
     top: -10,
     right: 20,
-    backgroundColor: '#FF6B6B',
+    backgroundColor: colors.heartRed,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -436,7 +436,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     position: 'absolute',
     top: -10,
     right: 20,
-    backgroundColor: '#FFD700',
+    backgroundColor: colors.gold,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -444,7 +444,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   currentText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#333',
+    color: colors.dark,
   },
   planIconContainer: {
     width: 48,
@@ -543,7 +543,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingTop: 16,
     backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
-    borderTopColor: isDark ? colors.border : '#F1F5F9',
+    borderTopColor: colors.grayBorder,
   },
   subscribeButton: {
     borderRadius: 16,

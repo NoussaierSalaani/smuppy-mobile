@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { SessionRecap } from '../services/vibeGuardian';
 import { getMoodDisplay } from '../hooks/useMoodAI';
-import { SPACING, HIT_SLOP } from '../config/theme';
+import { SPACING, HIT_SLOP, COLORS } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface SessionRecapModalProps {
@@ -21,8 +21,8 @@ interface SessionRecapModalProps {
 
 const TRAJECTORY_CONFIG = {
   improved: { icon: 'trending-up' as const, label: 'Improved', color: '#4CAF50' },
-  stable: { icon: 'remove' as const, label: 'Stable', color: '#FF9800' },
-  declined: { icon: 'trending-down' as const, label: 'Declined', color: '#FF6B6B' },
+  stable: { icon: 'remove' as const, label: 'Stable', color: COLORS.orange },
+  declined: { icon: 'trending-down' as const, label: 'Declined', color: COLORS.heartRed },
 };
 
 const SessionRecapModal: React.FC<SessionRecapModalProps> = ({ visible, recap, onDismiss }) => {

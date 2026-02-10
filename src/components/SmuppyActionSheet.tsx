@@ -94,7 +94,7 @@ const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
                         <Ionicons
                           name={option.icon as keyof typeof Ionicons.glyphMap}
                           size={22}
-                          color={option.destructive ? '#FF3B30' : '#0EBF8A'}
+                          color={option.destructive ? colors.error : colors.primary}
                         />
                       </View>
                     )}
@@ -110,7 +110,7 @@ const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
                     <Ionicons
                       name="chevron-forward"
                       size={18}
-                      color={option.destructive ? '#FF3B30' : '#C7C7CC'}
+                      color={option.destructive ? colors.error : colors.grayMuted}
                     />
                   </TouchableOpacity>
                 ))}
@@ -124,7 +124,7 @@ const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
                   style={styles.cancelButton}
                 >
                   <LinearGradient
-                    colors={isDark ? [colors.backgroundSecondary, colors.backgroundSecondary] : ['#F5F5F5', '#EBEBEB']}
+                    colors={isDark ? [colors.backgroundSecondary, colors.backgroundSecondary] : [colors.backgroundSecondary, colors.grayBorder]}
                     style={styles.cancelGradient}
                   >
                     <Text style={styles.cancelText}>{cancelLabel}</Text>
@@ -269,7 +269,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     color: colors.dark,
   },
   optionTextDestructive: {
-    color: '#FF3B30',
+    color: colors.error,
   },
   optionTextDisabled: {
     color: colors.grayMuted,
@@ -282,7 +282,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   cancelGradient: {
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: isDark ? colors.backgroundSecondary : '#F5F5F5',
+    backgroundColor: isDark ? colors.backgroundSecondary : colors.backgroundSecondary,
   },
   cancelText: {
     fontSize: 17,

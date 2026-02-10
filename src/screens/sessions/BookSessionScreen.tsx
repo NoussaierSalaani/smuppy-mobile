@@ -282,7 +282,7 @@ export default function BookSessionScreen(): React.JSX.Element {
             {/* Date Selection */}
             <Text style={styles.sectionTitle}>Select Date</Text>
             <Text style={styles.availabilityNote}>
-              <Ionicons name="information-circle-outline" size={12} color="#8E8E93" /> Only available dates are selectable
+              <Ionicons name="information-circle-outline" size={12} color={colors.gray} /> Only available dates are selectable
             </Text>
             <ScrollView
               horizontal
@@ -419,13 +419,13 @@ export default function BookSessionScreen(): React.JSX.Element {
 
                     <View style={styles.packDetails}>
                       <View style={styles.packDetailRow}>
-                        <Ionicons name="time-outline" size={14} color="#8E8E93" />
+                        <Ionicons name="time-outline" size={14} color={colors.gray} />
                         <Text style={styles.packDetailText}>
                           {pack.sessionsIncluded} sessions × {pack.sessionDuration}min
                         </Text>
                       </View>
                       <View style={styles.packDetailRow}>
-                        <Ionicons name="calendar-outline" size={14} color="#8E8E93" />
+                        <Ionicons name="calendar-outline" size={14} color={colors.gray} />
                         <Text style={styles.packDetailText}>
                           Valid {pack.validityDays} days from purchase
                         </Text>

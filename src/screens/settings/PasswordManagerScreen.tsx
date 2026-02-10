@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar, KeyboardAvoidingView, Platform, ScrollView, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { awsAuth } from '../../services/aws-auth';
 import { validatePassword, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface PasswordManagerScreenProps {
   navigation: { goBack: () => void };
@@ -13,6 +14,8 @@ interface PasswordManagerScreenProps {
 
 const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -91,9 +94,9 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
       <View style={styles.passwordInputContainer}>
-        <TextInput style={styles.passwordInput} value={value} onChangeText={setValue} placeholder={placeholder} placeholderTextColor="#C7C7CC" secureTextEntry={!showPassword} autoCapitalize="none" onFocus={onFocus} onBlur={onBlur} />
+        <TextInput style={styles.passwordInput} value={value} onChangeText={setValue} placeholder={placeholder} placeholderTextColor={colors.grayMuted} secureTextEntry={!showPassword} autoCapitalize="none" onFocus={onFocus} onBlur={onBlur} />
         <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
-          <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={22} color="#C7C7CC" />
+          <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={22} color={colors.grayMuted} />
         </TouchableOpacity>
       </View>
     </View>
@@ -104,7 +107,7 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={[styles.modalIconBox, styles.modalIconBoxSuccess]}>
-            <Ionicons name="checkmark-circle" size={40} color="#0EBF8A" />
+            <Ionicons name="checkmark-circle" size={40} color={colors.primary} />
           </View>
           <Text style={styles.modalTitle}>Password Updated!</Text>
           <Text style={styles.modalMessage}>
@@ -125,10 +128,10 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <TouchableOpacity style={styles.modalClose} onPress={() => setErrorModal({ ...errorModal, visible: false })}>
-            <Ionicons name="close" size={24} color="#9CA3AF" />
+            <Ionicons name="close" size={24} color={colors.gray400} />
           </TouchableOpacity>
           <View style={[styles.modalIconBox, styles.modalIconBoxError]}>
-            <Ionicons name="alert-circle" size={40} color="#FF3B30" />
+            <Ionicons name="alert-circle" size={40} color={colors.error} />
           </View>
           <Text style={styles.modalTitle}>{errorModal.title}</Text>
           <Text style={styles.modalMessage}>{errorModal.message}</Text>
@@ -142,11 +145,11 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Change Password</Text>
         <TouchableOpacity style={[styles.saveButton, !canSave && styles.saveButtonDisabled]} onPress={handleSave} disabled={!canSave || saving}>
@@ -157,7 +160,7 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
       <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.infoBanner}>
-            <Ionicons name="information-circle" size={20} color="#0891B2" />
+            <Ionicons name="information-circle" size={20} color={colors.cyanBlue} />
             <Text style={styles.infoBannerText}>Changing your password will log out all other devices.</Text>
           </View>
 
@@ -177,7 +180,7 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
             <View style={styles.rulesContainer}>
               {passwordRules.map((rule) => (
                 <View key={rule.id} style={styles.ruleRow}>
-                  <Ionicons name={rule.passed ? "checkmark-circle" : "ellipse-outline"} size={16} color={rule.passed ? '#0EBF8A' : '#9CA3AF'} />
+                  <Ionicons name={rule.passed ? "checkmark-circle" : "ellipse-outline"} size={16} color={rule.passed ? colors.primary : colors.gray400} />
                   <Text style={[styles.ruleText, rule.passed && styles.ruleTextPassed]}>{rule.label}</Text>
                 </View>
               ))}
@@ -188,8 +191,8 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
 
           {confirmPassword.length > 0 && (
             <View style={styles.matchRow}>
-              <Ionicons name={passwordsMatch ? "checkmark-circle" : "close-circle"} size={16} color={passwordsMatch ? '#0EBF8A' : '#FF3B30'} />
-              <Text style={[styles.matchText, { color: passwordsMatch ? '#0EBF8A' : '#FF3B30' }]}>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</Text>
+              <Ionicons name={passwordsMatch ? "checkmark-circle" : "close-circle"} size={16} color={passwordsMatch ? colors.primary : colors.error} />
+              <Text style={[styles.matchText, { color: passwordsMatch ? colors.primary : colors.error }]}>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</Text>
             </View>
           )}
 
@@ -208,50 +211,50 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   keyboardView: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#0A0A0F' },
-  saveButton: { backgroundColor: '#0EBF8A', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-  saveButtonDisabled: { backgroundColor: '#E8E8E8' },
-  saveButtonText: { fontSize: 14, fontWeight: '600', color: '#FFF' },
-  saveButtonTextDisabled: { color: '#C7C7CC' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.dark },
+  saveButton: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  saveButtonDisabled: { backgroundColor: colors.buttonDisabled },
+  saveButtonText: { fontSize: 14, fontWeight: '600', color: colors.white },
+  saveButtonTextDisabled: { color: colors.grayMuted },
   content: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
-  infoBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFEFF', borderRadius: 12, padding: 14, marginBottom: 24, gap: 10 },
-  infoBannerText: { flex: 1, fontSize: 13, color: '#0891B2', lineHeight: 18 },
+  infoBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryLight, borderRadius: 12, padding: 14, marginBottom: 24, gap: 10 },
+  infoBannerText: { flex: 1, fontSize: 13, color: colors.cyanBlue, lineHeight: 18 },
   inputGroup: { marginBottom: 20 },
-  inputLabel: { fontSize: 14, fontWeight: '500', color: '#0A0A0F', marginBottom: 8 },
-  passwordInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 12, paddingRight: 12 },
-  passwordInput: { flex: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: '#0A0A0F' },
+  inputLabel: { fontSize: 14, fontWeight: '500', color: colors.dark, marginBottom: 8 },
+  passwordInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundSecondary, borderRadius: 12, paddingRight: 12 },
+  passwordInput: { flex: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: colors.dark },
   eyeButton: { padding: 8 },
   strengthContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginTop: -8, gap: 10 },
-  strengthBarBg: { flex: 1, height: 4, backgroundColor: '#E8E8E8', borderRadius: 2, overflow: 'hidden' },
+  strengthBarBg: { flex: 1, height: 4, backgroundColor: colors.grayBorder, borderRadius: 2, overflow: 'hidden' },
   strengthBar: { height: '100%', borderRadius: 2 },
   strengthText: { fontSize: 12, fontWeight: '600', minWidth: 70 },
-  rulesContainer: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, marginBottom: 20 },
+  rulesContainer: { backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 14, marginBottom: 20 },
   ruleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  ruleText: { fontSize: 13, color: '#9CA3AF' },
-  ruleTextPassed: { color: '#0A0A0F' },
+  ruleText: { fontSize: 13, color: colors.gray400 },
+  ruleTextPassed: { color: colors.dark },
   matchRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -12, marginBottom: 20 },
   matchText: { fontSize: 13, fontWeight: '500' },
   forgotButton: { alignSelf: 'flex-start', marginTop: 8, paddingVertical: 8 },
   forgotButtonDisabled: { opacity: 0.6 },
-  forgotButtonText: { fontSize: 14, fontWeight: '500', color: '#0EBF8A' },
-  forgotButtonTextDisabled: { color: '#9CA3AF' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 },
-  modalContent: { width: '100%', backgroundColor: '#FFF', borderRadius: 24, padding: 28, alignItems: 'center' },
+  forgotButtonText: { fontSize: 14, fontWeight: '500', color: colors.primary },
+  forgotButtonTextDisabled: { color: colors.gray400 },
+  modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  modalContent: { width: '100%', backgroundColor: colors.card, borderRadius: 24, padding: 28, alignItems: 'center' },
   modalClose: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
   modalIconBox: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#0A0A0F', marginBottom: 12, textAlign: 'center' },
-  modalMessage: { fontSize: 14, color: '#0A0A0F', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.dark, marginBottom: 12, textAlign: 'center' },
+  modalMessage: { fontSize: 14, color: colors.dark, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   modalMessageBold: { fontWeight: '600' },
-  modalBtn: { width: '100%', paddingVertical: 16, backgroundColor: '#0EBF8A', borderRadius: 14, alignItems: 'center' },
-  modalBtnError: { backgroundColor: '#FF3B30' },
-  modalBtnText: { fontSize: 16, fontWeight: '600', color: '#FFF' },
-  modalIconBoxSuccess: { backgroundColor: '#E8FBF5' },
-  modalIconBoxError: { backgroundColor: '#FEE2E2' },
+  modalBtn: { width: '100%', paddingVertical: 16, backgroundColor: colors.primary, borderRadius: 14, alignItems: 'center' },
+  modalBtnError: { backgroundColor: colors.error },
+  modalBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+  modalIconBoxSuccess: { backgroundColor: colors.primaryLight },
+  modalIconBoxError: { backgroundColor: colors.errorLight },
   bottomSpacer: { height: 40 },
 });
 

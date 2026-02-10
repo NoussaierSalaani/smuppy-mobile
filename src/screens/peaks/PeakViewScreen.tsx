@@ -1963,7 +1963,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     borderRadius: 20,
   },
   replyButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -2111,7 +2111,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'flex-end',
   },
   menuContainer: {
-    backgroundColor: isDark ? '#1C1C1E' : colors.white,
+    backgroundColor: isDark ? colors.darkGray : colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -2123,7 +2123,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   menuHandle: {
     width: 40,
     height: 4,
-    backgroundColor: isDark ? '#3A3A3C' : colors.gray300,
+    backgroundColor: isDark ? colors.grayLight : colors.gray300,
     borderRadius: 2,
   },
   menuItem: {
@@ -2140,18 +2140,18 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   menuItemDanger: {
     borderTopWidth: 1,
-    borderTopColor: isDark ? '#2C2C2E' : colors.grayBorder,
+    borderTopColor: colors.grayBorder,
     marginTop: 8,
     paddingTop: 24,
   },
   menuItemTextDanger: {
-    color: '#FF453A',
+    color: colors.error,
   },
   menuCancelButton: {
     marginTop: 16,
     marginHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
+    backgroundColor: colors.gray100,
     borderRadius: 14,
     alignItems: 'center',
   },
@@ -2167,7 +2167,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'flex-end',
   },
   responsesContainer: {
-    backgroundColor: isDark ? '#1C1C1E' : colors.white,
+    backgroundColor: isDark ? colors.darkGray : colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '70%',
@@ -2178,7 +2178,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingTop: 12,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: isDark ? '#2C2C2E' : colors.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   responsesTitleRow: {
     flexDirection: 'row',
@@ -2219,13 +2219,13 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingVertical: 12,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: isDark ? '#2C2C2E' : colors.grayBorder,
+    borderBottomColor: colors.grayBorder,
   },
   responseThumbnail: {
     width: 56,
     height: 56,
     borderRadius: 8,
-    backgroundColor: isDark ? '#2C2C2E' : colors.gray100,
+    backgroundColor: colors.gray100,
   },
   responseInfo: {
     flex: 1,
@@ -2290,7 +2290,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   commentText: {
     fontSize: 14,
-    color: isDark ? '#E5E5E5' : colors.dark,
+    color: colors.dark,
     lineHeight: 19,
   },
   commentInputContainer: {
@@ -2299,12 +2299,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: isDark ? '#2C2C2E' : colors.grayBorder,
+    borderTopColor: colors.grayBorder,
     gap: 10,
   },
   commentInput: {
     flex: 1,
-    backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7',
+    backgroundColor: isDark ? colors.gray100 : colors.backgroundSecondary,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,

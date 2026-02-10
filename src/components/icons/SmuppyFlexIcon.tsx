@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
+import { COLORS } from '../../config/theme';
 
 interface SmuppyFlexIconProps {
   size?: number;
@@ -15,7 +16,7 @@ interface SmuppyFlexIconProps {
  */
 const SmuppyFlexIcon: React.FC<SmuppyFlexIconProps> = ({
   size = 24,
-  color = '#0EBF8A',
+  color = COLORS.primary,
   filled = false,
   style,
 }) => {
@@ -113,10 +114,10 @@ export default SmuppyFlexIcon;
 // Export variants
 export const SmuppyFlexOutline: React.FC<{ size?: number; color?: string }> = ({
   size = 24,
-  color = '#0EBF8A',
+  color = COLORS.primary,
 }) => <SmuppyFlexIcon size={size} color={color} filled={false} />;
 
 export const SmuppyFlexFilled: React.FC<{ size?: number; color?: string }> = ({
   size = 24,
-  color = '#0EBF8A',
+  color = COLORS.primary,
 }) => <SmuppyFlexIcon size={size} color={color} filled={true} />;

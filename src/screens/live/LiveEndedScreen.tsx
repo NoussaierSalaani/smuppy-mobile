@@ -97,7 +97,7 @@ export default function LiveEndedScreen(): React.JSX.Element {
 
         {/* Message */}
         <View style={styles.messageCard}>
-          <Ionicons name="heart" size={20} color="#FF6B6B" />
+          <Ionicons name="heart" size={20} color={colors.heartRed} />
           <Text style={styles.messageText}>
             Thank you for going live! Your fans loved it.
           </Text>

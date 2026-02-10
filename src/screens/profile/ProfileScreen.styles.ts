@@ -607,7 +607,7 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   qrHint: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     marginBottom: 24,
   },
   profileLinkContainer: {
@@ -620,13 +620,13 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   profileLinkText: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.gray,
     textAlign: 'center',
   },
   qrCopyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -749,7 +749,7 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     left: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
@@ -982,7 +982,7 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   sessionStatusTextUpcoming: {
-    color: '#0EBF8A',
+    color: colors.primary,
   },
   sessionStatusTextCompleted: {
     color: colors.gray400,

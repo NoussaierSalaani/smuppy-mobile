@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 // Website base URL for legal pages
 const WEBSITE_BASE_URL = 'https://smuppy.com';
@@ -60,6 +61,8 @@ interface TermsPoliciesScreenProps {
 
 const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { showError } = useSmuppyAlert();
 
   const openLink = async (url: string, title: string) => {
@@ -77,7 +80,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -85,7 +88,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Terms and policies</Text>
         <View style={styles.headerSpacer} />
@@ -97,7 +100,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
       >
         {/* Important Notice */}
         <View style={styles.noticeBox}>
-          <Ionicons name="information-circle" size={20} color="#0EBF8A" />
+          <Ionicons name="information-circle" size={20} color={colors.primary} />
           <Text style={styles.noticeText}>
             By using Smuppy, you agree to all the policies below. Tap any item to read the full document on our website.
           </Text>
@@ -113,13 +116,13 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={styles.linkIconBox}>
-                <Ionicons name={policy.icon} size={22} color="#0EBF8A" />
+                <Ionicons name={policy.icon} size={22} color={colors.primary} />
               </View>
               <View style={styles.linkContent}>
                 <Text style={styles.linkTitle}>{policy.title}</Text>
                 <Text style={styles.linkDescription}>{policy.description}</Text>
               </View>
-              <Ionicons name="open-outline" size={20} color="#C7C7CC" />
+              <Ionicons name="open-outline" size={20} color={colors.grayMuted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -134,7 +137,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
             style={styles.contactButton}
             onPress={() => openLink('mailto:legal@smuppy.app', 'Email')}
           >
-            <Ionicons name="mail-outline" size={18} color="#0EBF8A" />
+            <Ionicons name="mail-outline" size={18} color={colors.primary} />
             <Text style={styles.contactButtonText}>legal@smuppy.app</Text>
           </TouchableOpacity>
         </View>
@@ -145,10 +148,10 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
+    borderBottomColor: colors.grayBorder,
   },
   backButton: {
     width: 40,
@@ -168,7 +171,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   headerSpacer: {
     width: 40,
@@ -181,7 +184,7 @@ const styles = StyleSheet.create({
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#E6FAF8',
+    backgroundColor: colors.primaryLight,
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
@@ -191,7 +194,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: 'Poppins-Medium',
-    color: '#0a252f',
+    color: colors.dark,
     lineHeight: 20,
   },
   linksContainer: {
@@ -200,7 +203,7 @@ const styles = StyleSheet.create({
   linkItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 14,
     padding: 16,
     gap: 14,
@@ -209,7 +212,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#E6FAF8',
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -219,31 +222,31 @@ const styles = StyleSheet.create({
   linkTitle: {
     fontSize: 16,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 2,
   },
   linkDescription: {
     fontSize: 13,
     fontFamily: 'Poppins-Regular',
-    color: '#8E8E93',
+    color: colors.graySecondary,
   },
   contactSection: {
     marginTop: 32,
     paddingTop: 24,
     borderTopWidth: 1,
-    borderTopColor: '#F2F2F2',
+    borderTopColor: colors.grayBorder,
     alignItems: 'center',
   },
   contactTitle: {
     fontSize: 17,
     fontFamily: 'WorkSans-Bold',
-    color: '#0A0A0F',
+    color: colors.dark,
     marginBottom: 8,
   },
   contactText: {
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#8E8E93',
+    color: colors.graySecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 16,
@@ -256,12 +259,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 25,
     borderWidth: 1.5,
-    borderColor: '#0EBF8A',
+    borderColor: colors.primary,
   },
   contactButtonText: {
     fontSize: 15,
     fontFamily: 'Poppins-Medium',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
 });
 

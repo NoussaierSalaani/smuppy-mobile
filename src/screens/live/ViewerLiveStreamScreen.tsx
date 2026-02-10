@@ -257,7 +257,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="light-content" />
-        <Ionicons name="alert-circle" size={48} color="#FF3B30" />
+        <Ionicons name="alert-circle" size={48} color={colors.error} />
         <Text style={styles.errorText}>Unable to join stream. Please try again.</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
           <Text style={styles.retryText}>Go Back</Text>
@@ -530,7 +530,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     marginTop: 16,
   },
   errorText: {
-    color: '#FF3B30',
+    color: colors.error,
     fontSize: 16,
     marginTop: 16,
     textAlign: 'center',
@@ -612,7 +612,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,

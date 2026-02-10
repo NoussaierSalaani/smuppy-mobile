@@ -20,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
+import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface TopTipper {
   rank: number;
@@ -47,7 +49,7 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: 'all_time', label: 'All Time' },
 ];
 
-const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
+const RANK_COLORS = [COLORS.gold, '#C0C0C0', '#CD7F32'];
 const RANK_ICONS = ['trophy', 'medal', 'ribbon'];
 
 export default function TipLeaderboard({
@@ -58,6 +60,7 @@ export default function TipLeaderboard({
 }: TipLeaderboardProps) {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void }>();
   const { formatAmount } = useCurrency();
+  const { colors } = useTheme();
 
   const [topTippers, setTopTippers] = useState<TopTipper[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -148,7 +151,7 @@ export default function TipLeaderboard({
           {/* Crown for #1 */}
           {position === 0 && (
             <View style={styles.crownContainer}>
-              <Ionicons name="diamond" size={24} color="#FFD700" />
+              <Ionicons name="diamond" size={24} color={colors.gold} />
             </View>
           )}
 
@@ -236,7 +239,7 @@ export default function TipLeaderboard({
       <View style={styles.compactContainer}>
         <View style={styles.compactHeader}>
           <View style={styles.compactHeaderLeft}>
-            <Ionicons name="trophy" size={18} color="#FFD700" />
+            <Ionicons name="trophy" size={18} color={colors.gold} />
             <Text style={styles.compactTitle}>Top Supporters</Text>
           </View>
           <TouchableOpacity
@@ -297,7 +300,7 @@ export default function TipLeaderboard({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerIcon}>
-          <LinearGradient colors={['#FFD700', '#FFA500']} style={styles.headerIconGradient}>
+          <LinearGradient colors={[colors.gold, '#FFA500']} style={styles.headerIconGradient}>
             <Ionicons name="trophy" size={24} color="#000" />
           </LinearGradient>
         </View>
@@ -390,11 +393,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.white,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#888',
+    color: COLORS.gray,
   },
   periodTabs: {
     flexDirection: 'row',
@@ -415,10 +418,10 @@ const styles = StyleSheet.create({
   periodText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#888',
+    color: COLORS.gray,
   },
   periodTextActive: {
-    color: '#FFD700',
+    color: COLORS.gold,
   },
   podiumContainer: {
     flexDirection: 'row',
@@ -460,12 +463,12 @@ const styles = StyleSheet.create({
   rankText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#000',
+    color: COLORS.dark,
   },
   podiumUsername: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.white,
     marginTop: 8,
     maxWidth: 90,
     textAlign: 'center',
@@ -505,7 +508,7 @@ const styles = StyleSheet.create({
   listRankText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#888',
+    color: COLORS.gray,
   },
   listAvatar: {
     width: 40,
@@ -524,11 +527,11 @@ const styles = StyleSheet.create({
   listUsername: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.white,
   },
   listTipCount: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.gray,
     marginTop: 2,
   },
   listAmountContainer: {
@@ -537,7 +540,7 @@ const styles = StyleSheet.create({
   listAmount: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFD700',
+    color: COLORS.gold,
   },
   loader: {
     marginTop: 40,
@@ -551,12 +554,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.white,
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#888',
+    color: COLORS.gray,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -580,7 +583,7 @@ const styles = StyleSheet.create({
   compactTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.white,
   },
   seeAllText: {
     fontSize: 13,
@@ -620,11 +623,11 @@ const styles = StyleSheet.create({
   compactRankText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#000',
+    color: COLORS.dark,
   },
   compactUsername: {
     fontSize: 11,
-    color: '#fff',
+    color: COLORS.white,
     fontWeight: '500',
     maxWidth: 70,
     textAlign: 'center',
@@ -636,7 +639,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.gray,
     textAlign: 'center',
   },
 });

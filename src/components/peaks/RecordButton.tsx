@@ -5,6 +5,7 @@ import {
   Pressable,
 } from 'react-native';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { COLORS } from '../../config/theme';
 import Animated, {
   useSharedValue,
   useAnimatedProps,
@@ -194,7 +195,7 @@ const RecordButton = ({
               <Defs>
                 {/* Green/cyan gradient for the S */}
                 <LinearGradient id="sGradient" x1="18" y1="16" x2="55" y2="58" gradientUnits="userSpaceOnUse">
-                  <Stop offset="0" stopColor="#0EBF8A" />
+                  <Stop offset="0" stopColor={COLORS.primary} />
                   <Stop offset="1" stopColor="#00B3C7" />
                 </LinearGradient>
               </Defs>

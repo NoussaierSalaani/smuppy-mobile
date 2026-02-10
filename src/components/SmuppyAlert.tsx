@@ -55,7 +55,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
   const ICON_MAP: Record<AlertType, { name: string; color: string }> = {
     success: { name: 'checkmark-circle', color: colors.primary },
     error: { name: 'close-circle', color: colors.error },
-    warning: { name: 'warning', color: '#FF9500' },
+    warning: { name: 'warning', color: colors.orange },
     info: { name: 'information-circle', color: '#007AFF' },
     confirm: { name: 'help-circle', color: '#007AFF' },
   };
@@ -157,7 +157,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
                     style={styles.buttonPrimary}
                   >
                     <LinearGradient
-                      colors={[colors.error, '#FF6B6B']}
+                      colors={[colors.error, colors.heartRed]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.buttonGradient}

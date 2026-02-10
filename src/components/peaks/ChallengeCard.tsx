@@ -82,7 +82,7 @@ const ChallengeCard = memo(({ challenge, onPress, onAccept, compact }: Challenge
           style={styles.thumbnail}
         />
         <View style={styles.thumbnailOverlay}>
-          <Ionicons name="trophy" size={20} color="#FFD700" />
+          <Ionicons name="trophy" size={20} color={colors.gold} />
         </View>
         {timeRemaining ? (
           <View style={[styles.timeBadge, hasEnded && styles.timeBadgeEnded]}>
@@ -234,7 +234,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean, compact?: boolean) =
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    backgroundColor: '#FFD700',
+    backgroundColor: colors.gold,
     borderRadius: 8,
     paddingVertical: 7,
   },

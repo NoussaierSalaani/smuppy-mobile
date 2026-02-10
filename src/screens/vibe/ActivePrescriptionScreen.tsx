@@ -221,7 +221,7 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
         <View style={styles.bottomSection}>
           <TouchableOpacity onPress={handleGo} activeOpacity={0.8}>
             <LinearGradient
-              colors={['#00B3C7', '#0EBF8A']}
+              colors={['#00B3C7', colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.completeButton}
@@ -287,7 +287,7 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
         ) : isManual ? (
           <TouchableOpacity onPress={handleMarkDone} activeOpacity={0.8}>
             <LinearGradient
-              colors={['#00B3C7', '#0EBF8A']}
+              colors={['#00B3C7', colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.markDoneButton}
@@ -312,7 +312,7 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
         {phase === 'complete' ? (
           <TouchableOpacity onPress={handleComplete} activeOpacity={0.8}>
             <LinearGradient
-              colors={['#00B3C7', '#0EBF8A']}
+              colors={['#00B3C7', colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.completeButton}

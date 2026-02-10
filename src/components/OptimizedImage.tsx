@@ -8,6 +8,7 @@ import React, { memo, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native';
 import { Image, ImageContentFit, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../hooks/useTheme';
 
 // Blurhash placeholder for smooth loading
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
@@ -80,6 +81,8 @@ const OptimizedImage = memo<OptimizedImageProps>(({
   onError,
   ...props
 }) => {
+  const { colors } = useTheme();
+
   // Handle different source formats and normalize CDN URLs
   let resolvedSource: ImageSource | number | undefined;
   if (typeof source === 'string') {
@@ -95,7 +98,7 @@ const OptimizedImage = memo<OptimizedImageProps>(({
   // Skip rendering if no valid source
   if (!resolvedSource || (typeof resolvedSource === 'object' && !resolvedSource.uri)) {
     return (
-      <View style={[styles.placeholder, style as StyleProp<ViewStyle>]} />
+      <View style={[styles.placeholder, { backgroundColor: colors.gray100 }, style as StyleProp<ViewStyle>]} />
     );
   }
 
@@ -124,9 +127,11 @@ export const AvatarImage = memo<AvatarImageProps>(({
   source,
   size = 40,
   style,
-  fallbackColor = '#E5E7EB',
+  fallbackColor,
   ...props
 }) => {
+  const { colors } = useTheme();
+  const resolvedFallback = fallbackColor ?? colors.grayBorder;
   const avatarStyle = {
     width: size,
     height: size,
@@ -136,8 +141,8 @@ export const AvatarImage = memo<AvatarImageProps>(({
   // If no source, show placeholder with person icon
   if (!source) {
     return (
-      <View style={[avatarStyle, { backgroundColor: fallbackColor, alignItems: 'center', justifyContent: 'center' }, style]}>
-        <Ionicons name="person" size={size * 0.5} color="#9CA3AF" />
+      <View style={[avatarStyle, { backgroundColor: resolvedFallback, alignItems: 'center', justifyContent: 'center' }, style]}>
+        <Ionicons name="person" size={size * 0.5} color={colors.gray400} />
       </View>
     );
   }

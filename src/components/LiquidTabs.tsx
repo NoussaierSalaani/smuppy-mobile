@@ -30,6 +30,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../hooks/useTheme';
+import { COLORS } from '../config/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -65,7 +66,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = React.memo(({
   size = 'medium',
   fullWidth = true,
 }) => {
-  const { isDark } = useTheme();
+  const { colors, isDark } = useTheme();
   const [measuredWidth, setMeasuredWidth] = useState<number>(0);
   const activeIndex = tabs.findIndex((t) => t.key === activeTab);
   const translateX = useSharedValue(0);
@@ -161,7 +162,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = React.memo(({
         {/* Animated Water Drop Indicator */}
         <Animated.View style={[styles.indicator, indicatorStyle]}>
           <LinearGradient
-            colors={['#10D99A', '#0EBF8A', '#00B5C1']}
+            colors={['#10D99A', colors.primary, '#00B5C1']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
   },
   solidBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.gray100,
   },
   innerContainer: {
     flexDirection: 'row',
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
   },
   indicatorGradient: {
     overflow: 'hidden',
-    shadowColor: '#0EBF8A',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   tabLabelActive: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

@@ -48,7 +48,7 @@ interface BaseNotification {
 }
 
 interface UserNotification extends BaseNotification {
-  type: 'follow' | 'like' | 'live' | 'peak_reply';
+  type: 'follow' | 'like' | 'peak_like' | 'live' | 'peak_reply' | 'comment' | 'peak_comment';
   user: NotificationUser;
   message: string;
   isFollowing?: boolean;
@@ -107,9 +107,11 @@ function mapNotificationType(backendType: string): UserNotification['type'] {
     case 'follow_request':
       return 'follow';
     case 'like':
-    case 'peak_like':
       return 'like';
+    case 'peak_like':
+      return 'peak_like';
     case 'comment':
+      return 'comment';
     case 'peak_comment':
     case 'peak_reply':
       return 'peak_reply';
@@ -208,6 +210,8 @@ function getDefaultMessage(type: string): string {
   switch (type) {
     case 'follow': return 'became your fan';
     case 'like': return 'liked your post';
+    case 'peak_like': return 'liked your Peak';
+    case 'comment': return 'commented on your post';
     case 'peak_reply': return 'replied to your Peak';
     case 'live': return 'is live now';
     default: return 'interacted with your content';
@@ -445,8 +449,8 @@ export default function NotificationsScreen(): React.JSX.Element {
   const filters: Filter[] = [
     { key: 'all', label: 'All' },
     { key: 'follow', label: 'New Fans' },
-    { key: 'like', label: 'Likes' },
-    { key: 'peak_reply', label: 'Peak Replies' },
+    { key: 'likes', label: 'Likes' },
+    { key: 'peaks', label: 'Peaks' },
   ];
 
   // Prefetch + navigate to user profile with UUID validation
@@ -460,15 +464,41 @@ export default function NotificationsScreen(): React.JSX.Element {
     navigation.navigate('UserProfile', { userId });
   }, [prefetchProfile, navigation]);
 
-  // Navigate to notification content (peak, post, event, etc.)
+  // Navigate to notification content — use type as primary signal to prevent cross-routing
   const navigateToContent = useCallback((notif: UserNotification): void => {
-    // Navigate based on notification type and available content IDs
-    if (notif.peakId && isValidUUID(notif.peakId)) {
-      navigation.navigate('PeakView', { peakId: notif.peakId });
-      return;
+    // Type-based routing: peak types → PeakView, post types → PostDetail
+    switch (notif.type) {
+      case 'peak_like':
+      case 'peak_reply':
+        if (notif.peakId && isValidUUID(notif.peakId)) {
+          navigation.navigate('PeakView', { peakId: notif.peakId });
+          return;
+        }
+        break;
+
+      case 'like':
+      case 'comment':
+        if (notif.postId && isValidUUID(notif.postId)) {
+          navigation.navigate('PostDetailFanFeed', { postId: notif.postId });
+          return;
+        }
+        break;
+
+      case 'live':
+        if (notif.streamId && isValidUUID(notif.streamId)) {
+          navigation.navigate('ViewerLiveStream', { channelName: notif.streamId, hostUsername: '', hostAvatar: '' });
+          return;
+        }
+        break;
     }
+
+    // Fallback: try content IDs in order
     if (notif.postId && isValidUUID(notif.postId)) {
       navigation.navigate('PostDetailFanFeed', { postId: notif.postId });
+      return;
+    }
+    if (notif.peakId && isValidUUID(notif.peakId)) {
+      navigation.navigate('PeakView', { peakId: notif.peakId });
       return;
     }
     if (notif.eventId && isValidUUID(notif.eventId)) {
@@ -487,11 +517,8 @@ export default function NotificationsScreen(): React.JSX.Element {
       navigation.navigate('BattleLobby', { battleId: notif.battleId });
       return;
     }
-    if (notif.streamId && isValidUUID(notif.streamId)) {
-      navigation.navigate('ViewerLiveStream', { channelName: notif.streamId, hostUsername: '', hostAvatar: '' });
-      return;
-    }
-    // Fallback: navigate to user profile if no content ID
+
+    // Ultimate fallback: navigate to user profile
     if (notif.user?.id) {
       goToUserProfile(notif.user.id);
     }
@@ -564,6 +591,8 @@ export default function NotificationsScreen(): React.JSX.Element {
 
   const filteredNotifications = useMemo(() => {
     if (activeFilter === 'all') return notifications;
+    if (activeFilter === 'likes') return notifications.filter((n) => n.type === 'like' || n.type === 'peak_like');
+    if (activeFilter === 'peaks') return notifications.filter((n) => n.type === 'peak_like' || n.type === 'peak_reply');
     return notifications.filter((n) => n.type === activeFilter);
   }, [notifications, activeFilter]);
 
@@ -580,17 +609,21 @@ export default function NotificationsScreen(): React.JSX.Element {
   ): { name: keyof typeof Ionicons.glyphMap; color: string } => {
     switch (type) {
       case 'like':
-        return { name: 'heart', color: '#FF6B6B' };
+      case 'peak_like':
+        return { name: 'heart', color: colors.heartRed };
       case 'follow':
         return { name: 'person-add', color: colors.blue };
+      case 'comment':
+        return { name: 'chatbubble', color: colors.primary };
       case 'peak_reply':
+      case 'peak_comment':
         return { name: 'videocam', color: colors.primary };
       case 'live':
         return { name: 'radio', color: '#FF5E57' };
       default:
         return { name: 'notifications', color: colors.primary };
     }
-  }, [colors.blue, colors.primary]);
+  }, [colors.blue, colors.primary, colors.heartRed]);
 
   // Build sections for SectionList from recent/older split
   const sections = useMemo((): NotificationSection[] => {
@@ -629,7 +662,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       {/* Error Banner */}
       {error && (
         <View style={styles.errorBanner}>
-          <Ionicons name="alert-circle-outline" size={20} color="#FF3B30" />
+          <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
             style={styles.retryButton}
@@ -975,7 +1008,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flex: 1,
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
-    color: '#FF3B30',
+    color: colors.error,
   },
   retryButton: {
     paddingHorizontal: 12,
@@ -986,7 +1019,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   retryButtonText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
-    color: '#FF3B30',
+    color: colors.error,
   },
   // Follow Requests Banner
   followRequestsBanner: {

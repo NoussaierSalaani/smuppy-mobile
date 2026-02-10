@@ -339,7 +339,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
     >
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -347,7 +347,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
           style={styles.backButton}
           onPress={handleGoBack}
         >
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity 
@@ -386,9 +386,9 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={styles.readOnlyInput}>
-                <Ionicons name="mail-outline" size={18} color="#8E8E93" style={styles.emailIcon} />
+                <Ionicons name="mail-outline" size={18} color={colors.graySecondary} style={styles.emailIcon} />
                 <Text style={styles.readOnlyText}>{userEmail}</Text>
-                <Ionicons name="lock-closed" size={14} color="#C7C7CC" />
+                <Ionicons name="lock-closed" size={14} color={colors.grayMuted} />
               </View>
             </View>
           )}
@@ -401,7 +401,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
               value={firstName}
               onChangeText={handleFirstNameChange}
               placeholder="First name"
-              placeholderTextColor="#C7C7CC"
+              placeholderTextColor={colors.grayMuted}
             />
           </View>
 
@@ -413,7 +413,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
               value={lastName}
               onChangeText={handleLastNameChange}
               placeholder="Last name"
-              placeholderTextColor="#C7C7CC"
+              placeholderTextColor={colors.grayMuted}
             />
           </View>
 
@@ -425,7 +425,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
               value={bio}
               onChangeText={handleBioChange}
               placeholder="Tell us about yourself..."
-              placeholderTextColor="#C7C7CC"
+              placeholderTextColor={colors.grayMuted}
               multiline
               maxLength={150}
               textAlignVertical="top"
@@ -443,7 +443,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
               <Text style={[styles.selectInputText, !dateOfBirth && styles.selectInputPlaceholder]}>
                 {dateOfBirth ? formatDateForDisplay(dateOfBirth) : 'Select date'}
               </Text>
-              <Ionicons name="calendar-outline" size={20} color="#C7C7CC" />
+              <Ionicons name="calendar-outline" size={20} color={colors.grayMuted} />
             </TouchableOpacity>
           </View>
 
@@ -457,7 +457,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
               <Text style={[styles.selectInputText, !gender && styles.selectInputPlaceholder]}>
                 {gender || 'Select gender'}
               </Text>
-              <Ionicons name="chevron-down" size={20} color="#C7C7CC" />
+              <Ionicons name="chevron-down" size={20} color={colors.grayMuted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -480,7 +480,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
                   value={businessAddress}
                   onChangeText={handleBusinessAddressChange}
                   placeholder="Start typing or use location..."
-                  placeholderTextColor="#C7C7CC"
+                  placeholderTextColor={colors.grayMuted}
                 />
                 {isLoadingSuggestions && <ActivityIndicator size="small" color={colors.primary} />}
               </View>
@@ -692,7 +692,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.grayBorder,
   },
   suggestionText: {
     flex: 1,

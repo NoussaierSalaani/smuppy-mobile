@@ -45,7 +45,7 @@ const EventGroupCard = memo(({
         <OptimizedImage source={coverImage} style={styles.thumbnail} />
       ) : (
         <View style={[styles.thumbnail, styles.placeholderThumb]}>
-          <Ionicons name="calendar-outline" size={28} color="#9CA3AF" />
+          <Ionicons name="calendar-outline" size={28} color={colors.gray400} />
         </View>
       )}
 
@@ -54,27 +54,27 @@ const EventGroupCard = memo(({
 
         {location ? (
           <View style={styles.row}>
-            <Ionicons name="location-outline" size={14} color="#8E8E93" />
+            <Ionicons name="location-outline" size={14} color={colors.gray} />
             <Text style={styles.rowText} numberOfLines={1}>{location}</Text>
           </View>
         ) : null}
 
         {startDate ? (
           <View style={styles.row}>
-            <Ionicons name="calendar-outline" size={14} color="#8E8E93" />
+            <Ionicons name="calendar-outline" size={14} color={colors.gray} />
             <Text style={styles.rowText} numberOfLines={1}>{formatShortDateTime(startDate)}</Text>
           </View>
         ) : null}
 
         <View style={styles.row}>
-          <Ionicons name="people-outline" size={14} color="#8E8E93" />
+          <Ionicons name="people-outline" size={14} color={colors.gray} />
           <Text style={styles.rowText}>{participantText} participants</Text>
         </View>
       </View>
 
       {isOwner && (
         <TouchableOpacity style={styles.menuBtn} onPress={onMenuPress} hitSlop={HIT_SLOP.medium}>
-          <Ionicons name="ellipsis-vertical" size={18} color="#8E8E93" />
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.gray} />
         </TouchableOpacity>
       )}
     </TouchableOpacity>

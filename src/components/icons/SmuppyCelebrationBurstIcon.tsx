@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
+import { COLORS } from '../../config/theme';
 
 interface SmuppyCelebrationBurstIconProps {
   size?: number;
@@ -23,7 +24,7 @@ interface SmuppyCelebrationBurstIconProps {
  */
 const SmuppyCelebrationBurstIcon: React.FC<SmuppyCelebrationBurstIconProps> = ({
   size = 24,
-  color = '#FFD700',
+  color = COLORS.gold,
   filled = false,
   style,
 }) => {

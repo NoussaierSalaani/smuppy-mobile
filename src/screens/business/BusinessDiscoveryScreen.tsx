@@ -295,7 +295,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
           key={star}
           name={star <= rating ? 'star' : star - 0.5 <= rating ? 'star-half' : 'star-outline'}
           size={size}
-          color="#FFD700"
+          color={colors.gold}
         />
       ))}
     </View>
@@ -1011,7 +1011,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   cardPriceRange: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFD700',
+    color: colors.gold,
   },
   cardUsername: {
     fontSize: 13,

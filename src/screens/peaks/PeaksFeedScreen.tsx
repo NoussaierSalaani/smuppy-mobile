@@ -479,7 +479,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: COLUMN_WIDTH * 1.6,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: isDark ? '#1C1C1E' : '#F5F5F5',
+    backgroundColor: isDark ? colors.darkCard : colors.backgroundSecondary,
   },
   groupThumbnail: {
     width: '100%',
@@ -500,7 +500,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   peakCountText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
   },
   challengeBadge: {
     position: 'absolute',
@@ -538,7 +538,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
   },
   groupViewsContainer: {
     flexDirection: 'row',
@@ -547,7 +547,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   groupViewsText: {
     fontSize: 11,
-    color: '#fff',
+    color: colors.white,
     opacity: 0.9,
   },
   emptyScrollContent: {

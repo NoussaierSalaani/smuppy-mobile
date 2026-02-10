@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
+import { COLORS } from '../../config/theme';
 
 interface SmuppyMedalIconProps {
   size?: number;
@@ -16,7 +17,7 @@ interface SmuppyMedalIconProps {
  */
 const SmuppyMedalIcon: React.FC<SmuppyMedalIconProps> = ({
   size = 24,
-  color = '#FFD700',
+  color = COLORS.gold,
   filled = false,
   style,
 }) => {
@@ -32,12 +33,12 @@ const SmuppyMedalIcon: React.FC<SmuppyMedalIconProps> = ({
         {/* Ribbon left */}
         <Path
           d="M8 2L6 8L9 7L12 10"
-          fill="#FF6B6B"
+          fill={COLORS.heartRed}
         />
         {/* Ribbon right */}
         <Path
           d="M16 2L18 8L15 7L12 10"
-          fill="#FF6B6B"
+          fill={COLORS.heartRed}
         />
 
         {/* Medal circle */}
@@ -95,7 +96,7 @@ const SmuppyMedalIcon: React.FC<SmuppyMedalIconProps> = ({
       {/* Ribbon */}
       <Path
         d="M8 2L6 8L9 7L12 10L15 7L18 8L16 2"
-        stroke="#FF6B6B"
+        stroke={COLORS.heartRed}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"

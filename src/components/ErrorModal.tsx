@@ -74,5 +74,5 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   title: { fontFamily: 'WorkSans-Bold', fontSize: 22, color: colors.dark, marginBottom: 12, textAlign: 'center' },
   message: { fontSize: 14, color: colors.dark, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   btn: { width: '100%', paddingVertical: 16, backgroundColor: colors.error, borderRadius: 14, alignItems: 'center' },
-  btnText: { fontFamily: 'WorkSans-SemiBold', fontSize: 16, color: '#FFFFFF' },
+  btnText: { fontFamily: 'WorkSans-SemiBold', fontSize: 16, color: colors.white },
 });

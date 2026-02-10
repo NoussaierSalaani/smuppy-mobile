@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import {
 } from '../../filters';
 import type { OverlayPosition } from '../../filters/types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -37,6 +38,8 @@ type VideoRecorderScreenProps = NativeStackScreenProps<ParamListBase, 'VideoReco
 function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderScreenProps) {
   const { showError, showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
@@ -270,7 +273,7 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
         {/* Active filter indicator */}
         {activeFilter && (
           <View style={styles.activeFilterBadge}>
-            <Ionicons name="sparkles" size={14} color="#0EBF8A" />
+            <Ionicons name="sparkles" size={14} color={colors.primary} />
             <Text style={styles.activeFilterText}>Filter Active</Text>
           </View>
         )}
@@ -320,7 +323,7 @@ function VideoRecorderScreenInner({ navigation, route: _route }: VideoRecorderSc
           {/* Done button (if segments saved) */}
           {segmentCount > 0 && !isRecording && (
             <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-              <Ionicons name="checkmark" size={24} color="#0A0A0F" />
+              <Ionicons name="checkmark" size={24} color={colors.dark} />
               <Text style={styles.doneButtonText}>Done</Text>
             </TouchableOpacity>
           )}
@@ -340,7 +343,7 @@ export default function VideoRecorderScreen(props: VideoRecorderScreenProps) {
   return <VideoRecorderScreenInner {...props} />;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -409,7 +412,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     borderRadius: 2,
   },
   timerText: {
@@ -435,12 +438,12 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FFF',
+    backgroundColor: colors.white,
   },
   recordingText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFF',
+    color: colors.white,
   },
 
   // Info
@@ -476,13 +479,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   recordButtonActive: {
-    borderColor: '#FF3B30',
+    borderColor: colors.error,
   },
   recordButtonInner: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
   },
   recordButtonInnerActive: {
     width: 30,
@@ -492,7 +495,7 @@ const styles = StyleSheet.create({
   doneButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -502,7 +505,7 @@ const styles = StyleSheet.create({
   doneButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
 
   // Permission
@@ -512,7 +515,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   permissionButton: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
@@ -520,7 +523,7 @@ const styles = StyleSheet.create({
   permissionButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
 
   // Filter styles
@@ -543,11 +546,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 6,
     borderWidth: 1,
-    borderColor: '#0EBF8A',
+    borderColor: colors.primary,
   },
   activeFilterText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
   },
 });

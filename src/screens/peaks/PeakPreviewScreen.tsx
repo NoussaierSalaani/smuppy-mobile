@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as MediaLibrary from 'expo-media-library';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAuth } from '../../services/aws-auth';
 import { uploadPeakMedia, generateVideoThumbnail, uploadImage } from '../../services/mediaUpload';
@@ -91,6 +92,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const [locationSearch, setLocationSearch] = useState('');
   const [feedDuration, setFeedDuration] = useState(48);
   const [saveToProfile, setSaveToProfile] = useState(true);
+  const [saveToPhone, setSaveToPhone] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -249,6 +251,18 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         }
       }
 
+      // Save video to camera roll if requested
+      if (saveToPhone && videoUri) {
+        try {
+          const { status } = await MediaLibrary.requestPermissionsAsync();
+          if (status === 'granted') {
+            await MediaLibrary.saveToLibraryAsync(videoUri);
+          }
+        } catch {
+          if (__DEV__) console.warn('[PeakPublish] Save to phone failed');
+        }
+      }
+
       // Show success and navigate
       setShowSuccessModal(true);
     } catch (error) {
@@ -392,7 +406,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {/* Challenge response info */}
             {challengeId && challengeTitleParam ? (
               <View style={styles.replyInfo}>
-                <Ionicons name="trophy" size={14} color="#FFD700" />
+                <Ionicons name="trophy" size={14} color={colors.gold} />
                 <Text style={styles.replyText}>Challenge: {challengeTitleParam}</Text>
               </View>
             ) : null}
@@ -550,9 +564,24 @@ const PeakPreviewScreen = (): React.JSX.Element => {
               <Switch
                 value={saveToProfile}
                 onValueChange={setSaveToProfile}
-                trackColor={{ false: isDark ? '#3A3A3C' : colors.gray300, true: colors.primary }}
+                trackColor={{ false: isDark ? colors.gray200 : colors.gray300, true: colors.primary }}
                 thumbColor={colors.white}
-                ios_backgroundColor={isDark ? '#3A3A3C' : colors.gray300}
+                ios_backgroundColor={isDark ? colors.gray200 : colors.gray300}
+              />
+            </View>
+
+            {/* Save to phone */}
+            <View style={styles.optionRow}>
+              <View style={styles.optionLeft}>
+                <Ionicons name="download-outline" size={18} color={colors.primary} />
+                <Text style={styles.optionLabel}>Save to phone</Text>
+              </View>
+              <Switch
+                value={saveToPhone}
+                onValueChange={setSaveToPhone}
+                trackColor={{ false: isDark ? colors.gray200 : colors.gray300, true: colors.primary }}
+                thumbColor={colors.white}
+                ios_backgroundColor={isDark ? colors.gray200 : colors.gray300}
               />
             </View>
 
@@ -560,15 +589,15 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             {!challengeId && (
               <View style={styles.optionRow}>
                 <View style={styles.optionLeft}>
-                  <Ionicons name="trophy-outline" size={18} color="#FFD700" />
+                  <Ionicons name="trophy-outline" size={18} color={colors.gold} />
                   <Text style={styles.optionLabel}>Challenge</Text>
                 </View>
                 <Switch
                   value={isChallenge}
                   onValueChange={setIsChallenge}
-                  trackColor={{ false: isDark ? '#3A3A3C' : colors.gray300, true: '#FFD700' }}
+                  trackColor={{ false: isDark ? colors.gray200 : colors.gray300, true: colors.gold }}
                   thumbColor={colors.white}
-                  ios_backgroundColor={isDark ? '#3A3A3C' : colors.gray300}
+                  ios_backgroundColor={isDark ? colors.gray200 : colors.gray300}
                 />
               </View>
             )}
@@ -608,7 +637,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
                 activeOpacity={0.9}
               >
                 <LinearGradient
-                  colors={isPublishing ? ['#888', '#666'] : [colors.primary, '#00B5C1']}
+                  colors={isPublishing ? [colors.gray, colors.gray600] : [colors.primary, '#00B5C1']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.publishGradient}

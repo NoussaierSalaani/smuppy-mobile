@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { COLORS } from '../../config/theme';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -105,7 +106,7 @@ export function CalorieBurn({ params, size = 100 }: CalorieBurnProps) {
             styles.calorieValue,
             {
               fontSize: size * 0.35,
-              color: isComplete ? '#00E676' : color,
+              color: isComplete ? COLORS.success : color,
             },
           ]}
         >
@@ -131,7 +132,7 @@ export function CalorieBurn({ params, size = 100 }: CalorieBurnProps) {
                   styles.progressFill,
                   {
                     width: `${Math.min(progress * 100, 100)}%`,
-                    backgroundColor: isComplete ? '#00E676' : color,
+                    backgroundColor: isComplete ? COLORS.success : color,
                   },
                 ]}
               />

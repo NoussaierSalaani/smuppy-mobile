@@ -158,7 +158,7 @@ const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenPr
           <Ionicons name="alert-circle-outline" size={40} color={colors.gray} />
           <Text style={[styles.errorText, { color: colors.gray }]}>Failed to load preferences</Text>
           <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={loadPreferences}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={[styles.retryButtonText, { color: colors.white }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -257,7 +257,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Poppins-SemiBold',
-    color: '#FFF',
   },
 });
 

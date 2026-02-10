@@ -173,7 +173,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
 
           {/* Reminder */}
           <View style={styles.reminderCard}>
-            <Ionicons name="notifications" size={20} color="#FFD700" />
+            <Ionicons name="notifications" size={20} color={colors.gold} />
             <Text style={styles.reminderText}>
               We'll send you a reminder 24 hours before your appointment
             </Text>

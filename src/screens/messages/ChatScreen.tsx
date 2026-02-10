@@ -1093,8 +1093,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           </View>
           {inputText.trim() ? (
             <TouchableOpacity onPress={handleSendMessage} disabled={sending}>
-              <LinearGradient colors={sending ? ['#ccc', '#ccc'] : GRADIENTS.primary} style={styles.sendButton}>
-                {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
+              <LinearGradient colors={sending ? [colors.grayMuted, colors.grayMuted] : GRADIENTS.primary} style={styles.sendButton}>
+                {sending ? <ActivityIndicator size="small" color={colors.white} /> : <Ionicons name="send" size={20} color={colors.white} />}
               </LinearGradient>
             </TouchableOpacity>
           ) : (
@@ -1117,13 +1117,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         theme={{
           backdrop: 'rgba(0,0,0,0.2)',
           knob: colors.primary,
-          container: isDark ? '#1E1E1E' : '#FFFFFF',
+          container: colors.cardBg,
           header: colors.dark,
-          skinTonesContainer: isDark ? '#2A2A2A' : '#F5F5F5',
+          skinTonesContainer: isDark ? colors.gray100 : colors.backgroundSecondary,
           category: {
             icon: colors.gray,
             iconActive: colors.primary,
-            container: isDark ? '#2A2A2A' : '#F5F5F5',
+            container: isDark ? colors.gray100 : colors.backgroundSecondary,
             containerActive: 'rgba(0,230,118,0.1)',
           },
         }}
@@ -1135,7 +1135,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       <Modal visible={!!selectedImage} transparent animationType="fade">
         <View style={styles.imageModal}>
           <TouchableOpacity style={[styles.closeImageBtn, closeImageBtnTopStyle]} onPress={handleCloseSelectedImage}>
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={28} color={colors.white} />
           </TouchableOpacity>
           {selectedImage && <OptimizedImage source={selectedImage} style={styles.fullImage} contentFit="contain" />}
         </View>
@@ -1169,7 +1169,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 disabled={sending}
               >
                 {sending ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.voicePreviewSendText}>Send</Text>
                 )}
@@ -1248,7 +1248,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                     setShowMessageMenu(false);
                   }}
                 >
-                  <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+                  <Ionicons name="trash-outline" size={22} color={colors.error} />
                   <Text style={[styles.messageActionText, styles.messageActionTextDanger]}>Delete</Text>
                 </TouchableOpacity>
               )}
@@ -1344,7 +1344,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={styles.menuItem}
               onPress={handleBlockUserMenu}
             >
-              <Ionicons name="ban-outline" size={22} color="#FF3B30" />
+              <Ionicons name="ban-outline" size={22} color={colors.error} />
               <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block User</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1367,7 +1367,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.dark, marginTop: SPACING.md, textAlign: 'center' },
   errorMessage: { fontSize: 14, color: colors.gray, marginTop: SPACING.sm, textAlign: 'center' },
   retryButton: { marginTop: SPACING.lg, backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 },
-  retryButtonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  retryButtonText: { color: colors.white, fontWeight: '600', fontSize: 15 },
   headerSpacer: { width: 24 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, backgroundColor: colors.backgroundSecondary, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
   backButton: { padding: 4 },
@@ -1387,17 +1387,17 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   messageBubbleRight: { backgroundColor: colors.primary, borderBottomRightRadius: 4 },
   messageBubbleNoPadding: { padding: 0, overflow: 'hidden' },
   messageText: { fontSize: 15, color: colors.dark, lineHeight: 20 },
-  messageTextRight: { color: '#fff' },
+  messageTextRight: { color: colors.white },
   deletedMessage: { fontSize: 14, fontStyle: 'italic', color: colors.gray },
   messageFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 },
   messageTime: { fontSize: 11, color: colors.gray },
   messageTimeRight: { color: 'rgba(255,255,255,0.7)' },
   messageImage: { width: 200, height: 150, borderRadius: 12 },
   inputArea: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, backgroundColor: colors.backgroundSecondary, borderTopWidth: 1, borderTopColor: colors.grayBorder },
-  inputContainer: { flex: 1, backgroundColor: isDark ? 'rgba(50,50,50,1)' : '#F5F5F5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, maxHeight: 120 },
+  inputContainer: { flex: 1, backgroundColor: isDark ? 'rgba(50,50,50,1)' : colors.backgroundSecondary, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, maxHeight: 120 },
   textInput: { fontSize: 16, color: colors.dark, minHeight: 40, maxHeight: 100, paddingTop: Platform.OS === 'ios' ? 10 : 8 },
   sendButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
-  voiceButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: isDark ? 'rgba(50,50,50,1)' : '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+  voiceButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: isDark ? 'rgba(50,50,50,1)' : colors.gray50, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
   emojiButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyChatName: { fontSize: 18, fontWeight: '600', color: colors.dark, marginTop: SPACING.md },
@@ -1406,22 +1406,22 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   closeImageBtn: { position: 'absolute', right: 20, zIndex: 10 },
   fullImage: { width: width, height: width },
   voicePreviewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: SPACING.lg },
-  voicePreviewCard: { backgroundColor: '#fff', borderRadius: 18, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, alignItems: 'stretch' },
-  voicePreviewTitle: { fontSize: 18, fontWeight: '700', color: '#111', marginBottom: SPACING.md, textAlign: 'center' },
+  voicePreviewCard: { backgroundColor: colors.white, borderRadius: 18, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, alignItems: 'stretch' },
+  voicePreviewTitle: { fontSize: 18, fontWeight: '700', color: colors.dark, marginBottom: SPACING.md, textAlign: 'center' },
   voicePreviewPlayer: { marginBottom: SPACING.md },
   voicePreviewButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.sm },
   voicePreviewButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  voicePreviewCancel: { backgroundColor: '#F5F5F5' },
-  voicePreviewSend: { backgroundColor: '#0EBF8A' },
-  voicePreviewCancelText: { color: '#333', fontWeight: '600' },
-  voicePreviewSendText: { color: '#fff', fontWeight: '700' },
+  voicePreviewCancel: { backgroundColor: colors.backgroundSecondary },
+  voicePreviewSend: { backgroundColor: colors.primary },
+  voicePreviewCancelText: { color: colors.dark, fontWeight: '600' },
+  voicePreviewSendText: { color: colors.white, fontWeight: '700' },
   // Chat Menu
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   menuContainer: { backgroundColor: colors.backgroundSecondary, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: SPACING.md, paddingBottom: 34 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
   menuItemLast: { borderBottomWidth: 0 },
   menuItemText: { fontSize: 16, fontWeight: '500', color: colors.dark, marginLeft: SPACING.md },
-  menuItemTextDanger: { color: '#FF3B30' },
+  menuItemTextDanger: { color: colors.error },
   menuItemTextCancel: { color: colors.gray },
   // Swipe to Reply
   swipeableContainer: { overflow: 'hidden' },
@@ -1448,21 +1448,21 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   reactionsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, marginHorizontal: SPACING.md },
   reactionsLeft: { marginLeft: 40 },
   reactionsRight: { justifyContent: 'flex-end', marginRight: 8 },
-  reactionBubble: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#2A2A2A' : '#F0F0F0', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6, marginBottom: 4, borderWidth: 1, borderColor: isDark ? '#3A3A3A' : '#E0E0E0' },
+  reactionBubble: { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? colors.gray100 : colors.gray50, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6, marginBottom: 4, borderWidth: 1, borderColor: isDark ? colors.gray200 : colors.grayBorder },
   reactionBubbleActive: { backgroundColor: colors.primary + '15', borderColor: colors.primary },
   reactionEmoji: { fontSize: 14 },
   reactionCount: { fontSize: 12, fontWeight: '600', marginLeft: 4 },
   // Message Actions Menu
   messageMenuContainer: { backgroundColor: colors.backgroundSecondary, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: SPACING.lg, paddingBottom: 34 },
   reactionsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
-  reactionButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5', justifyContent: 'center', alignItems: 'center' },
+  reactionButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: isDark ? colors.gray100 : colors.backgroundSecondary, justifyContent: 'center', alignItems: 'center' },
   reactionButtonActive: { backgroundColor: colors.primary + '20' },
   reactionButtonEmoji: { fontSize: 24 },
   messageActionsList: { paddingTop: SPACING.md },
   messageActionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg, borderBottomWidth: 1, borderBottomColor: colors.grayBorder },
   messageActionItemLast: { borderBottomWidth: 0 },
   messageActionText: { fontSize: 16, fontWeight: '500', color: colors.dark, marginLeft: SPACING.md },
-  messageActionTextDanger: { color: '#FF3B30' },
+  messageActionTextDanger: { color: colors.error },
   messageActionTextCancel: { color: colors.gray },
   // Read Receipts
   readReceiptContainer: { flexDirection: 'row', alignItems: 'center', marginLeft: 4 },

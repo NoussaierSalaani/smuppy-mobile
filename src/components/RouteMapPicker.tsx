@@ -548,7 +548,7 @@ export default function RouteMapPicker({
           {mode === 'route' && departureCoord && (
             <MarkerView coordinate={[departureCoord.lng, departureCoord.lat]}>
               <View style={styles.routePinContainer}>
-                <View style={[styles.routePin, { backgroundColor: '#4ECDC4' }]}>
+                <View style={[styles.routePin, { backgroundColor: colors.teal }]}>
                   <Text style={styles.routePinText}>S</Text>
                 </View>
               </View>
@@ -559,7 +559,7 @@ export default function RouteMapPicker({
           {mode === 'route' && arrivalCoord && (
             <MarkerView coordinate={[arrivalCoord.lng, arrivalCoord.lat]}>
               <View style={styles.routePinContainer}>
-                <View style={[styles.routePin, { backgroundColor: '#FF6B6B' }]}>
+                <View style={[styles.routePin, { backgroundColor: colors.heartRed }]}>
                   <Text style={styles.routePinText}>E</Text>
                 </View>
               </View>
@@ -605,7 +605,7 @@ export default function RouteMapPicker({
                 <Ionicons name="arrow-undo" size={normalize(20)} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.mapControlButton} onPress={clearAll}>
-                <Ionicons name="trash-outline" size={normalize(20)} color="#FF6B6B" />
+                <Ionicons name="trash-outline" size={normalize(20)} color={colors.heartRed} />
               </TouchableOpacity>
             </>
           )}
@@ -655,7 +655,7 @@ export default function RouteMapPicker({
         <View style={styles.fieldsContainer}>
           {/* Departure field */}
           <View style={styles.fieldRow}>
-            <View style={[styles.fieldDot, { backgroundColor: '#4ECDC4' }]} />
+            <View style={[styles.fieldDot, { backgroundColor: colors.teal }]} />
             <View style={styles.fieldConnector} />
             <View style={styles.fieldInputWrapper}>
               <TextInput
@@ -698,7 +698,7 @@ export default function RouteMapPicker({
 
           {/* Arrival field */}
           <View style={styles.fieldRow}>
-            <View style={[styles.fieldDot, { backgroundColor: '#FF6B6B' }]} />
+            <View style={[styles.fieldDot, { backgroundColor: colors.heartRed }]} />
             <View style={{ width: 12 }} />
             <View style={styles.fieldInputWrapper}>
               <TextInput

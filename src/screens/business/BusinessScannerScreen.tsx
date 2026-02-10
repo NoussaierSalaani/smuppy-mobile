@@ -359,18 +359,18 @@ export default function BusinessScannerScreen({ navigation }: Props) {
               <View
                 style={[
                   styles.resultIconContainer,
-                  { backgroundColor: validationResult?.valid ? 'rgba(14,191,138,0.2)' : 'rgba(255,107,107,0.2)' },
+                  { backgroundColor: validationResult?.valid ? 'rgba(14,191,138,0.2)' : `${colors.heartRed}33` },
                 ]}
               >
                 <Ionicons
                   name={validationResult?.valid ? 'checkmark-circle' : 'close-circle'}
                   size={64}
-                  color={validationResult?.valid ? colors.primary : '#FF6B6B'}
+                  color={validationResult?.valid ? colors.primary : colors.heartRed}
                 />
               </View>
 
               {/* Status Text */}
-              <Text style={[styles.resultStatus, { color: validationResult?.valid ? colors.primary : '#FF6B6B' }]}>
+              <Text style={[styles.resultStatus, { color: validationResult?.valid ? colors.primary : colors.heartRed }]}>
                 {validationResult?.valid ? 'Access Granted' : 'Access Denied'}
               </Text>
 
@@ -409,7 +409,7 @@ export default function BusinessScannerScreen({ navigation }: Props) {
               <View style={styles.resultActions}>
                 <TouchableOpacity style={styles.scanAgainButton} onPress={handleScanAgain}>
                   <LinearGradient
-                    colors={validationResult?.valid ? GRADIENTS.primary : ['#FF6B6B', '#FF8E8E']}
+                    colors={validationResult?.valid ? GRADIENTS.primary : [colors.heartRed, '#FF8E8E']}
                     style={styles.scanAgainGradient}
                   >
                     <Ionicons name="scan" size={20} color="#fff" />
@@ -702,7 +702,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   errorMessage: {
     fontSize: 14,
-    color: '#FF6B6B',
+    color: colors.heartRed,
     textAlign: 'center',
     marginTop: 8,
   },

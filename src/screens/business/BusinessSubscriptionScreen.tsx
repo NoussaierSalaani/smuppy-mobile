@@ -263,7 +263,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
 
         {plan.trial_days && plan.trial_days > 0 && (
           <View style={styles.trialBadge}>
-            <Ionicons name="gift" size={14} color="#FFD700" />
+            <Ionicons name="gift" size={14} color={colors.gold} />
             <Text style={styles.trialText}>{plan.trial_days}-day free trial</Text>
           </View>
         )}
@@ -342,7 +342,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
           {/* Existing Subscription Warning */}
           {existingSubscription && (
             <View style={styles.warningCard}>
-              <Ionicons name="information-circle" size={20} color="#FFD700" />
+              <Ionicons name="information-circle" size={20} color={colors.gold} />
               <View style={styles.warningContent}>
                 <Text style={styles.warningTitle}>Active Subscription</Text>
                 <Text style={styles.warningText}>
@@ -546,7 +546,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   warningTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFD700',
+    color: colors.gold,
     marginBottom: 2,
   },
   warningText: {
@@ -606,7 +606,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: -1,
     left: 20,
-    backgroundColor: '#FFD700',
+    backgroundColor: colors.gold,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderBottomLeftRadius: 8,
@@ -672,7 +672,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   trialText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#FFD700',
+    color: colors.gold,
   },
   planFeatures: {
     gap: 8,

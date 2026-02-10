@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { COLORS } from '../config/theme';
 
 // Smuppy Icons - Unique fitness-themed icons
 import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
@@ -33,8 +34,8 @@ const REACTIONS: Reaction[] = [
     type: 'love',
     icon: SmuppyHeartIcon,
     label: 'Love',
-    color: '#FF6B6B',
-    gradient: ['#FF6B6B', '#FF8E8E'],
+    color: COLORS.heartRed,
+    gradient: [COLORS.heartRed, '#FF8E8E'],
   },
   {
     type: 'fire',
@@ -47,8 +48,8 @@ const REACTIONS: Reaction[] = [
     type: 'strong',
     icon: SmuppyDoubleFlexIcon,
     label: 'Strong',
-    color: '#0EBF8A',
-    gradient: ['#0EBF8A', '#00B5C1'],
+    color: COLORS.primary,
+    gradient: [COLORS.primary, '#00B5C1'],
   },
   {
     type: 'energy',
@@ -61,15 +62,15 @@ const REACTIONS: Reaction[] = [
     type: 'bravo',
     icon: SmuppyCelebrationBurstIcon,
     label: 'Bravo',
-    color: '#FFD700',
-    gradient: ['#FFD700', '#FFA500'],
+    color: COLORS.gold,
+    gradient: [COLORS.gold, '#FFA500'],
   },
   {
     type: 'goal',
     icon: SmuppyPeakFlagIcon,
     label: 'Goal!',
-    color: '#FF6B6B',
-    gradient: ['#FF6B6B', '#FF9500'],
+    color: COLORS.heartRed,
+    gradient: [COLORS.heartRed, '#FF9500'],
   },
 ];
 

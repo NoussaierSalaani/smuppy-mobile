@@ -345,7 +345,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         <Ionicons name="videocam-off-outline" size={48} color={colors.gray} />
         <Text style={[styles.permissionText, { marginTop: 16 }]}>Peaks are not available for business accounts</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 24, backgroundColor: colors.primary, borderRadius: 12 }}>
-          <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Go Back</Text>
+          <Text style={{ color: colors.white, fontWeight: '600' }}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );

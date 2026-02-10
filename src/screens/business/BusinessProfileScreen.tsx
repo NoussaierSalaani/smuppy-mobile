@@ -288,7 +288,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
             key={star}
             name={star <= rating ? 'star' : star - 0.5 <= rating ? 'star-half' : 'star-outline'}
             size={14}
-            color="#FFD700"
+            color={colors.gold}
           />
         ))}
       </View>
@@ -515,7 +515,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <View style={styles.ratingValue}>
-                <Ionicons name="star" size={16} color="#FFD700" />
+                <Ionicons name="star" size={16} color={colors.gold} />
                 <Text style={styles.statValue}>{business.stats.rating.toFixed(1)}</Text>
               </View>
               <Text style={styles.statLabel}>{business.stats.reviews} reviews</Text>

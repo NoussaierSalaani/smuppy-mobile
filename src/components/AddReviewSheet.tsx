@@ -132,7 +132,7 @@ export default function AddReviewSheet({
                     <Ionicons
                       name={star <= rating ? 'star' : 'star-outline'}
                       size={normalize(36)}
-                      color={star <= rating ? '#FFD700' : colors.gray}
+                      color={star <= rating ? colors.gold : colors.gray}
                     />
                   </TouchableOpacity>
                 ))}

@@ -180,8 +180,8 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
-      case 'active': return '#0EBF8A';
-      case 'expired': return '#FF6B6B';
+      case 'active': return colors.primary;
+      case 'expired': return colors.heartRed;
       case 'suspended': return '#FFD93D';
       default: return colors.gray;
     }
@@ -211,7 +211,7 @@ export default function MemberAccessScreen({ route, navigation }: Props) {
         <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={64} color="#FF6B6B" />
+            <Ionicons name="alert-circle-outline" size={64} color={colors.heartRed} />
             <Text style={styles.errorText}>{error || 'Access pass not found'}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
               <Text style={styles.retryButtonText}>Try Again</Text>
@@ -485,7 +485,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     position: 'absolute',
     width: 40,
     height: 40,
-    borderColor: '#0f0f1a',
+    borderColor: colors.dark,
     borderWidth: 6,
   },
   qrCornerTL: {
@@ -515,7 +515,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     bottom: 8,
     fontSize: 12,
     fontWeight: '700',
-    color: '#0f0f1a',
+    color: colors.dark,
     letterSpacing: 2,
   },
   memberInfo: {

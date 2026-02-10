@@ -17,6 +17,8 @@ import { LiquidButton } from '../LiquidButton';
 import * as Haptics from 'expo-haptics';
 import TipModal from './TipModal';
 import { useTipPayment } from '../../hooks/useTipPayment';
+import { COLORS } from '../../config/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface TipButtonProps {
   recipient: {
@@ -42,6 +44,7 @@ export default function TipButton({
 }: TipButtonProps) {
   const [showModal, setShowModal] = useState(false);
   const { sendTip, isProcessing } = useTipPayment();
+  const { colors } = useTheme();
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -76,7 +79,7 @@ export default function TipButton({
           activeOpacity={0.7}
         >
           <LinearGradient
-            colors={['#FFD700', '#FFA500']}
+            colors={[colors.gold, '#FFA500']}
             style={styles.iconGradient}
           >
             {isProcessing ? (
@@ -119,9 +122,9 @@ export default function TipButton({
             size="sm"
             variant="outline"
             colorScheme="green"
-            icon={<Ionicons name="gift" size={14} color="#FFD700" />}
+            icon={<Ionicons name="gift" size={14} color={colors.gold} />}
             iconPosition="left"
-            textStyle={{ color: '#FFD700' }}
+            textStyle={{ color: colors.gold }}
           />
         )}
 
@@ -152,7 +155,7 @@ export default function TipButton({
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={['#FFD700', '#FFA500']}
+          colors={[colors.gold, '#FFA500']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.defaultGradient}
@@ -219,7 +222,7 @@ const styles = StyleSheet.create({
   compactText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.dark,
   },
   compactLoading: {
     height: 34,
@@ -255,7 +258,7 @@ const styles = StyleSheet.create({
   defaultText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.dark,
   },
   subText: {
     fontSize: 12,

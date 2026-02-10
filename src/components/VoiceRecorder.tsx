@@ -208,7 +208,7 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
         <Ionicons
           name={isRecording ? "stop" : "mic"}
           size={28}
-          color="#fff"
+          color={colors.white}
         />
       </TouchableOpacity>
     </View>
@@ -238,7 +238,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
     marginRight: 8,
   },
   durationText: {
@@ -260,6 +260,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   recordButtonActive: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
   },
 });

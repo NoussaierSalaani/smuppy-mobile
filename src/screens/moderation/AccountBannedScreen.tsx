@@ -33,7 +33,7 @@ export default function AccountBannedScreen(): React.ReactNode {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <Ionicons name="ban-outline" size={64} color="#FF3B30" />
+          <Ionicons name="ban-outline" size={64} color={colors.error} />
         </View>
 
         <Text style={styles.title}>Account Banned</Text>
@@ -82,7 +82,7 @@ const createStyles = (colors: ThemeColors) =>
     title: {
       fontSize: 24,
       fontWeight: '700',
-      color: '#FF3B30',
+      color: colors.error,
       textAlign: 'center',
       marginBottom: 12,
     },
@@ -128,7 +128,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: 8,
       paddingVertical: 14,
       borderRadius: 12,
-      backgroundColor: '#FF3B30',
+      backgroundColor: colors.error,
       marginBottom: 12,
     },
     appealText: {

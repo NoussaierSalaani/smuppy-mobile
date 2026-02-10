@@ -24,6 +24,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
+import { useTheme } from '../../hooks/useTheme';
 
 const { width: _width } = Dimensions.get('window');
 const POLL_INTERVAL_MS = 3000;
@@ -52,6 +53,8 @@ interface Battle {
 }
 
 export default function BattleLobbyScreen() {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { showError, showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const route = useRoute<{ key: string; name: string; params: { battleId: string } }>();
@@ -307,7 +310,7 @@ export default function BattleLobbyScreen() {
             />
             {participant.is_host && (
               <View style={styles.hostBadge}>
-                <Ionicons name="star" size={10} color="#FFD700" />
+                <Ionicons name="star" size={10} color={colors.gold} />
               </View>
             )}
             {participant.status === 'ready' && (
@@ -347,7 +350,7 @@ export default function BattleLobbyScreen() {
                   participant.status === 'ready'
                     ? '#00FF64'
                     : participant.status === 'accepted'
-                      ? '#FFD700'
+                      ? colors.gold
                       : participant.status === 'pending'
                         ? '#888'
                         : '#FF4444',
@@ -363,7 +366,7 @@ export default function BattleLobbyScreen() {
     <TouchableOpacity key={`empty-${index}`} style={styles.emptySlot} onPress={handleInvite}>
       <View style={styles.emptySlotInner}>
         <View style={styles.emptyAvatar}>
-          <Ionicons name="add" size={24} color="#666" />
+          <Ionicons name="add" size={24} color={colors.gray} />
         </View>
         <Text style={styles.emptyText}>Invite</Text>
       </View>
@@ -515,7 +518,7 @@ export default function BattleLobbyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof import('../../hooks/useTheme').useTheme>['colors']) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f1a',
@@ -733,7 +736,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.gray,
     marginLeft: 12,
   },
   footer: {

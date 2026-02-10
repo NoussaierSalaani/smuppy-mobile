@@ -81,6 +81,7 @@ export const COLORS = {
     text: '#0a252f',
     textSecondary: '#676C75',
     card: '#FFFFFF',
+    darkCard: '#F5F5F5',
     textMuted: '#6B7280',
     darkBg: '#F9FAFB',
     cardBg: '#FFFFFF',

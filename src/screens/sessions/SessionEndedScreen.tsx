@@ -103,7 +103,7 @@ export default function SessionEndedScreen(): React.JSX.Element {
           <View style={styles.starsContainer}>
             {[1, 2, 3, 4, 5].map((star) => (
               <TouchableOpacity key={star} style={styles.starButton}>
-                <Ionicons name="star-outline" size={32} color="#FFD700" />
+                <Ionicons name="star-outline" size={32} color={colors.gold} />
               </TouchableOpacity>
             ))}
           </View>

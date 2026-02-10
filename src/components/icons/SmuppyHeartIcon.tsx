@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
+import { COLORS } from '../../config/theme';
 
 interface SmuppyHeartIconProps {
   size?: number;
@@ -15,7 +16,7 @@ interface SmuppyHeartIconProps {
  */
 const SmuppyHeartIcon: React.FC<SmuppyHeartIconProps> = ({
   size = 24,
-  color = '#FF6B6B',
+  color = COLORS.heartRed,
   filled = false,
   style,
 }) => {

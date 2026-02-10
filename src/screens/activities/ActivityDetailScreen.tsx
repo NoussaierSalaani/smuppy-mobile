@@ -23,7 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import { GRADIENTS } from '../../config/theme';
+import { COLORS, GRADIENTS } from '../../config/theme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -110,11 +110,11 @@ interface Activity {
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  easy: '#4ECDC4',
-  medium: '#FFD700',
+  easy: COLORS.teal,
+  medium: COLORS.gold,
   moderate: '#FF9800',
-  hard: '#FF6B6B',
-  expert: '#9B59B6',
+  hard: COLORS.heartRed,
+  expert: COLORS.purple,
 };
 
 export default function ActivityDetailScreen({ route, navigation }: ActivityDetailScreenProps) {
@@ -194,7 +194,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
           setActivity({
             ...(group as unknown as Activity),
             title: (group.name as string) || '',
-            category: (group.category as Activity['category']) || { id: '0', name: 'Activity', slug: (group.subcategory as string) || 'other', icon: 'people', color: '#0EBF8A' },
+            category: (group.category as Activity['category']) || { id: '0', name: 'Activity', slug: (group.subcategory as string) || 'other', icon: 'people', color: colors.primary },
             organizer: group.creator as Activity['organizer'],
             routeGeojson: group.routeGeojson as Activity['routeGeojson'],
             routeWaypoints: group.routeWaypoints as Activity['routeWaypoints'],
@@ -404,7 +404,7 @@ ${shareUrl}`;
   const isFull = normalizedActivity.max_participants && normalizedActivity.participantCount >= normalizedActivity.max_participants;
   const isPast = new Date(normalizedActivity.starts_at) < new Date();
   const isOrganizer = normalizedActivity.is_organizer || normalizedActivity.organizerId === user?.id;
-  const categoryColor = normalizedActivity.category?.color || '#0EBF8A';
+  const categoryColor = normalizedActivity.category?.color || colors.primary;
 
   // Build route GeoJSON if available
   const routeGeoJSON = normalizedActivity.routeGeojson ? {
@@ -772,7 +772,7 @@ ${shareUrl}`;
               disabled={isFull || isPast || isJoining}
             >
               <LinearGradient
-                colors={isFull || isPast ? ['#444', '#333'] : GRADIENTS.primary}
+                colors={isFull || isPast ? [colors.gray600, colors.gray700] : GRADIENTS.primary}
                 style={styles.joinGradient}
               >
                 {isJoining ? (
@@ -946,7 +946,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   priceText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFD700',
+    color: colors.gold,
   },
 
   // Content
@@ -1124,7 +1124,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   bottomPriceAmount: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFD700',
+    color: colors.gold,
   },
   bottomPriceText: {
     fontSize: 18,
@@ -1189,6 +1189,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   leaveButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FF3B30',
+    color: colors.error,
   },
 });

@@ -3,6 +3,8 @@
  * @module utils/validation
  */
 
+import { COLORS } from '../config/theme';
+
 // ============================================
 // SANITIZATION
 // ============================================
@@ -518,7 +520,7 @@ export const getPasswordStrength = (password: string | undefined | null): number
  */
 export const getPasswordStrengthLevel = (password: string | undefined | null): PasswordStrengthLevel => {
   const strength = getPasswordStrength(password);
-  if (strength < 30) return { level: 'weak', label: 'Weak', color: '#FF3B30' };
+  if (strength < 30) return { level: 'weak', label: 'Weak', color: COLORS.error };
   if (strength < 50) return { level: 'medium', label: 'Medium', color: '#FF9500' };
   if (strength < 80) return { level: 'strong', label: 'Strong', color: '#34C759' };
   return { level: 'very-strong', label: 'Very Strong', color: '#11E3A3' };

@@ -51,7 +51,7 @@ const APPEARANCE_OPTIONS: { value: ThemePreference; label: string }[] = [
 
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const insets = useSafeAreaInsets();
-  const { preference, setTheme, colors, isDark: _isDark } = useTheme();
+  const { preference, setTheme, colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
   const getFullName = useUserStore((state) => state.getFullName);
@@ -70,7 +70,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const [isPrivate, setIsPrivate] = useState(false);
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
 
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const loadUserData = useCallback(async () => {
     try {
@@ -353,7 +353,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalIconBox}>
-            <Ionicons name="log-out-outline" size={32} color="#FF3B30" />
+            <Ionicons name="log-out-outline" size={32} color={colors.error} />
           </View>
           <Text style={styles.modalTitle}>Log out</Text>
           <Text style={styles.modalMessage}>Are you sure you want to log out of your account?</Text>
@@ -362,7 +362,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleConfirmLogout} disabled={loggingOut}>
-              {loggingOut ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Yes, Logout</Text>}
+              {loggingOut ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.logoutButtonText}>Yes, Logout</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -375,7 +375,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalIconBox}>
-            <Ionicons name="trash-outline" size={32} color="#FF3B30" />
+            <Ionicons name="trash-outline" size={32} color={colors.error} />
           </View>
           <Text style={styles.modalTitle}>Delete Account</Text>
           <Text style={styles.modalMessage}>This action is permanent and cannot be undone. All your data, posts, and connections will be deleted.</Text>
@@ -384,7 +384,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleConfirmDelete} disabled={deleting}>
-              {deleting ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.logoutButtonText}>Delete</Text>}
+              {deleting ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.logoutButtonText}>Delete</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -428,7 +428,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             onPress={handleGoBack}
             hitSlop={HIT_SLOP.medium}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
 
           {/* Settings Title */}
@@ -441,12 +441,12 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 <AvatarImage source={avatarUrl} size={80} style={styles.avatar} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <Ionicons name="person" size={36} color="#9CA3AF" />
+                  <Ionicons name="person" size={36} color={colors.gray400} />
                 </View>
               )}
               {user?.isVerified && (
                 <View style={styles.avatarBadge}>
-                  <Ionicons name="checkmark" size={12} color="#FFF" />
+                  <Ionicons name="checkmark" size={12} color={colors.white} />
                 </View>
               )}
             </View>
@@ -545,14 +545,14 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                   style={styles.upgradeGradient}
                 >
                   <View style={styles.upgradeIconContainer}>
-                    <Ionicons name="star" size={20} color="#FFF" />
+                    <Ionicons name="star" size={20} color={colors.white} />
                   </View>
                   <View style={styles.upgradeTextContainer}>
                     <Text style={styles.upgradeTitle}>Upgrade to Pro Creator</Text>
                     <Text style={styles.upgradeSubtitle}>Unlock tips, unlimited events & more</Text>
                   </View>
                   <View style={styles.upgradeArrow}>
-                    <Ionicons name="arrow-forward" size={18} color="#FFF" />
+                    <Ionicons name="arrow-forward" size={18} color={colors.white} />
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -566,7 +566,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, styles.menuItemIconWallet]}>
-                <Ionicons name="wallet-outline" size={20} color="#22C55E" />
+                <Ionicons name="wallet-outline" size={20} color={colors.success} />
               </View>
               <Text style={styles.menuItemLabel}>Creator Wallet</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
@@ -581,7 +581,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, styles.menuItemIconPro]}>
-                <Ionicons name="rocket-outline" size={20} color="#7C3AED" />
+                <Ionicons name="rocket-outline" size={20} color={colors.purple} />
               </View>
               <Text style={styles.menuItemLabel}>Go Pro</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
@@ -616,7 +616,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, styles.menuItemIconPayment]}>
-                <Ionicons name="card-outline" size={20} color="#9C27B0" />
+                <Ionicons name="card-outline" size={20} color={colors.purple} />
               </View>
               <Text style={styles.menuItemLabel}>Payment Methods</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
@@ -630,7 +630,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, styles.menuItemIconSessions]}>
-                <Ionicons name="videocam-outline" size={20} color="#FF9800" />
+                <Ionicons name="videocam-outline" size={20} color={colors.orange} />
               </View>
               <Text style={styles.menuItemLabel}>Private Sessions</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
@@ -648,10 +648,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, styles.dangerIcon]}>
-                <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+                <Ionicons name="log-out-outline" size={20} color={colors.error} />
               </View>
               <Text style={[styles.menuItemLabel, styles.dangerLabel]}>Logout</Text>
-              <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
+              <Ionicons name="chevron-forward" size={18} color={colors.error} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -660,10 +660,10 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
               activeOpacity={0.7}
             >
               <View style={[styles.menuItemIcon, styles.dangerIcon]}>
-                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                <Ionicons name="trash-outline" size={20} color={colors.error} />
               </View>
               <Text style={[styles.menuItemLabel, styles.dangerLabel]}>Delete Account</Text>
-              <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
+              <Ionicons name="chevron-forward" size={18} color={colors.error} />
             </TouchableOpacity>
           </View>
         </View>
@@ -676,7 +676,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   );
 };
 
-const createStyles = (colors: ReturnType<typeof import('../../config/theme').getThemeColors>) => StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof import('../../config/theme').getThemeColors>, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.gray100,
@@ -725,7 +725,7 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
     alignSelf: 'center',
     fontSize: 17,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#FFF',
+    color: colors.white,
     zIndex: 10,
   },
   profileOnCover: {
@@ -844,7 +844,7 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.success,
   },
   appearanceChips: {
     flexDirection: 'row',
@@ -868,25 +868,25 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
     color: colors.white,
   },
   menuItemIconWallet: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: isDark ? colors.backgroundSecondary : '#E8F5E9',
   },
   menuItemIconPro: {
-    backgroundColor: '#EDE7F6',
+    backgroundColor: isDark ? colors.backgroundSecondary : '#EDE7F6',
   },
   menuItemIconVerification: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: isDark ? colors.backgroundSecondary : '#E3F2FD',
   },
   menuItemIconPayment: {
-    backgroundColor: '#F3E5F5',
+    backgroundColor: isDark ? colors.backgroundSecondary : '#F3E5F5',
   },
   menuItemIconSessions: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: isDark ? colors.backgroundSecondary : '#FFF3E0',
   },
   dangerIcon: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.errorLight,
   },
   dangerLabel: {
-    color: '#FF3B30',
+    color: colors.error,
   },
 
   // Upgrade to Pro Creator
@@ -916,7 +916,7 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
   upgradeTitle: {
     fontSize: 15,
     fontFamily: 'Poppins-SemiBold',
-    color: '#FFF',
+    color: colors.white,
   },
   upgradeSubtitle: {
     fontSize: 11,
@@ -936,7 +936,7 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
@@ -952,7 +952,7 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.errorLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -993,14 +993,14 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoutButtonText: {
     fontSize: 15,
     fontFamily: 'Poppins-SemiBold',
-    color: '#FFF',
+    color: colors.white,
   },
 });
 

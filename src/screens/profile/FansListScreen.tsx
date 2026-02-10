@@ -536,10 +536,10 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
                       disabled={actionLoading === selectedUser.id}
                     >
                       {actionLoading === selectedUser.id ? (
-                        <ActivityIndicator size="small" color={'#FF6B6B'} />
+                        <ActivityIndicator size="small" color={colors.heartRed} />
                       ) : (
                         <>
-                          <Ionicons name="heart-dislike-outline" size={18} color={'#FF6B6B'} />
+                          <Ionicons name="heart-dislike-outline" size={18} color={colors.heartRed} />
                           <Text style={styles.unfollowButtonText}>Unfan</Text>
                         </>
                       )}
@@ -582,10 +582,10 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
                         disabled={actionLoading === selectedUser.id}
                       >
                         {actionLoading === selectedUser.id ? (
-                          <ActivityIndicator size="small" color={'#FF6B6B'} />
+                          <ActivityIndicator size="small" color={colors.heartRed} />
                         ) : (
                           <>
-                            <Ionicons name="heart-dislike-outline" size={18} color={'#FF6B6B'} />
+                            <Ionicons name="heart-dislike-outline" size={18} color={colors.heartRed} />
                             <Text style={styles.unfollowButtonText}>Unfan</Text>
                           </>
                         )}
@@ -876,14 +876,14 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingVertical: 12,
     borderRadius: 25,
     borderWidth: 1,
-    borderColor: '#FF6B6B',
+    borderColor: colors.heartRed,
     minWidth: 100,
     justifyContent: 'center',
   },
   unfollowButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FF6B6B',
+    color: colors.heartRed,
     marginLeft: 8,
   },
 });

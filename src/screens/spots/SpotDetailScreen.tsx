@@ -374,7 +374,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   qualitiesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   qualityChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#E7FCF6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: normalize(16),
+    backgroundColor: colors.primaryLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: normalize(16),
   },
   qualityText: { fontSize: normalize(12), color: colors.primary, fontWeight: '500' },
 

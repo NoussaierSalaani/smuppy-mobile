@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { awsAuth } from '../../services/aws-auth';
 import { awsAPI } from '../../services/aws-api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 // Anti-spam: minimum 20 chars, max 3 reports per hour
 const MIN_CHARS = 20;
@@ -29,6 +30,8 @@ interface ReportProblemScreenProps {
 
 const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { showError } = useSmuppyAlert();
   const [problemText, setProblemText] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -105,13 +108,13 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.successIcon}>
-            <Ionicons name="checkmark-circle" size={60} color="#0EBF8A" />
+            <Ionicons name="checkmark-circle" size={60} color={colors.primary} />
           </View>
           <Text style={styles.successTitle}>Problem Report Sent Successfully!</Text>
           <Text style={styles.successMessage}>
             Thank you for your feedback. We've received your report and will address the issue as soon as possible.
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.okButton}
             onPress={handleSuccessClose}
           >
@@ -124,21 +127,21 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
+          <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Report problem</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
@@ -148,7 +151,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
             <TextInput
               style={styles.textInput}
               placeholder="Describe your problem here in details and we will get back to you soon."
-              placeholderTextColor="#C7C7CC"
+              placeholderTextColor={colors.grayMuted}
               multiline
               value={problemText}
               onChangeText={setProblemText}
@@ -160,7 +163,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
           {/* Error Message */}
           {errorMessage ? (
             <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+              <Ionicons name="alert-circle" size={16} color={colors.error} />
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -177,7 +180,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
             disabled={!canSend}
           >
             {sending ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator size="small" color={colors.white} />
             ) : (
               <Text style={styles.sendButtonText}>Send it</Text>
             )}
@@ -190,10 +193,10 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -214,7 +217,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'WorkSans-SemiBold',
-    color: '#0A0A0F',
+    color: colors.dark,
   },
   headerSpacer: {
     width: 40,
@@ -232,12 +235,12 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,
     padding: 16,
     fontSize: 15,
     fontFamily: 'Poppins-Regular',
-    color: '#0A0A0F',
+    color: colors.dark,
     lineHeight: 22,
   },
 
@@ -251,19 +254,19 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#FF3B30',
+    color: colors.error,
     flex: 1,
   },
   charCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.gray400,
     marginBottom: 12,
     textAlign: 'right',
   },
 
   // Send Button
   sendButton: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 28,
     alignItems: 'center',
@@ -272,24 +275,24 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   sendButtonDisabled: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.buttonDisabled,
   },
   sendButtonText: {
     fontSize: 16,
     fontFamily: 'Poppins-SemiBold',
-    color: '#FFF',
+    color: colors.white,
   },
 
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
   },
   modalContent: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.card,
     borderRadius: 24,
     padding: 28,
     width: '100%',
@@ -301,20 +304,20 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 18,
     fontFamily: 'WorkSans-Bold',
-    color: '#0A0A0F',
+    color: colors.dark,
     textAlign: 'center',
     marginBottom: 12,
   },
   successMessage: {
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#8E8E93',
+    color: colors.graySecondary,
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: 24,
   },
   okButton: {
-    backgroundColor: '#0EBF8A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 40,
     paddingVertical: 14,
     borderRadius: 25,
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
   okButtonText: {
     fontSize: 15,
     fontFamily: 'Poppins-SemiBold',
-    color: '#FFF',
+    color: colors.white,
   },
 });
 

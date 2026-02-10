@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
+import { COLORS } from '../../config/theme';
 
 interface SmuppyDumbbellIconProps {
   size?: number;
@@ -16,7 +17,7 @@ interface SmuppyDumbbellIconProps {
  */
 const SmuppyDumbbellIcon: React.FC<SmuppyDumbbellIconProps> = ({
   size = 24,
-  color = '#0EBF8A',
+  color = COLORS.primary,
   filled = false,
   style,
 }) => {

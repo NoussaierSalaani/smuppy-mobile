@@ -69,7 +69,7 @@ function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
   if (loading) {
     return (
       <View style={[styles.container, isFromMe ? styles.containerFromMe : styles.containerFromOther]}>
-        <ActivityIndicator size="small" color={isFromMe ? '#fff' : colors.primary} />
+        <ActivityIndicator size="small" color={isFromMe ? colors.white : colors.primary} />
       </View>
     );
   }
@@ -167,7 +167,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     flex: 1,
   },
   textFromMe: {
-    color: '#fff',
+    color: colors.white,
   },
   caption: {
     fontSize: 12,

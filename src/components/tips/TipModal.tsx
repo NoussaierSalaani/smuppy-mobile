@@ -228,10 +228,10 @@ const TipModal: React.FC<TipModalProps> = ({
             <View style={styles.header}>
               <View style={styles.iconContainer}>
                 <LinearGradient
-                  colors={['#FFD700', '#FFA500']}
+                  colors={[colors.gold, '#FFA500']}
                   style={styles.iconGradient}
                 >
-                  <Ionicons name="gift" size={28} color="#FFF" />
+                  <Ionicons name="gift" size={28} color={colors.white} />
                 </LinearGradient>
               </View>
               <Text style={styles.title}>Send a Tip</Text>
@@ -345,7 +345,7 @@ const TipModal: React.FC<TipModalProps> = ({
                 <LinearGradient
                   colors={
                     getFinalAmount() && !error
-                      ? ['#FFD700', '#FFA500']
+                      ? [colors.gold, '#FFA500']
                       : [colors.darkGray, colors.darkGray]
                   }
                   style={styles.confirmButtonGradient}
@@ -465,7 +465,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   amountButtonTextSelected: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   customToggle: {
     flexDirection: 'row',
@@ -562,7 +562,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   totalAmount: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#FFD700',
+    color: colors.gold,
   },
   actions: {
     flexDirection: 'row',
@@ -603,7 +603,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   secureRow: {
     flexDirection: 'row',

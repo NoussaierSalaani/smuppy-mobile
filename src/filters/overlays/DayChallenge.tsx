@@ -5,6 +5,7 @@
 
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { COLORS } from '../../config/theme';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -127,7 +128,7 @@ export function DayChallenge({ params, size = 120 }: DayChallengeProps) {
                 styles.progressFill,
                 {
                   width: `${progress * 100}%`,
-                  backgroundColor: isComplete ? '#00E676' : color,
+                  backgroundColor: isComplete ? COLORS.success : color,
                 },
               ]}
             />

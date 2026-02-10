@@ -9,7 +9,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { GRADIENTS } from '../config/theme';
+import { COLORS, GRADIENTS } from '../config/theme';
 
 const SWIPE_THRESHOLD = 100; // Distance to trigger Peaks
 const MAX_DRAG = 150; // Maximum drag distance
@@ -171,7 +171,7 @@ export default function SwipeToPeaks({
           <Ionicons
             name={canTrigger ? 'flash' : 'chevron-down'}
             size={20}
-            color="#fff"
+            color={COLORS.white}
           />
           <Text style={styles.indicatorText}>
             {canTrigger ? 'Release for Peaks!' : 'Swipe for Peaks'}
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   indicatorText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
-    color: '#fff',
+    color: COLORS.white,
   },
   progressContainer: {
     width: 40,
@@ -245,10 +245,10 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: 2,
   },
   progressBarActive: {
-    backgroundColor: '#00E676',
+    backgroundColor: COLORS.success,
   },
 });

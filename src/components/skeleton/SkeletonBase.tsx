@@ -20,7 +20,7 @@ interface SkeletonBaseProps {
 const SHIMMER_DURATION = 1200;
 
 const SkeletonBase = ({ width, height, borderRadius = 4, style }: SkeletonBaseProps) => {
-  const { isDark } = useTheme();
+  const { colors, isDark } = useTheme();
   const translateX = useSharedValue(-1);
 
   useEffect(() => {
@@ -35,10 +35,10 @@ const SkeletonBase = ({ width, height, borderRadius = 4, style }: SkeletonBasePr
     transform: [{ translateX: translateX.value * 100 }],
   }));
 
-  const bgColor = isDark ? '#1F1F1F' : '#E8E8E8';
+  const bgColor = isDark ? '#1F1F1F' : colors.grayBorder;
   const shimmerColors: [string, string, string] = isDark
     ? ['#1F1F1F', '#2A2A2A', '#1F1F1F']
-    : ['#E8E8E8', '#F5F5F5', '#E8E8E8'];
+    : [colors.grayBorder, colors.backgroundSecondary, colors.grayBorder];
 
   return (
     <View

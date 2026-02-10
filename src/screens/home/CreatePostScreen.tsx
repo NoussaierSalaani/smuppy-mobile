@@ -518,7 +518,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
                     }}
                     hitSlop={HIT_SLOP.small}
                   >
-                    <Ionicons name="close-circle" size={18} color="#FF3B30" />
+                    <Ionicons name="close-circle" size={18} color={colors.error} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
@@ -940,12 +940,12 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     flex: 1,
     paddingVertical: 16,
     borderRadius: 14,
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
     alignItems: 'center',
   },
   discardButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.white,
   },
 });

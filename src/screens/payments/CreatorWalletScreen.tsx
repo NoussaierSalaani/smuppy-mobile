@@ -20,7 +20,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { GRADIENTS, SHADOWS } from '../../config/theme';
+import { COLORS, GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -34,7 +34,7 @@ const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 const TIER_COLORS = {
   Bronze: { primary: '#CD7F32', secondary: '#8B4513', gradient: ['#CD7F32', '#A0522D'] },
   Silver: { primary: '#C0C0C0', secondary: '#808080', gradient: ['#E8E8E8', '#A8A8A8'] },
-  Gold: { primary: '#FFD700', secondary: '#DAA520', gradient: ['#FFD700', '#FFA500'] },
+  Gold: { primary: COLORS.gold, secondary: '#DAA520', gradient: [COLORS.gold, '#FFA500'] },
   Platinum: { primary: '#E5E4E2', secondary: '#A0A0A0', gradient: ['#E5E4E2', '#B8B8B8'] },
   Diamond: { primary: '#B9F2FF', secondary: '#00CED1', gradient: ['#B9F2FF', '#00CED1'] },
 };
@@ -205,9 +205,9 @@ export default function CreatorWalletScreen() {
               <Ionicons
                 name={dashboard.tier.name === 'Diamond' ? 'diamond' : 'trophy'}
                 size={16}
-                color={dashboard.tier.name === 'Gold' ? '#333' : 'white'}
+                color={dashboard.tier.name === 'Gold' ? colors.dark : 'white'}
               />
-              <Text style={[styles.tierText, dashboard.tier.name === 'Gold' && { color: '#333' }]}>
+              <Text style={[styles.tierText, dashboard.tier.name === 'Gold' && { color: colors.dark }]}>
                 {dashboard.tier.name} Creator
               </Text>
             </LinearGradient>

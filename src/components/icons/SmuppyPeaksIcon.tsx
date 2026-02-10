@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
+import { COLORS } from '../../config/theme';
 
 interface SmuppyPeaksIconProps {
   size?: number;
@@ -23,7 +24,7 @@ interface SmuppyPeaksIconProps {
  */
 const SmuppyPeaksIcon: React.FC<SmuppyPeaksIconProps> = ({
   size = 24,
-  color = '#0A0A0F',
+  color = COLORS.dark,
   gradientColors,
   filled = true,
   style,

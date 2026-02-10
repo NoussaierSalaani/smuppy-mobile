@@ -22,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
+import { useTheme } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -71,6 +72,8 @@ interface Comment {
 }
 
 export default function BattleStreamScreen() {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const route = useRoute<{ key: string; name: string; params: { battleId: string; agoraToken: string; agoraUid: number } }>();
@@ -273,7 +276,7 @@ export default function BattleStreamScreen() {
         {isLeading && (
           <View style={styles.leadingBadge}>
             <LinearGradient
-              colors={['#FFD700', '#FFA500']}
+              colors={[colors.gold, '#FFA500']}
               style={styles.leadingGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -290,7 +293,7 @@ export default function BattleStreamScreen() {
             colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.5)']}
             style={styles.tipCountGradient}
           >
-            <Ionicons name="gift" size={16} color="#FFD700" />
+            <Ionicons name="gift" size={16} color={colors.gold} />
             <Text style={styles.tipCountText}>{formatAmount(participant.tips_received)}</Text>
           </LinearGradient>
         </View>
@@ -301,7 +304,7 @@ export default function BattleStreamScreen() {
           onPress={() => handleTip(participant)}
         >
           <LinearGradient
-            colors={['#FFD700', '#FFA500']}
+            colors={[colors.gold, '#FFA500']}
             style={styles.tipButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -400,7 +403,7 @@ export default function BattleStreamScreen() {
 
           <View style={styles.headerStats}>
             <View style={styles.statBadge}>
-              <View style={styles.liveDot} />
+              <View style={[styles.liveDot, { backgroundColor: colors.error }]} />
               <Text style={styles.statText}>LIVE</Text>
             </View>
             <View style={styles.statBadge}>
@@ -415,7 +418,7 @@ export default function BattleStreamScreen() {
 
           <TouchableOpacity onPress={handleEndBattle} style={styles.endButton}>
             <BlurView intensity={50} style={styles.blurButton}>
-              <Ionicons name="stop" size={20} color="#FF4444" />
+              <Ionicons name="stop" size={20} color={colors.error} />
             </BlurView>
           </TouchableOpacity>
         </View>
@@ -476,7 +479,7 @@ export default function BattleStreamScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof import('../../hooks/useTheme').useTheme>['colors']) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -545,7 +548,7 @@ const styles = StyleSheet.create({
   tipCountText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFD700',
+    color: colors.gold,
   },
   tipButton: {
     position: 'absolute',
@@ -667,7 +670,7 @@ const styles = StyleSheet.create({
   },
   tipAnimationAmount: {
     fontSize: 11,
-    color: '#333',
+    color: colors.dark,
   },
   commentsContainer: {
     position: 'absolute',
@@ -706,7 +709,7 @@ const styles = StyleSheet.create({
   endingText: {
     fontSize: 36,
     fontWeight: '900',
-    color: '#FFD700',
+    color: colors.gold,
     textShadowColor: 'rgba(255,215,0,0.5)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 20,

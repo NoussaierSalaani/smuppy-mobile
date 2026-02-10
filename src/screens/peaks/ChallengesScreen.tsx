@@ -158,7 +158,7 @@ const ChallengesScreen = (): React.JSX.Element => {
           <Ionicons name="chevron-back" size={28} color={isDark ? colors.white : colors.dark} />
         </TouchableOpacity>
         <View style={styles.headerTitleRow}>
-          <Ionicons name="trophy" size={22} color="#FFD700" />
+          <Ionicons name="trophy" size={22} color={colors.gold} />
           <Text style={styles.headerTitle}>Challenges</Text>
         </View>
         <View style={styles.backButton} />

@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
+import { COLORS } from '../../config/theme';
 
 interface SmuppyPeakFlagIconProps {
   size?: number;
@@ -23,7 +24,7 @@ interface SmuppyPeakFlagIconProps {
  */
 const SmuppyPeakFlagIcon: React.FC<SmuppyPeakFlagIconProps> = ({
   size = 24,
-  color = '#FF6B6B',
+  color = COLORS.heartRed,
   filled = false,
   style,
 }) => {

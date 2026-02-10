@@ -330,7 +330,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F5F5F5',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.backgroundSecondary,
     borderRadius: 12,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
@@ -382,7 +382,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     borderRadius: 20,
   },
   sendButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
     fontSize: 14,
   },

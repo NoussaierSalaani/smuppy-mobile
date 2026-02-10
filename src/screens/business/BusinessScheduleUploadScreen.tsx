@@ -308,9 +308,9 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.9) return '#0EBF8A';
+    if (confidence >= 0.9) return colors.primary;
     if (confidence >= 0.7) return '#FFD93D';
-    return '#FF6B6B';
+    return colors.heartRed;
   };
 
   const renderUploadStep = () => (

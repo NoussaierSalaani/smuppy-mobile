@@ -10,6 +10,9 @@ import { useUserStore } from '../../stores';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
+// Backend enforces max 20 interests per profile (update.ts:54)
+const MAX_INTERESTS = 20;
+
 interface EditInterestsScreenProps {
   navigation: { goBack: () => void };
   route: { params?: { currentInterests?: string[] } };
@@ -48,10 +51,17 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
     return !selected.every(item => currentInterests.includes(item));
   }, [selected, profileData?.interests, user?.interests]);
 
+  const isAtLimit = selected.length >= MAX_INTERESTS;
+
   const toggle = useCallback((itemName: string) => {
-    setSelected(prev =>
-      prev.includes(itemName) ? prev.filter(i => i !== itemName) : [...prev, itemName]
-    );
+    setSelected(prev => {
+      if (prev.includes(itemName)) {
+        return prev.filter(i => i !== itemName);
+      }
+      // Block adding beyond the limit
+      if (prev.length >= MAX_INTERESTS) return prev;
+      return [...prev, itemName];
+    });
   }, []);
 
   const handleSave = async () => {
@@ -69,8 +79,9 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
       await refetch();
 
       navigation.goBack();
-    } catch (_error: unknown) {
-      showError('Error', 'Failed to save interests. Please try again.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      showError('Error', msg.includes('20') ? `Maximum ${MAX_INTERESTS} interests allowed. Please deselect some and try again.` : `Failed to save interests: ${msg}`);
     } finally {
       setIsSaving(false);
     }
@@ -78,7 +89,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
+  const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean, limitReached: boolean) => {
     if (isSelected) {
       return (
         <TouchableOpacity
@@ -101,18 +112,19 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
         </TouchableOpacity>
       );
     }
+    const disabled = limitReached;
     return (
       <TouchableOpacity
         key={item.name}
-        style={styles.chip}
+        style={[styles.chip, disabled && styles.chipDisabled]}
         onPress={() => toggle(item.name)}
-        activeOpacity={0.7}
+        activeOpacity={disabled ? 1 : 0.7}
       >
-        <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
-        <Text style={styles.chipText}>{item.name}</Text>
+        <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={disabled ? colors.grayMuted : item.color} />
+        <Text style={[styles.chipText, disabled && styles.chipTextDisabled]}>{item.name}</Text>
       </TouchableOpacity>
     );
-  }, [toggle, styles, colors.gray]);
+  }, [toggle, styles, colors.gray, colors.grayMuted]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -139,13 +151,13 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
         </TouchableOpacity>
       </View>
 
-      {/* Selected count */}
+      {/* Selected count with limit indicator */}
       <View style={styles.countContainer}>
-        <Text style={styles.countText}>
-          {selected.length} interest{selected.length !== 1 ? 's' : ''} selected
+        <Text style={[styles.countText, isAtLimit && { color: colors.orange }]}>
+          {selected.length}/{MAX_INTERESTS} interest{selected.length !== 1 ? 's' : ''} selected
         </Text>
         <Text style={styles.hintText}>
-          Tap to add or remove interests
+          {isAtLimit ? 'Maximum reached — deselect some to add others' : 'Tap to add or remove interests'}
         </Text>
       </View>
 
@@ -171,7 +183,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
 
               {/* Items grid */}
               <View style={styles.itemsGrid}>
-                {section.items.map((item) => renderChip(item, selected.includes(item.name)))}
+                {section.items.map((item) => renderChip(item, selected.includes(item.name), isAtLimit))}
               </View>
             </View>
           );
@@ -237,7 +249,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   hintText: {
     fontSize: 12,
-    color: isDark ? colors.gray : '#8E8E93',
+    color: colors.gray,
     marginTop: 4,
   },
 
@@ -285,12 +297,18 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
     paddingHorizontal: 12.5,
     borderRadius: 16.5,
-    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E6FAF8',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : colors.primaryLight,
     gap: 6,
   },
   chipText: {
     fontSize: 14,
     fontWeight: '500',
     color: colors.dark,
+  },
+  chipDisabled: {
+    opacity: 0.4,
+  },
+  chipTextDisabled: {
+    color: colors.grayMuted,
   },
 });

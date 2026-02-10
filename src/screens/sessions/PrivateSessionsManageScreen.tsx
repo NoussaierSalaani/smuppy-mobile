@@ -622,7 +622,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       <Text style={styles.sectionTitle}>Reservation requests</Text>
       {sessionRequests.length === 0 ? (
         <View style={styles.emptyStateContainer}>
-          <Ionicons name="calendar-outline" size={48} color="#CCCCCC" />
+          <Ionicons name="calendar-outline" size={48} color={colors.grayMuted} />
           <Text style={styles.emptyStateText}>No requests yet</Text>
         </View>
       ) : null}
@@ -632,13 +632,13 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
           <View style={styles.requestInfo}>
             <Text style={styles.requestName}>{request.fan.name}</Text>
             <Text style={styles.requestMemberSince}>
-              <Ionicons name="person-outline" size={11} color="#8E8E93" /> Member since {request.fan.memberSince}
+              <Ionicons name="person-outline" size={11} color={colors.gray} /> Member since {request.fan.memberSince}
             </Text>
             <Text style={styles.requestDetails}>
-              <Ionicons name="calendar-outline" size={11} color="#8E8E93" /> {request.date} • {request.time}
+              <Ionicons name="calendar-outline" size={11} color={colors.gray} /> {request.date} • {request.time}
             </Text>
             <Text style={styles.requestDuration}>
-              <Ionicons name="time-outline" size={11} color="#8E8E93" /> {request.duration}-minute session
+              <Ionicons name="time-outline" size={11} color={colors.gray} /> {request.duration}-minute session
             </Text>
           </View>
           <View style={styles.requestStatus}>
@@ -684,7 +684,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
       {creatorPacks.length === 0 ? (
         <View style={styles.emptyStateContainer}>
-          <Ionicons name="cube-outline" size={48} color="#CCCCCC" />
+          <Ionicons name="cube-outline" size={48} color={colors.grayMuted} />
           <Text style={styles.emptyStateText}>No packs created yet</Text>
           <Text style={styles.emptyStateSubtext}>Create your first pack to get started</Text>
         </View>
@@ -703,17 +703,17 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               <Switch
                 value={pack.isActive}
                 onValueChange={() => handleTogglePackActive(pack.id, pack.isActive)}
-                trackColor={{ false: '#E5E5E5', true: colors.primary }}
-                thumbColor="white"
+                trackColor={{ false: colors.grayBorder, true: colors.primary }}
+                thumbColor={colors.white}
               />
             </View>
           </View>
           <View style={styles.packDetails}>
             <Text style={styles.packDetailText}>
-              <Ionicons name="time-outline" size={14} color="#8E8E93" /> {pack.sessions} sessions / {pack.duration}min
+              <Ionicons name="time-outline" size={14} color={colors.gray} /> {pack.sessions} sessions / {pack.duration}min
             </Text>
             <Text style={styles.packDetailText}>
-              <Ionicons name="calendar-outline" size={14} color="#8E8E93" /> Validity: {pack.validity} days from purchase
+              <Ionicons name="calendar-outline" size={14} color={colors.gray} /> Validity: {pack.validity} days from purchase
             </Text>
           </View>
 
@@ -740,7 +740,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               <Text style={styles.packEditText}>Edit</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.packDeleteBtn} onPress={() => handleDeletePack(pack.id)}>
-              <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
               <Text style={styles.packDeleteText}>Delete</Text>
             </TouchableOpacity>
           </View>
@@ -851,7 +851,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               <>
                 <Text style={styles.inputLabel}>Date</Text>
                 <TouchableOpacity style={styles.dateInput}>
-                  <Ionicons name="calendar-outline" size={20} color="#8E8E93" />
+                  <Ionicons name="calendar-outline" size={20} color={colors.gray} />
                   <Text style={styles.dateInputText}>
                     {sessionDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
                   </Text>
@@ -862,7 +862,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
                 <View style={styles.dateRangeField}>
                   <Text style={styles.inputLabel}>Start Date</Text>
                   <TouchableOpacity style={styles.dateInput}>
-                    <Ionicons name="calendar-outline" size={20} color="#8E8E93" />
+                    <Ionicons name="calendar-outline" size={20} color={colors.gray} />
                     <Text style={styles.dateInputText}>
                       {sessionDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
                     </Text>
@@ -871,7 +871,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
                 <View style={styles.dateRangeField}>
                   <Text style={styles.inputLabel}>End Date</Text>
                   <TouchableOpacity style={styles.dateInput}>
-                    <Ionicons name="calendar-outline" size={20} color="#8E8E93" />
+                    <Ionicons name="calendar-outline" size={20} color={colors.gray} />
                     <Text style={styles.dateInputText}>
                       {sessionEndDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
                     </Text>
@@ -883,7 +883,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             {/* Start Time */}
             <Text style={styles.inputLabel}>Start Time</Text>
             <TouchableOpacity style={styles.dateInput}>
-              <Ionicons name="time-outline" size={20} color="#8E8E93" />
+              <Ionicons name="time-outline" size={20} color={colors.gray} />
               <Text style={styles.dateInputText}>{sessionTime} PM</Text>
             </TouchableOpacity>
 
@@ -926,7 +926,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             {/* Price */}
             <Text style={styles.inputLabel}>Price</Text>
             <View style={styles.priceInput}>
-              <Ionicons name="logo-usd" size={20} color="#8E8E93" />
+              <Ionicons name="logo-usd" size={20} color={colors.gray} />
               <TextInput
                 style={styles.priceInputText}
                 value={sessionPrice}
@@ -941,7 +941,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             <TouchableOpacity onPress={handleSaveSession}>
               <LinearGradient colors={GRADIENTS.primary} style={styles.saveBtn}>
                 <Text style={styles.saveBtnText}>Save</Text>
-                <Ionicons name="save-outline" size={18} color="white" />
+                <Ionicons name="save-outline" size={18} color={colors.white} />
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseAddModal}>
@@ -1011,7 +1011,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
               placeholder="30"
             />
             <Text style={styles.validityNote}>
-              <Ionicons name="information-circle-outline" size={12} color="#8E8E93" /> Validity period starts when the user purchases the pack
+              <Ionicons name="information-circle-outline" size={12} color={colors.gray} /> Validity period starts when the user purchases the pack
             </Text>
 
             {/* Pack Offerings Section */}
@@ -1026,7 +1026,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
               {packOfferings.length === 0 ? (
                 <View style={styles.noOfferingsBox}>
-                  <Ionicons name="gift-outline" size={32} color="#CCCCCC" />
+                  <Ionicons name="gift-outline" size={32} color={colors.grayMuted} />
                   <Text style={styles.noOfferingsText}>Add offerings to your pack</Text>
                   <Text style={styles.noOfferingsSubtext}>Training programs, diet plans, video access, etc.</Text>
                 </View>
@@ -1040,7 +1040,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
                         <Text style={styles.offeringItemDesc}>{offering.description}</Text>
                       </View>
                       <TouchableOpacity onPress={() => handleRemoveOffering(offering.id)}>
-                        <Ionicons name="close-circle" size={22} color="#FF3B30" />
+                        <Ionicons name="close-circle" size={22} color={colors.error} />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -1050,7 +1050,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
             <Text style={styles.inputLabel}>Price per Month ($)</Text>
             <View style={styles.priceInput}>
-              <Ionicons name="logo-usd" size={20} color="#8E8E93" />
+              <Ionicons name="logo-usd" size={20} color={colors.gray} />
               <TextInput
                 style={styles.priceInputText}
                 value={packPrice}
@@ -1065,7 +1065,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             <TouchableOpacity onPress={handleSavePack}>
               <LinearGradient colors={['#0081BE', '#00B5C1']} style={styles.saveBtn}>
                 <Text style={styles.saveBtnText}>Create Pack</Text>
-                <Ionicons name="checkmark" size={18} color="white" />
+                <Ionicons name="checkmark" size={18} color={colors.white} />
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseAddPackModal}>
@@ -1093,14 +1093,14 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
             <ScrollView style={styles.slotsModalBody} showsVerticalScrollIndicator={false}>
               {availableSlots.length === 0 ? (
                 <View style={styles.emptyStateContainer}>
-                  <Ionicons name="time-outline" size={48} color="#CCCCCC" />
+                  <Ionicons name="time-outline" size={48} color={colors.grayMuted} />
                   <Text style={styles.emptyStateText}>No slots available</Text>
                 </View>
               ) : null}
               {availableSlots.map((slot, index) => (
                 <View key={index} style={[styles.slotItem, slot.isBooked && styles.slotItemBooked]}>
                   <View style={styles.slotTimeContainer}>
-                    <Ionicons name="time-outline" size={18} color={slot.isBooked ? '#8E8E93' : colors.primary} />
+                    <Ionicons name="time-outline" size={18} color={slot.isBooked ? colors.gray : colors.primary} />
                     <Text style={[styles.slotTime, slot.isBooked && styles.slotTimeBooked]}>{slot.time}</Text>
                   </View>
                   <View style={styles.slotDurationContainer}>
@@ -1148,7 +1148,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
                     style={[styles.offeringTypeBtn, newOfferingType === type.key && styles.offeringTypeBtnActive]}
                     onPress={() => setNewOfferingType(type.key)}
                   >
-                    <Ionicons name={type.icon as keyof typeof Ionicons.glyphMap} size={20} color={newOfferingType === type.key ? 'white' : colors.dark} />
+                    <Ionicons name={type.icon as keyof typeof Ionicons.glyphMap} size={20} color={newOfferingType === type.key ? colors.white : colors.dark} />
                     <Text style={[styles.offeringTypeText, newOfferingType === type.key && styles.offeringTypeTextActive]}>
                       {type.label}
                     </Text>
@@ -1197,7 +1197,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, gap: 8 },
   tab: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.backgroundSecondary, alignItems: 'center' },
   tabActive: { backgroundColor: 'rgba(14, 191, 138, 0.15)' },
-  tabText: { fontSize: 14, fontWeight: '500', color: '#8E8E93' },
+  tabText: { fontSize: 14, fontWeight: '500', color: colors.gray },
   tabTextActive: { color: colors.primary, fontWeight: '600' },
 
   content: { flex: 1 },
@@ -1208,7 +1208,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   viewToggle: { flexDirection: 'row', backgroundColor: colors.backgroundSecondary, borderRadius: 8, padding: 4 },
   viewToggleBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 },
   viewToggleBtnActive: { backgroundColor: colors.background, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
-  viewToggleText: { fontSize: 13, fontWeight: '500', color: '#8E8E93' },
+  viewToggleText: { fontSize: 13, fontWeight: '500', color: colors.gray },
   viewToggleTextActive: { color: colors.dark },
   addNewBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(14, 191, 138, 0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, gap: 4 },
   addNewText: { fontSize: 13, fontWeight: '600', color: colors.primary },
@@ -1217,7 +1217,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   monthTitle: { fontSize: 16, fontWeight: '600', color: colors.dark },
 
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calendarDayHeader: { width: '14.28%', textAlign: 'center', fontSize: 12, fontWeight: '500', color: '#8E8E93', marginBottom: 8 },
+  calendarDayHeader: { width: '14.28%', textAlign: 'center', fontSize: 12, fontWeight: '500', color: colors.gray, marginBottom: 8 },
   calendarDayCell: { width: '14.28%', aspectRatio: 1, padding: 2 },
   calendarDay: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
   calendarDayAvailable: { backgroundColor: 'rgba(14, 191, 138, 0.15)' },
@@ -1225,29 +1225,29 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   calendarDayText: { fontSize: 14, fontWeight: '500', color: colors.dark },
   calendarDayTextAvailable: { color: colors.primary },
   availableDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.primary, marginTop: 2 },
-  calendarLegend: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#F0F0F0' },
+  calendarLegend: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : colors.grayBorder },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   legendDot: { width: 16, height: 16, borderRadius: 4 },
-  legendText: { fontSize: 12, color: '#8E8E93' },
+  legendText: { fontSize: 12, color: colors.gray },
 
   // Requests
   sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.dark, marginBottom: 16 },
   requestCard: { flexDirection: 'row', alignItems: 'flex-start', padding: 16, backgroundColor: colors.backgroundSecondary, borderRadius: 12, marginBottom: 12, gap: 12 },
   requestInfo: { flex: 1 },
   requestName: { fontSize: 16, fontWeight: '600', color: colors.dark },
-  requestMemberSince: { fontSize: 11, color: '#8E8E93', marginTop: 4 },
-  requestDetails: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
-  requestDuration: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+  requestMemberSince: { fontSize: 11, color: colors.gray, marginTop: 4 },
+  requestDetails: { fontSize: 13, color: colors.gray, marginTop: 2 },
+  requestDuration: { fontSize: 12, color: colors.gray, marginTop: 2 },
   requestStatus: { alignItems: 'flex-end' },
   requestStatusText: { fontSize: 13, fontWeight: '600' },
   statusConfirmed: { color: colors.primary },
-  statusPending: { color: '#FF9500' },
-  statusRejected: { color: '#FF3B30' },
+  statusPending: { color: colors.orange },
+  statusRejected: { color: colors.error },
   requestActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
   acceptBtn: { backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-  acceptBtnText: { fontSize: 13, fontWeight: '600', color: 'white' },
-  rejectBtn: { backgroundColor: colors.background, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#E5E5E5' },
-  rejectBtnText: { fontSize: 13, fontWeight: '600', color: '#FF3B30' },
+  acceptBtnText: { fontSize: 13, fontWeight: '600', color: colors.white },
+  rejectBtn: { backgroundColor: colors.background, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : colors.grayBorder },
+  rejectBtnText: { fontSize: 13, fontWeight: '600', color: colors.error },
 
   // Packs
   packsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
@@ -1258,20 +1258,20 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   packHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   packNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   packName: { fontSize: 17, fontWeight: '700', color: colors.dark },
-  newBadge: { backgroundColor: '#FF9500', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  newBadgeText: { fontSize: 10, fontWeight: '700', color: 'white' },
+  newBadge: { backgroundColor: colors.orange, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  newBadgeText: { fontSize: 10, fontWeight: '700', color: colors.white },
   popularBadge: { backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  popularBadgeText: { fontSize: 10, fontWeight: '700', color: 'white' },
+  popularBadgeText: { fontSize: 10, fontWeight: '700', color: colors.white },
   packToggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  packToggleLabel: { fontSize: 12, color: '#8E8E93' },
+  packToggleLabel: { fontSize: 12, color: colors.gray },
   packDetails: { marginBottom: 8 },
-  packDetailText: { fontSize: 13, color: '#8E8E93', marginBottom: 4 },
+  packDetailText: { fontSize: 13, color: colors.gray, marginBottom: 4 },
   packPrice: { fontSize: 20, fontWeight: '700', color: colors.dark, marginBottom: 12 },
   packActions: { flexDirection: 'row', gap: 12 },
-  packEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, paddingVertical: 12, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#E5E5E5' },
+  packEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, paddingVertical: 12, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : colors.grayBorder },
   packEditText: { fontSize: 14, fontWeight: '500', color: colors.dark },
-  packDeleteBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, paddingVertical: 12, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: '#FFE5E5' },
-  packDeleteText: { fontSize: 14, fontWeight: '500', color: '#FF3B30' },
+  packDeleteBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, paddingVertical: 12, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: colors.errorLight },
+  packDeleteText: { fontSize: 14, fontWeight: '500', color: colors.error },
 
   // Modal
   modalContainer: { flex: 1, backgroundColor: colors.background },
@@ -1283,12 +1283,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   modeToggle: { flexDirection: 'row', backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 4, marginBottom: 24 },
   modeBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   modeBtnActive: { backgroundColor: colors.primary },
-  modeBtnText: { fontSize: 14, fontWeight: '500', color: '#8E8E93' },
-  modeBtnTextActive: { color: 'white', fontWeight: '600' },
+  modeBtnText: { fontSize: 14, fontWeight: '500', color: colors.gray },
+  modeBtnTextActive: { color: colors.white, fontWeight: '600' },
 
   inputLabel: { fontSize: 13, fontWeight: '600', color: colors.dark, marginBottom: 8, marginTop: 16 },
-  textInput: { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#E5E5E5', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: colors.dark, backgroundColor: colors.background },
-  dateInput: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#E5E5E5', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  textInput: { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : colors.grayBorder, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: colors.dark, backgroundColor: colors.background },
+  dateInput: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : colors.grayBorder, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
   dateInputText: { fontSize: 16, color: colors.dark },
   dateRangeRow: { flexDirection: 'row', gap: 12 },
   dateRangeField: { flex: 1 },
@@ -1297,20 +1297,20 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   dayChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.backgroundSecondary },
   dayChipActive: { backgroundColor: colors.primary },
   dayChipText: { fontSize: 13, fontWeight: '500', color: colors.dark },
-  dayChipTextActive: { color: 'white' },
+  dayChipTextActive: { color: colors.white },
 
   durationRow: { flexDirection: 'row', gap: 10 },
   durationChip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.backgroundSecondary },
   durationChipActive: { backgroundColor: colors.primary },
   durationChipText: { fontSize: 14, fontWeight: '500', color: colors.dark },
-  durationChipTextActive: { color: 'white' },
+  durationChipTextActive: { color: colors.white },
 
-  priceInput: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#E5E5E5', borderRadius: 12, paddingHorizontal: 16, gap: 8 },
+  priceInput: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : colors.grayBorder, borderRadius: 12, paddingHorizontal: 16, gap: 8 },
   priceInputText: { flex: 1, fontSize: 16, color: colors.dark, paddingVertical: 14 },
 
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, gap: 8 },
-  saveBtnText: { fontSize: 16, fontWeight: '600', color: 'white' },
-  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#E5E5E5', gap: 6 },
+  saveBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : colors.grayBorder, gap: 6 },
   cancelBtnText: { fontSize: 15, fontWeight: '500', color: colors.dark },
 
   // Pack Offerings
@@ -1319,68 +1319,68 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   packOfferingItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
   packOfferingInfo: { flex: 1 },
   packOfferingTitle: { fontSize: 13, fontWeight: '600', color: colors.dark },
-  packOfferingDesc: { fontSize: 11, color: '#8E8E93', marginTop: 2 },
+  packOfferingDesc: { fontSize: 11, color: colors.gray, marginTop: 2 },
 
   // Validity Note
-  validityNote: { fontSize: 12, color: '#8E8E93', marginTop: 6, fontStyle: 'italic' },
+  validityNote: { fontSize: 12, color: colors.gray, marginTop: 6, fontStyle: 'italic' },
 
   // Offerings Section in Modal
   offeringsSection: { marginTop: 16 },
   offeringsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   addOfferingBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(14, 191, 138, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, gap: 4 },
   addOfferingText: { fontSize: 13, fontWeight: '600', color: colors.primary },
-  noOfferingsBox: { alignItems: 'center', padding: 24, backgroundColor: colors.backgroundSecondary, borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#E5E5E5', borderStyle: 'dashed' },
-  noOfferingsText: { fontSize: 14, fontWeight: '500', color: '#8E8E93', marginTop: 8 },
-  noOfferingsSubtext: { fontSize: 12, color: '#AAAAAA', marginTop: 4 },
+  noOfferingsBox: { alignItems: 'center', padding: 24, backgroundColor: colors.backgroundSecondary, borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.2)' : colors.grayBorder, borderStyle: 'dashed' },
+  noOfferingsText: { fontSize: 14, fontWeight: '500', color: colors.gray, marginTop: 8 },
+  noOfferingsSubtext: { fontSize: 12, color: colors.gray400, marginTop: 4 },
   offeringsList: { gap: 8 },
   offeringItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundSecondary, padding: 12, borderRadius: 10, gap: 12 },
   offeringItemInfo: { flex: 1 },
   offeringItemTitle: { fontSize: 14, fontWeight: '600', color: colors.dark },
-  offeringItemDesc: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+  offeringItemDesc: { fontSize: 12, color: colors.gray, marginTop: 2 },
 
   // Date Slots Modal
   slotsModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   slotsModalContent: { backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' },
-  slotsModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : '#F0F0F0' },
+  slotsModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : colors.grayBorder },
   slotsModalTitle: { fontSize: 18, fontWeight: '700', color: colors.dark },
   slotsModalBody: { padding: 16 },
   slotItem: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: colors.backgroundSecondary, borderRadius: 12, marginBottom: 10 },
   slotItemBooked: { backgroundColor: colors.backgroundSecondary, opacity: 0.7 },
   slotTimeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   slotTime: { fontSize: 16, fontWeight: '600', color: colors.dark },
-  slotTimeBooked: { color: '#8E8E93' },
+  slotTimeBooked: { color: colors.gray },
   slotDurationContainer: { flex: 1 },
-  slotDuration: { fontSize: 14, color: '#8E8E93' },
+  slotDuration: { fontSize: 14, color: colors.gray },
   slotStatusContainer: { flex: 1, alignItems: 'flex-end' },
-  bookedBadge: { backgroundColor: '#FFE5E5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  bookedBadgeText: { fontSize: 12, fontWeight: '600', color: '#FF3B30' },
+  bookedBadge: { backgroundColor: colors.errorLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  bookedBadgeText: { fontSize: 12, fontWeight: '600', color: colors.error },
   availableBadge: { backgroundColor: 'rgba(14, 191, 138, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   availableBadgeText: { fontSize: 12, fontWeight: '600', color: colors.primary },
-  slotsModalClose: { padding: 20, alignItems: 'center', borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#F0F0F0' },
+  slotsModalClose: { padding: 20, alignItems: 'center', borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : colors.grayBorder },
   slotsModalCloseText: { fontSize: 16, fontWeight: '600', color: colors.dark },
 
   // Add Offering Modal
   offeringModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   offeringModalContent: { backgroundColor: colors.background, borderRadius: 20, maxHeight: '80%' },
-  offeringModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : '#F0F0F0' },
+  offeringModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : colors.grayBorder },
   offeringModalTitle: { fontSize: 18, fontWeight: '700', color: colors.dark },
   offeringModalBody: { padding: 20 },
   offeringTypesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   offeringTypeBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundSecondary, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, gap: 6, marginBottom: 4 },
   offeringTypeBtnActive: { backgroundColor: colors.primary },
   offeringTypeText: { fontSize: 12, fontWeight: '500', color: colors.dark },
-  offeringTypeTextActive: { color: 'white' },
+  offeringTypeTextActive: { color: colors.white },
   textAreaInput: { height: 80, textAlignVertical: 'top', paddingTop: 12 },
-  offeringModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#F0F0F0' },
+  offeringModalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : colors.grayBorder },
   addOfferingConfirmBtn: { backgroundColor: colors.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  addOfferingConfirmText: { fontSize: 16, fontWeight: '600', color: 'white' },
+  addOfferingConfirmText: { fontSize: 16, fontWeight: '600', color: colors.white },
 
   // Shared utility styles (extracted from inline)
   emptyStateContainer: { alignItems: 'center' as const, paddingVertical: 32 },
-  emptyStateText: { color: '#8E8E93', marginTop: 12 },
-  emptyStateSubtext: { color: '#AAAAAA', fontSize: 13, marginTop: 4 },
+  emptyStateText: { color: colors.gray, marginTop: 12 },
+  emptyStateSubtext: { color: colors.gray400, fontSize: 13, marginTop: 4 },
   loadingContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' as const, alignItems: 'center' as const },
-  loadingText: { color: '#8E8E93', marginTop: 16 },
+  loadingText: { color: colors.gray, marginTop: 16 },
   bottomSpacer: { height: 40 },
   flex1: { flex: 1 },
   modalHeaderSpacer: { width: 24 },

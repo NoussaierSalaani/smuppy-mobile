@@ -230,7 +230,7 @@ export default function BattleResultsScreen() {
               )}
               {isWinner && (
                 <View style={styles.winnerBadge}>
-                  <Ionicons name="trophy" size={14} color="#FFD700" />
+                  <Ionicons name="trophy" size={14} color={colors.gold} />
                   <Text style={styles.winnerText}>Winner</Text>
                 </View>
               )}
@@ -295,7 +295,7 @@ export default function BattleResultsScreen() {
               </Animated.View>
 
               <View style={styles.crownContainer}>
-                <Ionicons name="trophy" size={40} color="#FFD700" />
+                <Ionicons name="trophy" size={40} color={colors.gold} />
               </View>
 
               <TouchableOpacity
@@ -340,7 +340,7 @@ export default function BattleResultsScreen() {
                 <Text style={styles.statBoxLabel}>Participants</Text>
               </View>
               <View style={styles.statBox}>
-                <Ionicons name="heart" size={24} color="#FF6B6B" />
+                <Ionicons name="heart" size={24} color={colors.heartRed} />
                 <Text style={styles.statBoxValue}>{formatAmount(totalTips)}</Text>
                 <Text style={styles.statBoxLabel}>Total Tips</Text>
               </View>
@@ -544,7 +544,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) =>
     },
     winnerCard: {
       borderWidth: 2,
-      borderColor: '#FFD700',
+      borderColor: colors.gold,
     },
     participantContent: {
       flexDirection: 'row',
@@ -594,7 +594,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) =>
     winnerText: {
       fontSize: 11,
       fontWeight: '600',
-      color: '#FFD700',
+      color: colors.gold,
       marginLeft: 4,
     },
     username: {

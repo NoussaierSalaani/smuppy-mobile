@@ -306,7 +306,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
             style={styles.deleteButton}
             onPress={() => handleDelete(service)}
           >
-            <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+            <Ionicons name="trash-outline" size={18} color={colors.heartRed} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>

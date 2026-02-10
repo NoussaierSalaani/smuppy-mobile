@@ -264,7 +264,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   confirmButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 });
 

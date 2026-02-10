@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { type ThemeColors } from '../../hooks/useTheme';
-import { SPACING } from '../../config/theme';
+import { COLORS, SPACING } from '../../config/theme';
 
 /**
  * Shared form constants for auth screens.
@@ -25,8 +25,8 @@ export const createAuthColors = (colors: ThemeColors, isDark: boolean) => ({
   border: colors.grayBorder,
   divider: colors.grayBorder,
   error: colors.error,
-  errorBg: isDark ? 'rgba(239,68,68,0.15)' : '#FEE2E2',
-  errorInputBg: isDark ? 'rgba(239,68,68,0.08)' : '#FEF2F2',
+  errorBg: isDark ? 'rgba(239,68,68,0.15)' : COLORS.errorLight,
+  errorInputBg: isDark ? 'rgba(239,68,68,0.08)' : COLORS.errorLight,
   successBg: isDark ? 'rgba(14,191,138,0.15)' : '#E6FAF8',
   focusBg: isDark ? 'rgba(14,191,138,0.08)' : '#F0FDFB',
   validBg: isDark ? 'rgba(14,191,138,0.15)' : '#E6FAF8',

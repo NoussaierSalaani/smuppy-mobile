@@ -19,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { GRADIENTS } from '../../config/theme';
+import { COLORS, GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -54,7 +54,7 @@ interface Subscription {
 
 const STATUS_CONFIG = {
   active: { label: 'Active', color: '#4CAF50', icon: 'checkmark-circle' },
-  trial: { label: 'Trial', color: '#FFD700', icon: 'gift' },
+  trial: { label: 'Trial', color: COLORS.gold, icon: 'gift' },
   cancelled: { label: 'Cancelled', color: '#FF9800', icon: 'close-circle' },
   expired: { label: 'Expired', color: '#F44336', icon: 'time' },
 };
@@ -181,7 +181,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
         {/* Warning for ending trial */}
         {isTrialEnding && (
           <View style={styles.warningBanner}>
-            <Ionicons name="warning" size={16} color="#FFD700" />
+            <Ionicons name="warning" size={16} color={colors.gold} />
             <Text style={styles.warningText}>
               Trial ends in {getDaysRemaining(subscription.trial_end!)} days
             </Text>
@@ -240,7 +240,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
               style={[styles.actionButton, styles.cancelButton]}
               onPress={() => handleCancelSubscription(subscription)}
             >
-              <Ionicons name="close-circle-outline" size={18} color="#FF3B30" />
+              <Ionicons name="close-circle-outline" size={18} color={colors.error} />
               <Text style={[styles.actionButtonText, styles.cancelButtonText]}>Cancel</Text>
             </TouchableOpacity>
           )}
@@ -487,7 +487,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   warningText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#FFD700',
+    color: colors.gold,
   },
   pricingRow: {
     flexDirection: 'row',
@@ -567,7 +567,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     backgroundColor: 'rgba(255,59,48,0.1)',
   },
   cancelButtonText: {
-    color: '#FF3B30',
+    color: colors.error,
   },
   reactivateButton: {
     backgroundColor: 'rgba(14,191,138,0.1)',

@@ -112,7 +112,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: CARD_HEIGHT,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: isDark ? '#1C1C1E' : '#F5F5F5',
+    backgroundColor: colors.darkCard,
     marginBottom: 12,
   },
   thumbnail: {

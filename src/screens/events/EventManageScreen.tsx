@@ -212,7 +212,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
           style={styles.removeButton}
           onPress={() => handleRemoveParticipant(item)}
         >
-          <Ionicons name="close-circle" size={24} color="#FF3B30" />
+          <Ionicons name="close-circle" size={24} color={colors.error} />
         </TouchableOpacity>
       </View>
     </View>
@@ -371,7 +371,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                   onPress={handleCancelEvent}
                 >
                   <View style={[styles.actionIcon, styles.dangerIcon]}>
-                    <Ionicons name="close-circle" size={22} color="#FF3B30" />
+                    <Ionicons name="close-circle" size={22} color={colors.error} />
                   </View>
                   <Text style={[styles.actionText, styles.dangerText]}>Cancel</Text>
                 </TouchableOpacity>
@@ -419,7 +419,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
                 </View>
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Platform Fee (20%)</Text>
-                  <Text style={[styles.breakdownValue, { color: '#FF3B30' }]}>
+                  <Text style={[styles.breakdownValue, { color: colors.error }]}>
                     -{formatAmount((event.total_revenue || 0) * 0.2)}
                   </Text>
                 </View>
@@ -718,7 +718,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     backgroundColor: 'rgba(255,59,48,0.15)',
   },
   dangerText: {
-    color: '#FF3B30',
+    color: colors.error,
   },
 
   // Participants Tab
@@ -927,7 +927,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   formWarning: {
     fontSize: 12,
-    color: '#FFD700',
+    color: colors.gold,
     marginTop: 8,
   },
   saveButton: {

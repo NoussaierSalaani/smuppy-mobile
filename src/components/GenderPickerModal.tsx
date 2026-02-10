@@ -77,7 +77,7 @@ export default function GenderPickerModal({ visible, onClose, onSelect, selected
                     <Ionicons
                       name={option.icon}
                       size={28}
-                      color={isSelected ? '#FFFFFF' : colors.dark}
+                      color={isSelected ? colors.white : colors.dark}
                     />
                   </View>
                   <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
@@ -85,7 +85,7 @@ export default function GenderPickerModal({ visible, onClose, onSelect, selected
                   </Text>
                   {isSelected && (
                     <View style={styles.checkmark}>
-                      <Ionicons name="checkmark-circle" size={24} color="#0EBF8A" />
+                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -151,7 +151,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     borderColor: 'transparent',
   },
   optionSelected: {
-    backgroundColor: isDark ? 'rgba(14,191,138,0.15)' : '#E8FBF5',
+    backgroundColor: isDark ? 'rgba(14,191,138,0.15)' : colors.primaryLight,
     borderColor: colors.primary,
   },
   optionIcon: {

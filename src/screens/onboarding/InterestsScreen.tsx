@@ -219,7 +219,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
     paddingHorizontal: 12.5,
     borderRadius: 16.5,
-    backgroundColor: isDark ? colors.backgroundFocus : '#E8FAF7',
+    backgroundColor: isDark ? colors.backgroundFocus : colors.primaryLight,
     gap: 6,
   },
   chipText: { fontSize: 13, fontWeight: '500', color: colors.dark },

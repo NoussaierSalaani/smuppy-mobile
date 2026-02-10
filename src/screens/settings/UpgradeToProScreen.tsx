@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS } from '../../config/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
@@ -252,7 +253,7 @@ export default function UpgradeToProScreen() {
     >
       <View style={styles.featureInfo}>
         <View style={styles.featureIconContainer}>
-          <Ionicons name={feature.icon as keyof typeof Ionicons.glyphMap} size={20} color="#0EBF8A" />
+          <Ionicons name={feature.icon as keyof typeof Ionicons.glyphMap} size={20} color={COLORS.primary} />
         </View>
         <View style={styles.featureText}>
           <Text style={styles.featureTitle}>{feature.title}</Text>
@@ -263,16 +264,16 @@ export default function UpgradeToProScreen() {
       <View style={styles.featureComparison}>
         <View style={styles.featureValue}>
           {feature.personal === true ? (
-            <Ionicons name="checkmark-circle" size={20} color="#0EBF8A" />
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
           ) : feature.personal === false ? (
-            <Ionicons name="close-circle" size={20} color="#666" />
+            <Ionicons name="close-circle" size={20} color={COLORS.gray} />
           ) : (
             <Text style={styles.limitText}>{feature.personal}</Text>
           )}
         </View>
         <View style={[styles.featureValue, styles.proValue]}>
           {feature.pro === true ? (
-            <Ionicons name="checkmark-circle" size={20} color="#FFD700" />
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.gold} />
           ) : (
             <Text style={styles.proValueText}>{feature.pro}</Text>
           )}
@@ -289,7 +290,7 @@ export default function UpgradeToProScreen() {
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => setStep('info')} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.white} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Confirm Upgrade</Text>
             <View style={styles.headerSpacer} />
@@ -298,7 +299,7 @@ export default function UpgradeToProScreen() {
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.confirmContainer}>
               <View style={styles.warningIcon}>
-                <Ionicons name="warning" size={48} color="#FFD700" />
+                <Ionicons name="warning" size={48} color={COLORS.gold} />
               </View>
 
               <Text style={styles.confirmTitle}>One-Way Upgrade</Text>
@@ -308,19 +309,19 @@ export default function UpgradeToProScreen() {
 
               <View style={styles.termsList}>
                 <View style={styles.termItem}>
-                  <Ionicons name="checkmark-circle" size={20} color="#0EBF8A" />
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
                   <Text style={styles.termText}>This upgrade is permanent and cannot be reversed</Text>
                 </View>
                 <View style={styles.termItem}>
-                  <Ionicons name="checkmark-circle" size={20} color="#0EBF8A" />
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
                   <Text style={styles.termText}>You'll need to complete identity verification</Text>
                 </View>
                 <View style={styles.termItem}>
-                  <Ionicons name="checkmark-circle" size={20} color="#0EBF8A" />
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
                   <Text style={styles.termText}>Platform takes 20% fee on earnings</Text>
                 </View>
                 <View style={styles.termItem}>
-                  <Ionicons name="checkmark-circle" size={20} color="#0EBF8A" />
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
                   <Text style={styles.termText}>You agree to Pro Creator Terms of Service</Text>
                 </View>
               </View>
@@ -331,7 +332,7 @@ export default function UpgradeToProScreen() {
                 onPress={() => setAcceptedTerms(!acceptedTerms)}
               >
                 <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                  {acceptedTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
+                  {acceptedTerms && <Ionicons name="checkmark" size={16} color={COLORS.white} />}
                 </View>
                 <Text style={styles.termsText}>
                   I understand and accept the Pro Creator terms
@@ -347,16 +348,16 @@ export default function UpgradeToProScreen() {
               disabled={!acceptedTerms || isLoading}
             >
               <LinearGradient
-                colors={acceptedTerms ? ['#FFD700', '#FFA500'] : ['#444', '#333']}
+                colors={acceptedTerms ? [COLORS.gold, '#FFA500'] : [COLORS.gray600, COLORS.gray800]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.upgradeGradient}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#000" />
+                  <ActivityIndicator color={COLORS.dark} />
                 ) : (
                   <>
-                    <Ionicons name="rocket" size={22} color="#000" />
+                    <Ionicons name="rocket" size={22} color={COLORS.dark} />
                     <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
                   </>
                 )}
@@ -376,7 +377,7 @@ export default function UpgradeToProScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Become Pro Creator</Text>
           <View style={styles.headerSpacer} />
@@ -386,10 +387,10 @@ export default function UpgradeToProScreen() {
           {/* Hero Section */}
           <View style={styles.heroSection}>
             <LinearGradient
-              colors={['#FFD700', '#FFA500']}
+              colors={[COLORS.gold, '#FFA500']}
               style={styles.heroBadge}
             >
-              <Ionicons name="star" size={32} color="#000" />
+              <Ionicons name="star" size={32} color={COLORS.dark} />
             </LinearGradient>
             <Text style={styles.heroTitle}>Unlock Your Potential</Text>
             <Text style={styles.heroSubtitle}>
@@ -419,12 +420,12 @@ export default function UpgradeToProScreen() {
         <View style={styles.footer}>
           <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
             <LinearGradient
-              colors={['#FFD700', '#FFA500']}
+              colors={[COLORS.gold, '#FFA500']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.upgradeGradient}
             >
-              <Ionicons name="rocket" size={22} color="#000" />
+              <Ionicons name="rocket" size={22} color={COLORS.dark} />
               <Text style={styles.upgradeButtonText}>Upgrade to Pro Creator</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -461,7 +462,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.white,
   },
   content: {
     flex: 1,
@@ -482,12 +483,12 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.white,
     marginBottom: 8,
   },
   heroSubtitle: {
     fontSize: 15,
-    color: '#888',
+    color: COLORS.gray,
     textAlign: 'center',
     paddingHorizontal: 20,
     lineHeight: 22,
@@ -511,11 +512,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: '#888',
+    color: COLORS.gray,
     textAlign: 'center',
   },
   proLabel: {
-    color: '#FFD700',
+    color: COLORS.gold,
   },
   featuresContainer: {
     gap: 4,
@@ -547,11 +548,11 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.white,
   },
   featureDesc: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.gray,
     marginTop: 2,
   },
   featureComparison: {
@@ -572,12 +573,12 @@ const styles = StyleSheet.create({
   limitText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#888',
+    color: COLORS.gray,
   },
   proValueText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFD700',
+    color: COLORS.gold,
   },
   footer: {
     padding: 16,
@@ -603,11 +604,11 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.dark,
   },
   freeText: {
     fontSize: 13,
-    color: '#888',
+    color: COLORS.gray,
     textAlign: 'center',
     marginTop: 12,
   },
@@ -628,12 +629,12 @@ const styles = StyleSheet.create({
   confirmTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.white,
     marginBottom: 12,
   },
   confirmText: {
     fontSize: 15,
-    color: '#888',
+    color: COLORS.gray,
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -653,7 +654,7 @@ const styles = StyleSheet.create({
   termText: {
     flex: 1,
     fontSize: 14,
-    color: '#ccc',
+    color: COLORS.grayMuted,
     lineHeight: 20,
   },
   termsToggle: {
@@ -667,18 +668,18 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#444',
+    borderColor: COLORS.gray600,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#0EBF8A',
-    borderColor: '#0EBF8A',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   termsText: {
     flex: 1,
     fontSize: 14,
-    color: '#fff',
+    color: COLORS.white,
   },
   headerSpacer: { width: 40 },
   bottomSpacer: { height: 120 },

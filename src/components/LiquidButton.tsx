@@ -9,7 +9,7 @@
  * - Green shadow
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -19,7 +19,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 type ColorScheme = 'green' | 'dark' | 'gold' | 'red' | 'blue';
 
@@ -100,8 +100,26 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
   accessibilityHint,
 }) => {
   const config = SIZE_CONFIG[size];
-  const scheme = COLOR_SCHEMES[colorScheme];
-  const { isDark } = useTheme();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // Dynamic color schemes using theme colors
+  const colorSchemes = useMemo(() => ({
+    ...COLOR_SCHEMES,
+    green: {
+      ...COLOR_SCHEMES.green,
+      shadow: colors.primary,
+      outlineBorder: colors.primary,
+      outlineText: colors.primary,
+    },
+    dark: {
+      ...COLOR_SCHEMES.dark,
+      outlineBorder: colors.dark,
+      outlineText: colors.dark,
+    },
+  }), [colors.primary, colors.dark]);
+
+  const scheme = colorSchemes[colorScheme];
   const labelColor = colorScheme === 'gold' ? '#000000' : '#FFFFFF';
 
   // Tinted transparent background for outline — darker tint in dark mode
@@ -203,10 +221,10 @@ export const LiquidButton: React.FC<LiquidButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     overflow: 'hidden',
-    shadowColor: '#0EBF8A',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -253,7 +271,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
     letterSpacing: 0.3,
     textShadowColor: 'rgba(0, 0, 0, 0.12)',
     textShadowOffset: { width: 0, height: 1 },
@@ -270,8 +288,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     borderWidth: 1.5,
-    borderColor: '#0EBF8A',
-    shadowColor: '#0EBF8A',
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -279,7 +297,7 @@ const styles = StyleSheet.create({
   },
   outlineText: {
     fontWeight: '600',
-    color: '#0EBF8A',
+    color: colors.primary,
     letterSpacing: 0.3,
   },
 });

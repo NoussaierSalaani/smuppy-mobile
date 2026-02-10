@@ -290,7 +290,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
             />
           ) : (
             <View style={[styles.creatorAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#374151' }]}>
-              <Ionicons name="person" size={18} color="#9CA3AF" />
+              <Ionicons name="person" size={18} color={colors.gray400} />
             </View>
           )}
           <View>
@@ -685,7 +685,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     alignItems: 'center',
   },
   endStreamText: {
-    color: '#FF3B30',
+    color: colors.error,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVibePrescriptions } from '../../hooks/useVibePrescriptions';
 import { Prescription, PrescriptionCategory } from '../../services/prescriptionEngine';
-import { SPACING, HIT_SLOP } from '../../config/theme';
+import { SPACING, HIT_SLOP, COLORS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
 
@@ -175,7 +175,7 @@ const PrescriptionCard: React.FC<PrescriptionCardProps> = React.memo(({ prescrip
           ))}
           <Text style={styles.difficultyText}>{prescription.difficulty}</Text>
         </View>
-        <LinearGradient colors={['#00B3C7', '#0EBF8A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.startButton}>
+        <LinearGradient colors={['#00B3C7', COLORS.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.startButton}>
           <Text style={styles.startButtonText}>Start</Text>
         </LinearGradient>
       </View>

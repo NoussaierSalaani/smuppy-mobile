@@ -118,7 +118,7 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
           <View style={styles.subscriptionCard}>
             <View style={styles.cardHeader}>
               <View style={styles.planBadge}>
-                <Ionicons name="star" size={14} color="#FFD700" />
+                <Ionicons name="star" size={14} color={colors.gold} />
                 <Text style={styles.planBadgeText}>{PERIOD_TEXT[period]}</Text>
               </View>
             </View>
@@ -128,7 +128,7 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
 
             {trialDays && (
               <View style={styles.trialInfo}>
-                <Ionicons name="gift" size={18} color="#FFD700" />
+                <Ionicons name="gift" size={18} color={colors.gold} />
                 <Text style={styles.trialText}>
                   {trialDays}-day free trial • Cancel anytime
                 </Text>
@@ -254,7 +254,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   planBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFD700',
+    color: colors.gold,
   },
   businessName: {
     fontSize: 14,
@@ -279,7 +279,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   trialText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#FFD700',
+    color: colors.gold,
   },
   cardDivider: {
     height: 1,

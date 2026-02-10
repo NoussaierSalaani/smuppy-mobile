@@ -10,7 +10,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BreathingCircle from './BreathingCircle';
-import { SPACING } from '../config/theme';
+import { COLORS, SPACING } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 interface VibeGuardianOverlayProps {
@@ -56,7 +56,7 @@ const VibeGuardianOverlay: React.FC<VibeGuardianOverlayProps> = ({ visible, onDi
             </Text>
             <TouchableOpacity style={styles.dismissButton} onPress={onDismiss} activeOpacity={0.8}>
               <LinearGradient
-                colors={['#00B3C7', '#0EBF8A']}
+                colors={['#00B3C7', COLORS.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.dismissGradient}

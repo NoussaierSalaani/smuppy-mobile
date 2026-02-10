@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GRADIENTS } from '../../config/theme';
+import { GRADIENTS, COLORS } from '../../config/theme';
 import { SmuppyLogoFull } from '../../components/SmuppyLogo';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CONFETTI_COLORS = ['#00CDB5', '#0891B2', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+const CONFETTI_COLORS = ['#00CDB5', '#0891B2', COLORS.gold, COLORS.heartRed, COLORS.teal, '#45B7D1', '#96CEB4', '#FFEAA7'];
 
 interface ConfettiProps {
   delay: number;

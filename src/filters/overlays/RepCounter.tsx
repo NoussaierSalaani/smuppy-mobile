@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { COLORS } from '../../config/theme';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -68,7 +69,7 @@ export function RepCounter({ params, size = 80 }: RepCounterProps) {
             styles.repNumber,
             {
               fontSize: size * 0.6,
-              color: isComplete ? '#00E676' : color,
+              color: isComplete ? COLORS.success : color,
             },
             numberStyle,
           ]}
@@ -107,7 +108,7 @@ export function RepCounter({ params, size = 80 }: RepCounterProps) {
                 styles.progressFill,
                 {
                   width: `${progressPercentage}%`,
-                  backgroundColor: isComplete ? '#00E676' : color,
+                  backgroundColor: isComplete ? COLORS.success : color,
                 },
               ]}
             />
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   completeText: {
-    color: '#00E676',
+    color: COLORS.success,
     fontSize: 10,
     fontWeight: 'bold',
     letterSpacing: 1,

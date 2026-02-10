@@ -198,7 +198,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
         <Ionicons
           name={isPlaying ? "pause" : "play"}
           size={20}
-          color={isFromMe ? colors.primary : "#fff"}
+          color={isFromMe ? colors.primary : colors.white}
         />
       </TouchableOpacity>
 

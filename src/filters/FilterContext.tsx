@@ -12,6 +12,7 @@ import React, {
   ReactNode,
 } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { COLORS } from '../config/theme';
 import {
   FilterState,
   FilterAction,
@@ -224,21 +225,21 @@ const getDefaultOverlayParams = (type: OverlayType): Record<string, unknown> => 
         currentSeconds: 60,
         isRunning: false,
         mode: 'countdown',
-        color: '#00E676',
+        color: COLORS.success,
       };
     case 'rep_counter':
       return {
         currentReps: 0,
         targetReps: 10,
         exerciseName: 'Reps',
-        color: '#00E676',
+        color: COLORS.success,
       };
     case 'day_challenge':
       return {
         currentDay: 1,
         totalDays: 30,
         challengeName: 'Challenge',
-        color: '#00E676',
+        color: COLORS.success,
       };
     case 'calorie_burn':
       return {

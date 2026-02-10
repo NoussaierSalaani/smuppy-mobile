@@ -326,7 +326,7 @@ export default function EventListScreen() {
               <View style={styles.filterDrawerHeader}>
                 <Text style={styles.filterDrawerTitle}>Filter by Activity</Text>
                 <TouchableOpacity onPress={toggleFilterDrawer}>
-                  <Ionicons name="close-circle" size={28} color="#666" />
+                  <Ionicons name="close-circle" size={28} color={colors.gray} />
                 </TouchableOpacity>
               </View>
 
@@ -506,7 +506,7 @@ export default function EventListScreen() {
                 onPress={() => navigation.navigate('ActivityDetail', { activityId: item.id, activityType: 'event' })}
               >
                 <LinearGradient
-                  colors={isFull ? ['#666', '#444'] : ['#FF6B35', '#FF4500']}
+                  colors={isFull ? [colors.gray, '#444'] : ['#FF6B35', '#FF4500']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.joinGradient}
@@ -600,7 +600,7 @@ export default function EventListScreen() {
               style={styles.clearFilterButton}
               onPress={handleClearFilter}
             >
-              <Ionicons name="close-circle" size={18} color="#666" />
+              <Ionicons name="close-circle" size={18} color={colors.gray} />
             </TouchableOpacity>
           </View>
         )}
@@ -995,7 +995,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   priceText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFD700',
+    color: colors.gold,
   },
   cardContent: {
     padding: 16,

@@ -366,7 +366,7 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
                     <Ionicons
                       name={star <= rating ? 'star' : 'star-outline'}
                       size={normalize(36)}
-                      color={star <= rating ? '#FFD700' : colors.grayBorder}
+                      color={star <= rating ? colors.gold : colors.grayBorder}
                     />
                   </TouchableOpacity>
                 ))}

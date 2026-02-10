@@ -5,6 +5,7 @@
 
 import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
+import { COLORS } from '../../config/theme';
 import {
   Canvas,
   Image,
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   fpsText: {
-    color: '#00E676',
+    color: COLORS.success,
     fontSize: 12,
     fontWeight: 'bold',
   },

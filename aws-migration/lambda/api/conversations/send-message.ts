@@ -62,22 +62,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const body = event.body ? JSON.parse(event.body) : {};
     const { content, mediaUrl, mediaType, replyToMessageId } = body;
 
-    if (!content || typeof content !== 'string' || content.trim().length === 0) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Message content is required' }),
-      };
-    }
-
-    if (content.length > MAX_MESSAGE_LENGTH) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` }),
-      };
-    }
-
     // Validate optional media fields — media_type is only valid when media_url is also valid
     const ALLOWED_MEDIA_TYPES = ['image', 'video', 'audio', 'voice'];
     const validMediaUrl = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('https://')
@@ -87,8 +71,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? mediaType
       : null;
 
-    // Sanitize content: strip HTML tags and control characters
-    const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
+    const hasContent = content && typeof content === 'string' && content.trim().length > 0;
+    const hasMedia = !!validMediaUrl;
+
+    if (!hasContent && !hasMedia) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Message content or media is required' }),
+      };
+    }
+
+    if (hasContent && content.length > MAX_MESSAGE_LENGTH) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` }),
+      };
+    }
+
+    // Sanitize content: strip HTML tags and control characters (preserve \n and \r for multiline)
+    const sanitizedContent = hasContent
+      ? content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      : '';
 
     // Check account status (suspended/banned users cannot send messages)
     const accountCheck = await requireActiveAccount(userId, headers);
@@ -214,7 +219,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const displayName = profile.display_name || profile.username;
     sendPushToUser(db, recipientId, {
       title: displayName,
-      body: sanitizedContent.length > 100 ? sanitizedContent.substring(0, 100) + '…' : sanitizedContent,
+      body: (() => { const chars = [...sanitizedContent]; return chars.length > 100 ? chars.slice(0, 100).join('') + '…' : sanitizedContent; })(),
       data: { type: 'message', conversationId, senderId: profile.id },
     }).catch(err => log.error('Push notification failed', err));
 

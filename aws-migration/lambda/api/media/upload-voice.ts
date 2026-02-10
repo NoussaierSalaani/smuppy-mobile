@@ -38,9 +38,15 @@ const CDN_DOMAIN = process.env.CDN_DOMAIN || process.env.MEDIA_CDN_DOMAIN || pro
 
 const PRESIGNED_URL_EXPIRY_SECONDS = 300;
 
+const ALLOWED_AUDIO_CONTENT_TYPES = [
+  'audio/mp4', 'audio/x-caf', 'audio/mpeg', 'audio/aac',
+  'audio/wav', 'audio/webm', 'audio/ogg', 'audio/m4a',
+];
+
 interface VoiceUploadRequest {
   conversationId: string;
   duration?: number;
+  contentType?: string;
 }
 
 export async function handler(
@@ -79,7 +85,12 @@ export async function handler(
     }
 
     const request: VoiceUploadRequest = JSON.parse(event.body);
-    const { conversationId, duration } = request;
+    const { conversationId, duration, contentType: requestedContentType } = request;
+
+    // Resolve content type: use client-provided type if valid, otherwise default to audio/mp4
+    const resolvedContentType = requestedContentType && ALLOWED_AUDIO_CONTENT_TYPES.includes(requestedContentType)
+      ? requestedContentType
+      : 'audio/mp4';
 
     if (!conversationId || typeof conversationId !== 'string') {
       return {
@@ -144,7 +155,7 @@ export async function handler(
     const command = new PutObjectCommand({
       Bucket: MEDIA_BUCKET,
       Key: key,
-      ContentType: 'audio/mp4',
+      ContentType: resolvedContentType,
       ContentDisposition: 'inline',
       CacheControl: 'public, max-age=31536000',
       // Do NOT set ContentLength — it would force exact match and reject smaller files

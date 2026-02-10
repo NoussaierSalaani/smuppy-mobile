@@ -1534,9 +1534,9 @@ export const sendMessage = async (
   mediaType?: 'image' | 'video' | 'voice' | 'audio',
   replyToMessageId?: string
 ): Promise<DbResponse<Message>> => {
-  // Sanitize content: strip HTML and control characters
-  const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F]/g, '');
-  if (!sanitizedContent) return { data: null, error: 'Message content is required' };
+  // Light trim only — backend is the source of truth for full sanitization
+  const trimmedContent = content.trim();
+  if (!trimmedContent && !mediaUrl) return { data: null, error: 'Message content is required' };
 
   try {
     // Lambda returns { message: {...} } with snake_case fields
@@ -1551,7 +1551,7 @@ export const sendMessage = async (
       };
     } }>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { content: sanitizedContent, mediaUrl, mediaType, replyToMessageId },
+      body: { content: trimmedContent, mediaUrl, mediaType, replyToMessageId },
     });
     const m = result.message;
     return { data: {
@@ -2206,21 +2206,32 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
       }
     }
 
+    // Detect MIME type from file extension
+    const extMatch = uriLower.match(/\.(\w+)$/);
+    const MIME_MAP: Record<string, string> = {
+      m4a: 'audio/mp4', mp4: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav',
+      aac: 'audio/aac', caf: 'audio/x-caf', webm: 'audio/webm', ogg: 'audio/ogg',
+    };
+    const detectedContentType = extMatch ? (MIME_MAP[extMatch[1]] || 'audio/mp4') : 'audio/mp4';
+
     // Step 2: Get presigned URL (after file validation passes)
     const presignedResult = await awsAPI.request<{ url: string; key: string; cdnUrl?: string; fileUrl?: string }>('/media/upload-voice', {
       method: 'POST',
-      body: { conversationId },
+      body: { conversationId, contentType: detectedContentType },
     });
 
-    // Step 2: Upload the audio file to S3
+    // Step 3: Upload the audio file to S3
     const { uploadWithFileSystem } = await import('./mediaUpload');
-    const uploadSuccess = await uploadWithFileSystem(audioUri, presignedResult.url, 'audio/mp4');
+    const uploadSuccess = await uploadWithFileSystem(audioUri, presignedResult.url, detectedContentType);
     if (!uploadSuccess) {
       return { data: null, error: 'Failed to upload voice message' };
     }
 
-    // Step 3: Return the best playback URL available (prefer CDN over S3 direct URL)
+    // Step 4: Return the best playback URL available (prefer CDN over S3 direct URL)
     const resolvedUrl = presignedResult.cdnUrl || awsAPI.getCDNUrl(presignedResult.key) || presignedResult.fileUrl || null;
+    if (!resolvedUrl) {
+      return { data: null, error: 'Voice message uploaded but URL could not be resolved' };
+    }
     return { data: resolvedUrl, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };

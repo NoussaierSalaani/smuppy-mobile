@@ -57,9 +57,9 @@ import { filterContent } from '../../utils/contentFilters';
 
 const { width } = Dimensions.get('window');
 
-/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
+/** Light frontend sanitization: trim only. Backend is the source of truth for full sanitization. */
 const sanitizeText = (text: string): string => {
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+  return text.trim();
 };
 
 interface MessageItemProps {
@@ -78,8 +78,8 @@ interface MessageItemProps {
   currentUserId: string | null;
 }
 
-// Available quick reactions
-const QUICK_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '🙏'];
+// Quick reactions — use the shared constant from database.ts (already imported as AVAILABLE_REACTIONS)
+const QUICK_REACTIONS = AVAILABLE_REACTIONS;
 
 // Reply Preview Component inside message bubble
 const ReplyPreviewInBubble = memo(({ replyTo, isFromMe, colors, styles }: { replyTo: Message; isFromMe: boolean; colors: ThemeColors; styles: ReturnType<typeof createStyles> }) => (
@@ -470,7 +470,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   // Poll for new messages every 3s when app is active
   useEffect(() => {
     if (!conversationId) return;
-    const POLL_INTERVAL_MS = 10000;
+    const POLL_INTERVAL_MS = 3000;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startPolling = () => {
@@ -688,22 +688,40 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   }, []);
   const handleCancelReply = useCallback(() => setReplyToMessage(null), []);
 
-  // Handle message reaction
+  // Handle message reaction with optimistic update
   const handleReaction = useCallback(async (messageId: string, emoji: string) => {
     const message = messages.find(m => m.id === messageId);
-    if (!message) return;
+    if (!message || !currentUserId) return;
 
     const hasReaction = message.reactions?.some(r => r.user_id === currentUserId && r.emoji === emoji);
 
+    // Optimistic update: modify local state immediately
+    setMessages(prev => {
+      const next = prev.map(m => {
+        if (m.id !== messageId) return m;
+        const reactions = m.reactions || [];
+        if (hasReaction) {
+          return { ...m, reactions: reactions.filter(r => !(r.user_id === currentUserId && r.emoji === emoji)) };
+        }
+        const optimisticReaction: MessageReaction = {
+          id: `optimistic-reaction-${Date.now()}`,
+          message_id: messageId,
+          user_id: currentUserId,
+          emoji,
+          created_at: new Date().toISOString(),
+        };
+        return { ...m, reactions: [...reactions, optimisticReaction] };
+      });
+      messagesRef.current = next;
+      return next;
+    });
+
+    // Fire API call, then reconcile with server data
     if (hasReaction) {
-      // Remove reaction
       await removeMessageReaction(messageId, emoji);
     } else {
-      // Add reaction
       await addMessageReaction(messageId, emoji);
     }
-
-    // Refresh messages to get updated reactions
     loadMessages();
   }, [messages, currentUserId, loadMessages]);
 

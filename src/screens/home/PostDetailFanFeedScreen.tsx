@@ -100,6 +100,9 @@ const PostDetailFanFeedScreen = () => {
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({}); // Track carousel slide index per post
 
+  // Like count overrides for optimistic UI
+  const [localLikes, setLocalLikes] = useState<Record<string, number>>({});
+
   // Loading states for anti spam-click
   const [likeLoading, setLikeLoading] = useState<LoadingRecord>({});
   const [bookmarkLoading, setBookmarkLoading] = useState<LoadingRecord>({});
@@ -232,22 +235,33 @@ const PostDetailFanFeedScreen = () => {
     }
 
     setLikeLoading(prev => ({ ...prev, [pId]: true }));
+    const isCurrentlyLiked = likedPosts[pId];
+    const currentItem = fanFeedPosts.find((p: FanFeedPost) => p.id === pId);
+    const currentLikes = localLikes[pId] ?? currentItem?.likes ?? 0;
+
+    // Optimistic update
+    const newLiked = !isCurrentlyLiked;
+    setLikedPosts(prev => ({ ...prev, [pId]: newLiked }));
+    setLocalLikes(prev => ({ ...prev, [pId]: newLiked ? currentLikes + 1 : Math.max(currentLikes - 1, 0) }));
+    if (newLiked) triggerLikeAnimation();
+
     try {
-      // Single toggle endpoint: backend returns { liked: true/false }
-      const isCurrentlyLiked = likedPosts[pId];
       const { error } = await likePost(pId);
-      if (!error) {
-        const newLiked = !isCurrentlyLiked;
-        setLikedPosts(prev => ({ ...prev, [pId]: newLiked }));
+      if (error) {
+        // Revert on error
+        setLikedPosts(prev => ({ ...prev, [pId]: isCurrentlyLiked }));
+        setLocalLikes(prev => ({ ...prev, [pId]: currentLikes }));
+      } else {
         useFeedStore.getState().toggleLikeOptimistic(pId, newLiked);
-        if (newLiked) triggerLikeAnimation();
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Like error:', error);
+      setLikedPosts(prev => ({ ...prev, [pId]: isCurrentlyLiked }));
+      setLocalLikes(prev => ({ ...prev, [pId]: currentLikes }));
     } finally {
       setLikeLoading(prev => ({ ...prev, [pId]: false }));
     }
-  }, [likeLoading, likedPosts, triggerLikeAnimation]);
+  }, [likeLoading, likedPosts, localLikes, fanFeedPosts, triggerLikeAnimation]);
 
   // Toggle bookmark with anti spam-click - connected to database
   const toggleBookmark = useCallback(async (pId: string) => {
@@ -791,14 +805,14 @@ const PostDetailFanFeedScreen = () => {
                 activeOpacity={0.7}
               >
                 <SmuppyHeartIcon size={18} color={colors.heartRed} filled />
-                <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
+                <Text style={styles.statCount}>{formatNumber(localLikes[item.id] ?? item.likes)}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </TouchableWithoutFeedback>
     );
-  }, [likedPosts, bookmarkedPosts, currentUserId, fanStatus, fanStatusChecking, isUnderReview,
+  }, [likedPosts, bookmarkedPosts, localLikes, currentUserId, fanStatus, fanStatusChecking, isUnderReview,
       handleDoubleTap, currentIndex, isAudioMuted, isPaused, carouselIndexes, showLikeAnimation,
       likeAnimationScale, shareLoading, handleShare, likeLoading, toggleLike, bookmarkLoading,
       toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescription,

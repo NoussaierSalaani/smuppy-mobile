@@ -85,6 +85,9 @@ const PostDetailVibesFeedScreen = () => {
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [gridPosts, setGridPosts] = useState<GridPost[]>([]);
 
+  // Like count override for optimistic UI
+  const [localLikeCount, setLocalLikeCount] = useState<number | null>(null);
+
   // Loading states for anti spam-click
   const [likeLoading, setLikeLoading] = useState(false);
   const likeInProgress = useRef(false);
@@ -186,10 +189,12 @@ const PostDetailVibesFeedScreen = () => {
     likeInProgress.current = true;
 
     const postId = currentPost.id;
+    const currentLikes = localLikeCount ?? currentPost.likes ?? 0;
 
     // Optimistic update - change UI immediately
     const newLikedState = !isLiked;
     setIsLiked(newLikedState);
+    setLocalLikeCount(newLikedState ? currentLikes + 1 : Math.max(currentLikes - 1, 0));
     if (newLikedState) {
       triggerLikeAnimation();
     }
@@ -203,21 +208,22 @@ const PostDetailVibesFeedScreen = () => {
     // Try to sync with database
     setLikeLoading(true);
     try {
-      // Single toggle endpoint: backend returns { liked: true/false }
       const { error } = await likePost(postId);
       if (error) {
         setIsLiked(!newLikedState);
+        setLocalLikeCount(currentLikes);
       } else {
         useFeedStore.getState().toggleLikeOptimistic(postId, newLikedState);
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailVibesFeed] Like error:', error);
       setIsLiked(!newLikedState);
+      setLocalLikeCount(currentLikes);
     } finally {
       setLikeLoading(false);
       likeInProgress.current = false;
     }
-  }, [currentPost, isLiked, triggerLikeAnimation]);
+  }, [currentPost, isLiked, localLikeCount, triggerLikeAnimation]);
 
   // Toggle bookmark with anti spam-click - connected to database
   const toggleBookmark = useCallback(async () => {
@@ -869,7 +875,7 @@ const PostDetailVibesFeedScreen = () => {
                     activeOpacity={0.7}
                   >
                     <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
-                    <Text style={styles.statCount}>{formatNumber(currentPost.likes)}</Text>
+                    <Text style={styles.statCount}>{formatNumber(localLikeCount ?? currentPost.likes)}</Text>
                   </TouchableOpacity>
                 </View>
 

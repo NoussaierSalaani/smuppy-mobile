@@ -699,17 +699,21 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
     const hasReaction = message.reactions?.some(r => r.user_id === currentUserId && r.emoji === emoji);
 
-    if (hasReaction) {
-      // Remove reaction
-      await removeMessageReaction(messageId, emoji);
-    } else {
-      // Add reaction
-      await addMessageReaction(messageId, emoji);
-    }
+    try {
+      if (hasReaction) {
+        const { error } = await removeMessageReaction(messageId, emoji);
+        if (error) { showError('Error', 'Could not remove reaction. Please try again.'); return; }
+      } else {
+        const { error } = await addMessageReaction(messageId, emoji);
+        if (error) { showError('Error', 'Could not add reaction. Please try again.'); return; }
+      }
 
-    // Refresh messages to get updated reactions
-    loadMessages();
-  }, [messages, currentUserId, loadMessages]);
+      // Refresh messages to get updated reactions
+      loadMessages();
+    } catch {
+      showError('Error', 'Something went wrong. Please try again.');
+    }
+  }, [messages, currentUserId, loadMessages, showError]);
 
   // Handle message long press - show menu
   const handleMessageLongPress = useCallback((message: Message) => {

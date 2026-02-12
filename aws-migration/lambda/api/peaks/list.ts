@@ -83,11 +83,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       FROM peaks pk
       JOIN profiles p ON pk.author_id = p.id
       LEFT JOIN peak_challenges pc ON pc.peak_id = pk.id
-      WHERE (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pk.author_id = ${currentProfileId ? '$1' : 'NULL'})
     `;
 
     const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];
     let paramIndex = currentProfileId ? 2 : 1;
+
+    // Filter banned/shadow_banned authors — always show own peaks if authenticated
+    if (currentProfileId) {
+      query += ` WHERE (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pk.author_id = $1)`;
+    } else {
+      query += ` WHERE p.moderation_status NOT IN ('banned', 'shadow_banned')`;
+    }
 
     // Feed mode: only show active (non-expired) peaks
     // Profile mode: show active peaks + expired peaks the user chose to keep (saved_to_profile = true)

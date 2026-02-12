@@ -776,7 +776,7 @@ const PostDetailFanFeedScreen = () => {
               <View style={styles.taggedRow}>
                 <Ionicons name="people" size={14} color={colors.primary} />
                 <Text style={styles.taggedText}>
-                  {item.taggedUsers.map(taggedUser => taggedUser.fullName || taggedUser.username || 'User').join(', ')}
+                  {item.taggedUsers.filter(u => u != null).map(taggedUser => taggedUser.fullName || taggedUser.username || 'User').join(', ')}
                 </Text>
               </View>
             ) : null}
@@ -860,6 +860,7 @@ const PostDetailFanFeedScreen = () => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
+        {...{ estimatedItemSize: height } as Record<string, number>}
       />
       
       {/* Menu Modal */}

@@ -53,6 +53,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Get total follower count (separate query — result.rowCount only returns current page size)
+    const countResult = await db.query(
+      `SELECT COUNT(*) as total FROM follows WHERE following_id = $1 AND status = 'accepted'`,
+      [profileId]
+    );
+    const totalCount = parseInt(countResult.rows[0].total, 10);
+
     // Build query - get followers (people who follow this profile)
     let query = `
       SELECT
@@ -66,7 +73,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         f.created_at as followed_at
       FROM follows f
       JOIN profiles p ON f.follower_id = p.id
-      WHERE f.following_id = $1
+      WHERE f.following_id = $1 AND f.status = 'accepted'
     `;
 
     const params: SqlParam[] = [profileId];
@@ -112,7 +119,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         followers: formattedFollowers,
         cursor: nextCursor,
         hasMore,
-        totalCount: result.rowCount,
+        totalCount,
       }),
     };
   } catch (error: unknown) {

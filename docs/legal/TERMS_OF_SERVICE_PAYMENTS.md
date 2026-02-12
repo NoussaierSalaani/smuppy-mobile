@@ -1,6 +1,8 @@
-# Conditions Générales - Section Paiements
+# Conditions Generales - Section Paiements
 
-*À intégrer dans vos CGU existantes*
+> **Parent**: [CLAUDE.md](../../CLAUDE.md) | **Compliance**: [APP_STORE_COMPLIANCE.md](./APP_STORE_COMPLIANCE.md) | **Disputes**: [DISPUTE_RESOLUTION_SYSTEM.md](../DISPUTE_RESOLUTION_SYSTEM.md)
+
+*A integrer dans vos CGU existantes*
 
 ---
 

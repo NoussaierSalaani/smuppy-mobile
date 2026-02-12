@@ -1,5 +1,7 @@
 # Peaks Feature Specification
 
+> **Parent**: [CLAUDE.md](../../CLAUDE.md) | **Features**: [FEATURES.md](../FEATURES.md) | **Stability**: [STABILITY.md](../STABILITY.md)
+>
 > **Status**: Binding contract. All implementations MUST conform to this spec.
 >
 > **Last updated**: 2026-02-10

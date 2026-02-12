@@ -1,8 +1,10 @@
 # Smuppy Mobile - Features & UI Specifications
 
-> Dernière mise à jour: 26 janvier 2026
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Binding features**: [FEATURES.md](./FEATURES.md) | **Peaks spec**: [features/PEAKS.md](./features/PEAKS.md)
 >
 > Documentation liee: [SMUPPY_MASTER_DOC.md](SMUPPY_MASTER_DOC.md) | [README.md](../README.md)
+>
+> Derniere mise a jour: 26 janvier 2026
 
 ## Table des matières
 

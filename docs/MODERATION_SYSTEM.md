@@ -1,5 +1,7 @@
 # Systeme de Moderation Smuppy — Documentation Technique
 
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Audit**: [AUDIT_COMPLETE_APP_PLAN_MODERATION.md](./AUDIT_COMPLETE_APP_PLAN_MODERATION.md)
+>
 > **Version:** 2.0
 > **Date:** 2026-02-09
 > **Stack:** React Native (Expo 54) + AWS Lambda + PostgreSQL + Cognito + S3 + Rekognition

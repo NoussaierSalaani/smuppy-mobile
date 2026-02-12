@@ -1,4 +1,6 @@
-# 🔍 Audit Complet - Système AI Mood Assistant & Detector
+# Audit Complet - Systeme AI Mood Assistant & Detector
+
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Features**: [FEATURES.md](./FEATURES.md) (Mood Indicator section)
 
 ## Date d'audit
 Février 2025

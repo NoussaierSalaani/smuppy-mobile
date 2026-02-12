@@ -1,5 +1,9 @@
 # Smuppy Feature Documentation
 
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Workflow**: [CLAUDE-WORKFLOW.md](../CLAUDE-WORKFLOW.md) | **Stability**: [STABILITY.md](./STABILITY.md)
+>
+> **Related**: [features/PEAKS.md](./features/PEAKS.md) (detailed peaks spec) | [ACCOUNT_TYPES.md](./ACCOUNT_TYPES.md) (account behavior matrix)
+>
 > **PURPOSE**: This document defines the STRICT display conditions, data flow, and logic
 > for every feature. Any agent or developer modifying code MUST respect these rules.
 > Violations cause regressions visible to users.

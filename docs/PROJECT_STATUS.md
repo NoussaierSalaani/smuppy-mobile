@@ -1,6 +1,8 @@
-# 📊 STATUT COMPLET DU PROJET SMUPPY
+# STATUT COMPLET DU PROJET SMUPPY
 
-> Date: 9 février 2026  
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Roadmap**: [ROADMAP.md](./ROADMAP.md) | **Production plan**: [PRODUCTION_PLAN.md](./PRODUCTION_PLAN.md)
+>
+> Date: 9 fevrier 2026
 > Commit: 7faeff30  
 > Auteur: Noussaier Salaani
 

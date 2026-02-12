@@ -1,4 +1,7 @@
 # SMUPPY - DOCUMENTATION MASTER
+
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Workflow**: [CLAUDE-WORKFLOW.md](../CLAUDE-WORKFLOW.md) | **Features**: [FEATURES.md](./FEATURES.md)
+>
 > Version: 4.0.0 | Mise a jour: 26 Janvier 2026
 
 ---

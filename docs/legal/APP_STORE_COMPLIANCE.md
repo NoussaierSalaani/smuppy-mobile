@@ -1,5 +1,7 @@
 # App Store Compliance - Smuppy
 
+> **Parent**: [CLAUDE.md](../../CLAUDE.md) | **Account types**: [ACCOUNT_TYPES.md](../ACCOUNT_TYPES.md) | **TOS**: [TERMS_OF_SERVICE_PAYMENTS.md](./TERMS_OF_SERVICE_PAYMENTS.md)
+
 ## Classification des Services
 
 ### Services Exempts d'In-App Purchase (Apple Guidelines 3.1.3)

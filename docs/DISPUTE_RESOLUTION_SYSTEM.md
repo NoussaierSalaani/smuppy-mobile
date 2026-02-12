@@ -1,4 +1,6 @@
-# 🏛️ Dispute & Resolution Center - Architecture Complète
+# Dispute & Resolution Center - Architecture Complete
+
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Legal**: [legal/TERMS_OF_SERVICE_PAYMENTS.md](./legal/TERMS_OF_SERVICE_PAYMENTS.md) | **Compliance**: [legal/APP_STORE_COMPLIANCE.md](./legal/APP_STORE_COMPLIANCE.md)
 
 ## Vue d'ensemble
 

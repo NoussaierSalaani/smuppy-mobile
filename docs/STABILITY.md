@@ -1,5 +1,7 @@
 # Smuppy — Stability & Anti-Regression Plan
 
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Workflow**: [CLAUDE-WORKFLOW.md](../CLAUDE-WORKFLOW.md)
+>
 > **Status**: Binding. All agents and developers MUST follow this plan.
 >
 > **Goal**: Bugs become rare, reproducible, and detected before production.

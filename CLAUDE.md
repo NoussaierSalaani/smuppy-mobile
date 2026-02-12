@@ -1,14 +1,55 @@
 # Smuppy — Project Rules & Conventions
 
-> **Companion document**: For the development workflow (5 phases), the feature creation
-> blueprint (12 steps), and the checklist, see [CLAUDE-WORKFLOW.md](./CLAUDE-WORKFLOW.md).
->
-> **Feature documentation**: For STRICT display conditions, data flow, and logic rules
-> for every feature (VibesFeed, Peaks, Profiles, etc.), see [docs/FEATURES.md](./docs/FEATURES.md).
-> **READ BEFORE MODIFYING ANY FEATURE.**
->
-> **Stability plan**: For the anti-regression strategy, bug discipline, CI gates, and
-> test roadmap, see [docs/STABILITY.md](./docs/STABILITY.md). **Every bug fix MUST include a test.**
+> **This is the root document.** Every agent and developer MUST read this file first.
+> All documents below are part of the project rules. If a change conflicts with any
+> of these documents, the change is WRONG.
+
+## Documentation Map (READ ALL BINDING DOCS)
+
+### Binding Rules (MUST read and follow)
+
+| Document | Purpose | When to read |
+|----------|---------|-------------|
+| **[CLAUDE.md](./CLAUDE.md)** (this file) | Project rules, security, code style, conventions | Always — before any work |
+| **[CLAUDE-WORKFLOW.md](./CLAUDE-WORKFLOW.md)** | Dev workflow (5 phases), feature blueprint (12 steps), checklist | Always — before any work |
+| **[docs/FEATURES.md](./docs/FEATURES.md)** | STRICT display conditions, data flow, logic for VibesFeed, Peaks, Profiles | Before modifying ANY feature UI |
+| **[docs/features/PEAKS.md](./docs/features/PEAKS.md)** | Peaks feature spec — data model, lifecycle, story circles, viewer, creation | Before touching any peaks code |
+| **[docs/STABILITY.md](./docs/STABILITY.md)** | Anti-regression plan, bug discipline, CI gates, test roadmap | Before fixing any bug |
+| **[docs/ACCOUNT_TYPES.md](./docs/ACCOUNT_TYPES.md)** | Account types (personal/pro_creator/pro_business), features, pricing | Before adding account-gated features |
+
+### System Documentation (reference)
+
+| Document | Purpose |
+|----------|---------|
+| **[docs/MODERATION_SYSTEM.md](./docs/MODERATION_SYSTEM.md)** | Moderation pipeline — client-side filters, backend filters, Rekognition, admin tools |
+| **[docs/SMUPPY_MASTER_DOC.md](./docs/SMUPPY_MASTER_DOC.md)** | Master doc — architecture, all API endpoints, security, performance |
+| **[docs/FEATURES_SPECS.md](./docs/FEATURES_SPECS.md)** | UI specifications — profile, posts, peaks, collections, navigation |
+
+### Planning & Status (snapshot)
+
+| Document | Purpose |
+|----------|---------|
+| **[docs/ROADMAP.md](./docs/ROADMAP.md)** | Product roadmap and release phases |
+| **[docs/PRODUCTION_PLAN.md](./docs/PRODUCTION_PLAN.md)** | Production launch plan — bugs, timeline, checklist |
+| **[docs/PROJECT_STATUS.md](./docs/PROJECT_STATUS.md)** | Project status snapshot — screens, endpoints, coverage |
+
+### Audits (reference)
+
+| Document | Purpose |
+|----------|---------|
+| **[docs/AUDIT_COMPLETE_APP_PLAN_MODERATION.md](./docs/AUDIT_COMPLETE_APP_PLAN_MODERATION.md)** | Full app audit + moderation implementation plan |
+| **[docs/AUDIT_MESSAGING_V2.md](./docs/AUDIT_MESSAGING_V2.md)** | Messaging system audit — security, performance, quality |
+| **[docs/AUDIT_MOOD_AI.md](./docs/AUDIT_MOOD_AI.md)** | AI Mood system audit — detection, prescriptions, store |
+
+### Legal & Compliance
+
+| Document | Purpose |
+|----------|---------|
+| **[docs/legal/APP_STORE_COMPLIANCE.md](./docs/legal/APP_STORE_COMPLIANCE.md)** | App Store review guidelines compliance |
+| **[docs/legal/TERMS_OF_SERVICE_PAYMENTS.md](./docs/legal/TERMS_OF_SERVICE_PAYMENTS.md)** | Payment terms of service (CGU) |
+| **[docs/DISPUTE_RESOLUTION_SYSTEM.md](./docs/DISPUTE_RESOLUTION_SYSTEM.md)** | Dispute resolution — refunds, investigations, anti-fraud |
+
+---
 
 ## ABSOLUTE RULES — NEVER VIOLATE
 

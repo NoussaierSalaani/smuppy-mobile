@@ -1,5 +1,7 @@
 # Smuppy Roadmap
 
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Production plan**: [PRODUCTION_PLAN.md](./PRODUCTION_PLAN.md) | **Status**: [PROJECT_STATUS.md](./PROJECT_STATUS.md)
+>
 > Derniere mise a jour: 26 janvier 2026
 
 ## Statut Actuel

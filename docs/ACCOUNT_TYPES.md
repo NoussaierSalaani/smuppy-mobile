@@ -1,5 +1,7 @@
 # Smuppy Account Types & Features
 
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Features**: [FEATURES.md](./FEATURES.md) | **Legal**: [legal/APP_STORE_COMPLIANCE.md](./legal/APP_STORE_COMPLIANCE.md)
+
 ## Overview
 
 Smuppy supports three account types, each with specific features and capabilities tailored to different user needs.

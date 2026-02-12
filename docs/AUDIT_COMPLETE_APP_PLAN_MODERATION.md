@@ -1,5 +1,7 @@
 # AUDIT COMPLET & PLAN DE MODERATION — SMUPPY
 
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Moderation**: [MODERATION_SYSTEM.md](./MODERATION_SYSTEM.md) | **Stability**: [STABILITY.md](./STABILITY.md)
+>
 > **Version:** 3.0 — Post-implementation update
 > **Date:** 2026-02-09
 > **Base de donnees:** PostgreSQL (pas DynamoDB)

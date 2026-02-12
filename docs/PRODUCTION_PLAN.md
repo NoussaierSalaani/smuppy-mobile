@@ -1,5 +1,7 @@
 # PLAN ULTRA-DETAILLE — SMUPPY PRODUCTION LAUNCH
 
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Roadmap**: [ROADMAP.md](./ROADMAP.md) | **Stability**: [STABILITY.md](./STABILITY.md)
+>
 > **Date**: 9 fevrier 2026
 > **Auteur**: Noussaier Salaani
 > **Etat actuel**: 80% complet — 6 bugs critiques corriges ce jour

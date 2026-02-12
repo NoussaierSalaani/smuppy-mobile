@@ -1,7 +1,13 @@
 # Smuppy — Development Workflow & Feature Blueprint
 
-> **Companion document**: For project rules, conventions, security, and code style,
-> see [CLAUDE.md](./CLAUDE.md). This file covers *how* to work; CLAUDE.md covers *what* the rules are.
+> **Parent**: [CLAUDE.md](./CLAUDE.md) — read that first for all project rules and the full documentation map.
+>
+> **Related docs**:
+> [docs/STABILITY.md](./docs/STABILITY.md) (anti-regression & bug discipline) |
+> [docs/FEATURES.md](./docs/FEATURES.md) (STRICT feature display rules) |
+> [docs/features/PEAKS.md](./docs/features/PEAKS.md) (peaks spec)
+>
+> This file covers *how* to work; CLAUDE.md covers *what* the rules are.
 
 ## Work Scope Principle
 

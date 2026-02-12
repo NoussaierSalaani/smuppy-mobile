@@ -1,6 +1,8 @@
 # Audit Complet - Messagerie Smuppy v2
 
-> Date: 9 février 2026
+> **Parent**: [CLAUDE.md](../CLAUDE.md) | **Master doc**: [SMUPPY_MASTER_DOC.md](./SMUPPY_MASTER_DOC.md)
+>
+> Date: 9 fevrier 2026
 > Commit: 92f7d605
 > Auteur: Noussaier Salaani
 

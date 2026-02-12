@@ -565,15 +565,15 @@ const PeakViewScreen = (): React.JSX.Element => {
     });
 
     try {
-      if (isCurrentlyLiked) {
-        await awsAPI.unlikePeak(currentPeak.id);
-        useFeedStore.getState().setPeakLikeOverride(currentPeak.id, false);
-        setPeaks(prev => prev.map((p, i) => i === currentIndex ? { ...p, likes: Math.max((p.likes || 1) - 1, 0), isLiked: false } : p));
-      } else {
-        await awsAPI.likePeak(currentPeak.id);
-        useFeedStore.getState().setPeakLikeOverride(currentPeak.id, true);
-        setPeaks(prev => prev.map((p, i) => i === currentIndex ? { ...p, likes: (p.likes || 0) + 1, isLiked: true } : p));
-      }
+      // Single toggle endpoint: backend returns { liked: true/false }
+      await awsAPI.likePeak(currentPeak.id);
+      const newLiked = !isCurrentlyLiked;
+      useFeedStore.getState().setPeakLikeOverride(currentPeak.id, newLiked);
+      setPeaks(prev => prev.map((p, i) => i === currentIndex ? {
+        ...p,
+        likes: newLiked ? (p.likes || 0) + 1 : Math.max((p.likes || 1) - 1, 0),
+        isLiked: newLiked,
+      } : p));
     } catch (error) {
       if (__DEV__) console.warn('[Peak] Failed to toggle like:', error);
       // Rollback on error

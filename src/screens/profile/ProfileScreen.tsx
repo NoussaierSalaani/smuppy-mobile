@@ -970,15 +970,42 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
     const displayPeaks = peaks.length > 0 ? peaks : peaksFromPosts;
 
-    // Show peaks grid
+    // Group peaks by calendar date (24h grouping for profile)
+    const peakTimeGroups: { key: string; label: string; latestThumbnail: string | undefined; peakCount: number; peaks: ProfilePeak[]; totalLikes: number; totalViews: number }[] = (() => {
+      const groupMap = new Map<string, { key: string; peaks: ProfilePeak[]; totalLikes: number; totalViews: number }>();
+      for (const p of displayPeaks) {
+        const dateKey = (p.created_at || '').slice(0, 10);
+        if (!dateKey) continue;
+        const existing = groupMap.get(dateKey);
+        if (existing) {
+          existing.peaks.push(p);
+          existing.totalLikes += (p.likes_count || 0);
+          existing.totalViews += (p.views_count || 0);
+        } else {
+          groupMap.set(dateKey, { key: dateKey, peaks: [p], totalLikes: p.likes_count || 0, totalViews: p.views_count || 0 });
+        }
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      return Array.from(groupMap.values())
+        .sort((a, b) => b.key.localeCompare(a.key))
+        .map(g => ({
+          ...g,
+          label: g.key === today ? 'Today' : g.key === yesterday ? 'Yesterday' : g.key.slice(5),
+          latestThumbnail: g.peaks[0]?.media_urls?.[0],
+          peakCount: g.peaks.length,
+        }));
+    })();
+
+    // Show peaks grouped by day in 2-column layout
     return (
-      <View style={styles.peaksGrid}>
-        {displayPeaks.map((peak, index) => (
+      <View style={styles.peakGroupsGrid}>
+        {peakTimeGroups.map((group) => (
           <TouchableOpacity
-            key={`peak-${index}-${peak.id}`}
-            style={styles.peakCard}
+            key={`peak-group-${group.key}`}
+            style={styles.peakGroupCard}
             onPress={() => {
-              const transformed = displayPeaks.map(p => ({
+              const transformed = group.peaks.map(p => ({
                 id: p.id,
                 videoUrl: p.videoUrl,
                 thumbnail: p.media_urls?.[0],
@@ -995,27 +1022,28 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 isOwnPeak: isOwnProfile,
                 createdAt: p.created_at,
               }));
-              navigation.navigate('PeakView', { peaks: transformed, initialIndex: index });
+              navigation.navigate('PeakView', { peaks: transformed, initialIndex: 0 });
             }}
           >
-            {peak.media_urls?.[0] ? (
-              <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />
+            {group.latestThumbnail ? (
+              <OptimizedImage source={group.latestThumbnail} style={styles.peakGroupThumb} />
             ) : (
-              <View style={[styles.peakThumb, styles.postThumbEmpty]}>
+              <View style={[styles.peakGroupThumb, styles.postThumbEmpty]}>
                 <Ionicons name="videocam-outline" size={24} color={colors.gray} />
               </View>
             )}
-            <View style={styles.peakDuration}>
-              <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
-            </View>
-            <View style={styles.peakStatsOverlay}>
-              <View style={styles.peakStat}>
-                <SmuppyHeartIcon size={11} color="#FF6B6B" filled />
-                <Text style={styles.peakStatText}>{peak.likes_count || 0}</Text>
+            {group.peakCount > 1 && (
+              <View style={styles.peakGroupCountBadge}>
+                <Text style={styles.peakGroupCountText}>{group.peakCount}</Text>
               </View>
-              <View style={styles.peakStat}>
-                <Ionicons name="eye" size={11} color="#FFF" />
-                <Text style={styles.peakStatText}>{peak.views_count || 0}</Text>
+            )}
+            <View style={styles.peakGroupOverlay}>
+              <Text style={styles.peakGroupLabel}>{group.label}</Text>
+              <View style={styles.peakGroupStats}>
+                <SmuppyHeartIcon size={10} color="#FF6B6B" filled />
+                <Text style={styles.peakGroupStatText}>{group.totalLikes}</Text>
+                <Ionicons name="eye" size={10} color="#FFF" />
+                <Text style={styles.peakGroupStatText}>{group.totalViews}</Text>
               </View>
             </View>
           </TouchableOpacity>

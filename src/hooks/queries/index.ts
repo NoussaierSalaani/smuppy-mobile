@@ -259,15 +259,10 @@ export const useToggleLike = () => {
 
   return useMutation({
     mutationFn: async ({ postId, liked }: { postId: string; liked: boolean }) => {
-      if (liked) {
-        const { error } = await database.unlikePost(postId);
-        if (error) throw new Error(error);
-        return { postId, liked: false };
-      } else {
-        const { error } = await database.likePost(postId);
-        if (error) throw new Error(error);
-        return { postId, liked: true };
-      }
+      // Single toggle endpoint: backend returns { liked: true/false }
+      const { error } = await database.likePost(postId);
+      if (error) throw new Error(error);
+      return { postId, liked: !liked };
     },
     onMutate: async ({ postId, liked }: { postId: string; liked: boolean }) => {
       // Cancel any outgoing refetches

@@ -902,14 +902,42 @@ const UserProfileScreen = () => {
     }
     if (activeTab === 'peaks') {
       if (peaks.length === 0) return renderEmpty('peaks');
+
+      // Group peaks by calendar date (24h grouping for profile)
+      const peakTimeGroups: { key: string; label: string; latestThumbnail: string | undefined; peakCount: number; peaks: Post[]; totalLikes: number; totalViews: number }[] = (() => {
+        const groupMap = new Map<string, { key: string; peaks: Post[]; totalLikes: number; totalViews: number }>();
+        for (const p of peaks) {
+          const dateKey = (p.created_at || '').slice(0, 10);
+          if (!dateKey) continue;
+          const existing = groupMap.get(dateKey);
+          if (existing) {
+            existing.peaks.push(p);
+            existing.totalLikes += (p.likes_count || 0);
+            existing.totalViews += (p.views_count || 0);
+          } else {
+            groupMap.set(dateKey, { key: dateKey, peaks: [p], totalLikes: p.likes_count || 0, totalViews: p.views_count || 0 });
+          }
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        return Array.from(groupMap.values())
+          .sort((a, b) => b.key.localeCompare(a.key))
+          .map(g => ({
+            ...g,
+            label: g.key === today ? 'Today' : g.key === yesterday ? 'Yesterday' : g.key.slice(5),
+            latestThumbnail: g.peaks[0]?.media_urls?.[0],
+            peakCount: g.peaks.length,
+          }));
+      })();
+
       return (
-        <View style={styles.peaksGrid}>
-          {peaks.map((peak, index) => (
+        <View style={styles.peakGroupsGrid}>
+          {peakTimeGroups.map((group) => (
             <TouchableOpacity
-              key={`peak-${index}-${peak.id}`}
-              style={styles.peakCard}
+              key={`peak-group-${group.key}`}
+              style={styles.peakGroupCard}
               onPress={() => {
-                const transformed = peaks.map(p => ({
+                const transformed = group.peaks.map(p => ({
                   id: p.id,
                   videoUrl: p.media_urls?.find((u: string) => u.includes('.mp4') || u.includes('.mov')) || p.media_urls?.[0],
                   thumbnail: p.media_urls?.[0],
@@ -922,32 +950,33 @@ const UserProfileScreen = () => {
                   views: p.views_count || 0,
                   likes: p.likes_count || 0,
                   repliesCount: p.comments_count || 0,
-                  isLiked: p.is_liked || false,
+                  isLiked: (p as { is_liked?: boolean }).is_liked || false,
                   isOwnPeak: false,
                   createdAt: p.created_at,
                 }));
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                navigation.navigate('PeakView', { peaks: transformed as any[], initialIndex: index });
+                navigation.navigate('PeakView', { peaks: transformed as any[], initialIndex: 0 });
               }}
             >
-              {peak.media_urls?.[0] ? (
-                <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />
+              {group.latestThumbnail ? (
+                <OptimizedImage source={group.latestThumbnail} style={styles.peakGroupThumb} />
               ) : (
-                <View style={[styles.peakThumb, styles.postThumbEmpty]}>
+                <View style={[styles.peakGroupThumb, styles.postThumbEmpty]}>
                   <Ionicons name="videocam-outline" size={24} color={colors.gray} />
                 </View>
               )}
-              <View style={styles.peakDuration}>
-                <Text style={styles.peakDurationText}>{peak.peak_duration || 15}s</Text>
-              </View>
-              <View style={styles.peakStatsOverlay}>
-                <View style={styles.peakStat}>
-                  <SmuppyHeartIcon size={11} color="#FF6B6B" filled />
-                  <Text style={styles.peakStatText}>{peak.likes_count || 0}</Text>
+              {group.peakCount > 1 && (
+                <View style={styles.peakGroupCountBadge}>
+                  <Text style={styles.peakGroupCountText}>{group.peakCount}</Text>
                 </View>
-                <View style={styles.peakStat}>
-                  <Ionicons name="eye" size={11} color="#FFF" />
-                  <Text style={styles.peakStatText}>{peak.views_count || 0}</Text>
+              )}
+              <View style={styles.peakGroupOverlay}>
+                <Text style={styles.peakGroupLabel}>{group.label}</Text>
+                <View style={styles.peakGroupStats}>
+                  <SmuppyHeartIcon size={10} color="#FF6B6B" filled />
+                  <Text style={styles.peakGroupStatText}>{group.totalLikes}</Text>
+                  <Ionicons name="eye" size={10} color="#FFF" />
+                  <Text style={styles.peakGroupStatText}>{group.totalViews}</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -2118,6 +2147,67 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 10,
     fontWeight: '600',
     color: '#FFF',
+  },
+
+  // ===== PEAK TIME GROUPS (24h grouping) =====
+  peakGroupsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  peakGroupCard: {
+    width: (SCREEN_WIDTH - 48) / 2,
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundSecondary,
+  },
+  peakGroupThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  peakGroupCountBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  peakGroupCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  peakGroupOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  peakGroupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 2,
+  },
+  peakGroupStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  peakGroupStatText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFF',
+    marginRight: 4,
   },
 
   // ===== LOADING & EMPTY STATES =====

@@ -671,13 +671,56 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     }
   }, [navigation, modalVisible, selectedPost, trackPostExit, currentUserId, prefetchProfile]);
 
-  // Navigate to Peak view — PeakCardData fields match PeakViewScreen's local Peak shape
-  const goToPeakView = useCallback((_peak: PeakCardData, index: number) => {
-    navigation.navigate('PeakView', {
-      peaks: peaksData as unknown as Peak[],
-      initialIndex: index,
+  // Group peaks by author for story circles (per PEAKS.md §3.3)
+  const peakAuthorGroups = useMemo(() => {
+    const groups = new Map<string, { user: PeakCardData['user']; peaks: PeakCardData[]; hasUnwatched: boolean; latestCreatedAt: string }>();
+    peaksData.forEach(peak => {
+      const userId = peak.user.id;
+      const existing = groups.get(userId);
+      if (existing) {
+        existing.peaks.push(peak);
+        if (peak.hasNew) existing.hasUnwatched = true;
+        if (peak.createdAt && peak.createdAt > existing.latestCreatedAt) {
+          existing.latestCreatedAt = peak.createdAt;
+        }
+      } else {
+        groups.set(userId, {
+          user: peak.user,
+          peaks: [peak],
+          hasUnwatched: peak.hasNew,
+          latestCreatedAt: peak.createdAt || new Date().toISOString(),
+        });
+      }
     });
-  }, [navigation, peaksData]);
+    // Sort: unviewed groups first, then by latest peak created_at DESC
+    const sorted = Array.from(groups.values());
+    sorted.sort((a, b) => {
+      if (a.hasUnwatched !== b.hasUnwatched) return a.hasUnwatched ? -1 : 1;
+      return new Date(b.latestCreatedAt).getTime() - new Date(a.latestCreatedAt).getTime();
+    });
+    // Sort peaks within each group by created_at ASC (oldest first = watch in order)
+    for (const group of sorted) {
+      group.peaks.sort((a, b) =>
+        new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+      );
+    }
+    return sorted;
+  }, [peaksData]);
+
+  // Peaks reorganized into contiguous author groups for story navigation
+  const groupedPeaks = useMemo(() => {
+    return peakAuthorGroups.flatMap(g => g.peaks);
+  }, [peakAuthorGroups]);
+
+  // Navigate to Peak view — grouped by author for story navigation
+  const goToStoryGroup = useCallback((group: { user: PeakCardData['user']; peaks: PeakCardData[] }) => {
+    const index = groupedPeaks.findIndex(p => p.user.id === group.user.id);
+    const safeIndex = index >= 0 ? index : 0;
+    navigation.navigate('PeakView', {
+      peaks: groupedPeaks as unknown as Peak[],
+      initialIndex: safeIndex,
+    });
+  }, [navigation, groupedPeaks]);
 
   // Sort posts by interests + engagement — feed always stays full, chips boost matching posts
   const filteredPosts = useMemo(() => {
@@ -986,29 +1029,34 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   const keyExtractor = useCallback((item: UIVibePost) => item.id, []);
 
-  // Render Peak card
-  const renderPeakCard = useCallback((peak: PeakCardData, index: number) => (
-    <TouchableOpacity
-      key={`peak-${index}-${peak.id}`}
-      style={styles.peakCard}
-      onPress={() => goToPeakView(peak, index)}
-      activeOpacity={0.9}
-    >
-      <ThumbnailImage source={peak.thumbnail || PEAK_PLACEHOLDER} style={styles.peakThumbnail} />
-      
-      {peak.hasNew && <View style={styles.peakNewIndicator} />}
-      
-      <View style={styles.peakDuration}>
-        <Text style={styles.peakDurationText}>{peak.duration}s</Text>
-      </View>
-      
-      <View style={styles.peakAvatarContainer}>
-        <AvatarImage source={peak.user.avatar} size={36} style={styles.peakAvatar} />
-      </View>
-      
-      <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeText(peak.user.name)}</Text>
-    </TouchableOpacity>
-  ), [goToPeakView, styles]);
+  // Render peak card for author group — original card shape, one per author
+  const renderGroupCard = useCallback((group: { user: PeakCardData['user']; peaks: PeakCardData[]; hasUnwatched: boolean }) => {
+    const latestPeak = group.peaks[group.peaks.length - 1];
+    return (
+      <TouchableOpacity
+        key={`peak-group-${group.user.id}`}
+        style={styles.peakCard}
+        onPress={() => goToStoryGroup(group)}
+        activeOpacity={0.9}
+      >
+        <ThumbnailImage source={latestPeak?.thumbnail || PEAK_PLACEHOLDER} style={styles.peakThumbnail} />
+
+        {group.hasUnwatched && <View style={styles.peakNewIndicator} />}
+
+        {group.peaks.length > 1 && (
+          <View style={styles.peakCountBadge}>
+            <Text style={styles.peakCountText}>{group.peaks.length}</Text>
+          </View>
+        )}
+
+        <View style={styles.peakAvatarContainer}>
+          <AvatarImage source={group.user.avatar} size={36} style={styles.peakAvatar} />
+        </View>
+
+        <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeText(group.user.name)}</Text>
+      </TouchableOpacity>
+    );
+  }, [goToStoryGroup, styles]);
 
   // Render modal - Full screen post
   const renderModal = () => (
@@ -1211,8 +1259,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               />
             )}
 
-            {/* PEAKS SECTION */}
-            {!isBusiness && <View style={styles.peaksSection}>
+            {/* PEAKS SECTION — Story circles grouped by author (per PEAKS.md §3) */}
+            {!isBusiness && peakAuthorGroups.length > 0 && <View style={styles.peaksSection}>
               <View style={styles.peaksSectionHeader}>
                 <Text style={styles.peaksSectionTitle}>Peaks</Text>
                 <TouchableOpacity
@@ -1228,7 +1276,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.peaksScrollContent}
               >
-                {peaksData.map((peak, index) => renderPeakCard(peak, index))}
+                {peakAuthorGroups.map((group) => renderGroupCard(group))}
               </ScrollView>
             </View>}
 
@@ -1516,19 +1564,22 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderWidth: 2,
     borderColor: colors.background,
   },
-  peakDuration: {
+  peakCountBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 8,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
   },
-  peakDurationText: {
-    fontFamily: 'Poppins-Medium',
+  peakCountText: {
     fontSize: 10,
-    color: '#fff',
+    fontWeight: '700',
+    color: '#FFF',
   },
   peakAvatarContainer: {
     position: 'absolute',

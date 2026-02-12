@@ -1,6 +1,6 @@
 /**
- * Like Peak Lambda Handler
- * Likes a peak for the current user
+ * Like/Unlike Peak Lambda Handler (Toggle)
+ * POST: toggles like state for the current user
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -67,7 +67,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const peak = peakResult.rows[0];
 
-    // Like peak in transaction
+    // Toggle like in transaction
     // CRITICAL: Use dedicated client for transaction isolation with connection pooling
     const client = await db.connect();
 
@@ -80,27 +80,35 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [profile.id, peakId]
       );
 
-      if (existingLike.rows.length > 0) {
-        await client.query('ROLLBACK');
-        client.release();
+      const alreadyLiked = existingLike.rows.length > 0;
+
+      if (alreadyLiked) {
+        // Unlike: remove like + decrement count
+        await client.query(
+          'DELETE FROM peak_likes WHERE user_id = $1 AND peak_id = $2',
+          [profile.id, peakId]
+        );
+        await client.query(
+          'UPDATE peaks SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1',
+          [peakId]
+        );
+        await client.query('COMMIT');
+
         return {
           statusCode: 200,
           headers,
           body: JSON.stringify({
             success: true,
-            message: 'Peak already liked',
-            liked: true,
+            liked: false,
           }),
         };
       }
 
-      // Create like
+      // Like: insert + increment count
       await client.query(
         'INSERT INTO peak_likes (user_id, peak_id) VALUES ($1, $2)',
         [profile.id, peakId]
       );
-
-      // Update likes count
       await client.query(
         'UPDATE peaks SET likes_count = likes_count + 1 WHERE id = $1',
         [peakId]
@@ -135,7 +143,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({
           success: true,
-          message: 'Peak liked successfully',
           liked: true,
         }),
       };

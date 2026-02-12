@@ -31,7 +31,7 @@ import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
+import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
@@ -236,20 +236,14 @@ const PostDetailFanFeedScreen = () => {
 
     setLikeLoading(prev => ({ ...prev, [pId]: true }));
     try {
+      // Single toggle endpoint: backend returns { liked: true/false }
       const isCurrentlyLiked = likedPosts[pId];
-      if (isCurrentlyLiked) {
-        const { error } = await unlikePost(pId);
-        if (!error) {
-          setLikedPosts(prev => ({ ...prev, [pId]: false }));
-          useFeedStore.getState().toggleLikeOptimistic(pId, false);
-        }
-      } else {
-        const { error } = await likePost(pId);
-        if (!error) {
-          setLikedPosts(prev => ({ ...prev, [pId]: true }));
-          useFeedStore.getState().toggleLikeOptimistic(pId, true);
-          triggerLikeAnimation();
-        }
+      const { error } = await likePost(pId);
+      if (!error) {
+        const newLiked = !isCurrentlyLiked;
+        setLikedPosts(prev => ({ ...prev, [pId]: newLiked }));
+        useFeedStore.getState().toggleLikeOptimistic(pId, newLiked);
+        if (newLiked) triggerLikeAnimation();
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Like error:', error);

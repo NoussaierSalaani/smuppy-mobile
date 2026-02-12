@@ -28,7 +28,6 @@ import {
   followUser,
   isFollowing,
   likePost,
-  unlikePost,
   hasLikedPost,
   savePost,
   unsavePost,
@@ -270,27 +269,20 @@ const PostDetailProfileScreen = () => {
     const currentLikes = localLikes[id] ?? currentPost.likes;
 
     try {
-      if (isLiked) {
-        setIsLiked(false);
-        setLocalLikes(prev => ({ ...prev, [id]: Math.max(currentLikes - 1, 0) }));
-        const { error } = await unlikePost(id);
-        if (error) {
-          setIsLiked(true);
-          setLocalLikes(prev => ({ ...prev, [id]: currentLikes }));
-        } else {
-          useFeedStore.getState().toggleLikeOptimistic(id, false);
-        }
+      // Optimistic update
+      const newLiked = !isLiked;
+      setIsLiked(newLiked);
+      setLocalLikes(prev => ({ ...prev, [id]: newLiked ? currentLikes + 1 : Math.max(currentLikes - 1, 0) }));
+      if (newLiked) triggerLikeAnimation();
+
+      // Single toggle endpoint: backend returns { liked: true/false }
+      const { error } = await likePost(id);
+      if (error) {
+        // Revert
+        setIsLiked(isLiked);
+        setLocalLikes(prev => ({ ...prev, [id]: currentLikes }));
       } else {
-        setIsLiked(true);
-        setLocalLikes(prev => ({ ...prev, [id]: currentLikes + 1 }));
-        triggerLikeAnimation();
-        const { error } = await likePost(id);
-        if (error) {
-          setIsLiked(false);
-          setLocalLikes(prev => ({ ...prev, [id]: currentLikes }));
-        } else {
-          useFeedStore.getState().toggleLikeOptimistic(id, true);
-        }
+        useFeedStore.getState().toggleLikeOptimistic(id, newLiked);
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailProfile] Like error:', error);

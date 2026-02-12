@@ -29,7 +29,7 @@ import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, unlikePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
+import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
@@ -206,20 +206,12 @@ const PostDetailVibesFeedScreen = () => {
     // Try to sync with database
     setLikeLoading(true);
     try {
-      if (!newLikedState) {
-        const { error } = await unlikePost(postId);
-        if (error) {
-          setIsLiked(true);
-        } else {
-          useFeedStore.getState().toggleLikeOptimistic(postId, false);
-        }
+      // Single toggle endpoint: backend returns { liked: true/false }
+      const { error } = await likePost(postId);
+      if (error) {
+        setIsLiked(!newLikedState);
       } else {
-        const { error } = await likePost(postId);
-        if (error) {
-          setIsLiked(false);
-        } else {
-          useFeedStore.getState().toggleLikeOptimistic(postId, true);
-        }
+        useFeedStore.getState().toggleLikeOptimistic(postId, newLikedState);
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailVibesFeed] Like error:', error);

@@ -1,6 +1,6 @@
 import { useCallback, useRef, Dispatch, SetStateAction } from 'react';
 
-import { likePost, unlikePost, savePost, unsavePost } from '../services/database';
+import { likePost, savePost, unsavePost } from '../services/database';
 
 /**
  * Minimal post shape required for like/save interactions.
@@ -57,24 +57,15 @@ export function usePostInteractions<T extends InteractablePost>({
     });
 
     try {
-      if (wasLiked) {
-        const { error } = await unlikePost(postId);
-        if (error) {
-          // Revert
-          setPosts(prev => prev.map(p =>
-            p.id === postId ? { ...p, isLiked: true, likes: p.likes + 1 } : p
-          ));
-        }
-      } else {
-        const { error } = await likePost(postId);
-        if (error) {
-          // Revert
-          setPosts(prev => prev.map(p =>
-            p.id === postId ? { ...p, isLiked: false, likes: Math.max(0, p.likes - 1) } : p
-          ));
-        } else {
-          onLike?.(postId);
-        }
+      // Single toggle endpoint: backend returns { liked: true/false }
+      const { error } = await likePost(postId);
+      if (error) {
+        // Revert optimistic update
+        setPosts(prev => prev.map(p =>
+          p.id === postId ? { ...p, isLiked: wasLiked, likes: wasLiked ? p.likes + 1 : Math.max(0, p.likes - 1) } : p
+        ));
+      } else if (!wasLiked) {
+        onLike?.(postId);
       }
     } catch (err) {
       if (__DEV__) console.warn('[usePostInteractions] Like error:', err);

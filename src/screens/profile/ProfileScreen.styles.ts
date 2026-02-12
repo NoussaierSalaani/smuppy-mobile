@@ -487,6 +487,67 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     color: '#FFF',
   },
 
+  // ===== PEAK TIME GROUPS (24h grouping) =====
+  peakGroupsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  peakGroupCard: {
+    width: (SCREEN_WIDTH - 48) / 2,
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1E',
+  },
+  peakGroupThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  peakGroupCountBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  peakGroupCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  peakGroupOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  peakGroupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 2,
+  },
+  peakGroupStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  peakGroupStatText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFF',
+    marginRight: 4,
+  },
+
   // ===== COLLECTIONS GRID =====
   collectionsGrid: {
     flexDirection: 'row',

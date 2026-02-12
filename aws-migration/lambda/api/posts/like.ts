@@ -1,6 +1,6 @@
 /**
- * Like Post Lambda Handler
- * Adds a like to a post and updates the likes count
+ * Like/Unlike Post Lambda Handler (Toggle)
+ * POST: toggles like state for the current user
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -71,33 +71,50 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Check if already liked
-    const existingLike = await db.query(
-      'SELECT id FROM likes WHERE user_id = $1 AND post_id = $2',
-      [profileId, postId]
-    );
-
-    if (existingLike.rows.length > 0) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: 'Post already liked',
-          liked: true,
-          likesCount: postResult.rows[0].likes_count,
-        }),
-      };
-    }
-
-    // Insert like and update count in transaction
+    // Toggle like in transaction
     // CRITICAL: Use dedicated client for transaction isolation with connection pooling
     const client = await db.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Insert like (DB trigger auto-increments posts.likes_count)
+      // Check if already liked INSIDE transaction to prevent race condition
+      const existingLike = await client.query(
+        'SELECT id FROM likes WHERE user_id = $1 AND post_id = $2',
+        [profileId, postId]
+      );
+
+      const post = postResult.rows[0];
+      const likerUsername = userResult.rows[0].username;
+      const alreadyLiked = existingLike.rows.length > 0;
+
+      if (alreadyLiked) {
+        // Unlike: remove like (DB trigger auto-decrements posts.likes_count)
+        await client.query(
+          'DELETE FROM likes WHERE user_id = $1 AND post_id = $2',
+          [profileId, postId]
+        );
+
+        // Read updated count (trigger has already fired)
+        const updatedPost = await client.query(
+          'SELECT likes_count FROM posts WHERE id = $1',
+          [postId]
+        );
+
+        await client.query('COMMIT');
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            liked: false,
+            likesCount: updatedPost.rows[0].likes_count,
+          }),
+        };
+      }
+
+      // Like: insert (DB trigger auto-increments posts.likes_count)
       await client.query(
         'INSERT INTO likes (user_id, post_id) VALUES ($1, $2)',
         [profileId, postId]
@@ -110,8 +127,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       // Create notification for post author (if not self-like)
-      const post = postResult.rows[0];
-      const likerUsername = userResult.rows[0].username;
       if (post.author_id !== profileId) {
         await client.query(
           `INSERT INTO notifications (user_id, type, title, body, data)
@@ -126,7 +141,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (post.author_id !== profileId) {
         sendPushToUser(db, post.author_id, {
           title: 'New Like',
-          body: `${userResult.rows[0].username} liked your post`,
+          body: `${likerUsername} liked your post`,
           data: { type: 'like', postId },
         }).catch(err => log.error('Push notification failed', err));
       }
@@ -136,7 +151,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({
           success: true,
-          message: 'Post liked successfully',
           liked: true,
           likesCount: updatedPost.rows[0].likes_count,
         }),

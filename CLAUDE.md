@@ -6,6 +6,9 @@
 > **Feature documentation**: For STRICT display conditions, data flow, and logic rules
 > for every feature (VibesFeed, Peaks, Profiles, etc.), see [docs/FEATURES.md](./docs/FEATURES.md).
 > **READ BEFORE MODIFYING ANY FEATURE.**
+>
+> **Stability plan**: For the anti-regression strategy, bug discipline, CI gates, and
+> test roadmap, see [docs/STABILITY.md](./docs/STABILITY.md). **Every bug fix MUST include a test.**
 
 ## ABSOLUTE RULES — NEVER VIOLATE
 
@@ -197,6 +200,33 @@ This reconciles "small lots" (AGENTS.md) with "all changes at once" (workflow Ph
 - After writing code, mentally test: what if the user sends this twice fast? What if the DB is slow? What if the token expires mid-request?
 - Validate every code path: happy path, auth failure, validation failure, DB error, external service timeout
 - **Automated tests**: when test infrastructure exists (Jest, Detox), run existing tests before committing. When adding complex logic (parsers, validators, state machines), add unit tests. The absence of a full test suite does not excuse skipping verification — always run `npx tsc --noEmit` and mental testing at minimum.
+
+## Stability & Anti-Regression (MANDATORY)
+
+> Full plan: [docs/STABILITY.md](./docs/STABILITY.md)
+
+### Bug Fix Discipline
+- **NEVER** fix a bug without a regression test that prevents its return
+- Bug fix process: reproduce → write failing test → fix → test passes → commit fix + test together
+- If the bug is in a Lambda handler: write a unit test for that handler
+- If the bug is in frontend state: write a store/hook test
+- If the bug is a navigation issue: write a Maestro flow
+- If a full test is impractical: add a TypeScript type guard or runtime assertion at minimum
+- Bug test naming: `BUG-YYYY-MM-DD: description` (date-stamped for traceability)
+
+### AI Change Discipline
+- **1 PR = 1 purpose** — one bug fix or one feature, never both
+- **Max scope** — ideally < 10 files modified per commit
+- **No cleanup in fix PRs** — refactors, formatting, dead code removal go in separate commits
+- **No implicit changes** — if AI modifies code outside the bug's scope, reject it
+- **Minimal fix** — the smallest change that fixes the bug, not the "best" refactor
+- **Read before write** — AI MUST read all affected files before making changes
+- **Verify after write** — `npx tsc --noEmit` + `npx eslint` + mental walkthrough
+
+### CI Gate
+- **If CI is red, no merge. No exceptions.**
+- Coverage thresholds only go UP, never down (ratchet pattern)
+- Current thresholds: see `jest.config.js` — raise progressively per [docs/STABILITY.md](./docs/STABILITY.md)
 
 ## Git Discipline
 

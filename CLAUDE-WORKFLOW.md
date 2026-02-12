@@ -60,6 +60,12 @@ Run ALL of these checks. If any fails, fix it BEFORE committing:
 7. **Import check** — no unused imports, no missing imports
 8. **Type check** — no `any` types, all function params typed
 
+**8. Stability check** — if this is a bug fix:
+   - Is there a regression test that reproduces the bug?
+   - Does the test fail without the fix and pass with it?
+   - Is the test committed alongside the fix?
+   - See [docs/STABILITY.md §4](./docs/STABILITY.md) for the full bug fix process
+
 **If `npx tsc --noEmit` fails, DO NOT commit. Fix ALL errors first.**
 
 ### Phase 4 : Commit (one clean commit per feature)
@@ -204,6 +210,43 @@ If during development you realize something is broken:
 6. **Only then continue** with the rest of the feature
 
 **NEVER:** "I'll fix this later" / "It works for now" / "Let me just push this and fix on the next commit"
+
+## Bug Fix Workflow (MANDATORY — Every Bug Becomes a Test)
+
+> Full plan: [docs/STABILITY.md](./docs/STABILITY.md)
+
+When fixing a bug, follow this exact process:
+
+```
+1. Bug reported (or discovered)
+   │
+2. Write "Steps to Reproduce" + "Expected vs Actual"
+   │
+3. Write a test that REPRODUCES the bug (test fails = bug confirmed)
+   │
+4. Fix the bug (test now passes)
+   │
+5. Commit fix + test together (same commit)
+   │
+6. CI passes → merge
+```
+
+**Test naming convention**:
+```typescript
+describe('peaks/list handler', () => {
+  it('BUG-2026-02-10: excludes hidden peaks from feed mode', () => {
+    // Regression test for: hidden peaks appearing in feed
+  });
+});
+```
+
+**Where to put the test**:
+- Lambda handler bug → unit test in `src/__tests__/` or co-located `__tests__/` folder
+- Frontend state bug → store/hook test in `src/__tests__/`
+- Navigation bug → Maestro flow in `.maestro/flows/`
+- If full test is impractical → TypeScript type guard or runtime assertion at minimum
+
+**NEVER fix a bug without a test that prevents its return.**
 
 ## Claude Session Handoff Protocol
 

@@ -4,10 +4,10 @@
  * Uses Mapbox Directions API with appropriate profiles
  */
 
-import Constants from 'expo-constants';
 import type { RouteProfile, DifficultyLevel } from '../types';
+import { ENV } from '../config/env';
 
-const MAPBOX_TOKEN = Constants.expoConfig?.extra?.mapboxAccessToken || '';
+const MAPBOX_TOKEN = ENV.MAPBOX_ACCESS_TOKEN;
 const BASE_URL = 'https://api.mapbox.com/directions/v5/mapbox';
 const API_TIMEOUT_MS = 10000;
 

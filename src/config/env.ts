@@ -41,6 +41,9 @@ export const ENV = {
   // Agora (Live Streaming & Video Calls)
   AGORA_APP_ID: extra.agoraAppId || '',
 
+  // Mapbox — token loaded from app.config.js extra (via .env or EAS env vars)
+  MAPBOX_ACCESS_TOKEN: extra.mapboxAccessToken || '',
+
   // Sentry
   SENTRY_DSN: extra.sentryDsn || '',
 

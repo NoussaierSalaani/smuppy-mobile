@@ -4,11 +4,10 @@ import React, { useState, useEffect, forwardRef, memo } from 'react';
 import { View, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import type { Feature } from 'geojson';
-import Constants from 'expo-constants';
+import { ENV } from '../config/env';
 import { useTheme } from '../hooks/useTheme';
 
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
+Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 // Types for MapView props (Mapbox-compatible)
 interface LazyMapViewProps {

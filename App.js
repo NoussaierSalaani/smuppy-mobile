@@ -28,7 +28,7 @@ import { initializeBackend } from './src/services/backend';
 
 // Map
 import Mapbox from '@rnmapbox/maps';
-import Constants from 'expo-constants';
+import { ENV } from './src/config/env';
 
 // UI Components
 import { SmuppyAlertProvider } from './src/context/SmuppyAlertContext';
@@ -162,10 +162,7 @@ export default function App() {
 
       // Initialize Mapbox globally before any map component renders
       try {
-        const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-        if (mapboxToken) {
-          Mapbox.setAccessToken(mapboxToken);
-        }
+        Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
       } catch (e) {
         if (__DEV__) console.warn('[Mapbox] init failed:', e);
       }

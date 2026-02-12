@@ -23,7 +23,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import OptimizedImage from '../../components/OptimizedImage';
@@ -35,8 +34,9 @@ import { MapListSkeleton } from '../../components/skeleton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
 
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
+import { ENV } from '../../config/env';
+
+Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width - 48;

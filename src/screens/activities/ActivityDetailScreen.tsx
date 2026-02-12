@@ -20,7 +20,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
-import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import OptimizedImage from '../../components/OptimizedImage';
 import { GRADIENTS } from '../../config/theme';
@@ -35,8 +34,9 @@ import { isValidUUID } from '../../utils/formatters';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { formatLongDateTime } from '../../utils/dateFormatters';
 
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
+import { ENV } from '../../config/env';
+
+Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 const { width: _width } = Dimensions.get('window');
 

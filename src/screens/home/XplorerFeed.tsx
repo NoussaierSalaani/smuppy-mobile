@@ -6,8 +6,8 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Constants from 'expo-constants';
 import { GRADIENTS } from '../../config/theme';
+import { ENV } from '../../config/env';
 import { FEATURES } from '../../config/featureFlags';
 import { LiquidButton } from '../../components/LiquidButton';
 import { BlurView } from 'expo-blur';
@@ -26,11 +26,8 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const sanitizeText = (text: string | undefined | null): string =>
   text?.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '') || '';
 
-// Initialize Mapbox with access token
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) {
-  Mapbox.setAccessToken(mapboxToken);
-}
+// Initialize Mapbox with access token (ENV has fallback for builds missing the token)
+Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const baseWidth = 390;

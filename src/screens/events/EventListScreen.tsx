@@ -23,7 +23,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
 import OptimizedImage from '../../components/OptimizedImage';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
@@ -32,9 +31,9 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { MapListSkeleton } from '../../components/skeleton';
 import { formatDateTimeRelative } from '../../utils/dateFormatters';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { ENV } from '../../config/env';
 
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
+Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width - 48;

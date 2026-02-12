@@ -30,7 +30,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -48,8 +47,9 @@ import type { RouteProfile } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { filterContent } from '../../utils/contentFilters';
 
-const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken;
-if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
+import { ENV } from '../../config/env';
+
+Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

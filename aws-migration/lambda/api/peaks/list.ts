@@ -101,8 +101,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Feed mode: only show active (non-expired) peaks
-    // Profile mode: show active peaks + expired peaks the user chose to keep (saved_to_profile = true)
-    // Always exclude dismissed peaks (saved_to_profile = false)
+    // Profile mode: show all peaks except explicitly dismissed (saved_to_profile = false)
+    // This ensures expired peaks with no decision (saved_to_profile IS NULL) remain
+    // visible on the profile so the author can still delete them.
     if (!authorIdParam && !usernameParam) {
       query += `
         AND (
@@ -116,13 +117,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         query += ` AND pk.id NOT IN (SELECT peak_id FROM peak_hidden WHERE user_id = $1)`;
       }
     } else {
-      query += `
-        AND (
-          (pk.expires_at IS NULL OR pk.expires_at > NOW())
-          OR pk.saved_to_profile = true
-        )
-        AND (pk.saved_to_profile IS DISTINCT FROM false)
-      `;
+      query += ` AND (pk.saved_to_profile IS DISTINCT FROM false)`;
     }
 
     // Filter by author if provided

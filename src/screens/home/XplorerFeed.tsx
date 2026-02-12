@@ -569,7 +569,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
   const goToProfile = useCallback((marker: MapMarker) => {
     closePopup();
-    navigation.navigate('UserProfile', { userId: marker.id });
+    // Strip type prefix from marker ID (e.g. "business_uuid" → "uuid")
+    const profileId = marker.id.replace(/^(business|event|group|live|spot)_/, '');
+    navigation.navigate('UserProfile', { userId: profileId });
   }, [closePopup, navigation]);
 
   const handleFabAction = useCallback((action: string) => {

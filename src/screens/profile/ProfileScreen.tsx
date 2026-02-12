@@ -251,13 +251,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       
       let list = mapPeaks(res.data || []);
 
-      // Filter client-side by author when userId is provided
-      if (targetUserId && list.length > 0) {
-        const filtered = list.filter(p => p.author_id === targetUserId);
-        list = filtered.length > 0 ? filtered : list; // if author missing, keep full list to avoid empty state
+      // STRICT: Only show peaks belonging to this user — never show other users' peaks
+      if (targetUserId) {
+        list = list.filter(p => p.author_id === targetUserId);
       }
 
-      // If still empty, try an unfiltred fetch and filter client-side (handles gateways that ignore author params)
+      // If API returned nothing for this user, try fallback fetch filtered strictly
       if (targetUserId && list.length === 0) {
         if (__DEV__) {
           console.log('[ProfileScreen] Primary fetch empty, trying fallback...');
@@ -265,16 +264,17 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         awsAPI.getPeaks({ limit: 100 }).then((allRes) => {
           if (!isMounted) return;
           const mapped = mapPeaks(allRes.data || []);
+          // STRICT: Only keep peaks from this specific user — empty is correct if none match
           const filtered = mapped.filter(p => p.author_id === targetUserId);
-          
+
           if (__DEV__) {
-            console.log('[ProfileScreen] Fallback fetch:', { 
-              total: mapped.length, 
-              filtered: filtered.length 
+            console.log('[ProfileScreen] Fallback fetch:', {
+              total: mapped.length,
+              filtered: filtered.length
             });
           }
-          
-          setPeaks(filtered.length > 0 ? filtered : mapped); // last resort: show whatever we have
+
+          setPeaks(filtered);
         }).catch((err) => {
           if (__DEV__) console.warn('[Profile] Peaks fallback fetch failed:', err);
         });

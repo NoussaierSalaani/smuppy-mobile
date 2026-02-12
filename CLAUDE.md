@@ -2,6 +2,10 @@
 
 > **Companion document**: For the development workflow (5 phases), the feature creation
 > blueprint (12 steps), and the checklist, see [CLAUDE-WORKFLOW.md](./CLAUDE-WORKFLOW.md).
+>
+> **Feature documentation**: For STRICT display conditions, data flow, and logic rules
+> for every feature (VibesFeed, Peaks, Profiles, etc.), see [docs/FEATURES.md](./docs/FEATURES.md).
+> **READ BEFORE MODIFYING ANY FEATURE.**
 
 ## ABSOLUTE RULES — NEVER VIOLATE
 

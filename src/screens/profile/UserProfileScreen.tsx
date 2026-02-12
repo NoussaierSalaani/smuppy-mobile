@@ -907,7 +907,27 @@ const UserProfileScreen = () => {
             <TouchableOpacity
               key={`peak-${index}-${peak.id}`}
               style={styles.peakCard}
-              onPress={() => navigation.navigate('PeakView', { peakId: peak.id })}
+              onPress={() => {
+                const transformed = peaks.map(p => ({
+                  id: p.id,
+                  videoUrl: p.media_urls?.find((u: string) => u.includes('.mp4') || u.includes('.mov')) || p.media_urls?.[0],
+                  thumbnail: p.media_urls?.[0],
+                  duration: p.peak_duration || 15,
+                  user: {
+                    id: profile.id,
+                    name: profile.displayName || profile.username,
+                    avatar: profile.avatar || '',
+                  },
+                  views: p.views_count || 0,
+                  likes: p.likes_count || 0,
+                  repliesCount: p.comments_count || 0,
+                  isLiked: p.is_liked || false,
+                  isOwnPeak: false,
+                  createdAt: p.created_at,
+                }));
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                navigation.navigate('PeakView', { peaks: transformed as any[], initialIndex: index });
+              }}
             >
               {peak.media_urls?.[0] ? (
                 <OptimizedImage source={peak.media_urls[0]} style={styles.peakThumb} />

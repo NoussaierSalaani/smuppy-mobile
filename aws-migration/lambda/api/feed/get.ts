@@ -125,7 +125,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // - private: only author can see
     const result = await db.query(
       `SELECT
-        p.id, p.author_id, p.content, p.media_urls, p.media_type,
+        p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
         p.likes_count, p.comments_count, p.views_count, p.created_at, p.visibility,
         json_build_object(
           'id', pr.id,
@@ -135,7 +135,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           'is_verified', pr.is_verified,
           'account_type', pr.account_type
         ) as author,
-        EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${queryParams.length + 1}) as is_liked
+        EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${queryParams.length + 1}) as is_liked,
+        EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $${queryParams.length + 1}) as is_saved
       FROM posts p
       LEFT JOIN profiles pr ON p.author_id = pr.id
       WHERE p.author_id = ANY($1)
@@ -161,11 +162,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         content: post.content,
         mediaUrls: post.media_urls || [],
         mediaType: post.media_type,
+        tags: post.tags || [],
         likesCount: post.likes_count || 0,
         commentsCount: post.comments_count || 0,
         viewsCount: post.views_count || 0,
         createdAt: post.created_at,
         isLiked: post.is_liked,
+        isSaved: post.is_saved,
         author: post.author,
       })),
       nextCursor: hasMore ? posts[posts.length - 1].created_at : null,

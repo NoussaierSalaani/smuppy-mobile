@@ -63,7 +63,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Soft-delete message only if user is the sender
     const result = await db.query(
       `UPDATE messages
-       SET is_deleted = true, content = '', media_url = NULL, updated_at = NOW()
+       SET is_deleted = true, content = '', media_url = NULL
        WHERE id = $1 AND sender_id = $2 AND is_deleted = false
        RETURNING id`,
       [messageId, profileId]

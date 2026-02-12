@@ -113,7 +113,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Build query for messages
+    // Build query for messages (filter out soft-deleted)
     let query = `
       SELECT
         m.id,
@@ -123,6 +123,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         m.sender_id,
         m.read,
         m.created_at,
+        m.reply_to_message_id,
         json_build_object(
           'id', p.id,
           'username', p.username,
@@ -132,6 +133,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       FROM messages m
       JOIN profiles p ON p.id = m.sender_id
       WHERE m.conversation_id = $1
+        AND (m.is_deleted IS NULL OR m.is_deleted = false)
     `;
 
     const params: SqlParam[] = [conversationId];

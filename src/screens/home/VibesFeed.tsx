@@ -395,6 +395,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [selectedPost, setSelectedPost] = useState<UIVibePost | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
   const [peaksData, setPeaksData] = useState<PeakCardData[]>([]);
@@ -441,17 +442,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       const currentPosts = allPostsRef.current;
       if (currentPosts.length > 0) {
         const postIds = currentPosts.map(p => p.id);
-        Promise.all([
+        Promise.allSettled([
           hasLikedPostsBatch(postIds),
           hasSavedPostsBatch(postIds),
-        ]).then(([likedMap, savedMap]) => {
+        ]).then(([likedResult, savedResult]) => {
+          const likedMap = likedResult.status === 'fulfilled' ? likedResult.value : new Map<string, boolean>();
+          const savedMap = savedResult.status === 'fulfilled' ? savedResult.value : new Map<string, boolean>();
           setAllPosts(prev => prev.map(p => ({
             ...p,
             isLiked: likedMap.get(p.id) ?? p.isLiked,
             isSaved: savedMap.get(p.id) ?? p.isSaved,
           })));
-        }).catch((err) => {
-          if (__DEV__) console.warn('[VibesFeed] Error syncing likes/saves:', err);
         });
       }
     }, [])
@@ -498,9 +499,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       if (error) {
         if (__DEV__) console.warn('[VibesFeed] Error fetching posts:', error);
-        // Keep existing posts on error — don't clear the feed
+        if (allPosts.length === 0) setLoadError(true);
         return;
       }
+      setLoadError(false);
 
       if (!data || data.length === 0) {
         if (refresh || pageNum === 0) {
@@ -510,10 +512,13 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       }
 
       const postIds = data.map(post => post.id);
-      const [likedMap, savedMap] = await Promise.all([
+      const [likedResult, savedResult] = await Promise.allSettled([
         hasLikedPostsBatch(postIds),
         hasSavedPostsBatch(postIds),
       ]);
+
+      const likedMap = likedResult.status === 'fulfilled' ? likedResult.value : new Map<string, boolean>();
+      const savedMap = savedResult.status === 'fulfilled' ? savedResult.value : new Map<string, boolean>();
 
       const likedIds = new Set<string>(
         postIds.filter(id => likedMap.get(id))
@@ -540,7 +545,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       setHasMore(data.length >= 40);
     } catch (err) {
       if (__DEV__) console.warn('[VibesFeed] Error:', err);
-      // Keep existing posts on error — don't clear the feed
+      if (allPosts.length === 0) setLoadError(true);
     }
   }, [activeInterests, userInterests]);
 
@@ -1290,6 +1295,18 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         ListEmptyComponent={
           isLoading ? (
             <PeakGridSkeleton />
+          ) : loadError ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="cloud-offline-outline" size={64} color={colors.gray} />
+              <Text style={styles.emptyTitle}>Couldn't load feed</Text>
+              <Text style={styles.emptySubtitle}>Check your connection and try again</Text>
+              <TouchableOpacity
+                style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 20 }}
+                onPress={() => { setLoadError(false); setIsLoading(true); fetchPosts(0, true).finally(() => setIsLoading(false)); }}
+              >
+                <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 15 }}>Retry</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.emptyState}>
               <Ionicons name="images-outline" size={64} color={colors.gray} />

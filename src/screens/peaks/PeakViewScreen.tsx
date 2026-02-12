@@ -288,11 +288,45 @@ const PeakViewScreen = (): React.JSX.Element => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakView'>>();
 
-  const { peaks: peaksParam = [], peakData = [], initialIndex = 0 } = route.params || {};
+  const { peaks: peaksParam = [], peakData = [], peakId, initialIndex = 0 } = route.params || {};
   const initialPeaks = (peaksParam && peaksParam.length > 0 ? peaksParam : peakData) as Peak[];
   const [peaks, setPeaks] = useState<Peak[]>(initialPeaks);
+  const [isLoadingPeak, setIsLoadingPeak] = useState(false);
   const currentUser = useUserStore((state) => state.user);
   const isBusiness = currentUser?.accountType === 'pro_business';
+
+  // If navigated with only peakId (no peaks array), fetch the peak from API
+  useEffect(() => {
+    if (peaks.length > 0 || !peakId) return;
+    let cancelled = false;
+    setIsLoadingPeak(true);
+    awsAPI.getPeak(peakId).then((p) => {
+      if (cancelled) return;
+      const fetched: Peak = {
+        id: p.id,
+        videoUrl: p.videoUrl ? toCdn(p.videoUrl) : undefined,
+        thumbnail: toCdn(p.thumbnailUrl) || '',
+        duration: p.duration || 15,
+        user: {
+          id: p.author?.id || p.authorId || '',
+          name: p.author?.displayName || p.author?.username || '',
+          avatar: toCdn(p.author?.avatarUrl) || '',
+        },
+        views: p.viewsCount || 0,
+        likes: p.likesCount || 0,
+        repliesCount: p.commentsCount || 0,
+        createdAt: p.createdAt || new Date().toISOString(),
+        isLiked: p.isLiked || false,
+        isOwnPeak: currentUser?.id != null && (p.authorId === currentUser.id || p.author?.id === currentUser.id),
+      };
+      setPeaks([fetched]);
+    }).catch((err) => {
+      if (__DEV__) console.warn('[PeakView] Failed to fetch peak by ID:', err);
+    }).finally(() => {
+      if (!cancelled) setIsLoadingPeak(false);
+    });
+    return () => { cancelled = true; };
+  }, [peakId, peaks.length, currentUser?.id]);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [carouselVisible, setCarouselVisible] = useState(true);
@@ -1087,6 +1121,30 @@ const PeakViewScreen = (): React.JSX.Element => {
       });
     }
   }, [peaks.length]);
+
+  // Loading state when fetching peak by ID
+  if (isLoadingPeak && peaks.length === 0) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar hidden />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // No peaks available (fetch failed or empty params)
+  if (peaks.length === 0) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar hidden />
+        <Ionicons name="videocam-off-outline" size={48} color={colors.gray} />
+        <Text style={{ color: colors.gray, marginTop: 12, fontSize: 16 }}>Peak not available</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
+          <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

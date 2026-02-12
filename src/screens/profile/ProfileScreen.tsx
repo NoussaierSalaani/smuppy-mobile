@@ -991,6 +991,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 views: p.views_count || 0,
                 likes: p.likes_count || 0,
                 repliesCount: p.comments_count || 0,
+                isLiked: (p as { is_liked?: boolean }).is_liked || false,
+                isOwnPeak: isOwnProfile,
                 createdAt: p.created_at,
               }));
               navigation.navigate('PeakView', { peaks: transformed, initialIndex: index });

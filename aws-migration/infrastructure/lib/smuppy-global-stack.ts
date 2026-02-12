@@ -367,9 +367,50 @@ export class SmuppyGlobalStack extends cdk.Stack {
       autoDeleteObjects: !isProduction,
     });
 
-    // Extract domain from API endpoint
+    // Extract domain from API endpoint (skip if undefined/missing)
     const apiDomain = apiEndpoint.replace('https://', '').replace(/\/.*$/, '');
     const graphqlDomain = graphqlEndpoint.replace('https://', '').replace(/\/.*$/, '');
+    const hasValidApiDomain = apiDomain && apiDomain !== 'undefined' && apiDomain.includes('.');
+    const hasValidGraphqlDomain = graphqlDomain && graphqlDomain !== 'undefined' && graphqlDomain.includes('.');
+
+    // Build additional behaviors — only add API/GraphQL origins when custom domains exist
+    const additionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {
+      // Media files with aggressive caching
+      '/media/*': {
+        origin: new origins.S3Origin(this.mediaBucket, { originAccessIdentity }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: mediaCachePolicy,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        compress: true,
+      },
+    };
+
+    if (hasValidApiDomain) {
+      additionalBehaviors['/api/*'] = {
+        origin: new origins.HttpOrigin(apiDomain, {
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+          originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+        cachePolicy: apiCachePolicy,
+        originRequestPolicy: apiOriginRequestPolicy,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        compress: true,
+      };
+    }
+
+    if (hasValidGraphqlDomain) {
+      additionalBehaviors['/graphql'] = {
+        origin: new origins.HttpOrigin(graphqlDomain, {
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+        cachePolicy: apiCachePolicy,
+        originRequestPolicy: apiOriginRequestPolicy,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        compress: true,
+      };
+    }
 
     this.distribution = new cloudfront.Distribution(this, 'CDN', {
       // SECURITY: Enable access logging
@@ -395,39 +436,7 @@ export class SmuppyGlobalStack extends cdk.Stack {
         responseHeadersPolicy: secureResponseHeadersPolicy,
       },
 
-      additionalBehaviors: {
-        // API Gateway endpoints
-        '/api/*': {
-          origin: new origins.HttpOrigin(apiDomain, {
-            protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
-            originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
-          }),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
-          cachePolicy: apiCachePolicy,
-          originRequestPolicy: apiOriginRequestPolicy,
-          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-          compress: true,
-        },
-        // GraphQL endpoint
-        '/graphql': {
-          origin: new origins.HttpOrigin(graphqlDomain, {
-            protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
-          }),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
-          cachePolicy: apiCachePolicy,
-          originRequestPolicy: apiOriginRequestPolicy,
-          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-          compress: true,
-        },
-        // Media files with aggressive caching
-        '/media/*': {
-          origin: new origins.S3Origin(this.mediaBucket, { originAccessIdentity }),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-          cachePolicy: mediaCachePolicy,
-          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
-          compress: true,
-        },
-      },
+      additionalBehaviors,
 
       errorResponses: [
         {

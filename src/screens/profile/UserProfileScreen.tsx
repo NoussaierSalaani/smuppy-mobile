@@ -225,6 +225,32 @@ const UserProfileScreen = () => {
   const posts = useMemo(() => userPosts.filter(p => !p.is_peak), [userPosts]);
   const peaks = useMemo(() => userPosts.filter(p => p.is_peak), [userPosts]);
 
+  // Business program data (for pro_business profiles — public view)
+  const [businessActivities, setBusinessActivities] = useState<{ id: string; name: string }[]>([]);
+  const [isLoadingPlanning, setIsLoadingPlanning] = useState(false);
+
+  const loadBusinessSchedule = useCallback(async () => {
+    if (!userId) return;
+    setIsLoadingPlanning(true);
+    try {
+      const res = await awsAPI.getBusinessSchedule(userId);
+      if (res.success) {
+        setBusinessActivities((res.activities || []).map(a => ({ id: a.id, name: a.name })));
+      } else {
+        setBusinessActivities([]);
+      }
+    } catch {
+      // silent — planning data is non-critical
+    } finally {
+      setIsLoadingPlanning(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (profile.accountType !== 'pro_business') return;
+    loadBusinessSchedule();
+  }, [profile.accountType, loadBusinessSchedule]);
+
   // Sync follow status from profile data (API returns is_following)
   // During the grace period after a follow/unfollow, skip syncing from API to avoid
   // read-replica-lag reversals (the optimistic setQueryData value is already correct).
@@ -352,9 +378,12 @@ const UserProfileScreen = () => {
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadUserPosts();
+    await Promise.all([
+      loadUserPosts(),
+      profile.accountType === 'pro_business' ? loadBusinessSchedule() : Promise.resolve(),
+    ]);
     setRefreshing(false);
-  }, [loadUserPosts]);
+  }, [loadUserPosts, loadBusinessSchedule, profile.accountType]);
 
   // Share profile
   const handleShareProfile = useCallback(async () => {
@@ -775,6 +804,26 @@ const UserProfileScreen = () => {
     );
   }, [navigation, profile, colors, styles]);
 
+  // ==================== TABS (must be before early returns — React hooks rules) ====================
+  const isProBusiness = profile.accountType === 'pro_business';
+
+  const TABS = useMemo(() => {
+    if (isProBusiness) {
+      return [
+        { key: 'posts', label: 'Posts' },
+        { key: 'planning', label: 'Planning' },
+        { key: 'groupevent', label: 'Activities' },
+        { key: 'collections', label: 'Collections' },
+      ] as const;
+    }
+    return [
+      { key: 'posts', label: 'Posts' },
+      { key: 'peaks', label: 'Peaks' },
+      { key: 'groupevent', label: 'Activities' },
+      { key: 'collections', label: 'Collections' },
+    ] as const;
+  }, [isProBusiness]);
+
   // States: missing userId or loading/error
   if (!userId) {
     return (
@@ -984,6 +1033,39 @@ const UserProfileScreen = () => {
         </View>
       );
     }
+    if (activeTab === 'planning') {
+      if (isLoadingPlanning) {
+        return (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        );
+      }
+
+      if (businessActivities.length === 0) {
+        return (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="calendar-outline" size={48} color={colors.gray} style={styles.emptyIconMargin} />
+            <Text style={styles.emptyTitle}>No planning yet</Text>
+            <Text style={styles.emptyDesc}>This business hasn't set up their schedule yet</Text>
+          </View>
+        );
+      }
+
+      // Show activities list for public view
+      return (
+        <View style={styles.planningContainer}>
+          {businessActivities.map(activity => (
+            <View key={activity.id} style={styles.planningSlotCard}>
+              <View style={[styles.planningSlotDot, { backgroundColor: colors.primary }]} />
+              <View style={styles.planningSlotInfo}>
+                <Text style={styles.planningSlotName}>{activity.name}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      );
+    }
     if (activeTab === 'groupevent') {
       // Unified Activities - no Event/Group toggle
       return (
@@ -999,14 +1081,6 @@ const UserProfileScreen = () => {
     }
     return null;
   };
-
-  // ==================== TABS ====================
-  const TABS = [
-    { key: 'posts', label: 'Posts' },
-    { key: 'peaks', label: 'Peaks' },
-    { key: 'groupevent', label: 'Activities' },
-    { key: 'collections', label: 'Collections' },
-  ] as const;
 
   const renderTabs = () => (
     <View style={styles.tabsContainer}>
@@ -1074,8 +1148,12 @@ const UserProfileScreen = () => {
             </View>
             <View style={styles.statGlassDivider} />
             <View style={styles.statGlassItem}>
-              <Text style={styles.statGlassValue}>{profile.peakCount}</Text>
-              <Text style={styles.statGlassLabel}>Peaks</Text>
+              <Text style={styles.statGlassValue}>
+                {profile.accountType === 'pro_business' ? (businessActivities.length || 0) : profile.peakCount}
+              </Text>
+              <Text style={styles.statGlassLabel}>
+                {profile.accountType === 'pro_business' ? 'Activities' : 'Peaks'}
+              </Text>
             </View>
           </BlurView>
         </View>
@@ -2406,6 +2484,34 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   menuCancelText: {
     fontSize: 16,
+    fontWeight: '600',
+    color: colors.dark,
+  },
+
+  // ===== PLANNING TAB (pro_business) =====
+  planningContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  planningSlotCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    gap: 10,
+  },
+  planningSlotDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  planningSlotInfo: {
+    flex: 1,
+  },
+  planningSlotName: {
+    fontSize: 14,
     fontWeight: '600',
     color: colors.dark,
   },

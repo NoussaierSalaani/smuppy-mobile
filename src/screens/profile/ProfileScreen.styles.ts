@@ -1115,4 +1115,61 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
   groupEventList: {
     gap: 0,
   },
+
+  // ===== PLANNING TAB (pro_business) =====
+  planningContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  planningEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  planningEditBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  planningDayHeader: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.gray900,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  planningSlotCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.gray100,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    gap: 10,
+  },
+  planningSlotDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  planningSlotInfo: {
+    flex: 1,
+  },
+  planningSlotName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.gray900,
+  },
+  planningSlotTime: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.gray400,
+    marginTop: 2,
+  },
 });

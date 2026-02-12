@@ -48,6 +48,31 @@ import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Business program types (matching aws-api camelCase response) */
+interface BusinessActivity {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+  maxCapacity?: number;
+}
+
+interface BusinessScheduleSlot {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  activityId?: string;
+  maxCapacity?: number;
+  activityName?: string;
+  color?: string;
+}
+
+const PLANNING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 /** Memoized wrapper to prevent inline arrow functions from defeating EventGroupCard memo */
 interface MemoizedEventGroupCardProps {
   type: 'event' | 'group';
@@ -211,6 +236,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const [peaks, setPeaks] = useState<ProfilePeak[]>([]);
   useEffect(() => {
     if (!userId) return;
+    // Pro business accounts don't have peaks — skip fetch entirely
+    if (storeUser?.accountType === 'pro_business') return;
     let isMounted = true;
     const task = InteractionManager.runAfterInteractions(() => {
     const toCdn = (url?: string | null) => {
@@ -288,7 +315,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
     }); // end runAfterInteractions
     return () => { isMounted = false; task.cancel(); };
-  }, [userId, peaksUserId]);
+  }, [userId, peaksUserId, storeUser?.accountType]);
 
   // Get saved posts (collections) - only for own profile
   const {
@@ -315,8 +342,58 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       .catch(() => {});
   }, [isOwnProfile, viewedUserId]);
 
-  // Check if user has peaks (for avatar border indicator)
-  const hasPeaks = peaks.length > 0;
+  // Business program data (for pro_business)
+  const [businessActivities, setBusinessActivities] = useState<BusinessActivity[]>([]);
+  const [businessSchedule, setBusinessSchedule] = useState<BusinessScheduleSlot[]>([]);
+  const [isLoadingPlanning, setIsLoadingPlanning] = useState(false);
+
+  const loadBusinessProgram = useCallback(async () => {
+    if (storeUser?.accountType !== 'pro_business' || !isOwnProfile) return;
+    setIsLoadingPlanning(true);
+    try {
+      const res = await awsAPI.getMyBusinessProgram();
+      if (res.success) {
+        const activities = (res.activities || []).map(a => ({
+          id: a.id,
+          name: a.name,
+          description: a.description,
+          category: a.category,
+          dayOfWeek: a.dayOfWeek,
+          startTime: a.startTime,
+          endTime: a.endTime,
+          maxCapacity: a.maxCapacity,
+        }));
+        setBusinessActivities(activities);
+        setBusinessSchedule((res.schedule || []).map(s => ({
+          id: s.id,
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          activityId: s.activityId,
+          maxCapacity: s.maxCapacity,
+          // Enrich with activity name/color from activities list
+          activityName: activities.find(a => a.id === s.activityId)?.name,
+          color: undefined,
+        })));
+      } else {
+        setBusinessActivities([]);
+        setBusinessSchedule([]);
+      }
+    } catch {
+      // silent — planning data is non-critical
+    } finally {
+      setIsLoadingPlanning(false);
+    }
+  }, [isOwnProfile, storeUser?.accountType]);
+
+  useEffect(() => {
+    loadBusinessProgram();
+  }, [loadBusinessProgram]);
+
+  const activitiesCount = businessActivities.length;
+
+  // Check if user has peaks (for avatar border indicator) — for pro_business, use activities instead
+  const hasPeaks = storeUser?.accountType === 'pro_business' ? businessActivities.length > 0 : peaks.length > 0;
 
   // Grade system — decorative frame for 1M+ fans
   const gradeInfo = useMemo(() => getGrade(user.stats.fans), [user.stats.fans]);
@@ -356,11 +433,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         userId ? refetchPosts() : Promise.resolve(),
         isOwnProfile ? refetchSavedPosts() : Promise.resolve(),
         refreshEventsGroups(),
+        loadBusinessProgram(),
       ]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchProfile, refetchPosts, refetchSavedPosts, refreshEventsGroups, userId, isOwnProfile]);
+  }, [refetchProfile, refetchPosts, refetchSavedPosts, refreshEventsGroups, userId, isOwnProfile, loadBusinessProgram]);
 
   // ==================== IMAGE PICKER ====================
   const showImageOptions = useCallback((type: 'avatar' | 'cover') => {
@@ -498,6 +576,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const handleNavigatePrescriptions = useCallback(() => navigation.navigate('Prescriptions'), [navigation]);
   const handleNavigateCreatePost = useCallback(() => navigation.navigate('CreatePost', { fromProfile: true }), [navigation]);
   const handleNavigateCreatePeak = useCallback(() => navigation.navigate('CreatePeak'), [navigation]);
+  const handleNavigateBusinessProgram = useCallback(() => navigation.navigate('BusinessProgram'), [navigation]);
   const handleNavigateGoLive = useCallback(() => navigation.navigate('GoLive'), [navigation]);
   const handleCoverPress = useCallback(() => { if (isOwnProfile) showImageOptions('cover'); }, [isOwnProfile, showImageOptions]);
   const handleAvatarPress = useCallback(() => { if (isOwnProfile) showImageOptions('avatar'); }, [isOwnProfile, showImageOptions]);
@@ -657,8 +736,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </TouchableOpacity>
             <View style={styles.statGlassDivider} />
             <View style={styles.statGlassItem}>
-              <Text style={styles.statGlassValue}>{user.stats.peaks || 0}</Text>
-              <Text style={styles.statGlassLabel}>Peaks</Text>
+              <Text style={styles.statGlassValue}>
+                {user.accountType === 'pro_business' ? (activitiesCount || 0) : (user.stats.peaks || 0)}
+              </Text>
+              <Text style={styles.statGlassLabel}>
+                {user.accountType === 'pro_business' ? 'Activities' : 'Peaks'}
+              </Text>
             </View>
             {user.accountType !== 'pro_business' && (
               <>
@@ -751,6 +834,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   // ==================== RENDER TABS ====================
   // Dynamic tabs based on account type
   const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
+  const isProBusiness = user?.accountType === 'pro_business' || resolvedProfile?.accountType === 'pro_business';
 
   // Stable callback for LiquidTabsWithMore (memoized component)
   const handleMoreTabsPress = useCallback(() => {
@@ -759,12 +843,19 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // Primary tabs (always visible) - max 3 to keep labels readable
   const PRIMARY_TABS = useMemo(() => {
+    if (isProBusiness) {
+      return [
+        { key: 'posts', label: 'Posts', icon: 'grid-outline' },
+        { key: 'planning', label: 'Planning', icon: 'calendar-outline' },
+        { key: 'groupevent', label: 'Activities', icon: 'flash-outline' },
+      ];
+    }
     return [
       { key: 'posts', label: 'Posts', icon: 'grid-outline' },
       { key: 'peaks', label: 'Peaks', icon: 'flash-outline' },
       { key: 'groupevent', label: 'Activities', icon: 'flash-outline' },
     ];
-  }, []) as { key: string; label: string; icon: string }[];
+  }, [isProBusiness]) as { key: string; label: string; icon: string }[];
 
   // Extra tabs (shown in "•••" menu)
   const EXTRA_TABS = useMemo(() => {
@@ -1048,6 +1139,88 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </View>
           </TouchableOpacity>
         ))}
+      </View>
+    );
+  };
+
+  // ==================== RENDER PLANNING (pro_business) ====================
+  const renderPlanning = () => {
+    if (isLoadingPlanning) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      );
+    }
+
+    if (businessSchedule.length === 0 && businessActivities.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="calendar-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
+          <Text style={styles.emptyTitle}>No planning yet</Text>
+          <Text style={styles.emptyDesc}>Set up your business schedule and activities</Text>
+          {isOwnProfile && (
+            <TouchableOpacity
+              style={styles.createBtn}
+              onPress={handleNavigateBusinessProgram}
+              accessibilityLabel="Manage Planning"
+              accessibilityRole="button"
+            >
+              <Text style={styles.createBtnText}>Manage Planning</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFF" />
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+
+    // Group schedule slots by day
+    const scheduleByDay = PLANNING_DAYS.map((day, idx) => ({
+      day,
+      slots: businessSchedule
+        .filter(s => s.dayOfWeek === idx)
+        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    })).filter(d => d.slots.length > 0);
+
+    return (
+      <View style={styles.planningContainer}>
+        {isOwnProfile && (
+          <TouchableOpacity
+            style={styles.planningEditBtn}
+            onPress={handleNavigateBusinessProgram}
+            accessibilityLabel="Edit Planning"
+            accessibilityRole="button"
+          >
+            <Ionicons name="create-outline" size={16} color="#FFF" />
+            <Text style={styles.planningEditBtnText}>Edit Planning</Text>
+          </TouchableOpacity>
+        )}
+        {scheduleByDay.length > 0 ? (
+          scheduleByDay.map(({ day, slots }) => (
+            <View key={day}>
+              <Text style={styles.planningDayHeader}>{day}</Text>
+              {slots.map(slot => (
+                <View key={slot.id} style={styles.planningSlotCard}>
+                  <View style={[styles.planningSlotDot, { backgroundColor: slot.color || colors.primary }]} />
+                  <View style={styles.planningSlotInfo}>
+                    <Text style={styles.planningSlotName}>{slot.activityName || 'Activity'}</Text>
+                    <Text style={styles.planningSlotTime}>{slot.startTime} – {slot.endTime}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ))
+        ) : (
+          /* Activities exist but no schedule slots — show activities list */
+          businessActivities.map(activity => (
+            <View key={activity.id} style={styles.planningSlotCard}>
+              <View style={[styles.planningSlotDot, { backgroundColor: colors.primary }]} />
+              <View style={styles.planningSlotInfo}>
+                <Text style={styles.planningSlotName}>{activity.name}</Text>
+              </View>
+            </View>
+          ))
+        )}
       </View>
     );
   };
@@ -1536,6 +1709,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }
     if (activeTab === 'peaks') {
       return renderPeaks();
+    }
+    if (activeTab === 'planning') {
+      return renderPlanning();
     }
     if (activeTab === 'videos') {
       return renderVideos();

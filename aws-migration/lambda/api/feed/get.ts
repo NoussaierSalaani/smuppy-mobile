@@ -179,7 +179,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Cache the response in Redis
     if (redisClient) {
       try {
-        await redisClient.setex(cacheKey, 60, JSON.stringify(response)); // 60 seconds TTL
+        await redisClient.setex(cacheKey, 15, JSON.stringify(response)); // 15s TTL — short to reflect like/save changes
       } catch {
         // Redis write failure is non-critical
         log.warn('Redis cache write error');

@@ -32,7 +32,7 @@ import { useShareModal } from '../../hooks/useModalState';
 import { usePostInteractions } from '../../hooks/usePostInteractions';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch } from '../../services/database';
+import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch, reportPost, muteUser } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
@@ -722,31 +722,43 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     setMenuVisible(true);
   }, []);
 
-  // Handle report post
+  // Handle report post — calls real backend API
   const handleReportPost = useCallback(() => {
     if (!menuPost) return;
     setMenuVisible(false);
     showDestructiveConfirm(
       'Report Post',
       'Are you sure you want to report this post?',
-      () => {
-        showSuccess('Reported', 'Thank you for your report. We will review it.');
+      async () => {
+        const { error } = await reportPost(menuPost.id, 'inappropriate', '');
+        if (error) {
+          showError('Error', 'Could not report post. Please try again.');
+        } else {
+          showSuccess('Reported', 'Thank you for your report. We will review it.');
+        }
       }
     );
-  }, [menuPost, showDestructiveConfirm, showSuccess]);
+  }, [menuPost, showDestructiveConfirm, showSuccess, showError]);
 
-  // Handle mute user
+  // Handle mute user — calls real backend API
   const handleMuteUser = useCallback(() => {
     if (!menuPost) return;
     setMenuVisible(false);
     showDestructiveConfirm(
       'Mute User',
       `Mute ${menuPost.user.name}? You won't see their posts anymore.`,
-      () => {
-        showSuccess('Saved', `You won't see posts from ${menuPost.user.name} anymore.`);
+      async () => {
+        const { error } = await muteUser(menuPost.user.id);
+        if (error) {
+          showError('Error', 'Could not mute user. Please try again.');
+        } else {
+          showSuccess('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
+          // Remove muted user's posts from feed
+          setPosts(prev => prev.filter(p => p.user.id !== menuPost.user.id));
+        }
       }
     );
-  }, [menuPost, showDestructiveConfirm, showSuccess]);
+  }, [menuPost, showDestructiveConfirm, showSuccess, showError]);
 
   // Pull to refresh
   const onRefresh = useCallback(async () => {

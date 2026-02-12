@@ -319,6 +319,27 @@ jobs:
           GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
           EOF
 
+      - name: Wait for stack stability
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          for STACK in SmuppyStack-dev SmuppySecurity-dev; do
+            echo "Checking $STACK..."
+            for i in $(seq 1 30); do
+              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+              case "$STATUS" in
+                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/30)..."
+                  sleep 30 ;;
+                *)
+                  echo "  $STACK is $STATUS — ready"
+                  break ;;
+              esac
+              if [ "$i" -eq 30 ]; then
+                echo "::warning::$STACK still in $STATUS after 15 min — proceeding anyway"
+              fi
+            done
+          done
+
       - name: CDK Deploy (dev)
         if: steps.creds.outputs.ok == 'true'
         run: npx cdk deploy --all --context environment=dev --require-approval never
@@ -409,6 +430,27 @@ jobs:
           GOOGLE_ANDROID_CLIENT_ID=${{ secrets.GOOGLE_ANDROID_CLIENT_ID }}
           GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
           EOF
+
+      - name: Wait for stack stability
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          for STACK in SmuppyStack-staging SmuppySecurity-staging; do
+            echo "Checking $STACK..."
+            for i in $(seq 1 30); do
+              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+              case "$STATUS" in
+                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/30)..."
+                  sleep 30 ;;
+                *)
+                  echo "  $STACK is $STATUS — ready"
+                  break ;;
+              esac
+              if [ "$i" -eq 30 ]; then
+                echo "::warning::$STACK still in $STATUS after 15 min — proceeding anyway"
+              fi
+            done
+          done
 
       - name: CDK Deploy (staging)
         if: steps.creds.outputs.ok == 'true'
@@ -507,6 +549,27 @@ jobs:
           GOOGLE_ANDROID_CLIENT_ID=${{ secrets.GOOGLE_ANDROID_CLIENT_ID }}
           GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
           EOF
+
+      - name: Wait for stack stability
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          for STACK in SmuppyStack-production SmuppySecurity-production; do
+            echo "Checking $STACK..."
+            for i in $(seq 1 30); do
+              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+              case "$STATUS" in
+                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/30)..."
+                  sleep 30 ;;
+                *)
+                  echo "  $STACK is $STATUS — ready"
+                  break ;;
+              esac
+              if [ "$i" -eq 30 ]; then
+                echo "::warning::$STACK still in $STATUS after 15 min — proceeding anyway"
+              fi
+            done
+          done
 
       - name: CDK Deploy (production)
         if: steps.creds.outputs.ok == 'true'

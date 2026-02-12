@@ -25,7 +25,6 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { formatNumber, isValidUUID } from '../../utils/formatters';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useTranslation } from 'react-i18next';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -49,16 +48,15 @@ interface RouteParams {
 }
 
 const PERKS = [
-  { icon: 'lock-open', key: 'exclusiveContent' },
-  { icon: 'videocam', key: 'membersOnly' },
-  { icon: 'chatbubble-ellipses', key: 'directMessaging' },
-  { icon: 'notifications', key: 'priorityNotif' },
-  { icon: 'heart', key: 'supportCreator' },
-  { icon: 'sparkles', key: 'subscriberBadge' },
+  { icon: 'lock-open', text: 'Exclusive content access' },
+  { icon: 'videocam', text: 'Members-only live streams' },
+  { icon: 'chatbubble-ellipses', text: 'Direct messaging' },
+  { icon: 'notifications', text: 'Priority notifications' },
+  { icon: 'heart', text: 'Support your favorite creator' },
+  { icon: 'sparkles', text: 'Subscriber badge' },
 ];
 
 export default function ChannelSubscriptionScreen() {
-  const { t } = useTranslation();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const route = useRoute();
   const params = route.params as RouteParams;
@@ -137,23 +135,23 @@ export default function ChannelSubscriptionScreen() {
         const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
         if (checkoutResult.status === 'success') {
-          showSuccess(t('payments:channel:subscribed'), t('payments:channel:subscribedDesc'));
+          showSuccess('Subscribed!', 'You are now subscribed to this channel');
           await checkSubscription();
         } else if (checkoutResult.status === 'pending') {
-          showWarning(t('payments:generic:processing'), checkoutResult.message);
+          showWarning('Processing', checkoutResult.message);
         } else if (checkoutResult.status === 'failed') {
-          showError(t('payments:channel:paymentFailed'), checkoutResult.message);
+          showError('Payment Failed', checkoutResult.message);
         }
         // cancelled — do nothing
       } else if (response.success && response.checkoutUrl) {
         // Fallback if no sessionId returned
-        navigation.navigate('WebView', { url: response.checkoutUrl, title: t('payments:channel:title') });
+        navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Channel Subscription' });
       } else {
         // Generic error message per CLAUDE.md - never expose response.error to client
-        showError(t('payments:generic:errorTitle'), t('payments:channel:errors:startSubscription'));
+        showError('Error', 'Failed to start subscription. Please try again.');
       }
     } catch (_error: unknown) {
-      showError(t('payments:generic:errorTitle'), t('payments:generic:error'));
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setSubscribing(false);
     }
@@ -171,9 +169,9 @@ export default function ChannelSubscriptionScreen() {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color={colors.gray} />
-        <Text style={styles.errorText}>{t('payments:channel:notFound')}</Text>
+        <Text style={styles.errorText}>Channel not found</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtnText}>{t('payments:channel:goBack')}</Text>
+          <Text style={styles.backBtnText}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -223,12 +221,12 @@ export default function ChannelSubscriptionScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{formatNumber(channelInfo.fanCount)}</Text>
-              <Text style={styles.statLabel}>{t('payments:channel:fans')}</Text>
+              <Text style={styles.statLabel}>Fans</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{formatNumber(channelInfo.subscriberCount)}</Text>
-              <Text style={styles.statLabel}>{t('payments:channel:subscribers')}</Text>
+              <Text style={styles.statLabel}>Subscribers</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -236,7 +234,7 @@ export default function ChannelSubscriptionScreen() {
                 <Ionicons name="diamond" size={14} color="white" />
                 <Text style={styles.tierText}>{channelInfo.tier}</Text>
               </View>
-              <Text style={styles.statLabel}>{t('payments:channel:tier')}</Text>
+              <Text style={styles.statLabel}>Tier</Text>
             </View>
           </View>
         </LinearGradient>
@@ -245,12 +243,12 @@ export default function ChannelSubscriptionScreen() {
         <View style={styles.subscriptionCard}>
           <View style={styles.cardHeader}>
             <View>
-              <Text style={styles.cardTitle}>{t('payments:channel:title')}</Text>
-              <Text style={styles.cardSubtitle}>{t('payments:channel:billedMonthly')}</Text>
+              <Text style={styles.cardTitle}>Channel Subscription</Text>
+              <Text style={styles.cardSubtitle}>Billed monthly</Text>
             </View>
             <View style={styles.priceTag}>
               <Text style={styles.priceAmount}>{formatCurrency(channelInfo.pricePerMonth)}</Text>
-              <Text style={styles.pricePeriod}>{t('payments:channel:perMonth')}</Text>
+              <Text style={styles.pricePeriod}>/mo</Text>
             </View>
           </View>
 
@@ -261,7 +259,7 @@ export default function ChannelSubscriptionScreen() {
 
           {/* Perks */}
           <View style={styles.perksContainer}>
-            <Text style={styles.perksTitle}>{t('payments:channel:membershipIncludes')}</Text>
+            <Text style={styles.perksTitle}>Membership includes</Text>
             {PERKS.map((perk, index) => (
               <View key={index} style={styles.perkItem}>
                 <LinearGradient
@@ -270,7 +268,7 @@ export default function ChannelSubscriptionScreen() {
                 >
                   <Ionicons name={perk.icon as keyof typeof Ionicons.glyphMap} size={16} color="white" />
                 </LinearGradient>
-                <Text style={styles.perkText}>{t(`payments:channel:perks:${perk.key}`)}</Text>
+                <Text style={styles.perkText}>{perk.text}</Text>
               </View>
             ))}
           </View>
@@ -280,7 +278,7 @@ export default function ChannelSubscriptionScreen() {
         <View style={styles.socialProof}>
           <Ionicons name="people" size={20} color={colors.primary} />
           <Text style={styles.socialProofText}>
-            {t('payments:channel:joinMembers', { count: channelInfo.subscriberCount, name: channelInfo.fullName })}
+            {`Join ${formatNumber(channelInfo.subscriberCount)} members supporting ${channelInfo.fullName}`}
           </Text>
         </View>
       </ScrollView>
@@ -290,7 +288,7 @@ export default function ChannelSubscriptionScreen() {
         {isSubscribed ? (
           <View style={styles.subscribedContainer}>
             <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-            <Text style={styles.subscribedText}>{t('payments:channel:subscribed')}</Text>
+            <Text style={styles.subscribedText}>Subscribed</Text>
           </View>
         ) : (
           <>
@@ -312,14 +310,14 @@ export default function ChannelSubscriptionScreen() {
                   <>
                     <Ionicons name="star" size={20} color="white" />
                     <Text style={styles.subscribeText}>
-                      {t('payments:channel:subscribeFor', { price: formatCurrency(channelInfo.pricePerMonth) })}
+                      {`Subscribe for ${formatCurrency(channelInfo.pricePerMonth)}/mo`}
                     </Text>
                   </>
                 )}
               </LinearGradient>
             </TouchableOpacity>
             <Text style={styles.termsText}>
-              {t('payments:channel:autoRenews')}
+              Auto-renews monthly. Cancel anytime.
             </Text>
           </>
         )}

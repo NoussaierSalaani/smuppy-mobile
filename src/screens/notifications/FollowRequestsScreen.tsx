@@ -21,6 +21,7 @@ import {
 } from '../../services/database';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { isValidUUID } from '../../utils/formatters';
+import { resolveDisplayName } from '../../types/profile';
 
 interface FollowRequestsScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -110,7 +111,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
           <AvatarImage source={user.avatar_url} size={50} style={styles.avatar} />
           <View style={styles.userDetails}>
             <View style={styles.nameRow}>
-              <Text style={styles.userName}>{user.full_name || user.username}</Text>
+              <Text style={styles.userName}>{resolveDisplayName(user)}</Text>
               <AccountBadge
                 size={14}
                 style={{ marginLeft: 4 }}

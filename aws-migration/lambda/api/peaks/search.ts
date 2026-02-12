@@ -93,7 +93,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       p.views_count as "viewsCount", p.created_at as "createdAt",
       p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
       pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
-      pr.is_verified as "isVerified", pr.account_type as "accountType"
+      pr.is_verified as "isVerified", pr.account_type as "accountType",
+      pr.business_name as "businessName"
       ${likedSelect}`;
 
     let result;
@@ -171,6 +172,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         avatarUrl: peak.avatarUrl,
         isVerified: peak.isVerified,
         accountType: peak.accountType,
+        businessName: peak.businessName,
       },
     }));
 

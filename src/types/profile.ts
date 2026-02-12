@@ -121,7 +121,12 @@ export const resolveProfile = (
   let displayName = 'User';
   const email = fallback.email || base.email || '';
 
-  if (fallback.fullName && !isEmailDerivedName(fallback.fullName, email)) {
+  // Business accounts: prioritize business_name
+  const isBusiness = (base.account_type || fallback.accountType) === 'pro_business';
+  const bName = base.business_name || fallback.businessName;
+  if (isBusiness && bName && bName.trim()) {
+    displayName = bName;
+  } else if (fallback.fullName && !isEmailDerivedName(fallback.fullName, email)) {
     displayName = fallback.fullName;
   } else if (base.full_name && !isEmailDerivedName(base.full_name, email)) {
     displayName = base.full_name;
@@ -169,15 +174,15 @@ export const resolveProfile = (
  * Properly handles empty strings as falsy values.
  */
 export const resolveDisplayName = (user: {
-  account_type?: string;
-  accountType?: string;
-  business_name?: string;
-  businessName?: string;
-  full_name?: string;
-  fullName?: string;
-  display_name?: string;
-  displayName?: string;
-  username?: string;
+  account_type?: string | null;
+  accountType?: string | null;
+  business_name?: string | null;
+  businessName?: string | null;
+  full_name?: string | null;
+  fullName?: string | null;
+  display_name?: string | null;
+  displayName?: string | null;
+  username?: string | null;
 } | null | undefined, fallback = 'User'): string => {
   if (!user) return fallback;
 

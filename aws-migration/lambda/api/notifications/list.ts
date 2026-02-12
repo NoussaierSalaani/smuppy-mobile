@@ -66,6 +66,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.avatar_url AS actor_avatar_url,
         p.is_verified AS actor_is_verified,
         p.account_type AS actor_account_type,
+        p.business_name AS actor_business_name,
         CASE WHEN f.id IS NOT NULL THEN true ELSE false END AS is_following_actor
       FROM notifications n
       LEFT JOIN profiles p ON p.id = COALESCE(
@@ -124,6 +125,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           avatar: n.actor_avatar_url,
           isVerified: n.actor_is_verified || false,
           accountType: n.actor_account_type,
+          businessName: n.actor_business_name,
         };
         enrichedData.isFollowing = n.is_following_actor || false;
       }

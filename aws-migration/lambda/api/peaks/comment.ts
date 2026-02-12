@@ -98,7 +98,8 @@ async function handleListComments(
     }
     query = `
       SELECT pc.id, pc.text, pc.created_at,
-             p.id as author_id, p.username, p.full_name, p.avatar_url, p.is_verified
+             p.id as author_id, p.username, p.full_name, p.avatar_url, p.is_verified,
+             p.account_type, p.business_name
       FROM peak_comments pc
       JOIN profiles p ON pc.user_id = p.id
       WHERE pc.peak_id = $1
@@ -111,7 +112,8 @@ async function handleListComments(
   } else {
     query = `
       SELECT pc.id, pc.text, pc.created_at,
-             p.id as author_id, p.username, p.full_name, p.avatar_url, p.is_verified
+             p.id as author_id, p.username, p.full_name, p.avatar_url, p.is_verified,
+             p.account_type, p.business_name
       FROM peak_comments pc
       JOIN profiles p ON pc.user_id = p.id
       WHERE pc.peak_id = $1
@@ -134,6 +136,8 @@ async function handleListComments(
       fullName: row.full_name,
       avatarUrl: row.avatar_url,
       isVerified: row.is_verified || false,
+      accountType: row.account_type || 'personal',
+      businessName: row.business_name || null,
     },
   }));
 
@@ -229,7 +233,7 @@ async function handleCreateComment(
   const db = await getPool();
 
   const userResult = await db.query(
-    'SELECT id, username, full_name, avatar_url, is_verified FROM profiles WHERE cognito_sub = $1',
+    'SELECT id, username, full_name, avatar_url, is_verified, account_type, business_name FROM profiles WHERE cognito_sub = $1',
     [userId]
   );
   if (userResult.rows.length === 0) {
@@ -308,6 +312,8 @@ async function handleCreateComment(
             fullName: profile.full_name,
             avatarUrl: profile.avatar_url,
             isVerified: profile.is_verified || false,
+            accountType: profile.account_type || 'personal',
+            businessName: profile.business_name || null,
           },
         },
       }),

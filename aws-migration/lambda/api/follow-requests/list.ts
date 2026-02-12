@@ -56,7 +56,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.avatar_url as requester_avatar_url,
         p.bio as requester_bio,
         p.is_verified as requester_is_verified,
-        p.account_type as requester_account_type
+        p.account_type as requester_account_type,
+        p.business_name as requester_business_name
       FROM follow_requests fr
       JOIN profiles p ON fr.requester_id = p.id
       WHERE fr.target_id = $1 AND fr.status = 'pending'
@@ -93,6 +94,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         bio: request.requester_bio,
         isVerified: request.requester_is_verified || false,
         accountType: request.requester_account_type,
+        businessName: request.requester_business_name,
       },
     }));
 

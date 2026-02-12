@@ -70,6 +70,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.bio,
         p.is_verified,
         p.account_type,
+        p.business_name,
         f.created_at as followed_at
       FROM follows f
       JOIN profiles p ON f.follower_id = p.id
@@ -104,6 +105,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       bio: follower.bio,
       isVerified: follower.is_verified || false,
       accountType: follower.account_type,
+      businessName: follower.business_name,
       followedAt: follower.followed_at,
     }));
 

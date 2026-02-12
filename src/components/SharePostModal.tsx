@@ -24,6 +24,7 @@ import {
   Conversation,
   Profile,
 } from '../services/database';
+import { resolveDisplayName } from '../types/profile';
 
 interface SharePostModalProps {
   visible: boolean;
@@ -99,7 +100,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     if (error) {
       showError('Error', 'Failed to share post');
     } else {
-      showSuccess('Sent!', `Post shared with ${conv.other_user.full_name || conv.other_user.username}`);
+      showSuccess('Sent!', `Post shared with ${resolveDisplayName(conv.other_user)}`);
       onClose();
     }
     setSending(null);
@@ -115,7 +116,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     if (error) {
       showError('Error', 'Failed to share post');
     } else {
-      showSuccess('Sent!', `Post shared with ${user.full_name || user.username}`);
+      showSuccess('Sent!', `Post shared with ${resolveDisplayName(user)}`);
       onClose();
     }
     setSending(null);
@@ -135,7 +136,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
         <AvatarImage source={otherUser.avatar_url} size={50} />
         <View style={styles.userInfo}>
           <View style={styles.userNameRow}>
-            <Text style={styles.userName}>{otherUser.full_name || otherUser.username}</Text>
+            <Text style={styles.userName}>{resolveDisplayName(otherUser)}</Text>
             <AccountBadge
               size={14}
               isVerified={otherUser.is_verified}
@@ -167,7 +168,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
       <AvatarImage source={item.avatar_url} size={50} />
       <View style={styles.userInfo}>
         <View style={styles.userNameRow}>
-          <Text style={styles.userName}>{item.full_name || item.username}</Text>
+          <Text style={styles.userName}>{resolveDisplayName(item)}</Text>
           <AccountBadge
             size={14}
             isVerified={item.is_verified}

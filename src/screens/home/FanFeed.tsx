@@ -40,6 +40,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { FeedSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks/queries';
 import { formatNumber } from '../../utils/formatters';
+import { resolveDisplayName } from '../../types/profile';
 
 
 const { width } = Dimensions.get('window');
@@ -467,7 +468,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       if (data && data.length > 0) {
         const transformed: UISuggestion[] = data.map((p: Profile) => ({
           id: p.id,
-          name: p.full_name || p.username || 'User',
+          name: resolveDisplayName(p),
           username: p.username || 'user',
           avatar: p.avatar_url || null,
           isVerified: p.is_verified || false,

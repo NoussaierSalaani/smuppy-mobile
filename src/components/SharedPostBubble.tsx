@@ -12,6 +12,7 @@ import { AccountBadge } from './Badge';
 import { SPACING } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { getPostById, Post } from '../services/database';
+import { resolveDisplayName } from '../types/profile';
 
 interface SharedPostBubbleProps {
   postId: string;
@@ -57,7 +58,7 @@ function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
           comments: post.comments_count || 0,
           user: {
             id: post.author?.id || post.author_id,
-            name: post.author?.full_name || 'User',
+            name: resolveDisplayName(post.author),
             avatar: post.author?.avatar_url,
             followsMe: false,
           },
@@ -107,7 +108,7 @@ function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
         <View style={styles.authorRow}>
           <AvatarImage source={author?.avatar_url} size={24} />
           <Text style={[styles.authorName, isFromMe && styles.textFromMe]} numberOfLines={1}>
-            {author?.full_name || author?.username || 'User'}
+            {resolveDisplayName(author)}
           </Text>
           <AccountBadge
             size={12}

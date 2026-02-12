@@ -49,6 +49,7 @@ import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing } from '../../services/database';
 import type { Peak } from '../../types';
+import { resolveDisplayName } from '../../types/profile';
 import { awsAPI } from '../../services/aws-api';
 import { usePrefetchProfile } from '../../hooks/queries';
 import { useExpiredPeaks } from '../../hooks/useExpiredPeaks';
@@ -594,7 +595,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             id: p.id,
             videoUrl,
             thumbnail,
-            user: { id: p.author?.id || p.authorId, name: p.author?.fullName || p.author?.username || 'User', avatar: toCdn(p.author?.avatarUrl) || null },
+            user: { id: p.author?.id || p.authorId, name: resolveDisplayName(p.author), avatar: toCdn(p.author?.avatarUrl) || null },
             duration: p.duration || 0,
             createdAt,
             isLiked: !!p.isLiked,

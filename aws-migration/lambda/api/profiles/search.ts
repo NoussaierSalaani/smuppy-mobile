@@ -67,7 +67,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         result = await db.query(
           `SELECT
             id, username, full_name, display_name, avatar_url, bio,
-            is_verified, is_private, account_type,
+            is_verified, is_private, account_type, business_name,
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
           WHERE is_private = false AND onboarding_completed = true AND id != $1
@@ -85,7 +85,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         result = await db.query(
           `SELECT
             id, username, full_name, display_name, avatar_url, bio,
-            is_verified, is_private, account_type,
+            is_verified, is_private, account_type, business_name,
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
           WHERE is_private = false AND onboarding_completed = true
@@ -106,7 +106,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         result = await db.query(
           `SELECT
             id, username, full_name, display_name, avatar_url, bio,
-            is_verified, is_private, account_type,
+            is_verified, is_private, account_type, business_name,
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
           WHERE (username ILIKE $1 OR full_name ILIKE $1 OR display_name ILIKE $1)
@@ -125,7 +125,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         result = await db.query(
           `SELECT
             id, username, full_name, display_name, avatar_url, bio,
-            is_verified, is_private, account_type,
+            is_verified, is_private, account_type, business_name,
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
           WHERE (username ILIKE $1 OR full_name ILIKE $1 OR display_name ILIKE $1)
@@ -152,6 +152,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       isVerified: profile.is_verified || false,
       isPrivate: profile.is_private || false,
       accountType: profile.account_type || 'personal',
+      businessName: profile.business_name || null,
       followersCount: profile.followers_count || 0,
       followingCount: profile.following_count || 0,
       postsCount: profile.posts_count || 0,

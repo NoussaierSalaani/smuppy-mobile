@@ -62,6 +62,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.avatar_url as author_avatar_url,
         p.is_verified as author_is_verified,
         p.account_type as author_account_type,
+        p.business_name as author_business_name,
         pc.id as challenge_id,
         pc.title as challenge_title,
         pc.rules as challenge_rules,
@@ -187,6 +188,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         avatarUrl: peak.author_avatar_url,
         isVerified: peak.author_is_verified || false,
         accountType: peak.author_account_type,
+        businessName: peak.author_business_name,
       },
       challenge: peak.challenge_id ? {
         id: peak.challenge_id,

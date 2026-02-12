@@ -25,6 +25,7 @@ import {
   getCurrentProfile,
   Profile,
 } from '../services/database';
+import { resolveDisplayName } from '../types/profile';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -47,7 +48,7 @@ interface TagFriendModalProps {
 // Transform Profile to Friend
 const profileToFriend = (profile: Profile, isMutual: boolean): Friend => ({
   id: profile.id,
-  name: profile.full_name || profile.username || 'User',
+  name: resolveDisplayName(profile),
   username: profile.username || 'user',
   avatar: profile.avatar_url || null,
   isMutual,

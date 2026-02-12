@@ -42,7 +42,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.username AS user_username,
         p.full_name AS user_full_name,
         p.avatar_url AS user_avatar_url,
-        p.is_verified AS user_is_verified
+        p.is_verified AS user_is_verified,
+        p.account_type AS user_account_type,
+        p.business_name AS user_business_name
       FROM spot_reviews sr
       JOIN profiles p ON sr.user_id = p.id
       WHERE sr.spot_id = $1
@@ -79,6 +81,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         fullName: r.user_full_name,
         avatarUrl: r.user_avatar_url,
         isVerified: r.user_is_verified || false,
+        accountType: r.user_account_type || 'personal',
+        businessName: r.user_business_name || null,
       },
     }));
 

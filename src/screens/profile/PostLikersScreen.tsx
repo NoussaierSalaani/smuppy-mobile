@@ -21,6 +21,7 @@ import {
   getCurrentProfile,
   Profile,
 } from '../../services/database';
+import { resolveDisplayName } from '../../types/profile';
 
 interface LikerUser {
   id: string;
@@ -33,7 +34,7 @@ interface LikerUser {
 
 const profileToLiker = (profile: Profile): LikerUser => ({
   id: profile.id,
-  name: profile.full_name || profile.username || 'User',
+  name: resolveDisplayName(profile),
   username: `@${profile.username || 'user'}`,
   avatar: profile.avatar_url || null,
   isVerified: profile.is_verified || false,

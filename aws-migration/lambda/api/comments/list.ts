@@ -73,7 +73,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.username as author_username,
         p.full_name as author_full_name,
         p.avatar_url as author_avatar_url,
-        p.is_verified as author_is_verified
+        p.is_verified as author_is_verified,
+        p.account_type as author_account_type,
+        p.business_name as author_business_name
       FROM comments c
       JOIN profiles p ON c.user_id = p.id
       WHERE c.post_id = $1
@@ -112,6 +114,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         fullName: comment.author_full_name,
         avatarUrl: comment.author_avatar_url,
         isVerified: comment.author_is_verified || false,
+        accountType: comment.author_account_type || 'personal',
+        businessName: comment.author_business_name || null,
       },
     }));
 

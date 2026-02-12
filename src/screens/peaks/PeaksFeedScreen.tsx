@@ -21,6 +21,7 @@ import { PeakGridSkeleton } from '../../components/skeleton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
 import { awsAPI } from '../../services/aws-api';
+import { resolveDisplayName } from '../../types/profile';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
@@ -110,7 +111,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         duration: p.duration || 0,
         user: {
           id: p.author?.id || p.authorId,
-          name: sanitizeText(p.author?.fullName || p.author?.username) || 'User',
+          name: resolveDisplayName(p.author),
           avatar: toCdn(p.author?.avatarUrl) || '',
         },
         views: p.viewsCount ?? 0,

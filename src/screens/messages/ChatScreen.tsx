@@ -85,7 +85,7 @@ const QUICK_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '🙏'];
 const ReplyPreviewInBubble = memo(({ replyTo, isFromMe, colors, styles }: { replyTo: Message; isFromMe: boolean; colors: ThemeColors; styles: ReturnType<typeof createStyles> }) => (
   <View style={[styles.replyPreview, isFromMe ? styles.replyFromMe : styles.replyFromOther, { borderLeftColor: isFromMe ? 'rgba(255,255,255,0.5)' : colors.primary }]}>
     <Text style={[styles.replyName, { color: isFromMe ? 'rgba(255,255,255,0.9)' : colors.primary }]} numberOfLines={1}>
-      {replyTo.sender?.full_name || replyTo.sender?.username || 'User'}
+      {resolveDisplayName(replyTo.sender)}
     </Text>
     <Text style={[styles.replyText, { color: isFromMe ? 'rgba(255,255,255,0.7)' : colors.gray }]} numberOfLines={2}>
       {replyTo.content || (replyTo.media_type === 'audio' ? 'Voice message' : 'Media')}
@@ -944,14 +944,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     setChatMenuVisible(false);
     showDestructiveConfirm(
       'Block User',
-      `Block ${otherUserProfile?.full_name || 'this user'}?`,
+      `Block ${resolveDisplayName(otherUserProfile, 'this user')}?`,
       async () => {
         if (otherUserProfile?.id) {
           const { error } = await blockUser(otherUserProfile.id);
           if (error) {
             showError('Error', 'Failed to block user');
           } else {
-            showSuccess('Blocked', `${otherUserProfile.full_name || 'User'} has been blocked`);
+            showSuccess('Blocked', `${resolveDisplayName(otherUserProfile)} has been blocked`);
             navigation.goBack();
           }
         }
@@ -1120,7 +1120,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               <View style={[styles.replyPreviewLine, { backgroundColor: colors.primary }]} />
               <View style={styles.replyPreviewContent}>
                 <Text style={[styles.replyPreviewName, { color: colors.primary }]} numberOfLines={1}>
-                  {replyToMessage.sender_id === currentUserId ? 'You' : (replyToMessage.sender?.full_name || 'User')}
+                  {replyToMessage.sender_id === currentUserId ? 'You' : resolveDisplayName(replyToMessage.sender)}
                 </Text>
                 <Text style={[styles.replyPreviewText, { color: colors.gray }]} numberOfLines={1}>
                   {replyToMessage.content || (replyToMessage.media_type === 'audio' ? 'Voice message' : 'Media')}
@@ -1377,7 +1377,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                     <AvatarImage source={item.other_user?.avatar_url} size={48} />
                     <View style={styles.forwardConversationInfo}>
                       <Text style={[styles.forwardConversationName, { color: colors.dark }]} numberOfLines={1}>
-                        {item.other_user?.full_name || item.other_user?.username || 'User'}
+                        {resolveDisplayName(item.other_user)}
                       </Text>
                       <Text style={[styles.forwardConversationPreview, { color: colors.gray }]} numberOfLines={1}>
                         {item.last_message_preview || 'No messages'}

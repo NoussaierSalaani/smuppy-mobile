@@ -29,6 +29,7 @@ import {
   Profile,
 } from '../../services/database';
 import { isValidUUID } from '../../utils/formatters';
+import { resolveDisplayName } from '../../types/profile';
 
 // Types
 interface User {
@@ -53,7 +54,7 @@ const profileToUser = (
   iAmFanOf: boolean
 ): User => ({
   id: profile.id,
-  name: profile.full_name || profile.username || 'User',
+  name: resolveDisplayName(profile),
   username: `@${profile.username || 'user'}`,
   avatar: profile.avatar_url || null,
   isVerified: profile.is_verified || false,

@@ -68,6 +68,8 @@ export interface PostUser {
   avatar: string;
   isVerified: boolean;
   followsMe?: boolean;
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
+  businessName?: string;
 }
 
 export interface CreatePostData {
@@ -137,6 +139,8 @@ export interface ConversationUser {
   avatar: string;
   isVerified: boolean;
   isOnline: boolean;
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
+  businessName?: string;
 }
 
 export interface Message {
@@ -178,6 +182,8 @@ export interface Fan {
   isFanOfMe: boolean;
   iAmFanOf: boolean;
   isVerified: boolean;
+  accountType?: 'personal' | 'pro_creator' | 'pro_business';
+  businessName?: string;
 }
 
 // ============================================
@@ -592,6 +598,8 @@ export interface Peak {
     full_name: string;
     avatar_url?: string | null;
     is_verified?: boolean;
+    account_type?: string;
+    business_name?: string;
   };
   // Like status (from API when authenticated)
   isLiked?: boolean;

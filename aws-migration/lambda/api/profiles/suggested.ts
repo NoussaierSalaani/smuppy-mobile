@@ -79,6 +79,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.is_verified,
             p.is_private,
             p.account_type,
+            p.business_name,
             p.fan_count,
             p.following_count,
             p.post_count
@@ -106,6 +107,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.is_verified,
             p.is_private,
             p.account_type,
+            p.business_name,
             p.fan_count,
             p.following_count,
             p.post_count
@@ -148,12 +150,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           p.is_verified,
           p.is_private,
           p.account_type,
+          p.business_name,
           p.fan_count,
           p.following_count,
           p.post_count
         FROM profiles p
         WHERE p.is_private = false AND p.onboarding_completed = true
-        ORDER BY
+        ORDER by
           CASE WHEN p.is_verified THEN 0 ELSE 1 END,
           p.fan_count DESC,
           p.created_at DESC
@@ -175,6 +178,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       isVerified: profile.is_verified || false,
       isPrivate: profile.is_private || false,
       accountType: profile.account_type || 'personal',
+      businessName: profile.business_name || null,
       followersCount: profile.fan_count || 0,
       followingCount: profile.following_count || 0,
       postsCount: profile.post_count || 0,

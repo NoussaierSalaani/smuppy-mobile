@@ -29,6 +29,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { HIT_SLOP } from '../../config/theme';
 import { hapticButtonPress, hapticDestructive } from '../../utils/haptics';
 import { VerifiedBadge } from '../../components/Badge';
+import { resolveDisplayName } from '../../types/profile';
 
 const COVER_HEIGHT = 160;
 
@@ -86,25 +87,17 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                name.toLowerCase().replace(/[^a-z0-9]/g, '') === emailPrefix.replace(/[^a-z0-9]/g, '');
       };
 
-      let name = 'User';
-      const candidates = [
-        user?.fullName,
-        profileData?.full_name,
-        user?.displayName,
-        getFullName?.(),
-      ].filter(Boolean) as string[];
-
-      for (const candidate of candidates) {
-        if (!isEmailDerivedName(candidate)) {
-          name = candidate;
-          break;
-        }
-      }
-      if (name === 'User' && candidates.length > 0) {
-        name = candidates[0];
-      }
-      if (name === 'User') {
-        name = emailPrefix || 'User';
+      // Use resolveDisplayName to properly handle business accounts
+      const nameSource = {
+        account_type: profileData?.account_type || user?.accountType,
+        business_name: profileData?.business_name || user?.businessName,
+        full_name: profileData?.full_name || user?.fullName,
+        display_name: profileData?.display_name || user?.displayName,
+        username: profileData?.username,
+      };
+      let name = resolveDisplayName(nameSource);
+      if (name === 'User' && emailPrefix) {
+        name = emailPrefix;
       }
 
       const avatar = profileData?.avatar_url || user?.avatar || null;
@@ -122,7 +115,13 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       setIsPrivate(profileData?.is_private || false);
     } catch {
       const emailPrefix = user?.email?.split('@')[0] || '';
-      setDisplayName(user?.fullName || profileData?.full_name || user?.displayName || getFullName?.() || emailPrefix || 'User');
+      setDisplayName(resolveDisplayName({
+        account_type: profileData?.account_type || user?.accountType,
+        business_name: profileData?.business_name || user?.businessName,
+        full_name: profileData?.full_name || user?.fullName,
+        display_name: user?.displayName,
+        username: profileData?.username,
+      }) || emailPrefix || 'User');
       setUsername(profileData?.username || emailPrefix || '');
       setAvatarUrl(profileData?.avatar_url || user?.avatar || null);
       setCoverUrl(profileData?.cover_url || null);

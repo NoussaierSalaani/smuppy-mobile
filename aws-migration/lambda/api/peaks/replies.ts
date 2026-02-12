@@ -82,6 +82,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                p.duration, p.created_at,
                p.filter_id, p.filter_intensity, p.overlays,
                pr.id as profile_id, pr.username, pr.display_name, pr.full_name, pr.avatar_url, pr.is_verified,
+               pr.account_type, pr.business_name,
                EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $2) as is_liked
         FROM peaks p
         JOIN profiles pr ON p.author_id = pr.id
@@ -123,6 +124,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           displayName: row.display_name || row.full_name,
           avatarUrl: row.avatar_url,
           isVerified: row.is_verified,
+          accountType: row.account_type || 'personal',
+          businessName: row.business_name || null,
         },
       }));
 
@@ -197,7 +200,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Get author info
       const authorResult = await db.query(
-        'SELECT id, username, display_name, full_name, avatar_url, is_verified FROM profiles WHERE id = $1',
+        'SELECT id, username, display_name, full_name, avatar_url, is_verified, account_type, business_name FROM profiles WHERE id = $1',
         [profileId]
       );
 
@@ -240,6 +243,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             displayName: author.display_name || author.full_name,
             avatarUrl: author.avatar_url,
             isVerified: author.is_verified,
+            accountType: author.account_type || 'personal',
+            businessName: author.business_name || null,
           },
         },
       });

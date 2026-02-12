@@ -72,7 +72,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Get all tags on this peak
       const tagsResult = await db.query(
         `SELECT pt.id, pt.tagged_user_id, pt.tagged_by_user_id, pt.created_at,
-                p.username, p.display_name, p.avatar_url
+                p.username, p.display_name, p.avatar_url, p.is_verified,
+                p.account_type, p.business_name
          FROM peak_tags pt
          JOIN profiles p ON pt.tagged_user_id = p.id
          WHERE pt.peak_id = $1
@@ -88,6 +89,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             username: row.username,
             displayName: row.display_name,
             avatarUrl: row.avatar_url,
+            isVerified: row.is_verified || false,
+            accountType: row.account_type || 'personal',
+            businessName: row.business_name || null,
           },
           taggedBy: row.tagged_by_user_id,
           createdAt: row.created_at,
@@ -105,7 +109,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Verify friend exists
       const friendResult = await db.query(
-        'SELECT id, username, display_name, avatar_url FROM profiles WHERE id = $1',
+        'SELECT id, username, display_name, avatar_url, is_verified, account_type, business_name FROM profiles WHERE id = $1',
         [friendId]
       );
 
@@ -161,6 +165,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             username: friend.username,
             displayName: friend.display_name,
             avatarUrl: friend.avatar_url,
+            isVerified: friend.is_verified || false,
+            accountType: friend.account_type || 'personal',
+            businessName: friend.business_name || null,
           },
           taggedBy: profileId,
           createdAt: tagResult.rows[0].created_at,

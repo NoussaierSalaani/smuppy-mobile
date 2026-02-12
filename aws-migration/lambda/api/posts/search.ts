@@ -113,7 +113,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                p.media_type as "mediaType", p.likes_count as "likesCount",
                p.comments_count as "commentsCount", p.created_at as "createdAt",
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
-               pr.is_verified as "isVerified", pr.account_type as "accountType"
+               pr.is_verified as "isVerified", pr.account_type as "accountType",
+               pr.business_name as "businessName"
                ${likedSelect}
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
@@ -137,7 +138,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                p.media_type as "mediaType", p.likes_count as "likesCount",
                p.comments_count as "commentsCount", p.created_at as "createdAt",
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
-               pr.is_verified as "isVerified", pr.account_type as "accountType"
+               pr.is_verified as "isVerified", pr.account_type as "accountType",
+               pr.business_name as "businessName"
                ${likedSelect}
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
@@ -171,6 +173,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         avatarUrl: post.avatarUrl,
         isVerified: post.isVerified,
         accountType: post.accountType,
+        businessName: post.businessName,
       },
     }));
 

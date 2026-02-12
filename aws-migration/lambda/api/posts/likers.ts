@@ -100,6 +100,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.avatar_url,
         p.is_verified,
         p.account_type,
+        p.business_name,
         l.created_at as liked_at
       FROM likes l
       INNER JOIN profiles p ON p.id = l.user_id
@@ -117,13 +118,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       : null;
 
     // Map to camelCase response
-    const data = likers.map((row: { id: string; username: string; full_name: string; avatar_url: string | null; is_verified: boolean; account_type: string; liked_at: string }) => ({
+    const data = likers.map((row: { id: string; username: string; full_name: string; avatar_url: string | null; is_verified: boolean; account_type: string; business_name: string | null; liked_at: string }) => ({
       id: row.id,
       username: row.username,
       fullName: row.full_name,
       avatarUrl: row.avatar_url,
       isVerified: row.is_verified,
       accountType: row.account_type,
+      businessName: row.business_name,
     }));
 
     return {

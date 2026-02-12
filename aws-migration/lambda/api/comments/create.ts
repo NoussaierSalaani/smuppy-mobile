@@ -112,6 +112,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       full_name: accountCheck.fullName,
       avatar_url: accountCheck.avatarUrl,
       is_verified: accountCheck.isVerified,
+      account_type: accountCheck.accountType,
+      business_name: accountCheck.businessName,
     };
 
     const db = await getPool();
@@ -219,6 +221,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               fullName: profile.full_name,
               avatarUrl: profile.avatar_url,
               isVerified: profile.is_verified || false,
+              accountType: profile.account_type || 'personal',
+              businessName: profile.business_name || null,
             },
           },
         }),

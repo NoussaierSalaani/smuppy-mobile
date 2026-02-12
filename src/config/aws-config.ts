@@ -65,7 +65,7 @@ const STAGING_DEFAULTS = {
   graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
   websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
   bucket: 'smuppy-media-staging-471112656108',
-  cdnDomain: 'https://d3gy4x1feicix3.cloudfront.net',
+  cdnDomain: 'https://dc8kq67t0asis.cloudfront.net',
   feedTable: 'smuppy-feeds-staging',
   likesTable: 'smuppy-likes-staging',
 } as const;

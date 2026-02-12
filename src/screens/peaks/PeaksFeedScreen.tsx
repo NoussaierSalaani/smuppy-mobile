@@ -15,7 +15,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import PeakCard from '../../components/peaks/PeakCard';
+import { AvatarImage } from '../../components/OptimizedImage';
 import { PeakGridSkeleton } from '../../components/skeleton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
@@ -56,6 +58,7 @@ interface Peak {
   overlays?: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }>;
   expiresAt?: string;
   isOwnPeak?: boolean;
+  isViewed?: boolean;
 }
 
 type RootStackParamList = {
@@ -125,6 +128,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         overlays: p.overlays || undefined,
         expiresAt: p.expiresAt || undefined,
         isOwnPeak: (p.author?.id || p.authorId) === user?.id,
+        isViewed: !!(p as unknown as { isViewed?: boolean }).isViewed,
       }));
       
       if (__DEV__) {
@@ -153,15 +157,65 @@ const PeaksFeedScreen = (): React.JSX.Element => {
     fetchPeaks(true);
   }, [fetchPeaks]);
 
+  // Group peaks by author for story circles (per PEAKS.md §3.3)
+  const authorGroups = useMemo(() => {
+    const groups = new Map<string, { user: PeakUser; peaks: Peak[]; hasUnwatched: boolean; latestCreatedAt: string }>();
+    peaks.forEach(peak => {
+      const userId = peak.user.id;
+      const existing = groups.get(userId);
+      if (existing) {
+        existing.peaks.push(peak);
+        if (!peak.isViewed) existing.hasUnwatched = true;
+        if (peak.createdAt > existing.latestCreatedAt) {
+          existing.latestCreatedAt = peak.createdAt;
+        }
+      } else {
+        groups.set(userId, {
+          user: peak.user,
+          peaks: [peak],
+          hasUnwatched: !peak.isViewed,
+          latestCreatedAt: peak.createdAt,
+        });
+      }
+    });
+    // Sort: unviewed groups first, then by latest peak created_at DESC
+    const sorted = Array.from(groups.values());
+    sorted.sort((a, b) => {
+      if (a.hasUnwatched !== b.hasUnwatched) return a.hasUnwatched ? -1 : 1;
+      return new Date(b.latestCreatedAt).getTime() - new Date(a.latestCreatedAt).getTime();
+    });
+    // Sort peaks within each group by created_at ASC (oldest first = watch in order)
+    for (const group of sorted) {
+      group.peaks.sort((a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+    }
+    return sorted;
+  }, [peaks]);
+
+  // Peaks reorganized into contiguous author groups for story navigation
+  const groupedPeaks = useMemo(() => {
+    return authorGroups.flatMap(g => g.peaks);
+  }, [authorGroups]);
+
   const handlePeakPress = useCallback((peak: Peak): void => {
-    const index = peaks.findIndex(p => p.id === peak.id);
-    // Bounds check: if not found (-1), default to 0
+    const index = groupedPeaks.findIndex(p => p.id === peak.id);
     const safeIndex = index >= 0 ? index : 0;
     navigation.navigate('PeakView', {
-      peaks: peaks,
+      peaks: groupedPeaks,
       initialIndex: safeIndex,
     });
-  }, [peaks, navigation]);
+  }, [groupedPeaks, navigation]);
+
+  const handleStoryPress = useCallback((group: { user: PeakUser; peaks: Peak[] }): void => {
+    // Navigate to first peak of this author in the grouped list
+    const index = groupedPeaks.findIndex(p => p.user.id === group.user.id);
+    const safeIndex = index >= 0 ? index : 0;
+    navigation.navigate('PeakView', {
+      peaks: groupedPeaks,
+      initialIndex: safeIndex,
+    });
+  }, [groupedPeaks, navigation]);
 
   const handleCreatePeak = (): void => {
     navigation.navigate('CreatePeak');
@@ -241,6 +295,51 @@ const PeaksFeedScreen = (): React.JSX.Element => {
           ) : null}
         </View>
       </View>
+
+      {/* Story Circles — one per author (per PEAKS.md §3) */}
+      {!loading && authorGroups.length > 0 && (
+        <View style={styles.storyRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.storyScrollContent}
+          >
+            {authorGroups.map((group) => (
+              <TouchableOpacity
+                key={group.user.id}
+                style={styles.storyCircle}
+                onPress={() => handleStoryPress(group)}
+                activeOpacity={0.7}
+              >
+                {group.hasUnwatched ? (
+                  <LinearGradient
+                    colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.storyRingGradient}
+                  >
+                    <View style={styles.storyAvatarInner}>
+                      <AvatarImage source={group.user.avatar} size={52} />
+                    </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.storyRingViewed}>
+                    <AvatarImage source={group.user.avatar} size={52} />
+                  </View>
+                )}
+                <Text style={styles.storyUsername} numberOfLines={1}>
+                  {group.user.name.split(' ')[0]}
+                </Text>
+                {group.peaks.length > 1 && (
+                  <View style={styles.storyCountBadge}>
+                    <Text style={styles.storyCountText}>{group.peaks.length}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Loading skeleton */}
       {loading && peaks.length === 0 ? (
@@ -411,6 +510,71 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 16,
     fontWeight: '600',
     color: colors.white,
+  },
+  // Story Circles (per PEAKS.md §3.2)
+  storyRow: {
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+  },
+  storyScrollContent: {
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  storyCircle: {
+    alignItems: 'center',
+    width: 68,
+  },
+  storyRingGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    padding: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyRingViewed: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyAvatarInner: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyUsername: {
+    fontSize: 11,
+    color: isDark ? colors.white : colors.dark,
+    marginTop: 4,
+    textAlign: 'center',
+    width: 68,
+  },
+  storyCountBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 2,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  storyCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.dark,
   },
 });
 

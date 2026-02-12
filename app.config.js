@@ -61,20 +61,20 @@ infoPlist: {
       },
     },
   },
-  // Camera & Microphone for live streaming
-  NSCameraUsageDescription: 'Smuppy needs access to your camera for live streaming and video calls.',
-  NSMicrophoneUsageDescription: 'Smuppy needs access to your microphone for live streaming and video calls.',
+  // Camera & Microphone for content creation
+  NSCameraUsageDescription: 'Smuppy needs access to your camera to create posts, peaks, and update your profile photo.',
+  NSMicrophoneUsageDescription: 'Smuppy needs access to your microphone to record voice messages and create video peaks.',
   // Photos & Location
   NSPhotoLibraryUsageDescription: 'Smuppy needs access to your photos to share content.',
   NSPhotoLibraryAddUsageDescription: 'Smuppy needs to save photos and videos to your library.',
   NSLocationWhenInUseUsageDescription: 'Smuppy uses your location to show nearby events, groups, and creators.',
   NSContactsUsageDescription: 'Smuppy can help you find friends from your contacts.',
-  // Calendar — required by expo-calendar (SessionDetail, SessionBooked, BusinessBookingSuccess)
-  NSCalendarsUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
-  NSCalendarsFullAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
-  NSCalendarsWriteOnlyAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
-  // Bluetooth — required by Agora for speaker/Bluetooth audio routing
-  NSBluetoothAlwaysUsageDescription: 'Smuppy uses Bluetooth to connect to audio devices during live streaming and video calls.',
+  // V2+ DISABLED — Calendar (SessionDetail, SessionBooked, BusinessBookingSuccess — re-enable when PRIVATE_SESSIONS/BUSINESS_BOOKING go live)
+  // NSCalendarsUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  // NSCalendarsFullAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  // NSCalendarsWriteOnlyAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  // V4 DISABLED — Bluetooth (Agora live streaming/calls — re-enable when GO_LIVE/PRIVATE_SESSIONS go live)
+  // NSBluetoothAlwaysUsageDescription: 'Smuppy uses Bluetooth to connect to audio devices during live streaming and video calls.',
 },
     },
 android: {
@@ -89,8 +89,9 @@ permissions: [
 'android.permission.RECORD_AUDIO',
 'android.permission.MODIFY_AUDIO_SETTINGS',
 'android.permission.CAMERA',
-'android.permission.BLUETOOTH',
-'android.permission.BLUETOOTH_CONNECT',
+// V4 DISABLED — Bluetooth (re-enable when GO_LIVE/PRIVATE_SESSIONS go live)
+// 'android.permission.BLUETOOTH',
+// 'android.permission.BLUETOOTH_CONNECT',
 ],
 // Android App Links - associate app with web domain
 intentFilters: [
@@ -135,7 +136,8 @@ plugins: [
 'expo-location',
 'expo-image-picker',
 'expo-contacts',
-'expo-calendar',
+// V2+ DISABLED — expo-calendar (re-enable when PRIVATE_SESSIONS/BUSINESS_BOOKING go live)
+// 'expo-calendar',
 [
   '@stripe/stripe-react-native',
   {

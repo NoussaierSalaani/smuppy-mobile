@@ -28,6 +28,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode, AVPlaybackStatus, AVPlaybackStatusSuccess } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
+import { normalizeCdnUrl } from '../../utils/cdnUrl';
 import * as MediaLibrary from 'expo-media-library';
 import OptimizedImage from '../../components/OptimizedImage';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
@@ -394,6 +395,11 @@ const PeakViewScreen = (): React.JSX.Element => {
   const lastTap = useRef(0);
   const _progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Refs for panResponder (avoids stale closure with useRef-created handler)
+  const currentIndexRef = useRef(currentIndex);
+  const peaksRef = useRef(peaks);
+  const authorGroupRangesRef = useRef<Array<{ userId: string; start: number; end: number }>>([]);
+
   const currentPeak = useMemo(() => peaks[currentIndex] || ({} as Peak), [peaks, currentIndex]);
   const createdDate = useMemo(() => {
     const value = currentPeak?.createdAt || new Date().toISOString();
@@ -426,6 +432,10 @@ const PeakViewScreen = (): React.JSX.Element => {
       return () => clearTimeout(timer);
     }
   }, [showOnboarding]);
+
+  // Keep refs in sync for panResponder closure
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+  useEffect(() => { peaksRef.current = peaks; }, [peaks]);
 
   // Reset progress and play when peak changes
   useEffect(() => {
@@ -892,14 +902,17 @@ const PeakViewScreen = (): React.JSX.Element => {
             navigation.goBack();
           }
         } else {
-          // Swipe LEFT/RIGHT - Navigate between Peaks
+          // Swipe LEFT/RIGHT - Jump between author groups (per PEAKS.md §4.3)
           if (!isInChain) {
-            if (dx > 50 && currentIndex > 0) {
+            const ci = currentIndexRef.current;
+            const ranges = authorGroupRangesRef.current;
+            const groupIdx = ranges.findIndex(g => ci >= g.start && ci <= g.end);
+            if (dx > 50 && groupIdx > 0) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setCurrentIndex(currentIndex - 1);
-            } else if (dx < -50 && currentIndex < peaks.length - 1) {
+              setCurrentIndex(ranges[groupIdx - 1].start);
+            } else if (dx < -50 && groupIdx >= 0 && groupIdx < ranges.length - 1) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setCurrentIndex(currentIndex + 1);
+              setCurrentIndex(ranges[groupIdx + 1].start);
             }
           }
         }
@@ -1036,6 +1049,21 @@ const PeakViewScreen = (): React.JSX.Element => {
     }).map(peak => peak.user);
   }, [peaks]);
 
+  // Compute author group ranges for story navigation (contiguous same-author peaks)
+  const authorGroupRanges = useMemo(() => {
+    const ranges: Array<{ userId: string; start: number; end: number }> = [];
+    let i = 0;
+    while (i < peaks.length) {
+      const userId = peaks[i].user.id;
+      const start = i;
+      while (i < peaks.length && peaks[i].user.id === userId) i++;
+      ranges.push({ userId, start, end: i - 1 });
+    }
+    return ranges;
+  }, [peaks]);
+
+  useEffect(() => { authorGroupRangesRef.current = authorGroupRanges; }, [authorGroupRanges]);
+
   // Find which user index is currently selected
   const currentUserIndex = uniqueUsers.findIndex(u => u.id === currentPeak.user?.id);
 
@@ -1160,13 +1188,13 @@ const PeakViewScreen = (): React.JSX.Element => {
           {currentPeak.videoUrl ? (
             <Video
               ref={(r) => { videoRef.current = r; }}
-              source={{ uri: currentPeak.videoUrl }}
+              source={{ uri: normalizeCdnUrl(currentPeak.videoUrl) || '' }}
               style={styles.media}
               resizeMode={ResizeMode.COVER}
               shouldPlay
               isMuted={false}
               onPlaybackStatusUpdate={onVideoStatus}
-              posterSource={{ uri: currentPeak.thumbnail || undefined }}
+              posterSource={{ uri: normalizeCdnUrl(currentPeak.thumbnail) || undefined }}
               usePoster
             />
           ) : (

@@ -92,6 +92,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       requesterId = userResult.rows[0]?.id || null;
     }
 
+    // Auth required for personalized feeds
+    if (type === 'following' && !requesterId) {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ error: 'Authentication required for following feed' }),
+      };
+    }
+
     let query: string;
     let params: SqlParam[];
 

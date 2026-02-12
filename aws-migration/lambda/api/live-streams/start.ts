@@ -135,7 +135,7 @@ async function notifyFans(
 
   if (fansResult.rows.length === 0) return;
 
-  const displayName = host.display_name || host.username;
+  const displayName = host.display_name || 'Someone';
 
   // Insert in-app notification for each fan
   const fanIds: string[] = fansResult.rows.map((r: { follower_id: string }) => r.follower_id);

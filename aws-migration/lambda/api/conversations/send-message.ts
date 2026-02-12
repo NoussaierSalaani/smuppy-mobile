@@ -224,7 +224,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Send push notification to recipient (non-blocking)
-    const displayName = profile.display_name || profile.username;
+    const displayName = profile.display_name || 'Someone';
     sendPushToUser(db, recipientId, {
       title: displayName,
       body: sanitizedContent.length > 100 ? sanitizedContent.substring(0, 100) + '…' : sanitizedContent,

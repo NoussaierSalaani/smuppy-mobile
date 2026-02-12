@@ -281,7 +281,7 @@ async function handleCreateComment(
          VALUES ($1, 'peak_comment', 'New Comment', $2, $3)`,
         [
           peak.author_id,
-          `${profile.username} commented on your peak`,
+          `${profile.full_name || 'Someone'} commented on your peak`,
           JSON.stringify({ peakId, commentId: comment.id, commenterId: profile.id }),
         ]
       );
@@ -292,7 +292,7 @@ async function handleCreateComment(
     if (peak.author_id !== profile.id) {
       sendPushToUser(db, peak.author_id, {
         title: 'New Comment',
-        body: `${profile.username} commented on your peak`,
+        body: `${profile.full_name || 'Someone'} commented on your peak`,
         data: { type: 'peak_comment', peakId },
       }).catch(err => log.error('Push notification failed', err));
     }

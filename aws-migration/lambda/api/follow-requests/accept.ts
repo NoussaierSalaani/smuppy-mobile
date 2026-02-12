@@ -131,7 +131,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [profileId]
       );
       const accepterRow = accepterResult.rows[0];
-      const accepterName = accepterRow?.display_name || accepterRow?.username || 'Someone';
+      const accepterName = accepterRow?.display_name || 'Someone';
 
       // Create notification for the requester
       await client.query(

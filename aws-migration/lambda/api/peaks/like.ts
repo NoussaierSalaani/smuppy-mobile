@@ -37,7 +37,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Get user's profile
     const userResult = await db.query(
-      'SELECT id, username FROM profiles WHERE cognito_sub = $1',
+      'SELECT id, username, full_name FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
 
@@ -121,7 +121,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
            VALUES ($1, 'peak_like', 'New Like', $2, $3)`,
           [
             peak.author_id,
-            `${profile.username} liked your peak`,
+            `${profile.full_name || 'Someone'} liked your peak`,
             JSON.stringify({ peakId, likerId: profile.id }),
           ]
         );
@@ -133,7 +133,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (peak.author_id !== profile.id) {
         sendPushToUser(db, peak.author_id, {
           title: 'New Like',
-          body: `${profile.username} liked your peak`,
+          body: `${profile.full_name || 'Someone'} liked your peak`,
           data: { type: 'peak_like', peakId },
         }).catch(err => log.error('Push notification failed', err));
       }

@@ -213,7 +213,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
            VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
           [
             parentPeak.author_id,
-            `${author.display_name || author.full_name || author.username} replied to your Peak`,
+            `${author.display_name || author.full_name || 'Someone'} replied to your Peak`,
             JSON.stringify({ peakId: newReply.id, replyToPeakId: peakId, authorId: profileId, thumbnailUrl: thumbnailUrl || null })
           ]
         );

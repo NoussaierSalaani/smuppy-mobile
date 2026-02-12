@@ -43,7 +43,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Get user's profile ID (check both id and cognito_sub for compatibility)
     const userResult = await db.query(
-      'SELECT id, username FROM profiles WHERE cognito_sub = $1',
+      'SELECT id, username, full_name FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
 
@@ -85,7 +85,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       const post = postResult.rows[0];
-      const likerUsername = userResult.rows[0].username;
+      const likerName = userResult.rows[0].full_name || 'Someone';
       const alreadyLiked = existingLike.rows.length > 0;
 
       if (alreadyLiked) {
@@ -131,7 +131,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         await client.query(
           `INSERT INTO notifications (user_id, type, title, body, data)
            VALUES ($1, 'like', 'New Like', $2, $3)`,
-          [post.author_id, `${likerUsername} liked your post`, JSON.stringify({ postId, likerId: profileId })]
+          [post.author_id, `${likerName} liked your post`, JSON.stringify({ postId, likerId: profileId })]
         );
       }
 
@@ -141,7 +141,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (post.author_id !== profileId) {
         sendPushToUser(db, post.author_id, {
           title: 'New Like',
-          body: `${likerUsername} liked your post`,
+          body: `${likerName} liked your post`,
           data: { type: 'like', postId },
         }).catch(err => log.error('Push notification failed', err));
       }

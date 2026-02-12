@@ -121,7 +121,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         enrichedData.user = {
           id: n.actor_id,
           username: n.actor_username,
-          name: n.actor_full_name || n.actor_username,
+          name: n.actor_full_name || 'Someone',
           avatar: n.actor_avatar_url,
           isVerified: n.actor_is_verified || false,
           accountType: n.actor_account_type,

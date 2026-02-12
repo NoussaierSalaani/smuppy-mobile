@@ -174,7 +174,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
            VALUES ($1, 'comment', 'New Comment', $2, $3)`,
           [
             post.author_id,
-            `${profile.username} commented on your post`,
+            `${profile.full_name || 'Someone'} commented on your post`,
             JSON.stringify({ postId, commentId: comment.id, commenterId: profile.id }),
           ]
         );
@@ -199,7 +199,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (post.author_id !== profile.id) {
         sendPushToUser(db, post.author_id, {
           title: 'New Comment',
-          body: `${profile.username} commented on your post`,
+          body: `${profile.full_name || 'Someone'} commented on your post`,
           data: { type: 'comment', postId },
         }).catch(err => log.error('Push notification failed', err));
       }

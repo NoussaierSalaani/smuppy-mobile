@@ -209,7 +209,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         'SELECT full_name, username FROM profiles WHERE id = $1',
         [followerId]
       );
-      const followerDisplayName = followerProfileResult.rows[0]?.full_name || followerProfileResult.rows[0]?.username || 'Someone';
+      const followerDisplayName = followerProfileResult.rows[0]?.full_name || 'Someone';
 
       if (status === 'accepted') {
         await client.query(
@@ -238,7 +238,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       'SELECT username, full_name FROM profiles WHERE id = $1',
       [followerId]
     );
-    const followerName = followerProfile.rows[0]?.full_name || followerProfile.rows[0]?.username || 'Someone';
+    const followerName = followerProfile.rows[0]?.full_name || 'Someone';
     const isPrivate = targetUser.is_private;
     sendPushToUser(db, followingId, {
       title: isPrivate ? 'Follow Request' : 'New Fan!',

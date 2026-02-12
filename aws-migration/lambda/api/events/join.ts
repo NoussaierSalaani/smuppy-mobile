@@ -194,7 +194,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
         // Notify creator
         if (eventData.creator_id !== userProfileId) {
-          const registrantName = userProfile.full_name || userProfile.username || 'Someone';
+          const registrantName = userProfile.full_name || 'Someone';
           await client.query(
             `INSERT INTO notifications (user_id, type, title, body, data)
              VALUES ($1, 'event_registration', 'New Registration', $2, $3)`,

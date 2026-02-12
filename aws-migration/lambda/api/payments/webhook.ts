@@ -193,7 +193,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             'SELECT full_name, username FROM profiles WHERE id = $1',
             [buyerId]
           );
-          const buyerName = buyerResult.rows[0]?.full_name || buyerResult.rows[0]?.username || 'Someone';
+          const buyerName = buyerResult.rows[0]?.full_name || 'Someone';
 
           const notifType = paymentType === 'pack' ? 'pack_purchased' : 'session_booked';
           const notifTitle = paymentType === 'pack' ? 'New Pack Purchased' : 'New Session Booked';
@@ -274,7 +274,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
             // Notify business
             const buyerResult = await client.query('SELECT full_name, username FROM profiles WHERE id = $1', [userId]);
-            const buyerName = buyerResult.rows[0]?.full_name || buyerResult.rows[0]?.username || 'Someone';
+            const buyerName = buyerResult.rows[0]?.full_name || 'Someone';
             await client.query(
               `INSERT INTO notifications (user_id, type, title, body, data)
                VALUES ($1, 'business_booking', 'New Booking!', $2, $3)`,
@@ -312,7 +312,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
             // Notify business
             const buyerResult = await client.query('SELECT full_name, username FROM profiles WHERE id = $1', [userId]);
-            const buyerName = buyerResult.rows[0]?.full_name || buyerResult.rows[0]?.username || 'Someone';
+            const buyerName = buyerResult.rows[0]?.full_name || 'Someone';
             await client.query(
               `INSERT INTO notifications (user_id, type, title, body, data)
                VALUES ($1, 'business_pass', 'New Pass Purchased!', $2, $3)`,
@@ -357,7 +357,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
             // Notify business
             const buyerResult = await client.query('SELECT full_name, username FROM profiles WHERE id = $1', [userId]);
-            const buyerName = buyerResult.rows[0]?.full_name || buyerResult.rows[0]?.username || 'Someone';
+            const buyerName = buyerResult.rows[0]?.full_name || 'Someone';
             await client.query(
               `INSERT INTO notifications (user_id, type, title, body, data)
                VALUES ($1, 'business_subscription', 'New Member!', $2, $3)`,
@@ -429,7 +429,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             'SELECT full_name, username FROM profiles WHERE id = $1',
             [fanId]
           );
-          const fanName = fanResult.rows[0]?.full_name || fanResult.rows[0]?.username || 'Someone';
+          const fanName = fanResult.rows[0]?.full_name || 'Someone';
 
           await client.query(
             `INSERT INTO notifications (user_id, type, title, body, data)

@@ -215,7 +215,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
              VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
             [
               parentPeak.rows[0].author_id,
-              `${profile.full_name || profile.username} replied to your Peak`,
+              `${profile.full_name || 'Someone'} replied to your Peak`,
               JSON.stringify({ peakId: peak.id, replyToPeakId, authorId: profile.id, thumbnailUrl: thumbnailUrl || null }),
             ]
           );
@@ -247,7 +247,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
          WHERE f.following_id = $3 AND f.status = 'accepted'
          LIMIT 500`,
         [
-          `${profile.full_name || profile.username} posted a new Peak`,
+          `${profile.full_name || 'Someone'} posted a new Peak`,
           JSON.stringify({ peakId: peak.id, authorId: profile.id }),
           profile.id,
         ]

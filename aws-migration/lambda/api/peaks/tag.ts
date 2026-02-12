@@ -148,7 +148,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
          VALUES ($1, 'peak_tag', 'Tagged in Peak', $2, $3)`,
         [
           friendId,
-          `${tagger.display_name || tagger.full_name || tagger.username} tagged you in a Peak`,
+          `${tagger.display_name || tagger.full_name || 'Someone'} tagged you in a Peak`,
           JSON.stringify({ peakId, taggedById: profileId })
         ]
       );

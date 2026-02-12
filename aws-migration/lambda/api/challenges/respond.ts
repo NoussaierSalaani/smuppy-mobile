@@ -204,7 +204,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `SELECT username, display_name, avatar_url FROM profiles WHERE id = $1`,
       [userId]
     );
-    const responderName = userResult.rows[0]?.display_name || userResult.rows[0]?.username || 'Someone';
+    const responderName = userResult.rows[0]?.display_name || 'Someone';
 
     // Notify challenge creator
     await client.query(

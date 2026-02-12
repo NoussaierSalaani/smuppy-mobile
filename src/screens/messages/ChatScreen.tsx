@@ -274,7 +274,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
   prev.item.media_url === next.item.media_url &&
   prev.item.media_type === next.item.media_type &&
   prev.item.reply_to_message_id === next.item.reply_to_message_id &&
-  prev.item.reactions?.length === next.item.reactions?.length &&
+  JSON.stringify(prev.item.reactions) === JSON.stringify(next.item.reactions) &&
   prev.isFromMe === next.isFromMe &&
   prev.showAvatar === next.showAvatar &&
   prev.styles === next.styles &&
@@ -547,6 +547,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       media_url: undefined,
       media_type: undefined,
       shared_post_id: undefined,
+      reply_to_message_id: replyToMessage?.id,
+      reactions: [],
     };
     pendingOptimisticIdsRef.current.add(optimisticId);
     setMessages(prev => {
@@ -607,6 +609,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       created_at: new Date().toISOString(),
       is_deleted: false,
       shared_post_id: undefined,
+      reply_to_message_id: replyToMessage?.id,
+      reactions: [],
     };
     pendingOptimisticIdsRef.current.add(optimisticId);
     setMessages(prev => {
@@ -808,7 +812,30 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       return;
     }
 
+    if (sending) return;
     setSending(true);
+
+    // Optimistic: show image message immediately with local URI
+    const optimisticId = `optimistic-img-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      conversation_id: conversationId,
+      sender_id: currentUserId || '',
+      content: '',
+      created_at: new Date().toISOString(),
+      is_deleted: false,
+      media_url: imageUri,
+      media_type: 'image',
+      shared_post_id: undefined,
+      reply_to_message_id: replyToMessage?.id,
+      reactions: [],
+    };
+    pendingOptimisticIdsRef.current.add(optimisticId);
+    setMessages(prev => {
+      const next = [...prev, optimisticMessage];
+      messagesRef.current = next;
+      return next;
+    });
 
     try {
       // Get presigned URL for image upload
@@ -817,6 +844,12 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       const presignedResult = await getPresignedUrl(fileName, 'messages', 'image/jpeg');
 
       if (!presignedResult || !presignedResult.uploadUrl) {
+        pendingOptimisticIdsRef.current.delete(optimisticId);
+        setMessages(prev => {
+          const next = prev.filter(m => m.id !== optimisticId);
+          messagesRef.current = next;
+          return next;
+        });
         showError('Error', 'Failed to get upload URL');
         setSending(false);
         return;
@@ -827,6 +860,12 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       const uploadSuccess = await uploadWithFileSystem(imageUri, presignedResult.uploadUrl, 'image/jpeg');
 
       if (!uploadSuccess) {
+        pendingOptimisticIdsRef.current.delete(optimisticId);
+        setMessages(prev => {
+          const next = prev.filter(m => m.id !== optimisticId);
+          messagesRef.current = next;
+          return next;
+        });
         showError('Error', 'Failed to upload image');
         setSending(false);
         return;
@@ -834,19 +873,45 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
       // Send message with image
       const imageUrl = presignedResult.cdnUrl || presignedResult.key;
-      await sendMessageToDb(conversationId, '📷 Photo', imageUrl, 'image', replyToMessage?.id);
+      const { data: sentMessage, error } = await sendMessageToDb(conversationId, '', imageUrl, 'image', replyToMessage?.id);
 
       // Clear reply after sending
       setReplyToMessage(null);
 
-      // Refresh messages
-      loadMessages();
+      if (error) {
+        pendingOptimisticIdsRef.current.delete(optimisticId);
+        setMessages(prev => {
+          const next = prev.filter(m => m.id !== optimisticId);
+          messagesRef.current = next;
+          return next;
+        });
+        showError('Error', 'Failed to send image');
+      } else if (sentMessage) {
+        // Replace optimistic with real message
+        pendingOptimisticIdsRef.current.delete(optimisticId);
+        setMessages(prev => {
+          const next = prev.map(m => m.id === optimisticId ? sentMessage : m);
+          messagesRef.current = next;
+          return next;
+        });
+      } else {
+        pendingOptimisticIdsRef.current.delete(optimisticId);
+        // Refresh messages to pick up the server version
+        loadMessages();
+      }
     } catch (_error) {
+      console.error('[ChatScreen] Image send failed:', _error);
+      pendingOptimisticIdsRef.current.delete(optimisticId);
+      setMessages(prev => {
+        const next = prev.filter(m => m.id !== optimisticId);
+        messagesRef.current = next;
+        return next;
+      });
       showError('Error', 'Failed to send image');
     } finally {
       setSending(false);
     }
-  }, [conversationId, replyToMessage, showError, loadMessages]);
+  }, [conversationId, replyToMessage, sending, currentUserId, showError, loadMessages]);
 
   // Handle image picking and sending
   const handlePickImage = useCallback(async () => {

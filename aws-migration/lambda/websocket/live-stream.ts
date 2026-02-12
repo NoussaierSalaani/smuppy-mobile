@@ -311,10 +311,14 @@ async function broadcastToChannel(
     } catch (err: unknown) {
       // If connection is stale (410 Gone), remove it
       if (hasStatusCode(err) && err.statusCode === 410) {
-        await db.query(
-          'DELETE FROM live_stream_viewers WHERE connection_id = $1',
-          [viewer.connection_id]
-        );
+        try {
+          await db.query(
+            'DELETE FROM live_stream_viewers WHERE connection_id = $1',
+            [viewer.connection_id]
+          );
+        } catch (cleanupErr) {
+          log.error('Failed to cleanup stale connection', { connectionId: viewer.connection_id, error: cleanupErr });
+        }
       } else {
         log.error('Failed to send to connection', { connectionId: viewer.connection_id, error: err });
       }

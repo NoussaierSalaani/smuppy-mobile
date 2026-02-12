@@ -67,30 +67,32 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const peak = peakResult.rows[0];
 
-    // Check if already liked
-    const existingLike = await db.query(
-      'SELECT id FROM peak_likes WHERE user_id = $1 AND peak_id = $2',
-      [profile.id, peakId]
-    );
-
-    if (existingLike.rows.length > 0) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: 'Peak already liked',
-          liked: true,
-        }),
-      };
-    }
-
     // Like peak in transaction
     // CRITICAL: Use dedicated client for transaction isolation with connection pooling
     const client = await db.connect();
 
     try {
       await client.query('BEGIN');
+
+      // Check if already liked INSIDE transaction to prevent race condition
+      const existingLike = await client.query(
+        'SELECT 1 FROM peak_likes WHERE user_id = $1 AND peak_id = $2 LIMIT 1',
+        [profile.id, peakId]
+      );
+
+      if (existingLike.rows.length > 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            message: 'Peak already liked',
+            liked: true,
+          }),
+        };
+      }
 
       // Create like
       await client.query(

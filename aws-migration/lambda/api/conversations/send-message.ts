@@ -154,6 +154,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? conversation.participant_2_id
       : conversation.participant_1_id;
 
+    // Check recipient account is active (suspended/banned users cannot receive messages)
+    const recipientCheck = await db.query(
+      'SELECT account_status FROM profiles WHERE id = $1',
+      [recipientId]
+    );
+    if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].account_status === 'suspended' || recipientCheck.rows[0].account_status === 'banned') {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Cannot send message to this user' }),
+      };
+    }
+
     // Check if either user has blocked the other
     const blockCheck = await db.query(
       `SELECT 1 FROM blocks

@@ -91,7 +91,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const queryParams: (string | number)[] = [peakId, profileId];
 
       if (cursor) {
-        query += ` AND p.created_at < (SELECT created_at FROM peaks WHERE id = $3)`;
+        query += ` AND p.created_at < $3::timestamptz`;
         queryParams.push(cursor);
       }
 
@@ -128,7 +128,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       return createCorsResponse(200, {
         replies,
-        nextCursor: hasMore ? replies[replies.length - 1].id : null,
+        nextCursor: hasMore ? replies[replies.length - 1].createdAt : null,
         hasMore,
         total: replies.length,
       });
@@ -158,24 +158,42 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return createCorsResponse(400, { error: 'Valid duration is required' });
       }
 
-      // Create the reply peak
-      const result = await db.query(
-        `INSERT INTO peaks (
-          author_id, video_url, thumbnail_url, caption,
-          duration, reply_to_peak_id, visibility, created_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, 'public', NOW())
-        RETURNING id, created_at`,
-        [profileId, videoUrl, thumbnailUrl || null, caption || null, duration, peakId]
-      );
+      // Inherit parent peak's visibility for replies
+      const replyVisibility = parentPeak.visibility || 'public';
 
-      const newReply = result.rows[0];
+      // Create reply peak + increment count in a transaction
+      const client = await db.connect();
+      let newReply: Record<string, unknown>;
 
-      // Increment reply count on parent peak
-      await db.query(
-        'UPDATE peaks SET peak_replies_count = peak_replies_count + 1, updated_at = NOW() WHERE id = $1',
-        [peakId]
-      );
+      try {
+        await client.query('BEGIN');
+
+        // Create the reply peak
+        const result = await client.query(
+          `INSERT INTO peaks (
+            author_id, video_url, thumbnail_url, caption,
+            duration, reply_to_peak_id, visibility, created_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+          RETURNING id, created_at`,
+          [profileId, videoUrl, thumbnailUrl || null, caption || null, duration, peakId, replyVisibility]
+        );
+
+        newReply = result.rows[0];
+
+        // Increment reply count on parent peak
+        await client.query(
+          'UPDATE peaks SET peak_replies_count = peak_replies_count + 1, updated_at = NOW() WHERE id = $1',
+          [peakId]
+        );
+
+        await client.query('COMMIT');
+      } catch (txError: unknown) {
+        await client.query('ROLLBACK');
+        throw txError;
+      } finally {
+        client.release();
+      }
 
       // Get author info
       const authorResult = await db.query(
@@ -198,7 +216,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
       }
 
-      log.info('Peak reply created', { parentPeakId: peakId.substring(0, 8) + '***', replyId: newReply.id.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
+      log.info('Peak reply created', { parentPeakId: peakId.substring(0, 8) + '***', replyId: (newReply.id as string).substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
 
       return createCorsResponse(201, {
         success: true,

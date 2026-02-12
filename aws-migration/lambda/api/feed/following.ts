@@ -44,13 +44,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const userId = userResult.rows[0].id;
 
-    // Build cursor-based query (consistent with feed/get.ts)
+    // Build cursor-based query (compound cursor: created_at|id, consistent with feed/get.ts)
     let cursorCondition = '';
     const queryParams: (string | number | Date)[] = [userId];
 
     if (cursor) {
-      cursorCondition = `AND p.created_at < $2`;
-      queryParams.push(new Date(cursor));
+      const pipeIndex = cursor.indexOf('|');
+      if (pipeIndex !== -1) {
+        // Compound cursor: created_at|id
+        const cursorDate = cursor.substring(0, pipeIndex);
+        const cursorId = cursor.substring(pipeIndex + 1);
+        cursorCondition = `AND (p.created_at, p.id) < ($2::timestamptz, $3::uuid)`;
+        queryParams.push(new Date(cursorDate));
+        queryParams.push(cursorId);
+      } else {
+        // Legacy cursor: created_at only (backward compatibility)
+        cursorCondition = `AND p.created_at < $2`;
+        queryParams.push(new Date(cursor));
+      }
     }
 
     queryParams.push(limit + 1); // Fetch one extra to check hasMore
@@ -96,8 +107,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     }));
 
-    const nextCursor = hasMore && rows.length > 0
-      ? (rows[rows.length - 1] as Record<string, unknown>).created_at
+    const lastRow = rows.length > 0 ? (rows[rows.length - 1] as Record<string, unknown>) : null;
+    const nextCursor = hasMore && lastRow
+      ? `${lastRow.created_at}|${lastRow.id}`
       : null;
 
     return {

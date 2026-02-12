@@ -150,10 +150,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Create new conversation — order participant IDs to satisfy chk_participants_ordered constraint
+    // Use ON CONFLICT to handle race condition where two concurrent requests try to create the same conversation
     const [p1, p2] = profileId < participantId ? [profileId, participantId] : [participantId, profileId];
     const newConversation = await db.query(
       `INSERT INTO conversations (participant_1_id, participant_2_id, created_at)
        VALUES ($1, $2, NOW())
+       ON CONFLICT (participant_1_id, participant_2_id)
+       DO UPDATE SET participant_1_id = conversations.participant_1_id
        RETURNING id, created_at, last_message_at`,
       [p1, p2]
     );

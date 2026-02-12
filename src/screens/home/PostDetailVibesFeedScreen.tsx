@@ -86,6 +86,7 @@ const PostDetailVibesFeedScreen = () => {
 
   // Loading states for anti spam-click
   const [likeLoading, setLikeLoading] = useState(false);
+  const likeInProgress = useRef(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [fanLoading, setFanLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
@@ -181,8 +182,10 @@ const PostDetailVibesFeedScreen = () => {
   }, [likeAnimationScale]);
 
   // Toggle like with anti spam-click - connected to database
+  // Uses ref for synchronous race condition guard (state updates are async/batched)
   const toggleLike = useCallback(async () => {
-    if (likeLoading || !currentPost) return;
+    if (likeInProgress.current || !currentPost) return;
+    likeInProgress.current = true;
 
     const postId = currentPost.id;
 
@@ -195,6 +198,7 @@ const PostDetailVibesFeedScreen = () => {
 
     // If not a valid UUID (mock data), just keep the optimistic update
     if (!postId || !isValidUUID(postId)) {
+      likeInProgress.current = false;
       return;
     }
 
@@ -221,8 +225,9 @@ const PostDetailVibesFeedScreen = () => {
       setIsLiked(!newLikedState);
     } finally {
       setLikeLoading(false);
+      likeInProgress.current = false;
     }
-  }, [likeLoading, currentPost, isLiked, triggerLikeAnimation]);
+  }, [currentPost, isLiked, triggerLikeAnimation]);
 
   // Toggle bookmark with anti spam-click - connected to database
   const toggleBookmark = useCallback(async () => {

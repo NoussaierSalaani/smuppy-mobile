@@ -100,13 +100,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Include user's own posts
     const allAuthorIds = [userId, ...followingIds];
 
-    // Build cursor condition
+    // Build cursor condition (compound cursor: created_at|id to avoid skipping posts with same timestamp)
     let cursorCondition = '';
     const queryParams: SqlParam[] = [allAuthorIds];
 
     if (cursor) {
-      cursorCondition = 'AND p.created_at < $2';
-      queryParams.push(new Date(cursor));
+      const pipeIndex = cursor.indexOf('|');
+      if (pipeIndex !== -1) {
+        // Compound cursor: created_at|id
+        const cursorDate = cursor.substring(0, pipeIndex);
+        const cursorId = cursor.substring(pipeIndex + 1);
+        cursorCondition = `AND (p.created_at, p.id) < ($2::timestamptz, $3::uuid)`;
+        queryParams.push(new Date(cursorDate));
+        queryParams.push(cursorId);
+      } else {
+        // Legacy cursor: created_at only (backward compatibility)
+        cursorCondition = 'AND p.created_at < $2';
+        queryParams.push(new Date(cursor));
+      }
     }
 
     queryParams.push(limit + 1); // Fetch one extra to check hasMore
@@ -171,7 +182,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         isSaved: post.is_saved,
         author: post.author,
       })),
-      nextCursor: hasMore ? posts[posts.length - 1].created_at : null,
+      nextCursor: hasMore ? `${posts[posts.length - 1].created_at}|${posts[posts.length - 1].id}` : null,
       hasMore,
       total: posts.length,
     };

@@ -34,7 +34,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const {
       q = '',
       limit = '20',
-      offset = '0',
+      cursor,
     } = event.queryStringParameters || {};
 
     const sanitized = sanitizeQuery(q);
@@ -43,7 +43,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);
-    const parsedOffset = Math.max(parseInt(offset) || 0, 0);
 
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const pool = await getReaderPool();
@@ -62,92 +61,95 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const isHashtagSearch = sanitized.startsWith('#') || /^[a-z0-9_]+$/i.test(sanitized);
     const hashtagTerm = sanitized.replace(/^#/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
 
-    const likedSelect = requesterId
-      ? `, EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = ${isHashtagSearch ? '$3' : '$4'}) as "isLiked"`
-      : '';
+    // Build query with dynamic $N parameter indices
+    const searchTerm = isHashtagSearch ? hashtagTerm : sanitized;
+    const params: (string | number | Date)[] = [searchTerm];
+    let paramIdx = 2;
+
+    // Cursor condition
+    let cursorCondition = '';
+    if (cursor) {
+      cursorCondition = `AND p.created_at < $${paramIdx}`;
+      params.push(new Date(cursor));
+      paramIdx++;
+    }
+
+    // isLiked subquery
+    let likedSelect = '';
+    if (requesterId) {
+      likedSelect = `, EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $${paramIdx}) as "isLiked"`;
+      params.push(requesterId);
+      paramIdx++;
+    }
+
+    // Limit (fetch +1 for hasMore detection)
+    params.push(parsedLimit + 1);
+    const limitParam = `$${paramIdx}`;
+
+    const selectCols = `
+      p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
+      p.thumbnail_url as "thumbnailUrl", p.duration,
+      p.likes_count as "likesCount", p.comments_count as "commentsCount",
+      p.views_count as "viewsCount", p.created_at as "createdAt",
+      p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
+      pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
+      pr.is_verified as "isVerified", pr.account_type as "accountType"
+      ${likedSelect}`;
 
     let result;
 
     if (isHashtagSearch && hashtagTerm.length > 0) {
-      // Hashtag search: find peaks via peak_hashtags table
       const hashtagQuery = `
-        SELECT DISTINCT p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
-               p.thumbnail_url as "thumbnailUrl", p.duration,
-               p.likes_count as "likesCount", p.comments_count as "commentsCount",
-               p.views_count as "viewsCount", p.created_at as "createdAt",
-               p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
-               pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
-               pr.is_verified as "isVerified", pr.account_type as "accountType"
-               ${likedSelect}
+        SELECT DISTINCT ${selectCols}
         FROM peaks p
         JOIN profiles pr ON p.author_id = pr.id
         JOIN peak_hashtags ph ON ph.peak_id = p.id
         WHERE ph.hashtag = $1
           AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+          ${cursorCondition}
         ORDER BY p.created_at DESC
-        LIMIT $2 OFFSET ${requesterId ? '$4' : '$3'}
+        LIMIT ${limitParam}
       `;
-      const params = requesterId
-        ? [hashtagTerm, parsedLimit, requesterId, parsedOffset]
-        : [hashtagTerm, parsedLimit, parsedOffset];
-
       result = await pool.query(hashtagQuery, params);
     } else {
       // Text search: FTS first, ILIKE fallback
-      const likedSelectText = requesterId
-        ? `, EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $4) as "isLiked"`
-        : '';
-
       try {
         const ftsQuery = `
-          SELECT p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
-                 p.thumbnail_url as "thumbnailUrl", p.duration,
-                 p.likes_count as "likesCount", p.comments_count as "commentsCount",
-                 p.views_count as "viewsCount", p.created_at as "createdAt",
-                 p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
-                 pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
-                 pr.is_verified as "isVerified", pr.account_type as "accountType"
-                 ${likedSelectText}
+          SELECT ${selectCols}
           FROM peaks p
           JOIN profiles pr ON p.author_id = pr.id
           WHERE to_tsvector('english', p.caption) @@ plainto_tsquery('english', $1)
             AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+            ${cursorCondition}
           ORDER BY p.created_at DESC
-          LIMIT $2 OFFSET $3
+          LIMIT ${limitParam}
         `;
-        const params = requesterId
-          ? [sanitized, parsedLimit, parsedOffset, requesterId]
-          : [sanitized, parsedLimit, parsedOffset];
-
         result = await pool.query(ftsQuery, params);
       } catch {
         log.info('FTS failed, falling back to ILIKE', { query: sanitized.substring(0, 2) + '***' });
 
+        // Replace search term param with ILIKE pattern
+        params[0] = `%${sanitized}%`;
+
         const ilikeQuery = `
-          SELECT p.id, p.author_id as "authorId", p.caption, p.video_url as "videoUrl",
-                 p.thumbnail_url as "thumbnailUrl", p.duration,
-                 p.likes_count as "likesCount", p.comments_count as "commentsCount",
-                 p.views_count as "viewsCount", p.created_at as "createdAt",
-                 p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
-                 pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
-                 pr.is_verified as "isVerified", pr.account_type as "accountType"
-                 ${likedSelectText}
+          SELECT ${selectCols}
           FROM peaks p
           JOIN profiles pr ON p.author_id = pr.id
           WHERE p.caption ILIKE $1
             AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+            ${cursorCondition}
           ORDER BY p.created_at DESC
-          LIMIT $2 OFFSET $3
+          LIMIT ${limitParam}
         `;
-        const params = requesterId
-          ? [`%${sanitized}%`, parsedLimit, parsedOffset, requesterId]
-          : [`%${sanitized}%`, parsedLimit, parsedOffset];
-
         result = await pool.query(ilikeQuery, params);
       }
     }
 
-    const peaks = result.rows.map((peak: Record<string, unknown>) => ({
+    // Cursor-based pagination: detect hasMore and compute nextCursor
+    const hasMore = result.rows.length > parsedLimit;
+    const rows = hasMore ? result.rows.slice(0, -1) : result.rows;
+
+    const peaks = rows.map((peak: Record<string, unknown>) => ({
       id: peak.id,
       authorId: peak.authorId,
       caption: peak.caption,
@@ -172,10 +174,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     }));
 
+    const nextCursor = hasMore && peaks.length > 0
+      ? new Date(peaks[peaks.length - 1].createdAt as string).toISOString()
+      : null;
+
     return response(200, {
       success: true,
       data: peaks,
-      total: peaks.length,
+      nextCursor,
+      hasMore,
     });
   } catch (error: unknown) {
     log.error('Error searching peaks', error);

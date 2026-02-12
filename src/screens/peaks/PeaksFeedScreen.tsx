@@ -75,7 +75,6 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const user = useUserStore((state) => state.user);
-  const isBusiness = user?.accountType === 'pro_business';
   const [refreshing, setRefreshing] = useState(false);
   const [peaks, setPeaks] = useState<Peak[]>([]);
   const [loading, setLoading] = useState(true);
@@ -308,7 +307,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
             <Ionicons name="trophy" size={22} color="#FFD700" />
           </TouchableOpacity>
 
-          {!isBusiness && peaks.length > 0 ? (
+          {peaks.length > 0 ? (
             <TouchableOpacity
               style={styles.headerIconButton}
               onPress={handleCreatePeak}
@@ -341,12 +340,10 @@ const PeaksFeedScreen = (): React.JSX.Element => {
             <Text style={styles.emptySubtitle}>
               Peaks are short videos from 6 to 60 seconds to share your fitness moments
             </Text>
-            {!isBusiness && (
-              <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
-                <Ionicons name="add-circle" size={22} color={colors.white} />
-                <Text style={styles.emptyButtonText}>Create my first Peak</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
+              <Ionicons name="add-circle" size={22} color={colors.white} />
+              <Text style={styles.emptyButtonText}>Create my first Peak</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       ) : (

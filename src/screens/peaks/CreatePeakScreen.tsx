@@ -87,7 +87,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const challengeId = rawChallengeId && isValidUUID(rawChallengeId) ? rawChallengeId : undefined;
   const { showAlert: showSmuppyAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
-  const isBusiness = user?.accountType === 'pro_business';
 
   const cameraRef = useRef<CameraView>(null);
   const videoPreviewRef = useRef<Video>(null);
@@ -337,19 +336,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   };
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  // Business accounts cannot create peaks
-  if (isBusiness) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <Ionicons name="videocam-off-outline" size={48} color={colors.gray} />
-        <Text style={[styles.permissionText, { marginTop: 16 }]}>Peaks are not available for business accounts</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 24, backgroundColor: colors.primary, borderRadius: 12 }}>
-          <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   // Permissions loading
   if (!permissionsChecked) {

@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import ChallengeCard, { type Challenge } from '../../components/peaks/ChallengeCard';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores/userStore';
 
 const { width } = Dimensions.get('window');
 
@@ -42,9 +41,6 @@ const ChallengesScreen = (): React.JSX.Element => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const user = useUserStore((state) => state.user);
-  const isBusiness = user?.accountType === 'pro_business';
-
   const [trendingChallenges, setTrendingChallenges] = useState<Challenge[]>([]);
   const [newChallenges, setNewChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,12 +119,11 @@ const ChallengesScreen = (): React.JSX.Element => {
   }, [navigation]);
 
   const handleAcceptChallenge = useCallback((challenge: Challenge) => {
-    if (isBusiness) return; // Business accounts cannot accept challenges
     navigation.navigate('CreatePeak', {
       challengeId: challenge.id,
       challengeTitle: challenge.title,
     });
-  }, [navigation, isBusiness]);
+  }, [navigation]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 

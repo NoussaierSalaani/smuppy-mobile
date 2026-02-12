@@ -294,7 +294,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [peaks, setPeaks] = useState<Peak[]>(initialPeaks);
   const [isLoadingPeak, setIsLoadingPeak] = useState(false);
   const currentUser = useUserStore((state) => state.user);
-  const isBusiness = currentUser?.accountType === 'pro_business';
 
   // If navigated with only peakId (no peaks array), fetch the peak from API
   useEffect(() => {
@@ -889,7 +888,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           if (dy < -50) {
             if (currentPeak.repliesCount && currentPeak.repliesCount > 0) {
               setIsInChain(true);
-            } else if (!isBusiness) {
+            } else {
               navigation.navigate('CreatePeak', {
                 replyTo: currentPeak.id,
                 originalPeak: currentPeak,
@@ -925,7 +924,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   };
 
   const handleCreatePeak = (): void => {
-    if (isBusiness) return;
     navigation.navigate('CreatePeak', {
       replyTo: currentPeak.id,
       originalPeak: currentPeak,
@@ -933,7 +931,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   };
 
   const handleAcceptChallenge = (): void => {
-    if (isBusiness) return;
     navigation.navigate('CreatePeak', {
       challengeId: currentPeak.challengeId,
       challengeTitle: currentPeak.challengeTitle,
@@ -1286,15 +1283,13 @@ const PeakViewScreen = (): React.JSX.Element => {
             })}
           </View>
 
-          {/* Add Button - hidden for business */}
-          {!isBusiness && (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={handleCreatePeak}
-            >
-              <Ionicons name="add" size={26} color={colors.white} />
-            </TouchableOpacity>
-          )}
+          {/* Add Button */}
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleCreatePeak}
+          >
+            <Ionicons name="add" size={26} color={colors.white} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -1382,15 +1377,13 @@ const PeakViewScreen = (): React.JSX.Element => {
             <Text style={styles.actionCount}>{formatCount(commentsCount)}</Text>
           </TouchableOpacity>
 
-          {/* Reply with Peak Button - hidden for business */}
-          {!isBusiness && (
-            <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="videocam-outline" size={24} color={colors.white} />
-              </View>
-              <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
-            </TouchableOpacity>
-          )}
+          {/* Reply with Peak Button */}
+          <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="videocam-outline" size={24} color={colors.white} />
+            </View>
+            <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
+          </TouchableOpacity>
 
           {/* Share Button */}
           <TouchableOpacity style={styles.actionButton} onPress={handleShareAction}>
@@ -1480,7 +1473,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                   </Text>
                 ) : null}
               </View>
-              {!isBusiness && (!currentPeak.challengeEndsAt || new Date(currentPeak.challengeEndsAt) > new Date()) && (
+              {(!currentPeak.challengeEndsAt || new Date(currentPeak.challengeEndsAt) > new Date()) && (
                 <TouchableOpacity
                   style={styles.acceptChallengeButton}
                   onPress={handleAcceptChallenge}
@@ -1497,12 +1490,10 @@ const PeakViewScreen = (): React.JSX.Element => {
         <View style={styles.progressBarBackground}>
           <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
         </View>
-        {!isBusiness && (
-          <TouchableOpacity style={styles.replyButton} onPress={handleCreatePeak}>
-            <Ionicons name="return-down-forward" size={18} color={colors.white} />
-            <Text style={styles.replyButtonText}>Reply with your Peak</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.replyButton} onPress={handleCreatePeak}>
+          <Ionicons name="return-down-forward" size={18} color={colors.white} />
+          <Text style={styles.replyButtonText}>Reply with your Peak</Text>
+        </TouchableOpacity>
       </View>
         </View>
       )}

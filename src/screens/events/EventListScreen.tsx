@@ -9,7 +9,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Animated,
   Dimensions,
   FlatList,
@@ -23,6 +22,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
+import OptimizedImage from '../../components/OptimizedImage';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -402,7 +402,7 @@ export default function EventListScreen() {
           {/* Cover Image */}
           <View style={styles.cardImageContainer}>
             {item.cover_image_url ? (
-              <Image source={{ uri: item.cover_image_url }} style={styles.cardImage} />
+              <OptimizedImage source={item.cover_image_url} style={styles.cardImage} />
             ) : (
               <LinearGradient
                 colors={[item.category.color, `${item.category.color}66`]}
@@ -451,12 +451,9 @@ export default function EventListScreen() {
 
             {/* Organizer */}
             <View style={styles.organizerRow}>
-              <Image
-                source={{
-                  uri:
-                    item.organizer.profile_picture_url ||
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(item.organizer.full_name || item.organizer.username)}&background=random`,
-                }}
+              <OptimizedImage
+                source={item.organizer.profile_picture_url ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(item.organizer.full_name || item.organizer.username)}&background=random`}
                 style={styles.organizerAvatar}
               />
               <Text style={styles.organizerName}>{item.organizer.full_name || item.organizer.username}</Text>

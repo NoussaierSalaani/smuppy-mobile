@@ -8,6 +8,7 @@ import { getReaderPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { extractCognitoSub } from '../utils/security';
 
 const log = createLogger('posts-get');
 
@@ -17,7 +18,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;
-    const currentUserId = event.requestContext.authorizer?.claims?.sub;
+    const currentUserId = extractCognitoSub(event);
 
     // Use reader pool for read operations
     const db = await getReaderPool();

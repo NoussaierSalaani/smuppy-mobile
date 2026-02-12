@@ -10,7 +10,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Dimensions,
   ActivityIndicator,
   Share,
@@ -23,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import { GRADIENTS } from '../../config/theme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { awsAPI } from '../../services/aws-api';
@@ -471,7 +471,7 @@ ${shareUrl}`;
         {/* Cover Image / Map */}
         <View style={styles.coverContainer}>
           {normalizedActivity.cover_image_url ? (
-            <Image source={{ uri: normalizedActivity.cover_image_url }} style={styles.coverImage} />
+            <OptimizedImage source={normalizedActivity.cover_image_url} style={styles.coverImage} />
           ) : normalizedActivity.coordinates ? (
             <MapView
               ref={mapRef}
@@ -699,11 +699,9 @@ ${shareUrl}`;
                     style={[styles.participantAvatar, { marginLeft: index > 0 ? -10 : 0, borderColor: colors.background }]}
                     onPress={() => navigation.navigate('UserProfile', { userId: participant.id })}
                   >
-                    <Image
-                      source={{
-                        uri: participant.avatar_url ||
-                          `https://ui-avatars.com/api/?name=${participant.username}&background=random`,
-                      }}
+                    <OptimizedImage
+                      source={participant.avatar_url ||
+                        `https://ui-avatars.com/api/?name=${participant.username}&background=random`}
                       style={styles.participantImage}
                     />
                   </TouchableOpacity>

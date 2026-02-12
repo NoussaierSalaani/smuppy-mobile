@@ -18,11 +18,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Image,
   Linking,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import OptimizedImage from '../../components/OptimizedImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -30,7 +30,6 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
 import { awsAPI } from '../../services/aws-api';
-import OptimizedImage from '../../components/OptimizedImage';
 import Button from '../../components/Button';
 import { formatShortDateTime, formatRelativeTime } from '../../utils/dateFormatters';
 
@@ -225,7 +224,7 @@ const EvidenceCard = memo(function EvidenceCard({
           onPress={() => Linking.openURL(evidence.url!)}
         >
           {evidence.type === 'screenshot' ? (
-            <Image source={{ uri: evidence.url }} style={styles.evidenceImage} />
+            <OptimizedImage source={evidence.url} style={styles.evidenceImage} />
           ) : (
             <View style={[styles.filePreview, { backgroundColor: `${colors.primary}10` }]}>
               <Ionicons name={getIcon() as React.ComponentProps<typeof Ionicons>['name']} size={32} color={colors.primary} />

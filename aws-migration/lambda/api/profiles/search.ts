@@ -8,6 +8,7 @@ import { getReaderPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { extractCognitoSub } from '../utils/security';
 
 const log = createLogger('profiles-search');
 
@@ -43,7 +44,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const query = rawQuery.replace(/[%_\\]/g, '\\$&');
 
     // Exclude current user from search results
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+    const cognitoSub = extractCognitoSub(event);
 
     // Use reader pool for read-heavy search operations
     const db = await getReaderPool();

@@ -183,6 +183,7 @@ const UserProfileScreen = () => {
     isLive: boolean;
     liveTitle?: string;
     channelName?: string;
+    viewerCount?: number;
   }>({
     isLive: false,
   });
@@ -194,7 +195,7 @@ const UserProfileScreen = () => {
       if (res.success && res.data) {
         const live = res.data.find(s => s.host.id === profile.id);
         if (live) {
-          setCreatorLiveStatus({ isLive: true, liveTitle: live.title, channelName: live.channelName });
+          setCreatorLiveStatus({ isLive: true, liveTitle: live.title, channelName: live.channelName, viewerCount: live.viewerCount });
         }
       }
     }).catch((err) => {
@@ -683,9 +684,9 @@ const UserProfileScreen = () => {
       creatorName: profile.displayName,
       creatorAvatar: profile.avatar,
       liveTitle: creatorLiveStatus.liveTitle || 'Live Session',
-      viewerCount: 127,
+      viewerCount: creatorLiveStatus.viewerCount ?? 0,
     });
-  }, [navigation, profile.id, profile.displayName, profile.avatar, creatorLiveStatus.liveTitle]);
+  }, [navigation, profile.id, profile.displayName, profile.avatar, creatorLiveStatus.liveTitle, creatorLiveStatus.viewerCount]);
   const handleMenuShareProfile = useCallback(() => {
     setShowMenuModal(false);
     handleShareProfile();
@@ -1234,7 +1235,7 @@ const UserProfileScreen = () => {
                     <View style={styles.liveDot} />
                     <Text style={styles.liveBadgeText}>LIVE NOW</Text>
                   </View>
-                  <Text style={styles.liveViewers}>127 viewers</Text>
+                  <Text style={styles.liveViewers}>{creatorLiveStatus.viewerCount ?? 0} viewers</Text>
                 </View>
                 <Text style={styles.liveTitle}>{creatorLiveStatus.liveTitle}</Text>
                 <TouchableOpacity

@@ -634,7 +634,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   <View style={styles.menuIconBgLight}>
                     <MenuPostIcon size={20} color={colors.primary} />
                   </View>
-                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Poste</Text>
+                  <Text style={[styles.menuOptionText, { color: colors.dark }]}>Post</Text>
                 </TouchableOpacity>
               </BlurView>
             </Animated.View>

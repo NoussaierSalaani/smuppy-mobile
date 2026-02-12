@@ -3,6 +3,7 @@
  * Provides secure headers, input validation, and rate limiting helpers
  */
 
+import { APIGatewayProxyEvent } from 'aws-lambda';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { createLogger } from './logger';
 
@@ -118,6 +119,29 @@ export function checkRateLimit(
 
   current.count++;
   return false;
+}
+
+/**
+ * Extract Cognito sub from API Gateway event.
+ * Prefers the authorizer claims (when a Cognito authorizer is attached),
+ * but falls back to decoding the JWT from the Authorization header
+ * (for routes without a Cognito authorizer).
+ */
+export function extractCognitoSub(event: APIGatewayProxyEvent): string | undefined {
+  const fromAuthorizer = event.requestContext.authorizer?.claims?.sub;
+  if (fromAuthorizer) return fromAuthorizer;
+
+  const authHeader = event.headers?.Authorization || event.headers?.authorization;
+  if (!authHeader) return undefined;
+
+  try {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+    return payload.sub;
+  } catch {
+    log.warn('Failed to decode JWT from Authorization header');
+    return undefined;
+  }
 }
 
 /**

@@ -10,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { GRADIENTS } from '../../config/theme';
@@ -322,7 +322,7 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
           {/* Business Info */}
           <View style={styles.businessCard}>
             {business?.logo_url ? (
-              <Image source={{ uri: business.logo_url }} style={styles.businessLogo} />
+              <OptimizedImage source={business.logo_url} style={styles.businessLogo} />
             ) : (
               <View style={[styles.businessLogoPlaceholder, { backgroundColor: categoryColor }]}>
                 <Ionicons name={categoryIcon} size={28} color="#fff" />

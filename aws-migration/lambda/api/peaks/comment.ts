@@ -10,7 +10,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
-import { sanitizeText, isValidUUID } from '../utils/security';
+import { sanitizeText, isValidUUID, extractCognitoSub } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
@@ -68,7 +68,7 @@ async function handleListComments(
   const pool = await getReaderPool();
 
   // Resolve requester for shadow-ban self-view
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  const cognitoSub = extractCognitoSub(event);
   let currentProfileId: string | null = null;
   if (cognitoSub) {
     const userResult = await pool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
@@ -156,7 +156,7 @@ async function handleCreateComment(
   headers: Record<string, string>,
   peakId: string
 ): Promise<APIGatewayProxyResult> {
-  const userId = event.requestContext.authorizer?.claims?.sub;
+  const userId = extractCognitoSub(event);
   if (!userId) {
     return {
       statusCode: 401,

@@ -8,7 +8,7 @@ import Redis from 'ioredis';
 import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
+import { isValidUUID, extractCognitoSub } from '../utils/security';
 
 const log = createLogger('posts-list');
 
@@ -66,22 +66,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const parsedLimit = Math.min(parseInt(limit), 50);
 
-    // Extract cognito sub from API Gateway authorizer claims (preferred)
-    // or fall back to decoding the JWT from the Authorization header directly
-    // (needed when API Gateway does not have a Cognito authorizer attached)
-    let cognitoSub: string | undefined = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      const authHeader = event.headers?.Authorization || event.headers?.authorization;
-      if (authHeader) {
-        try {
-          const token = authHeader.replace(/^Bearer\s+/i, '');
-          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
-          cognitoSub = payload.sub;
-        } catch {
-          log.warn('Failed to decode JWT from Authorization header');
-        }
-      }
-    }
+    const cognitoSub = extractCognitoSub(event);
 
     const cacheKey = `posts:list:${type}:${userId || 'all'}:${cursor || 'first'}:${parsedLimit}`;
 

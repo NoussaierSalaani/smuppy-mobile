@@ -11,7 +11,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Dimensions,
   ActivityIndicator,
   Animated,
@@ -26,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox, { MapView, Camera, MarkerView } from '@rnmapbox/maps';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -302,7 +302,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
       activeOpacity={0.8}
     >
       {item.image_url && (
-        <Image source={{ uri: item.image_url }} style={styles.serviceImage} />
+        <OptimizedImage source={item.image_url} style={styles.serviceImage} />
       )}
       <View style={styles.serviceContent}>
         <View style={styles.serviceHeader}>
@@ -366,11 +366,9 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   const renderReviewItem = ({ item }: { item: Review }) => (
     <View style={styles.reviewItem}>
       <View style={styles.reviewHeader}>
-        <Image
-          source={{
-            uri: item.user.avatar_url ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(item.user.full_name || item.user.username)}&background=random`,
-          }}
+        <OptimizedImage
+          source={item.user.avatar_url ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(item.user.full_name || item.user.username)}&background=random`}
           style={styles.reviewAvatar}
         />
         <View style={styles.reviewUserInfo}>
@@ -451,7 +449,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
         {/* Cover & Logo */}
         <View style={styles.coverContainer}>
           {business.cover_url ? (
-            <Image source={{ uri: business.cover_url }} style={styles.coverImage} />
+            <OptimizedImage source={business.cover_url} style={styles.coverImage} />
           ) : (
             <LinearGradient
               colors={[business.category.color, `${business.category.color}66`]}
@@ -479,11 +477,9 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
 
           {/* Logo */}
           <View style={styles.logoContainer}>
-            <Image
-              source={{
-                uri: business.logo_url ||
-                  `https://ui-avatars.com/api/?name=${business.name}&background=${business.category.color.replace('#', '')}&size=200`,
-              }}
+            <OptimizedImage
+              source={business.logo_url ||
+                `https://ui-avatars.com/api/?name=${business.name}&background=${business.category.color.replace('#', '')}&size=200`}
               style={styles.logo}
             />
             {business.is_verified && (

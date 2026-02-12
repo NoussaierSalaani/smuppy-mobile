@@ -10,7 +10,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Dimensions,
   FlatList,
   RefreshControl,
@@ -27,6 +26,7 @@ import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/map
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -338,7 +338,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
           {/* Cover/Logo Header */}
           <View style={styles.cardHeader}>
             {item.cover_url ? (
-              <Image source={{ uri: item.cover_url }} style={styles.cardCover} />
+              <OptimizedImage source={item.cover_url} style={styles.cardCover} />
             ) : (
               <LinearGradient
                 colors={[item.category.color, `${item.category.color}66`]}
@@ -352,11 +352,9 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
 
             {/* Logo */}
             <View style={styles.cardLogoContainer}>
-              <Image
-                source={{
-                  uri: item.logo_url ||
-                    `https://ui-avatars.com/api/?name=${item.name}&background=${item.category.color.replace('#', '')}&size=80`,
-                }}
+              <OptimizedImage
+                source={item.logo_url ||
+                  `https://ui-avatars.com/api/?name=${item.name}&background=${item.category.color.replace('#', '')}&size=80`}
                 style={styles.cardLogo}
               />
             </View>

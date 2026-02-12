@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
+import { isValidUUID, extractCognitoSub } from '../utils/security';
 
 const log = createLogger('peaks-get');
 
@@ -34,7 +34,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Get current user if authenticated
-    const userId = event.requestContext.authorizer?.claims?.sub;
+    const userId = extractCognitoSub(event);
 
     const db = await getPool();
 

@@ -11,7 +11,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -267,7 +267,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
       activeOpacity={0.8}
     >
       {service.image_url && (
-        <Image source={{ uri: service.image_url }} style={styles.serviceImage} />
+        <OptimizedImage source={service.image_url} style={styles.serviceImage} />
       )}
       <View style={styles.serviceInfo}>
         <Text style={styles.serviceName}>{service.name}</Text>
@@ -341,7 +341,7 @@ export default function BusinessBookingScreen({ route, navigation }: BusinessBoo
           </TouchableOpacity>
           <View style={styles.headerInfo}>
             {business?.logo_url && (
-              <Image source={{ uri: business.logo_url }} style={styles.headerLogo} />
+              <OptimizedImage source={business.logo_url} style={styles.headerLogo} />
             )}
             <View>
               <Text style={styles.headerTitle}>Book at</Text>

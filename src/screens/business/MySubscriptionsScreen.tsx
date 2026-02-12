@@ -10,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
@@ -159,7 +159,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
         <View style={styles.cardHeader}>
           <View style={styles.businessInfo}>
             {subscription.business.logo_url ? (
-              <Image source={{ uri: subscription.business.logo_url }} style={styles.businessLogo} />
+              <OptimizedImage source={subscription.business.logo_url} style={styles.businessLogo} />
             ) : (
               <View style={[styles.businessLogoPlaceholder, { backgroundColor: subscription.business.category.color }]}>
                 <Ionicons name={subscription.business.category.icon as keyof typeof Ionicons.glyphMap} size={20} color={colors.dark} />

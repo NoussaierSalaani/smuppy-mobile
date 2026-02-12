@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
+import { isValidUUID, extractCognitoSub } from '../utils/security';
 
 const log = createLogger('peaks-list');
 
@@ -16,7 +16,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   try {
     // Get current user if authenticated (for isLiked status)
-    const userId = event.requestContext.authorizer?.claims?.sub;
+    const userId = extractCognitoSub(event);
 
     // Pagination params
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);

@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
+import { isValidUUID, extractCognitoSub } from '../utils/security';
 
 const log = createLogger('comments-list');
 
@@ -54,7 +54,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Resolve requester profile for shadow-ban self-view
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+    const cognitoSub = extractCognitoSub(event);
     let requesterId: string | null = null;
     if (cognitoSub) {
       const requesterResult = await db.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);

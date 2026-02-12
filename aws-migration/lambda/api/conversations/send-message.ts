@@ -156,10 +156,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Check recipient account is active (suspended/banned users cannot receive messages)
     const recipientCheck = await db.query(
-      'SELECT account_status FROM profiles WHERE id = $1',
+      'SELECT moderation_status FROM profiles WHERE id = $1',
       [recipientId]
     );
-    if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].account_status === 'suspended' || recipientCheck.rows[0].account_status === 'banned') {
+    if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].moderation_status === 'suspended' || recipientCheck.rows[0].moderation_status === 'banned') {
       return {
         statusCode: 403,
         headers,

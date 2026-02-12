@@ -232,15 +232,17 @@ class AWSAuthService {
       };
     } catch (apiError: unknown) {
       const err = apiError as { statusCode?: number; message?: string };
-      // If API endpoint doesn't exist yet, fall back to direct Cognito signup
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', err.message);
 
-      if (err.statusCode === 404 || err.message?.includes('Not Found')) {
-        return this.signUpDirect(params);
+      // Fall back to direct Cognito on any server/network error (404, 500, 502, 503, timeout, CORS, etc.).
+      // Only re-throw client validation errors (400) with a clear message from the server.
+      const status = err.statusCode || 0;
+      const isClientValidationError = status === 400 && err.message && !err.message.includes('Not Found');
+      if (isClientValidationError) {
+        throw apiError;
       }
 
-      // Re-throw other errors
-      throw apiError;
+      return this.signUpDirect(params);
     }
   }
 
@@ -637,7 +639,10 @@ class AWSAuthService {
     }
     if (this.accessToken && this.isTokenExpired(this.accessToken)) {
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Access token expired, refreshing...');
-      await this.refreshSessionOnce();
+      const refreshed = await this.refreshSessionOnce();
+      if (!refreshed) {
+        return null;
+      }
     }
     return this.accessToken;
   }
@@ -652,7 +657,12 @@ class AWSAuthService {
     }
     if (this.idToken && this.isTokenExpired(this.idToken)) {
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] ID token expired, refreshing...');
-      await this.refreshSessionOnce();
+      const refreshed = await this.refreshSessionOnce();
+      if (!refreshed) {
+        // Refresh failed — return null instead of stale expired token.
+        // Callers must handle null (skip auth header or show login).
+        return null;
+      }
     }
     return this.idToken;
   }
@@ -883,6 +893,10 @@ class AWSAuthService {
       secureStore.removeItem(TOKEN_KEYS.ID_TOKEN),
       secureStore.removeItem(TOKEN_KEYS.USER),
     ]);
+
+    // CRITICAL: Notify listeners so AppNavigator redirects to login screen.
+    // Without this, the UI stays on main screen with a dead session.
+    this.notifyAuthStateChange(null);
   }
 
   private notifyAuthStateChange(user: AuthUser | null): void {

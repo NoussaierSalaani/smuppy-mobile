@@ -453,6 +453,11 @@ class AWSAPIService {
             });
             clearTimeout(retryTimeoutId);
             if (!retryResponse.ok) {
+              // Double 401 = session is truly dead. Force sign out.
+              if (retryResponse.status === 401) {
+                if (__DEV__) console.warn('[AWS API] Double 401 — forcing sign out');
+                awsAuth.signOut().catch(() => {});
+              }
               const retryError = await retryResponse.json().catch(() => ({}));
               throw new APIError(
                 retryError.message || `Request failed with status ${retryResponse.status}`,
@@ -475,6 +480,10 @@ class AWSAPIService {
             if (retryErr instanceof Error && retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
             throw retryErr;
           }
+        } else if (!newToken) {
+          // getIdToken returned null = refresh failed = session dead
+          if (__DEV__) console.warn('[AWS API] 401 and no valid token — forcing sign out');
+          awsAuth.signOut().catch(() => {});
         }
       }
 

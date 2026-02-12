@@ -312,7 +312,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const nextCursorRef = useRef<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
   const [hasMore, setHasMore] = useState(true);
+  const hasMoreRef = useRef(true);
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState<UISuggestion[]>([]);
@@ -366,6 +368,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         }
         if (refresh || isInitial) {
           setPosts([]);
+          hasMoreRef.current = false;
           setHasMore(false);
           setLoadError(error);
         }
@@ -376,8 +379,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       if (!data || data.length === 0) {
         if (refresh || isInitial) {
           setPosts([]);
+          hasMoreRef.current = false;
           setHasMore(false);
         } else {
+          hasMoreRef.current = false;
           setHasMore(false);
         }
         nextCursorRef.current = null;
@@ -385,11 +390,15 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
 
       // Use batch functions for faster like/save checking (single query each)
+      // Promise.allSettled: one failure must not break the entire feed
       const postIds = data.map(post => post.id);
-      const [likedMap, savedMap] = await Promise.all([
+      const [likedResult, savedResult] = await Promise.allSettled([
         hasLikedPostsBatch(postIds),
         hasSavedPostsBatch(postIds),
       ]);
+
+      const likedMap = likedResult.status === 'fulfilled' ? likedResult.value : new Map<string, boolean>();
+      const savedMap = savedResult.status === 'fulfilled' ? savedResult.value : new Map<string, boolean>();
 
       const likedIds = new Set<string>(
         postIds.filter(id => likedMap.get(id))
@@ -415,11 +424,13 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
 
       nextCursorRef.current = nextCursor;
+      hasMoreRef.current = more;
       setHasMore(more);
     } catch (err) {
       if (__DEV__) console.warn('[FanFeed] Error:', err);
       if (refresh || isInitial) {
         setPosts([]);
+        hasMoreRef.current = false;
         setHasMore(false);
         setLoadError('Unable to load feed. Check your connection and try again.');
       }
@@ -538,10 +549,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       const currentPosts = postsRef.current;
       if (currentPosts.length > 0) {
         const postIds = currentPosts.map(p => p.id);
-        Promise.all([
+        Promise.allSettled([
           hasLikedPostsBatch(postIds),
           hasSavedPostsBatch(postIds),
-        ]).then(([likedMap, savedMap]) => {
+        ]).then(([likedResult, savedResult]) => {
+          const likedMap = likedResult.status === 'fulfilled' ? likedResult.value : new Map<string, boolean>();
+          const savedMap = savedResult.status === 'fulfilled' ? savedResult.value : new Map<string, boolean>();
           setPosts(prev => prev.map(p => ({
             ...p,
             isLiked: likedMap.get(p.id) ?? p.isLiked,
@@ -745,12 +758,18 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, [fetchPosts]);
 
   // Load more posts (cursor-based)
+  // Uses refs for guards to avoid stale closures from rapid onEndReached
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore || !nextCursorRef.current) return;
+    if (loadingMoreRef.current || !hasMoreRef.current || !nextCursorRef.current) return;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
-    await fetchPosts(nextCursorRef.current);
-    setLoadingMore(false);
-  }, [loadingMore, hasMore, fetchPosts]);
+    try {
+      await fetchPosts(nextCursorRef.current);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [fetchPosts]);
 
   // Render suggestion item
   const renderSuggestion = useCallback((suggestion: UISuggestion, index: number) => {

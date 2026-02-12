@@ -398,6 +398,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
   const [peaksData, setPeaksData] = useState<PeakCardData[]>([]);
   const [hasMore, setHasMore] = useState(true);
 
@@ -560,25 +561,27 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Fetch peaks for carousel (skip for business accounts — they don't see the carousel)
   useEffect(() => {
     if (isBusiness) return;
-    
+    let mounted = true;
+
     if (__DEV__) {
       console.log('[VibesFeed] Fetching peaks...', { currentUserId });
     }
-    
+
     const toCdn = (url?: string | null) => {
       if (!url) return null;
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
     };
-    
+
     awsAPI.getPeaks({ limit: 10 })
       .then((res) => {
+        if (!mounted) return;
         if (__DEV__) {
-          console.log('[VibesFeed] Peaks API response:', { 
-            count: res.data?.length || 0, 
-            data: res.data 
+          console.log('[VibesFeed] Peaks API response:', {
+            count: res.data?.length || 0,
+            data: res.data
           });
         }
-        
+
         const mappedPeaks = (res.data || []).map((p) => {
           const thumbnail = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER;
           const videoUrl = toCdn(p.videoUrl) || undefined;
@@ -607,11 +610,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             hasNew,
           };
         });
-        
+
         if (__DEV__) {
           console.log('[VibesFeed] Mapped peaks:', mappedPeaks.length);
         }
-        
+
         setPeaksData(mappedPeaks);
       })
       .catch((err) => {
@@ -619,6 +622,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           console.warn('[VibesFeed] Error loading peaks:', err);
         }
       });
+
+    return () => { mounted = false; };
   }, [isBusiness, currentUserId]);
 
   // Passive daily login streak tracking
@@ -947,15 +952,20 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     setRefreshing(false);
   }, [fetchPosts]);
 
-  // Load more vibes
+  // Load more vibes — uses refs for guards to avoid stale closures
   const onLoadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMoreRef.current || !hasMore) return;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
-    const nextPage = page + 1;
-    setPage(nextPage);
-    await fetchPosts(nextPage);
-    setLoadingMore(false);
-  }, [loadingMore, hasMore, page, fetchPosts]);
+    try {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      await fetchPosts(nextPage);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [hasMore, page, fetchPosts]);
 
   // FlashList renderItem for virtualized grid
   const renderGridItem = useCallback(({ item }: { item: UIVibePost }) => (

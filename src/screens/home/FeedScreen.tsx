@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeHeader from '../../components/HomeHeader';
 import { useTabBar } from '../../context/TabBarContext';
 import { useTheme } from '../../hooks/useTheme';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import FanFeed from './FanFeed';
 import VibesFeed from './VibesFeed';
 import XplorerFeed from './XplorerFeed';
@@ -102,13 +103,17 @@ export default function FeedScreen() {
       >
         {/* Fan - always loaded first */}
         <View style={styles.page}>
-          <FanFeed ref={fanFeedRef} headerHeight={totalHeaderHeight} />
+          <ErrorBoundary name="FanFeed" minimal>
+            <FanFeed ref={fanFeedRef} headerHeight={totalHeaderHeight} />
+          </ErrorBoundary>
         </View>
 
         {/* Vibes - lazy loaded when visited */}
         <View style={styles.page}>
           {visitedTabs.has(1) ? (
-            <VibesFeed ref={vibesFeedRef} headerHeight={totalHeaderHeight} />
+            <ErrorBoundary name="VibesFeed" minimal>
+              <VibesFeed ref={vibesFeedRef} headerHeight={totalHeaderHeight} />
+            </ErrorBoundary>
           ) : (
             <View style={[styles.placeholder, { backgroundColor: colors.background }]} />
           )}
@@ -117,7 +122,9 @@ export default function FeedScreen() {
         {/* Xplorer - lazy loaded when visited */}
         <View style={styles.page}>
           {visitedTabs.has(2) ? (
-            <XplorerFeed navigation={navigation} isActive={activeTab === 2} />
+            <ErrorBoundary name="XplorerFeed" minimal>
+              <XplorerFeed navigation={navigation} isActive={activeTab === 2} />
+            </ErrorBoundary>
           ) : (
             <View style={[styles.placeholder, { backgroundColor: colors.background }]} />
           )}

@@ -47,7 +47,7 @@ interface BaseNotification {
 }
 
 interface UserNotification extends BaseNotification {
-  type: 'follow' | 'like' | 'live' | 'peak_reply';
+  type: 'follow' | 'like' | 'peak_like' | 'comment' | 'peak_comment' | 'peak_reply' | 'live';
   user: NotificationUser;
   message: string;
   isFollowing?: boolean;
@@ -106,10 +106,13 @@ function mapNotificationType(backendType: string): UserNotification['type'] {
     case 'follow_request':
       return 'follow';
     case 'like':
-    case 'peak_like':
       return 'like';
+    case 'peak_like':
+      return 'peak_like';
     case 'comment':
+      return 'comment';
     case 'peak_comment':
+      return 'peak_comment';
     case 'peak_reply':
       return 'peak_reply';
     case 'live':
@@ -207,7 +210,10 @@ function getDefaultMessage(type: string): string {
   switch (type) {
     case 'follow': return 'became your fan';
     case 'like': return 'liked your post';
-    case 'peak_reply': return 'replied to your Peak';
+    case 'peak_like': return 'liked your peak';
+    case 'comment': return 'commented on your post';
+    case 'peak_comment': return 'commented on your peak';
+    case 'peak_reply': return 'replied to your peak';
     case 'live': return 'is live now';
     default: return 'interacted with your content';
   }
@@ -438,8 +444,8 @@ export default function NotificationsScreen(): React.JSX.Element {
   const filters: Filter[] = [
     { key: 'all', label: 'All' },
     { key: 'follow', label: 'New Fans' },
-    { key: 'like', label: 'Likes' },
-    { key: 'peak_reply', label: 'Peak Replies' },
+    { key: 'likes', label: 'Likes' },
+    { key: 'comments', label: 'Comments' },
   ];
 
   // Prefetch + navigate to user profile with UUID validation
@@ -557,6 +563,8 @@ export default function NotificationsScreen(): React.JSX.Element {
 
   const filteredNotifications = useMemo(() => {
     if (activeFilter === 'all') return notifications;
+    if (activeFilter === 'likes') return notifications.filter((n) => n.type === 'like' || n.type === 'peak_like');
+    if (activeFilter === 'comments') return notifications.filter((n) => n.type === 'comment' || n.type === 'peak_comment' || n.type === 'peak_reply');
     return notifications.filter((n) => n.type === activeFilter);
   }, [notifications, activeFilter]);
 
@@ -573,9 +581,13 @@ export default function NotificationsScreen(): React.JSX.Element {
   ): { name: keyof typeof Ionicons.glyphMap; color: string } => {
     switch (type) {
       case 'like':
+      case 'peak_like':
         return { name: 'heart', color: '#FF6B6B' };
       case 'follow':
         return { name: 'person-add', color: colors.blue };
+      case 'comment':
+        return { name: 'chatbubble', color: colors.primary };
+      case 'peak_comment':
       case 'peak_reply':
         return { name: 'videocam', color: colors.primary };
       case 'live':

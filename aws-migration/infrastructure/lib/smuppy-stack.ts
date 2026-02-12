@@ -2125,18 +2125,16 @@ export class SmuppyStack extends cdk.Stack {
     // ========================================
     // Custom Domain + SSL (api.smuppy.com)
     // ========================================
-    if (props.apiDomain) {
-      // ACM Certificate (DNS-validated)
+    if (props.apiDomain && props.hostedZoneId) {
+      // ACM Certificate (DNS-validated via Route53)
       const certificate = new acm.Certificate(this, 'ApiCertificate', {
         domainName: props.apiDomain,
-        validation: props.hostedZoneId
-          ? acm.CertificateValidation.fromDns(
-              route53.HostedZone.fromHostedZoneAttributes(this, 'CertValidationZone', {
-                hostedZoneId: props.hostedZoneId,
-                zoneName: 'smuppy.com',
-              })
-            )
-          : acm.CertificateValidation.fromEmail(),
+        validation: acm.CertificateValidation.fromDns(
+          route53.HostedZone.fromHostedZoneAttributes(this, 'CertValidationZone', {
+            hostedZoneId: props.hostedZoneId,
+            zoneName: 'smuppy.com',
+          })
+        ),
       });
 
       // Custom domain on primary API Gateway
@@ -2153,20 +2151,18 @@ export class SmuppyStack extends cdk.Stack {
         restApi: api,
       });
 
-      // Route53 A record (if hosted zone provided)
-      if (props.hostedZoneId) {
-        const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-          hostedZoneId: props.hostedZoneId,
-          zoneName: 'smuppy.com',
-        });
-        new route53.ARecord(this, 'ApiARecord', {
-          zone,
-          recordName: props.apiDomain,
-          target: route53.RecordTarget.fromAlias(
-            new route53Targets.ApiGatewayDomain(customDomain)
-          ),
-        });
-      }
+      // Route53 A record
+      const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+        hostedZoneId: props.hostedZoneId,
+        zoneName: 'smuppy.com',
+      });
+      new route53.ARecord(this, 'ApiARecord', {
+        zone,
+        recordName: props.apiDomain,
+        target: route53.RecordTarget.fromAlias(
+          new route53Targets.ApiGatewayDomain(customDomain)
+        ),
+      });
 
       new cdk.CfnOutput(this, 'ApiCustomDomainEndpoint', {
         value: `https://${props.apiDomain}`,

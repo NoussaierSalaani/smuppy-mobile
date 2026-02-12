@@ -84,6 +84,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly notificationsMarkAllReadFn: NodejsFunction;
   public readonly notificationsUnreadCountFn: NodejsFunction;
   public readonly notificationsPushTokenFn: NodejsFunction;
+  public readonly notificationsDeleteFn: NodejsFunction;
 
   // Phase 6: Messages & Conversations
   public readonly conversationsListFn: NodejsFunction;
@@ -606,6 +607,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.notificationsMarkAllReadFn = createLambda('NotificationsMarkAllReadFunction', 'notifications/mark-all-read');
     this.notificationsUnreadCountFn = createLambda('NotificationsUnreadCountFunction', 'notifications/unread-count');
     this.notificationsPushTokenFn = createLambda('NotificationsPushTokenFunction', 'notifications/push-token');
+    this.notificationsDeleteFn = createLambda('NotificationsDeleteFunction', 'notifications/delete');
 
     // ========================================
     // Phase 6: Messages & Conversations Lambda Functions

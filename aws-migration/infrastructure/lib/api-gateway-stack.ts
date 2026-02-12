@@ -292,6 +292,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
     notificationsPreferences.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack2.notificationsPreferencesUpdateFn), authWithBodyValidation);
 
     const notificationById = notifications.addResource('{id}');
+    notificationById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.notificationsDeleteFn), authMethodOptions);
     const notificationRead = notificationById.addResource('read');
     notificationRead.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.notificationsMarkReadFn), authMethodOptions);
 

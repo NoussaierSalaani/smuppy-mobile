@@ -992,6 +992,12 @@ class AWSAPIService {
     return this.request('/notifications/unread-count');
   }
 
+  async deleteNotification(id: string): Promise<void> {
+    return this.request(`/notifications/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // ==========================================
   // Account Management
   // ==========================================

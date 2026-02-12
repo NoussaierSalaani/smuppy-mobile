@@ -8,7 +8,9 @@ import {
   SectionList,
   TouchableOpacity,
   RefreshControl,
+  Animated,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -100,25 +102,30 @@ type RootStackParamList = {
 // ============================================
 
 // Map backend notification types to frontend display types
-function mapNotificationType(backendType: string): UserNotification['type'] {
+// Returns null for unmapped types — caller uses backend body text directly
+function mapNotificationType(backendType: string): UserNotification['type'] | null {
   switch (backendType) {
     case 'new_follower':
     case 'follow_request':
+    case 'follow_accepted':
       return 'follow';
     case 'like':
       return 'like';
     case 'peak_like':
       return 'peak_like';
     case 'comment':
+    case 'post_tag':
       return 'comment';
     case 'peak_comment':
+    case 'peak_tag':
       return 'peak_comment';
     case 'peak_reply':
+    case 'new_peak':
       return 'peak_reply';
     case 'live':
       return 'live';
     default:
-      return 'like';
+      return null;
   }
 }
 
@@ -177,15 +184,23 @@ function transformNotification(apiNotif: ApiNotification): Notification {
   // User notifications (follow, like, comment, peak_comment, peak_reply, live, etc.)
   const userData = apiNotif.data?.user || {};
   const mappedType = mapNotificationType(apiNotif.type);
+  const displayType: UserNotification['type'] = mappedType ?? 'like';
   const userName = sanitizeText(userData.name || userData.username) || '';
 
-  // Build message dynamically using the user's name (fixes "USER" placeholder bug)
-  // Only fall back to apiNotif.body if we have no user name
-  const dynamicMessage = userName ? getDefaultMessage(mappedType) : (sanitizeText(apiNotif.body) || getDefaultMessage(mappedType));
+  // If type is unmapped (mappedType is null), use backend body text directly
+  // Otherwise build message from backend type + display type for accurate wording
+  let dynamicMessage: string;
+  if (mappedType === null) {
+    dynamicMessage = sanitizeText(apiNotif.body) || 'interacted with your content';
+  } else if (userName) {
+    dynamicMessage = getMessageForType(apiNotif.type, displayType);
+  } else {
+    dynamicMessage = sanitizeText(apiNotif.body) || getMessageForType(apiNotif.type, displayType);
+  }
 
   return {
     ...baseNotif,
-    type: mappedType,
+    type: displayType,
     user: {
       id: userData.id || apiNotif.data?.actorId || '',
       name: userName || 'User',
@@ -206,8 +221,17 @@ function transformNotification(apiNotif: ApiNotification): Notification {
   } as UserNotification;
 }
 
-function getDefaultMessage(type: string): string {
-  switch (type) {
+function getMessageForType(backendType: string, displayType: UserNotification['type']): string {
+  // Specific messages for backend types that map to a shared display type
+  switch (backendType) {
+    case 'follow_accepted': return 'accepted your follow request';
+    case 'new_peak': return 'posted a new peak';
+    case 'peak_tag': return 'tagged you in a peak';
+    case 'post_tag': return 'tagged you in a post';
+    default: break;
+  }
+  // Default messages per display type
+  switch (displayType) {
     case 'follow': return 'became your fan';
     case 'like': return 'liked your post';
     case 'peak_like': return 'liked your peak';
@@ -231,6 +255,7 @@ interface NotificationItemProps {
   navigateToContent: (notif: UserNotification) => void;
   goToUserProfile: (userId: string) => void;
   toggleFollow: (id: number | string) => Promise<void>;
+  deleteNotification: (id: number | string) => void;
   getNotificationIcon: (type: string) => { name: keyof typeof Ionicons.glyphMap; color: string };
   isToggling: boolean;
 }
@@ -247,108 +272,142 @@ const NotificationItem = React.memo(function NotificationItem({
   navigateToContent,
   goToUserProfile,
   toggleFollow,
+  deleteNotification,
   getNotificationIcon,
   isToggling,
 }: NotificationItemProps): React.JSX.Element {
   const isSystem = isSystemNotification(item);
+  const swipeableRef = useRef<Swipeable>(null);
+
+  const renderRightActions = useCallback(
+    (_progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+      const translateX = dragX.interpolate({
+        inputRange: [-80, 0],
+        outputRange: [0, 80],
+        extrapolate: 'clamp',
+      });
+      return (
+        <Animated.View style={[styles.swipeDeleteContainer, { transform: [{ translateX }] }]}>
+          <TouchableOpacity
+            style={styles.swipeDeleteButton}
+            onPress={() => {
+              swipeableRef.current?.close();
+              deleteNotification(item.id);
+            }}
+          >
+            <Ionicons name="trash-outline" size={20} color="#fff" />
+            <Text style={styles.swipeDeleteText}>Delete</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    },
+    [item.id, deleteNotification, styles],
+  );
 
   return (
-    <TouchableOpacity
-      style={[styles.notificationItem, !item.isRead && styles.notificationUnread]}
-      onPress={() => {
-        markAsRead(item.id);
-        if (!isSystem) {
-          navigateToContent(item as UserNotification);
-        }
-      }}
-      activeOpacity={0.7}
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      rightThreshold={40}
+      overshootRight={false}
     >
-      {!item.isRead && <View style={styles.unreadDot} />}
-
-      {isSystem ? (
-        <View style={[styles.systemIcon, { backgroundColor: colors.backgroundFocus }]}>
-          <Ionicons
-            name={(item as SystemNotification).icon as keyof typeof Ionicons.glyphMap}
-            size={24}
-            color={colors.primary}
-          />
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.avatarContainer}
-          onPress={() =>
-            (item as UserNotification).user?.id &&
-            goToUserProfile((item as UserNotification).user.id)
+      <TouchableOpacity
+        style={[styles.notificationItem, !item.isRead && styles.notificationUnread]}
+        onPress={() => {
+          markAsRead(item.id);
+          if (!isSystem) {
+            navigateToContent(item as UserNotification);
           }
-        >
-          <AvatarImage source={(item as UserNotification).user.avatar} size={50} />
-          <View
-            style={[
-              styles.typeIcon,
-              {
-                backgroundColor: getNotificationIcon(item.type).color,
-                borderColor: colors.white
-              },
-            ]}
-          >
-            <Ionicons name={getNotificationIcon(item.type).name} size={10} color="#fff" />
-          </View>
-        </TouchableOpacity>
-      )}
+        }}
+        activeOpacity={0.7}
+      >
+        {!item.isRead && <View style={styles.unreadDot} />}
 
-      <View style={styles.notificationContent}>
         {isSystem ? (
-          <>
-            <Text style={styles.systemTitle}>{(item as SystemNotification).title}</Text>
-            <Text style={styles.systemMessage}>{(item as SystemNotification).message}</Text>
-          </>
+          <View style={[styles.systemIcon, { backgroundColor: colors.backgroundFocus }]}>
+            <Ionicons
+              name={(item as SystemNotification).icon as keyof typeof Ionicons.glyphMap}
+              size={24}
+              color={colors.primary}
+            />
+          </View>
         ) : (
-          <Text style={styles.notificationText}>
-            <Text style={styles.userName}>
-              {(item as UserNotification).user.name}
-            </Text>
-            {(item as UserNotification).user.isVerified ? ' \u2713 ' : ' '}{item.message}
-          </Text>
-        )}
-        <Text style={styles.timeText}>{item.time}</Text>
-      </View>
-
-      {item.type === 'follow' && !isSystem && (
-        <TouchableOpacity
-          style={styles.followButtonContainer}
-          onPress={() => toggleFollow(item.id)}
-          disabled={isToggling}
-        >
-          {(item as UserNotification).isFollowing ? (
-            <View style={styles.followingButton}>
-              <Text style={styles.followingButtonText}>Following</Text>
-            </View>
-          ) : (
-            <LinearGradient
-              colors={GRADIENTS.primary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.followButton}
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={() =>
+              (item as UserNotification).user?.id &&
+              goToUserProfile((item as UserNotification).user.id)
+            }
+          >
+            <AvatarImage source={(item as UserNotification).user.avatar} size={50} />
+            <View
+              style={[
+                styles.typeIcon,
+                {
+                  backgroundColor: getNotificationIcon(item.type).color,
+                  borderColor: colors.white
+                },
+              ]}
             >
-              <Text style={styles.followButtonText}>Fan</Text>
-            </LinearGradient>
+              <Ionicons name={getNotificationIcon(item.type).name} size={10} color="#fff" />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.notificationContent}>
+          {isSystem ? (
+            <>
+              <Text style={styles.systemTitle}>{(item as SystemNotification).title}</Text>
+              <Text style={styles.systemMessage}>{(item as SystemNotification).message}</Text>
+            </>
+          ) : (
+            <Text style={styles.notificationText}>
+              <Text style={styles.userName}>
+                {(item as UserNotification).user.name}
+              </Text>
+              {(item as UserNotification).user.isVerified ? ' \u2713 ' : ' '}{item.message}
+            </Text>
           )}
-        </TouchableOpacity>
-      )}
-
-      {!isSystem && (item as UserNotification).postImage && (
-        <OptimizedImage
-          source={(item as UserNotification).postImage}
-          style={styles.postThumbnail}
-        />
-      )}
-
-      {item.type === 'live' && (
-        <View style={styles.liveButton}>
-          <Text style={styles.liveButtonText}>Watch</Text>
+          <Text style={styles.timeText}>{item.time}</Text>
         </View>
-      )}
-    </TouchableOpacity>
+
+        {item.type === 'follow' && !isSystem && (
+          <TouchableOpacity
+            style={styles.followButtonContainer}
+            onPress={() => toggleFollow(item.id)}
+            disabled={isToggling}
+          >
+            {(item as UserNotification).isFollowing ? (
+              <View style={styles.followingButton}>
+                <Text style={styles.followingButtonText}>Following</Text>
+              </View>
+            ) : (
+              <LinearGradient
+                colors={GRADIENTS.primary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.followButton}
+              >
+                <Text style={styles.followButtonText}>Fan</Text>
+              </LinearGradient>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {!isSystem && (item as UserNotification).postImage && (
+          <OptimizedImage
+            source={(item as UserNotification).postImage}
+            style={styles.postThumbnail}
+          />
+        )}
+
+        {item.type === 'live' && (
+          <View style={styles.liveButton}>
+            <Text style={styles.liveButtonText}>Watch</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Swipeable>
   );
 });
 
@@ -561,6 +620,22 @@ export default function NotificationsScreen(): React.JSX.Element {
     }
   }, []);
 
+  const deleteNotification = useCallback((id: number | string): void => {
+    // Capture removed item inside setState for rollback — avoids stale closure on notifications
+    let removed: Notification | undefined;
+    setNotifications(prev => {
+      removed = prev.find(n => n.id === id);
+      return prev.filter(n => n.id !== id);
+    });
+
+    awsAPI.deleteNotification(String(id)).catch((err) => {
+      if (removed) {
+        setNotifications(prev => [...prev, removed!]);
+      }
+      if (__DEV__) console.warn('Error deleting notification:', err);
+    });
+  }, []);
+
   const filteredNotifications = useMemo(() => {
     if (activeFilter === 'all') return notifications;
     if (activeFilter === 'likes') return notifications.filter((n) => n.type === 'like' || n.type === 'peak_like');
@@ -618,10 +693,11 @@ export default function NotificationsScreen(): React.JSX.Element {
       navigateToContent={navigateToContent}
       goToUserProfile={goToUserProfile}
       toggleFollow={toggleFollow}
+      deleteNotification={deleteNotification}
       getNotificationIcon={getNotificationIcon}
       isToggling={togglingIds.has(item.id)}
     />
-  ), [styles, colors, markAsRead, navigateToContent, goToUserProfile, toggleFollow, getNotificationIcon, togglingIds]);
+  ), [styles, colors, markAsRead, navigateToContent, goToUserProfile, toggleFollow, deleteNotification, getNotificationIcon, togglingIds]);
 
   const renderSectionHeader = useCallback(({ section }: { section: NotificationSection }) => (
     <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -1026,6 +1102,25 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 13,
     color: colors.gray,
     marginTop: 1,
+  },
+  // Swipe-to-delete
+  swipeDeleteContainer: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FF3B30',
+  },
+  swipeDeleteButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+  },
+  swipeDeleteText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 11,
+    color: '#fff',
+    marginTop: 2,
   },
   bottomSpacer: {
     height: 100,

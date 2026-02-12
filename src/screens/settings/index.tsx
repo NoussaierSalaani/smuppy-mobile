@@ -10,3 +10,4 @@ export { default as EditExpertiseScreen } from './EditExpertiseScreen';
 export { default as EditBusinessCategoryScreen } from './EditBusinessCategoryScreen';
 export { default as MutedUsersScreen } from './MutedUsersScreen';
 export { default as PrescriptionPreferencesScreen } from './PrescriptionPreferencesScreen';
+export { default as UpgradeToProScreen } from './UpgradeToProScreen';

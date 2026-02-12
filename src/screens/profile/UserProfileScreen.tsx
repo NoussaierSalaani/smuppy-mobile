@@ -807,21 +807,21 @@ const UserProfileScreen = () => {
   // ==================== TABS (must be before early returns — React hooks rules) ====================
   const isProBusiness = profile.accountType === 'pro_business';
 
-  const TABS = useMemo(() => {
+  const TABS = useMemo((): { key: string; label: string }[] => {
     if (isProBusiness) {
       return [
         { key: 'posts', label: 'Posts' },
         { key: 'planning', label: 'Planning' },
         { key: 'groupevent', label: 'Activities' },
         { key: 'collections', label: 'Collections' },
-      ] as const;
+      ];
     }
     return [
       { key: 'posts', label: 'Posts' },
       { key: 'peaks', label: 'Peaks' },
       { key: 'groupevent', label: 'Activities' },
       { key: 'collections', label: 'Collections' },
-    ] as const;
+    ];
   }, [isProBusiness]);
 
   // States: missing userId or loading/error
@@ -1085,7 +1085,7 @@ const UserProfileScreen = () => {
   const renderTabs = () => (
     <View style={styles.tabsContainer}>
       <LiquidTabs
-        tabs={TABS as unknown as { key: string; label: string }[]}
+        tabs={TABS}
         activeTab={activeTab}
         onTabChange={handleTabChange}
         fullWidth

@@ -65,7 +65,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
        JOIN profiles pr ON p.author_id = pr.id
        WHERE p.author_id IN (SELECT following_id FROM follows WHERE follower_id = $1 AND status = 'accepted')
          ${cursorCondition}
-       ORDER BY p.created_at DESC
+       ORDER BY p.created_at DESC, p.id DESC
        LIMIT $${queryParams.length}`,
       queryParams
     );

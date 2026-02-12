@@ -118,9 +118,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Note: fan_count and following_count are updated automatically by database triggers
       // (see migration-015-counter-triggers-indexes.sql)
       await client.query(
-        `INSERT INTO follows (follower_id, following_id, status)
-         VALUES ($1, $2, 'accepted')
-         ON CONFLICT (follower_id, following_id) DO UPDATE SET status = 'accepted'`,
+        `INSERT INTO follows (follower_id, following_id, status, created_at)
+         VALUES ($1, $2, 'accepted', NOW())
+         ON CONFLICT (follower_id, following_id) DO UPDATE SET status = 'accepted', updated_at = NOW()`,
         [request.requester_id, profileId]
       );
 

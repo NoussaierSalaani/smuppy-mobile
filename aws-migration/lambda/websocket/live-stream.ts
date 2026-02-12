@@ -309,12 +309,14 @@ async function broadcastToChannel(
         Data: Buffer.from(messagePayload),
       }));
     } catch (err: unknown) {
-      // If connection is stale, remove it
+      // If connection is stale (410 Gone), remove it
       if (hasStatusCode(err) && err.statusCode === 410) {
         await db.query(
           'DELETE FROM live_stream_viewers WHERE connection_id = $1',
           [viewer.connection_id]
         );
+      } else {
+        log.error('Failed to send to connection', { connectionId: viewer.connection_id, error: err });
       }
     }
   });

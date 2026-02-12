@@ -147,7 +147,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           OR (p.visibility = 'subscribers' AND p.author_id = ANY($${queryParams.length + 2}::uuid[]))
         )
         ${cursorCondition}
-      ORDER BY p.created_at DESC
+      ORDER BY p.created_at DESC, p.id DESC
       LIMIT $${queryParams.length}`,
       [...queryParams, userId, subscribedCreatorIds.length > 0 ? subscribedCreatorIds : []]
     );

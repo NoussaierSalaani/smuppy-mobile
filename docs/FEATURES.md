@@ -2,6 +2,10 @@
 
 > **Parent**: [CLAUDE.md](../CLAUDE.md) | **Workflow**: [CLAUDE-WORKFLOW.md](../CLAUDE-WORKFLOW.md) | **Stability**: [STABILITY.md](./STABILITY.md)
 >
+> **Companion docs** (same binding rules apply):
+> - [FEATURES-FEEDS.md](./FEATURES-FEEDS.md) — FanFeed, VibesFeed rules, XplorerFeed, Feed tabs, Post transformers, Post interactions
+> - [FEATURES-CORE.md](./FEATURES-CORE.md) — Auth, Navigation, Stores, Follow system, Images, Vibe ecosystem, Sentry, Env config, Feature flags, Validation, Notifications, Post creation, Network resilience, API layer
+>
 > **Related**: [features/PEAKS.md](./features/PEAKS.md) (detailed peaks spec) | [ACCOUNT_TYPES.md](./ACCOUNT_TYPES.md) (account behavior matrix)
 >
 > **PURPOSE**: This document defines the STRICT display conditions, data flow, and logic

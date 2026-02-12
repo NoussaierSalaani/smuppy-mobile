@@ -13,6 +13,8 @@
 | **[CLAUDE.md](./CLAUDE.md)** (this file) | Project rules, security, code style, conventions | Always — before any work |
 | **[CLAUDE-WORKFLOW.md](./CLAUDE-WORKFLOW.md)** | Dev workflow (5 phases), feature blueprint (12 steps), checklist | Always — before any work |
 | **[docs/FEATURES.md](./docs/FEATURES.md)** | STRICT display conditions, data flow, logic for VibesFeed, Peaks, Profiles | Before modifying ANY feature UI |
+| **[docs/FEATURES-FEEDS.md](./docs/FEATURES-FEEDS.md)** | Feed systems — FanFeed, VibesFeed, XplorerFeed, tabs, post transformers, interactions | Before modifying ANY feed screen |
+| **[docs/FEATURES-CORE.md](./docs/FEATURES-CORE.md)** | Core systems — Auth, Navigation, Stores, Follow, Images, Sentry, API, Validation | Before modifying ANY core system |
 | **[docs/features/PEAKS.md](./docs/features/PEAKS.md)** | Peaks feature spec — data model, lifecycle, story circles, viewer, creation | Before touching any peaks code |
 | **[docs/STABILITY.md](./docs/STABILITY.md)** | Anti-regression plan, bug discipline, CI gates, test roadmap | Before fixing any bug |
 | **[docs/ACCOUNT_TYPES.md](./docs/ACCOUNT_TYPES.md)** | Account types (personal/pro_creator/pro_business), features, pricing | Before adding account-gated features |

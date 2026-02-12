@@ -145,5 +145,19 @@ export class LambdaStackDisputes extends cdk.NestedStack {
     this.spotsReviewsListFn = createLambda('SpotsReviewsListFunction', 'spots/reviews-list');
     this.spotsReviewsCreateFn = createLambda('SpotsReviewsCreateFunction', 'spots/reviews-create');
     this.spotsReviewsDeleteFn = createLambda('SpotsReviewsDeleteFunction', 'spots/reviews-delete');
+
+    // ========== Comprehend IAM for content moderation ==========
+    const comprehendLambdas = [
+      this.disputesCreateFn,
+      this.spotsCreateFn,
+      this.spotsUpdateFn,
+      this.spotsReviewsCreateFn,
+    ];
+    for (const fn of comprehendLambdas) {
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['comprehend:DetectToxicContent'],
+        resources: ['*'],
+      }));
+    }
   }
 }

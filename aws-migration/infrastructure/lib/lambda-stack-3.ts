@@ -184,5 +184,19 @@ export class LambdaStack3 extends cdk.NestedStack {
     // ========================================
     this.postsLikesBatchFn = createLambda('PostsLikesBatchFunction', 'posts/likes-batch');
     this.postsSavesBatchFn = createLambda('PostsSavesBatchFunction', 'posts/saves-batch');
+
+    // ========== Comprehend IAM for content moderation ==========
+    const comprehendLambdas = [
+      this.battlesCreateFn,
+      this.challengesCreateFn,
+      this.eventsCreateFn,
+      this.groupsCreateFn,
+    ];
+    for (const fn of comprehendLambdas) {
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['comprehend:DetectToxicContent'],
+        resources: ['*'],
+      }));
+    }
   }
 }

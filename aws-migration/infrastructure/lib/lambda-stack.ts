@@ -1504,11 +1504,17 @@ export class LambdaStack extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.wsLiveStreamFn);
 
-    // ========== Comprehend IAM for content creation Lambdas ==========
+    // ========== Comprehend IAM for content moderation Lambdas ==========
     const comprehendLambdas = [
       this.postsCreateFn,
       this.commentsCreateFn,
+      this.commentsUpdateFn,
       this.peaksCreateFn,
+      this.peaksCommentFn,
+      this.conversationsSendMessageFn,
+      this.profilesUpdateFn,
+      this.tipsSendFn,
+      this.liveStreamsStartFn,
     ];
     for (const fn of comprehendLambdas) {
       fn.addToRolePolicy(new iam.PolicyStatement({

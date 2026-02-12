@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GRADIENTS } from '../../config/theme';
 import { ALL_EXPERTISE } from '../../config/expertise';
+import { ALL_BUSINESS_CATEGORIES } from '../../config/businessCategories';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks/queries';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -13,8 +14,16 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface EditExpertiseScreenProps {
   navigation: { goBack: () => void };
-  route: { params?: { currentExpertise?: string[] } };
+  route: { params?: { currentExpertise?: string[]; includeBusinessCategories?: boolean } };
 }
+
+// Convert business categories to chip-compatible items
+const BUSINESS_CATEGORY_ITEMS = ALL_BUSINESS_CATEGORIES.map(cat => ({
+  name: cat.id,
+  label: cat.label,
+  icon: cat.icon,
+  color: cat.color,
+}));
 
 export default function EditExpertiseScreen({ navigation, route }: EditExpertiseScreenProps) {
   const insets = useSafeAreaInsets();
@@ -25,6 +34,10 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
   const user = useUserStore((state) => state.user);
   const updateLocalProfile = useUserStore((state) => state.updateProfile);
 
+  const includeBusinessCategories = route?.params?.includeBusinessCategories === true;
+  const isBusiness = user?.accountType === 'pro_business';
+  const showBizCategories = includeBusinessCategories || isBusiness;
+
   // Load expertise from route params, profile data, or user context
   const initialExpertise = route?.params?.currentExpertise
     || profileData?.expertise
@@ -32,6 +45,9 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
     || [];
 
   const [selected, setSelected] = useState<string[]>(initialExpertise);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    profileData?.business_category || user?.businessCategory || null
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync with profile data when it loads
@@ -43,11 +59,29 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileData, user?.expertise]);
 
+  useEffect(() => {
+    if (showBizCategories) {
+      const category = profileData?.business_category || user?.businessCategory || null;
+      if (category && !selectedCategory) {
+        setSelectedCategory(category);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileData?.business_category, user?.businessCategory, showBizCategories]);
+
   const hasChanges = useMemo(() => {
     const currentExpertise = profileData?.expertise || user?.expertise || [];
-    if (selected.length !== currentExpertise.length) return true;
-    return !selected.every(item => currentExpertise.includes(item));
-  }, [selected, profileData?.expertise, user?.expertise]);
+    const expertiseChanged = selected.length !== currentExpertise.length
+      || !selected.every(item => currentExpertise.includes(item));
+
+    if (showBizCategories) {
+      const currentCategory = profileData?.business_category || user?.businessCategory || null;
+      const categoryChanged = selectedCategory !== currentCategory;
+      return expertiseChanged || categoryChanged;
+    }
+
+    return expertiseChanged;
+  }, [selected, selectedCategory, profileData?.expertise, profileData?.business_category, user?.expertise, user?.businessCategory, showBizCategories]);
 
   const toggle = useCallback((itemName: string) => {
     setSelected(prev =>
@@ -55,23 +89,32 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
     );
   }, []);
 
+  const toggleCategory = useCallback((categoryId: string) => {
+    setSelectedCategory(prev => prev === categoryId ? null : categoryId);
+  }, []);
+
   const handleSave = async () => {
     if (isSaving) return;
 
     setIsSaving(true);
     try {
-      // Save to AWS
-      await updateDbProfile({ expertise: selected });
+      const updates: Record<string, unknown> = { expertise: selected };
+      if (showBizCategories && selectedCategory !== undefined) {
+        updates.business_category = selectedCategory;
+      }
 
-      // Update local store
-      updateLocalProfile({ expertise: selected });
+      await updateDbProfile(updates);
 
-      // Refresh profile data
+      const localUpdates: Record<string, unknown> = { expertise: selected };
+      if (showBizCategories && selectedCategory !== undefined) {
+        localUpdates.businessCategory = selectedCategory;
+      }
+      updateLocalProfile(localUpdates);
+
       await refetch();
-
       navigation.goBack();
     } catch (_error: unknown) {
-      showError('Error', 'Failed to save expertise. Please try again.');
+      showError('Error', 'Failed to save. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -79,12 +122,12 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
+  const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean, onPress: () => void) => {
     if (isSelected) {
       return (
         <TouchableOpacity
           key={item.name}
-          onPress={() => toggle(item.name)}
+          onPress={onPress}
           activeOpacity={0.7}
         >
           <LinearGradient
@@ -106,14 +149,16 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
       <TouchableOpacity
         key={item.name}
         style={styles.chip}
-        onPress={() => toggle(item.name)}
+        onPress={onPress}
         activeOpacity={0.7}
       >
         <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
         <Text style={styles.chipText}>{item.name}</Text>
       </TouchableOpacity>
     );
-  }, [toggle, styles, colors]);
+  }, [styles, colors]);
+
+  const totalSelected = selected.length + (selectedCategory ? 1 : 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -124,7 +169,9 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Expertise</Text>
+        <Text style={styles.headerTitle}>
+          {showBizCategories ? 'Category & Expertise' : 'Edit Expertise'}
+        </Text>
         <TouchableOpacity
           style={[styles.saveButton, (!hasChanges || isSaving) && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -144,22 +191,51 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
       <View style={styles.infoBanner}>
         <Ionicons name="information-circle" size={20} color={colors.cyan} />
         <Text style={styles.infoBannerText}>
-          Select your areas of expertise to personalize your Vibes feed and help others find you.
+          {showBizCategories
+            ? 'Select your business category and areas of expertise to personalize your Vibes feed and help clients find you.'
+            : 'Select your areas of expertise to personalize your Vibes feed and help others find you.'}
         </Text>
       </View>
 
       {/* Selected count */}
       <View style={styles.countContainer}>
         <Text style={styles.countText}>
-          {selected.length} area{selected.length !== 1 ? 's' : ''} selected
+          {totalSelected} area{totalSelected !== 1 ? 's' : ''} selected
         </Text>
         <Text style={styles.hintText}>
-          Tap to add or remove expertise areas
+          Tap to add or remove {showBizCategories ? 'categories & expertise' : 'expertise areas'}
         </Text>
       </View>
 
       {/* Scrollable content */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Business Categories section (first, single-select) */}
+        {showBizCategories && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIcon, { backgroundColor: 'rgba(30, 144, 255, 0.15)' }]}>
+                <Ionicons name="storefront-outline" size={18} color="#1E90FF" />
+              </View>
+              <Text style={styles.sectionTitle}>
+                Business Category
+                {selectedCategory && (
+                  <Text style={styles.sectionCount}> (1)</Text>
+                )}
+              </Text>
+            </View>
+            <View style={styles.itemsGrid}>
+              {BUSINESS_CATEGORY_ITEMS.map((item) =>
+                renderChip(
+                  { name: item.label, icon: item.icon, color: item.color },
+                  selectedCategory === item.name,
+                  () => toggleCategory(item.name),
+                )
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Expertise sections */}
         {ALL_EXPERTISE.map((section) => {
           const selectedInCategory = section.items.filter(item => selected.includes(item.name)).length;
 
@@ -180,7 +256,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
 
               {/* Items grid */}
               <View style={styles.itemsGrid}>
-                {section.items.map((item) => renderChip(item, selected.includes(item.name)))}
+                {section.items.map((item) => renderChip(item, selected.includes(item.name), () => toggle(item.name)))}
               </View>
             </View>
           );

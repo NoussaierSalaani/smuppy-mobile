@@ -938,7 +938,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     if (accountType === 'personal') {
       navigation.navigate('EditInterests', { returnTo: 'VibesFeed' });
     } else if (accountType === 'pro_business') {
-      navigation.navigate('EditBusinessCategory', { returnTo: 'VibesFeed' });
+      navigation.navigate('EditExpertise', { returnTo: 'VibesFeed', includeBusinessCategories: true });
     } else {
       navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' });
     }

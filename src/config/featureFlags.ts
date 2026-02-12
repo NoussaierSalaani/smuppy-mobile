@@ -73,10 +73,8 @@ const PROD_FEATURES = {
 
 export type FeatureKey = keyof typeof PROD_FEATURES;
 
-/** In dev/staging all features are enabled; in prod use the flags above */
-export const FEATURES: Record<FeatureKey, boolean> = __DEV__
-  ? (Object.fromEntries(Object.keys(PROD_FEATURES).map(k => [k, true])) as Record<FeatureKey, boolean>)
-  : { ...PROD_FEATURES };
+/** Use production flags in all builds — monetization disabled for V1 App Store */
+export const FEATURES: Record<FeatureKey, boolean> = { ...PROD_FEATURES };
 
 /** Check if a feature is enabled */
 export const isFeatureEnabled = (key: FeatureKey): boolean => FEATURES[key];

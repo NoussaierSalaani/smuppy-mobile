@@ -1,13 +1,8 @@
 name: i18n Sync
 
 on:
-  # Upload automatique quand les fichiers EN changent
-  push:
-    branches: [main, develop]
-    paths:
-      - 'src/i18n/locales/en/**'
-  
-  # Download manuel possible
+  # Disabled for V1 — i18n removed, no Crowdin config
+  # Re-enable when i18n is added back in V2+
   workflow_dispatch:
     inputs:
       action:

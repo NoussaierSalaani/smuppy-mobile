@@ -681,7 +681,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       thumbnail: p.media || '',
       description: p.caption,
       likes: p.likes,
-      views: p.views,
       comments: p.comments,
       location: p.location,
       taggedUsers: p.taggedUsers,

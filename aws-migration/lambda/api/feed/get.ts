@@ -137,7 +137,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const result = await db.query(
       `SELECT
         p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
-        p.likes_count, p.comments_count, p.views_count, p.created_at, p.visibility,
+        p.likes_count, p.comments_count, p.created_at, p.visibility,
         json_build_object(
           'id', pr.id,
           'username', pr.username,
@@ -176,7 +176,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         tags: post.tags || [],
         likesCount: post.likes_count || 0,
         commentsCount: post.comments_count || 0,
-        viewsCount: post.views_count || 0,
         createdAt: post.created_at,
         isLiked: post.is_liked,
         isSaved: post.is_saved,

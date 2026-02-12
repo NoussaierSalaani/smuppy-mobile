@@ -31,7 +31,7 @@ import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
+import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
@@ -52,7 +52,6 @@ interface FanFeedPost {
   thumbnail: string;
   description: string;
   likes: number;
-  views?: number;
   comments?: number;
   location?: string | null;
   taggedUsers?: TaggedUser[];
@@ -180,12 +179,10 @@ const PostDetailFanFeedScreen = () => {
   }, [currentPost?.id]);
 
   // Record post view (deduped per session)
+  // Mark post as viewed locally (no longer tracked server-side)
   useEffect(() => {
     if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
-    if (viewedPosts.current.has(currentPost.id)) return;
-
     viewedPosts.current.add(currentPost.id);
-    recordPostView(currentPost.id);
   }, [currentPost?.id]);
 
   // Navigate to user profile (own profile → Profile tab, others → UserProfile)
@@ -796,10 +793,6 @@ const PostDetailFanFeedScreen = () => {
                 <SmuppyHeartIcon size={18} color={colors.heartRed} filled />
                 <Text style={styles.statCount}>{formatNumber(item.likes)}</Text>
               </TouchableOpacity>
-              <View style={styles.statItem}>
-                <Ionicons name="eye-outline" size={18} color="#FFF" />
-                <Text style={styles.statCount}>{formatNumber(item.views || 0)}</Text>
-              </View>
             </View>
           </View>
         </View>

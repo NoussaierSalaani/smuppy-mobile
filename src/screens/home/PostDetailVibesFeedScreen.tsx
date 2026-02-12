@@ -29,7 +29,7 @@ import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, recordPostView } from '../../services/database';
+import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
@@ -44,7 +44,7 @@ const VIEW_STATES = {
   GRID_ONLY: 'grid_only',
 };
 
-interface VibesFeedPost { id: string; type: string; media: string; thumbnail: string; description: string; likes: number; views: number; category: string; location?: string | null; allMedia?: string[]; user: { id: string; name: string; avatar: string; followsMe: boolean } }
+interface VibesFeedPost { id: string; type: string; media: string; thumbnail: string; description: string; likes: number; category: string; location?: string | null; allMedia?: string[]; user: { id: string; name: string; avatar: string; followsMe: boolean } }
 
 interface GridPost { id: string; thumbnail: string; title: string; likes: number; height: number; type: string; category: string; user: { id: string; name: string; avatar: string }; duration?: string }
 
@@ -145,13 +145,10 @@ const PostDetailVibesFeedScreen = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPost?.id]);
 
-  // Record post view (deduped per session)
+  // Track viewed posts (for future analytics if needed)
   useEffect(() => {
     if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
-    if (viewedPosts.current.has(currentPost.id)) return;
-
     viewedPosts.current.add(currentPost.id);
-    recordPostView(currentPost.id);
   }, [currentPost?.id]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -549,7 +546,6 @@ const PostDetailVibesFeedScreen = () => {
       thumbnail: post.thumbnail,
       description: post.title || '',
       likes: post.likes || 0,
-      views: 0,
       category: post.category || 'Fitness',
       user: {
         id: post.user?.id || 'unknown',
@@ -875,11 +871,6 @@ const PostDetailVibesFeedScreen = () => {
                     <SmuppyHeartIcon size={16} color={colors.heartRed} filled />
                     <Text style={styles.statCount}>{formatNumber(currentPost.likes)}</Text>
                   </TouchableOpacity>
-                  <View style={styles.statDot} />
-                  <View style={styles.statItem}>
-                    <Ionicons name="eye-outline" size={16} color="rgba(255,255,255,0.7)" />
-                    <Text style={styles.statCount}>{formatNumber(currentPost.views || 0)} views</Text>
-                  </View>
                 </View>
 
                 {/* Swipe indicator */}

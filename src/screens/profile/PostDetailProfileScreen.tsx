@@ -34,7 +34,6 @@ import {
   hasSavedPost,
   getPostById,
   deletePost,
-  recordPostView,
 } from '../../services/database';
 import { sharePost, copyPostLink } from '../../utils/share';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
@@ -56,7 +55,6 @@ interface PostItem {
   thumbnail: string;
   description: string;
   likes: number;
-  views: number;
   location?: string | null;
   taggedUsers?: TaggedUserInfo[];
   allMedia?: string[];
@@ -78,7 +76,6 @@ interface RawPost {
   media_type?: string;
   content?: string;
   likes_count?: number;
-  views_count?: number;
   location?: string | null;
   tagged_users?: Array<string | { id: string; username?: string; fullName?: string | null; full_name?: string | null; avatarUrl?: string | null; avatar_url?: string | null }>;
   author?: { id?: string; full_name?: string; username?: string; avatar_url?: string | null };
@@ -103,7 +100,6 @@ const convertToPostItem = (post: RawPost): PostItem => {
     thumbnail: allMedia[0] || '',
     description: post.content || '',
     likes: post.likes_count || 0,
-    views: post.views_count || 0,
     location: post.location || null,
     taggedUsers: taggedUsers.length > 0 ? taggedUsers : undefined,
     allMedia: allMedia.length > 1 ? allMedia : undefined,
@@ -148,7 +144,6 @@ const PostDetailProfileScreen = () => {
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [localLikes, setLocalLikes] = useState<Record<string, number>>({});
-  const [localViews, setLocalViews] = useState<Record<string, number>>({});
   const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({});
   const viewedPosts = useRef<Set<string>>(new Set());
 
@@ -194,19 +189,10 @@ const PostDetailProfileScreen = () => {
     loadPost();
   }, [postId, posts.length]);
 
-  // Record view when post becomes visible
+  // Track viewed posts (for future analytics if needed)
   useEffect(() => {
     if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
-    if (viewedPosts.current.has(currentPost.id)) return;
-
     viewedPosts.current.add(currentPost.id);
-    // Optimistic local view increment
-    setLocalViews(prev => ({
-      ...prev,
-      [currentPost.id]: (prev[currentPost.id] ?? currentPost.views) + 1,
-    }));
-    recordPostView(currentPost.id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPost?.id]);
 
   // Check follow status on mount or post change
@@ -483,7 +469,6 @@ const PostDetailProfileScreen = () => {
   // Render post item
   const renderPostItem = useCallback(({ item, index }: { item: PostItem; index: number }) => {
     const displayLikes = localLikes[item.id] ?? item.likes;
-    const displayViews = localViews[item.id] ?? item.views;
     const itemIsOwn = item.user?.id === currentUserId;
 
     return (
@@ -715,10 +700,6 @@ const PostDetailProfileScreen = () => {
                 <SmuppyHeartIcon size={18} color={colors.heartRed} filled />
                 <Text style={styles.statCount}>{formatNumber(displayLikes)}</Text>
               </TouchableOpacity>
-              <View style={styles.statItem}>
-                <Ionicons name="eye-outline" size={18} color="#FFF" />
-                <Text style={styles.statCount}>{formatNumber(displayViews)}</Text>
-              </View>
             </View>
           </View>
         </View>
@@ -728,7 +709,7 @@ const PostDetailProfileScreen = () => {
   }, [
     currentIndex, isPaused, showLikeAnimation, likeAnimationScale,
     isLiked, isBookmarked, isFan, fanLoading, shareLoading, likeLoading,
-    bookmarkLoading, localLikes, localViews, currentUserId,
+    bookmarkLoading, localLikes, currentUserId,
     colors, styles, headerPaddingStyle, bottomContentPaddingStyle,
     handleDoubleTap, handleShare, handleGoBack, handleShowMenu,
     handleToggleMute, handleToggleDescription,

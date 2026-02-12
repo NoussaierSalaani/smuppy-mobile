@@ -98,7 +98,6 @@ interface PeakCardData {
   createdAt?: string;
   isLiked?: boolean;
   likes?: number;
-  views?: number;
   repliesCount?: number;
   textOverlay?: string;
   filterId?: string;
@@ -600,7 +599,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             createdAt,
             isLiked: !!p.isLiked,
             likes: p.likesCount ?? 0,
-            views: p.viewsCount ?? 0,
             repliesCount: p.commentsCount ?? 0,
             textOverlay: p.caption || undefined,
             filterId: p.filterId || undefined,

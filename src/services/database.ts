@@ -734,26 +734,6 @@ export const deletePost = async (postId: string): Promise<{ error: string | null
 };
 
 // ============================================
-// VIEWS
-// ============================================
-
-/**
- * Record a view on a post
- */
-export const recordPostView = async (postId: string): Promise<{ error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  try {
-    await awsAPI.recordPostView(postId);
-    return { error: null };
-  } catch {
-    // Silently fail - view tracking is non-critical
-    return { error: null };
-  }
-};
-
-// ============================================
 // LIKES
 // ============================================
 

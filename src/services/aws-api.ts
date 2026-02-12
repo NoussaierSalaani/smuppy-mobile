@@ -598,12 +598,6 @@ class AWSAPIService {
     });
   }
 
-  async recordPostView(id: string): Promise<void> {
-    return this.request(`/posts/${id}/view`, {
-      method: 'POST',
-    });
-  }
-
   // ==========================================
   // Profiles API
   // ==========================================

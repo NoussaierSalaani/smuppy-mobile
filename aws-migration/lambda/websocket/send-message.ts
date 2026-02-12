@@ -155,29 +155,41 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Insert message
-    const messageResult = await db.query(
-      `INSERT INTO messages (conversation_id, sender_id, content, read, created_at)
-       VALUES ($1, $2, $3, false, NOW())
-       RETURNING id, content, sender_id, read, created_at`,
-      [conversationId, senderId, sanitizedContent]
-    );
+    // Insert message + update conversation in a transaction
+    const client = await db.connect();
+    let message;
+    try {
+      await client.query('BEGIN');
 
-    const message = {
-      ...messageResult.rows[0],
-      sender: {
-        id: sender.id,
-        username: sender.username,
-        display_name: sender.display_name,
-        avatar_url: sender.avatar_url,
-      },
-    };
+      const messageResult = await client.query(
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, read, created_at)
+         VALUES ($1, $2, $3, $4, false, NOW())
+         RETURNING id, content, sender_id, recipient_id, read, created_at`,
+        [conversationId, senderId, recipientId, sanitizedContent]
+      );
 
-    // Update conversation's updated_at
-    await db.query(
-      'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
-      [conversationId]
-    );
+      message = {
+        ...messageResult.rows[0],
+        sender: {
+          id: sender.id,
+          username: sender.username,
+          display_name: sender.display_name,
+          avatar_url: sender.avatar_url,
+        },
+      };
+
+      await client.query(
+        'UPDATE conversations SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1',
+        [conversationId]
+      );
+
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
 
     // Get recipient's active connections
     const recipientConnections = await db.query(

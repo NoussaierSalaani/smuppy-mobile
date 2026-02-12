@@ -7,6 +7,8 @@ import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as path from 'path';
@@ -1089,6 +1091,36 @@ export class LambdaStack extends cdk.NestedStack {
       ],
       resources: [userPool.userPoolArn],
     }));
+
+    // ========================================
+    // Scheduled: Refresh Bot Peaks (every 24h)
+    // ========================================
+    const refreshBotPeaksFn = new NodejsFunction(this, 'RefreshBotPeaksFunction', {
+      entry: path.join(__dirname, '../../lambda/api/admin/refresh-bot-peaks.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.minutes(2),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: lambdaEnvironment,
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: adminLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(refreshBotPeaksFn);
+
+    // Trigger every 24h at 5:00 AM UTC
+    new events.Rule(this, 'RefreshBotPeaksSchedule', {
+      schedule: events.Schedule.cron({ hour: '5', minute: '0' }),
+      targets: [new targets.LambdaFunction(refreshBotPeaksFn, {
+        retryAttempts: 2,
+      })],
+      description: 'Refresh bot peaks every 24h to keep feeds populated',
+    });
 
     // ========================================
     // Auth Lambda Functions

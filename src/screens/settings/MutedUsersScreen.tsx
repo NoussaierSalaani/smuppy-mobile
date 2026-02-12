@@ -15,7 +15,7 @@ import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { MutedUser } from '../../services/database';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTranslation } from 'react-i18next';
+
 import { resolveDisplayName } from '../../types/profile';
 
 interface MutedUsersScreenProps {
@@ -23,7 +23,6 @@ interface MutedUsersScreenProps {
 }
 
 const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
-  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { showConfirm, showError } = useSmuppyAlert();
@@ -60,14 +59,14 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
           if (!error) {
             setMutedUsers(prev => prev.filter(u => u.muted_user_id !== userId));
           } else {
-            showError(t('common:error'), t('settings:errors:unmuteUser'));
+            showError('Error', 'Failed to unmute user. Please try again.');
           }
         } finally {
           setUnmuting(prev => ({ ...prev, [userId]: false }));
         }
       }
     );
-  }, [showConfirm, showError, unmute, t]);
+  }, [showConfirm, showError, unmute]);
 
   const renderMutedUser = useCallback(({ item }: { item: MutedUser }) => {
     const user = item.muted_user;
@@ -95,19 +94,19 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
           {isUnmuting ? (
             <ActivityIndicator size="small" color={colors.primaryGreen} />
           ) : (
-            <Text style={styles.unmuteBtnText}>{t('settings:mutedUsers:unmute')}</Text>
+            <Text style={styles.unmuteBtnText}>Unmute</Text>
           )}
         </TouchableOpacity>
       </View>
     );
-  }, [styles, unmuting, navigation, handleUnmute, colors, t]);
+  }, [styles, unmuting, navigation, handleUnmute, colors]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
         <Ionicons name="volume-mute-outline" size={48} color={colors.gray} />
       </View>
-      <Text style={styles.emptyTitle}>{t('settings:mutedUsers:empty')}</Text>
+      <Text style={styles.emptyTitle}>No Muted Users</Text>
       <Text style={styles.emptySubtitle}>
         Users you mute will have their posts hidden from your feeds. You can still visit their profile.
       </Text>
@@ -123,7 +122,7 @@ const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('settings:mutedUsers:title')}</Text>
+        <Text style={styles.headerTitle}>Muted Users</Text>
         <View style={styles.headerSpacer} />
       </View>
 

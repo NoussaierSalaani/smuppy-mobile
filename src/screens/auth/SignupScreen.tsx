@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { useTranslation } from 'react-i18next';
+
 import { SPACING } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import ErrorModal from '../../components/ErrorModal';
@@ -43,7 +43,7 @@ interface SignupScreenProps {
 }
 
 export default function SignupScreen({ navigation }: SignupScreenProps) {
-  const { t } = useTranslation();
+
   const { colors, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

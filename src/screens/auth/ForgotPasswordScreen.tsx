@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingVi
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
+
 import { GRADIENTS, FORM, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
@@ -22,7 +22,7 @@ interface ForgotPasswordScreenProps {
 }
 
 export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) {
-  const { t } = useTranslation();
+
   const { colors, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -75,11 +75,11 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
     setHasSubmitted(true);
 
     if (!email.trim()) {
-      setEmailError(t('errors:validation:required'));
+      setEmailError('This field is required');
       return;
     }
     if (!isValidEmail(email)) {
-      setEmailError(t('errors:validation:invalidEmail'));
+      setEmailError('Invalid email address');
       return;
     }
 
@@ -98,7 +98,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
 
       const awsCheck = await checkAWSRateLimit(emailNormalized, 'auth-forgot-password');
       if (!awsCheck.allowed) {
-        setEmailError(t('errors:waitMinutes', { minutes: Math.ceil((awsCheck.retryAfter || 300) / 60) }));
+        setEmailError(`Please wait ${Math.ceil((awsCheck.retryAfter || 300) / 60)} minutes.`);
         return;
       }
 
@@ -117,7 +117,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
         errorMessage.includes('Failed to fetch');
 
       if (isNetworkError) {
-        setEmailError(t('errors:network:message'));
+        setEmailError('Check your internet connection and try again');
       } else {
         // Other errors: show success for anti-enumeration security
         setShowSuccessModal(true);
@@ -148,12 +148,12 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
 
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>{t('auth:forgotPasswordTitle')}</Text>
-              <Text style={styles.subtitle}>{t('auth:forgotPasswordSubtitle')}</Text>
+              <Text style={styles.title}>{"Forgot password"}</Text>
+              <Text style={styles.subtitle}>{"Enter your email address and we'll send you a code to reset your password"}</Text>
             </View>
 
             {/* Email Input */}
-            <Text style={styles.label}>{t('auth:email')}</Text>
+            <Text style={styles.label}>{"Email"}</Text>
             {(hasSubmitted && emailError) ? (
               <View style={[styles.inputBox, styles.inputError]}>
                 <Ionicons name="mail-outline" size={20} color={colors.error} />
@@ -221,7 +221,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                   <ActivityIndicator color={colors.white} />
                 ) : (
                   <>
-                    <Text style={styles.btnText}>{t('auth:sendLink')}</Text>
+                    <Text style={styles.btnText}>{"Send link"}</Text>
                     <Ionicons name="arrow-forward" size={20} color={colors.white} />
                   </>
                 )}
@@ -250,8 +250,8 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
               >
                 <Ionicons name="mail" size={36} color={colors.white} />
               </LinearGradient>
-              <Text style={styles.modalTitle}>{t('auth:emailSentTitle')}</Text>
-              <Text style={styles.modalMessage}>{t('auth:emailSentMessage')}</Text>
+              <Text style={styles.modalTitle}>{"Email sent"}</Text>
+              <Text style={styles.modalMessage}>{"If an account exists with this email, you will receive a password reset code."}</Text>
               <LinearGradient
                 colors={GRADIENTS.primary}
                 start={GRADIENTS.primaryStart}
@@ -259,7 +259,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                 style={styles.modalBtn}
               >
                 <TouchableOpacity style={styles.modalBtnInner} onPress={handleContinue} activeOpacity={0.8}>
-                  <Text style={styles.modalBtnText}>{t('common:continue')}</Text>
+                  <Text style={styles.modalBtnText}>{"Continue"}</Text>
                   <Ionicons name="arrow-forward" size={18} color={colors.white} />
                 </TouchableOpacity>
               </LinearGradient>
@@ -277,19 +277,19 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
               <View style={[styles.modalIconWarning]}>
                 <Ionicons name="warning" size={40} color="#F59E0B" />
               </View>
-              <Text style={styles.modalTitle}>{t('auth:accountDeleted')}</Text>
+              <Text style={styles.modalTitle}>{"Account Deleted"}</Text>
               <Text style={styles.modalMessage}>
-                {deletedAccountModal.fullName ? t('auth:accountDeletedGreeting', { name: deletedAccountModal.fullName }) : ''}
-                {t('auth:accountDeletedMessage')}
+                {deletedAccountModal.fullName ? `Hi ${deletedAccountModal.fullName}, ` : ''}
+                {"The account linked to this email has been deleted."}
                 {'\n\n'}
                 {deletedAccountModal.canReactivate ? (
                   <>
-                    {t('auth:emailAvailableIn', { days: deletedAccountModal.daysRemaining })}
+                    {`This email will be available again in ${deletedAccountModal.daysRemaining} days.`}
                     {'\n\n'}
-                    {t('auth:contactToReactivate')}
+                    {"To reactivate your account, please contact us at:"}
                   </>
                 ) : (
-                  t('auth:emailAvailableNewAccount')
+                  "This email is now available for a new account."
                 )}
               </Text>
               {deletedAccountModal.canReactivate && (
@@ -302,7 +302,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
                 style={[styles.modalBtnWarning]}
                 onPress={closeDeletedAccountModal}
               >
-                <Text style={styles.modalBtnText}>{t('common:ok')}</Text>
+                <Text style={styles.modalBtnText}>{"OK"}</Text>
               </TouchableOpacity>
             </View>
           </View>

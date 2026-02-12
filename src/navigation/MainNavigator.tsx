@@ -121,7 +121,6 @@ const EditExpertiseScreen = lazyScreen(() => import('../screens/settings/EditExp
 const EditBusinessCategoryScreen = lazyScreen(() => import('../screens/settings/EditBusinessCategoryScreen'));
 const PasswordManagerScreen = lazyScreen(() => import('../screens/settings/PasswordManagerScreen'));
 const NotificationSettingsScreen = lazyScreen(() => import('../screens/settings/NotificationSettingsScreen'));
-const LanguageSettingsScreen = lazyScreen(() => import('../screens/settings/LanguageSettingsScreen'));
 const ReportProblemScreen = lazyScreen(() => import('../screens/settings/ReportProblemScreen'));
 const TermsPoliciesScreen = lazyScreen(() => import('../screens/settings/TermsPoliciesScreen'));
 const BlockedUsersScreen = lazyScreen(() => import('../screens/settings/BlockedUsersScreen'));
@@ -416,7 +415,6 @@ export default function MainNavigator() {
       <Stack.Screen name="EditBusinessCategory" component={EditBusinessCategoryScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="LanguageSettings" component={LanguageSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="TermsPolicies" component={TermsPoliciesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

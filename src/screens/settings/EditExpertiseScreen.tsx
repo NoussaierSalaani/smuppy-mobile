@@ -8,7 +8,7 @@ import { ALL_EXPERTISE } from '../../config/expertise';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks/queries';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTranslation } from 'react-i18next';
+
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface EditExpertiseScreenProps {
@@ -17,7 +17,6 @@ interface EditExpertiseScreenProps {
 }
 
 export default function EditExpertiseScreen({ navigation, route }: EditExpertiseScreenProps) {
-  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
@@ -72,7 +71,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
 
       navigation.goBack();
     } catch (_error: unknown) {
-      showError(t('common:error'), t('settings:errors:saveExpertise'));
+      showError('Error', 'Failed to save expertise. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -125,7 +124,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('settings:editExpertise:title')}</Text>
+        <Text style={styles.headerTitle}>Edit Expertise</Text>
         <TouchableOpacity
           style={[styles.saveButton, (!hasChanges || isSaving) && styles.saveButtonDisabled]}
           onPress={handleSave}

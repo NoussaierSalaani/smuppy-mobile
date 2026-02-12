@@ -728,7 +728,6 @@ export type MainStackParamList = {
   EditBusinessCategory: { currentCategory?: string; returnTo?: string } | undefined;
   PasswordManager: undefined;
   NotificationSettings: undefined;
-  LanguageSettings: undefined;
   ReportProblem: undefined;
   TermsPolicies: undefined;
   BlockedUsers: undefined;

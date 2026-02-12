@@ -16,7 +16,7 @@ import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme } from '../../hooks/useTheme';
-import { useTranslation } from 'react-i18next';
+
 import { searchNominatim, NominatimSearchResult, isValidCoordinate } from '../../config/api';
 
 // UUID validation regex for API calls
@@ -82,6 +82,19 @@ const FILTER_DEFS = [
 
 const MAX_ACTIVE_FILTERS = 3;
 
+const XPLORER_LABELS: Record<string, string> = {
+  coaches: 'Coaches',
+  gyms: 'Gyms',
+  wellness: 'Wellness',
+  sports: 'Sports',
+  food: 'Food',
+  stores: 'Stores',
+  events: 'Events',
+  groups: 'Groups',
+  spots: 'Spots',
+  live: 'Live',
+};
+
 // ============================================
 // FAB ACTIONS BY ACCOUNT TYPE
 // ============================================
@@ -121,19 +134,18 @@ interface XplorerFeedProps {
 }
 
 export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { showAlert } = useSmuppyAlert();
 
-  // Build filters with translations
+  // Build filters with labels
   const filters = useMemo(() => FILTER_DEFS.map(f => ({
     key: f.key,
-    label: t(`feed:xplorer:${f.key}`),
+    label: XPLORER_LABELS[f.key] || f.key,
     icon: f.icon,
     color: f.color,
     subcategories: f.subcategories,
-  })), [t]);
+  })), []);
   const cameraRef = useRef<Camera>(null);
   const hasRequestedPermission = useRef(false);
   const { setBottomBarHidden, showBars, xplorerFullscreen, toggleXplorerFullscreen, setXplorerFullscreen } = useTabBar();
@@ -342,28 +354,28 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // FAB visibility & actions based on account type
   const fabActions = useMemo((): FabAction[] => {
     const actions: FabAction[] = [
-      { label: t('feed:xplorer:createActivity'), icon: 'add-circle-outline', action: 'create_activity' },
+      { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
     ];
     
     if (accountType === 'pro_business') {
       if (isPremium) {
-        actions.push({ label: t('feed:xplorer:suggestSpot'), icon: 'pin-outline', action: 'suggest_spot' });
+        actions.push({ label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' });
       }
       return actions;
     }
-    
+
     // Personal verified and creators
     if (isVerified || accountType === 'pro_creator') {
-      actions.push({ label: t('feed:xplorer:suggestSpot'), icon: 'pin-outline', action: 'suggest_spot' });
+      actions.push({ label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' });
     }
     
     // Premium creators can go live
     if (accountType === 'pro_creator' && isPremium && FEATURES.GO_LIVE) {
-      actions.push({ label: t('feed:xplorer:shareLive'), icon: 'videocam-outline', action: 'share_live' });
+      actions.push({ label: 'Share Live', icon: 'videocam-outline', action: 'share_live' });
     }
     
     return actions;
-  }, [accountType, isVerified, isPremium, t]);
+  }, [accountType, isVerified, isPremium]);
 
   // ============================================
   // LOCATION
@@ -735,15 +747,15 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           <View style={styles.popupInfo}>
             <Text style={styles.popupName}>{sanitizeText(selectedMarker.name)}</Text>
             <View style={styles.popupStats}>
-              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> {t('feed:xplorer:fans')}</Text>
+              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> fans</Text>
               <Text style={styles.popupStatDot}>·</Text>
-              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> {t('feed:xplorer:posts')}</Text>
+              <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> posts</Text>
             </View>
             <Text style={styles.popupBio} numberOfLines={2}>{sanitizeText(selectedMarker.bio)}</Text>
           </View>
         </View>
         <LiquidButton
-          label={t('feed:xplorer:seeProfile')}
+          label="See Profile"
           onPress={() => goToProfile(selectedMarker)}
           size="md"
           style={styles.popupButton}
@@ -779,7 +791,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             ))}
           </View>
           <LiquidButton
-            label={t('feed:xplorer:seeProfile')}
+            label="See Profile"
             onPress={() => goToProfile(selectedMarker)}
             size="md"
             style={styles.popupButton}
@@ -811,7 +823,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               </View>
               <Text style={styles.sheetTitle}>{filter.label}</Text>
             </View>
-            <Text style={styles.sheetSubtitle}>{t('feed:filter:subcategory')}</Text>
+            <Text style={styles.sheetSubtitle}>Filter by subcategory</Text>
             <View style={styles.sheetChips}>
               {filter.subcategories.map(sub => {
                 const isActive = activeSubs.includes(sub);
@@ -825,7 +837,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
               })}
             </View>
             <LiquidButton
-              label={t('common:done')}
+              label="Done"
               onPress={handleCloseSubFilterSheet}
               size="md"
               style={styles.sheetApplyButton}
@@ -847,10 +859,10 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           <LinearGradient colors={['#E7FCF6', '#E0F7FA']} style={styles.permissionIcon}>
             <Ionicons name="location" size={normalize(40)} color={colors.primary} />
           </LinearGradient>
-          <Text style={styles.permissionTitle}>{t('feed:xplorer:enableLocation')}</Text>
+          <Text style={styles.permissionTitle}>Enable your location</Text>
           <Text style={styles.permissionText}>Discover what your friends nearby are up to</Text>
           <LiquidButton
-            label={t('feed:xplorer:activate')}
+            label="Activate"
             onPress={handleActivateLocation}
             size="md"
             style={styles.permissionButton}
@@ -970,7 +982,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  <Text style={styles.eventJoinBtnText}>{t('feed:xplorer:join')}</Text>
+                  <Text style={styles.eventJoinBtnText}>Join</Text>
                   <Ionicons name="arrow-forward" size={normalize(14)} color={colors.white} />
                 </LinearGradient>
               </TouchableOpacity>

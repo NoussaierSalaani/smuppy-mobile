@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Keyboa
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { GRADIENTS, FORM, SPACING, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
@@ -29,7 +28,6 @@ interface NewPasswordScreenProps {
 }
 
 export default function NewPasswordScreen({ navigation, route }: NewPasswordScreenProps) {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
   const { showDestructiveConfirm } = useSmuppyAlert();
   const [password, setPassword] = useState('');
@@ -52,10 +50,10 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
 
   const handleGoBack = useCallback(() => {
     showDestructiveConfirm(
-      t('auth:leavePasswordReset'),
-      t('auth:leavePasswordResetMessage'),
+      'Leave password reset?',
+      'If you go back, you will need to request a new reset code.',
       goBack,
-      t('auth:leave')
+      'Leave'
     );
   }, [goBack, showDestructiveConfirm]);
 
@@ -93,7 +91,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
     if (!isValid || isLoading) return;
 
     if (!email || !code) {
-      setErrorMessage(t('auth:missingResetCode'));
+      setErrorMessage('Missing reset code. Please go back and try again.');
       return;
     }
 
@@ -122,11 +120,11 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
       const errorMessage = (err as Error)?.message || '';
 
       if (errorMessage.includes('ExpiredCodeException') || errorMessage.includes('expired')) {
-        setErrorMessage(t('auth:resetCodeExpired'));
+        setErrorMessage('Reset code has expired. Please request a new one.');
       } else if (errorMessage.includes('CodeMismatchException') || errorMessage.includes('invalid')) {
-        setErrorMessage(t('auth:invalidResetCode'));
+        setErrorMessage('Invalid reset code. Please check and try again.');
       } else {
-        setErrorMessage(t('auth:updatePasswordError'));
+        setErrorMessage('Unable to update password. Please try again.');
       }
     } finally {
       if (isMountedRef.current) {
@@ -165,14 +163,14 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
           >
             <Ionicons name="checkmark" size={48} color={colors.white} />
           </LinearGradient>
-          <Text style={styles.successTitle}>{t('auth:passwordUpdated')}!</Text>
+          <Text style={styles.successTitle}>{"Password updated successfully!"}</Text>
           <Text style={styles.successSubtitle}>
-            {t('auth:passwordChangedSuccess')}
+            {"Your password has been changed successfully."}
           </Text>
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.loadingText}>
-              {t('auth:enteringApp')}
+              {"Entering the app..."}
             </Text>
           </View>
         </View>
@@ -192,8 +190,8 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>{t('auth:newPasswordTitle')}</Text>
-            <Text style={styles.subtitle}>{t('auth:newPasswordSubtitle')}</Text>
+            <Text style={styles.title}>{"Create new password"}</Text>
+            <Text style={styles.subtitle}>{"Your new password must be different from previous passwords"}</Text>
           </View>
 
           {/* Error Message */}
@@ -205,7 +203,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
           ) : null}
 
           {/* New Password Input */}
-          <Text style={styles.label}>{t('auth:newPasswordLabel')}</Text>
+          <Text style={styles.label}>{"New password"}</Text>
           <LinearGradient
             colors={(password.length > 0 || isFocusedPassword) ? GRADIENTS.button : [colors.grayBorder, colors.grayBorder]}
             start={{ x: 0, y: 0 }}
@@ -216,7 +214,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
               <Ionicons name="lock-closed-outline" size={20} color={(password.length > 0 || isFocusedPassword) ? colors.primary : colors.grayMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder={t('auth:enterNewPassword')}
+                placeholder="Enter new password"
                 placeholderTextColor={colors.grayMuted}
                 value={password}
                 onChangeText={setPassword}

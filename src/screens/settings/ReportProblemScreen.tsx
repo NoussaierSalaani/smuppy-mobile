@@ -17,7 +17,7 @@ import { awsAuth } from '../../services/aws-auth';
 import { awsAPI } from '../../services/aws-api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { useTranslation } from 'react-i18next';
+
 
 // Anti-spam: minimum 20 chars, max 3 reports per hour
 const MIN_CHARS = 20;
@@ -29,7 +29,6 @@ interface ReportProblemScreenProps {
 }
 
 const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
-  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { showError } = useSmuppyAlert();
   const [problemText, setProblemText] = useState('');
@@ -84,7 +83,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
       setShowSuccessModal(true);
     } catch (err) {
       if (__DEV__) console.warn('[ReportProblem] Error:', err);
-      showError(t('common:error'), t('settings:errors:sendReport'));
+      showError('Error', 'Failed to send report. Please try again.');
     } finally {
       setSending(false);
     }
@@ -109,7 +108,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={60} color="#0EBF8A" />
           </View>
-          <Text style={styles.successTitle}>{t('settings:reportProblem:success')}</Text>
+          <Text style={styles.successTitle}>Problem Report Sent Successfully!</Text>
           <Text style={styles.successMessage}>
             Thank you for your feedback. We've received your report and will address the issue as soon as possible.
           </Text>
@@ -117,7 +116,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
             style={styles.okButton}
             onPress={handleSuccessClose}
           >
-            <Text style={styles.okButtonText}>{t('common:ok')}</Text>
+            <Text style={styles.okButtonText}>OK</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -136,7 +135,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
         >
           <Ionicons name="arrow-back" size={24} color="#0A0A0F" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('settings:reportProblem:title')}</Text>
+        <Text style={styles.headerTitle}>Report Problem</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -163,7 +162,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
           {errorMessage ? (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-              <Text style={styles.errorText}>{t('common:error')}</Text>
+              <Text style={styles.errorText}>Error</Text>
             </View>
           ) : null}
 
@@ -181,7 +180,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
             {sending ? (
               <ActivityIndicator size="small" color="#FFF" />
             ) : (
-              <Text style={styles.sendButtonText}>{t('settings:reportProblem:send')}</Text>
+              <Text style={styles.sendButtonText}>Send Report</Text>
             )}
           </TouchableOpacity>
         </View>

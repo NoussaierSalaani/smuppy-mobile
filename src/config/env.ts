@@ -55,16 +55,7 @@ export const ENV = {
 
 // Validation: warn if critical env vars are missing (dev only, never crash)
 if (__DEV__) {
-  const missingVars: string[] = [];
-
-  if (!ENV.GOOGLE_API_KEY) missingVars.push('GOOGLE_API_KEY');
-  if (!extra.apiUrlDev) missingVars.push('API_URL_DEV');
-  if (!extra.apiUrlProd) missingVars.push('API_URL_PROD');
-  if (!ENV.SENTRY_DSN) missingVars.push('SENTRY_DSN');
-
-  if (missingVars.length > 0) {
-    if (__DEV__) {
-      console.warn(`[ENV] Missing configuration: ${missingVars.join(', ')}. Check your .env file.`);
-    }
+  if (!ENV.GOOGLE_API_KEY) {
+    console.warn('[ENV] Missing configuration: GOOGLE_API_KEY. Check your .env file.');
   }
 }

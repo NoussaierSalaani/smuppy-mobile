@@ -25,8 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
-    const page = Math.max(parseInt(event.queryStringParameters?.page || '1', 10), 1);
-    const offset = (page - 1) * limit;
+    const cursor = event.queryStringParameters?.cursor;
 
     const db = await getReaderPool();
 
@@ -45,6 +44,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const userId = userResult.rows[0].id;
 
+    // Build cursor-based query (consistent with feed/get.ts)
+    let cursorCondition = '';
+    const queryParams: (string | number | Date)[] = [userId];
+
+    if (cursor) {
+      cursorCondition = `AND p.created_at < $2`;
+      queryParams.push(new Date(cursor));
+    }
+
+    queryParams.push(limit + 1); // Fetch one extra to check hasMore
+
     const result = await db.query(
       `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
               p.likes_count, p.comments_count, p.views_count, p.created_at,
@@ -54,12 +64,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
        FROM posts p
        JOIN profiles pr ON p.author_id = pr.id
        WHERE p.author_id IN (SELECT following_id FROM follows WHERE follower_id = $1 AND status = 'accepted')
+         ${cursorCondition}
        ORDER BY p.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [userId, limit, offset]
+       LIMIT $${queryParams.length}`,
+      queryParams
     );
 
-    const data = result.rows.map((row: Record<string, unknown>) => ({
+    const hasMore = result.rows.length > limit;
+    const rows = result.rows.slice(0, limit);
+
+    const data = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       authorId: row.author_id,
       content: row.content,
@@ -82,10 +96,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     }));
 
+    const nextCursor = hasMore && rows.length > 0
+      ? (rows[rows.length - 1] as Record<string, unknown>).created_at
+      : null;
+
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data, nextCursor, hasMore }),
     };
   } catch (error: unknown) {
     log.error('Error getting following feed', error);

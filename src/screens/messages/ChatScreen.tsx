@@ -44,7 +44,6 @@ import {
   deleteMessage,
   forwardMessage,
   getConversations,
-  AVAILABLE_REACTIONS,
   Message,
   Profile,
   MessageReaction,
@@ -134,7 +133,7 @@ const MessageReactions = memo(({ reactions, isFromMe, styles, colors, currentUse
   );
 });
 
-const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatTime, setSelectedImage, styles, onReply, onReaction, onLongPress, onDelete, colors, currentUserId }: MessageItemProps) => {
+const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatTime, setSelectedImage, styles, onReply, onReaction, onLongPress, onDelete: _onDelete, colors, currentUserId }: MessageItemProps) => {
   // Swipeable ref
   const swipeableRef = useRef<Swipeable>(null);
 
@@ -149,7 +148,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
         </View>
       </Animated.View>
     );
-  }, [isFromMe, colors]);
+  }, [isFromMe, colors, styles.replyAction, styles.replyActionContainer]);
 
   const renderLeftActions = useCallback((progress: Animated.AnimatedInterpolation<number>) => {
     if (!isFromMe) return null;
@@ -161,7 +160,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
         </View>
       </Animated.View>
     );
-  }, [isFromMe, colors]);
+  }, [isFromMe, colors, styles.replyAction, styles.replyActionContainerLeft]);
 
   const handleSwipeOpen = useCallback(() => {
     if (onReply) {
@@ -178,7 +177,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     onLongPress?.(item);
-  }, [item, item.is_deleted, onLongPress]);
+  }, [item, onLongPress]);
 
   const handleReactionPress = useCallback((emoji: string) => {
     onReaction?.(item.id, emoji);
@@ -772,7 +771,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     if (!selectedMessage) return;
     
     setForwarding(true);
-    const { data, error } = await forwardMessage(selectedMessage.id, conversationId);
+    const { data: _data, error } = await forwardMessage(selectedMessage.id, conversationId);
     
     if (error) {
       showError('Error', error);
@@ -798,27 +797,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const handleSendVoicePreview = useCallback(() => {
     if (voicePreview) handleVoiceSend(voicePreview.uri, voicePreview.duration);
   }, [voicePreview, handleVoiceSend]);
-
-  // Handle image picking and sending
-  const handlePickImage = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showError('Permission Required', 'Photo library access is needed to send images.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 0.8,
-      allowsMultipleSelection: false,
-    });
-
-    if (!result.canceled && result.assets && result.assets[0]) {
-      const asset = result.assets[0];
-      await handleSendImage(asset.uri);
-    }
-  }, [showError]);
 
   const handleSendImage = useCallback(async (imageUri: string) => {
     if (!conversationId) {
@@ -859,12 +837,33 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
       // Refresh messages
       loadMessages();
-    } catch (error) {
+    } catch (_error) {
       showError('Error', 'Failed to send image');
     } finally {
       setSending(false);
     }
   }, [conversationId, replyToMessage, showError, loadMessages]);
+
+  // Handle image picking and sending
+  const handlePickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showError('Permission Required', 'Photo library access is needed to send images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      const asset = result.assets[0];
+      await handleSendImage(asset.uri);
+    }
+  }, [showError, handleSendImage]);
 
   const handleViewProfileMenu = useCallback(() => {
     setChatMenuVisible(false);

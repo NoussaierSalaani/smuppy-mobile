@@ -63,7 +63,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
   const insets = useSafeAreaInsets();
   const { showError } = useSmuppyAlert();
 
-  const openLink = async (url: string, title: string) => {
+  const openLink = async (url: string, _title: string) => {
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {

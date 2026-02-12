@@ -58,15 +58,6 @@ const PIN_COLORS: Record<string, string> = {
 // ============================================
 // 8 FILTER CHIPS - Available to ALL accounts
 // ============================================
-// Filter type definition
-interface FilterDef {
-  key: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  subcategories: string[];
-}
-
 // Filter definitions - labels will be translated via t() hook in component
 const FILTER_DEFS = [
   { key: 'coaches', icon: 'person', color: PIN_COLORS.coaches, subcategories: ['Personal Trainers', 'Yoga Teachers', 'Sport Coaches', 'Nutritionists'] },

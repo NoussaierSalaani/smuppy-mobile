@@ -32,7 +32,7 @@ import {
   SIZES,
   HIT_SLOP,
 } from '../../config/theme';
-import { hapticButtonPress, hapticSubmit, hapticDestructive } from '../../utils/haptics';
+import { hapticButtonPress, hapticSubmit } from '../../utils/haptics';
 import {
   searchNominatim,
   formatNominatimResult,

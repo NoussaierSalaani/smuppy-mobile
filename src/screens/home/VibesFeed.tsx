@@ -13,7 +13,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage, { AvatarImage, ThumbnailImage } from '../../components/OptimizedImage';
 import { BlurView } from 'expo-blur';
@@ -323,7 +323,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const { handleScroll, showBars } = useTabBar();
-  const scrollRef = useRef<any>(null);
+  const scrollRef = useRef<FlashListRef<UIVibePost>>(null);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -547,7 +547,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       if (__DEV__) console.warn('[VibesFeed] Error:', err);
       if (allPosts.length === 0) setLoadError(true);
     }
-  }, [activeInterests, userInterests]);
+  }, [activeInterests, userInterests, allPosts.length]);
 
   // Reload when interests change — skip if cache is fresh
   useEffect(() => {

@@ -16,7 +16,7 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "APP_ENV": "dev"
+        "APP_ENV": "staging"
       }
     },
     "production": {

@@ -103,12 +103,12 @@ const PostDetailVibesFeedScreen = () => {
   // Card press animation refs
   const cardScales = useRef<{ [key: string]: Animated.Value }>({}).current;
   const viewedPosts = useRef<Set<string>>(new Set());
-  const getCardScale = (id: string) => {
+  const getCardScale = useCallback((id: string) => {
     if (!cardScales[id]) {
       cardScales[id] = new Animated.Value(1);
     }
     return cardScales[id];
-  };
+  }, [cardScales]);
 
   // User follows me?
   const _theyFollowMe = currentPost?.user?.followsMe || false;

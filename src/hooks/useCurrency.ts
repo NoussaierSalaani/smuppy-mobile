@@ -8,7 +8,7 @@ import { NativeModules, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { awsAPI } from '../services/aws-api';
 
-// Get device locale without expo-localization
+// Get device locale from platform defaults
 const getDeviceLocale = (): string => {
   try {
     if (Platform.OS === 'ios') {

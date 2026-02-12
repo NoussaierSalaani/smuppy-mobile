@@ -72,7 +72,7 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
         showError('Error', 'Failed to open link. Please check your internet connection.');
       }
     } catch {
-      showError('Error', 'Failed to open link. Please try again later.');
+      showError('Error', 'Failed to open link. Please check your internet connection.');
     }
   };
 

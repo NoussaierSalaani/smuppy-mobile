@@ -20,8 +20,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
-    const page = Math.max(parseInt(event.queryStringParameters?.page || '1', 10), 1);
-    const offset = (page - 1) * limit;
+    // Discover feed uses offset-based pagination (engagement-ranked feeds can't use cursor on created_at)
+    // Accept both ?cursor= (offset encoded) and ?page= for backward compatibility
+    const cursorParam = event.queryStringParameters?.cursor;
+    const offset = cursorParam ? parseInt(cursorParam, 10) : (() => {
+      const page = Math.max(parseInt(event.queryStringParameters?.page || '1', 10), 1);
+      return (page - 1) * limit;
+    })();
 
     const interestsParam = event.queryStringParameters?.interests;
     const interests = interestsParam
@@ -78,7 +83,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       isSavedExpr = `EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $${userIdParamIndex}) as is_saved`;
     }
 
-    params.push(limit);
+    params.push(limit + 1); // Fetch one extra to check hasMore
     const limitParam = paramIndex;
     paramIndex++;
 
@@ -99,7 +104,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       params
     );
 
-    const data = result.rows.map((row: Record<string, unknown>) => ({
+    const hasMore = result.rows.length > limit;
+    const rows = result.rows.slice(0, limit);
+
+    const data = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       authorId: row.author_id,
       content: row.content,
@@ -122,10 +130,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     }));
 
+    // nextCursor is the offset for the next page (encoded as string)
+    const nextCursor = hasMore ? String(offset + limit) : null;
+
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data, nextCursor, hasMore }),
     };
   } catch (error: unknown) {
     log.error('Error getting discover feed', error);

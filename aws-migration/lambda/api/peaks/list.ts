@@ -69,13 +69,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pc.response_count as challenge_response_count
     `;
 
-    // Add isLiked subquery if user is authenticated
+    // Add isLiked + isViewed subqueries if user is authenticated
     if (currentProfileId) {
       query += `,
         EXISTS(
           SELECT 1 FROM peak_likes pl
           WHERE pl.peak_id = pk.id AND pl.user_id = $1
-        ) as is_liked
+        ) as is_liked,
+        EXISTS(
+          SELECT 1 FROM peak_views pv
+          WHERE pv.peak_id = pk.id AND pv.user_id = $1
+        ) as is_viewed
       `;
     }
 
@@ -106,6 +110,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           (pk.expires_at IS NULL AND pk.created_at > NOW() - INTERVAL '48 hours')
         )
       `;
+      // Exclude peaks the user has hidden ("not interested")
+      if (currentProfileId) {
+        query += ` AND pk.id NOT IN (SELECT peak_id FROM peak_hidden WHERE user_id = $1)`;
+      }
     } else {
       query += `
         AND (
@@ -171,6 +179,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       expiresAt: peak.expires_at || null,
       savedToProfile: peak.saved_to_profile ?? null,
       isLiked: currentProfileId ? peak.is_liked : false,
+      isViewed: currentProfileId ? peak.is_viewed : false,
       author: {
         id: peak.author_id,
         username: peak.author_username,

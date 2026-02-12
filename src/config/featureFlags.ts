@@ -6,8 +6,8 @@ declare const __DEV__: boolean;
  * Set a flag to `false` to hide the feature from the UI entirely.
  * The code stays in place, only entry points are gated.
  *
- * In __DEV__ (Expo Go / dev builds), ALL features are enabled for testing.
- * In production builds, only flags set to `true` below are enabled.
+ * PROD_FEATURES is used in ALL builds (dev + production).
+ * Monetization features are disabled for V1 App Store submission.
  */
 
 /**

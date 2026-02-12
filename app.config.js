@@ -9,7 +9,7 @@ version: '1.0.0',
 orientation: 'portrait',
 icon: './assets/icon.png',
 userInterfaceStyle: 'light',
-newArchEnabled: false,
+newArchEnabled: true,
 updates: {
   url: 'https://u.expo.dev/f38cbb48-8255-45df-ab5b-097b70ee9fea',
 },

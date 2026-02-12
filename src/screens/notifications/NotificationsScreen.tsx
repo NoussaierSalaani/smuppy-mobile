@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { AvatarImage } from '../../components/OptimizedImage';
+import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   ScrollView,
   SectionList,
   TouchableOpacity,
-  Image,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -332,8 +331,8 @@ const NotificationItem = React.memo(function NotificationItem({
       )}
 
       {!isSystem && (item as UserNotification).postImage && (
-        <Image
-          source={{ uri: (item as UserNotification).postImage }}
+        <OptimizedImage
+          source={(item as UserNotification).postImage}
           style={styles.postThumbnail}
         />
       )}

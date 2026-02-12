@@ -8,25 +8,13 @@ import React, { memo, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native';
 import { Image, ImageContentFit, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { normalizeCdnUrl } from '../utils/cdnUrl';
 
 // Blurhash placeholder for smooth loading
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
 
 // Cache policy
 const CACHE_POLICY = 'memory-disk';
-
-// CDN URL normalization - fix legacy URLs pointing to wrong CloudFront
-const WRONG_CDN = 'd3gy4x1feicix3.cloudfront.net';
-const CORRECT_CDN = 'dc8kq67t0asis.cloudfront.net';
-
-const normalizeCdnUrl = (url: string | undefined | null): string | undefined => {
-  if (!url || typeof url !== 'string') return undefined;
-  // Fix URLs with wrong CDN domain
-  if (url.includes(WRONG_CDN)) {
-    return url.replace(WRONG_CDN, CORRECT_CDN);
-  }
-  return url;
-};
 
 interface OptimizedImageProps {
   source?: ImageSource | string | number | null;

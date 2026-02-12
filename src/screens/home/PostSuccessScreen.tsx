@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   Animated,
-  Image,
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
+import OptimizedImage from '../../components/OptimizedImage';
 
 const { width } = Dimensions.get('window');
 
@@ -88,10 +88,11 @@ export default function PostSuccessScreen({ route, navigation }: PostSuccessScre
   return (
     <View style={styles.container}>
       {/* Background Preview */}
-      <Image 
-        source={{ uri: media[0]?.uri }} 
+      <OptimizedImage
+        source={media[0]?.uri}
         style={styles.backgroundImage}
-        blurRadius={20}
+        contentFit="cover"
+        priority="low"
       />
       <View style={styles.overlay} />
 
@@ -122,7 +123,7 @@ export default function PostSuccessScreen({ route, navigation }: PostSuccessScre
             }
           ]}
         >
-          <Image source={{ uri: media[0]?.uri }} style={styles.previewImage} />
+          <OptimizedImage source={media[0]?.uri} style={styles.previewImage} contentFit="cover" />
           {media.length > 1 && (
             <View style={styles.multipleIndicator}>
               <Ionicons name="copy" size={14} color={colors.background} />

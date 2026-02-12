@@ -22,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { normalizeCdnUrl } from '../../utils/cdnUrl';
 
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -562,13 +563,13 @@ const PostDetailFanFeedScreen = () => {
           {item.type === 'video' ? (
             <Video
               ref={index === currentIndex ? videoRef : null}
-              source={{ uri: item.media }}
+              source={{ uri: normalizeCdnUrl(item.media) || '' }}
               style={styles.media}
               resizeMode={ResizeMode.COVER}
               isLooping
               isMuted={isAudioMuted}
               shouldPlay={index === currentIndex && !isPaused}
-              posterSource={{ uri: item.thumbnail }}
+              posterSource={{ uri: normalizeCdnUrl(item.thumbnail) || '' }}
               usePoster
             />
           ) : item.allMedia && item.allMedia.length > 1 ? (

@@ -1022,6 +1022,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           renderItem={renderPost}
           keyExtractor={keyExtractor}
           getItemType={getItemType}
+          {...{ estimatedItemSize: 450 } as Record<string, number>}
           ListHeaderComponent={ListHeader}
           ListFooterComponent={ListFooter}
           ListEmptyComponent={EmptyState}

@@ -972,14 +972,16 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // FlashList renderItem for virtualized grid
   const renderGridItem = useCallback(({ item }: { item: UIVibePost }) => (
-    <VibeCard
-      post={item}
-      colors={colors}
-      styles={styles}
-      onLike={toggleLike}
-      onTap={openPostModal}
-      onUserPress={goToUserProfile}
-    />
+    <View style={styles.gridItemWrapper}>
+      <VibeCard
+        post={item}
+        colors={colors}
+        styles={styles}
+        onLike={toggleLike}
+        onTap={openPostModal}
+        onUserPress={goToUserProfile}
+      />
+    </View>
   ), [toggleLike, openPostModal, goToUserProfile, colors, styles]);
 
   const keyExtractor = useCallback((item: UIVibePost) => item.id, []);
@@ -1182,9 +1184,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         renderItem={renderGridItem}
         keyExtractor={keyExtractor}
         numColumns={2}
-        {...{ estimatedItemSize: 200 } as Record<string, number>}
+        {...{ masonry: true, optimizeItemArrangement: true, estimatedItemSize: 230 } as Record<string, unknown>}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight } : undefined}
+        contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight, paddingHorizontal: GRID_PADDING - GRID_GAP / 2 } : { paddingHorizontal: GRID_PADDING - GRID_GAP / 2 }}
         onScroll={handleCombinedScroll}
         scrollEventThrottle={16}
         onEndReached={onLoadMore}
@@ -1615,6 +1617,10 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   // Grid
   gridContainer: {
     paddingHorizontal: GRID_PADDING,
+  },
+  gridItemWrapper: {
+    paddingHorizontal: GRID_GAP / 2,
+    paddingBottom: GRID_GAP,
   },
   masonryContainer: {
     flexDirection: 'row',

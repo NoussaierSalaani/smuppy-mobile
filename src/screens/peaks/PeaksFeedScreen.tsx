@@ -16,8 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import PeakCard from '../../components/peaks/PeakCard';
-import { AvatarImage } from '../../components/OptimizedImage';
+import { AvatarImage, ThumbnailImage } from '../../components/OptimizedImage';
 import { PeakGridSkeleton } from '../../components/skeleton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
@@ -198,15 +197,6 @@ const PeaksFeedScreen = (): React.JSX.Element => {
     return authorGroups.flatMap(g => g.peaks);
   }, [authorGroups]);
 
-  const handlePeakPress = useCallback((peak: Peak): void => {
-    const index = groupedPeaks.findIndex(p => p.id === peak.id);
-    const safeIndex = index >= 0 ? index : 0;
-    navigation.navigate('PeakView', {
-      peaks: groupedPeaks,
-      initialIndex: safeIndex,
-    });
-  }, [groupedPeaks, navigation]);
-
   const handleStoryPress = useCallback((group: { user: PeakUser; peaks: Peak[] }): void => {
     // Navigate to first peak of this author in the grouped list
     const index = groupedPeaks.findIndex(p => p.user.id === group.user.id);
@@ -227,40 +217,72 @@ const PeaksFeedScreen = (): React.JSX.Element => {
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const { leftColumn, rightColumn } = useMemo(() => {
-    const left: Peak[] = [];
-    const right: Peak[] = [];
-    peaks.forEach((peak, index) => {
-      if (index % 2 === 0) left.push(peak);
-      else right.push(peak);
+  // Split author groups into 2 columns for Messenger Reels-style layout
+  const { leftGroups, rightGroups } = useMemo(() => {
+    const left: typeof authorGroups = [];
+    const right: typeof authorGroups = [];
+    authorGroups.forEach((group, index) => {
+      if (index % 2 === 0) left.push(group);
+      else right.push(group);
     });
-    return { leftColumn: left, rightColumn: right };
-  }, [peaks]);
+    return { leftGroups: left, rightGroups: right };
+  }, [authorGroups]);
 
-  const renderColumn = useCallback((columnPeaks: Peak[]): React.JSX.Element => (
-    <View style={styles.column}>
-      {columnPeaks.map((peak) => (
-        <View key={peak.id} style={styles.peakCardWrapper}>
-          <PeakCard
-            peak={peak}
-            onPress={handlePeakPress}
+  // Render a big author group card (Messenger Reels style)
+  const renderGroupCard = useCallback((group: typeof authorGroups[0]) => {
+    const latestPeak = group.peaks[group.peaks.length - 1];
+    const thumbnail = latestPeak?.thumbnail;
+    return (
+      <TouchableOpacity
+        key={group.user.id}
+        style={styles.reelCard}
+        onPress={() => handleStoryPress(group)}
+        activeOpacity={0.9}
+      >
+        <ThumbnailImage source={thumbnail} style={styles.reelThumb} />
+
+        {group.hasUnwatched && (
+          <LinearGradient
+            colors={['#0EBF8A', '#00B5C1', '#0081BE']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.reelUnwatchedRing}
           />
-          {peak.isChallenge && (
-            <View style={styles.challengeBadge}>
-              <Ionicons name="trophy" size={12} color="#FFD700" />
-            </View>
-          )}
-        </View>
-      ))}
-    </View>
-  ), [handlePeakPress, styles.column, styles.peakCardWrapper, styles.challengeBadge]);
+        )}
 
-  const renderItem: ListRenderItem<number> = useCallback(() => (
-    <View style={styles.masonryContainer}>
-      {renderColumn(leftColumn)}
-      {renderColumn(rightColumn)}
+        {group.peaks.length > 1 && (
+          <View style={styles.reelCountBadge}>
+            <Text style={styles.reelCountText}>{group.peaks.length}</Text>
+          </View>
+        )}
+
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.reelOverlay}
+        >
+          <View style={styles.reelAuthorRow}>
+            <AvatarImage source={group.user.avatar} size={28} />
+            <Text style={styles.reelAuthorName} numberOfLines={1}>
+              {sanitizeText(group.user.name)}
+            </Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }, [handleStoryPress, styles]);
+
+  const renderColumns = useCallback((): React.JSX.Element => (
+    <View style={styles.reelGrid}>
+      <View style={styles.reelColumn}>
+        {leftGroups.map(renderGroupCard)}
+      </View>
+      <View style={styles.reelColumn}>
+        {rightGroups.map(renderGroupCard)}
+      </View>
     </View>
-  ), [styles.masonryContainer, renderColumn, leftColumn, rightColumn]);
+  ), [styles, leftGroups, rightGroups, renderGroupCard]);
+
+  const renderItem: ListRenderItem<number> = useCallback(() => renderColumns(), [renderColumns]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -295,51 +317,6 @@ const PeaksFeedScreen = (): React.JSX.Element => {
           ) : null}
         </View>
       </View>
-
-      {/* Story Circles — one per author (per PEAKS.md §3) */}
-      {!loading && authorGroups.length > 0 && (
-        <View style={styles.storyRow}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.storyScrollContent}
-          >
-            {authorGroups.map((group) => (
-              <TouchableOpacity
-                key={group.user.id}
-                style={styles.storyCircle}
-                onPress={() => handleStoryPress(group)}
-                activeOpacity={0.7}
-              >
-                {group.hasUnwatched ? (
-                  <LinearGradient
-                    colors={['#0EBF8A', '#00B5C1', '#0081BE']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.storyRingGradient}
-                  >
-                    <View style={styles.storyAvatarInner}>
-                      <AvatarImage source={group.user.avatar} size={52} />
-                    </View>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.storyRingViewed}>
-                    <AvatarImage source={group.user.avatar} size={52} />
-                  </View>
-                )}
-                <Text style={styles.storyUsername} numberOfLines={1}>
-                  {group.user.name.split(' ')[0]}
-                </Text>
-                {group.peaks.length > 1 && (
-                  <View style={styles.storyCountBadge}>
-                    <Text style={styles.storyCountText}>{group.peaks.length}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
 
       {/* Loading skeleton */}
       {loading && peaks.length === 0 ? (
@@ -438,28 +415,73 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
   },
   gridContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
-  masonryContainer: {
+  // Messenger Reels-style layout
+  reelGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 8,
   },
-  column: {
-    width: COLUMN_WIDTH,
+  reelColumn: {
+    flex: 1,
+    gap: 8,
   },
-  peakCardWrapper: {
-    position: 'relative',
+  reelCard: {
+    width: '100%',
+    aspectRatio: 0.65,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0',
   },
-  challengeBadge: {
+  reelThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  reelUnwatchedRing: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  reelCountBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
     borderRadius: 10,
-    width: 24,
-    height: 24,
+    minWidth: 22,
+    height: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  reelCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  reelOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+    paddingTop: 30,
+  },
+  reelAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reelAuthorName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFF',
+    flex: 1,
   },
   emptyScrollContent: {
     flexGrow: 1,
@@ -510,71 +532,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 16,
     fontWeight: '600',
     color: colors.white,
-  },
-  // Story Circles (per PEAKS.md §3.2)
-  storyRow: {
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-  },
-  storyScrollContent: {
-    paddingHorizontal: 16,
-    gap: 16,
-  },
-  storyCircle: {
-    alignItems: 'center',
-    width: 68,
-  },
-  storyRingGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    padding: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  storyRingViewed: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  storyAvatarInner: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  storyUsername: {
-    fontSize: 11,
-    color: isDark ? colors.white : colors.dark,
-    marginTop: 4,
-    textAlign: 'center',
-    width: 68,
-  },
-  storyCountBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 2,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  storyCountText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.dark,
   },
 });
 

@@ -32,6 +32,7 @@ export const isValidCoordinate = (lat: number, lng: number): boolean => {
 // ============================================
 
 const MAX_SEARCH_QUERY_LENGTH = 100;
+const NOMINATIM_TIMEOUT_MS = 8000;
 
 /**
  * Sanitizes and validates a search query
@@ -225,17 +226,26 @@ export const searchNominatim = async (
 
   const url = `${NOMINATIM_API.SEARCH}?${buildQueryString(params)}`;
 
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': NOMINATIM_API.USER_AGENT,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), NOMINATIM_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error(`Nominatim error: ${response.status}`);
+  try {
+    const response = await fetch(url, {
+      headers: { 'User-Agent': NOMINATIM_API.USER_AGENT },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      throw new Error(`Nominatim error: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    clearTimeout(timeout);
+    if (__DEV__) console.warn('[Nominatim] Search failed:', error);
+    return [];
   }
-
-  return response.json();
 };
 
 /**
@@ -261,17 +271,27 @@ export const reverseGeocodeNominatim = async (
 
   const url = `${NOMINATIM_API.REVERSE}?${buildQueryString(params)}`;
 
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': NOMINATIM_API.USER_AGENT,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), NOMINATIM_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error(`Nominatim error: ${response.status}`);
+  let data;
+  try {
+    const response = await fetch(url, {
+      headers: { 'User-Agent': NOMINATIM_API.USER_AGENT },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    data = await response.json();
+  } catch (error) {
+    clearTimeout(timeout);
+    if (__DEV__) console.warn('[Nominatim] Reverse geocode failed:', error);
+    return null;
   }
-
-  const data = await response.json();
 
   // Validate response structure
   if (data.error) {

@@ -9,6 +9,7 @@ import type { RouteProfile, DifficultyLevel } from '../types';
 
 const MAPBOX_TOKEN = Constants.expoConfig?.extra?.mapboxAccessToken || '';
 const BASE_URL = 'https://api.mapbox.com/directions/v5/mapbox';
+const API_TIMEOUT_MS = 10000;
 
 // ============================================
 // TYPES
@@ -124,7 +125,21 @@ export async function calculateRoute(
   const url = `${BASE_URL}/${profile}/${coordsString}?` +
     `geometries=geojson&overview=full&steps=true&access_token=${MAPBOX_TOKEN}`;
 
-  const response = await fetch(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, { signal: controller.signal });
+  } catch (error) {
+    clearTimeout(timeout);
+    try {
+      const { captureException } = require('../lib/sentry');
+      captureException(error);
+    } catch { /* Sentry not available */ }
+    throw new Error('Route calculation failed — check your connection');
+  }
+  clearTimeout(timeout);
 
   if (!response.ok) {
     throw new Error(`Mapbox Directions API error: ${response.status}`);

@@ -572,6 +572,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const handleCloseMenuItem = useCallback(() => setMenuItem(null), []);
   const handleCloseCollectionMenu = useCallback(() => setCollectionMenuVisible(false), []);
   const handleNavigateSettings = useCallback(() => navigation.navigate('Settings'), [navigation]);
+  const handleNavigateMessages = useCallback(() => navigation.navigate('Messages'), [navigation]);
   const handleNavigateEditProfile = useCallback(() => navigation.navigate('EditProfile'), [navigation]);
   const handleNavigatePrescriptions = useCallback(() => navigation.navigate('Prescriptions'), [navigation]);
   const handleNavigateCreatePost = useCallback(() => navigation.navigate('CreatePost', { fromProfile: true }), [navigation]);
@@ -775,6 +776,15 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           />
           {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
         </View>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={handleNavigateMessages}
+          accessibilityLabel="Messages"
+          accessibilityRole="button"
+          accessibilityHint="Open your messages"
+        >
+          <Ionicons name="chatbubble-outline" size={18} color={colors.gray900} />
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={handleShowQRModal}

@@ -294,6 +294,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [peaks, setPeaks] = useState<Peak[]>(initialPeaks);
   const [isLoadingPeak, setIsLoadingPeak] = useState(false);
   const currentUser = useUserStore((state) => state.user);
+  const isBusiness = currentUser?.accountType === 'pro_business';
 
   // If navigated with only peakId (no peaks array), fetch the peak from API
   useEffect(() => {
@@ -1284,12 +1285,14 @@ const PeakViewScreen = (): React.JSX.Element => {
           </View>
 
           {/* Add Button */}
+          {!isBusiness && (
           <TouchableOpacity
             style={styles.addButton}
             onPress={handleCreatePeak}
           >
             <Ionicons name="add" size={26} color={colors.white} />
           </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -1370,29 +1373,36 @@ const PeakViewScreen = (): React.JSX.Element => {
           </TouchableOpacity>
 
           {/* Comments Button */}
+          {!isBusiness && (
           <TouchableOpacity style={styles.actionButton} onPress={handleOpenComments}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="chatbubble-outline" size={24} color={colors.white} />
             </View>
             <Text style={styles.actionCount}>{formatCount(commentsCount)}</Text>
           </TouchableOpacity>
+          )}
 
           {/* Reply with Peak Button */}
+          {!isBusiness && (
           <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="videocam-outline" size={24} color={colors.white} />
             </View>
             <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
           </TouchableOpacity>
+          )}
 
           {/* Share Button */}
+          {!isBusiness && (
           <TouchableOpacity style={styles.actionButton} onPress={handleShareAction}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="paper-plane-outline" size={24} color={colors.white} />
             </View>
           </TouchableOpacity>
+          )}
 
           {/* Tag Friend Button */}
+          {!isBusiness && (
           <TouchableOpacity style={styles.actionButton} onPress={handleOpenTagModal}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="person-add-outline" size={22} color={colors.white} />
@@ -1403,8 +1413,10 @@ const PeakViewScreen = (): React.JSX.Element => {
               </Text>
             )}
           </TouchableOpacity>
+          )}
 
           {/* Save Button */}
+          {!isBusiness && (
           <TouchableOpacity style={styles.actionButton} onPress={toggleSave}>
             <View style={styles.actionIconContainer}>
               <Ionicons
@@ -1414,6 +1426,7 @@ const PeakViewScreen = (): React.JSX.Element => {
               />
             </View>
           </TouchableOpacity>
+          )}
 
           {/* More Options */}
           <TouchableOpacity style={styles.actionButton} onPress={handleShowMenu}>
@@ -1473,7 +1486,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                   </Text>
                 ) : null}
               </View>
-              {(!currentPeak.challengeEndsAt || new Date(currentPeak.challengeEndsAt) > new Date()) && (
+              {!isBusiness && (!currentPeak.challengeEndsAt || new Date(currentPeak.challengeEndsAt) > new Date()) && (
                 <TouchableOpacity
                   style={styles.acceptChallengeButton}
                   onPress={handleAcceptChallenge}
@@ -1490,10 +1503,12 @@ const PeakViewScreen = (): React.JSX.Element => {
         <View style={styles.progressBarBackground}>
           <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
         </View>
+        {!isBusiness && (
         <TouchableOpacity style={styles.replyButton} onPress={handleCreatePeak}>
           <Ionicons name="return-down-forward" size={18} color={colors.white} />
           <Text style={styles.replyButtonText}>Reply with your Peak</Text>
         </TouchableOpacity>
+        )}
       </View>
         </View>
       )}

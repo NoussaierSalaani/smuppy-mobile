@@ -561,9 +561,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     fetchPosts(0, true).finally(() => setIsLoading(false));
   }, [fetchPosts]);
 
-  // Fetch peaks for carousel (skip for business accounts — they don't see the carousel)
+  // Fetch peaks for carousel
   useEffect(() => {
-    if (isBusiness) return;
     let mounted = true;
 
     if (__DEV__) {
@@ -626,7 +625,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       });
 
     return () => { mounted = false; };
-  }, [isBusiness, currentUserId]);
+  }, [currentUserId]);
 
   // Passive daily login streak tracking
   useEffect(() => {
@@ -1259,7 +1258,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             )}
 
             {/* PEAKS SECTION — Story circles grouped by author (per PEAKS.md §3) */}
-            {!isBusiness && peakAuthorGroups.length > 0 && <View style={styles.peaksSection}>
+            {peakAuthorGroups.length > 0 && <View style={styles.peaksSection}>
               <View style={styles.peaksSectionHeader}>
                 <Text style={styles.peaksSectionTitle}>Peaks</Text>
                 <TouchableOpacity

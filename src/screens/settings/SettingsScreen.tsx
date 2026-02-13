@@ -28,7 +28,6 @@ import type { ThemePreference } from '../../stores/themeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { HIT_SLOP } from '../../config/theme';
 import { hapticButtonPress, hapticDestructive } from '../../utils/haptics';
-import { VerifiedBadge } from '../../components/Badge';
 import { resolveDisplayName } from '../../types/profile';
 
 const COVER_HEIGHT = 160;
@@ -262,35 +261,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const handleGoBack = useCallback(() => {
     hapticButtonPress();
     navigation.goBack();
-  }, [navigation]);
-
-  const handleNavigateUpgradeToPro = useCallback(() => {
-    navigation.navigate('UpgradeToPro');
-  }, [navigation]);
-
-  const handleNavigateCreatorWallet = useCallback(() => {
-    hapticButtonPress();
-    navigation.navigate('CreatorWallet');
-  }, [navigation]);
-
-  const handleNavigatePlatformSubscription = useCallback(() => {
-    hapticButtonPress();
-    navigation.navigate('PlatformSubscription');
-  }, [navigation]);
-
-  const handleNavigateIdentityVerification = useCallback(() => {
-    hapticButtonPress();
-    navigation.navigate('IdentityVerification');
-  }, [navigation]);
-
-  const handleNavigatePaymentMethods = useCallback(() => {
-    hapticButtonPress();
-    navigation.navigate('PaymentMethods');
-  }, [navigation]);
-
-  const handleNavigatePrivateSessions = useCallback(() => {
-    hapticButtonPress();
-    navigation.navigate('PrivateSessionsManage');
   }, [navigation]);
 
   const handleShowLogoutModal = useCallback(() => {
@@ -528,117 +498,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           </View>
         </View>
 
-        {/* Payments & Monetization */}
-        <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>{"Payments & Monetization"}</Text>
-          <View style={styles.menuCard}>
-            {/* Upgrade to Pro Creator - Only for personal accounts */}
-            {user?.accountType === 'personal' && (
-              <TouchableOpacity
-                style={[styles.menuItem, styles.menuItemFirst, styles.upgradeItem]}
-                onPress={handleNavigateUpgradeToPro}
-                activeOpacity={0.7}
-              >
-                <LinearGradient
-                  colors={[colors.primary, '#00B5C1']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.upgradeGradient}
-                >
-                  <View style={styles.upgradeIconContainer}>
-                    <Ionicons name="star" size={20} color="#FFF" />
-                  </View>
-                  <View style={styles.upgradeTextContainer}>
-                    <Text style={styles.upgradeTitle}>Upgrade to Pro Creator</Text>
-                    <Text style={styles.upgradeSubtitle}>{"Unlock tips, unlimited events & more"}</Text>
-                  </View>
-                  <View style={styles.upgradeArrow}>
-                    <Ionicons name="arrow-forward" size={18} color="#FFF" />
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-
-            {/* Creator Wallet - Not for personal accounts */}
-            {user?.accountType !== 'personal' && (
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemFirst]}
-              onPress={handleNavigateCreatorWallet}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.menuItemIcon, styles.menuItemIconWallet]}>
-                <Ionicons name="wallet-outline" size={20} color="#22C55E" />
-              </View>
-              <Text style={styles.menuItemLabel}>Wallet</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-            </TouchableOpacity>
-            )}
-
-            {/* Go Pro - Not for personal accounts */}
-            {user?.accountType !== 'personal' && (
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleNavigatePlatformSubscription}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.menuItemIcon, styles.menuItemIconPro]}>
-                <Ionicons name="rocket-outline" size={20} color="#7C3AED" />
-              </View>
-              <Text style={styles.menuItemLabel}>Go Pro</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-            </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleNavigateIdentityVerification}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.menuItemIcon, styles.menuItemIconVerification]}>
-                <VerifiedBadge size={20} />
-              </View>
-              <View style={styles.menuItemContent}>
-                <Text style={styles.menuItemLabel}>Identity Verification</Text>
-                <Text style={styles.menuItemSubtitle}>
-                  {user?.isVerified ? 'Active' : 'Not verified'}
-                </Text>
-              </View>
-              {user?.isVerified ? (
-                <View style={styles.verifiedStatusDot} />
-              ) : (
-                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-              )}
-            </TouchableOpacity>
-
-            {/* Payment Methods - All users */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleNavigatePaymentMethods}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.menuItemIcon, styles.menuItemIconPayment]}>
-                <Ionicons name="card-outline" size={20} color="#9C27B0" />
-              </View>
-              <Text style={styles.menuItemLabel}>Payment Methods</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-            </TouchableOpacity>
-
-            {/* Private Sessions - Creator only */}
-            {isProCreator && (
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleNavigatePrivateSessions}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.menuItemIcon, styles.menuItemIconSessions]}>
-                <Ionicons name="videocam-outline" size={20} color="#FF9800" />
-              </View>
-              <Text style={styles.menuItemLabel}>Sessions</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-            </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        {/* Payments & Monetization — hidden until launch */}
 
         {/* Danger Zone */}
         <View style={styles.menuSection}>

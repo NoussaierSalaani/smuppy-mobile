@@ -133,10 +133,10 @@ const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
           </Text>
           <TouchableOpacity
             style={styles.contactButton}
-            onPress={() => openLink('mailto:legal@smuppy.app', 'Email')}
+            onPress={() => openLink('mailto:legal@smuppy.com', 'Email')}
           >
             <Ionicons name="mail-outline" size={18} color="#0EBF8A" />
-            <Text style={styles.contactButtonText}>legal@smuppy.app</Text>
+            <Text style={styles.contactButtonText}>legal@smuppy.com</Text>
           </TouchableOpacity>
         </View>
 

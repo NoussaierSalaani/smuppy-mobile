@@ -35,7 +35,15 @@ export class LambdaStack3 extends cdk.NestedStack {
   // Events Lambda Functions
   public readonly eventsCreateFn: NodejsFunction;
   public readonly eventsListFn: NodejsFunction;
+  public readonly eventsGetFn: NodejsFunction;
   public readonly eventsJoinFn: NodejsFunction;
+  public readonly eventsLeaveFn: NodejsFunction;
+  public readonly eventsUpdateFn: NodejsFunction;
+  public readonly eventsCancelFn: NodejsFunction;
+
+  // Groups Extended Lambda Functions
+  public readonly groupsUpdateFn: NodejsFunction;
+  public readonly groupsCancelFn: NodejsFunction;
 
   // Battles Lambda Functions
   public readonly battlesCreateFn: NodejsFunction;
@@ -144,7 +152,15 @@ export class LambdaStack3 extends cdk.NestedStack {
     // ========================================
     this.eventsCreateFn = createLambda('EventsCreateFunction', 'events/create');
     this.eventsListFn = createLambda('EventsListFunction', 'events/list');
+    this.eventsGetFn = createLambda('EventsGetFunction', 'events/get');
     this.eventsJoinFn = createLambda('EventsJoinFunction', 'events/join');
+    this.eventsLeaveFn = createLambda('EventsLeaveFunction', 'events/leave');
+    this.eventsUpdateFn = createLambda('EventsUpdateFunction', 'events/update');
+    this.eventsCancelFn = createLambda('EventsCancelFunction', 'events/delete');
+
+    // Groups Extended
+    this.groupsUpdateFn = createLambda('GroupsUpdateFunction', 'groups/update');
+    this.groupsCancelFn = createLambda('GroupsCancelFunction', 'groups/delete');
 
     // ========================================
     // Battles Lambda Functions

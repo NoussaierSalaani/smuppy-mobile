@@ -51,26 +51,27 @@ interface Event {
   title: string;
   description?: string;
   category: EventCategory;
-  organizer: {
+  creator?: {
     id: string;
     username: string;
-    full_name?: string;
-    profile_picture_url?: string;
-    is_verified: boolean;
+    displayName?: string;
+    avatarUrl?: string;
+    isVerified?: boolean;
   };
-  location_name: string;
-  coordinates: { lat: number; lng: number };
-  route_points?: { lat: number; lng: number }[];
-  distance_km?: number;
-  start_date: string;
-  end_date?: string;
-  price_cents?: number;
-  max_participants?: number;
-  participant_count: number;
-  cover_image_url?: string;
-  is_free: boolean;
-  difficulty_level?: 'easy' | 'moderate' | 'hard' | 'expert';
-  created_at: string;
+  locationName: string;
+  latitude: number;
+  longitude: number;
+  routeWaypoints?: { lat: number; lng: number }[];
+  distanceKm?: number;
+  startsAt: string;
+  endsAt?: string;
+  price?: number;
+  maxParticipants?: number;
+  currentParticipants: number;
+  coverImageUrl?: string;
+  isFree: boolean;
+  difficulty?: 'easy' | 'moderate' | 'hard' | 'expert';
+  createdAt: string;
 }
 
 // Main visible categories (max 3 shown + More button)
@@ -195,15 +196,20 @@ export default function EventListScreen() {
       }
 
       if (userLocation) {
-        params.lat = userLocation.lat;
-        params.lng = userLocation.lng;
-        params.radius = 50; // 50km radius
+        params.latitude = userLocation.lat;
+        params.longitude = userLocation.lng;
+        params.radiusKm = 50;
       }
 
       const response = await awsAPI.getEvents(params);
 
-      if (response.success) {
-        setEvents((response.events || []) as unknown as Event[]);
+      if (response.success && response.events) {
+        const mapped: Event[] = response.events.map((e) => ({
+          ...e,
+          category: ALL_CATEGORIES.find((c) => c.slug === e.categorySlug) || ALL_CATEGORIES[0],
+          currentParticipants: e.currentParticipants ?? 0,
+        }));
+        setEvents(mapped);
       }
     } catch (error) {
       if (__DEV__) console.warn('Load events error:', error);
@@ -216,8 +222,7 @@ export default function EventListScreen() {
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedCategory, userLocation]);
 
   const handleMarkerPress = useCallback((event: Event) => {
     setSelectedEvent(event);
@@ -390,7 +395,7 @@ export default function EventListScreen() {
       extrapolate: 'clamp',
     });
 
-    const isFull = item.max_participants && item.participant_count >= item.max_participants;
+    const isFull = item.maxParticipants && item.currentParticipants >= item.maxParticipants;
 
     return (
       <Animated.View style={[styles.eventCard, viewMode === 'map' ? { transform: [{ scale }] } : undefined]}>
@@ -400,8 +405,8 @@ export default function EventListScreen() {
         >
           {/* Cover Image */}
           <View style={styles.cardImageContainer}>
-            {item.cover_image_url ? (
-              <OptimizedImage source={item.cover_image_url} style={styles.cardImage} />
+            {item.coverImageUrl ? (
+              <OptimizedImage source={item.coverImageUrl} style={styles.cardImage} />
             ) : (
               <LinearGradient
                 colors={[item.category.color, `${item.category.color}66`]}
@@ -420,15 +425,15 @@ export default function EventListScreen() {
             </View>
 
             {/* Difficulty */}
-            {item.difficulty_level && (
+            {item.difficulty && (
               <View
                 style={[
                   styles.difficultyBadge,
-                  { backgroundColor: DIFFICULTY_COLORS[item.difficulty_level] },
+                  { backgroundColor: DIFFICULTY_COLORS[item.difficulty] },
                 ]}
               >
                 <Text style={styles.difficultyText}>
-                  {item.difficulty_level.charAt(0).toUpperCase() + item.difficulty_level.slice(1)}
+                  {item.difficulty.charAt(0).toUpperCase() + item.difficulty.slice(1)}
                 </Text>
               </View>
             )}
@@ -436,7 +441,7 @@ export default function EventListScreen() {
             {/* Price/Free */}
             <View style={styles.priceBadge}>
               <Text style={styles.priceText}>
-                {item.is_free ? 'Free' : formatAmount(item.price_cents || 0)}
+                {item.isFree ? 'Free' : formatAmount(item.price || 0)}
               </Text>
             </View>
           </View>
@@ -448,40 +453,42 @@ export default function EventListScreen() {
               {item.title}
             </Text>
 
-            {/* Organizer */}
-            <View style={styles.organizerRow}>
-              <OptimizedImage
-                source={item.organizer.profile_picture_url ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(item.organizer.full_name || item.organizer.username)}&background=random`}
-                style={styles.organizerAvatar}
-              />
-              <Text style={styles.organizerName}>{item.organizer.full_name || item.organizer.username}</Text>
-              {item.organizer.is_verified && (
-                <Ionicons name="checkmark-circle" size={12} color="#00BFFF" />
-              )}
-            </View>
+            {/* Creator */}
+            {item.creator && (
+              <View style={styles.organizerRow}>
+                <OptimizedImage
+                  source={item.creator.avatarUrl ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(item.creator.displayName || item.creator.username)}&background=random`}
+                  style={styles.organizerAvatar}
+                />
+                <Text style={styles.organizerName}>{item.creator.displayName || item.creator.username}</Text>
+                {item.creator.isVerified && (
+                  <Ionicons name="checkmark-circle" size={12} color="#00BFFF" />
+                )}
+              </View>
+            )}
 
             {/* Details */}
             <View style={styles.detailsRow}>
               <View style={styles.detail}>
                 <Ionicons name="calendar" size={14} color="#888" />
-                <Text style={styles.detailText}>{formatDateTimeRelative(item.start_date)}</Text>
+                <Text style={styles.detailText}>{formatDateTimeRelative(item.startsAt)}</Text>
               </View>
 
               <View style={styles.detail}>
                 <Ionicons name="location" size={14} color="#888" />
                 <Text style={styles.detailText} numberOfLines={1}>
-                  {item.location_name}
+                  {item.locationName}
                 </Text>
               </View>
             </View>
 
             {/* Distance if route event */}
-            {item.distance_km && (
+            {item.distanceKm && (
               <View style={styles.distanceRow}>
                 <Ionicons name="map" size={14} color={item.category.color} />
                 <Text style={[styles.distanceText, { color: item.category.color }]}>
-                  {item.distance_km.toFixed(1)} km
+                  {item.distanceKm.toFixed(1)} km
                 </Text>
               </View>
             )}
@@ -491,8 +498,8 @@ export default function EventListScreen() {
               <View style={styles.participantsInfo}>
                 <Ionicons name="people" size={16} color="#FF6B35" />
                 <Text style={styles.participantsText}>
-                  {item.participant_count}
-                  {item.max_participants ? ` / ${item.max_participants}` : ''} going
+                  {item.currentParticipants}
+                  {item.maxParticipants ? ` / ${item.maxParticipants}` : ''} going
                 </Text>
               </View>
 
@@ -520,7 +527,7 @@ export default function EventListScreen() {
   const renderMapMarker = (event: Event) => (
     <MarkerView
       key={event.id}
-      coordinate={[event.coordinates.lng, event.coordinates.lat]}
+      coordinate={[event.longitude, event.latitude]}
     >
       <TouchableOpacity onPress={() => handleMarkerPress(event)}>
         <View

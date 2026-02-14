@@ -31,7 +31,9 @@ import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
-import { sharePost, copyPostLink } from '../../utils/share';
+import { copyPostLink } from '../../utils/share';
+import SharePostModal from '../../components/SharePostModal';
+import { useShareModal } from '../../hooks/useModalState';
 import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, deletePost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
@@ -110,7 +112,7 @@ const PostDetailFanFeedScreen = () => {
   const [bookmarkLoading, setBookmarkLoading] = useState<LoadingRecord>({});
   const [fanLoading, setFanLoading] = useState<LoadingRecord>({});
   const [fanStatusChecking, setFanStatusChecking] = useState<Record<string, boolean>>({}); // Track which users we're checking
-  const [shareLoading, setShareLoading] = useState(false);
+  const shareModal = useShareModal();
   const [reportLoading, setReportLoading] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
@@ -366,23 +368,19 @@ const PostDetailFanFeedScreen = () => {
     return item.type === 'video' ? 'video' : 'image';
   }, []);
 
-  // Share post with anti spam-click
-  const handleShare = useCallback(async () => {
-    if (shareLoading || !currentPost) return;
-    setShareLoading(true);
-    try {
-      setShowMenu(false);
-      await sharePost(
-        currentPost.id,
-        currentPost.description,
-        currentPost.user.name
-      );
-    } catch (_error) {
-      // User cancelled or error - silent fail
-    } finally {
-      setShareLoading(false);
-    }
-  }, [shareLoading, currentPost]);
+  // Share post — opens in-app send modal
+  const handleShare = useCallback(() => {
+    if (!currentPost) return;
+    setShowMenu(false);
+    shareModal.open({
+      id: currentPost.id,
+      type: 'post',
+      title: currentPost.user.name,
+      subtitle: currentPost.description,
+      image: currentPost.media,
+      avatar: currentPost.user.avatar,
+    });
+  }, [currentPost, shareModal]);
 
   // Copy link to clipboard
   const handleCopyLink = useCallback(async () => {
@@ -669,17 +667,12 @@ const PostDetailFanFeedScreen = () => {
           {/* Right actions */}
           <View style={styles.rightActions}>
             <TouchableOpacity
-              style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
+              style={styles.actionBtn}
               onPress={handleShare}
-              disabled={shareLoading}
-              accessibilityLabel="Share"
+              accessibilityLabel="Send"
               accessibilityRole="button"
             >
-              {shareLoading ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Ionicons name="share-social-outline" size={24} color="#FFF" />
-              )}
+              <Ionicons name="paper-plane-outline" size={24} color="#FFF" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -827,7 +820,7 @@ const PostDetailFanFeedScreen = () => {
     );
   }, [likedPosts, bookmarkedPosts, localLikes, currentUserId, fanStatus, fanStatusChecking, isUnderReview,
       handleDoubleTap, currentIndex, isAudioMuted, isPaused, carouselIndexes, showLikeAnimation,
-      likeAnimationScale, shareLoading, handleShare, likeLoadingState, toggleLike, bookmarkLoading,
+      likeAnimationScale, handleShare, likeLoadingState, toggleLike, bookmarkLoading,
       toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescription,
       styles, colors, navigation, bottomContentPaddingStyle, handleGoBack, handleShowMenu,
       handleToggleAudioMute, handleToggleDescription, headerPaddingStyle]);
@@ -1045,6 +1038,12 @@ const PostDetailFanFeedScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <SharePostModal
+        visible={shareModal.isVisible}
+        content={shareModal.data}
+        onClose={shareModal.close}
+      />
     </View>
   );
 };

@@ -105,12 +105,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Check if fans-only and user is following
-    if (eventData.is_fans_only && eventData.creator_id !== userId) {
+    // BUG-2026-02-14: Fans-only check must use profile IDs (not Cognito sub)
+    if (eventData.is_fans_only && eventData.creator_id !== userProfileId) {
       const followCheck = await client.query(
         `SELECT id FROM follows
          WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
-        [userId, eventData.creator_id]
+        [userProfileId, eventData.creator_id]
       );
 
       if (followCheck.rows.length === 0) {
@@ -124,11 +124,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
-    // Get existing participation
+    // Get existing participation (use profile ID, not Cognito sub)
     const existingResult = await client.query(
       `SELECT id FROM event_participants
        WHERE event_id = $1 AND user_id = $2`,
-      [eventId, userId]
+      [eventId, userProfileId]
     );
 
     await client.query('BEGIN');
@@ -173,24 +173,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             `UPDATE event_participants
              SET status = 'registered', notes = $1
              WHERE event_id = $2 AND user_id = $3`,
-            [notes, eventId, userId]
+            [notes, eventId, userProfileId]
           );
         } else {
           await client.query(
             `INSERT INTO event_participants (event_id, user_id, status, notes)
              VALUES ($1, $2, 'registered', $3)`,
-            [eventId, userId, notes]
+            [eventId, userProfileId, notes]
           );
         }
 
         participationStatus = 'registered';
         message = 'Successfully registered for the event';
 
-        // Update cached participant count
-        await client.query(
-          `UPDATE events SET current_participants = current_participants + 1 WHERE id = $1`,
-          [eventId]
-        );
+        // BUG-2026-02-14: Only increment when max_participants is NOT set
+        // (atomic capacity check above already increments for capped events)
+        if (!eventData.max_participants) {
+          await client.query(
+            `UPDATE events SET current_participants = current_participants + 1 WHERE id = $1`,
+            [eventId]
+          );
+        }
 
         // Notify creator
         if (eventData.creator_id !== userProfileId) {
@@ -213,13 +216,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             `UPDATE event_participants
              SET status = 'interested'
              WHERE event_id = $1 AND user_id = $2`,
-            [eventId, userId]
+            [eventId, userProfileId]
           );
         } else {
           await client.query(
             `INSERT INTO event_participants (event_id, user_id, status)
              VALUES ($1, $2, 'interested')`,
-            [eventId, userId]
+            [eventId, userProfileId]
           );
         }
 
@@ -242,7 +245,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           `UPDATE event_participants
            SET status = 'cancelled'
            WHERE event_id = $1 AND user_id = $2`,
-          [eventId, userId]
+          [eventId, userProfileId]
         );
 
         // Decrement cached participant count

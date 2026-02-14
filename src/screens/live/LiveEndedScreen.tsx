@@ -1,5 +1,5 @@
 // src/screens/live/LiveEndedScreen.tsx
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { GRADIENTS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 
 export default function LiveEndedScreen(): React.JSX.Element {
   const navigation = useNavigation<{ reset: (state: { index: number; routes: { name: string }[] }) => void }>();
@@ -34,6 +35,15 @@ export default function LiveEndedScreen(): React.JSX.Element {
     return `${mins}m ${secs}s`;
   };
 
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const shareContent: ShareContentData = {
+    id: 'live-stats',
+    type: 'text',
+    title: 'Live Stream Summary',
+    subtitle: `${formatDuration(duration)} - ${viewerCount} viewers`,
+    shareText: `I just went live on Smuppy! ${formatDuration(duration)} stream with ${viewerCount} viewers and ${peakViewers || viewerCount} peak viewers.`,
+  };
+
   const handleDone = () => {
     navigation.reset({
       index: 0,
@@ -41,19 +51,7 @@ export default function LiveEndedScreen(): React.JSX.Element {
     });
   };
 
-  const handleShareHighlights = async () => {
-    try {
-      await Share.share({
-        message: `I just went live on Smuppy! ${formatDuration(duration)} stream with ${viewerCount} viewers and ${peakViewers || viewerCount} peak viewers.`,
-      });
-    } catch {
-      // User cancelled or share failed — continue
-    }
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Tabs' }],
-    });
-  };
+  const handleShareHighlights = () => setShareModalVisible(true);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -123,6 +121,13 @@ export default function LiveEndedScreen(): React.JSX.Element {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      {/* Share Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }

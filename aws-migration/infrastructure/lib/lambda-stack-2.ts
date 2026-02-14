@@ -40,6 +40,9 @@ export class LambdaStack2 extends cdk.NestedStack {
   public readonly peaksExpiredFn: NodejsFunction;
   public readonly peaksSaveDecisionFn: NodejsFunction;
 
+  // Activity History
+  public readonly activityListFn: NodejsFunction;
+
   // Disputes handlers moved to LambdaStackDisputes to stay under CloudFormation limits
 
   constructor(scope: Construct, id: string, props: LambdaStack2Props) {
@@ -144,5 +147,10 @@ export class LambdaStack2 extends cdk.NestedStack {
     // ========================================
     this.peaksExpiredFn = createLambda('PeaksExpiredFunction', 'peaks/expired');
     this.peaksSaveDecisionFn = createLambda('PeaksSaveDecisionFunction', 'peaks/save-decision');
+
+    // ========================================
+    // Activity History Lambda Functions
+    // ========================================
+    this.activityListFn = createLambda('ActivityListFunction', 'activity/list');
   }
 }

@@ -3,13 +3,12 @@
  * Confirmation screen after successful subscription
  */
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Share,
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { GRADIENTS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 
 interface Props {
   route: {
@@ -40,9 +41,18 @@ const PERIOD_TEXT = {
 
 export default function BusinessSubscriptionSuccessScreen({ route, navigation }: Props) {
   const { colors, isDark } = useTheme();
-  const { subscriptionId: _subscriptionId, businessName, planName, period, trialDays } = route.params;
+  const { subscriptionId, businessName, planName, period, trialDays } = route.params;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const shareContent: ShareContentData = {
+    id: subscriptionId,
+    type: 'text',
+    title: `Subscribed to ${businessName}`,
+    subtitle: `${planName} - ${PERIOD_TEXT[period]}`,
+    shareText: `I just subscribed to ${businessName} on Smuppy!\n\nJoin me and let's workout together!`,
+  };
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -64,15 +74,7 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: `I just subscribed to ${businessName} on Smuppy! 🏋️‍♂️\n\nJoin me and let's workout together!`,
-      });
-    } catch (error) {
-      if (__DEV__) console.warn('Share error:', error);
-    }
-  };
+  const handleShare = () => setShareModalVisible(true);
 
   const handleViewSubscription = () => {
     navigation.replace('MySubscriptions');
@@ -184,6 +186,13 @@ export default function BusinessSubscriptionSuccessScreen({ route, navigation }:
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      {/* Share Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
+      />
     </View>
   );
 }

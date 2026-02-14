@@ -34,8 +34,8 @@ module.exports = {
     global: {
       branches: 2,
       functions: 2,
-      lines: 2,
-      statements: 2,
+      lines: 2.3,
+      statements: 2.3,
     },
   },
   // Ignore module collisions in aws-migration

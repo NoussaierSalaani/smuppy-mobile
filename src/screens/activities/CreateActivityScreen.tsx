@@ -16,7 +16,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
-  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,6 +32,8 @@ import type { RouteResult, Coordinate } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { FEATURES } from '../../config/featureFlags';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -106,6 +107,8 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
   // UI
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
 
   const isRouteActivity = selectedCategory?.isRouteActivity ?? false;
   const subcategory = selectedSubcategory || customSubcategory;
@@ -229,15 +232,15 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
             buttons: [
               {
                 text: 'Share Link',
-                onPress: async () => {
-                  try {
-                    await Share.share({
-                      message: `Join me at "${title}"!\n\n${shareUrl}`,
-                      title: `Join: ${title}`,
-                      url: shareUrl,
-                    });
-                  } catch { /* cancelled */ }
-                  navigation.replace('ActivityDetail', { activityId, activityType: 'group' });
+                onPress: () => {
+                  setShareContent({
+                    id: activityId || '',
+                    type: 'text',
+                    title: title,
+                    subtitle: 'Activity created',
+                    shareText: `Join me at "${title}"!\n\n${shareUrl}`,
+                  });
+                  setShareModalVisible(true);
                 },
               },
               {
@@ -801,6 +804,13 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
           onChange={handleDateChange}
         />
       )}
+
+      {/* Share Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };

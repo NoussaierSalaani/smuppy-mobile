@@ -28,7 +28,9 @@ import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
-import { sharePost, copyPostLink } from '../../utils/share';
+import { copyPostLink } from '../../utils/share';
+import SharePostModal from '../../components/SharePostModal';
+import { useShareModal } from '../../hooks/useModalState';
 import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, deletePost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
@@ -93,7 +95,7 @@ const PostDetailVibesFeedScreen = () => {
   const likeInProgress = useRef(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [fanLoading, setFanLoading] = useState(false);
-  const [shareLoading, setShareLoading] = useState(false);
+  const shareModal = useShareModal();
   const [reportLoading, setReportLoading] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -328,23 +330,19 @@ const PostDetailVibesFeedScreen = () => {
     }
   }, [viewState, handleSwipeDown, handleSwipeUp]);
 
-  // Share post with anti spam-click
-  const handleShare = useCallback(async () => {
-    if (shareLoading || !currentPost) return;
-    setShareLoading(true);
-    try {
-      setShowMenu(false);
-      await sharePost(
-        currentPost.id,
-        currentPost.description,
-        currentPost.user.name
-      );
-    } catch (_error) {
-      // User cancelled or error - silent fail
-    } finally {
-      setShareLoading(false);
-    }
-  }, [shareLoading, currentPost]);
+  // Share post — opens in-app send modal
+  const handleShare = useCallback(() => {
+    if (!currentPost) return;
+    setShowMenu(false);
+    shareModal.open({
+      id: currentPost.id,
+      type: 'post',
+      title: currentPost.user.name,
+      subtitle: currentPost.description,
+      image: currentPost.media,
+      avatar: currentPost.user.avatar,
+    });
+  }, [currentPost, shareModal]);
 
   // Copy link to clipboard
   const handleCopyLink = useCallback(async () => {
@@ -751,15 +749,10 @@ const PostDetailVibesFeedScreen = () => {
               {/* Right actions - icons only, no circles */}
               <View style={styles.rightActions}>
                 <TouchableOpacity
-                  style={[styles.actionBtnSimple, shareLoading && styles.actionBtnDisabled]}
+                  style={styles.actionBtnSimple}
                   onPress={handleShare}
-                  disabled={shareLoading}
                 >
-                  {shareLoading ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <Ionicons name="paper-plane-outline" size={28} color="#FFF" />
-                  )}
+                  <Ionicons name="paper-plane-outline" size={28} color="#FFF" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1145,6 +1138,12 @@ const PostDetailVibesFeedScreen = () => {
           </BlurView>
         </TouchableOpacity>
       </Modal>
+
+      <SharePostModal
+        visible={shareModal.isVisible}
+        content={shareModal.data}
+        onClose={shareModal.close}
+      />
     </View>
   );
 };

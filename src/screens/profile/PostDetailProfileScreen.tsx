@@ -36,7 +36,9 @@ import {
   getPostById,
   deletePost,
 } from '../../services/database';
-import { sharePost, copyPostLink } from '../../utils/share';
+import { copyPostLink } from '../../utils/share';
+import SharePostModal from '../../components/SharePostModal';
+import { useShareModal } from '../../hooks/useModalState';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
@@ -137,7 +139,7 @@ const PostDetailProfileScreen = () => {
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [fanLoading, setFanLoading] = useState(false);
-  const [shareLoading, setShareLoading] = useState(false);
+  const shareModal = useShareModal();
   const likeLoadingRef = useRef(false);
   const [likeLoadingState, setLikeLoadingState] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
@@ -339,23 +341,19 @@ const PostDetailProfileScreen = () => {
     );
   }, [currentPost, isOwnPost, showDestructiveConfirm, showError, showSuccess, navigation]);
 
-  // Share post
-  const handleShare = useCallback(async () => {
-    if (shareLoading || !currentPost) return;
-    setShareLoading(true);
-    try {
-      setShowMenu(false);
-      await sharePost(
-        currentPost.id,
-        currentPost.description,
-        currentPost.user?.name || ''
-      );
-    } catch {
-      // User cancelled or error - silent fail
-    } finally {
-      setShareLoading(false);
-    }
-  }, [shareLoading, currentPost]);
+  // Share post — opens in-app send modal
+  const handleShare = useCallback(() => {
+    if (!currentPost) return;
+    setShowMenu(false);
+    shareModal.open({
+      id: currentPost.id,
+      type: 'post',
+      title: currentPost.user?.name || '',
+      subtitle: currentPost.description,
+      image: currentPost.media,
+      avatar: currentPost.user?.avatar,
+    });
+  }, [currentPost, shareModal]);
 
   // Copy link to clipboard
   const handleCopyLink = useCallback(async () => {
@@ -623,15 +621,10 @@ const PostDetailProfileScreen = () => {
           {/* Right actions */}
           <View style={styles.rightActions}>
             <TouchableOpacity
-              style={[styles.actionBtn, shareLoading && styles.actionBtnDisabled]}
+              style={styles.actionBtn}
               onPress={handleShare}
-              disabled={shareLoading}
             >
-              {shareLoading ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Ionicons name="share-social-outline" size={24} color="#FFF" />
-              )}
+              <Ionicons name="paper-plane-outline" size={24} color="#FFF" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -771,7 +764,7 @@ const PostDetailProfileScreen = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     currentIndex, isPaused, showLikeAnimation, likeAnimationScale,
-    isLiked, isBookmarked, isFan, fanLoading, shareLoading, likeLoadingState,
+    isLiked, isBookmarked, isFan, fanLoading, likeLoadingState,
     bookmarkLoading, localLikes, currentUserId,
     colors, styles, headerPaddingStyle, bottomContentPaddingStyle,
     handleDoubleTap, handleShare, handleGoBack, handleShowMenu,
@@ -947,6 +940,12 @@ const PostDetailProfileScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <SharePostModal
+        visible={shareModal.isVisible}
+        content={shareModal.data}
+        onClose={shareModal.close}
+      />
     </View>
   );
 };

@@ -23,6 +23,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 import { useAgora } from '../../hooks/useAgora';
 import { useLiveStream, LiveComment, LiveReaction } from '../../hooks/useLiveStream';
 import { RemoteVideoView } from '../../components/AgoraVideoView';
@@ -87,6 +89,8 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   const [showReactions, setShowReactions] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
 
   const floatingReactions = useRef<{ id: string; emoji: string; anim: Animated.Value }[]>([]);
   const [, forceUpdate] = useState({});
@@ -220,6 +224,17 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
     }
     navigation.goBack();
   }, [leaveStream, leaveChannel, destroy, navigation]);
+
+  const handleShare = useCallback(() => {
+    setShareContent({
+      id: channelName,
+      type: 'text',
+      title: liveTitle,
+      subtitle: `${creatorName} is live now!`,
+      shareText: `Join me watching ${creatorName} live on Smuppy! ${wsViewerCount} viewers watching now.`,
+    });
+    setShareModalVisible(true);
+  }, [channelName, liveTitle, creatorName, wsViewerCount]);
 
   const renderComment = useCallback(({ item }: { item: Comment }) => {
     return (
@@ -417,7 +432,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
           </TouchableOpacity>
 
           {/* Share Button */}
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
             <Ionicons name="share-outline" size={24} color="white" />
           </TouchableOpacity>
         </View>
@@ -509,6 +524,13 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
           </View>
         </View>
       </Modal>
+
+      {/* Share Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
+      />
     </View>
   );
 }

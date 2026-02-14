@@ -222,8 +222,17 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     events.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.eventsListFn));
 
     const eventById = events.addResource('{eventId}');
+    eventById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.eventsGetFn));
+    eventById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack3.eventsUpdateFn), authMethodOptions);
+
     const eventJoin = eventById.addResource('join');
     eventJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.eventsJoinFn), authMethodOptions);
+
+    const eventLeave = eventById.addResource('leave');
+    eventLeave.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.eventsLeaveFn), authMethodOptions);
+
+    const eventCancel = eventById.addResource('cancel');
+    eventCancel.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.eventsCancelFn), authMethodOptions);
 
     // ========================================
     // Groups Endpoints - FROM LambdaStack3
@@ -234,12 +243,16 @@ export class ApiGateway2Stack extends cdk.NestedStack {
 
     const groupById = groups.addResource('{groupId}');
     groupById.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.groupsGetFn));
+    groupById.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack3.groupsUpdateFn), authMethodOptions);
 
     const groupJoin = groupById.addResource('join');
     groupJoin.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.groupsJoinFn), authMethodOptions);
 
     const groupLeave = groupById.addResource('leave');
     groupLeave.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack3.groupsLeaveFn), authMethodOptions);
+
+    const groupCancel = groupById.addResource('cancel');
+    groupCancel.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.groupsCancelFn), authMethodOptions);
 
     // ========================================
     // Settings Endpoints
@@ -387,6 +400,12 @@ export class ApiGateway2Stack extends cdk.NestedStack {
 
     const liveStreamsEnd = liveStreams.addResource('end');
     liveStreamsEnd.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.liveStreamsEndFn), authMethodOptions);
+
+    // ========================================
+    // Activity History Endpoints
+    // ========================================
+    const activity = this.api.root.addResource('activity');
+    activity.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack2.activityListFn), authMethodOptions);
 
     // ========================================
     // WAF for Secondary API

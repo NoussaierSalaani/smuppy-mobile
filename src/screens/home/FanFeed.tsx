@@ -719,12 +719,11 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const handleSharePost = useCallback((post: UIPost) => {
     shareModal.open({
       id: post.id,
-      media: post.media,
-      caption: post.caption,
-      user: {
-        name: post.user.name,
-        avatar: post.user.avatar,
-      },
+      type: 'post',
+      title: post.user.name,
+      subtitle: post.caption,
+      image: post.media,
+      avatar: post.user.avatar,
     });
   }, [shareModal]);
 
@@ -1119,7 +1118,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       {/* Share Post Modal */}
       <SharePostModal
         visible={shareModal.isVisible}
-        post={shareModal.data}
+        content={shareModal.data}
         onClose={shareModal.close}
       />
 

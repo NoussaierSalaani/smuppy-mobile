@@ -89,20 +89,30 @@ export function useModalState<T = undefined>(
 // ============================================
 
 /**
- * Share modal state with common post data structure
+ * Share content types supported by the in-app share modal
  */
-export interface SharePostData {
+export type ShareContentType = 'post' | 'peak' | 'profile' | 'text';
+
+/**
+ * Share modal state with generic content data structure
+ */
+export interface ShareContentData {
   id: string;
-  media: string | null;
-  caption?: string;
-  user: {
-    name: string;
-    avatar: string | null;
-  };
+  type: ShareContentType;
+  /** Display title (author name for post/peak, full name for profile, message title for text) */
+  title: string;
+  /** Display subtitle (caption for post, username for profile, description for text) */
+  subtitle?: string;
+  /** Primary image (media for post/peak, avatar for profile) */
+  image?: string | null;
+  /** Author avatar (for post/peak where image is the media) */
+  avatar?: string | null;
+  /** Pre-formatted text message (for 'text' type: activities, events, bookings, live stats) */
+  shareText?: string;
 }
 
 export function useShareModal() {
-  return useModalState<SharePostData>();
+  return useModalState<ShareContentData>();
 }
 
 /**

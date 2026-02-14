@@ -30,7 +30,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    const filter = event.queryStringParameters?.filter || 'trending'; // trending, new, created, tagged, responded
+    const filterParam = event.queryStringParameters?.filter || 'trending';
+    const VALID_FILTERS = ['trending', 'new', 'created', 'tagged', 'responded'] as const;
+    const filter = VALID_FILTERS.includes(filterParam as typeof VALID_FILTERS[number]) ? filterParam : 'trending';
 
     // Resolve cognito sub to profile ID (needed for all filters)
     let userId: string | undefined;
@@ -50,8 +52,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
     const category = event.queryStringParameters?.category;
     const status = event.queryStringParameters?.status || 'active';
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
-    const offset = parseInt(event.queryStringParameters?.offset || '0');
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const offset = parseInt(event.queryStringParameters?.offset || '0', 10);
 
     let query: string;
     let params: SqlParam[] = [];

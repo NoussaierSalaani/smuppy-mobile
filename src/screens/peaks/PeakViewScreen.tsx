@@ -1708,15 +1708,13 @@ const PeakViewScreen = (): React.JSX.Element => {
       {/* In-App Share Modal */}
       <SharePostModal
         visible={showShareModal}
-        contentType="peak"
-        post={{
+        content={{
           id: currentPeak.id,
-          media: currentPeak.thumbnail || currentPeak.videoUrl || null,
-          caption: currentPeak.textOverlay || undefined,
-          user: {
-            name: currentPeak.user?.name || '',
-            avatar: currentPeak.user?.avatar || null,
-          },
+          type: 'peak',
+          title: currentPeak.user?.name || '',
+          subtitle: currentPeak.textOverlay || undefined,
+          image: currentPeak.thumbnail || currentPeak.videoUrl || null,
+          avatar: currentPeak.user?.avatar || null,
         }}
         onClose={handleCloseShareModal}
       />

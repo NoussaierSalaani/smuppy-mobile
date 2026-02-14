@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
-  Share,
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,6 +32,8 @@ import { formatDistance, formatDuration } from '../../services/mapbox-directions
 import { isValidUUID } from '../../utils/formatters';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { formatLongDateTime } from '../../utils/dateFormatters';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 
 import { ENV } from '../../config/env';
 
@@ -130,6 +131,8 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
   const [isJoining, setIsJoining] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const mapRef = useRef<MapView>(null);
@@ -357,28 +360,21 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
     );
   };
 
-  const handleShare = async () => {
+  const handleShare = () => {
     if (!normalizedActivity) return;
 
-    try {
-      const shareUrl = `https://smuppy.app/${activityType}s/${normalizedActivity.id}`;
-      const priceText = normalizedActivity.is_free ? 'Free!' : formatAmount(normalizedActivity.priceAmount);
-      const shareMessage = `Join "${normalizedActivity.title}" on Smuppy!
+    const shareUrl = `https://smuppy.app/${activityType}s/${normalizedActivity.id}`;
+    const priceText = normalizedActivity.is_free ? 'Free!' : formatAmount(normalizedActivity.priceAmount);
+    const shareMessage = `Join "${normalizedActivity.title}" on Smuppy!\n\n${formatLongDateTime(normalizedActivity.starts_at)}\n${normalizedActivity.location_name || normalizedActivity.address || ''}\n${priceText}\n\n${shareUrl}`;
 
-${formatLongDateTime(normalizedActivity.starts_at)}
-${normalizedActivity.location_name || normalizedActivity.address || ''}
-${priceText}
-
-${shareUrl}`;
-
-      await Share.share({
-        message: shareMessage,
-        title: normalizedActivity.title,
-        url: shareUrl,
-      });
-    } catch (error: unknown) {
-      if (__DEV__) console.warn('Share error:', error);
-    }
+    setShareContent({
+      id: normalizedActivity.id,
+      type: 'text',
+      title: normalizedActivity.title,
+      subtitle: `${formatLongDateTime(normalizedActivity.starts_at)} - ${normalizedActivity.location_name || 'See details'}`,
+      shareText: shareMessage,
+    });
+    setShareModalVisible(true);
   };
 
   if (isLoading) {
@@ -792,6 +788,12 @@ ${shareUrl}`;
           )}
         </BlurView>
       </View>
+
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
+      />
     </View>
   );
 }

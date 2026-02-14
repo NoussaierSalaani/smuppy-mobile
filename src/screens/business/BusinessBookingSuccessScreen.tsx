@@ -3,13 +3,12 @@
  * Confirmation screen after successful booking
  */
 
-import React, { useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Share,
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +19,8 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateLong } from '../../utils/dateFormatters';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 
 interface Props {
   route: {
@@ -40,6 +41,15 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
   const { bookingId, businessName, serviceName, date, time } = route.params;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const shareContent: ShareContentData = {
+    id: bookingId,
+    type: 'text',
+    title: `Booking at ${businessName}`,
+    subtitle: `${serviceName} - ${formatDateLong(date)} at ${time}`,
+    shareText: `I just booked "${serviceName}" at ${businessName} on Smuppy!\n\n${formatDateLong(date)} at ${time}`,
+  };
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -74,15 +84,7 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
     );
   };
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: `I just booked "${serviceName}" at ${businessName} on Smuppy! 🎉\n\n📅 ${formatDateLong(date)} at ${time}`,
-      });
-    } catch (error) {
-      if (__DEV__) console.warn('Share error:', error);
-    }
-  };
+  const handleShare = () => setShareModalVisible(true);
 
   const handleDone = useCallback(() => {
     try {
@@ -201,6 +203,13 @@ export default function BusinessBookingSuccessScreen({ route, navigation }: Prop
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      {/* Share Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
+      />
     </View>
   );
 }

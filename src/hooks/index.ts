@@ -66,7 +66,8 @@ export {
   useMultiModal,
 } from './useModalState';
 export type {
-  SharePostData,
+  ShareContentData,
+  ShareContentType,
   MenuPostData,
   ConfirmationData,
   ImageViewerData,

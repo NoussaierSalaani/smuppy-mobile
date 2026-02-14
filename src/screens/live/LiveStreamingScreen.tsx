@@ -1,6 +1,8 @@
 // src/screens/live/LiveStreamingScreen.tsx
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { AvatarImage } from '../../components/OptimizedImage';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 import {
   View,
   Text,
@@ -88,6 +90,8 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   const [duration, setDuration] = useState(0);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [isStarting, setIsStarting] = useState(true);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
 
   const fadeAnims = useRef<{ [key: string]: Animated.Value }>({}).current;
   const isMountedRef = useRef(true);
@@ -217,6 +221,17 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     sendLiveComment(sanitized);
     setNewComment('');
   }, [newComment, sendLiveComment, showError]);
+
+  const handleShare = useCallback(() => {
+    setShareContent({
+      id: channelName,
+      type: 'text',
+      title: 'Live Stream',
+      subtitle: `${hostName} is live now!`,
+      shareText: `Watch ${hostName} live on Smuppy! ${viewerCount} viewers watching now.`,
+    });
+    setShareModalVisible(true);
+  }, [channelName, hostName, viewerCount]);
 
   // Cleanup old fade animations when comments change
   useEffect(() => {
@@ -394,7 +409,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
             <View style={styles.actionButtonDark}>
               <Ionicons name="share-outline" size={22} color="white" />
             </View>
@@ -435,6 +450,13 @@ export default function LiveStreamingScreen(): React.JSX.Element {
           </BlurView>
         </View>
       )}
+
+      {/* Share Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
+      />
     </View>
   );
 }

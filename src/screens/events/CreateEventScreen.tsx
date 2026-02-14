@@ -21,7 +21,6 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   ActivityIndicator,
-  Share,
   Modal,
   FlatList,
   Image,
@@ -46,6 +45,8 @@ import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { filterContent } from '../../utils/contentFilters';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 
 import { ENV } from '../../config/env';
 import { FEATURES } from '../../config/featureFlags';
@@ -180,6 +181,8 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [endDate, _setEndDate] = useState<Date | null>(null);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
 
   const mapRef = useRef<MapView>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -468,7 +471,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
       routeDistanceKm: hasRoute ? routeDistance : undefined,
       routeDifficulty: hasRoute ? routeDifficulty : undefined,
       routeWaypoints: hasRoute ? routePoints.map((p) => ({ lat: p.latitude, lng: p.longitude })) : undefined,
-      coverImageUri: coverImage || undefined,
+      coverImageUrl: coverImage || undefined,
     };
 
     const response = await awsAPI.createEvent(eventData);
@@ -477,13 +480,17 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const eventId = response.event?.id;
       const shareUrl = `https://smuppy.app/events/${eventId}`;
-      const shareEvent = async (audience: 'fans' | 'public') => {
-        try {
-          const audienceText = audience === 'fans' ? '🔒 Exclusive for my fans!' : '🌍 Open to everyone!';
-          const shareMessage = `Join me at "${title}"!\n\n📅 ${startDate.toLocaleDateString()}\n📍 ${locationName || 'Location on map'}\n${isFree ? '🆓 Free event!' : `💰 ${currency.symbol}${price}`}\n\n${audienceText}\n\n${shareUrl}`;
-          await Share.share({ message: shareMessage, title: `Join: ${title}`, url: shareUrl });
-        } catch { /* cancelled */ }
-        navigation.replace('ActivityDetail', { activityId: eventId, activityType: 'event' });
+      const shareEvent = (audience: 'fans' | 'public') => {
+        const audienceText = audience === 'fans' ? '🔒 Exclusive for my fans!' : '🌍 Open to everyone!';
+        const shareMessage = `Join me at "${title}"!\n\n📅 ${startDate.toLocaleDateString()}\n📍 ${locationName || 'Location on map'}\n${isFree ? '🆓 Free event!' : `💰 ${currency.symbol}${price}`}\n\n${audienceText}\n\n${shareUrl}`;
+        setShareContent({
+          id: eventId || '',
+          type: 'text',
+          title: title,
+          subtitle: `${startDate.toLocaleDateString()} - ${locationName || 'Location on map'}`,
+          shareText: shareMessage,
+        });
+        setShareModalVisible(true);
       };
       showAlert({
         title: 'Event Created!',
@@ -1119,6 +1126,13 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           onChange={handleTimeChange}
         />
       )}
+
+      {/* Share Modal */}
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };

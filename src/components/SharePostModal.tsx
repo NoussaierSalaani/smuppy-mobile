@@ -17,33 +17,58 @@ import OptimizedImage from './OptimizedImage';
 import { AccountBadge } from './Badge';
 import { SPACING } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import type { ShareContentData } from '../hooks/useModalState';
 import {
   getConversations,
   searchProfiles,
   sharePostToUser,
   sharePeakToUser,
+  shareProfileToUser,
+  shareTextToUser,
   Conversation,
   Profile,
 } from '../services/database';
 import { useUserSafetyStore } from '../stores/userSafetyStore';
 import { resolveDisplayName } from '../types/profile';
 
-interface SharePostModalProps {
+interface ShareContentModalProps {
   visible: boolean;
-  post: {
-    id: string;
-    media: string | null;
-    caption?: string;
-    user: {
-      name: string;
-      avatar: string | null;
-    };
-  } | null;
-  contentType?: 'post' | 'peak';
+  content: ShareContentData | null;
   onClose: () => void;
 }
 
-export default function SharePostModal({ visible, post, contentType = 'post', onClose }: SharePostModalProps) {
+const CONTENT_LABELS: Record<string, string> = {
+  post: 'Post',
+  peak: 'Peak',
+  profile: 'Profile',
+  text: 'Message',
+};
+
+function getContentIcon(type: string): keyof typeof Ionicons.glyphMap {
+  switch (type) {
+    case 'peak': return 'videocam';
+    case 'profile': return 'person';
+    case 'text': return 'chatbubble';
+    default: return 'image';
+  }
+}
+
+async function executeShare(content: ShareContentData, recipientId: string): Promise<{ error: string | null }> {
+  switch (content.type) {
+    case 'post':
+      return sharePostToUser(content.id, recipientId);
+    case 'peak':
+      return sharePeakToUser(content.id, recipientId);
+    case 'profile':
+      return shareProfileToUser(content.id, recipientId);
+    case 'text':
+      return shareTextToUser(content.shareText || content.title, recipientId);
+    default:
+      return { error: 'Unsupported content type' };
+  }
+}
+
+export default function SharePostModal({ visible, content, onClose }: ShareContentModalProps) {
   const { showError, showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -55,25 +80,25 @@ export default function SharePostModal({ visible, post, contentType = 'post', on
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<string | null>(null);
 
+  const contentLabel = content ? (CONTENT_LABELS[content.type] || 'Content') : 'Content';
+
   const loadConversations = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await getConversations();
       if (data) {
-        // Filter out blocked/muted users
         setConversations(data.filter(c => c.other_user && !isHidden(c.other_user.id)));
       } else {
         setConversations([]);
       }
     } catch (err) {
-      if (__DEV__) console.warn('[SharePostModal] Error loading conversations:', err);
+      if (__DEV__) console.warn('[ShareContentModal] Error loading conversations:', err);
       setConversations([]);
     } finally {
       setLoading(false);
     }
   }, [isHidden]);
 
-  // Load recent conversations when modal opens
   useEffect(() => {
     if (visible) {
       loadConversations();
@@ -82,18 +107,16 @@ export default function SharePostModal({ visible, post, contentType = 'post', on
     }
   }, [visible, loadConversations]);
 
-  // Search users with debounce
   useEffect(() => {
     if (searchQuery.length >= 2) {
       const timer = setTimeout(async () => {
         try {
           const { data } = await searchProfiles(searchQuery, 20);
           if (data) {
-            // Filter out blocked/muted users
             setSearchResults(data.filter(p => !isHidden(p.id)));
           }
         } catch (err) {
-          if (__DEV__) console.warn('[SharePostModal] Search failed:', err);
+          if (__DEV__) console.warn('[ShareContentModal] Search failed:', err);
         }
       }, 300);
       return () => clearTimeout(timer);
@@ -102,53 +125,47 @@ export default function SharePostModal({ visible, post, contentType = 'post', on
     }
   }, [searchQuery, isHidden]);
 
-  const shareFn = contentType === 'peak' ? sharePeakToUser : sharePostToUser;
-  const contentLabel = contentType === 'peak' ? 'Peak' : 'Post';
-
-  // Share to a user from conversation list
   const handleShareToConversation = useCallback(async (conv: Conversation) => {
-    if (!post || !conv.other_user || sending) return;
+    if (!content || !conv.other_user || sending) return;
 
     const recipientId = conv.other_user.id;
     setSending(recipientId);
     try {
-      const { error } = await shareFn(post.id, recipientId);
+      const { error } = await executeShare(content, recipientId);
       if (error) {
-        showError('Error', `Failed to share ${contentLabel.toLowerCase()}. Please try again.`);
+        showError('Error', `Failed to send. Please try again.`);
       } else {
-        showSuccess('Sent!', `${contentLabel} shared with ${resolveDisplayName(conv.other_user)}`);
+        showSuccess('Sent!', `${contentLabel} sent to ${resolveDisplayName(conv.other_user)}`);
         onClose();
       }
     } catch (err) {
-      if (__DEV__) console.warn('[SharePostModal] Share to conversation failed:', err);
+      if (__DEV__) console.warn('[ShareContentModal] Share to conversation failed:', err);
       showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setSending(null);
     }
-  }, [post, sending, shareFn, contentLabel, showError, showSuccess, onClose]);
+  }, [content, sending, contentLabel, showError, showSuccess, onClose]);
 
-  // Share to a user from search results
   const handleShareToUser = useCallback(async (user: Profile) => {
-    if (!post || sending) return;
+    if (!content || sending) return;
 
     setSending(user.id);
     try {
-      const { error } = await shareFn(post.id, user.id);
+      const { error } = await executeShare(content, user.id);
       if (error) {
-        showError('Error', `Failed to share ${contentLabel.toLowerCase()}. Please try again.`);
+        showError('Error', `Failed to send. Please try again.`);
       } else {
-        showSuccess('Sent!', `${contentLabel} shared with ${resolveDisplayName(user)}`);
+        showSuccess('Sent!', `${contentLabel} sent to ${resolveDisplayName(user)}`);
         onClose();
       }
     } catch (err) {
-      if (__DEV__) console.warn('[SharePostModal] Share to user failed:', err);
+      if (__DEV__) console.warn('[ShareContentModal] Share to user failed:', err);
       showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setSending(null);
     }
-  }, [post, sending, shareFn, contentLabel, showError, showSuccess, onClose]);
+  }, [content, sending, contentLabel, showError, showSuccess, onClose]);
 
-  // Render conversation item
   const renderConversation = useCallback(({ item }: { item: Conversation }) => {
     const otherUser = item.other_user;
     if (!otherUser) return null;
@@ -183,7 +200,6 @@ export default function SharePostModal({ visible, post, contentType = 'post', on
     );
   }, [styles, colors.primary, sending, handleShareToConversation]);
 
-  // Render search result
   const renderSearchResult = useCallback(({ item }: { item: Profile }) => {
     const isSending = sending === item.id;
 
@@ -215,6 +231,65 @@ export default function SharePostModal({ visible, post, contentType = 'post', on
     );
   }, [styles, colors.primary, sending, handleShareToUser]);
 
+  const renderPreview = () => {
+    if (!content) return null;
+
+    if (content.type === 'profile') {
+      return (
+        <View style={styles.profilePreview}>
+          <AvatarImage source={content.image} size={56} />
+          <View style={styles.profilePreviewText}>
+            <Text style={styles.postAuthor}>{content.title}</Text>
+            {content.subtitle && (
+              <Text style={styles.postCaption} numberOfLines={1}>{content.subtitle}</Text>
+            )}
+          </View>
+          <Ionicons name="person" size={18} color={colors.gray} />
+        </View>
+      );
+    }
+
+    if (content.type === 'text') {
+      return (
+        <View style={styles.textPreview}>
+          <View style={styles.textPreviewIcon}>
+            <Ionicons name={getContentIcon(content.type)} size={22} color={colors.primary} />
+          </View>
+          <View style={styles.postText}>
+            <Text style={styles.postAuthor}>{content.title}</Text>
+            {content.subtitle && (
+              <Text style={styles.postCaption} numberOfLines={2}>{content.subtitle}</Text>
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    // post / peak: show media preview
+    return (
+      <View style={styles.postPreview}>
+        {content.image ? (
+          <OptimizedImage source={content.image} style={styles.postImage} />
+        ) : (
+          <View style={[styles.postImage, styles.postImagePlaceholder]}>
+            <Ionicons name={getContentIcon(content.type)} size={24} color={colors.gray} />
+          </View>
+        )}
+        <View style={styles.postInfo}>
+          {content.avatar && <AvatarImage source={content.avatar} size={32} />}
+          <View style={styles.postText}>
+            <Text style={styles.postAuthor}>{content.title}</Text>
+            {content.subtitle && (
+              <Text style={styles.postCaption} numberOfLines={2}>
+                {content.subtitle}
+              </Text>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <Modal
       visible={visible}
@@ -228,27 +303,12 @@ export default function SharePostModal({ visible, post, contentType = 'post', on
           <TouchableOpacity onPress={onClose}>
             <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Share</Text>
+          <Text style={styles.headerTitle}>Send</Text>
           <View style={styles.headerSpacer} />
         </View>
 
-        {/* Post Preview */}
-        {post && (
-          <View style={styles.postPreview}>
-            <OptimizedImage source={post.media} style={styles.postImage} />
-            <View style={styles.postInfo}>
-              <AvatarImage source={post.user.avatar} size={32} />
-              <View style={styles.postText}>
-                <Text style={styles.postAuthor}>{post.user.name}</Text>
-                {post.caption && (
-                  <Text style={styles.postCaption} numberOfLines={2}>
-                    {post.caption}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </View>
-        )}
+        {/* Content Preview */}
+        {renderPreview()}
 
         {/* Search */}
         <View style={styles.searchContainer}>
@@ -277,7 +337,6 @@ export default function SharePostModal({ visible, post, contentType = 'post', on
             data={searchResults}
             renderItem={renderSearchResult}
             keyExtractor={(item) => item.id}
-
             ListEmptyComponent={() => (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>No users found</Text>
@@ -291,7 +350,6 @@ export default function SharePostModal({ visible, post, contentType = 'post', on
               data={conversations}
               renderItem={renderConversation}
               keyExtractor={(item) => item.id}
-  
               ListEmptyComponent={() => (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyText}>No recent conversations</Text>
@@ -340,6 +398,11 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     height: 60,
     borderRadius: 8,
   },
+  postImagePlaceholder: {
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   postInfo: {
     flex: 1,
     flexDirection: 'row',
@@ -358,6 +421,34 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 12,
     color: colors.gray,
     marginTop: 2,
+  },
+  profilePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    backgroundColor: colors.backgroundSecondary,
+    margin: SPACING.md,
+    borderRadius: 12,
+    gap: SPACING.sm,
+  },
+  profilePreviewText: {
+    flex: 1,
+  },
+  textPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    backgroundColor: colors.backgroundSecondary,
+    margin: SPACING.md,
+    borderRadius: 12,
+  },
+  textPreviewIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: isDark ? 'rgba(14,191,138,0.15)' : 'rgba(14,191,138,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',

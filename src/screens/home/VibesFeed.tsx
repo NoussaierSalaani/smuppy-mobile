@@ -47,7 +47,6 @@ import SessionRecapModal from '../../components/SessionRecapModal';
 import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing, deletePost } from '../../services/database';
-import { sharePost } from '../../utils/share';
 import type { Peak } from '../../types';
 import { resolveDisplayName } from '../../types/profile';
 import { awsAPI } from '../../services/aws-api';
@@ -967,12 +966,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     if (selectedPost) {
       shareModal.open({
         id: selectedPost.id,
-        media: selectedPost.media,
-        caption: selectedPost.title,
-        user: {
-          name: selectedPost.user.name,
-          avatar: selectedPost.user.avatar,
-        },
+        type: 'post',
+        title: selectedPost.user.name,
+        subtitle: selectedPost.title,
+        image: selectedPost.media,
+        avatar: selectedPost.user.avatar,
       });
     }
   }, [selectedPost, shareModal]);
@@ -988,16 +986,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       goToUserProfile(selectedPost.user.id);
     }
   }, [selectedPost, goToUserProfile]);
-
-  // Native OS share (fast) — replaces in-app DM share as primary action
-  const handleModalNativeShare = useCallback(async () => {
-    if (!selectedPost) return;
-    try {
-      await sharePost(selectedPost.id, selectedPost.title, selectedPost.user.name);
-    } catch {
-      // User cancelled — silent
-    }
-  }, [selectedPost]);
 
   // Open menu in modal
   const handleModalMenu = useCallback(() => setModalMenuVisible(true), []);
@@ -1302,13 +1290,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.modalAction}
-                    onPress={handleModalNativeShare}
-                  >
-                    <Ionicons name="share-outline" size={24} color={colors.dark} />
-                    <Text style={styles.modalActionText}>Share</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalAction}
                     onPress={handleModalShare}
                   >
                     <Ionicons name="paper-plane-outline" size={24} color={colors.dark} />
@@ -1599,7 +1580,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       {/* Share Post Modal */}
       <SharePostModal
         visible={shareModal.isVisible}
-        post={shareModal.data}
+        content={shareModal.data}
         onClose={shareModal.close}
       />
 

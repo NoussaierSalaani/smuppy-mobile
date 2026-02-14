@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
   RefreshControl,
@@ -14,38 +13,35 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import ChallengeCard, { type Challenge } from '../../components/peaks/ChallengeCard';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { GRADIENTS, DARK_GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import type { MainStackParamList } from '../../types';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const COMPACT_CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
 
-type RootStackParamList = {
-  PeakView: { peaks: Array<{
-    id: string;
-    thumbnail: string;
-    videoUrl?: string;
-    duration: number;
-    user: { id: string; name: string; avatar: string };
-    views: number;
-    createdAt: string;
-    isChallenge?: boolean;
-    challengeId?: string;
-    challengeTitle?: string;
-  }>; initialIndex: number };
-  CreatePeak: { challengeId: string; challengeTitle: string };
-  [key: string]: object | undefined;
-};
+type TabFilter = 'trending' | 'new';
+
+const TABS: { key: TabFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'trending', label: 'Trending', icon: 'flame' },
+  { key: 'new', label: 'New', icon: 'sparkles' },
+];
 
 const ChallengesScreen = (): React.JSX.Element => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const user = useUserStore((state) => state.user);
   const isBusiness = user?.accountType === 'pro_business';
   const { showError: errorAlert } = useSmuppyAlert();
+  const gradientColors = isDark ? DARK_GRADIENTS.button : GRADIENTS.button;
+
+  const [activeTab, setActiveTab] = useState<TabFilter>('trending');
   const [trendingChallenges, setTrendingChallenges] = useState<Challenge[]>([]);
   const [newChallenges, setNewChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +50,7 @@ const ChallengesScreen = (): React.JSX.Element => {
 
   const fetchChallenges = useCallback(async () => {
     try {
+      setFetchError(false);
       const [trendingRes, newRes] = await Promise.all([
         awsAPI.getChallenges({ filter: 'trending', limit: 10 }),
         awsAPI.getChallenges({ filter: 'new', limit: 20 }),
@@ -108,16 +105,18 @@ const ChallengesScreen = (): React.JSX.Element => {
     navigation.navigate('PeakView', {
       peaks: [{
         id: challenge.peakId,
-        thumbnail: toCdn(challenge.peak.thumbnailUrl),
-        videoUrl: toCdn(challenge.peak.videoUrl) || undefined,
+        user_id: challenge.creator.id,
+        media_url: toCdn(challenge.peak.videoUrl) || toCdn(challenge.peak.thumbnailUrl),
+        media_type: 'video',
         duration: challenge.durationSeconds || 15,
         user: {
           id: challenge.creator.id,
-          name: challenge.creator.displayName || challenge.creator.username,
-          avatar: toCdn(challenge.creator.avatarUrl),
+          username: challenge.creator.username,
+          full_name: challenge.creator.displayName || challenge.creator.username,
+          avatar_url: toCdn(challenge.creator.avatarUrl) || null,
         },
-        views: challenge.viewCount,
-        createdAt: challenge.createdAt,
+        views_count: challenge.viewCount,
+        created_at: challenge.createdAt,
         isChallenge: true,
         challengeId: challenge.id,
         challengeTitle: challenge.title,
@@ -137,44 +136,54 @@ const ChallengesScreen = (): React.JSX.Element => {
     });
   }, [navigation, isBusiness, errorAlert]);
 
+  const activeChallenges = activeTab === 'trending' ? trendingChallenges : newChallenges;
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const renderTrendingItem = useCallback(({ item }: { item: Challenge }) => (
-    <ChallengeCard
-      challenge={item}
-      onPress={handleChallengePress}
-      onAccept={handleAcceptChallenge}
-    />
-  ), [handleChallengePress, handleAcceptChallenge]);
+  const renderGridItem = useCallback(({ item }: { item: Challenge }) => (
+    <View style={styles.gridItem}>
+      <ChallengeCard
+        challenge={item}
+        onPress={handleChallengePress}
+        onAccept={handleAcceptChallenge}
+        compact
+      />
+    </View>
+  ), [handleChallengePress, handleAcceptChallenge, styles.gridItem]);
+
+  // Featured card for trending — first item displayed large
+  const featuredChallenge = activeTab === 'trending' && trendingChallenges.length > 0
+    ? trendingChallenges[0]
+    : null;
+  const gridChallenges = activeTab === 'trending' && trendingChallenges.length > 1
+    ? trendingChallenges.slice(1)
+    : activeChallenges;
+
+  const renderHeader = useCallback(() => (
+    <>
+      {/* Featured card (trending only) */}
+      {featuredChallenge && (
+        <View style={styles.featuredSection}>
+          <ChallengeCard
+            challenge={featuredChallenge}
+            onPress={handleChallengePress}
+            onAccept={handleAcceptChallenge}
+          />
+        </View>
+      )}
+
+      {/* Grid section header */}
+      {gridChallenges.length > 0 && activeTab === 'trending' && (
+        <View style={styles.gridSectionHeader}>
+          <Text style={styles.gridSectionTitle}>More Challenges</Text>
+        </View>
+      )}
+    </>
+  ), [featuredChallenge, gridChallenges.length, activeTab, handleChallengePress, handleAcceptChallenge, styles]);
 
   if (loading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (fetchError && trendingChallenges.length === 0 && newChallenges.length === 0) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={28} color={isDark ? colors.white : colors.dark} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleRow}>
-            <Ionicons name="trophy" size={22} color="#FFD700" />
-            <Text style={styles.headerTitle}>Challenges</Text>
-          </View>
-          <View style={styles.backButton} />
-        </View>
-        <View style={[styles.centered, { flex: 1 }]}>
-          <Ionicons name="cloud-offline-outline" size={48} color={colors.gray} />
-          <Text style={styles.emptySectionText}>Could not load challenges</Text>
-          <TouchableOpacity style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 20 }} onPress={onRefresh}>
-            <Text style={{ color: colors.white, fontWeight: '600' }}>Retry</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     );
   }
@@ -185,69 +194,92 @@ const ChallengesScreen = (): React.JSX.Element => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={28} color={isDark ? colors.white : colors.dark} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="chevron-back" size={26} color={isDark ? colors.text : colors.dark} />
         </TouchableOpacity>
-        <View style={styles.headerTitleRow}>
-          <Ionicons name="trophy" size={22} color="#FFD700" />
+        <View style={styles.headerCenter}>
+          <Ionicons name="trophy" size={20} color={colors.gold} />
           <Text style={styles.headerTitle}>Challenges</Text>
         </View>
         <View style={styles.backButton} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-      >
-        {/* Trending Challenges */}
-        {trendingChallenges.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="flame" size={18} color="#FF6B35" />
-              <Text style={styles.sectionTitle}>Trending Challenges</Text>
-            </View>
-            <FlatList
-              data={trendingChallenges}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id}
-              renderItem={renderTrendingItem}
-              contentContainerStyle={styles.horizontalList}
-            />
-          </View>
-        )}
-
-        {/* New Challenges */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="sparkles" size={18} color={colors.primary} />
-            <Text style={styles.sectionTitle}>New Challenges</Text>
-          </View>
-          {newChallenges.length > 0 ? (
-            <View style={styles.gridContainer}>
-              {newChallenges.map((challenge) => (
-                <View key={challenge.id} style={styles.gridItem}>
-                  <ChallengeCard
-                    challenge={challenge}
-                    onPress={handleChallengePress}
-                    onAccept={handleAcceptChallenge}
-                    compact
-                  />
+      {/* Tab bar */}
+      <View style={styles.tabBar}>
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={styles.tabItem}
+              onPress={() => setActiveTab(tab.key)}
+              activeOpacity={0.7}
+            >
+              {isActive ? (
+                <LinearGradient
+                  colors={[...gradientColors]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.tabActive}
+                >
+                  <Ionicons name={tab.icon} size={15} color="#FFF" />
+                  <Text style={styles.tabActiveText}>{tab.label}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={styles.tabInactive}>
+                  <Ionicons name={tab.icon} size={15} color={colors.textMuted} />
+                  <Text style={styles.tabInactiveText}>{tab.label}</Text>
                 </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptySection}>
-              <Ionicons name="trophy-outline" size={40} color={colors.gray} />
-              <Text style={styles.emptySectionText}>No new challenges yet</Text>
-            </View>
-          )}
-        </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
-        <View style={{ height: insets.bottom + 20 }} />
-      </ScrollView>
+      {/* Content */}
+      {fetchError && activeChallenges.length === 0 ? (
+        <View style={[styles.centered, { flex: 1, gap: 16 }]}>
+          <Ionicons name="cloud-offline-outline" size={48} color={colors.textMuted} />
+          <Text style={styles.emptyText}>Could not load challenges</Text>
+          <TouchableOpacity onPress={onRefresh} activeOpacity={0.8}>
+            <LinearGradient
+              colors={[...gradientColors]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.retryButton}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      ) : activeChallenges.length === 0 ? (
+        <View style={[styles.centered, { flex: 1, gap: 12 }]}>
+          <Ionicons name="trophy-outline" size={48} color={colors.textMuted} />
+          <Text style={styles.emptyText}>
+            {activeTab === 'trending' ? 'No trending challenges yet' : 'No new challenges yet'}
+          </Text>
+          <Text style={styles.emptySubText}>Be the first to create one!</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={gridChallenges}
+          numColumns={2}
+          keyExtractor={(item) => item.id}
+          renderItem={renderGridItem}
+          ListHeaderComponent={renderHeader}
+          contentContainerStyle={styles.gridContent}
+          columnWrapperStyle={styles.gridRow}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+          ListFooterComponent={<View style={{ height: insets.bottom + 20 }} />}
+        />
+      )}
     </View>
   );
 };
@@ -261,64 +293,117 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   backButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitleRow: {
+  headerCenter: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: isDark ? colors.white : colors.dark,
+    fontFamily: 'WorkSans-Bold',
+    fontSize: 22,
+    color: isDark ? colors.text : colors.dark,
   },
-  section: {
-    marginBottom: 24,
+  // Tabs
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 16,
   },
-  sectionHeader: {
+  tabItem: {
+    flex: 1,
+  },
+  tabActive: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 24,
+    ...SHADOWS.button,
+  },
+  tabActiveText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+    color: '#FFF',
+  },
+  tabInactive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: isDark ? colors.card : colors.gray50,
+    borderWidth: 1,
+    borderColor: isDark ? colors.border : colors.grayBorder,
+  },
+  tabInactiveText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  // Featured
+  featuredSection: {
+    paddingHorizontal: 16,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  // Grid
+  gridSectionHeader: {
     paddingHorizontal: 16,
     marginBottom: 12,
   },
-  sectionTitle: {
+  gridSectionTitle: {
+    fontFamily: 'WorkSans-SemiBold',
     fontSize: 17,
-    fontWeight: '700',
-    color: isDark ? colors.white : colors.dark,
+    color: isDark ? colors.text : colors.dark,
   },
-  horizontalList: {
+  gridContent: {
     paddingHorizontal: 16,
   },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
+  gridRow: {
     gap: 12,
+    marginBottom: 12,
   },
   gridItem: {
-    width: (width - 44) / 2,
+    width: COMPACT_CARD_WIDTH,
   },
-  emptySection: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    gap: 12,
+  // Empty
+  emptyText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
-  emptySectionText: {
-    fontSize: 15,
-    color: colors.gray,
+  emptySubText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  retryButton: {
+    paddingHorizontal: 28,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
+  retryButtonText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+    color: '#FFF',
   },
 });
 

@@ -9,7 +9,6 @@ import {
   Modal,
   StatusBar,
   ActivityIndicator,
-  Share,
   RefreshControl,
   Image,
 } from 'react-native';
@@ -43,6 +42,8 @@ import GradeFrame from '../../components/GradeFrame';
 import { getGrade } from '../../utils/gradeSystem';
 import { getMasonryHeight } from '../../utils/postTransformers';
 import { ProfileSkeleton } from '../../components/skeleton';
+import SharePostModal from '../../components/SharePostModal';
+import type { ShareContentData } from '../../hooks/useModalState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
@@ -158,6 +159,8 @@ const UserProfileScreen = () => {
   const [showUnfanModal, setShowUnfanModal] = useState(false);
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
   const [showFanRequiredModal, setShowFanRequiredModal] = useState(false);
   const [showCancelRequestModal, setShowCancelRequestModal] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
@@ -394,18 +397,17 @@ const UserProfileScreen = () => {
     setRefreshing(false);
   }, [loadUserPosts, loadBusinessSchedule, profile.accountType]);
 
-  // Share profile
-  const handleShareProfile = useCallback(async () => {
-    try {
-      const profileUrl = `https://smuppy.app/u/${profile.username}`;
-      await Share.share({
-        message: `Check out ${profile.displayName}'s profile on Smuppy! ${profileUrl}`,
-        url: profileUrl,
-      });
-    } catch (error) {
-      if (__DEV__) console.warn('Error sharing profile:', error);
-    }
-  }, [profile.username, profile.displayName]);
+  // Share profile — opens in-app send modal
+  const handleShareProfile = useCallback(() => {
+    setShareContent({
+      id: profile.id,
+      type: 'profile',
+      title: profile.displayName,
+      subtitle: profile.username ? `@${profile.username}` : undefined,
+      image: profile.avatar,
+    });
+    setShareModalVisible(true);
+  }, [profile.id, profile.displayName, profile.username, profile.avatar]);
 
   // User safety store for block & mute
   const { block, isBlocked: isUserBlocked, mute, unmute, isMuted: isUserMuted } = useUserSafetyStore();
@@ -1621,6 +1623,12 @@ const UserProfileScreen = () => {
         creatorAvatar={profile.avatar || ''}
         creatorUsername={profile.username}
         onSubscribe={handleSubscribe}
+      />
+
+      <SharePostModal
+        visible={shareModalVisible}
+        content={shareContent}
+        onClose={() => setShareModalVisible(false)}
       />
     </View>
   );

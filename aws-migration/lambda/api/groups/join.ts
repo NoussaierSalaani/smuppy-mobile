@@ -84,14 +84,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Check capacity
-    if (group.max_participants && group.current_participants >= group.max_participants) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Group is full' }),
-      });
-    }
-
     // Check if already joined
     const existingResult = await client.query(
       `SELECT id FROM group_participants
@@ -108,18 +100,34 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     await client.query('BEGIN');
 
+    // BUG-2026-02-14: Atomic capacity check + increment to prevent race conditions
+    if (group.max_participants) {
+      const capacityResult = await client.query(
+        `UPDATE groups SET current_participants = current_participants + 1
+         WHERE id = $1 AND current_participants < max_participants
+         RETURNING current_participants`,
+        [groupId]
+      );
+      if (capacityResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return cors({
+          statusCode: 400,
+          body: JSON.stringify({ success: false, message: 'Group is full' }),
+        });
+      }
+    } else {
+      await client.query(
+        `UPDATE groups SET current_participants = current_participants + 1
+         WHERE id = $1`,
+        [groupId]
+      );
+    }
+
     // Insert participant
     await client.query(
       `INSERT INTO group_participants (group_id, user_id)
        VALUES ($1, $2)`,
       [groupId, profileId]
-    );
-
-    // Update participant count
-    await client.query(
-      `UPDATE groups SET current_participants = current_participants + 1
-       WHERE id = $1`,
-      [groupId]
     );
 
     await client.query('COMMIT');

@@ -69,12 +69,14 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const { showAlert: showSmuppyAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
 
+  const isBusiness = user?.accountType === 'pro_business';
+
   // Business accounts cannot create peaks — redirect back immediately
   useEffect(() => {
-    if (user?.accountType === 'pro_business') {
-      showSmuppyAlert({ title: 'Unavailable', message: 'Peak creation is not available for business accounts.', buttons: [{ text: 'OK', onPress: () => navigation.goBack() }] });
+    if (isBusiness) {
+      navigation.goBack();
     }
-  }, [user?.accountType, navigation, showSmuppyAlert]);
+  }, [isBusiness, navigation]);
 
   const cameraRef = useRef<CameraView>(null);
   const videoPreviewRef = useRef<Video>(null);
@@ -281,6 +283,15 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   };
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  // Block business accounts from seeing camera UI
+  if (isBusiness) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   // Permissions loading
   if (!permissionsChecked) {

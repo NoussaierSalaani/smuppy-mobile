@@ -169,7 +169,7 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
           <Text style={styles.title}>Your peak has expired!</Text>
           {currentPeak.caption && (
             <Text style={styles.caption} numberOfLines={2}>
-              {currentPeak.caption}
+              {currentPeak.caption.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim()}
             </Text>
           )}
 

@@ -341,7 +341,9 @@ const PeaksFeedScreen = (): React.JSX.Element => {
             </View>
             <Text style={styles.emptyTitle}>No Peaks yet</Text>
             <Text style={styles.emptySubtitle}>
-              Peaks are short videos from 6 to 60 seconds to share your fitness moments
+              {isBusiness
+                ? 'Peaks are a creator feature. Switch to a Creator account to start sharing.'
+                : 'Peaks are short videos from 6 to 60 seconds to share your fitness moments'}
             </Text>
             {!isBusiness && (
             <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>

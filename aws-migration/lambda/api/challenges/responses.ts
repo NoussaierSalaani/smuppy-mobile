@@ -28,7 +28,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     const offset = parseInt(event.queryStringParameters?.offset || '0', 10);
-    const sortBy = event.queryStringParameters?.sortBy || 'recent'; // recent | popular
+    const sortByParam = event.queryStringParameters?.sortBy || 'recent';
+    const sortBy = sortByParam === 'popular' ? 'popular' : 'recent'; // whitelist valid values
 
     // Verify challenge exists
     const challengeCheck = await client.query(

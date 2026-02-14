@@ -427,10 +427,12 @@ const PeakViewScreen = (): React.JSX.Element => {
       });
     }
 
-    // Count a view locally (once per peak in this session)
+    // Count a view locally (once per peak in this session) and record server-side
     if (currentPeak.id && !viewedPeaks.has(currentPeak.id)) {
       setViewedPeaks(prev => new Set(prev).add(currentPeak.id));
       setPeaks(prev => prev.map((p, i) => i === currentIndex ? { ...p, views: (p.views || 0) + 1 } : p));
+      // Fire-and-forget: GET /peaks/:id records the view server-side
+      awsAPI.getPeak(currentPeak.id).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);

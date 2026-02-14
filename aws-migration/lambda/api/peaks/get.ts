@@ -88,7 +88,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         EXISTS(
           SELECT 1 FROM peak_likes pl
           WHERE pl.peak_id = pk.id AND pl.user_id = $${paramIndex}
-        ) as is_liked
+        ) as is_liked,
+        EXISTS(
+          SELECT 1 FROM peak_views pv
+          WHERE pv.peak_id = pk.id AND pv.user_id = $${paramIndex}
+        ) as is_viewed
       `;
       params.push(currentProfileId);
       paramIndex++;
@@ -148,6 +152,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           filterIntensity: peak.filter_intensity ?? null,
           overlays: peak.overlays || null,
           isLiked: currentProfileId ? peak.is_liked : false,
+          isViewed: currentProfileId ? peak.is_viewed : false,
           author: {
             id: peak.author_id,
             username: peak.author_username,

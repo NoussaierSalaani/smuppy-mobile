@@ -33,6 +33,7 @@ export interface Challenge {
   peakId: string;
   title: string;
   description?: string;
+  durationSeconds?: number;
   endsAt?: string;
   responseCount: number;
   viewCount: number;
@@ -52,8 +53,9 @@ interface ChallengeCardProps {
 
 function getTimeRemaining(endsAt?: string): string {
   if (!endsAt) return '';
-  const now = new Date();
   const end = new Date(endsAt);
+  if (isNaN(end.getTime())) return '';
+  const now = new Date();
   const diff = end.getTime() - now.getTime();
   if (diff <= 0) return 'Ended';
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -102,7 +104,7 @@ const ChallengeCard = memo(({ challenge, onPress, onAccept, compact }: Challenge
         <View style={styles.creatorRow}>
           <AvatarImage source={challenge.creator.avatarUrl} size={20} />
           <Text style={styles.creatorName} numberOfLines={1}>
-            {challenge.creator.displayName || challenge.creator.username}
+            {(challenge.creator.displayName || challenge.creator.username || '').replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '')}
           </Text>
           {challenge.creator.isVerified && (
             <Ionicons name="checkmark-circle" size={14} color={colors.primary} />

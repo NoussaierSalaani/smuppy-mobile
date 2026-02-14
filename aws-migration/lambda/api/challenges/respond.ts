@@ -142,17 +142,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Check if challenge has ended
-    if (challenge.ends_at && new Date(challenge.ends_at) < new Date()) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({
-          success: false,
-          message: 'This challenge has ended',
-        }),
-      });
-    }
-
     // Check max participants
     if (challenge.max_participants && challenge.response_count >= challenge.max_participants) {
       return cors({
@@ -184,23 +173,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
-    // Check if already responded
-    const existingResponse = await client.query(
-      `SELECT id FROM challenge_responses
-       WHERE challenge_id = $1 AND user_id = $2`,
-      [challengeId, userId]
-    );
-
-    if (existingResponse.rows.length > 0) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({
-          success: false,
-          message: 'You have already responded to this challenge',
-        }),
-      });
-    }
-
     // Verify peak belongs to user
     const peakCheck = await client.query(
       `SELECT id, author_id FROM peaks WHERE id = $1`,
@@ -218,6 +190,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     await client.query('BEGIN');
+
+    // Check if already responded (inside transaction with FOR UPDATE to prevent race condition)
+    const existingResponse = await client.query(
+      `SELECT id FROM challenge_responses
+       WHERE challenge_id = $1 AND user_id = $2
+       FOR UPDATE`,
+      [challengeId, userId]
+    );
+
+    if (existingResponse.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          message: 'You have already responded to this challenge',
+        }),
+      });
+    }
 
     // Create response
     const responseResult = await client.query(

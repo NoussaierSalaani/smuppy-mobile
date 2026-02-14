@@ -263,7 +263,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
           });
         } catch (challengeError) {
           if (__DEV__) console.warn('Challenge creation error:', challengeError);
-          // Peak was published but challenge failed — still show success
+          alert.error('Challenge Error', 'Your peak was published but the challenge could not be created. You can try again from your peak.');
         }
       }
 
@@ -273,7 +273,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
           await awsAPI.respondToChallenge(challengeId, { peakId: peakResult.peak.id });
         } catch (respondError) {
           if (__DEV__) console.warn('Challenge response error:', respondError);
-          // Peak was published but challenge response failed — still show success
+          alert.error('Response Error', 'Your peak was published but the challenge response could not be linked. Please try again.');
         }
       }
 

@@ -263,7 +263,7 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
         onClose={() => setShowCreatePopup(false)}
         onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
         onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
-        onSelectChallenge={undefined}
+        onSelectChallenge={FEATURES.CHALLENGES && user?.accountType === 'pro_creator' ? () => { setShowCreatePopup(false); navigation.navigate('Challenges'); } : undefined}
         onSelectEvent={FEATURES.CREATE_ACTIVITY && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateActivity'); } : undefined}
       />
     </>

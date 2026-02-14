@@ -18,6 +18,7 @@ import ChallengeCard, { type Challenge } from '../../components/peaks/ChallengeC
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 const { width } = Dimensions.get('window');
 
@@ -44,10 +45,12 @@ const ChallengesScreen = (): React.JSX.Element => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const user = useUserStore((state) => state.user);
   const isBusiness = user?.accountType === 'pro_business';
+  const { showError: errorAlert } = useSmuppyAlert();
   const [trendingChallenges, setTrendingChallenges] = useState<Challenge[]>([]);
   const [newChallenges, setNewChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   const fetchChallenges = useCallback(async () => {
     try {
@@ -61,6 +64,7 @@ const ChallengesScreen = (): React.JSX.Element => {
         peakId: c.peakId as string,
         title: c.title as string,
         description: c.description as string | undefined,
+        durationSeconds: (c.durationSeconds as number) || undefined,
         endsAt: c.endsAt as string | undefined,
         responseCount: (c.responseCount as number) || 0,
         viewCount: (c.viewCount as number) || 0,
@@ -79,6 +83,7 @@ const ChallengesScreen = (): React.JSX.Element => {
       }
     } catch (error) {
       if (__DEV__) console.warn('Failed to fetch challenges:', error);
+      setFetchError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -105,7 +110,7 @@ const ChallengesScreen = (): React.JSX.Element => {
         id: challenge.peakId,
         thumbnail: toCdn(challenge.peak.thumbnailUrl),
         videoUrl: toCdn(challenge.peak.videoUrl) || undefined,
-        duration: 0,
+        duration: challenge.durationSeconds || 15,
         user: {
           id: challenge.creator.id,
           name: challenge.creator.displayName || challenge.creator.username,
@@ -122,12 +127,15 @@ const ChallengesScreen = (): React.JSX.Element => {
   }, [navigation]);
 
   const handleAcceptChallenge = useCallback((challenge: Challenge) => {
-    if (isBusiness) return;
+    if (isBusiness) {
+      errorAlert('Unavailable', 'Business accounts cannot participate in challenges.');
+      return;
+    }
     navigation.navigate('CreatePeak', {
       challengeId: challenge.id,
       challengeTitle: challenge.title,
     });
-  }, [navigation, isBusiness]);
+  }, [navigation, isBusiness, errorAlert]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -143,6 +151,30 @@ const ChallengesScreen = (): React.JSX.Element => {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (fetchError && trendingChallenges.length === 0 && newChallenges.length === 0) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={28} color={isDark ? colors.white : colors.dark} />
+          </TouchableOpacity>
+          <View style={styles.headerTitleRow}>
+            <Ionicons name="trophy" size={22} color="#FFD700" />
+            <Text style={styles.headerTitle}>Challenges</Text>
+          </View>
+          <View style={styles.backButton} />
+        </View>
+        <View style={[styles.centered, { flex: 1 }]}>
+          <Ionicons name="cloud-offline-outline" size={48} color={colors.gray} />
+          <Text style={styles.emptySectionText}>Could not load challenges</Text>
+          <TouchableOpacity style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 20 }} onPress={onRefresh}>
+            <Text style={{ color: colors.white, fontWeight: '600' }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }

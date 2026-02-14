@@ -30,7 +30,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    const filter = event.queryStringParameters?.filter || 'trending'; // trending, created, tagged, responded
+    const filter = event.queryStringParameters?.filter || 'trending'; // trending, new, created, tagged, responded
 
     // Resolve cognito sub to profile ID (needed for all filters)
     let userId: string | undefined;
@@ -100,6 +100,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         ORDER BY
           (pc.response_count * 2 + pc.view_count + COALESCE(pc.total_tips, 0) * 10) DESC,
           pc.created_at DESC
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+      `;
+      params = category
+        ? [status, category, limit, offset]
+        : [status, limit, offset];
+    } else if (filter === 'new') {
+      query = `
+        ${baseSelect}
+        WHERE pc.is_public = TRUE
+        AND pc.status = $${paramIndex++}
+        ${category ? `AND ct.category = $${paramIndex++}` : ''}
+        ORDER BY pc.created_at DESC
         LIMIT $${paramIndex++} OFFSET $${paramIndex++}
       `;
       params = category

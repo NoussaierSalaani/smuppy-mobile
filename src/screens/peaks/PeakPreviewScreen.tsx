@@ -27,6 +27,7 @@ import { awsAuth } from '../../services/aws-auth';
 import { uploadPeakMedia, generateVideoThumbnail, uploadImage } from '../../services/mediaUpload';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { useUserStore } from '../../stores/userStore';
 import { searchNominatim, isValidCoordinate, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 import { extractHashtags } from '../../utils/hashtags';
 import { filterContent } from '../../utils/contentFilters';
@@ -79,6 +80,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakPreview'>>();
   const { showError: errorAlert } = useSmuppyAlert();
+  const storeUser = useUserStore((state) => state.user);
   const alert = { error: errorAlert };
 
   const { videoUri, duration, replyTo, originalPeak, challengeId, challengeTitle: challengeTitleParam, filterId, filterIntensity, overlays: overlayData } = route.params || {};
@@ -148,6 +150,12 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
   // Publish
   const handlePublish = async (): Promise<void> => {
+    // Business accounts cannot publish peaks
+    if (storeUser?.accountType === 'pro_business') {
+      alert.error('Unavailable', 'Peak creation is not available for business accounts.');
+      return;
+    }
+
     if (isChallenge && !challengeId && !challengeTitle.trim()) {
       alert.error('Challenge Title Required', 'Please enter a title for your challenge');
       return;

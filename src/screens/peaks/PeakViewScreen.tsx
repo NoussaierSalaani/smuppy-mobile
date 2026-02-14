@@ -99,7 +99,7 @@ const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, on
             style={styles.responseAvatar}
           />
           <Text style={styles.responseUserName} numberOfLines={1}>
-            {item.user?.displayName || item.user?.username || 'Unknown'}
+            {(item.user?.displayName || item.user?.username || 'Unknown').replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '')}
           </Text>
           {item.user?.isVerified && (
             <Ionicons name="checkmark-circle" size={14} color={colors.primary} />

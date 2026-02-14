@@ -301,12 +301,14 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         <Text style={styles.headerTitle}>Peaks</Text>
 
         <View style={styles.headerRight}>
+          {!isBusiness && (
           <TouchableOpacity
             style={styles.headerIconButton}
             onPress={() => navigation.navigate('Challenges')}
           >
             <Ionicons name="trophy" size={22} color="#FFD700" />
           </TouchableOpacity>
+          )}
 
           {peaks.length > 0 && !isBusiness ? (
             <TouchableOpacity

@@ -59,13 +59,23 @@ export function useExpiredPeaks(): UseExpiredPeaksReturn {
   }, [fetchExpired]);
 
   const savePeakToProfile = useCallback(async (peakId: string) => {
-    await awsAPI.savePeakDecision(peakId, 'save_to_profile');
-    setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
+    try {
+      await awsAPI.savePeakDecision(peakId, 'save_to_profile');
+      setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
+    } catch (error) {
+      if (__DEV__) console.warn('[useExpiredPeaks] Failed to save peak:', error);
+      throw error;
+    }
   }, []);
 
   const deletePeak = useCallback(async (peakId: string) => {
-    await awsAPI.deletePeak(peakId);
-    setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
+    try {
+      await awsAPI.deletePeak(peakId);
+      setExpiredPeaks(prev => prev.filter(p => p.id !== peakId));
+    } catch (error) {
+      if (__DEV__) console.warn('[useExpiredPeaks] Failed to delete peak:', error);
+      throw error;
+    }
   }, []);
 
   const downloadPeak = useCallback(async (peakId: string, videoUrl: string): Promise<boolean> => {

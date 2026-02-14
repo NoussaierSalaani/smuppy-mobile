@@ -88,6 +88,13 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const { showAlert: showSmuppyAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
 
+  // Business accounts cannot create peaks — redirect back immediately
+  useEffect(() => {
+    if (user?.accountType === 'pro_business') {
+      showSmuppyAlert({ title: 'Unavailable', message: 'Peak creation is not available for business accounts.', buttons: [{ text: 'OK', onPress: () => navigation.goBack() }] });
+    }
+  }, [user?.accountType, navigation, showSmuppyAlert]);
+
   const cameraRef = useRef<CameraView>(null);
   const videoPreviewRef = useRef<Video>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();

@@ -179,18 +179,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const result = await client.query(query, params);
 
-    // Get total count for pagination
+    // BUG-2026-02-14: Count queries must match main query filters (moderation + blocked users)
     let totalQuery: string;
     const countParams: SqlParam[] = [];
 
+    const countBase = `FROM groups g JOIN profiles creator ON g.creator_id = creator.id`;
+    const countModFilter = `g.status != 'cancelled' AND creator.moderation_status NOT IN ('banned', 'shadow_banned')`;
+
     if (filter === 'my-groups' && profileId) {
-      totalQuery = `SELECT COUNT(*) AS total FROM groups g WHERE g.status != 'cancelled' AND g.creator_id = $1`;
       countParams.push(profileId);
+      totalQuery = `SELECT COUNT(*) AS total ${countBase} WHERE ${countModFilter} AND g.creator_id = $1`;
     } else if (filter === 'joined' && profileId) {
-      totalQuery = `SELECT COUNT(*) AS total FROM groups g JOIN group_participants gp ON g.id = gp.group_id WHERE gp.user_id = $1 AND g.status != 'cancelled'`;
       countParams.push(profileId);
+      totalQuery = `SELECT COUNT(*) AS total ${countBase} JOIN group_participants gp ON g.id = gp.group_id WHERE gp.user_id = $1 AND ${countModFilter}`;
     } else {
-      totalQuery = `SELECT COUNT(*) AS total FROM groups g WHERE g.status != 'cancelled' AND g.starts_at > NOW() AND g.is_public = TRUE`;
+      totalQuery = `SELECT COUNT(*) AS total ${countBase} WHERE ${countModFilter} AND g.starts_at > NOW() AND g.is_public = TRUE`;
+    }
+
+    // Exclude blocked users in count too
+    if (profileId) {
+      countParams.push(profileId);
+      totalQuery += ` AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${countParams.length} AND blocked_id = creator.id)`;
     }
 
     const totalResult = await client.query(totalQuery, countParams);

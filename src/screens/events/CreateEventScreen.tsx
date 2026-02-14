@@ -154,7 +154,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState('');
-  const [isFansOnly] = useState(false);
+  const isFansOnly = false; // Placeholder — fans-only UI not yet implemented
 
   // Step 3 — location / route
   const [locationName, setLocationName] = useState('');
@@ -180,7 +180,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   // UI
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [endDate, _setEndDate] = useState<Date | null>(null);
+  const endDate = null as Date | null; // Placeholder — end date UI not yet implemented
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
 

@@ -93,9 +93,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profileId = userResult.rows[0].id;
 
-    // Verify spot exists
+    // Verify spot exists and check creator for self-review prevention
     const spotExists = await db.query(
-      'SELECT id FROM spots WHERE id = $1',
+      'SELECT id, creator_id FROM spots WHERE id = $1',
       [spotId]
     );
 
@@ -104,6 +104,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'Spot not found' }),
+      };
+    }
+
+    // BUG-2026-02-14: Prevent self-review (spot creator cannot review their own spot)
+    if (spotExists.rows[0].creator_id === profileId) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'You cannot review your own spot' }),
       };
     }
 

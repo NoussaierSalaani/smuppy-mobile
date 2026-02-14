@@ -68,7 +68,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         creator.is_verified AS creator_verified
       FROM groups g
       JOIN profiles creator ON g.creator_id = creator.id
-      WHERE g.id = $1`,
+      WHERE g.id = $1
+        AND creator.moderation_status NOT IN ('banned', 'shadow_banned')`,
       [groupId]
     );
 

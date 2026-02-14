@@ -126,10 +126,11 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
       }
     } catch (err) {
       if (__DEV__) console.warn('Failed to submit review:', err);
+      showError('Error', 'Failed to submit review. Please try again.');
     } finally {
       setIsSubmittingReview(false);
     }
-  }, [spotId, loadData]);
+  }, [spotId, loadData, showError]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 

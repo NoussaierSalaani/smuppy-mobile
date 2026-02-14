@@ -180,6 +180,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
+    // BUG-2026-02-14: Ensure start date is in the future
+    if (startDate <= new Date()) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Start date must be in the future' }),
+      });
+    }
+
     // Validate max_participants
     if (maxParticipants !== undefined && (maxParticipants < 2 || maxParticipants > 10000)) {
       return cors({

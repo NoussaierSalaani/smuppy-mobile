@@ -167,7 +167,7 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
           message: 'Your spot is now on the map.',
           type: 'success',
           buttons: [
-            { text: 'View', onPress: () => navigation.replace('SpotDetail', { spotId: response.spot?.id }) },
+            { text: 'View', onPress: () => { if (response.spot?.id) navigation.replace('SpotDetail', { spotId: response.spot.id }); else navigation.goBack(); } },
             { text: 'Done', onPress: () => navigation.goBack() },
           ],
         });

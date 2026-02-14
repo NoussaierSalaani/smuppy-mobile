@@ -1393,16 +1393,13 @@ const PeakViewScreen = (): React.JSX.Element => {
           )}
 
           {/* Share Button */}
-          {!isBusiness && (
           <TouchableOpacity style={styles.actionButton} onPress={handleShareAction}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="paper-plane-outline" size={24} color={colors.white} />
             </View>
           </TouchableOpacity>
-          )}
 
           {/* Tag Friend Button */}
-          {!isBusiness && (
           <TouchableOpacity style={styles.actionButton} onPress={handleOpenTagModal}>
             <View style={styles.actionIconContainer}>
               <Ionicons name="person-add-outline" size={22} color={colors.white} />
@@ -1413,10 +1410,8 @@ const PeakViewScreen = (): React.JSX.Element => {
               </Text>
             )}
           </TouchableOpacity>
-          )}
 
           {/* Save Button */}
-          {!isBusiness && (
           <TouchableOpacity style={styles.actionButton} onPress={toggleSave}>
             <View style={styles.actionIconContainer}>
               <Ionicons
@@ -1426,7 +1421,6 @@ const PeakViewScreen = (): React.JSX.Element => {
               />
             </View>
           </TouchableOpacity>
-          )}
 
           {/* More Options */}
           <TouchableOpacity style={styles.actionButton} onPress={handleShowMenu}>

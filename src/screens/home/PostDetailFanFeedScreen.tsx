@@ -20,6 +20,7 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { normalizeCdnUrl } from '../../utils/cdnUrl';
@@ -122,17 +123,11 @@ const PostDetailFanFeedScreen = () => {
   const flatListRef = useRef<React.ElementRef<typeof FlashList<FanFeedPost>>>(null);
   const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
-  const viewedPosts = useRef<Set<string>>(new Set());
   
   // Current post - with bounds check to prevent crash on empty array
   const currentPost = fanFeedPosts.length > 0 && currentIndex < fanFeedPosts.length
     ? fanFeedPosts[currentIndex]
     : null;
-
-  // Check if already fan of current post user (with null check)
-  const _isAlreadyFan = currentPost ? fanStatus[currentPost.user.id] === true : false;
-  const _theyFollowMe = currentPost?.user.followsMe ?? false;
-
 
   // Check follow status when post changes
   useEffect(() => {
@@ -180,13 +175,6 @@ const PostDetailFanFeedScreen = () => {
     };
     checkPostStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPost?.id]);
-
-  // Record post view (deduped per session)
-  // Mark post as viewed locally (no longer tracked server-side)
-  useEffect(() => {
-    if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
-    viewedPosts.current.add(currentPost.id);
   }, [currentPost?.id]);
 
   // Navigate to user profile (own profile → Profile tab, others → UserProfile)
@@ -310,6 +298,7 @@ const PostDetailFanFeedScreen = () => {
       const { error } = await followUser(userId);
       if (!error) {
         setFanStatus(prev => ({ ...prev, [userId]: true }));
+        showSuccess('Followed', 'You are now a fan!');
       } else {
         if (__DEV__) console.warn('[PostDetailFanFeed] Follow error:', error);
       }
@@ -318,7 +307,7 @@ const PostDetailFanFeedScreen = () => {
     } finally {
       setFanLoading(prev => ({ ...prev, [userId]: false }));
     }
-  }, [fanLoading]);
+  }, [fanLoading, showSuccess]);
 
   // Double tap to like
   const handleDoubleTap = useCallback(() => {
@@ -635,7 +624,10 @@ const PostDetailFanFeedScreen = () => {
           )}
 
           {/* Gradient overlay bottom */}
-          <View style={styles.gradientOverlay} />
+          <LinearGradient
+            colors={['transparent', 'transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.gradientOverlay}
+          />
 
           {/* Like animation */}
           {showLikeAnimation && index === currentIndex && (
@@ -1119,8 +1111,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     bottom: 0,
     left: 0,
     right: 0,
-    height: 200,
-    backgroundColor: 'transparent',
+    height: 300,
   },
 
   // Under review overlay

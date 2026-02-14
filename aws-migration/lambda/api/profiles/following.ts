@@ -41,7 +41,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Check if profile exists
     const profileResult = await db.query(
-      'SELECT id, username FROM profiles WHERE id = $1',
+      'SELECT id, username, is_private FROM profiles WHERE id = $1',
       [profileId]
     );
 
@@ -51,6 +51,41 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ message: 'Profile not found' }),
       };
+    }
+
+    // Privacy check: if profile is private, only the owner or accepted followers can see the list
+    if (profileResult.rows[0].is_private) {
+      const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+      let isAuthorized = false;
+
+      if (cognitoSub) {
+        const requesterResult = await db.query(
+          'SELECT id FROM profiles WHERE cognito_sub = $1',
+          [cognitoSub]
+        );
+        if (requesterResult.rows.length > 0) {
+          const requesterId = requesterResult.rows[0].id;
+          // Owner can always see their own following list
+          if (requesterId === profileId) {
+            isAuthorized = true;
+          } else {
+            // Check if requester is an accepted follower
+            const followResult = await db.query(
+              `SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted') as is_follower`,
+              [requesterId, profileId]
+            );
+            isAuthorized = followResult.rows[0].is_follower;
+          }
+        }
+      }
+
+      if (!isAuthorized) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: 'This account is private' }),
+        };
+      }
     }
 
     // Get total following count (separate query — result.rowCount only returns current page size)

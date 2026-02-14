@@ -26,7 +26,7 @@ import { HIT_SLOP } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks/queries';
 import { queryKeys } from '../../lib/queryClient';
-import { followUser, unfollowUser, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest, isFollowing as checkIsFollowing } from '../../services/database';
+import { followUser, unfollowUser, getPostsByUser, Post, hasPendingFollowRequest, cancelFollowRequest, isFollowing as checkIsFollowing, reportUser } from '../../services/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LiquidTabs } from '../../components/LiquidTabs';
 import { LiquidButton } from '../../components/LiquidButton';
@@ -46,6 +46,11 @@ import { ProfileSkeleton } from '../../components/skeleton';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
 const AVATAR_SIZE = 96;
+
+const sanitizeText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
+};
 
 // Type for profile data from API (uses Profile type from database.ts)
 interface ProfileApiData {
@@ -399,13 +404,21 @@ const UserProfileScreen = () => {
     }
   }, [profile.username, profile.displayName]);
 
-  // User safety store for block
-  const { block, isBlocked: isUserBlocked } = useUserSafetyStore();
+  // User safety store for block & mute
+  const { block, isBlocked: isUserBlocked, mute, unmute, isMuted: isUserMuted } = useUserSafetyStore();
 
   // Report user
-  const submitUserReport = useCallback((_reason: string) => {
-    showSuccess('Report Submitted', 'Thank you for your report. We will review this user.');
-  }, [showSuccess]);
+  const submitUserReport = useCallback(async (reason: string) => {
+    if (!userId) return;
+    const { error } = await reportUser(userId, reason);
+    if (error === 'already_reported') {
+      showError('Already Reported', 'You have already reported this user.');
+    } else if (error) {
+      showError('Report Failed', 'Unable to submit report. Please try again.');
+    } else {
+      showSuccess('Report Submitted', 'Thank you for your report. We will review this user.');
+    }
+  }, [userId, showSuccess, showError]);
 
   const handleReportUser = useCallback(() => {
     setShowMenuModal(false);
@@ -448,6 +461,29 @@ const UserProfileScreen = () => {
       'Block'
     );
   }, [userId, profile.displayName, isUserBlocked, showDestructiveConfirm, showError, showSuccess, navigation, block]);
+
+  // Mute/Unmute user
+  const handleMuteToggle = useCallback(async () => {
+    if (!userId) return;
+    setShowMenuModal(false);
+
+    const muted = isUserMuted(userId);
+    if (muted) {
+      const { error } = await unmute(userId);
+      if (error) {
+        showError('Error', 'Failed to unmute user. Please try again.');
+      } else {
+        showSuccess('User Unmuted', 'You will see their content again.');
+      }
+    } else {
+      const { error } = await mute(userId);
+      if (error) {
+        showError('Error', 'Failed to mute user. Please try again.');
+      } else {
+        showSuccess('User Muted', 'You will no longer see their content in your feed.');
+      }
+    }
+  }, [userId, isUserMuted, mute, unmute, showError, showSuccess]);
 
   // Fan button handler
   const handleFanPress = useCallback(() => {
@@ -1148,7 +1184,7 @@ const UserProfileScreen = () => {
       {/* Name & Action Icons */}
       <View style={styles.nameRow}>
         <View style={styles.nameWithBadges}>
-          <Text style={styles.displayName}>{profile.displayName}</Text>
+          <Text style={styles.displayName}>{sanitizeText(profile.displayName)}</Text>
           <AccountBadge
             size={18}
             style={styles.badge}
@@ -1195,7 +1231,7 @@ const UserProfileScreen = () => {
             style={styles.bioText}
             numberOfLines={bioExpanded ? 6 : 2}
           >
-            {profile.bio}
+            {sanitizeText(profile.bio)}
           </Text>
           {profile.bio.length > 80 && (
             <TouchableOpacity
@@ -1548,6 +1584,11 @@ const UserProfileScreen = () => {
                 <Text style={styles.menuItemText}>Unfan</Text>
               </TouchableOpacity>
             )}
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleMuteToggle}>
+              <Ionicons name={userId && isUserMuted(userId) ? 'volume-high-outline' : 'volume-mute-outline'} size={22} color={colors.dark} />
+              <Text style={styles.menuItemText}>{userId && isUserMuted(userId) ? 'Unmute' : 'Mute'}</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleReportUser}>
               <Ionicons name="flag-outline" size={22} color={colors.dark} />

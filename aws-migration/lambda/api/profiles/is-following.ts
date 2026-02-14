@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('profiles-is-following');
 
@@ -26,11 +27,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const targetUserId = event.pathParameters?.id;
 
-    if (!targetUserId) {
+    if (!targetUserId || !isValidUUID(targetUserId)) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: 'userId is required' }),
+        body: JSON.stringify({ message: 'Valid userId is required' }),
       };
     }
 

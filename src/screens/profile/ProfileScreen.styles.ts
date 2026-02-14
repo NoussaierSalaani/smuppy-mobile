@@ -11,7 +11,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const COVER_HEIGHT = 282;
 export const AVATAR_SIZE = 96;
 
-export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
+export const createProfileStyles = (colors: ThemeColors, isDark = false) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -375,6 +375,24 @@ export const createProfileStyles = (colors: ThemeColors) => StyleSheet.create({
   postCardWrapper: {
     // width is set dynamically via flexBasis/maxWidth inline styles
   },
+  // ===== MASONRY LAYOUT =====
+  masonryContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  masonryColumn: {
+    flex: 1,
+    gap: 12,
+  },
+  masonryCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.gray100,
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(14, 191, 138, 0.35)' : 'rgba(14, 191, 138, 0.25)',
+  },
+
   postCard: {
     width: '100%',
     height: '100%',

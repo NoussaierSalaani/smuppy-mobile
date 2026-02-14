@@ -1670,6 +1670,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     overflow: 'hidden',
     marginBottom: SECTION_GAP,
     backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(14, 191, 138, 0.35)' : 'rgba(14, 191, 138, 0.25)',
   },
   vibeImage: {
     width: '100%',

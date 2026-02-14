@@ -210,6 +210,16 @@ export const transformToVibePost = (
 };
 
 /**
+ * Deterministic masonry height based on post ID.
+ * Uses first + last char code for consistent results across renders.
+ */
+export const getMasonryHeight = (postId: string): number => {
+  const heights = [180, 210, 240, 260];
+  const charSum = Math.abs(postId.charCodeAt(0) + postId.charCodeAt(postId.length - 1));
+  return heights[charSum % heights.length];
+};
+
+/**
  * Batch transform posts with liked status check
  */
 export const transformPostsBatch = <T extends UIPostBase>(

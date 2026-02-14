@@ -42,6 +42,7 @@ import { getGrade } from '../../utils/gradeSystem';
 import { useVibeStore } from '../../stores/vibeStore';
 import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
 import { useTheme } from '../../hooks/useTheme';
+import { getMasonryHeight } from '../../utils/postTransformers';
 import { HIT_SLOP } from '../../config/theme';
 import { ProfileSkeleton } from '../../components/skeleton';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
@@ -148,7 +149,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const insets = useSafeAreaInsets();
   const { showSuccess, showError } = useSmuppyAlert();
   const { colors, isDark } = useTheme();
-  const styles = useMemo(() => createProfileStyles(colors), [colors]);
+  const styles = useMemo(() => createProfileStyles(colors, isDark), [colors, isDark]);
   const storeUser = useUserStore((state) => state.user);
   const updateStoreProfile = useUserStore((state) => state.updateProfile);
   const routeUserId = route?.params?.userId || null;
@@ -1685,28 +1686,24 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       if (posts.length === 0) {
         return renderEmpty();
       }
-      const postColumns = posts.length === 1 ? 1 : posts.length === 2 ? 2 : 3;
-      const cardAspect = postColumns === 1 ? 0.9 : 1;
-      const gridPadding = 16 * 2;
-      const gridGap = 12;
-      const totalGaps = gridGap * (postColumns - 1);
-      const cardWidth = (SCREEN_WIDTH - gridPadding - totalGaps) / postColumns;
+      const leftColumn = posts.filter((_, i) => i % 2 === 0);
+      const rightColumn = posts.filter((_, i) => i % 2 === 1);
       return (
-        <View style={styles.postsGrid}>
-          {posts.map((post) => (
-            <View
-              key={post.id}
-              style={[
-                styles.postCardWrapper,
-                {
-                  width: cardWidth,
-                  aspectRatio: cardAspect,
-                },
-              ]}
-            >
-              {renderPostItem({ item: post })}
-            </View>
-          ))}
+        <View style={styles.masonryContainer}>
+          <View style={styles.masonryColumn}>
+            {leftColumn.map((post) => (
+              <View key={post.id} style={[styles.masonryCard, { height: getMasonryHeight(post.id) }]}>
+                {renderPostItem({ item: post })}
+              </View>
+            ))}
+          </View>
+          <View style={styles.masonryColumn}>
+            {rightColumn.map((post) => (
+              <View key={post.id} style={[styles.masonryCard, { height: getMasonryHeight(post.id) }]}>
+                {renderPostItem({ item: post })}
+              </View>
+            ))}
+          </View>
         </View>
       );
     }

@@ -75,6 +75,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
        FROM posts p
        JOIN profiles pr ON p.author_id = pr.id
        WHERE p.author_id IN (SELECT following_id FROM follows WHERE follower_id = $1 AND status = 'accepted')
+         AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
          ${cursorCondition}
        ORDER BY p.created_at DESC, p.id DESC
        LIMIT $${queryParams.length}`,

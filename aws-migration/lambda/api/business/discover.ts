@@ -34,7 +34,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getReaderPool();
 
-    const conditions: string[] = ["p.account_type IN ('business', 'pro_business')"];
+    const conditions: string[] = [
+      "p.account_type IN ('business', 'pro_business')",
+      "p.moderation_status NOT IN ('banned', 'shadow_banned')",
+    ];
     const params: unknown[] = [];
     let paramIdx = 1;
 

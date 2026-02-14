@@ -106,6 +106,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     params.push('cancelled');
     whereConditions.push(`e.status != $${params.length}`);
 
+    // Exclude events from banned/shadow_banned creators
+    whereConditions.push(`creator.moderation_status NOT IN ('banned', 'shadow_banned')`);
+
     // Filter: upcoming (default)
     if (filter === 'upcoming' || filter === 'nearby') {
       whereConditions.push(`e.starts_at > NOW()`);

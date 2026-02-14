@@ -37,6 +37,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        FROM live_streams ls
        JOIN profiles p ON p.id = ls.host_id
        WHERE ls.status = 'live'
+         AND p.moderation_status NOT IN ('banned', 'shadow_banned')
        ORDER BY ls.started_at DESC
        LIMIT 50`
     );

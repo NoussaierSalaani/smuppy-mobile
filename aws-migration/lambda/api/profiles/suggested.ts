@@ -85,6 +85,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.post_count
           FROM profiles p
           WHERE p.is_private = false AND p.onboarding_completed = true
+            AND p.moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,
             p.fan_count DESC,
@@ -125,6 +126,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               SELECT 1 FROM follows f
               WHERE f.following_id = $1 AND f.follower_id = p.id AND f.status = 'accepted'
             )
+            AND p.moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,
             CASE WHEN p.account_type = 'pro_creator' THEN 0
@@ -156,6 +158,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           p.post_count
         FROM profiles p
         WHERE p.is_private = false AND p.onboarding_completed = true
+          AND p.moderation_status NOT IN ('banned', 'shadow_banned')
         ORDER by
           CASE WHEN p.is_verified THEN 0 ELSE 1 END,
           p.fan_count DESC,

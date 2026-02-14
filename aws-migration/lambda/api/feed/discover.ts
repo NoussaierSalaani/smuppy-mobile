@@ -61,10 +61,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `p.author_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $${paramIndex} AND status = 'accepted')`
       );
       whereClauses.push(`p.author_id != $${paramIndex}`);
+      // Exclude posts from users the current user has blocked
+      whereClauses.push(
+        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${paramIndex} AND blocked_id = p.author_id)`
+      );
       paramIndex++;
     }
 
     whereClauses.push(`p.visibility = 'public'`);
+    whereClauses.push(`pr.moderation_status NOT IN ('banned', 'shadow_banned')`);
 
     if (interests.length > 0) {
       params.push(interests);

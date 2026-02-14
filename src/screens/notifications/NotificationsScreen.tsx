@@ -120,8 +120,9 @@ function mapNotificationType(backendType: string): UserNotification['type'] | nu
     case 'peak_tag':
       return 'peak_comment';
     case 'peak_reply':
-    case 'new_peak':
       return 'peak_reply';
+    case 'new_peak':
+      return 'peak_comment';
     case 'live':
       return 'live';
     default:

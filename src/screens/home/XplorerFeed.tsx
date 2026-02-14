@@ -216,8 +216,14 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     currentParticipants?: number;
     is_joined?: boolean;
     isJoined?: boolean;
+    // Creator info (from API detail response)
+    creatorId?: string;
+    creator_id?: string;
+    creator?: { id: string; username?: string; displayName?: string; full_name?: string; avatar_url?: string | null };
   } | null>(null);
   const [joiningEvent, setJoiningEvent] = useState(false);
+  // Request counter to prevent stale event/group detail responses
+  const detailFetchCounterRef = useRef(0);
 
   // Pre-fetch creation limits (non-blocking)
   const creationLimitsRef = useRef<{ canCreateEvent: boolean; canCreateGroup: boolean } | null>(null);
@@ -235,20 +241,24 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // Fetch events/groups when location is available
   useEffect(() => {
     if (!hasLocation) return;
+    // Validate coordinates before API call
+    const lat = userCoords[1];
+    const lng = userCoords[0];
+    if (!isValidCoordinate(lat, lng)) return;
     const fetchEventsGroups = async () => {
       try {
         const [eventsRes, groupsRes] = await Promise.all([
           awsAPI.getEvents({
             filter: 'nearby',
-            latitude: userCoords[1],
-            longitude: userCoords[0],
+            latitude: lat,
+            longitude: lng,
             radiusKm: filterDistance,
             limit: 50,
           }),
           awsAPI.getGroups({
             filter: 'nearby',
-            latitude: userCoords[1],
-            longitude: userCoords[0],
+            latitude: lat,
+            longitude: lng,
             radiusKm: filterDistance,
             limit: 50,
           }),
@@ -527,7 +537,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       const hostId = marker.id.replace('live_', '');
       navigation.navigate('ViewerLiveStream', {
         channelName: `live_${hostId}`,
-        hostId,
+        hostUserId: hostId,
         hostName: marker.name.replace(' — LIVE', ''),
         hostAvatar: marker.avatar,
       });
@@ -535,14 +545,16 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
 
     setSelectedMarker(marker);
-    // For event/group markers, also load full detail
+    // For event/group markers, also load full detail with abort tracking
     if (marker.category === 'event') {
       const eventId = marker.id.replace('event_', '');
       if (!UUID_REGEX.test(eventId)) {
         if (__DEV__) console.warn('[XplorerFeed] Invalid event UUID:', eventId);
         return;
       }
+      const fetchId = ++detailFetchCounterRef.current;
       awsAPI.getEventDetail(eventId).then(res => {
+        if (fetchId !== detailFetchCounterRef.current) return; // Stale response
         if (res.success && res.event) setSelectedEventData(res.event);
       }).catch((err) => { if (__DEV__) console.warn('[XplorerFeed]', err); });
     } else if (marker.category === 'group') {
@@ -551,7 +563,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         if (__DEV__) console.warn('[XplorerFeed] Invalid group UUID:', groupId);
         return;
       }
+      const fetchId = ++detailFetchCounterRef.current;
       awsAPI.getGroup(groupId).then(res => {
+        if (fetchId !== detailFetchCounterRef.current) return; // Stale response
         if (res.success && res.group) setSelectedEventData(res.group);
       }).catch((err) => { if (__DEV__) console.warn('[XplorerFeed]', err); });
     } else {
@@ -565,11 +579,31 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   }, []);
 
   const goToProfile = useCallback((marker: MapMarker) => {
+    let profileId: string;
+
+    // For event/group markers, use the creator's user ID (not the event/group ID)
+    if (marker.category === 'event' || marker.category === 'group') {
+      const creatorId = selectedEventData?.creatorId
+        || selectedEventData?.creator_id
+        || selectedEventData?.creator?.id;
+      if (!creatorId || !UUID_REGEX.test(creatorId)) {
+        if (__DEV__) console.warn('[XplorerFeed] No valid creator ID for event/group profile navigation');
+        return;
+      }
+      profileId = creatorId;
+    } else {
+      // Strip type prefix from marker ID (e.g. "business_uuid" -> "uuid")
+      profileId = marker.id.replace(/^(business|live|spot)_/, '');
+    }
+
+    if (!UUID_REGEX.test(profileId)) {
+      if (__DEV__) console.warn('[XplorerFeed] Invalid profile UUID:', profileId);
+      return;
+    }
+
     closePopup();
-    // Strip type prefix from marker ID (e.g. "business_uuid" → "uuid")
-    const profileId = marker.id.replace(/^(business|event|group|live|spot)_/, '');
     navigation.navigate('UserProfile', { userId: profileId });
-  }, [closePopup, navigation]);
+  }, [closePopup, navigation, selectedEventData]);
 
   const handleFabAction = useCallback((action: string) => {
     setFabOpen(false);
@@ -868,16 +902,18 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
   const handleJoinEvent = useCallback(async () => {
     if (!selectedMarker || joiningEvent) return;
+    const markerId = selectedMarker.id;
+    const markerCategory = selectedMarker.category;
+    const id = markerId.replace(/^(event_|group_)/, '');
     setJoiningEvent(true);
     try {
-      const id = selectedMarker.id.replace(/^(event_|group_)/, '');
-      if (selectedMarker.category === 'event') {
+      if (markerCategory === 'event') {
         await awsAPI.joinEvent(id);
       } else {
         await awsAPI.joinGroup(id);
       }
-      // Refresh detail
-      if (selectedMarker.category === 'event') {
+      // Refresh detail — check selectedMarker is still the same
+      if (markerCategory === 'event') {
         const res = await awsAPI.getEventDetail(id);
         if (res.success && res.event) setSelectedEventData(res.event);
       } else {
@@ -893,15 +929,17 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
   const handleLeaveEvent = useCallback(async () => {
     if (!selectedMarker || joiningEvent) return;
+    const markerId = selectedMarker.id;
+    const markerCategory = selectedMarker.category;
+    const id = markerId.replace(/^(event_|group_)/, '');
     setJoiningEvent(true);
     try {
-      const id = selectedMarker.id.replace(/^(event_|group_)/, '');
-      if (selectedMarker.category === 'event') {
+      if (markerCategory === 'event') {
         await awsAPI.leaveEvent(id);
       } else {
         await awsAPI.leaveGroup(id);
       }
-      if (selectedMarker.category === 'event') {
+      if (markerCategory === 'event') {
         const res = await awsAPI.getEventDetail(id);
         if (res.success && res.event) setSelectedEventData(res.event);
       } else {

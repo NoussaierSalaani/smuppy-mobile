@@ -82,6 +82,8 @@ export const useNotifications = (
         case 'peak_like':
         case 'peak_comment':
         case 'peak_reply':
+        case 'new_peak':
+        case 'peak_tag':
           if (isValidUUID(data.peakId)) {
             navigation.navigate('PeakView', { peakId: data.peakId });
           } else if (data.peakId && __DEV__) {

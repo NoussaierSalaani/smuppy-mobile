@@ -1561,82 +1561,6 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     textAlign: 'center',
   },
 
-  // Comments Modal
-  commentsContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  commentsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grayBorder,
-  },
-  commentsTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 18,
-    color: colors.dark,
-  },
-  commentsList: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-  },
-  commentItem: {
-    flexDirection: 'row',
-    paddingVertical: SPACING.md,
-  },
-  commentContent: {
-    flex: 1,
-    marginLeft: SPACING.sm,
-  },
-  commentUser: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
-    color: colors.dark,
-  },
-  commentText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: colors.dark,
-    marginTop: 2,
-  },
-  commentTime: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    color: colors.gray,
-    marginTop: 4,
-  },
-  commentInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.grayBorder,
-  },
-  commentInputField: {
-    flex: 1,
-    marginHorizontal: SPACING.sm,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 20,
-  },
-  commentInputPlaceholder: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: colors.grayMuted,
-  },
-  commentPostBtn: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
-    color: colors.primary,
-  },
-
   // Pagination styles
   listContent: {
     paddingBottom: 100,
@@ -1726,5 +1650,36 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   menuItemTextCancel: {
     color: colors.gray,
+  },
+  menuItemTextDanger: {
+    color: '#FF6B6B',
+  },
+
+  // Report Modal
+  reportTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
+    color: colors.dark,
+    textAlign: 'center',
+    paddingTop: SPACING.md,
+    marginBottom: 4,
+  },
+  reportSubtitle: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: colors.gray,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  reportOption: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.grayBorder,
+  },
+  reportOptionText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.dark,
   },
 });

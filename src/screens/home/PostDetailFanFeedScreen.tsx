@@ -31,7 +31,7 @@ import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
+import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, deletePost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
@@ -75,7 +75,7 @@ const PostDetailFanFeedScreen = () => {
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
 
   // Content store for reports and status
-  const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
+  const { submitPostReport, hasUserReported, isUnderReview } = useContentStore();
   // User safety store for mute/block
   const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
   const currentUserId = useUserStore((state) => state.user?.id);
@@ -431,22 +431,21 @@ const PostDetailFanFeedScreen = () => {
     }
   }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError]);
 
-  // Submit report to store
-  const submitReport = useCallback((reason: string) => {
+  // Submit report to store — async with proper error handling
+  const submitReport = useCallback(async (reason: string) => {
     if (!currentPost) return;
     setShowReportModal(false);
 
-    // Submit to content store
-    const result = storeSubmitReport(currentPost.id, reason);
+    const result = await submitPostReport(currentPost.id, reason);
 
     if (result.alreadyReported) {
       showError('Already Reported', result.message);
     } else if (result.success) {
       showSuccess('Reported', result.message);
     } else {
-      showError('Error', 'Something went wrong. Please try again.');
+      showError('Error', result.message || 'Something went wrong. Please try again.');
     }
-  }, [currentPost, storeSubmitReport, showError, showSuccess]);
+  }, [currentPost, submitPostReport, showError, showSuccess]);
 
   // --- Extracted inline handlers ---
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
@@ -533,7 +532,25 @@ const PostDetailFanFeedScreen = () => {
       }
     );
   }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess]);
-  
+
+  // Handle delete own post
+  const handleDeletePost = useCallback(() => {
+    if (!currentPost) return;
+    setShowMenu(false);
+    showDestructiveConfirm(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      async () => {
+        const { error } = await deletePost(currentPost.id);
+        if (error) {
+          showError('Error', 'Could not delete post. Please try again.');
+        } else {
+          showSuccess('Deleted', 'Post has been deleted.');
+          navigation.goBack();
+        }
+      }
+    );
+  }, [currentPost, showDestructiveConfirm, showSuccess, showError, navigation]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -880,6 +897,18 @@ const PostDetailFanFeedScreen = () => {
         >
           <View style={styles.menuContent}>
             <View style={styles.modalHandle} />
+
+            {currentPost && currentPost.user.id === currentUserId && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleDeletePost}
+                accessibilityLabel="Delete this post"
+                accessibilityRole="button"
+              >
+                <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
+                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.menuItem}

@@ -17,6 +17,7 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { normalizeCdnUrl } from '../../utils/cdnUrl';
@@ -38,6 +39,7 @@ import {
 import { sharePost, copyPostLink } from '../../utils/share';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 import { useContentStore } from '../../stores/contentStore';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -64,10 +66,6 @@ interface PostItem {
     avatar: string;
   };
 }
-
-const MOCK_PROFILE_POSTS: PostItem[] = [];
-
-// Validate UUID format
 
 // Helper to convert API post to PostItem format
 interface RawPost {
@@ -121,8 +119,8 @@ const PostDetailProfileScreen = () => {
   const currentUserId = useUserStore((state) => state.user?.id);
 
   // Params
-  const params = route.params as { postId?: string; profilePosts?: typeof MOCK_PROFILE_POSTS } || {};
-  const { postId, profilePosts: passedPosts = MOCK_PROFILE_POSTS } = params;
+  const params = route.params as { postId?: string; profilePosts?: PostItem[] } || {};
+  const { postId, profilePosts: passedPosts = [] } = params;
 
   // States
   const [posts, setPosts] = useState<PostItem[]>(passedPosts);
@@ -144,13 +142,16 @@ const PostDetailProfileScreen = () => {
   const [likeLoadingState, setLikeLoadingState] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [muteLoading, setMuteLoading] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
   const [localLikes, setLocalLikes] = useState<Record<string, number>>({});
   const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({});
-  const viewedPosts = useRef<Set<string>>(new Set());
 
   // Content store for reports
-  const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
-  const { showSuccess, showError, showWarning, showDestructiveConfirm } = useSmuppyAlert();
+  const { submitPostReport, hasUserReported, isUnderReview } = useContentStore();
+  // User safety store for mute/block
+  const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
+  const { showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
 
   // Refs
   const videoRef = useRef(null);
@@ -190,12 +191,6 @@ const PostDetailProfileScreen = () => {
     loadPost();
   }, [postId, posts.length]);
 
-  // Track viewed posts (for future analytics if needed)
-  useEffect(() => {
-    if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
-    viewedPosts.current.add(currentPost.id);
-  }, [currentPost?.id]);
-
   // Check follow status on mount or post change
   useEffect(() => {
     const checkFollowStatus = async () => {
@@ -231,6 +226,7 @@ const PostDetailProfileScreen = () => {
       const { error } = await followUser(currentPost.user.id);
       if (!error) {
         setIsFan(true);
+        showSuccess('Followed', `You are now a fan of ${currentPost.user.name || 'this user'}.`);
       } else {
         if (__DEV__) console.warn('[PostDetailProfile] Follow error:', error);
       }
@@ -239,7 +235,7 @@ const PostDetailProfileScreen = () => {
     } finally {
       setFanLoading(false);
     }
-  }, [fanLoading, currentPost?.user?.id, isOwnPost]);
+  }, [fanLoading, currentPost?.user?.id, currentPost?.user?.name, isOwnPost, showSuccess]);
 
   // Toggle like with optimistic count update (ref-based guard)
   const toggleLike = useCallback(async () => {
@@ -375,29 +371,89 @@ const PostDetailProfileScreen = () => {
     if (!currentPost) return;
     setShowMenu(false);
     if (hasUserReported(currentPost.id)) {
-      showWarning('Already reported', 'You have already reported this content. It is under review.');
+      showError('Already Reported', 'You have already reported this content. It is under review.');
       return;
     }
     if (isUnderReview(currentPost.id)) {
-      showWarning('Under review', 'This content is already being reviewed by our team.');
+      showError('Under Review', 'This content is already being reviewed by our team.');
       return;
     }
     setShowReportModal(true);
-  }, [currentPost, hasUserReported, isUnderReview, showWarning]);
+  }, [currentPost, hasUserReported, isUnderReview, showError]);
 
-  // Submit report
-  const submitReport = useCallback((reason: string) => {
+  // Submit report — async with proper error handling
+  const submitReport = useCallback(async (reason: string) => {
     if (!currentPost) return;
     setShowReportModal(false);
-    const result = storeSubmitReport(currentPost.id, reason);
+    const result = await submitPostReport(currentPost.id, reason);
     if (result.alreadyReported) {
-      showWarning('Already reported', result.message);
+      showError('Already Reported', result.message);
     } else if (result.success) {
       showSuccess('Reported', result.message);
     } else {
-      showError('Error', 'An error occurred. Please try again.');
+      showError('Error', result.message || 'Could not report post. Please try again.');
     }
-  }, [currentPost, storeSubmitReport, showWarning, showSuccess, showError]);
+  }, [currentPost, submitPostReport, showSuccess, showError]);
+
+  // Mute user
+  const handleMute = useCallback(() => {
+    if (muteLoading || !currentPost) return;
+    const userId = currentPost.user?.id;
+    if (!userId) return;
+    if (isUserMuted(userId)) {
+      setShowMenu(false);
+      showError('Already Muted', 'This user is already muted.');
+      return;
+    }
+    setShowMenu(false);
+    showDestructiveConfirm(
+      'Mute User',
+      'You will no longer see their posts in your feeds.',
+      async () => {
+        setMuteLoading(true);
+        try {
+          const { error } = await mute(userId);
+          if (error) {
+            showError('Error', 'Could not mute this user.');
+          } else {
+            showSuccess('User Muted', 'You will no longer see their posts.');
+          }
+        } finally {
+          setMuteLoading(false);
+        }
+      }
+    );
+  }, [muteLoading, currentPost, isUserMuted, showError, showDestructiveConfirm, mute, showSuccess]);
+
+  // Block user
+  const handleBlock = useCallback(() => {
+    if (blockLoading || !currentPost) return;
+    const userId = currentPost.user?.id;
+    if (!userId) return;
+    if (isBlocked(userId)) {
+      setShowMenu(false);
+      showError('Already Blocked', 'This user is already blocked.');
+      return;
+    }
+    setShowMenu(false);
+    showDestructiveConfirm(
+      'Block User',
+      'You will no longer see their posts and they will not be able to interact with you.',
+      async () => {
+        setBlockLoading(true);
+        try {
+          const { error } = await block(userId);
+          if (error) {
+            showError('Error', 'Could not block this user.');
+          } else {
+            showSuccess('User Blocked', 'You will no longer see their posts.');
+          }
+        } finally {
+          setBlockLoading(false);
+        }
+      }
+    );
+  }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess]);
 
   // Double tap to like
   const handleDoubleTap = useCallback(() => {
@@ -491,7 +547,7 @@ const PostDetailProfileScreen = () => {
               usePoster
             />
           ) : item.allMedia && item.allMedia.length > 1 ? (
-            <View style={{ flex: 1 }}>
+            <View style={styles.carouselContainer}>
               <ScrollView
                 horizontal
                 pagingEnabled
@@ -505,7 +561,7 @@ const PostDetailProfileScreen = () => {
                   <OptimizedImage
                     key={`${item.id}-media-${mediaIndex}`}
                     source={mediaUrl}
-                    style={{ width, height: '100%' }}
+                    style={styles.carouselImage}
                   />
                 ))}
               </ScrollView>
@@ -526,7 +582,10 @@ const PostDetailProfileScreen = () => {
           )}
 
           {/* Gradient overlay bottom */}
-          <View style={styles.gradientOverlay} />
+          <LinearGradient
+            colors={['transparent', 'transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.gradientOverlay}
+          />
 
           {/* Like animation */}
           {showLikeAnimation && index === currentIndex && (
@@ -722,7 +781,7 @@ const PostDetailProfileScreen = () => {
   // Loading state
   if (isLoadingPost) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -731,11 +790,11 @@ const PostDetailProfileScreen = () => {
   // No post found
   if (posts.length === 0 || !currentPost) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Ionicons name="image-outline" size={48} color={colors.gray400} />
-        <Text style={{ color: colors.gray500, marginTop: 12 }}>Post not found</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 12 }}>
-          <Text style={{ color: colors.primary }}>Go Back</Text>
+      <View style={[styles.container, styles.centerContent]}>
+        <Ionicons name="image-outline" size={48} color={colors.gray} />
+        <Text style={styles.emptyText}>Post not found</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.goBackBtn}>
+          <Text style={styles.goBackText}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -800,10 +859,20 @@ const PostDetailProfileScreen = () => {
                 <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
-                <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
-                <Text style={[styles.menuItemText, styles.menuItemTextReport]}>Report</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity style={styles.menuItem} onPress={handleMute} disabled={muteLoading}>
+                  <Ionicons name="eye-off-outline" size={24} color="#FFF" />
+                  <Text style={styles.menuItemText}>Mute user</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={handleBlock} disabled={blockLoading}>
+                  <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block user</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
+                  <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
+                  <Text style={[styles.menuItemText, styles.menuItemTextReport]}>Report</Text>
+                </TouchableOpacity>
+              </>
             )}
 
             <TouchableOpacity
@@ -886,6 +955,30 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     flex: 1,
     backgroundColor: colors.background,
   },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: colors.gray,
+    marginTop: 12,
+    fontSize: 16,
+  },
+  goBackBtn: {
+    marginTop: 20,
+    padding: 12,
+  },
+  goBackText: {
+    color: colors.primary,
+    fontSize: 16,
+  },
+  carouselContainer: {
+    flex: 1,
+  },
+  carouselImage: {
+    width: width,
+    height: '100%',
+  },
   postContainer: {
     width,
     position: 'relative',
@@ -923,8 +1016,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     bottom: 0,
     left: 0,
     right: 0,
-    height: 200,
-    backgroundColor: 'transparent',
+    height: 300,
   },
 
   // Like animation

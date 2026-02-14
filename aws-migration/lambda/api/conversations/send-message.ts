@@ -90,12 +90,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Sanitize content: strip HTML tags and control characters
     const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
 
-    // Detect shared post: content format is [shared_post:UUID]
-    const SHARED_POST_PATTERN = /^\[shared_post:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;
-    const sharedPostMatch = sanitizedContent.match(SHARED_POST_PATTERN);
+    // Detect shared content: [shared_post:UUID] or [shared_peak:UUID]
+    const SHARED_CONTENT_PATTERN = /^\[shared_(post|peak):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;
+    const sharedMatch = sanitizedContent.match(SHARED_CONTENT_PATTERN);
     let sharedPostId: string | null = null;
-    if (sharedPostMatch) {
-      sharedPostId = sharedPostMatch[1];
+    let sharedPeakId: string | null = null;
+    if (sharedMatch) {
+      if (sharedMatch[1] === 'post') {
+        sharedPostId = sharedMatch[2];
+      } else {
+        sharedPeakId = sharedMatch[2];
+      }
     }
 
     // Check account status (suspended/banned users cannot send messages)
@@ -211,10 +216,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       const messageResult = await client.query(
-        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, reply_to_message_id, shared_post_id, read, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, NOW())
-         RETURNING id, content, media_url, media_type, sender_id, recipient_id, reply_to_message_id, shared_post_id, read, created_at`,
-        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validReplyToMessageId, sharedPostId]
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false, NOW())
+         RETURNING id, content, media_url, media_type, sender_id, recipient_id, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at`,
+        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validReplyToMessageId, sharedPostId, sharedPeakId]
       );
 
       await client.query(

@@ -31,12 +31,13 @@ import * as MediaLibrary from 'expo-media-library';
 import OptimizedImage from '../../components/OptimizedImage';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
+import SharePostModal from '../../components/SharePostModal';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import PeakReactions, { ReactionType } from '../../components/PeakReactions';
 import { WorkoutTimer, RepCounter, DayChallenge, CalorieBurn, HeartRatePulse } from '../../filters/overlays';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { copyPeakLink, sharePeak } from '../../utils/share';
+import { copyPeakLink } from '../../utils/share';
 import { savePost, unsavePost } from '../../services/database';
 import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
@@ -323,6 +324,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const videoRef = useRef<Video | null>(null);
   const [_videoDuration, setVideoDuration] = useState(0);
   const [showTagModal, setShowTagModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
   const [showReactions, setShowReactions] = useState(false);
   const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
@@ -788,10 +790,8 @@ const PeakViewScreen = (): React.JSX.Element => {
         break;
       }
       case 'share':
-        await sharePeak(
-          currentPeak.id,
-          currentPeak.user.name
-        );
+        setShowMenu(false);
+        setShowShareModal(true);
         break;
       case 'delete':
         showDestructiveConfirm(
@@ -1575,6 +1575,22 @@ const PeakViewScreen = (): React.JSX.Element => {
         onTagFriend={handleTagFriend}
         peakId={currentPeak.id}
         existingTags={existingTags}
+      />
+
+      {/* In-App Share Modal */}
+      <SharePostModal
+        visible={showShareModal}
+        contentType="peak"
+        post={{
+          id: currentPeak.id,
+          media: currentPeak.thumbnail || currentPeak.videoUrl || null,
+          caption: currentPeak.textOverlay || undefined,
+          user: {
+            name: currentPeak.user?.name || '',
+            avatar: currentPeak.user?.avatar || null,
+          },
+        }}
+        onClose={() => setShowShareModal(false)}
       />
 
       {/* Smuppy Reactions Bar */}

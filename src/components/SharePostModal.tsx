@@ -21,6 +21,7 @@ import {
   getConversations,
   searchProfiles,
   sharePostToUser,
+  sharePeakToUser,
   Conversation,
   Profile,
 } from '../services/database';
@@ -38,10 +39,11 @@ interface SharePostModalProps {
       avatar: string | null;
     };
   } | null;
+  contentType?: 'post' | 'peak';
   onClose: () => void;
 }
 
-export default function SharePostModal({ visible, post, onClose }: SharePostModalProps) {
+export default function SharePostModal({ visible, post, contentType = 'post', onClose }: SharePostModalProps) {
   const { showError, showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -100,6 +102,9 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     }
   }, [searchQuery, isHidden]);
 
+  const shareFn = contentType === 'peak' ? sharePeakToUser : sharePostToUser;
+  const contentLabel = contentType === 'peak' ? 'Peak' : 'Post';
+
   // Share to a user from conversation list
   const handleShareToConversation = useCallback(async (conv: Conversation) => {
     if (!post || !conv.other_user || sending) return;
@@ -107,11 +112,11 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     const recipientId = conv.other_user.id;
     setSending(recipientId);
     try {
-      const { error } = await sharePostToUser(post.id, recipientId);
+      const { error } = await shareFn(post.id, recipientId);
       if (error) {
-        showError('Error', 'Failed to share post. Please try again.');
+        showError('Error', `Failed to share ${contentLabel.toLowerCase()}. Please try again.`);
       } else {
-        showSuccess('Sent!', `Post shared with ${resolveDisplayName(conv.other_user)}`);
+        showSuccess('Sent!', `${contentLabel} shared with ${resolveDisplayName(conv.other_user)}`);
         onClose();
       }
     } catch (err) {
@@ -120,7 +125,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     } finally {
       setSending(null);
     }
-  }, [post, sending, showError, showSuccess, onClose]);
+  }, [post, sending, shareFn, contentLabel, showError, showSuccess, onClose]);
 
   // Share to a user from search results
   const handleShareToUser = useCallback(async (user: Profile) => {
@@ -128,11 +133,11 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
 
     setSending(user.id);
     try {
-      const { error } = await sharePostToUser(post.id, user.id);
+      const { error } = await shareFn(post.id, user.id);
       if (error) {
-        showError('Error', 'Failed to share post. Please try again.');
+        showError('Error', `Failed to share ${contentLabel.toLowerCase()}. Please try again.`);
       } else {
-        showSuccess('Sent!', `Post shared with ${resolveDisplayName(user)}`);
+        showSuccess('Sent!', `${contentLabel} shared with ${resolveDisplayName(user)}`);
         onClose();
       }
     } catch (err) {
@@ -141,7 +146,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     } finally {
       setSending(null);
     }
-  }, [post, sending, showError, showSuccess, onClose]);
+  }, [post, sending, shareFn, contentLabel, showError, showSuccess, onClose]);
 
   // Render conversation item
   const renderConversation = useCallback(({ item }: { item: Conversation }) => {

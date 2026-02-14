@@ -1468,7 +1468,7 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
         conversation_id: conversationId,
         sender_id: m.reply_to_message.sender_id,
         content: m.reply_to_message.content,
-        created_at: '',
+        created_at: (m.reply_to_message as { created_at?: string }).created_at || m.created_at,
         sender: m.reply_to_message.sender ? {
           id: m.reply_to_message.sender.id,
           username: m.reply_to_message.sender.username,
@@ -1503,7 +1503,7 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
           avatar_url: rb.user.avatar_url,
         } as Profile : undefined,
       })),
-      is_read: m.is_read,
+      is_read: m.is_read ?? m.read,
     }));
     return { data: messages, error: null };
   } catch (error: unknown) {
@@ -1557,7 +1557,7 @@ export const sendMessage = async (
         conversation_id: conversationId,
         sender_id: m.reply_to_message.sender_id,
         content: m.reply_to_message.content,
-        created_at: '',
+        created_at: (m.reply_to_message as { created_at?: string }).created_at || m.created_at,
         sender: m.reply_to_message.sender ? {
           id: m.reply_to_message.sender.id,
           username: m.reply_to_message.sender.username,
@@ -2163,6 +2163,9 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
       method: 'POST',
       body: { participantId: otherUserId },
     });
+    if (!result.conversation?.id) {
+      return { data: null, error: 'Invalid conversation response' };
+    }
     return { data: result.conversation.id, error: null };
   } catch (error: unknown) {
     if (__DEV__) console.warn('[getOrCreateConversation] ERROR:', getErrorMessage(error));
@@ -2170,11 +2173,18 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
   }
 };
 
+/** UUID validation pattern */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Share a post with a user via DM.
  * Finds or creates a conversation with the recipient, then sends the shared post.
  */
 export const sharePostToUser = async (postId: string, recipientUserId: string): Promise<{ error: string | null }> => {
+  // Validate UUIDs before making API calls
+  if (!UUID_PATTERN.test(postId)) return { error: 'Invalid post ID' };
+  if (!UUID_PATTERN.test(recipientUserId)) return { error: 'Invalid user ID' };
+
   try {
     // Step 1: Get or create conversation with recipient
     const { data: conversationId, error: convError } = await getOrCreateConversation(recipientUserId);
@@ -2199,6 +2209,26 @@ export const sharePostToUser = async (postId: string, recipientUserId: string): 
 export const sharePostToConversation = sharePostToUser;
 
 /**
+ * Share a peak with a user via in-app messaging
+ */
+export const sharePeakToUser = async (peakId: string, recipientUserId: string): Promise<{ error: string | null }> => {
+  try {
+    const { data: conversationId, error: convError } = await getOrCreateConversation(recipientUserId);
+    if (convError || !conversationId) {
+      return { error: convError || 'Could not start conversation' };
+    }
+
+    await awsAPI.request(`/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: { content: `[shared_peak:${peakId}]`, messageType: 'text' },
+    });
+    return { error: null };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
+  }
+};
+
+/**
  * Mark conversation as read
  */
 export const markConversationAsRead = async (conversationId: string): Promise<{ error: string | null }> => {
@@ -2221,9 +2251,9 @@ const VALID_AUDIO_EXTENSIONS = ['.m4a', '.mp4', '.mp3', '.wav', '.aac', '.caf', 
 
 export const uploadVoiceMessage = async (audioUri: string, conversationId: string): Promise<DbResponse<string>> => {
   try {
-    // Validate audio file extension/format
-    const uriLower = audioUri.toLowerCase();
-    const hasValidExtension = VALID_AUDIO_EXTENSIONS.some(ext => uriLower.endsWith(ext));
+    // Validate audio file extension/format — strip query params before checking
+    const uriPath = audioUri.split('?')[0].toLowerCase();
+    const hasValidExtension = VALID_AUDIO_EXTENSIONS.some(ext => uriPath.endsWith(ext));
     if (!hasValidExtension) {
       if (__DEV__) console.warn('[uploadVoiceMessage] Invalid audio format:', audioUri);
       return { data: null, error: 'Invalid audio format' };

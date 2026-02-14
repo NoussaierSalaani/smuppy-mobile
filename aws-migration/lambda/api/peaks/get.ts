@@ -142,7 +142,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           replyToPeakId: peak.reply_to_peak_id || null,
           likesCount: peak.likes_count,
           commentsCount: peak.comments_count,
-          viewsCount: peak.views_count + 1, // Include the current view
+          viewsCount: peak.views_count,
           createdAt: peak.created_at,
           filterId: peak.filter_id || null,
           filterIntensity: peak.filter_intensity ?? null,

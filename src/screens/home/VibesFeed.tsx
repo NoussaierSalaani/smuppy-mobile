@@ -16,7 +16,6 @@ import {
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage, { AvatarImage, ThumbnailImage } from '../../components/OptimizedImage';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
@@ -276,20 +275,17 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
       </View>
     )}
 
-    <View style={styles.vibeOverlayContainer}>
-      <BlurView intensity={20} tint="dark" style={styles.vibeBlurOverlay}>
-        <TouchableOpacity
-          style={styles.vibeMeta}
-          onPress={(e) => {
-            e.stopPropagation();
-            onUserPress(post.user.id);
-          }}
-        >
-          <AvatarImage source={post.user.avatar} size={20} style={styles.vibeAvatar} />
-          <Text style={styles.vibeUserName} numberOfLines={1}>{sanitizeText(post.user.name)}</Text>
-        </TouchableOpacity>
-      </BlurView>
-    </View>
+    <TouchableOpacity
+      style={styles.vibeNameBadge}
+      onPress={(e) => {
+        e.stopPropagation();
+        onUserPress(post.user.id);
+      }}
+      activeOpacity={0.8}
+    >
+      <AvatarImage source={post.user.avatar} size={18} style={styles.vibeAvatar} />
+      <Text style={styles.vibeUserName} numberOfLines={1}>{sanitizeText(post.user.name)}</Text>
+    </TouchableOpacity>
   </DoubleTapLike>
 ), (prev, next) =>
   prev.post.id === next.post.id &&
@@ -1677,45 +1673,29 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     width: '100%',
     height: '100%',
   },
-  // Glassmorphism overlay - Smuppy signature
-  vibeOverlayContainer: {
+  vibeNameBadge: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderBottomLeftRadius: SIZES.radiusMd,
-    borderBottomRightRadius: SIZES.radiusMd,
-    overflow: 'hidden',
-  },
-  vibeBlurOverlay: {
-    padding: SPACING.sm,
-    paddingTop: SPACING.md,
-    backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.3)',
-  },
-  vibeTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 12,
-    color: '#fff',
-    marginBottom: 6,
-    textShadowColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  vibeMeta: {
+    bottom: 8,
+    left: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    maxWidth: '80%',
   },
   vibeAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    marginRight: 5,
     borderWidth: 1,
-    borderColor: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   vibeUserName: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 11,
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
     color: '#fff',
     flex: 1,
   },

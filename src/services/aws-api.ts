@@ -968,6 +968,25 @@ class AWSAPIService {
     };
   }
 
+  async getActivityHistory(params?: { limit?: number; cursor?: string; type?: string }): Promise<PaginatedResponse<ActivityItem>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
+    if (params?.type) queryParams.set('type', params.type);
+    const query = queryParams.toString();
+    const response = await this.request<{
+      data?: ActivityItem[];
+      nextCursor?: string | null;
+      hasMore?: boolean;
+    }>(`/activity${query ? `?${query}` : ''}`);
+    return {
+      data: response.data || [],
+      nextCursor: response.nextCursor ?? null,
+      hasMore: response.hasMore || false,
+      total: 0,
+    };
+  }
+
   async markNotificationRead(id: string): Promise<void> {
     return this.request(`/notifications/${id}/read`, {
       method: 'POST',
@@ -4038,6 +4057,25 @@ export interface UserSessionPack {
     avatar: string;
   };
   purchasedAt: string;
+}
+
+export interface ActivityItem {
+  activityType: 'post_like' | 'peak_like' | 'follow' | 'comment' | 'peak_comment';
+  createdAt: string;
+  targetData: {
+    postId?: string;
+    peakId?: string;
+    mediaUrl?: string;
+    thumbnailUrl?: string;
+    content?: string;
+    text?: string;
+  } | null;
+  targetUser: {
+    id: string;
+    username: string;
+    fullName: string;
+    avatarUrl: string;
+  };
 }
 
 // Export singleton instance

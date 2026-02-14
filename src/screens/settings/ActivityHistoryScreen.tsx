@@ -59,6 +59,7 @@ function getActivityIcon(type: ActivityItem['activityType']): { name: keyof type
       return { name: 'person-add', color: '#3B82F6' };
     case 'comment':
     case 'peak_comment':
+    default:
       return { name: 'chatbubble', color: '#10B981' };
   }
 }
@@ -70,7 +71,8 @@ function getActivityDescription(item: ActivityItem): string {
     case 'peak_like': return `You liked ${name}'s Peak`;
     case 'follow': return `You started following ${name}`;
     case 'comment': return `You commented on ${name}'s post`;
-    case 'peak_comment': return `You commented on ${name}'s Peak`;
+    case 'peak_comment':
+    default: return `You commented on ${name}'s Peak`;
   }
 }
 

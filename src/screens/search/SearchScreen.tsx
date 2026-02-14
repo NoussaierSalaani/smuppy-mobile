@@ -42,6 +42,7 @@ import {
   getCurrentProfile,
 } from '../../services/database';
 import { isValidUUID } from '../../utils/formatters';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 const PAGE_SIZE = 15;
 
@@ -85,6 +86,7 @@ const SearchScreen = (): React.JSX.Element => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { colors, isDark } = useTheme();
   const prefetchProfile = usePrefetchProfile();
+  const { isHidden } = useUserSafetyStore();
   const searchInputRef = useRef<TextInput>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -94,6 +96,7 @@ const SearchScreen = (): React.JSX.Element => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [linkDetected, setLinkDetected] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // Results by type
   const [userResults, setUserResults] = useState<Profile[]>([]);
@@ -114,9 +117,13 @@ const SearchScreen = (): React.JSX.Element => {
   useEffect(() => {
     let mounted = true;
     const loadCurrentUser = async () => {
-      const { data: currentProfile } = await getCurrentProfile();
-      if (mounted && currentProfile) {
-        setCurrentUserId(currentProfile.id);
+      try {
+        const { data: currentProfile } = await getCurrentProfile();
+        if (mounted && currentProfile) {
+          setCurrentUserId(currentProfile.id);
+        }
+      } catch (error) {
+        if (__DEV__) console.warn('[SearchScreen] Failed to load current user:', error);
       }
     };
     loadCurrentUser();
@@ -127,68 +134,72 @@ const SearchScreen = (): React.JSX.Element => {
   const detectAndShowLinkContent = useCallback(async (query: string): Promise<boolean> => {
     setIsLoading(true);
     setHasSearched(true);
+    setSearchError(null);
 
-    // Check for post link
-    const postMatch = query.match(SMUPPY_URL_PATTERNS.post);
-    if (postMatch) {
-      const postId = postMatch[1];
-      const { data: post } = await getPostById(postId);
-      if (post) {
-        // Show in post results
-        if (post.is_peak) {
-          setPeakResults([post]);
-          setPostResults([]);
-          setActiveTab('peaks');
-        } else {
-          setPostResults([post]);
-          setPeakResults([]);
-          setActiveTab('posts');
+    try {
+      // Check for post link
+      const postMatch = query.match(SMUPPY_URL_PATTERNS.post);
+      if (postMatch) {
+        const postId = postMatch[1];
+        const { data: post } = await getPostById(postId);
+        if (post) {
+          if (post.is_peak) {
+            setPeakResults([post]);
+            setPostResults([]);
+            setActiveTab('peaks');
+          } else {
+            setPostResults([post]);
+            setPeakResults([]);
+            setActiveTab('posts');
+          }
+          setUserResults([]);
+          setHashtagResults([]);
+          setIsLoading(false);
+          return true;
         }
-        setUserResults([]);
-        setHashtagResults([]);
-        setIsLoading(false);
-        return true;
       }
-    }
 
-    // Check for peak link
-    const peakMatch = query.match(SMUPPY_URL_PATTERNS.peak);
-    if (peakMatch) {
-      const peakId = peakMatch[1];
-      const { data: peak } = await getPostById(peakId);
-      if (peak) {
-        setPeakResults([peak]);
-        setPostResults([]);
-        setUserResults([]);
-        setHashtagResults([]);
-        setActiveTab('peaks');
-        setIsLoading(false);
-        return true;
+      // Check for peak link
+      const peakMatch = query.match(SMUPPY_URL_PATTERNS.peak);
+      if (peakMatch) {
+        const peakId = peakMatch[1];
+        const { data: peak } = await getPostById(peakId);
+        if (peak) {
+          setPeakResults([peak]);
+          setPostResults([]);
+          setUserResults([]);
+          setHashtagResults([]);
+          setActiveTab('peaks');
+          setIsLoading(false);
+          return true;
+        }
       }
-    }
 
-    // Check for profile link
-    const profileMatch = query.match(SMUPPY_URL_PATTERNS.profile);
-    if (profileMatch) {
-      const usernameOrId = profileMatch[1];
-      // Try by ID first (UUID format)
-      let profile = null;
-      if (isValidUUID(usernameOrId)) {
-        const { data } = await getProfileById(usernameOrId);
-        profile = data;
-      } else {
-        const { data } = await getProfileByUsername(usernameOrId);
-        profile = data;
+      // Check for profile link
+      const profileMatch = query.match(SMUPPY_URL_PATTERNS.profile);
+      if (profileMatch) {
+        const usernameOrId = profileMatch[1];
+        let profile = null;
+        if (isValidUUID(usernameOrId)) {
+          const { data } = await getProfileById(usernameOrId);
+          profile = data;
+        } else {
+          const { data } = await getProfileByUsername(usernameOrId);
+          profile = data;
+        }
+        if (profile) {
+          setUserResults([profile]);
+          setPostResults([]);
+          setPeakResults([]);
+          setHashtagResults([]);
+          setActiveTab('users');
+          setIsLoading(false);
+          return true;
+        }
       }
-      if (profile) {
-        setUserResults([profile]);
-        setPostResults([]);
-        setPeakResults([]);
-        setHashtagResults([]);
-        setActiveTab('users');
-        setIsLoading(false);
-        return true;
-      }
+    } catch (error) {
+      if (__DEV__) console.warn('[SearchScreen] Link detection failed:', error);
+      setSearchError('Could not load linked content. Please try again.');
     }
 
     setIsLoading(false);
@@ -199,22 +210,26 @@ const SearchScreen = (): React.JSX.Element => {
   const loadSuggestedContent = useCallback(async (signal?: { aborted: boolean }) => {
     setIsLoading(true);
 
-    const [profilesRes, hashtagsRes] = await Promise.all([
-      getSuggestedProfiles(PAGE_SIZE, 0),
-      getTrendingHashtags(10),
-    ]);
+    try {
+      const [profilesRes, hashtagsRes] = await Promise.all([
+        getSuggestedProfiles(PAGE_SIZE, 0),
+        getTrendingHashtags(10),
+      ]);
 
-    if (signal?.aborted) return;
+      if (signal?.aborted) return;
 
-    if (profilesRes.data) {
-      setSuggestedProfiles(profilesRes.data.filter(p => p.id !== currentUserId));
+      if (profilesRes.data) {
+        setSuggestedProfiles(profilesRes.data.filter(p => p.id !== currentUserId && !isHidden(p.id)));
+      }
+      if (hashtagsRes.data) {
+        setTrendingHashtags(hashtagsRes.data);
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('[SearchScreen] Failed to load suggested content:', error);
+    } finally {
+      if (!signal?.aborted) setIsLoading(false);
     }
-    if (hashtagsRes.data) {
-      setTrendingHashtags(hashtagsRes.data);
-    }
-
-    setIsLoading(false);
-  }, [currentUserId]);
+  }, [currentUserId, isHidden]);
 
   useEffect(() => {
     const signal = { aborted: false };
@@ -234,6 +249,7 @@ const SearchScreen = (): React.JSX.Element => {
       setHasSearched(false);
       setPage(0);
       setHasMore(true);
+      setSearchError(null);
       return;
     }
 
@@ -243,95 +259,100 @@ const SearchScreen = (): React.JSX.Element => {
       setIsLoading(true);
     }
     setHasSearched(true);
+    setSearchError(null);
 
-    const offset = pageNum * PAGE_SIZE;
+    try {
+      const offset = pageNum * PAGE_SIZE;
 
-    // For "All" tab, search everything in parallel
-    if (tabType === 'all') {
-      const [usersRes, postsRes, peaksRes, tagsRes] = await Promise.all([
-        searchProfiles(query, PAGE_SIZE, offset),
-        searchPosts(query, PAGE_SIZE, offset),
-        searchPeaks(query, PAGE_SIZE, offset),
-        searchByHashtag(query, PAGE_SIZE, offset),
-      ]);
+      // For "All" tab, search everything in parallel
+      if (tabType === 'all') {
+        const [usersRes, postsRes, peaksRes, tagsRes] = await Promise.all([
+          searchProfiles(query, PAGE_SIZE, offset),
+          searchPosts(query, PAGE_SIZE, offset),
+          searchPeaks(query, PAGE_SIZE, offset),
+          searchByHashtag(query, PAGE_SIZE, offset),
+        ]);
 
-      const users = (usersRes.data || []).filter(p => p.id !== currentUserId);
-      const posts = postsRes.data || [];
-      const peaks = peaksRes.data || [];
-      const tags = tagsRes.data || [];
+        const users = (usersRes.data || []).filter(p => p.id !== currentUserId && !isHidden(p.id));
+        const posts = (postsRes.data || []).filter(p => !isHidden(p.author_id));
+        const peaks = (peaksRes.data || []).filter(p => !isHidden(p.author_id));
+        const tags = (tagsRes.data || []).filter(p => !isHidden(p.author_id));
 
-      if (append) {
-        setUserResults(prev => [...prev, ...users]);
-        setPostResults(prev => [...prev, ...posts]);
-        setPeakResults(prev => [...prev, ...peaks]);
-        setHashtagResults(prev => [...prev, ...tags]);
-      } else {
-        setUserResults(users);
-        setPostResults(posts);
-        setPeakResults(peaks);
-        setHashtagResults(tags);
+        if (append) {
+          setUserResults(prev => [...prev, ...users]);
+          setPostResults(prev => [...prev, ...posts]);
+          setPeakResults(prev => [...prev, ...peaks]);
+          setHashtagResults(prev => [...prev, ...tags]);
+        } else {
+          setUserResults(users);
+          setPostResults(posts);
+          setPeakResults(peaks);
+          setHashtagResults(tags);
+        }
+
+        // Has more if any category has more
+        setHasMore(users.length >= PAGE_SIZE || posts.length >= PAGE_SIZE || peaks.length >= PAGE_SIZE || tags.length >= PAGE_SIZE);
+        return;
       }
 
-      // Has more if any category has more
-      setHasMore(users.length >= PAGE_SIZE || posts.length >= PAGE_SIZE || peaks.length >= PAGE_SIZE || tags.length >= PAGE_SIZE);
+      let newDataLength = 0;
+
+      switch (tabType) {
+        case 'users': {
+          const { data } = await searchProfiles(query, PAGE_SIZE, offset);
+          const newUsers = (data || []).filter(p => p.id !== currentUserId && !isHidden(p.id));
+          newDataLength = newUsers.length;
+          if (append) {
+            setUserResults(prev => [...prev, ...newUsers]);
+          } else {
+            setUserResults(newUsers);
+          }
+          break;
+        }
+        case 'posts': {
+          const { data } = await searchPosts(query, PAGE_SIZE, offset);
+          const newPosts = (data || []).filter(p => !isHidden(p.author_id));
+          newDataLength = newPosts.length;
+          if (append) {
+            setPostResults(prev => [...prev, ...newPosts]);
+          } else {
+            setPostResults(newPosts);
+          }
+          break;
+        }
+        case 'peaks': {
+          const { data } = await searchPeaks(query, PAGE_SIZE, offset);
+          const newPeaks = (data || []).filter(p => !isHidden(p.author_id));
+          newDataLength = newPeaks.length;
+          if (append) {
+            setPeakResults(prev => [...prev, ...newPeaks]);
+          } else {
+            setPeakResults(newPeaks);
+          }
+          break;
+        }
+        case 'tags': {
+          const { data } = await searchByHashtag(query, PAGE_SIZE, offset);
+          const newHashtags = (data || []).filter(p => !isHidden(p.author_id));
+          newDataLength = newHashtags.length;
+          if (append) {
+            setHashtagResults(prev => [...prev, ...newHashtags]);
+          } else {
+            setHashtagResults(newHashtags);
+          }
+          break;
+        }
+      }
+
+      setHasMore(newDataLength >= PAGE_SIZE);
+    } catch (error) {
+      if (__DEV__) console.warn('[SearchScreen] Search failed:', error);
+      setSearchError('Search failed. Please try again.');
+    } finally {
       setIsLoading(false);
       setLoadingMore(false);
-      return;
     }
-
-    let newDataLength = 0;
-
-    switch (tabType) {
-      case 'users': {
-        const { data } = await searchProfiles(query, PAGE_SIZE, offset);
-        const newUsers = (data || []).filter(p => p.id !== currentUserId);
-        newDataLength = newUsers.length;
-        if (append) {
-          setUserResults(prev => [...prev, ...newUsers]);
-        } else {
-          setUserResults(newUsers);
-        }
-        break;
-      }
-      case 'posts': {
-        const { data } = await searchPosts(query, PAGE_SIZE, offset);
-        const newPosts = data || [];
-        newDataLength = newPosts.length;
-        if (append) {
-          setPostResults(prev => [...prev, ...newPosts]);
-        } else {
-          setPostResults(newPosts);
-        }
-        break;
-      }
-      case 'peaks': {
-        const { data } = await searchPeaks(query, PAGE_SIZE, offset);
-        const newPeaks = data || [];
-        newDataLength = newPeaks.length;
-        if (append) {
-          setPeakResults(prev => [...prev, ...newPeaks]);
-        } else {
-          setPeakResults(newPeaks);
-        }
-        break;
-      }
-      case 'tags': {
-        const { data } = await searchByHashtag(query, PAGE_SIZE, offset);
-        const newHashtags = data || [];
-        newDataLength = newHashtags.length;
-        if (append) {
-          setHashtagResults(prev => [...prev, ...newHashtags]);
-        } else {
-          setHashtagResults(newHashtags);
-        }
-        break;
-      }
-    }
-
-    setHasMore(newDataLength >= PAGE_SIZE);
-    setIsLoading(false);
-    setLoadingMore(false);
-  }, [currentUserId]);
+  }, [currentUserId, isHidden]);
 
   // Debounce search input with link detection
   useEffect(() => {
@@ -349,17 +370,21 @@ const SearchScreen = (): React.JSX.Element => {
 
     if (searchQuery.length > 0) {
       searchTimeoutRef.current = setTimeout(async () => {
-        // First check if it's a Smuppy link
-        const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('smuppy.com') || (__DEV__ && searchQuery.includes('localhost'));
-        if (isLink) {
-          const handled = await detectAndShowLinkContent(searchQuery);
-          if (handled) {
-            setLinkDetected(true);
-            return;
+        try {
+          // First check if it's a Smuppy link
+          const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('smuppy.com') || (__DEV__ && searchQuery.includes('localhost'));
+          if (isLink) {
+            const handled = await detectAndShowLinkContent(searchQuery);
+            if (handled) {
+              setLinkDetected(true);
+              return;
+            }
           }
+          // If not a link or link not found, perform regular search
+          await performSearch(searchQuery, activeTab, 0, false);
+        } catch (error) {
+          if (__DEV__) console.warn('[SearchScreen] Debounced search failed:', error);
         }
-        // If not a link or link not found, perform regular search
-        performSearch(searchQuery, activeTab, 0, false);
       }, 300);
     } else {
       setUserResults([]);
@@ -955,6 +980,16 @@ const SearchScreen = (): React.JSX.Element => {
       {/* Tabs */}
       {renderTabs()}
 
+      {/* Error Banner */}
+      {searchError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{searchError}</Text>
+          <TouchableOpacity onPress={() => setSearchError(null)}>
+            <Ionicons name="close" size={18} color="#B91C1C" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Content */}
       <View style={styles.content}>
         {searchQuery.length === 0 ? renderSuggestedContent() : renderSearchResults()}
@@ -1230,6 +1265,24 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     fontSize: 14,
     color: colors.grayMuted,
     marginTop: 4,
+  },
+
+  // Error
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    borderRadius: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#B91C1C',
+    flex: 1,
+    marginRight: 8,
   },
 
   // Loading

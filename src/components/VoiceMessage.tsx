@@ -26,6 +26,8 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 3;
 
   // Refs to track values without triggering re-renders
   const lastProgressRef = useRef(0);
@@ -63,9 +65,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
       }
     }
 
-    if (status.isPlaying !== (soundRef.current as unknown as { _isPlaying?: boolean })?._isPlaying) {
-      setIsPlaying(status.isPlaying);
-    }
+    setIsPlaying(status.isPlaying);
 
     if (status.didJustFinish) {
       lastProgressRef.current = 0;
@@ -103,6 +103,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
 
         if (status.isLoaded) {
           setIsLoaded(true);
+          retryCountRef.current = 0; // Reset retry count on success
           if (status.durationMillis) {
             durationRef.current = status.durationMillis;
             setDuration(status.durationMillis);
@@ -127,6 +128,8 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
 
   const togglePlayback = useCallback(async () => {
     if (loadError) {
+      if (retryCountRef.current >= MAX_RETRIES) return; // Stop retrying after max
+      retryCountRef.current += 1;
       setLoadError(false);
       setReloadTick(t => t + 1);
       return;
@@ -194,6 +197,8 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
         ]}
         onPress={togglePlayback}
         disabled={!isLoaded && !loadError}
+        accessibilityLabel={isPlaying ? "Pause voice message" : loadError ? "Retry loading voice message" : "Play voice message"}
+        accessibilityRole="button"
       >
         <Ionicons
           name={isPlaying ? "pause" : "play"}
@@ -211,7 +216,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
           styles.duration,
           { color: isFromMe ? 'rgba(255,255,255,0.8)' : colors.gray }
         ]}>
-          {loadError ? 'Tap to retry' : displayTime}
+          {loadError ? (retryCountRef.current >= MAX_RETRIES ? 'Unavailable' : 'Tap to retry') : displayTime}
         </Text>
       </View>
     </View>

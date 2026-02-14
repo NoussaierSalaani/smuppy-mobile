@@ -642,13 +642,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const durationText = `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`;
     const voiceLabel = `Voice message (${durationText})`;
 
-    // Content moderation check on voice label text
-    const filterResult = filterContent(voiceLabel, { context: 'chat', skipPersonalDataCheck: true });
-    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-      showError('Content Policy', filterResult.reason || 'Your message contains inappropriate content.');
-      return;
-    }
-
     setSending(true);
 
     // Optimistic: show voice message immediately with local URI

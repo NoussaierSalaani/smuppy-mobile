@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 
+const MAX_DURATION_SECONDS = 300; // 5-minute max recording
+
 interface VoiceRecorderProps {
   onFinish: (uri: string, duration: number) => void;
   onCancel: () => void;
@@ -27,11 +29,12 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const durationRef = useRef(0);
+  const recordingRef = useRef<Audio.Recording | null>(null);
   const recordingUriRef = useRef<string | null>(null);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  // Request permissions on mount
+  // Request permissions on mount + cleanup recording on unmount
   useEffect(() => {
     (async () => {
       const { granted } = await Audio.requestPermissionsAsync();
@@ -44,6 +47,11 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
     return () => {
       if (durationInterval.current) {
         clearInterval(durationInterval.current);
+      }
+      // Stop recording on unmount to prevent resource leak
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current = null;
       }
     };
   }, [showError]);
@@ -103,15 +111,20 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
 
       // Capture URI immediately while recording object is fully initialized
       recordingUriRef.current = newRecording.getURI();
+      recordingRef.current = newRecording;
       setRecording(newRecording);
       setIsRecording(true);
       setDuration(0);
       durationRef.current = 0;
 
-      // Start duration counter
+      // Start duration counter with auto-stop at max duration
       durationInterval.current = setInterval(() => {
         durationRef.current += 1;
         setDuration(durationRef.current);
+        if (durationRef.current >= MAX_DURATION_SECONDS) {
+          // Auto-stop at max duration
+          if (durationInterval.current) clearInterval(durationInterval.current);
+        }
       }, 1000);
     } catch (err) {
       if (__DEV__) console.warn('Failed to start recording:', err);
@@ -143,6 +156,7 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
 
       setRecording(null);
       setIsRecording(false);
+      recordingRef.current = null;
       recordingUriRef.current = null;
 
       if (uri && realDurationSec >= 1) {
@@ -175,6 +189,7 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
     }
     setRecording(null);
     setIsRecording(false);
+    recordingRef.current = null;
     recordingUriRef.current = null;
     onCancel();
   };
@@ -182,7 +197,7 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
   return (
     <View style={styles.container}>
       {/* Cancel button */}
-      <TouchableOpacity style={styles.cancelButton} onPress={cancelRecording}>
+      <TouchableOpacity style={styles.cancelButton} onPress={cancelRecording} accessibilityLabel="Cancel recording" accessibilityRole="button">
         <Ionicons name="close" size={24} color={colors.gray} />
       </TouchableOpacity>
 
@@ -204,6 +219,8 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
       <TouchableOpacity
         style={[styles.recordButton, isRecording && styles.recordButtonActive]}
         onPress={isRecording ? stopRecording : startRecording}
+        accessibilityLabel={isRecording ? "Stop recording" : "Start recording"}
+        accessibilityRole="button"
       >
         <Ionicons
           name={isRecording ? "stop" : "mic"}

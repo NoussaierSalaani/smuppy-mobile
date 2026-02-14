@@ -4,11 +4,18 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+
+const s3Client = new S3Client({
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+});
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
 
 const log = createLogger('messages-delete');
 
@@ -72,14 +79,34 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const profileId = userResult.rows[0].id;
 
     // Soft-delete message only if user is the sender and within 15-minute window
+    // First extract media info for S3 cleanup, then soft-delete
     const result = await db.query(
       `UPDATE messages
-       SET is_deleted = true, content = '', media_url = NULL
+       SET is_deleted = true, content = '', media_url = NULL, media_type = NULL
        WHERE id = $1 AND sender_id = $2 AND is_deleted = false
          AND created_at > NOW() - INTERVAL '15 minutes'
-       RETURNING id`,
+       RETURNING id, media_url, media_type`,
       [messageId, profileId]
     );
+
+    // Clean up S3 voice/audio files (fire-and-forget)
+    if (result.rows.length > 0 && MEDIA_BUCKET) {
+      const deleted = result.rows[0];
+      if (deleted.media_url && (deleted.media_type === 'voice' || deleted.media_type === 'audio')) {
+        try {
+          // Extract S3 key from URL: voice-messages/{userId}/{conversationId}/{fileId}.m4a
+          const urlPath = new URL(deleted.media_url).pathname;
+          const s3Key = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath;
+          if (s3Key.startsWith('voice-messages/')) {
+            s3Client.send(new DeleteObjectCommand({ Bucket: MEDIA_BUCKET, Key: s3Key }))
+              .catch(err => log.error('Failed to delete S3 voice file', err, { key: s3Key }));
+          }
+        } catch {
+          // URL parsing failed — not critical, just log
+          log.warn('Could not parse media_url for S3 cleanup', { messageId });
+        }
+      }
+    }
 
     if (result.rows.length === 0) {
       // Check if message exists but is outside the time window

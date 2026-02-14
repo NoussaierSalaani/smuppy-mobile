@@ -78,6 +78,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Per-conversation rate limit: 10 messages per minute per conversation
+    const { allowed: convAllowed } = await checkRateLimit({
+      prefix: 'send-message-conv',
+      identifier: `${userId}:${conversationId}`,
+      windowSeconds: 60,
+      maxRequests: 10,
+    });
+    if (!convAllowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'You are sending messages too quickly in this conversation.' }),
+      };
+    }
+
     // Validate optional media fields — media_type is only valid when media_url is also valid
     const ALLOWED_MEDIA_TYPES = ['image', 'video', 'audio', 'voice'];
     const validMediaUrl = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('https://')
@@ -86,6 +101,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const validMediaType = validMediaUrl && mediaType && typeof mediaType === 'string' && ALLOWED_MEDIA_TYPES.includes(mediaType)
       ? mediaType
       : null;
+
+    // Validate voice/audio media URLs match expected S3 path pattern
+    if (validMediaUrl && (validMediaType === 'audio' || validMediaType === 'voice')) {
+      const VOICE_URL_PATTERN = /^https:\/\/.+\/voice-messages\/[0-9a-f-]+\/[0-9a-f-]+\/[0-9a-f-]+\.m4a$/i;
+      if (!VOICE_URL_PATTERN.test(validMediaUrl)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Invalid voice message URL' }),
+        };
+      }
+    }
 
     // Sanitize content: strip HTML tags and control characters (preserve tab, LF, CR)
     const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');

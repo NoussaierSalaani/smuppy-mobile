@@ -23,7 +23,7 @@ jest.mock('../../services/push-notification', () => ({
 }));
 
 describe('peaks/create handler - critical bug fix', () => {
-  let mockDb: any;
+  let mockDb: { query: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -87,7 +87,7 @@ describe('peaks/create handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
 
@@ -96,7 +96,7 @@ describe('peaks/create handler - critical bug fix', () => {
 
       // CRITICAL: Must insert with expires_at and saved_to_profile
       const insertCall = mockDb.query.mock.calls.find(
-        (call: any[]) => call[0].includes('INSERT INTO peaks')
+        (call: string[]) => call[0].includes('INSERT INTO peaks')
       );
       expect(insertCall).toBeDefined();
       expect(insertCall[0]).toContain('expires_at');
@@ -145,7 +145,7 @@ describe('peaks/create handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(201);
@@ -165,7 +165,7 @@ describe('peaks/create handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(400);
@@ -181,7 +181,7 @@ describe('peaks/create handler - critical bug fix', () => {
           duration: 10,
         }),
         requestContext: {},
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(401);

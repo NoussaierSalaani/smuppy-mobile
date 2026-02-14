@@ -31,8 +31,8 @@ jest.mock('stripe', () => {
 });
 
 describe('subscriptions handler - critical bug fix', () => {
-  let mockClient: any;
-  let mockPool: any;
+  let mockClient: { query: jest.Mock; release: jest.Mock };
+  let mockPool: { connect: jest.Mock; query: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -72,7 +72,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       // Execute
       const result = await handler(event);
@@ -82,7 +82,7 @@ describe('subscriptions handler - critical bug fix', () => {
 
       // CRITICAL: Must use channel_subscriptions, NOT subscriptions
       const insertCalls = mockClient.query.mock.calls.filter(
-        (call: any[]) => call[0].includes('INSERT INTO')
+        (call: string[]) => call[0].includes('INSERT INTO')
       );
       expect(insertCalls.length).toBeGreaterThan(0);
 
@@ -115,7 +115,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(200);
@@ -139,7 +139,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(400);
@@ -165,20 +165,20 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(200);
 
       // Must query channel_subscriptions
       const selectCalls = mockClient.query.mock.calls.filter(
-        (call: any[]) => call[0].includes('SELECT') && call[0].includes('FROM')
+        (call: string[]) => call[0].includes('SELECT') && call[0].includes('FROM')
       );
       expect(selectCalls[0][0]).toContain('channel_subscriptions');
 
       // Must update channel_subscriptions
       const updateCalls = mockClient.query.mock.calls.filter(
-        (call: any[]) => call[0].includes('UPDATE')
+        (call: string[]) => call[0].includes('UPDATE')
       );
       expect(updateCalls[0][0]).toContain('channel_subscriptions');
     });
@@ -198,7 +198,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(404);
@@ -233,7 +233,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(200);
@@ -277,7 +277,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(200);
@@ -296,7 +296,7 @@ describe('subscriptions handler - critical bug fix', () => {
         headers: {},
         body: JSON.stringify({ action: 'list' }),
         requestContext: {},
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(401);
@@ -312,7 +312,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(400);
@@ -323,7 +323,7 @@ describe('subscriptions handler - critical bug fix', () => {
         httpMethod: 'OPTIONS',
         headers: {},
         body: null,
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(200);
@@ -343,7 +343,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(500);
@@ -359,7 +359,7 @@ describe('subscriptions handler - critical bug fix', () => {
             claims: { sub: 'cognito_user_123' },
           },
         },
-      } as any;
+      } as unknown as Parameters<typeof handler>[0];
 
       const result = await handler(event);
       expect(result.statusCode).toBe(500);

@@ -249,7 +249,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Validate replyToMessageId if provided
       let validReplyToMessageId = null;
-      if (replyToMessageId && isValidUUID(replyToMessageId)) {
+      if (typeof replyToMessageId === 'string' && isValidUUID(replyToMessageId)) {
         // Verify the replied message exists in this conversation
         const replyCheck = await client.query(
           'SELECT 1 FROM messages WHERE id = $1 AND conversation_id = $2 LIMIT 1',

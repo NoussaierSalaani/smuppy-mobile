@@ -342,7 +342,22 @@ jobs:
 
       - name: CDK Deploy (dev)
         if: steps.creds.outputs.ok == 'true'
-        run: npx cdk deploy --all --context environment=dev --require-approval never
+        run: |
+          # Wait for stack stability right before deploy (no race window)
+          for STACK in SmuppyStack-dev SmuppySecurity-dev; do
+            for i in $(seq 1 40); do
+              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+              case "$STATUS" in
+                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                  echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
+                  sleep 15 ;;
+                *)
+                  echo "  $STACK is $STATUS — ready"
+                  break ;;
+              esac
+            done
+          done
+          npx cdk deploy --all --context environment=dev --require-approval never
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: us-east-1
@@ -454,7 +469,22 @@ jobs:
 
       - name: CDK Deploy (staging)
         if: steps.creds.outputs.ok == 'true'
-        run: npx cdk deploy --all --context environment=staging --require-approval never
+        run: |
+          # Wait for stack stability right before deploy (no race window)
+          for STACK in SmuppyStack-staging SmuppySecurity-staging; do
+            for i in $(seq 1 40); do
+              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+              case "$STATUS" in
+                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                  echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
+                  sleep 15 ;;
+                *)
+                  echo "  $STACK is $STATUS — ready"
+                  break ;;
+              esac
+            done
+          done
+          npx cdk deploy --all --context environment=staging --require-approval never
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: us-east-1
@@ -573,7 +603,22 @@ jobs:
 
       - name: CDK Deploy (production)
         if: steps.creds.outputs.ok == 'true'
-        run: npx cdk deploy --all --context environment=production --require-approval never
+        run: |
+          # Wait for stack stability right before deploy (no race window)
+          for STACK in SmuppyStack-production SmuppySecurity-production; do
+            for i in $(seq 1 40); do
+              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+              case "$STATUS" in
+                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                  echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
+                  sleep 15 ;;
+                *)
+                  echo "  $STACK is $STATUS — ready"
+                  break ;;
+              esac
+            done
+          done
+          npx cdk deploy --all --context environment=production --require-approval never
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
           CDK_DEFAULT_REGION: us-east-1

@@ -120,6 +120,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         m.content,
         m.media_url,
         m.media_type,
+        m.voice_duration_seconds,
         m.sender_id,
         m.read,
         m.created_at,

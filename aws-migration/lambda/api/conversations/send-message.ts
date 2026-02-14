@@ -60,7 +60,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};
-    const { content, mediaUrl, mediaType, replyToMessageId } = body;
+    const { content, mediaUrl, mediaType, replyToMessageId, voiceDuration } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return {
@@ -113,6 +113,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
     }
+
+    // Validate voice duration if provided (1–300 seconds)
+    const validVoiceDuration = validMediaUrl && (validMediaType === 'audio' || validMediaType === 'voice')
+      && typeof voiceDuration === 'number' && Number.isInteger(voiceDuration) && voiceDuration >= 1 && voiceDuration <= 300
+      ? voiceDuration
+      : null;
 
     // Sanitize content: strip HTML tags and control characters (preserve tab, LF, CR)
     const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -246,10 +252,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       const messageResult = await client.query(
-        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false, NOW())
-         RETURNING id, content, media_url, media_type, sender_id, recipient_id, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at`,
-        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validReplyToMessageId, sharedPostId, sharedPeakId]
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, voice_duration_seconds, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, NOW())
+         RETURNING id, content, media_url, media_type, voice_duration_seconds, sender_id, recipient_id, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at`,
+        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validVoiceDuration, validReplyToMessageId, sharedPostId, sharedPeakId]
       );
 
       await client.query(

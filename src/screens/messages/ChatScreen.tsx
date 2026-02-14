@@ -29,6 +29,7 @@ import VoiceRecorder from '../../components/VoiceRecorder';
 import VoiceMessage from '../../components/VoiceMessage';
 import SharedPostBubble from '../../components/SharedPostBubble';
 import SharedPeakBubble from '../../components/SharedPeakBubble';
+import SharedProfileBubble from '../../components/SharedProfileBubble';
 import { GRADIENTS, SPACING } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -135,7 +136,16 @@ const MessageReactions = memo(({ reactions, isFromMe, styles, colors, currentUse
   );
 });
 
+const SHARED_PROFILE_REGEX = /^\[shared_profile:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;
+
 const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatTime, setSelectedImage, styles, onReply, onReaction, onLongPress, onDelete: _onDelete, colors, currentUserId }: MessageItemProps) => {
+  // Parse shared profile from content text (client-side detection)
+  const sharedProfileId = useMemo(() => {
+    if (item.shared_post_id || item.shared_peak_id || !item.content) return null;
+    const match = item.content.match(SHARED_PROFILE_REGEX);
+    return match ? match[1] : null;
+  }, [item.content, item.shared_post_id, item.shared_peak_id]);
+
   // Swipeable ref
   const swipeableRef = useRef<Swipeable>(null);
 
@@ -210,7 +220,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
         style={[
           styles.messageBubble,
           isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft,
-          (item.shared_post_id || item.shared_peak_id || (item.media_type === 'audio' && item.media_url)) && styles.messageBubbleNoPadding,
+          (item.shared_post_id || item.shared_peak_id || sharedProfileId || (item.media_type === 'audio' && item.media_url)) && styles.messageBubbleNoPadding,
           item.reply_to_message && styles.messageBubbleWithReply,
         ]}
       >
@@ -227,13 +237,16 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
             {item.shared_peak_id && !item.shared_post_id && (
               <SharedPeakBubble peakId={item.shared_peak_id} isFromMe={isFromMe} />
             )}
+            {sharedProfileId && !item.shared_post_id && !item.shared_peak_id && (
+              <SharedProfileBubble profileId={sharedProfileId} isFromMe={isFromMe} />
+            )}
             {item.media_type === 'audio' && item.media_url && (
               <VoiceMessage uri={item.media_url} isFromMe={isFromMe} />
             )}
             {item.media_type === 'audio' && !item.media_url && item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
-            {!item.shared_post_id && !item.shared_peak_id && item.media_type !== 'audio' && item.content && (
+            {!item.shared_post_id && !item.shared_peak_id && !sharedProfileId && item.media_type !== 'audio' && item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
             {item.media_url && item.media_type === 'image' && (
@@ -243,7 +256,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
             )}
           </>
         )}
-        {!item.shared_post_id && !item.shared_peak_id && (item.media_type !== 'audio' || !item.media_url) && (
+        {!item.shared_post_id && !item.shared_peak_id && !sharedProfileId && (item.media_type !== 'audio' || !item.media_url) && (
           <View style={styles.messageFooter}>
             <Text style={[styles.messageTime, isFromMe && styles.messageTimeRight]}>{formatTime(item.created_at)}</Text>
             {isFromMe && (
@@ -682,13 +695,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       return;
     }
 
-    // Send message with audio URL
+    // Send message with audio URL and duration
     const { data: sentMessage, error } = await sendMessageToDb(
       conversationId,
       voiceLabel,
       voiceUrl,
       'audio',
-      replyToMessage?.id
+      replyToMessage?.id,
+      duration
     );
 
     // Clear reply after sending

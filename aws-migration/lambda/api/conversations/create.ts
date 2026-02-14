@@ -9,6 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
 const log = createLogger('conversations-create');
 
@@ -60,23 +61,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Check sender account status (suspended/banned users cannot create conversations)
+    const accountCheck = await requireActiveAccount(userId, headers);
+    if (isAccountError(accountCheck)) return accountCheck;
+
+    const profileId = accountCheck.profileId;
+
     const db = await getPool();
-
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    const profileId = userResult.rows[0].id;
 
     // Cannot create conversation with yourself
     if (profileId === participantId) {
@@ -87,9 +78,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Check if other participant exists
+    // Check if other participant exists and is active
     const participantResult = await db.query(
-      'SELECT id, username, display_name, avatar_url, is_verified FROM profiles WHERE id = $1',
+      'SELECT id, username, display_name, avatar_url, is_verified, moderation_status FROM profiles WHERE id = $1',
       [participantId]
     );
 
@@ -102,6 +93,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const otherParticipant = participantResult.rows[0];
+
+    // Prevent creating conversations with suspended/banned users
+    if (otherParticipant.moderation_status === 'suspended' || otherParticipant.moderation_status === 'banned') {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Cannot create conversation with this user' }),
+      };
+    }
 
     // Check if either user has blocked the other
     const blockCheck = await db.query(

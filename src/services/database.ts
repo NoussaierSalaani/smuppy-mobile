@@ -1532,7 +1532,8 @@ export const sendMessage = async (
   content: string,
   mediaUrl?: string,
   mediaType?: 'image' | 'video' | 'voice' | 'audio',
-  replyToMessageId?: string
+  replyToMessageId?: string,
+  voiceDuration?: number
 ): Promise<DbResponse<Message>> => {
   if (!UUID_PATTERN.test(conversationId)) {
     return { data: null, error: 'Invalid conversation ID' };
@@ -1548,7 +1549,7 @@ export const sendMessage = async (
   try {
     // Lambda returns { message: {...} } with snake_case fields
     const result = await awsAPI.request<{ message: {
-      id: string; content: string; media_url?: string; media_type?: string;
+      id: string; content: string; media_url?: string; media_type?: string; voice_duration_seconds?: number;
       sender_id: string; recipient_id: string; read: boolean; created_at: string;
       sender: { id: string; username: string; display_name: string; avatar_url: string };
       reply_to_message_id?: string;
@@ -1558,7 +1559,7 @@ export const sendMessage = async (
       };
     } }>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { content: sanitizedContent, mediaUrl, mediaType, replyToMessageId },
+      body: { content: sanitizedContent, mediaUrl, mediaType, replyToMessageId, voiceDuration },
     });
     const m = result.message;
     return { data: {
@@ -1568,6 +1569,7 @@ export const sendMessage = async (
       content: m.content,
       media_url: m.media_url,
       media_type: m.media_type as Message['media_type'],
+      voice_duration_seconds: m.voice_duration_seconds,
       reply_to_message_id: m.reply_to_message_id,
       reply_to_message: m.reply_to_message ? {
         id: m.reply_to_message.id,
@@ -1810,6 +1812,7 @@ export interface Message {
   content: string;
   media_url?: string;
   media_type?: 'image' | 'video' | 'voice' | 'audio';
+  voice_duration_seconds?: number;
   shared_post_id?: string;
   shared_peak_id?: string;
   is_deleted?: boolean;
@@ -2241,6 +2244,52 @@ export const sharePeakToUser = async (peakId: string, recipientUserId: string): 
     await awsAPI.request(`/conversations/${conversationId}/messages`, {
       method: 'POST',
       body: { content: `[shared_peak:${peakId}]`, messageType: 'text' },
+    });
+    return { error: null };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
+  }
+};
+
+/**
+ * Share a profile with a user via in-app messaging
+ */
+export const shareProfileToUser = async (profileId: string, recipientUserId: string): Promise<{ error: string | null }> => {
+  if (!UUID_PATTERN.test(profileId)) return { error: 'Invalid profile ID' };
+  if (!UUID_PATTERN.test(recipientUserId)) return { error: 'Invalid user ID' };
+
+  try {
+    const { data: conversationId, error: convError } = await getOrCreateConversation(recipientUserId);
+    if (convError || !conversationId) {
+      return { error: convError || 'Could not start conversation' };
+    }
+
+    await awsAPI.request(`/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: { content: `[shared_profile:${profileId}]`, messageType: 'text' },
+    });
+    return { error: null };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
+  }
+};
+
+/**
+ * Share a text message with a user via in-app messaging
+ */
+export const shareTextToUser = async (text: string, recipientUserId: string): Promise<{ error: string | null }> => {
+  if (!text || text.trim().length === 0) return { error: 'Empty message' };
+  if (!UUID_PATTERN.test(recipientUserId)) return { error: 'Invalid user ID' };
+
+  try {
+    const { data: conversationId, error: convError } = await getOrCreateConversation(recipientUserId);
+    if (convError || !conversationId) {
+      return { error: convError || 'Could not start conversation' };
+    }
+
+    await awsAPI.request(`/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: { content: text.trim().substring(0, 1000), messageType: 'text' },
     });
     return { error: null };
   } catch (error: unknown) {

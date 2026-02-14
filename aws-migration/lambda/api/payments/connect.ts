@@ -7,6 +7,9 @@ import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('payments/connect');
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -92,7 +95,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
     }
   } catch (error) {
-    console.error('Connect error:', error);
+    log.error('Connect error', { error: error instanceof Error ? error.message : 'Unknown error' });
     return {
       statusCode: 500,
       headers: corsHeaders,

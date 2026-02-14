@@ -271,8 +271,8 @@ export class SecurityPhase2Stack extends cdk.Stack {
           expiration: cdk.Duration.days(90),
         },
       ],
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
+      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: !isProduction,
     });
 
     // Lambda function for virus scanning

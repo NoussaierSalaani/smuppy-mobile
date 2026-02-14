@@ -15,13 +15,16 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('refresh-bot-peaks');
 
-// Video URLs for peaks (sample videos)
+// Video URLs for peaks (Cloudinary demo videos — reliable CDN, no auth required)
 const VIDEO_URLS = [
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_0/v1/dog.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_0/v1/elephants.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_0/v1/snow_horses.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_0/v1/ski_jump.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_2/v1/dog.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_2/v1/elephants.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_4/v1/snow_horses.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_4/v1/ski_jump.mp4',
 ];
 
 // Thumbnail images

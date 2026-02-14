@@ -175,12 +175,16 @@ const SPOT_IMAGES = [
   'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=600',
 ];
 
+// Video URLs for peaks (Cloudinary demo videos — reliable CDN, no auth required)
 const VIDEO_URLS = [
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_0/v1/dog.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_0/v1/elephants.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_0/v1/snow_horses.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_0/v1/ski_jump.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_2/v1/dog.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_2/v1/elephants.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_4/v1/snow_horses.mp4',
+  'https://res.cloudinary.com/demo/video/upload/c_fill,w_720,h_1280,so_4/v1/ski_jump.mp4',
 ];
 
 // ============================================
@@ -1285,6 +1289,9 @@ const SERVICE_TEMPLATES: Record<string, [string, string, string, number, number,
 // GENERATOR FUNCTIONS — filled in Part 3
 // ============================================
 
+// Global counter for unique post images (ensures no duplicates across all posts)
+let globalPostCounter = 0;
+
 function getCaptionGroup(expertiseCategory: string): string {
   return CREATOR_CAPTION_MAP[expertiseCategory] || 'training';
 }
@@ -1348,10 +1355,9 @@ function generatePosts(
   }
 
   for (let i = 0; i < count; i++) {
-    const mediaType = Math.random() < 0.8 ? 'image' : 'video';
-    const mediaUrl = mediaType === 'image'
-      ? POST_IMAGES[rand(0, POST_IMAGES.length - 1)]
-      : VIDEO_URLS[rand(0, VIDEO_URLS.length - 1)];
+    // All posts are images — picsum.photos with unique sequential IDs (no duplicates)
+    const imageIndex = globalPostCounter++;
+    const mediaUrl = `https://picsum.photos/id/${(imageIndex % 1000) + 10}/800/600`;
     // First creator post has 'fans' visibility
     const visibility = (accountType === 'pro_creator' && i === 0) ? 'fans' : 'public';
     posts.push({
@@ -1359,7 +1365,7 @@ function generatePosts(
       author_id: profileId,
       content: captions[i % captions.length],
       media_urls: [mediaUrl],
-      media_type: mediaType,
+      media_type: 'image',
       visibility,
       likes_count: rand(10, 500),
       comments_count: rand(1, 50),

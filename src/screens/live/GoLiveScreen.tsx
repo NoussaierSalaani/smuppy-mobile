@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GRADIENTS } from '../../config/theme';
 import { useUserStore } from '../../stores/userStore';
+import { resolveDisplayName } from '../../types/profile';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
@@ -100,7 +101,7 @@ export default function GoLiveScreen(): React.JSX.Element {
         audience: 'public',
         isPrivate: false,
         hostId: user?.id,
-        hostName: user?.displayName || user?.username || 'Creator',
+        hostName: resolveDisplayName(user, 'Creator'),
         hostAvatar: user?.avatar || null,
       });
     }

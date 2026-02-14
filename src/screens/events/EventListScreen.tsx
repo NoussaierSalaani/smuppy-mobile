@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { resolveDisplayName } from '../../types/profile';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -458,10 +459,10 @@ export default function EventListScreen() {
               <View style={styles.organizerRow}>
                 <OptimizedImage
                   source={item.creator.avatarUrl ||
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(item.creator.displayName || item.creator.username)}&background=random`}
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(resolveDisplayName(item.creator))}&background=random`}
                   style={styles.organizerAvatar}
                 />
-                <Text style={styles.organizerName}>{item.creator.displayName || item.creator.username}</Text>
+                <Text style={styles.organizerName}>{resolveDisplayName(item.creator)}</Text>
                 {item.creator.isVerified && (
                   <Ionicons name="checkmark-circle" size={12} color="#00BFFF" />
                 )}

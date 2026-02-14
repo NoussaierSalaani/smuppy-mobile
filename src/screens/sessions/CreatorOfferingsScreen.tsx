@@ -18,6 +18,7 @@ import { SkeletonBase, SkeletonLine } from '../../components/skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveDisplayName } from '../../types/profile';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -131,7 +132,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
         if (profile) {
           setCreator({
             id: profile.id,
-            name: profile.fullName || profile.username,
+            name: resolveDisplayName(profile),
             username: profile.username,
             avatar: profile.avatarUrl || null,
             verified: profile.isVerified,

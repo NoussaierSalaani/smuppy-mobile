@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
+import { resolveDisplayName } from '../../types/profile';
 
 interface TopTipper {
   rank: number;
@@ -167,7 +168,7 @@ export default function TipLeaderboard({
 
           {/* Display Name */}
           <Text style={styles.podiumUsername} numberOfLines={1}>
-            {tipper.display_name || tipper.username}
+            {resolveDisplayName(tipper)}
           </Text>
 
           {/* Amount */}
@@ -212,7 +213,7 @@ export default function TipLeaderboard({
           <AvatarImage source={item.profile_picture_url} size={40} style={styles.listAvatar} />
           <View style={styles.listInfo}>
             <View style={styles.listNameRow}>
-              <Text style={styles.listUsername}>{item.display_name || item.username}</Text>
+              <Text style={styles.listUsername}>{resolveDisplayName(item)}</Text>
               {item.is_verified && (
                 <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />
               )}
@@ -268,7 +269,7 @@ export default function TipLeaderboard({
                     source={{
                       uri:
                         tipper.profile_picture_url ||
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(tipper.display_name || tipper.username)}&background=random`,
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(resolveDisplayName(tipper))}&background=random`,
                     }}
                     style={styles.compactAvatar}
                   />
@@ -277,7 +278,7 @@ export default function TipLeaderboard({
                   </View>
                 </View>
                 <Text style={styles.compactUsername} numberOfLines={1}>
-                  {tipper.display_name || tipper.username}
+                  {resolveDisplayName(tipper)}
                 </Text>
                 <Text style={[styles.compactAmount, { color: RANK_COLORS[index] }]}>
                   {formatAmount(tipper.total_tips)}

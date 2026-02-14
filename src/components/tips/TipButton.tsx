@@ -17,6 +17,7 @@ import { LiquidButton } from '../LiquidButton';
 import * as Haptics from 'expo-haptics';
 import TipModal from './TipModal';
 import { useTipPayment } from '../../hooks/useTipPayment';
+import { resolveDisplayName } from '../../types/profile';
 
 interface TipButtonProps {
   recipient: {
@@ -94,7 +95,7 @@ export default function TipButton({
           receiver={{
             id: recipient.id,
             username: recipient.username,
-            displayName: recipient.displayName || recipient.username,
+            displayName: resolveDisplayName(recipient),
             avatarUrl: recipient.avatarUrl,
           }}
           contextType={contextType}
@@ -132,7 +133,7 @@ export default function TipButton({
           receiver={{
             id: recipient.id,
             username: recipient.username,
-            displayName: recipient.displayName || recipient.username,
+            displayName: resolveDisplayName(recipient),
             avatarUrl: recipient.avatarUrl,
           }}
           contextType={contextType}
@@ -166,7 +167,7 @@ export default function TipButton({
               </View>
               <View style={styles.textContainer}>
                 <Text style={styles.defaultText}>Send a Tip</Text>
-                <Text style={styles.subText}>Support {recipient.displayName || recipient.username}</Text>
+                <Text style={styles.subText}>Support {resolveDisplayName(recipient)}</Text>
               </View>
             </>
           )}

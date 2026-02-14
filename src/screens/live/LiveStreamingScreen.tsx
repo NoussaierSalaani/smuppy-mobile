@@ -18,6 +18,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { resolveDisplayName } from '../../types/profile';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -113,7 +114,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
   // Transform LiveComment to UIComment format
   const comments: UIComment[] = liveComments.map((c: LiveComment) => ({
     id: c.id,
-    user: c.user.displayName || c.user.username,
+    user: resolveDisplayName(c.user),
     avatar: c.user.avatarUrl,
     message: c.content,
     isNew: c.isNew,

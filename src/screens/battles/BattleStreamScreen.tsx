@@ -26,6 +26,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
 import { useCurrency } from '../../hooks/useCurrency';
 import TipModal from '../../components/tips/TipModal';
+import { resolveDisplayName } from '../../types/profile';
 
 const MAX_TIP_ANIMATIONS = 50;
 const MAX_TIP_EVENTS = 10;
@@ -262,11 +263,11 @@ export default function BattleStreamScreen() {
             source={{
               uri:
                 participant.profile_picture_url ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.full_name || participant.username)}&background=random`,
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(resolveDisplayName(participant))}&background=random`,
             }}
             style={styles.streamAvatar}
           />
-          <Text style={styles.streamUsername}>{participant.full_name || participant.username}</Text>
+          <Text style={styles.streamUsername}>{resolveDisplayName(participant)}</Text>
         </View>
 
         {/* Leading indicator */}
@@ -348,7 +349,7 @@ export default function BattleStreamScreen() {
         >
           <Ionicons name="gift" size={20} color="#000" />
           <View>
-            <Text style={styles.tipAnimationSender}>{tip.sender_full_name || tip.sender_username}</Text>
+            <Text style={styles.tipAnimationSender}>{resolveDisplayName({ full_name: tip.sender_full_name, username: tip.sender_username })}</Text>
             <Text style={styles.tipAnimationAmount}>sent {formatAmount(tip.amount)}</Text>
           </View>
         </LinearGradient>
@@ -358,7 +359,7 @@ export default function BattleStreamScreen() {
 
   const renderComment = ({ item }: { item: Comment }) => (
     <View style={styles.comment}>
-      <Text style={styles.commentUsername}>{item.full_name || item.username}</Text>
+      <Text style={styles.commentUsername}>{resolveDisplayName(item)}</Text>
       <Text style={styles.commentText}>{item.text}</Text>
     </View>
   );

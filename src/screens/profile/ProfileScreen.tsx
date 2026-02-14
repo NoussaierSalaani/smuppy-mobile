@@ -242,10 +242,14 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return peaks.filter(p => !deletedPeakIds[p.id]);
   }, [peaks, deletedPeakIds]);
 
+  // Check if the VIEWED profile is business (not the logged-in user)
+  const viewedAccountType = profileData?.account_type || (isOwnProfile ? storeUser?.accountType : null);
+  const isViewedBusiness = viewedAccountType === 'pro_business';
+
   useEffect(() => {
     if (!userId) return;
-    // Pro business accounts don't have peaks — skip fetch entirely
-    if (storeUser?.accountType === 'pro_business') return;
+    // Pro business accounts don't have peaks — skip fetch only if VIEWED profile is business
+    if (isViewedBusiness) return;
     let isMounted = true;
     const task = InteractionManager.runAfterInteractions(() => {
     const toCdn = (url?: string | null) => {
@@ -291,31 +295,6 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         list = list.filter(p => p.author_id === targetUserId);
       }
 
-      // If API returned nothing for this user, try fallback fetch filtered strictly
-      if (targetUserId && list.length === 0) {
-        if (__DEV__) {
-          console.log('[ProfileScreen] Primary fetch empty, trying fallback...');
-        }
-        awsAPI.getPeaks({ limit: 100 }).then((allRes) => {
-          if (!isMounted) return;
-          const mapped = mapPeaks(allRes.data || []);
-          // STRICT: Only keep peaks from this specific user — empty is correct if none match
-          const filtered = mapped.filter(p => p.author_id === targetUserId);
-
-          if (__DEV__) {
-            console.log('[ProfileScreen] Fallback fetch:', {
-              total: mapped.length,
-              filtered: filtered.length
-            });
-          }
-
-          setPeaks(filtered);
-        }).catch((err) => {
-          if (__DEV__) console.warn('[Profile] Peaks fallback fetch failed:', err);
-        });
-        return;
-      }
-
       setPeaks(list);
     }).catch((err) => {
       if (__DEV__) console.warn('[Profile] Peaks fetch failed:', err);
@@ -323,7 +302,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
     }); // end runAfterInteractions
     return () => { isMounted = false; task.cancel(); };
-  }, [userId, peaksUserId, storeUser?.accountType]);
+  }, [userId, peaksUserId, isViewedBusiness]);
 
   // Get saved posts (collections) - only for own profile
   const {
@@ -401,7 +380,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const activitiesCount = businessActivities.length;
 
   // Check if user has peaks (for avatar border indicator) — for pro_business, use activities instead
-  const hasPeaks = storeUser?.accountType === 'pro_business' ? businessActivities.length > 0 : filteredPeaks.length > 0;
+  const hasPeaks = isViewedBusiness ? businessActivities.length > 0 : (filteredPeaks.length > 0 || peaksFromPosts.length > 0);
 
   // Grade system — decorative frame for 1M+ fans
   const gradeInfo = useMemo(() => getGrade(user.stats.fans), [user.stats.fans]);
@@ -1046,7 +1025,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER PEAKS ====================
   const renderPeaks = () => {
-    if (filteredPeaks.length === 0) {
+    // Use API peaks first, fallback to peaks extracted from posts table
+    const displayPeaks = filteredPeaks.length > 0 ? filteredPeaks : peaksFromPosts;
+
+    if (displayPeaks.length === 0) {
       return (
         <View style={styles.emptyContainer}>
           <Ionicons name="videocam-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
@@ -1054,7 +1036,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           <Text style={styles.emptyDesc}>
             Share your best moments as Peaks
           </Text>
-          {isOwnProfile && storeUser?.accountType !== 'pro_business' && (
+          {isOwnProfile && !isViewedBusiness && (
             <TouchableOpacity
               style={styles.createBtn}
               onPress={handleNavigateCreatePeak}
@@ -1069,8 +1051,6 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </View>
       );
     }
-
-    const displayPeaks = filteredPeaks.length > 0 ? filteredPeaks : peaksFromPosts;
 
     // Group peaks by calendar date (24h grouping for profile)
     const peakTimeGroups: { key: string; label: string; latestThumbnail: string | undefined; peakCount: number; peaks: ProfilePeak[]; totalLikes: number; totalViews: number }[] = (() => {

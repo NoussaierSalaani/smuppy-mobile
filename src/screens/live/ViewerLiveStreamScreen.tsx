@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveDisplayName } from '../../types/profile';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
@@ -141,7 +142,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
   // Transform LiveComment to local Comment format
   const comments: Comment[] = liveComments.map((c: LiveComment) => ({
     id: c.id,
-    user: c.user.displayName || c.user.username,
+    user: resolveDisplayName(c.user),
     avatar: c.user.avatarUrl,
     text: c.content,
   }));

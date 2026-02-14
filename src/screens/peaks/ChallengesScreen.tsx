@@ -18,6 +18,7 @@ import ChallengeCard, { type Challenge } from '../../components/peaks/ChallengeC
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { GRADIENTS, DARK_GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { resolveDisplayName } from '../../types/profile';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import type { MainStackParamList } from '../../types';
@@ -112,7 +113,7 @@ const ChallengesScreen = (): React.JSX.Element => {
         user: {
           id: challenge.creator.id,
           username: challenge.creator.username,
-          full_name: challenge.creator.displayName || challenge.creator.username,
+          full_name: resolveDisplayName(challenge.creator),
           avatar_url: toCdn(challenge.creator.avatarUrl) || null,
         },
         views_count: challenge.viewCount,

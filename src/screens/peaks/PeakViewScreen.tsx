@@ -28,6 +28,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { normalizeCdnUrl } from '../../utils/cdnUrl';
 import * as MediaLibrary from 'expo-media-library';
 import OptimizedImage from '../../components/OptimizedImage';
+import { resolveDisplayName } from '../../types/profile';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
 import SharePostModal from '../../components/SharePostModal';
@@ -78,7 +79,7 @@ const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, on
     onPress(
       item.peakId,
       item.user?.id || '',
-      item.user?.displayName || item.user?.username || '',
+      resolveDisplayName(item.user, ''),
       item.user?.avatarUrl || '',
       item.peak?.thumbnailUrl || '',
       item.peak?.videoUrl || ''
@@ -108,7 +109,7 @@ const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, on
             style={styles.responseAvatar}
           />
           <Text style={styles.responseUserName} numberOfLines={1}>
-            {(item.user?.displayName || item.user?.username || 'Unknown').replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '')}
+            {resolveDisplayName(item.user, 'Unknown').replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '')}
           </Text>
           {item.user?.isVerified && (
             <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
@@ -297,7 +298,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         duration: p.duration || 15,
         user: {
           id: p.author?.id || p.authorId || '',
-          name: p.author?.displayName || p.author?.username || '',
+          name: resolveDisplayName(p.author, ''),
           avatar: toCdn(p.author?.avatarUrl) || '',
         },
         views: p.viewsCount || 0,

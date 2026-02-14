@@ -18,6 +18,7 @@ import { NavigationProp, useNavigation, useFocusEffect } from '@react-navigation
 import { GRADIENTS, SIZES, SPACING, HIT_SLOP } from '../../config/theme';
 import { getPendingFollowRequestsCount } from '../../services/database';
 import { awsAPI } from '../../services/aws-api';
+import { resolveDisplayName } from '../../types/profile';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useAppStore } from '../../stores/appStore';
 import { NotificationsSkeleton } from '../../components/skeleton';
@@ -182,7 +183,8 @@ function transformNotification(apiNotif: ApiNotification): Notification {
   const userData = apiNotif.data?.user || {};
   const mappedType = mapNotificationType(apiNotif.type);
   const displayType: UserNotification['type'] = mappedType ?? 'like';
-  const userName = sanitizeText(userData.name || userData.username) || '';
+  const userDataAny = userData as Record<string, unknown>;
+  const userName = sanitizeText(resolveDisplayName({ fullName: userData.name, username: userData.username, accountType: (userDataAny.accountType || userDataAny.account_type) as string | undefined, businessName: (userDataAny.businessName || userDataAny.business_name) as string | undefined }, '')) || '';
 
   // If type is unmapped (mappedType is null), use backend body text directly
   // Otherwise build message from backend type + display type for accurate wording

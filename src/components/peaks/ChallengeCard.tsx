@@ -12,6 +12,7 @@ import { AvatarImage } from '../OptimizedImage';
 import OptimizedImage from '../OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { GRADIENTS, DARK_GRADIENTS, SHADOWS } from '../../config/theme';
+import { resolveDisplayName } from '../../types/profile';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 32;
@@ -162,7 +163,7 @@ const ChallengeCard = memo(({ challenge, onPress, onAccept, compact }: Challenge
                 <AvatarImage source={challenge.creator.avatarUrl} size={compact ? 20 : 24} />
               </View>
               <Text style={styles.creatorName} numberOfLines={1}>
-                {sanitize(challenge.creator.displayName || challenge.creator.username)}
+                {sanitize(resolveDisplayName(challenge.creator))}
               </Text>
               {challenge.creator.isVerified && (
                 <Ionicons name="checkmark-circle" size={13} color={colors.primary} />

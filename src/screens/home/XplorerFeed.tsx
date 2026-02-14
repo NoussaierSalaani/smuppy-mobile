@@ -17,6 +17,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme } from '../../hooks/useTheme';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
+import { resolveDisplayName } from '../../types/profile';
 
 import { searchNominatim, NominatimSearchResult, isValidCoordinate } from '../../config/api';
 
@@ -377,7 +378,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             type: 'live',
             subcategory: 'Live',
             category: 'live',
-            name: `${stream.host.displayName || stream.host.username} — LIVE`,
+            name: `${resolveDisplayName(stream.host)} — LIVE`,
             avatar: stream.host.avatarUrl || '',
             bio: stream.title,
             fans: stream.viewerCount,

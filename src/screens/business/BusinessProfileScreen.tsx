@@ -18,6 +18,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { resolveDisplayName } from '../../types/profile';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -368,11 +369,11 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
       <View style={styles.reviewHeader}>
         <OptimizedImage
           source={item.user.avatar_url ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(item.user.full_name || item.user.username)}&background=random`}
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(resolveDisplayName(item.user))}&background=random`}
           style={styles.reviewAvatar}
         />
         <View style={styles.reviewUserInfo}>
-          <Text style={styles.reviewUsername}>{item.user.full_name || item.user.username}</Text>
+          <Text style={styles.reviewUsername}>{resolveDisplayName(item.user)}</Text>
           {renderStars(item.rating)}
         </View>
         <Text style={styles.reviewDate}>

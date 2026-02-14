@@ -36,6 +36,7 @@ import SharePostModal from '../../components/SharePostModal';
 import { useShareModal } from '../../hooks/useModalState';
 import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, deletePost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
+import { resolveDisplayName } from '../../types/profile';
 
 const { width, height } = Dimensions.get('window');
 
@@ -782,7 +783,7 @@ const PostDetailFanFeedScreen = () => {
               <View style={styles.taggedRow}>
                 <Ionicons name="people" size={14} color={colors.primary} />
                 <Text style={styles.taggedText}>
-                  {item.taggedUsers.filter(u => u != null).map(taggedUser => taggedUser.fullName || taggedUser.username || 'User').join(', ')}
+                  {item.taggedUsers.filter(u => u != null).map(taggedUser => resolveDisplayName(taggedUser)).join(', ')}
                 </Text>
               </View>
             ) : null}

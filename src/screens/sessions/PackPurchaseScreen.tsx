@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveDisplayName } from '../../types/profile';
 import { LinearGradient } from 'expo-linear-gradient';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -81,7 +82,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       if (profile) {
         setCreator({
           id: profile.id,
-          name: profile.fullName || profile.username,
+          name: resolveDisplayName(profile),
           username: profile.username,
           avatar: profile.avatarUrl || null,
           verified: profile.isVerified,

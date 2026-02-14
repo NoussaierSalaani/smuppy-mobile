@@ -18,6 +18,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveDisplayName } from '../../types/profile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { GRADIENTS, SHADOWS } from '../../config/theme';
@@ -341,7 +342,7 @@ export default function CreatorWalletScreen() {
                 />
               </View>
               <View>
-                <Text style={styles.transactionTitle}>{tx.buyer.name || tx.buyer.username}</Text>
+                <Text style={styles.transactionTitle}>{resolveDisplayName({ fullName: tx.buyer.name, username: tx.buyer.username })}</Text>
                 <Text style={styles.transactionSubtitle}>
                   {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)} • {new Date(tx.createdAt).toLocaleDateString()}
                 </Text>

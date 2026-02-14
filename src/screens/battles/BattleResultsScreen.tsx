@@ -28,6 +28,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores/userStore';
 import { awsAPI } from '../../services/aws-api';
 import { GRADIENTS } from '../../config/theme';
+import { resolveDisplayName } from '../../types/profile';
 
 const { width } = Dimensions.get('window');
 
@@ -223,7 +224,7 @@ export default function BattleResultsScreen() {
           <View style={styles.participantInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.participantName} numberOfLines={1}>
-                {participant.display_name || participant.username}
+                {resolveDisplayName(participant)}
               </Text>
               {participant.is_verified && (
                 <AccountBadge size={16} isVerified style={styles.badge} />
@@ -235,7 +236,7 @@ export default function BattleResultsScreen() {
                 </View>
               )}
             </View>
-            <Text style={styles.username}>{participant.display_name || participant.username}</Text>
+            <Text style={styles.username}>{resolveDisplayName(participant)}</Text>
           </View>
 
           <View style={styles.tipsSection}>
@@ -312,7 +313,7 @@ export default function BattleResultsScreen() {
               </TouchableOpacity>
 
               <Text style={styles.winnerName}>
-                {winner.display_name || winner.username}
+                {resolveDisplayName(winner)}
               </Text>
               <Text style={styles.winnerTitle}>Battle Champion!</Text>
 

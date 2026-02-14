@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
+import { resolveDisplayName } from '../../types/profile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
@@ -105,7 +106,7 @@ const convertToPostItem = (post: RawPost): PostItem => {
     allMedia: allMedia.length > 1 ? allMedia : undefined,
     user: {
       id: post.author?.id || post.author_id || '',
-      name: post.author?.full_name || post.author?.username || '',
+      name: resolveDisplayName(post.author, ''),
       avatar: post.author?.avatar_url || '',
     },
   };

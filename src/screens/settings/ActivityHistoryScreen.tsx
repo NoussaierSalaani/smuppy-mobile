@@ -18,6 +18,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
 import { SkeletonBase, SkeletonLine } from '../../components/skeleton';
 import { formatTimeAgo } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
+import { resolveDisplayName } from '../../types/profile';
 import { SPACING, HIT_SLOP } from '../../config/theme';
 import type { MainStackParamList } from '../../types';
 
@@ -65,7 +66,7 @@ function getActivityIcon(type: ActivityItem['activityType']): { name: keyof type
 }
 
 function getActivityDescription(item: ActivityItem): string {
-  const name = item.targetUser?.username || 'someone';
+  const name = resolveDisplayName(item.targetUser, 'someone');
   switch (item.activityType) {
     case 'post_like': return `You liked ${name}'s post`;
     case 'peak_like': return `You liked ${name}'s Peak`;

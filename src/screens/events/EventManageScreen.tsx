@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { resolveDisplayName } from '../../types/profile';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -172,7 +173,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   const handleRemoveParticipant = (participant: Participant) => {
     showDestructiveConfirm(
       'Remove Participant',
-      `Remove ${participant.full_name || participant.username} from this event?${participant.payment_status === 'paid' ? '\n\nThey will be refunded.' : ''}`,
+      `Remove ${resolveDisplayName(participant)} from this event?${participant.payment_status === 'paid' ? '\n\nThey will be refunded.' : ''}`,
       async () => {
         try {
           const response = await awsAPI.removeEventParticipant(eventId, participant.user_id);
@@ -194,7 +195,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
     <View style={styles.participantItem}>
       <AvatarImage source={item.avatar_url} size={44} />
       <View style={styles.participantInfo}>
-        <Text style={styles.participantName}>{item.full_name || item.username}</Text>
+        <Text style={styles.participantName}>{resolveDisplayName(item)}</Text>
       </View>
       <View style={styles.participantMeta}>
         {item.payment_status === 'paid' && (

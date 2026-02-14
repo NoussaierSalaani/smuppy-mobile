@@ -34,6 +34,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getReaderPool();
 
+    // Resolve profile ID for block filtering (if authenticated)
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+    let currentProfileId: string | null = null;
+    if (cognitoSub) {
+      const profileResult = await db.query(
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
+        [cognitoSub]
+      );
+      currentProfileId = profileResult.rows[0]?.id || null;
+    }
+
     const conditions: string[] = [
       "p.account_type IN ('business', 'pro_business')",
       "p.moderation_status NOT IN ('banned', 'shadow_banned')",
@@ -41,14 +52,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const params: unknown[] = [];
     let paramIdx = 1;
 
+    // Exclude businesses from users the current user has blocked
+    if (currentProfileId) {
+      conditions.push(`NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${paramIdx} AND blocked_id = p.id)`);
+      params.push(currentProfileId);
+      paramIdx++;
+    }
+
     if (category) {
       conditions.push(`p.business_category = $${paramIdx++}`);
       params.push(category);
     }
 
     if (search) {
+      const escapedSearch = search.replace(/[%_\\]/g, '\\$&');
       conditions.push(`(p.full_name ILIKE $${paramIdx} OR p.username ILIKE $${paramIdx} OR p.bio ILIKE $${paramIdx})`);
-      params.push(`%${search}%`);
+      params.push(`%${escapedSearch}%`);
       paramIdx++;
     }
 

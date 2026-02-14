@@ -128,7 +128,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     if (filter === 'nearby' && hasCoords) {
-      const radiusNum = parseFloat(radiusKm);
+      const radiusNum = Math.max(1, Math.min(500, parseFloat(radiusKm) || 50));
       params.push(radiusNum);
       whereConditions.push(`
         (6371 * acos(cos(radians($${latIdx})) * cos(radians(g.latitude))
@@ -140,6 +140,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (category) {
       params.push(category);
       whereConditions.push(`g.category = $${params.length}`);
+    }
+
+    // Exclude groups from users the current user has blocked
+    if (profileId) {
+      params.push(profileId);
+      whereConditions.push(
+        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${params.length} AND blocked_id = creator.id)`
+      );
     }
 
     let query: string;

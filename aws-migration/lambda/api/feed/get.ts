@@ -9,6 +9,7 @@ import Redis from 'ioredis';
 import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('feed-get');
 
@@ -110,6 +111,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Compound cursor: created_at|id
         const cursorDate = cursor.substring(0, pipeIndex);
         const cursorId = cursor.substring(pipeIndex + 1);
+        if (!isValidUUID(cursorId)) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: 'Invalid cursor: id portion is not a valid UUID' }),
+          };
+        }
         const parsedDate = new Date(cursorDate);
         if (isNaN(parsedDate.getTime())) {
           return {

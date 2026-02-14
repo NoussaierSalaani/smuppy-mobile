@@ -126,6 +126,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               SELECT 1 FROM follows f
               WHERE f.following_id = $1 AND f.follower_id = p.id AND f.status = 'accepted'
             )
+            -- Exclude users the current user has blocked
+            AND NOT EXISTS (
+              SELECT 1 FROM blocked_users WHERE blocker_id = $1 AND blocked_id = p.id
+            )
             AND p.moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,

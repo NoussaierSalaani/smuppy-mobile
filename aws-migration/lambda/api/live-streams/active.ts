@@ -22,25 +22,53 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const db = await getReaderPool();
 
-    // Get all active live streams with host info
-    const result = await db.query(
-      `SELECT
-         ls.id,
-         ls.channel_name,
-         ls.title,
-         ls.started_at,
-         p.id AS host_id,
-         p.username AS host_username,
-         p.display_name AS host_display_name,
-         p.avatar_url AS host_avatar_url,
-         (SELECT COUNT(1) FROM live_stream_viewers v WHERE v.channel_name = ls.channel_name) AS viewer_count
-       FROM live_streams ls
-       JOIN profiles p ON p.id = ls.host_id
-       WHERE ls.status = 'live'
-         AND p.moderation_status NOT IN ('banned', 'shadow_banned')
-       ORDER BY ls.started_at DESC
-       LIMIT 50`
+    // Resolve profile ID for block filtering
+    const profileResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [cognitoSub]
     );
+    const currentProfileId = profileResult.rows[0]?.id || null;
+
+    // Get all active live streams with host info
+    const result = currentProfileId
+      ? await db.query(
+          `SELECT
+             ls.id,
+             ls.channel_name,
+             ls.title,
+             ls.started_at,
+             p.id AS host_id,
+             p.username AS host_username,
+             p.display_name AS host_display_name,
+             p.avatar_url AS host_avatar_url,
+             (SELECT COUNT(1) FROM live_stream_viewers v WHERE v.channel_name = ls.channel_name) AS viewer_count
+           FROM live_streams ls
+           JOIN profiles p ON p.id = ls.host_id
+           WHERE ls.status = 'live'
+             AND p.moderation_status NOT IN ('banned', 'shadow_banned')
+             AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $1 AND blocked_id = p.id)
+           ORDER BY ls.started_at DESC
+           LIMIT 50`,
+          [currentProfileId]
+        )
+      : await db.query(
+          `SELECT
+             ls.id,
+             ls.channel_name,
+             ls.title,
+             ls.started_at,
+             p.id AS host_id,
+             p.username AS host_username,
+             p.display_name AS host_display_name,
+             p.avatar_url AS host_avatar_url,
+             (SELECT COUNT(1) FROM live_stream_viewers v WHERE v.channel_name = ls.channel_name) AS viewer_count
+           FROM live_streams ls
+           JOIN profiles p ON p.id = ls.host_id
+           WHERE ls.status = 'live'
+             AND p.moderation_status NOT IN ('banned', 'shadow_banned')
+           ORDER BY ls.started_at DESC
+           LIMIT 50`
+        );
 
     const streams = result.rows.map((row: Record<string, unknown>) => ({
       id: row.id,

@@ -269,9 +269,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         if (eventsRes.success && eventsRes.events) {
           for (const rawEvt of eventsRes.events) {
             const evt = rawEvt as unknown as Record<string, unknown>;
-            const lat = evt.latitude as number | undefined;
-            const lng = evt.longitude as number | undefined;
-            if (lat != null && lng != null) {
+            const evtLat = evt.latitude as number | undefined;
+            const evtLng = evt.longitude as number | undefined;
+            if (evtLat != null && evtLng != null && isValidCoordinate(evtLat, evtLng)) {
               markers.push({
                 id: `event_${evt.id as string}`,
                 type: 'events',
@@ -282,7 +282,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
                 bio: evt.description as string | undefined,
                 fans: (evt.current_participants || evt.currentParticipants || 0) as number,
                 posts: (evt.max_participants || evt.maxParticipants || 0) as number,
-                coordinate: { latitude: lat, longitude: lng },
+                coordinate: { latitude: evtLat, longitude: evtLng },
                 coverImage: (evt.cover_image_url || evt.coverImageUrl) as string | undefined,
                 address: (evt.location_name || evt.locationName) as string | undefined,
               });
@@ -292,7 +292,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
         if (groupsRes.success && groupsRes.groups) {
           for (const grp of groupsRes.groups) {
-            if (grp.latitude != null && grp.longitude != null) {
+            if (grp.latitude != null && grp.longitude != null && isValidCoordinate(grp.latitude, grp.longitude)) {
               markers.push({
                 id: `group_${grp.id}`,
                 type: 'groups',

@@ -71,6 +71,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
           WHERE is_private = false AND onboarding_completed = true AND id != $1
+            AND moderation_status NOT IN ('banned', 'shadow_banned')
+            AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $1 AND blocked_id = profiles.id)
           ORDER BY
             CASE WHEN is_verified THEN 0 ELSE 1 END,
             CASE WHEN account_type = 'pro_creator' THEN 0
@@ -89,6 +91,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             fan_count as followers_count, following_count, post_count as posts_count
           FROM profiles
           WHERE is_private = false AND onboarding_completed = true
+            AND moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY
             CASE WHEN is_verified THEN 0 ELSE 1 END,
             CASE WHEN account_type = 'pro_creator' THEN 0
@@ -111,7 +114,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           FROM profiles
           WHERE (username ILIKE $1 OR full_name ILIKE $1 OR display_name ILIKE $1)
             AND is_private = false AND onboarding_completed = true
+            AND moderation_status NOT IN ('banned', 'shadow_banned')
             AND id != $5
+            AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $5 AND blocked_id = profiles.id)
           ORDER BY
             CASE WHEN username = $2 THEN 0
                  WHEN username ILIKE $3 THEN 1
@@ -130,6 +135,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           FROM profiles
           WHERE (username ILIKE $1 OR full_name ILIKE $1 OR display_name ILIKE $1)
             AND is_private = false AND onboarding_completed = true
+            AND moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY
             CASE WHEN username = $2 THEN 0
                  WHEN username ILIKE $3 THEN 1

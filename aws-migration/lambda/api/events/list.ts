@@ -17,7 +17,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const client = await pool.connect();
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
+    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const {
       filter = 'upcoming', // upcoming, nearby, category, my-events, joined
       latitude,
@@ -34,6 +34,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const limitNum = Math.min(parseInt(limit), 50);
     const offsetNum = parseInt(offset);
+
+    // Resolve profile ID for authenticated user
+    let profileId: string | null = null;
+    if (cognitoSub) {
+      const profileResult = await client.query(
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
+        [cognitoSub]
+      );
+      if (profileResult.rows.length > 0) {
+        profileId = profileResult.rows[0].id;
+      }
+    }
 
     // All params are pushed in order — never use unshift
     const params: SqlParam[] = [];
@@ -117,7 +129,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Filter: nearby (within radius)
     if (filter === 'nearby' && hasCoords) {
-      const radiusNum = parseFloat(radiusKm);
+      const radiusNum = Math.max(1, Math.min(500, parseFloat(radiusKm) || 50));
       params.push(radiusNum);
       whereConditions.push(`
         (6371 * acos(cos(radians($${latIdx})) * cos(radians(e.latitude))
@@ -133,16 +145,24 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Filter: my-events (created by user)
-    if (filter === 'my-events' && userId) {
-      params.push(userId);
+    if (filter === 'my-events' && profileId) {
+      params.push(profileId);
       whereConditions.push(`e.creator_id = $${params.length}`);
+    }
+
+    // Exclude events from users the current user has blocked
+    if (profileId) {
+      params.push(profileId);
+      whereConditions.push(
+        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${params.length} AND blocked_id = creator.id)`
+      );
     }
 
     // Build query
     let query: string;
 
-    if (filter === 'joined' && userId) {
-      params.push(userId);
+    if (filter === 'joined' && profileId) {
+      params.push(profileId);
       query = `
         ${baseSelect}
         JOIN event_participants ep ON e.id = ep.event_id
@@ -191,12 +211,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Check user participation status
     let userParticipation: Record<string, string> = {};
-    if (userId && result.rows.length > 0) {
+    if (profileId && result.rows.length > 0) {
       const eventIds = result.rows.map((r: Record<string, unknown>) => r.id);
       const participationResult = await client.query(
         `SELECT event_id, status FROM event_participants
          WHERE event_id = ANY($1) AND user_id = $2`,
-        [eventIds, userId]
+        [eventIds, profileId]
       );
       userParticipation = participationResult.rows.reduce((acc: Record<string, string>, r: Record<string, unknown>) => {
         acc[r.event_id as string] = r.status as string;

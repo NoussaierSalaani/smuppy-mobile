@@ -59,7 +59,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Parse body
-    const body = event.body ? JSON.parse(event.body) : {};
+    let body: Record<string, unknown>;
+    try {
+      body = event.body ? JSON.parse(event.body) : {};
+    } catch {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid request body' }),
+      };
+    }
     const { content, mediaUrl, mediaType, replyToMessageId, voiceDuration } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {

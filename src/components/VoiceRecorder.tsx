@@ -118,12 +118,32 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
       durationRef.current = 0;
 
       // Start duration counter with auto-stop at max duration
-      durationInterval.current = setInterval(() => {
+      durationInterval.current = setInterval(async () => {
         durationRef.current += 1;
         setDuration(durationRef.current);
         if (durationRef.current >= MAX_DURATION_SECONDS) {
-          // Auto-stop at max duration
           if (durationInterval.current) clearInterval(durationInterval.current);
+          // Auto-stop recording at max duration
+          const rec = recordingRef.current;
+          if (rec) {
+            try {
+              const status = await rec.stopAndUnloadAsync();
+              await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+              const uri = recordingUriRef.current || rec.getURI();
+              const realDurationSec = status.durationMillis
+                ? Math.floor(status.durationMillis / 1000)
+                : durationRef.current;
+              setRecording(null);
+              setIsRecording(false);
+              recordingRef.current = null;
+              recordingUriRef.current = null;
+              if (uri && realDurationSec >= 1) {
+                onFinish(uri, realDurationSec);
+              }
+            } catch {
+              // Fallback: user must press stop manually
+            }
+          }
         }
       }, 1000);
     } catch (err) {

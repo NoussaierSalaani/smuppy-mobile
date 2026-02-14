@@ -1112,7 +1112,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     return (
       <View style={styles.container}>
         <View style={[styles.header, headerPaddingStyle]}>
-          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button">
             <Ionicons name="arrow-back" size={24} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerName}>Error</Text>
@@ -1136,10 +1136,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
       <View style={[styles.header, headerPaddingStyle]}>
-        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button">
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.userInfo} onPress={handleGoToOtherProfile}>
+        <TouchableOpacity style={styles.userInfo} onPress={handleGoToOtherProfile} accessibilityLabel={`View ${displayName}'s profile`} accessibilityRole="button">
           <AvatarImage source={otherUserProfile?.avatar_url} size={40} />
           <View>
             <View style={styles.headerNameRow}>
@@ -1153,7 +1153,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             </View>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerIcon} onPress={handleOpenChatMenu}>
+        <TouchableOpacity style={styles.headerIcon} onPress={handleOpenChatMenu} accessibilityLabel="Chat options" accessibilityRole="button">
           <Ionicons name="ellipsis-vertical" size={22} color={colors.dark} />
         </TouchableOpacity>
       </View>
@@ -1168,6 +1168,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           data={messages}
           renderItem={renderMessage}
           keyExtractor={keyExtractor}
+
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={handleContentSizeChange}
@@ -1206,6 +1207,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             style={styles.attachButton}
             onPress={handlePickImage}
             disabled={sending}
+            accessibilityLabel="Attach image"
+            accessibilityRole="button"
           >
             <Ionicons name="image-outline" size={24} color={sending ? colors.gray : colors.primary} />
           </TouchableOpacity>
@@ -1214,6 +1217,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           <TouchableOpacity
             style={styles.emojiButton}
             onPress={toggleEmojiPicker}
+            accessibilityLabel={showEmojiPicker ? "Show keyboard" : "Open emoji picker"}
+            accessibilityRole="button"
           >
             <Ionicons
               name={showEmojiPicker ? "keypad" : "happy-outline"}
@@ -1236,7 +1241,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             />
           </View>
           {inputText.trim() ? (
-            <TouchableOpacity onPress={handleSendMessage} disabled={sending}>
+            <TouchableOpacity onPress={handleSendMessage} disabled={sending} accessibilityLabel="Send message" accessibilityRole="button">
               <LinearGradient colors={sending ? ['#ccc', '#ccc'] : GRADIENTS.primary} style={styles.sendButton}>
                 {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
               </LinearGradient>
@@ -1245,6 +1250,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             <TouchableOpacity
               style={styles.voiceButton}
               onPress={handleStartRecording}
+              accessibilityLabel="Record voice message"
+              accessibilityRole="button"
             >
               <Ionicons name="mic" size={24} color={colors.primary} />
             </TouchableOpacity>
@@ -1456,6 +1463,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                     )}
                   </TouchableOpacity>
                 )}
+
                 contentContainerStyle={styles.forwardListContent}
               />
             )}

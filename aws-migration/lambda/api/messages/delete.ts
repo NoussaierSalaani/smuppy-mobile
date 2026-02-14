@@ -79,13 +79,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const profileId = userResult.rows[0].id;
 
     // Soft-delete message only if user is the sender and within 15-minute window
-    // First extract media info for S3 cleanup, then soft-delete
+    // Use CTE to capture media info BEFORE the UPDATE nullifies it
     const result = await db.query(
-      `UPDATE messages
+      `WITH target AS (
+         SELECT id, media_url, media_type FROM messages
+         WHERE id = $1 AND sender_id = $2 AND is_deleted = false
+           AND created_at > NOW() - INTERVAL '15 minutes'
+       )
+       UPDATE messages m
        SET is_deleted = true, content = '', media_url = NULL, media_type = NULL
-       WHERE id = $1 AND sender_id = $2 AND is_deleted = false
-         AND created_at > NOW() - INTERVAL '15 minutes'
-       RETURNING id, media_url, media_type`,
+       FROM target
+       WHERE m.id = target.id
+       RETURNING target.media_url, target.media_type, m.id`,
       [messageId, profileId]
     );
 

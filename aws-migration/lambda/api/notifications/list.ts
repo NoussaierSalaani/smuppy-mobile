@@ -96,6 +96,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           OR NOT (n.data->>'peakId' ~ ${UUID_PATTERN})
           OR EXISTS (SELECT 1 FROM peaks WHERE id = (n.data->>'peakId')::uuid)
         )
+        AND (
+          n.data->>'commentId' IS NULL
+          OR NOT (n.data->>'commentId' ~ ${UUID_PATTERN})
+          OR EXISTS (SELECT 1 FROM comments WHERE id = (n.data->>'commentId')::uuid)
+          OR EXISTS (SELECT 1 FROM peak_comments WHERE id = (n.data->>'commentId')::uuid)
+        )
     `;
 
     const params: SqlParam[] = [profileId];

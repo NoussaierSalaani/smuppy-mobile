@@ -85,6 +85,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
+      // Clean up notifications referencing this comment or its replies
+      const replyIds = await client.query(
+        'SELECT id FROM comments WHERE id = $1 OR parent_comment_id = $1',
+        [commentId]
+      );
+      const commentIds = replyIds.rows.map((r: { id: string }) => r.id);
+      if (commentIds.length > 0) {
+        const placeholders = commentIds.map((_: string, i: number) => `$${i + 1}`).join(', ');
+        await client.query(
+          `DELETE FROM notifications WHERE data->>'commentId' IN (${placeholders})`,
+          commentIds
+        );
+      }
+
       // Atomic delete: remove comment + all replies, get exact count via RETURNING
       const deleteResult = await client.query(
         'DELETE FROM comments WHERE id = $1 OR parent_comment_id = $1 RETURNING id',

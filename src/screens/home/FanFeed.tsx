@@ -32,7 +32,7 @@ import { useShareModal } from '../../hooks/useModalState';
 import { usePostInteractions } from '../../hooks/usePostInteractions';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch, reportPost, muteUser } from '../../services/database';
+import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch, deletePost, muteUser } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
@@ -300,8 +300,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       showBars();
     },
   }));
-  const { isUnderReview } = useContentStore();
-  const { isHidden } = useUserSafetyStore();
+  const { isUnderReview, submitPostReport, hasUserReported } = useContentStore();
+  const { isHidden, mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
   const currentUser = useUserStore((state) => state.user);
 
   // State for real posts from API
@@ -342,6 +342,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Post menu state
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPost, setMenuPost] = useState<UIPost | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Memoized styles to prevent re-renders
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -727,39 +728,99 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     setMenuVisible(true);
   }, []);
 
-  // Handle report post — calls real backend API
+  // Handle report post — opens reason selection modal
   const handleReportPost = useCallback(() => {
     if (!menuPost) return;
+    if (hasUserReported(menuPost.id)) {
+      setMenuVisible(false);
+      showError('Already Reported', 'You have already reported this content. It is under review.');
+      return;
+    }
+    if (isUnderReview(String(menuPost.id))) {
+      setMenuVisible(false);
+      showError('Under Review', 'This content is already being reviewed by our team.');
+      return;
+    }
     setMenuVisible(false);
-    showDestructiveConfirm(
-      'Report Post',
-      'Are you sure you want to report this post?',
-      async () => {
-        const { error } = await reportPost(menuPost.id, 'inappropriate', '');
-        if (error) {
-          showError('Error', 'Could not report post. Please try again.');
-        } else {
-          showSuccess('Reported', 'Thank you for your report. We will review it.');
-        }
-      }
-    );
-  }, [menuPost, showDestructiveConfirm, showSuccess, showError]);
+    setShowReportModal(true);
+  }, [menuPost, hasUserReported, isUnderReview, showError]);
 
-  // Handle mute user — calls real backend API
+  // Submit report with selected reason — async with proper error handling
+  const handleSubmitReport = useCallback(async (reason: string) => {
+    if (!menuPost) return;
+    setShowReportModal(false);
+    const result = await submitPostReport(menuPost.id, reason);
+    if (result.alreadyReported) {
+      showError('Already Reported', result.message);
+    } else if (result.success) {
+      showSuccess('Reported', result.message);
+    } else {
+      showError('Error', result.message || 'Could not report post. Please try again.');
+    }
+  }, [menuPost, submitPostReport, showError, showSuccess]);
+
+  // Handle mute user — uses userSafetyStore for proper state sync
   const handleMuteUser = useCallback(() => {
     if (!menuPost) return;
+    const userId = menuPost.user.id;
+    if (isUserMuted(userId)) {
+      setMenuVisible(false);
+      showError('Already Muted', 'This user is already muted.');
+      return;
+    }
     setMenuVisible(false);
     showDestructiveConfirm(
       'Mute User',
       `Mute ${menuPost.user.name}? You won't see their posts anymore.`,
       async () => {
-        const { error } = await muteUser(menuPost.user.id);
+        const { error } = await mute(userId);
         if (error) {
           showError('Error', 'Could not mute user. Please try again.');
         } else {
           showSuccess('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
-          // Remove muted user's posts from feed
-          setPosts(prev => prev.filter(p => p.user.id !== menuPost.user.id));
+        }
+      }
+    );
+  }, [menuPost, isUserMuted, mute, showDestructiveConfirm, showSuccess, showError]);
+
+  // Handle block user — uses userSafetyStore for proper state sync
+  const handleBlockUser = useCallback(() => {
+    if (!menuPost) return;
+    const userId = menuPost.user.id;
+    if (isBlocked(userId)) {
+      setMenuVisible(false);
+      showError('Already Blocked', 'This user is already blocked.');
+      return;
+    }
+    setMenuVisible(false);
+    showDestructiveConfirm(
+      'Block User',
+      `Block ${menuPost.user.name}? You will no longer see their posts and they won't be able to interact with you.`,
+      async () => {
+        const { error } = await block(userId);
+        if (error) {
+          showError('Error', 'Could not block user. Please try again.');
+        } else {
+          showSuccess('Blocked', `${menuPost.user.name} has been blocked.`);
+        }
+      }
+    );
+  }, [menuPost, isBlocked, block, showDestructiveConfirm, showSuccess, showError]);
+
+  // Handle delete own post
+  const handleDeletePost = useCallback(() => {
+    if (!menuPost) return;
+    setMenuVisible(false);
+    showDestructiveConfirm(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      async () => {
+        const { error } = await deletePost(menuPost.id);
+        if (error) {
+          showError('Error', 'Could not delete post. Please try again.');
+        } else {
+          showSuccess('Deleted', 'Post has been deleted.');
+          setPosts(prev => prev.filter(p => p.id !== menuPost.id));
         }
       }
     );

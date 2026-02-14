@@ -164,10 +164,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Validate reply parent exists if provided
+    // Validate reply parent exists if provided, save author_id for notification
+    let replyParentAuthorId: string | null = null;
     if (replyToPeakId) {
       const parentResult = await db.query(
-        'SELECT id FROM peaks WHERE id = $1',
+        'SELECT id, author_id FROM peaks WHERE id = $1',
         [replyToPeakId]
       );
       if (parentResult.rows.length === 0) {
@@ -177,6 +178,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ message: 'Reply target peak not found' }),
         };
       }
+      replyParentAuthorId = parentResult.rows[0].author_id;
     }
 
     // Create peak
@@ -202,24 +204,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Send notification to parent peak author if this is a reply
-    if (replyToPeakId) {
+    // Send notification to parent peak author if this is a reply (uses pre-validated author_id)
+    if (replyToPeakId && replyParentAuthorId && replyParentAuthorId !== profile.id) {
       try {
-        const parentPeak = await db.query(
-          'SELECT author_id FROM peaks WHERE id = $1',
-          [replyToPeakId]
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, data)
+           VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
+          [
+            replyParentAuthorId,
+            `${profile.full_name || 'Someone'} replied to your Peak`,
+            JSON.stringify({ peakId: peak.id, replyToPeakId, authorId: profile.id, thumbnailUrl: thumbnailUrl || null }),
+          ]
         );
-        if (parentPeak.rows.length > 0 && parentPeak.rows[0].author_id !== profile.id) {
-          await db.query(
-            `INSERT INTO notifications (user_id, type, title, body, data)
-             VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
-            [
-              parentPeak.rows[0].author_id,
-              `${profile.full_name || 'Someone'} replied to your Peak`,
-              JSON.stringify({ peakId: peak.id, replyToPeakId, authorId: profile.id, thumbnailUrl: thumbnailUrl || null }),
-            ]
-          );
-        }
       } catch (notifErr) {
         log.error('Failed to send reply notification', notifErr);
       }
@@ -239,11 +235,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Send notification to followers (fire and forget, capped at 500)
+    // JOIN profiles to ensure follower still exists (no orphaned notifications)
     try {
       await db.query(
         `INSERT INTO notifications (user_id, type, title, body, data)
          SELECT f.follower_id, 'new_peak', 'New Peak', $1, $2
          FROM follows f
+         JOIN profiles p ON p.id = f.follower_id
          WHERE f.following_id = $3 AND f.status = 'accepted'
          LIMIT 500`,
         [

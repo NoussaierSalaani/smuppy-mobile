@@ -190,6 +190,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           [peakId]
         );
 
+        // Get author info for notification body
+        const authorResult = await client.query(
+          'SELECT id, username, display_name, full_name, avatar_url, is_verified, account_type, business_name FROM profiles WHERE id = $1',
+          [profileId]
+        );
+        const author = authorResult.rows[0];
+
+        // Create notification for parent peak owner (if not self-reply) — inside transaction to prevent race condition
+        if (parentPeak.author_id !== profileId) {
+          await client.query(
+            `INSERT INTO notifications (user_id, type, title, body, data)
+             VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
+            [
+              parentPeak.author_id,
+              `${author.display_name || author.full_name || 'Someone'} replied to your Peak`,
+              JSON.stringify({ peakId: newReply.id, replyToPeakId: peakId, authorId: profileId, thumbnailUrl: thumbnailUrl || null })
+            ]
+          );
+        }
+
         await client.query('COMMIT');
       } catch (txError: unknown) {
         await client.query('ROLLBACK');
@@ -198,26 +218,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         client.release();
       }
 
-      // Get author info
+      // Re-fetch author info for response (use pool, not released client)
       const authorResult = await db.query(
         'SELECT id, username, display_name, full_name, avatar_url, is_verified, account_type, business_name FROM profiles WHERE id = $1',
         [profileId]
       );
-
       const author = authorResult.rows[0];
-
-      // Create notification for parent peak owner (if not self-reply)
-      if (parentPeak.author_id !== profileId) {
-        await db.query(
-          `INSERT INTO notifications (user_id, type, title, body, data)
-           VALUES ($1, 'peak_reply', 'New Peak Reply', $2, $3)`,
-          [
-            parentPeak.author_id,
-            `${author.display_name || author.full_name || 'Someone'} replied to your Peak`,
-            JSON.stringify({ peakId: newReply.id, replyToPeakId: peakId, authorId: profileId, thumbnailUrl: thumbnailUrl || null })
-          ]
-        );
-      }
 
       log.info('Peak reply created', { parentPeakId: peakId.substring(0, 8) + '***', replyId: (newReply.id as string).substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
 

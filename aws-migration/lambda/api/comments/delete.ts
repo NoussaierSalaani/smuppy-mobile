@@ -1,6 +1,6 @@
 /**
  * Delete Comment Lambda Handler
- * Deletes a comment (only author can delete)
+ * Deletes a comment and its replies, atomically updates post comments_count
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -29,7 +29,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
+    // Get user's profile ID
     const userResult = await db.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
       [userId]
@@ -85,22 +85,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
-      // Count child comments that will be deleted (CASCADE)
-      const childCount = await client.query(
-        'SELECT COUNT(*) as count FROM comments WHERE parent_comment_id = $1',
+      // Atomic delete: remove comment + all replies, get exact count via RETURNING
+      const deleteResult = await client.query(
+        'DELETE FROM comments WHERE id = $1 OR parent_comment_id = $1 RETURNING id',
         [commentId]
       );
 
-      const totalDeleted = 1 + parseInt(childCount.rows[0].count);
+      const totalDeleted = deleteResult.rowCount || 0;
 
-      // Delete the comment (CASCADE will handle replies)
-      await client.query('DELETE FROM comments WHERE id = $1', [commentId]);
-
-      // Update comments count on post
-      await client.query(
-        'UPDATE posts SET comments_count = GREATEST(comments_count - $1, 0) WHERE id = $2',
-        [totalDeleted, comment.post_id]
-      );
+      // Update comments count on post using the exact deleted count
+      if (totalDeleted > 0) {
+        await client.query(
+          'UPDATE posts SET comments_count = GREATEST(comments_count - $1, 0) WHERE id = $2',
+          [totalDeleted, comment.post_id]
+        );
+      }
 
       await client.query('COMMIT');
 

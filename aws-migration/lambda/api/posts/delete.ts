@@ -1,9 +1,10 @@
 /**
  * Delete Post Lambda Handler
- * Deletes a post and all associated data (likes, comments, saves)
+ * Deletes a post, cleans up S3 media, and removes orphaned notifications
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { S3Client, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
@@ -11,6 +12,27 @@ import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/valida
 import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('posts-delete');
+
+const s3Client = new S3Client({
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+});
+
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
+
+/**
+ * Extract S3 key from a full S3/CloudFront URL.
+ * Handles: https://bucket.s3.amazonaws.com/key, https://cdn.example.com/key
+ */
+function extractS3Key(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const key = parsed.pathname.startsWith('/') ? parsed.pathname.slice(1) : parsed.pathname;
+    return key || null;
+  } catch {
+    return null;
+  }
+}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -29,7 +51,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
+    // Get user's profile ID
     const userResult = await db.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
       [userId]
@@ -45,9 +67,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profileId = userResult.rows[0].id;
 
-    // Check if post exists and user owns it
+    // Check if post exists, get ownership and media URLs for S3 cleanup
     const postResult = await db.query(
-      'SELECT id, author_id FROM posts WHERE id = $1',
+      'SELECT id, author_id, media_urls, media_url FROM posts WHERE id = $1',
       [postId]
     );
 
@@ -61,7 +83,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const post = postResult.rows[0];
 
-    // Check ownership
     if (post.author_id !== profileId) {
       return {
         statusCode: 403,
@@ -70,8 +91,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Delete post and all associated data in transaction
-    // CASCADE will handle likes, comments, and saved_posts due to FK constraints
+    // Delete post and notifications in a transaction
     // CRITICAL: Use dedicated client for transaction isolation with connection pooling
     const client = await db.connect();
 
@@ -84,25 +104,54 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [postId]
       );
 
-      // Delete the post (CASCADE handles related data, DB trigger auto-decrements post_count)
+      // Delete the post (CASCADE handles likes, comments, saved_posts, reports, tags, views)
+      // DB trigger auto-decrements post_count on profiles
       await client.query('DELETE FROM posts WHERE id = $1', [postId]);
 
       await client.query('COMMIT');
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: 'Post deleted successfully',
-        }),
-      };
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+
+    // S3 cleanup (best-effort, after successful DB delete — non-blocking)
+    if (MEDIA_BUCKET) {
+      const s3Keys: { Key: string }[] = [];
+
+      // Collect all media URLs (array + single field)
+      const allUrls: string[] = [
+        ...(Array.isArray(post.media_urls) ? post.media_urls : []),
+        post.media_url,
+      ].filter(Boolean);
+
+      for (const url of allUrls) {
+        const key = extractS3Key(url);
+        if (key) s3Keys.push({ Key: key });
+      }
+
+      if (s3Keys.length > 0) {
+        try {
+          await s3Client.send(new DeleteObjectsCommand({
+            Bucket: MEDIA_BUCKET,
+            Delete: { Objects: s3Keys, Quiet: true },
+          }));
+        } catch (s3Error: unknown) {
+          // Log but don't fail — DB deletion already committed
+          log.error('Failed to clean up S3 media for post', s3Error);
+        }
+      }
+    }
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        message: 'Post deleted successfully',
+      }),
+    };
   } catch (error: unknown) {
     log.error('Error deleting post', error);
     return {

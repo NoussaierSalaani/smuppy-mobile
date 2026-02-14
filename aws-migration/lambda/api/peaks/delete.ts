@@ -1,9 +1,10 @@
 /**
  * Delete Peak Lambda Handler
- * Deletes a peak (only author can delete)
+ * Deletes a peak, cleans up S3 media, and removes orphaned notifications
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { S3Client, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
@@ -11,6 +12,28 @@ import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/valida
 import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-delete');
+
+const s3Client = new S3Client({
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+});
+
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
+
+/**
+ * Extract S3 key from a full S3/CloudFront URL.
+ * Handles: https://bucket.s3.amazonaws.com/key, https://cdn.example.com/key
+ */
+function extractS3Key(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    // Remove leading slash from pathname
+    const key = parsed.pathname.startsWith('/') ? parsed.pathname.slice(1) : parsed.pathname;
+    return key || null;
+  } catch {
+    return null;
+  }
+}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -29,7 +52,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
+    // Get user's profile ID
     const userResult = await db.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
       [userId]
@@ -45,9 +68,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profileId = userResult.rows[0].id;
 
-    // Get peak and check ownership
+    // Get peak with media URLs and check ownership
     const peakResult = await db.query(
-      'SELECT id, author_id FROM peaks WHERE id = $1',
+      'SELECT id, author_id, video_url, thumbnail_url FROM peaks WHERE id = $1',
       [peakId]
     );
 
@@ -61,7 +84,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const peak = peakResult.rows[0];
 
-    // Check if user owns the peak
     if (peak.author_id !== profileId) {
       return {
         statusCode: 403,
@@ -70,14 +92,51 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Clean up orphaned notifications referencing this peak (no FK constraint on JSONB data)
-    await db.query(
-      `DELETE FROM notifications WHERE data->>'peakId' = $1`,
-      [peakId]
-    );
+    // Delete peak and notifications in a transaction
+    const client = await db.connect();
 
-    // Delete peak (CASCADE will handle likes, comments, etc.)
-    await db.query('DELETE FROM peaks WHERE id = $1', [peakId]);
+    try {
+      await client.query('BEGIN');
+
+      // Clean up orphaned notifications referencing this peak (no FK constraint on JSONB data)
+      await client.query(
+        `DELETE FROM notifications WHERE data->>'peakId' = $1`,
+        [peakId]
+      );
+
+      // Delete peak (CASCADE will handle likes, comments, reactions, tags, views, reports, hashtags)
+      await client.query('DELETE FROM peaks WHERE id = $1', [peakId]);
+
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    // S3 cleanup (best-effort, after successful DB delete — non-blocking)
+    if (MEDIA_BUCKET) {
+      const s3Keys: { Key: string }[] = [];
+      const urls = [peak.video_url, peak.thumbnail_url].filter(Boolean);
+
+      for (const url of urls) {
+        const key = extractS3Key(url);
+        if (key) s3Keys.push({ Key: key });
+      }
+
+      if (s3Keys.length > 0) {
+        try {
+          await s3Client.send(new DeleteObjectsCommand({
+            Bucket: MEDIA_BUCKET,
+            Delete: { Objects: s3Keys, Quiet: true },
+          }));
+        } catch (s3Error: unknown) {
+          // Log but don't fail — DB deletion already committed
+          log.error('Failed to clean up S3 media for peak', s3Error);
+        }
+      }
+    }
 
     return {
       statusCode: 200,

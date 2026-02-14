@@ -169,17 +169,6 @@ export const createAuthStyles = (colors: ThemeColors, isDark: boolean) => {
       fontWeight: '500',
       color: ac.dark,
     },
-    socialBtnIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: ac.divider,
-      backgroundColor: colors.background,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-
     // Checkbox
     checkbox: {
       width: 22,

@@ -206,8 +206,7 @@ export const handleGoogleSignIn = async (
     };
   } catch (error: unknown) {
     if (__DEV__) console.warn('[GoogleAuth] Error:', error);
-    const err = error as { message?: string };
-    return { success: false, error: err.message || 'Google Sign-In failed' };
+    return { success: false, error: 'Google Sign-In failed. Please try again.' };
   }
 };
 

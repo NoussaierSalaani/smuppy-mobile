@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores/userStore';
+import { useFeedStore } from '../../stores/feedStore';
 import { useCurrentProfile, useUserPosts, useSavedPosts, useProfile, useIsFollowing } from '../../hooks/queries';
 import { useProfileEventsGroups } from '../../hooks/useProfileEventsGroups';
 import EventGroupCard from '../../components/EventGroupCard';
@@ -186,10 +187,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // Filter: posts = not peaks, peaks = is_peak true
   // Use mock data if no real data
+  const deletedPostIds = useFeedStore((s) => s.deletedPostIds);
+  const deletedPeakIds = useFeedStore((s) => s.deletedPeakIds);
+
   const posts = useMemo(() => {
-    const realPosts = allUserPosts.filter(post => !post.is_peak);
+    const realPosts = allUserPosts.filter(post => !post.is_peak && !deletedPostIds[post.id]);
     return realPosts;
-  }, [allUserPosts]);
+  }, [allUserPosts, deletedPostIds]);
 
   // Fallback peaks from posts table (if peaks API fails or filters incorrectly)
   const peaksFromPosts = useMemo(() => {
@@ -232,6 +236,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     author_id: string | null;
   }
   const [peaks, setPeaks] = useState<ProfilePeak[]>([]);
+
+  // Filter peaks by deletion tracking (same pattern as posts)
+  const filteredPeaks = useMemo(() => {
+    return peaks.filter(p => !deletedPeakIds[p.id]);
+  }, [peaks, deletedPeakIds]);
+
   useEffect(() => {
     if (!userId) return;
     // Pro business accounts don't have peaks — skip fetch entirely
@@ -391,7 +401,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const activitiesCount = businessActivities.length;
 
   // Check if user has peaks (for avatar border indicator) — for pro_business, use activities instead
-  const hasPeaks = storeUser?.accountType === 'pro_business' ? businessActivities.length > 0 : peaks.length > 0;
+  const hasPeaks = storeUser?.accountType === 'pro_business' ? businessActivities.length > 0 : filteredPeaks.length > 0;
 
   // Grade system — decorative frame for 1M+ fans
   const gradeInfo = useMemo(() => getGrade(user.stats.fans), [user.stats.fans]);
@@ -1036,7 +1046,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER PEAKS ====================
   const renderPeaks = () => {
-    if (peaks.length === 0) {
+    if (filteredPeaks.length === 0) {
       return (
         <View style={styles.emptyContainer}>
           <Ionicons name="videocam-outline" size={48} color={colors.grayMuted} style={styles.emptyIconMargin} />
@@ -1060,7 +1070,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       );
     }
 
-    const displayPeaks = peaks.length > 0 ? peaks : peaksFromPosts;
+    const displayPeaks = filteredPeaks.length > 0 ? filteredPeaks : peaksFromPosts;
 
     // Group peaks by calendar date (24h grouping for profile)
     const peakTimeGroups: { key: string; label: string; latestThumbnail: string | undefined; peakCount: number; peaks: ProfilePeak[]; totalLikes: number; totalViews: number }[] = (() => {

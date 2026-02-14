@@ -527,6 +527,12 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       hasMoreSuggestionsRef.current = true;
       fetchSuggestions(false, true);
 
+      // Remove posts deleted from detail screens
+      const deletedPosts = useFeedStore.getState().deletedPostIds;
+      if (Object.keys(deletedPosts).length > 0) {
+        setPosts(prev => prev.filter(p => !deletedPosts[p.id]));
+      }
+
       // Immediately apply like overrides from detail screens (no flash)
       const overrides = useFeedStore.getState().optimisticLikes;
       const overrideIds = Object.keys(overrides);

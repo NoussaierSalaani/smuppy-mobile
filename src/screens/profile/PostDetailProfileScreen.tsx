@@ -325,6 +325,7 @@ const PostDetailProfileScreen = () => {
           if (error) {
             showError('Error', 'Failed to delete post. Please try again.');
           } else {
+            useFeedStore.getState().markPostDeleted(currentPost.id);
             showSuccess('Deleted', 'Your post has been deleted.');
             navigation.goBack();
           }

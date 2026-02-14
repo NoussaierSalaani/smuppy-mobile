@@ -48,7 +48,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       business_address, business_latitude, business_longitude, business_phone,
       locations_mode, onboarding_completed,
       fan_count, following_count, post_count,
-      (SELECT COUNT(*) FROM peaks WHERE author_id = profiles.id) AS peak_count`;
+      (SELECT COUNT(*) FROM peaks WHERE author_id = profiles.id AND (expires_at IS NULL OR expires_at > NOW() OR saved_to_profile = true)) AS peak_count`;
 
     let result;
     if (username) {

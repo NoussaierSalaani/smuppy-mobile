@@ -534,6 +534,7 @@ const PostDetailFanFeedScreen = () => {
         if (error) {
           showError('Error', 'Could not delete post. Please try again.');
         } else {
+          useFeedStore.getState().markPostDeleted(currentPost.id);
           showSuccess('Deleted', 'Post has been deleted.');
           navigation.goBack();
         }

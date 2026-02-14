@@ -18,10 +18,14 @@ export interface FeedState {
   lastFetchTime: number | null;
   optimisticLikes: Record<string, boolean>;
   optimisticPeakLikes: Record<string, boolean>;
+  deletedPostIds: Record<string, true>;
+  deletedPeakIds: Record<string, true>;
   setFeedCache: (posts: Post[]) => void;
   appendToFeed: (newPosts: Post[]) => void;
   prependToFeed: (newPost: Post) => void;
   removeFromFeed: (postId: string) => void;
+  markPostDeleted: (postId: string) => void;
+  markPeakDeleted: (peakId: string) => void;
   toggleLikeOptimistic: (postId: string, liked: boolean) => void;
   setPeakLikeOverride: (peakId: string, liked: boolean) => void;
   clearOptimisticLikes: (postIds: string[]) => void;
@@ -39,6 +43,10 @@ export const useFeedStore = create<FeedState>()(
     // Optimistic updates for likes (shared between feed + detail screens)
     optimisticLikes: {} as Record<string, boolean>,
     optimisticPeakLikes: {} as Record<string, boolean>,
+
+    // Deletion tracking — syncs detail screen deletions with parent screens
+    deletedPostIds: {} as Record<string, true>,
+    deletedPeakIds: {} as Record<string, true>,
 
     // Actions
     setFeedCache: (posts: Post[]) =>
@@ -64,6 +72,19 @@ export const useFeedStore = create<FeedState>()(
       set((state) => {
         const idx = state.feedCache.findIndex((p) => p.id === postId);
         if (idx !== -1) state.feedCache.splice(idx, 1);
+      }),
+
+    markPostDeleted: (postId: string) =>
+      set((state) => {
+        state.deletedPostIds[postId] = true;
+        // Also remove from feed cache
+        const idx = state.feedCache.findIndex((p) => p.id === postId);
+        if (idx !== -1) state.feedCache.splice(idx, 1);
+      }),
+
+    markPeakDeleted: (peakId: string) =>
+      set((state) => {
+        state.deletedPeakIds[peakId] = true;
       }),
 
     // Optimistic like (posts) — idempotent: skip if already in desired state
@@ -107,6 +128,8 @@ export const useFeedStore = create<FeedState>()(
         state.lastFetchTime = null;
         state.optimisticLikes = {};
         state.optimisticPeakLikes = {};
+        state.deletedPostIds = {};
+        state.deletedPeakIds = {};
       }),
 
     // Check if cache is stale (older than 5 minutes)

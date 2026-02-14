@@ -19,6 +19,7 @@ import { AvatarImage, ThumbnailImage } from '../../components/OptimizedImage';
 import { PeakGridSkeleton } from '../../components/skeleton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
+import { useFeedStore } from '../../stores/feedStore';
 import { awsAPI } from '../../services/aws-api';
 import { resolveDisplayName } from '../../types/profile';
 
@@ -74,6 +75,8 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const isBusiness = user?.accountType === 'pro_business';
   const [refreshing, setRefreshing] = useState(false);
   const [peaks, setPeaks] = useState<Peak[]>([]);
+  const deletedPeakIds = useFeedStore((s) => s.deletedPeakIds);
+  const filteredPeaks = useMemo(() => peaks.filter(p => !deletedPeakIds[p.id]), [peaks, deletedPeakIds]);
   const [loading, setLoading] = useState(true);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -155,7 +158,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   // Group peaks by author for story circles (per PEAKS.md §3.3)
   const authorGroups = useMemo(() => {
     const groups = new Map<string, { user: PeakUser; peaks: Peak[]; hasUnwatched: boolean; latestCreatedAt: string }>();
-    peaks.forEach(peak => {
+    filteredPeaks.forEach(peak => {
       const userId = peak.user.id;
       const existing = groups.get(userId);
       if (existing) {
@@ -186,7 +189,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
       );
     }
     return sorted;
-  }, [peaks]);
+  }, [filteredPeaks]);
 
   // Peaks reorganized into contiguous author groups for story navigation
   const groupedPeaks = useMemo(() => {
@@ -305,7 +308,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
           </TouchableOpacity>
           )}
 
-          {peaks.length > 0 && !isBusiness ? (
+          {filteredPeaks.length > 0 && !isBusiness ? (
             <TouchableOpacity
               style={styles.headerIconButton}
               onPress={handleCreatePeak}
@@ -317,9 +320,9 @@ const PeaksFeedScreen = (): React.JSX.Element => {
       </View>
 
       {/* Loading skeleton */}
-      {loading && peaks.length === 0 ? (
+      {loading && filteredPeaks.length === 0 ? (
         <PeakGridSkeleton />
-      ) : !loading && peaks.length === 0 ? (
+      ) : !loading && filteredPeaks.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.emptyScrollContent}
           refreshControl={

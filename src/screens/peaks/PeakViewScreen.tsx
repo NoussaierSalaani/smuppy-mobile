@@ -789,6 +789,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           async () => {
             try {
               await awsAPI.deletePeak(currentPeak.id);
+              useFeedStore.getState().markPeakDeleted(currentPeak.id);
               const deletedIndex = currentIndex;
               const remaining = peaks.filter((_, i) => i !== deletedIndex);
               if (remaining.length === 0) {

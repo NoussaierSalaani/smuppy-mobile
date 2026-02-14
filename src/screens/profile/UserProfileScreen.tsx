@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserStore } from '../../stores/userStore';
+import { useFeedStore } from '../../stores/feedStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -227,9 +228,11 @@ const UserProfileScreen = () => {
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
 
-  // Separate posts and peaks
-  const posts = useMemo(() => userPosts.filter(p => !p.is_peak), [userPosts]);
-  const peaks = useMemo(() => userPosts.filter(p => p.is_peak), [userPosts]);
+  // Separate posts and peaks, filtering out deleted items
+  const deletedPostIds = useFeedStore((s) => s.deletedPostIds);
+  const deletedPeakIds = useFeedStore((s) => s.deletedPeakIds);
+  const posts = useMemo(() => userPosts.filter(p => !p.is_peak && !deletedPostIds[p.id]), [userPosts, deletedPostIds]);
+  const peaks = useMemo(() => userPosts.filter(p => p.is_peak && !deletedPeakIds[p.id]), [userPosts, deletedPeakIds]);
 
   // Business program data (for pro_business profiles — public view)
   const [businessActivities, setBusinessActivities] = useState<{ id: string; name: string }[]>([]);

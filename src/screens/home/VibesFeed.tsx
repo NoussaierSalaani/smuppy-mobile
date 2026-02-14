@@ -411,6 +411,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         return;
       }
 
+      // Remove posts deleted from detail screens
+      const deletedPosts = useFeedStore.getState().deletedPostIds;
+      if (Object.keys(deletedPosts).length > 0) {
+        setAllPosts(prev => prev.filter(p => !deletedPosts[p.id]));
+      }
+
       // Immediately apply like overrides from detail screens (no flash)
       const overrides = useFeedStore.getState().optimisticLikes;
       const overrideIds = Object.keys(overrides);

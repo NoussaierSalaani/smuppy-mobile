@@ -1675,8 +1675,8 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(14, 191, 138, 0.5)' : 'rgba(14, 191, 138, 0.4)',
     backgroundColor: isDark ? 'rgba(26,26,26,0.8)' : 'rgba(255,255,255,0.4)',
   },
   statGlassItem: {
@@ -1686,7 +1686,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   statGlassDivider: {
     width: 1,
     height: 20,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
+    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.4)' : 'rgba(14, 191, 138, 0.35)',
   },
   statGlassValue: {
     fontSize: 15,

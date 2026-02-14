@@ -1,6 +1,7 @@
 import { useCallback, useRef, Dispatch, SetStateAction } from 'react';
 
 import { likePost, savePost, unsavePost } from '../services/database';
+import { useFeedStore } from '../stores/feedStore';
 
 /**
  * Minimal post shape required for like/save interactions.
@@ -67,6 +68,8 @@ export function usePostInteractions<T extends InteractablePost>({
       } else if (!wasLiked) {
         onLike?.(postId);
       }
+      // Sync to feed store for cross-screen consistency
+      useFeedStore.getState().toggleLikeOptimistic(postId, !wasLiked);
     } catch (err) {
       if (__DEV__) console.warn('[usePostInteractions] Like error:', err);
     } finally {

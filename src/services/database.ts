@@ -753,21 +753,6 @@ export const likePost = async (postId: string): Promise<DbResponse<Like>> => {
 };
 
 /**
- * Unlike a post
- */
-export const unlikePost = async (postId: string): Promise<{ error: string | null }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { error: 'Not authenticated' };
-
-  try {
-    await awsAPI.unlikePost(postId);
-    return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
-  }
-};
-
-/**
  * Check if current user liked a post
  */
 export const hasLikedPost = async (postId: string): Promise<{ hasLiked: boolean }> => {

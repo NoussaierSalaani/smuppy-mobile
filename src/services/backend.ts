@@ -97,10 +97,6 @@ export async function likePost(postId: string): Promise<void> {
   await awsAPI.likePost(postId);
 }
 
-export async function unlikePost(postId: string): Promise<void> {
-  await awsAPI.unlikePost(postId);
-}
-
 // ==========================================
 // Profiles
 // ==========================================

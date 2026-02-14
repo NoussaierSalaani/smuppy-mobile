@@ -65,9 +65,10 @@ export const useFeedStore = create<FeedState>()(
         if (idx !== -1) state.feedCache.splice(idx, 1);
       }),
 
-    // Optimistic like (posts)
+    // Optimistic like (posts) — idempotent: skip if already in desired state
     toggleLikeOptimistic: (postId: string, liked: boolean) =>
       set((state) => {
+        if (state.optimisticLikes[postId] === liked) return;
         state.optimisticLikes[postId] = liked;
         // Update like count in cache
         const post = state.feedCache.find((p) => p.id === postId);

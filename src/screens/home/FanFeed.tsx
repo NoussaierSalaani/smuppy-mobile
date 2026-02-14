@@ -537,15 +537,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           }
           return p;
         }));
-        // Clear applied overrides so they don't accumulate
-        const currentPostIds = postsRef.current.map(p => p.id);
-        const applied = currentPostIds.filter(id => id in overrides);
-        if (applied.length > 0) {
-          useFeedStore.getState().clearOptimisticLikes(applied);
-        }
       }
 
       // Re-sync like/save state from database (backup for accuracy)
+      // Clear optimistic overrides only AFTER authoritative data is applied
       const currentPosts = postsRef.current;
       if (currentPosts.length > 0) {
         const postIds = currentPosts.map(p => p.id);
@@ -560,9 +555,19 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             isLiked: likedMap.get(p.id) ?? p.isLiked,
             isSaved: savedMap.get(p.id) ?? p.isSaved,
           })));
+          // Now that authoritative data is applied, clear overrides
+          if (overrideIds.length > 0) {
+            const applied = postIds.filter(id => id in overrides);
+            if (applied.length > 0) {
+              useFeedStore.getState().clearOptimisticLikes(applied);
+            }
+          }
         }).catch((err) => {
           if (__DEV__) console.warn('[FanFeed] Error syncing like/save state:', err);
         });
+      } else if (overrideIds.length > 0) {
+        // No posts to re-sync, clear overrides immediately
+        useFeedStore.getState().clearOptimisticLikes(overrideIds);
       }
     }, [fetchSuggestions])
   );

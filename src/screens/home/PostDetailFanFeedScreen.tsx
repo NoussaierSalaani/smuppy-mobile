@@ -104,7 +104,8 @@ const PostDetailFanFeedScreen = () => {
   const [localLikes, setLocalLikes] = useState<Record<string, number>>({});
 
   // Loading states for anti spam-click
-  const [likeLoading, setLikeLoading] = useState<LoadingRecord>({});
+  const likeLoadingRef = useRef(new Set<string>());
+  const [likeLoadingState, setLikeLoadingState] = useState<LoadingRecord>({}); // visual indicator only
   const [bookmarkLoading, setBookmarkLoading] = useState<LoadingRecord>({});
   const [fanLoading, setFanLoading] = useState<LoadingRecord>({});
   const [fanStatusChecking, setFanStatusChecking] = useState<Record<string, boolean>>({}); // Track which users we're checking
@@ -221,9 +222,9 @@ const PostDetailFanFeedScreen = () => {
     ]).start(() => setShowLikeAnimation(false));
   }, [likeAnimationScale]);
 
-  // Toggle like with anti spam-click - connected to database
+  // Toggle like with anti spam-click (ref-based guard) - connected to database
   const toggleLike = useCallback(async (pId: string) => {
-    if (likeLoading[pId]) return;
+    if (likeLoadingRef.current.has(pId)) return;
 
     if (!isValidUUID(pId)) {
       // For mock data, use local state only
@@ -234,7 +235,8 @@ const PostDetailFanFeedScreen = () => {
       return;
     }
 
-    setLikeLoading(prev => ({ ...prev, [pId]: true }));
+    likeLoadingRef.current.add(pId);
+    setLikeLoadingState(prev => ({ ...prev, [pId]: true }));
     const isCurrentlyLiked = likedPosts[pId];
     const currentItem = fanFeedPosts.find((p: FanFeedPost) => p.id === pId);
     const currentLikes = localLikes[pId] ?? currentItem?.likes ?? 0;
@@ -259,9 +261,10 @@ const PostDetailFanFeedScreen = () => {
       setLikedPosts(prev => ({ ...prev, [pId]: isCurrentlyLiked }));
       setLocalLikes(prev => ({ ...prev, [pId]: currentLikes }));
     } finally {
-      setLikeLoading(prev => ({ ...prev, [pId]: false }));
+      likeLoadingRef.current.delete(pId);
+      setLikeLoadingState(prev => ({ ...prev, [pId]: false }));
     }
-  }, [likeLoading, likedPosts, localLikes, fanFeedPosts, triggerLikeAnimation]);
+  }, [likedPosts, localLikes, fanFeedPosts, triggerLikeAnimation]);
 
   // Toggle bookmark with anti spam-click - connected to database
   const toggleBookmark = useCallback(async (pId: string) => {
@@ -670,14 +673,14 @@ const PostDetailFanFeedScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionBtn, likeLoading[item.id] && styles.actionBtnDisabled]}
+              style={[styles.actionBtn, likeLoadingState[item.id] && styles.actionBtnDisabled]}
               onPress={() => toggleLike(item.id)}
-              disabled={likeLoading[item.id]}
+              disabled={likeLoadingState[item.id]}
               accessibilityLabel={isLiked ? 'Unlike' : 'Like'}
               accessibilityRole="button"
               accessibilityState={{ selected: isLiked }}
             >
-              {likeLoading[item.id] ? (
+              {likeLoadingState[item.id] ? (
                 <ActivityIndicator size="small" color={colors.heartRed} />
               ) : (
                 <SmuppyHeartIcon
@@ -814,7 +817,7 @@ const PostDetailFanFeedScreen = () => {
     );
   }, [likedPosts, bookmarkedPosts, localLikes, currentUserId, fanStatus, fanStatusChecking, isUnderReview,
       handleDoubleTap, currentIndex, isAudioMuted, isPaused, carouselIndexes, showLikeAnimation,
-      likeAnimationScale, shareLoading, handleShare, likeLoading, toggleLike, bookmarkLoading,
+      likeAnimationScale, shareLoading, handleShare, likeLoadingState, toggleLike, bookmarkLoading,
       toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescription,
       styles, colors, navigation, bottomContentPaddingStyle, handleGoBack, handleShowMenu,
       handleToggleAudioMute, handleToggleDescription, headerPaddingStyle]);

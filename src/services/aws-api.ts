@@ -592,12 +592,6 @@ class AWSAPIService {
     });
   }
 
-  async unlikePost(id: string): Promise<void> {
-    return this.request(`/posts/${id}/like`, {
-      method: 'DELETE',
-    });
-  }
-
   // ==========================================
   // Profiles API
   // ==========================================
@@ -775,12 +769,6 @@ class AWSAPIService {
   async likePeak(id: string): Promise<void> {
     return this.request(`/peaks/${id}/like`, {
       method: 'POST',
-    });
-  }
-
-  async unlikePeak(id: string): Promise<void> {
-    return this.request(`/peaks/${id}/like`, {
-      method: 'DELETE',
     });
   }
 

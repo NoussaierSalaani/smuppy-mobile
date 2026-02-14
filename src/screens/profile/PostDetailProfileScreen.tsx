@@ -140,7 +140,8 @@ const PostDetailProfileScreen = () => {
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [fanLoading, setFanLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
-  const [likeLoading, setLikeLoading] = useState(false);
+  const likeLoadingRef = useRef(false);
+  const [likeLoadingState, setLikeLoadingState] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [localLikes, setLocalLikes] = useState<Record<string, number>>({});
@@ -240,9 +241,9 @@ const PostDetailProfileScreen = () => {
     }
   }, [fanLoading, currentPost?.user?.id, isOwnPost]);
 
-  // Toggle like with optimistic count update
+  // Toggle like with optimistic count update (ref-based guard)
   const toggleLike = useCallback(async () => {
-    if (likeLoading || !currentPost) return;
+    if (likeLoadingRef.current || !currentPost) return;
 
     const id = currentPost.id;
     if (!id || !isValidUUID(id)) {
@@ -251,7 +252,8 @@ const PostDetailProfileScreen = () => {
       return;
     }
 
-    setLikeLoading(true);
+    likeLoadingRef.current = true;
+    setLikeLoadingState(true);
     const currentLikes = localLikes[id] ?? currentPost.likes;
 
     try {
@@ -273,10 +275,11 @@ const PostDetailProfileScreen = () => {
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailProfile] Like error:', error);
     } finally {
-      setLikeLoading(false);
+      likeLoadingRef.current = false;
+      setLikeLoadingState(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [likeLoading, currentPost, isLiked, localLikes]);
+  }, [currentPost, isLiked, localLikes]);
 
   // Toggle bookmark
   const toggleBookmark = useCallback(async () => {
@@ -572,11 +575,11 @@ const PostDetailProfileScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionBtn, likeLoading && styles.actionBtnDisabled]}
+              style={[styles.actionBtn, likeLoadingState && styles.actionBtnDisabled]}
               onPress={toggleLike}
-              disabled={likeLoading}
+              disabled={likeLoadingState}
             >
-              {likeLoading ? (
+              {likeLoadingState ? (
                 <ActivityIndicator size="small" color={colors.heartRed} />
               ) : (
                 <SmuppyHeartIcon
@@ -708,7 +711,7 @@ const PostDetailProfileScreen = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     currentIndex, isPaused, showLikeAnimation, likeAnimationScale,
-    isLiked, isBookmarked, isFan, fanLoading, shareLoading, likeLoading,
+    isLiked, isBookmarked, isFan, fanLoading, shareLoading, likeLoadingState,
     bookmarkLoading, localLikes, currentUserId,
     colors, styles, headerPaddingStyle, bottomContentPaddingStyle,
     handleDoubleTap, handleShare, handleGoBack, handleShowMenu,

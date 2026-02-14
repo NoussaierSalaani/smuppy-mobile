@@ -211,8 +211,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Moderation: check text fields (bio, fullName, displayName) for violations
-    const textFieldsToCheck = ['bio', 'fullName', 'displayName'].filter(f => body[f] && typeof body[f] === 'string');
+    // Moderation: check text fields (bio, fullName, displayName, username) for violations
+    const textFieldsToCheck = ['bio', 'fullName', 'displayName', 'username'].filter(f => body[f] && typeof body[f] === 'string');
     for (const field of textFieldsToCheck) {
       const textValue = body[field] as string;
       const filterResult = await filterText(textValue);
@@ -221,7 +221,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ message: `Your ${field === 'bio' ? 'bio' : 'name'} contains content that violates our community guidelines.` }),
+          body: JSON.stringify({ message: `Your ${field === 'bio' ? 'bio' : field === 'username' ? 'username' : 'name'} contains content that violates our community guidelines.` }),
         };
       }
       const toxicityResult = await analyzeTextToxicity(textValue);
@@ -230,7 +230,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ message: `Your ${field === 'bio' ? 'bio' : 'name'} contains content that violates our community guidelines.` }),
+          body: JSON.stringify({ message: `Your ${field === 'bio' ? 'bio' : field === 'username' ? 'username' : 'name'} contains content that violates our community guidelines.` }),
         };
       }
     }

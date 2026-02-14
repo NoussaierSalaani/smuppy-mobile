@@ -16,6 +16,7 @@ import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme } from '../../hooks/useTheme';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 import { searchNominatim, NominatimSearchResult, isValidCoordinate } from '../../config/api';
 
@@ -657,9 +658,19 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
   }, [navigation, accountType, isVerified, businessLatitude, businessLongitude, showAlert]);
 
+  // Filter out markers from blocked/muted users (live streams from hidden users)
+  const isHidden = useUserSafetyStore((s) => s.isHidden);
   const allMarkers = useMemo(() => {
-    return [...liveMarkers, ...eventGroupMarkers];
-  }, [liveMarkers, eventGroupMarkers]);
+    const markers = [...liveMarkers, ...eventGroupMarkers];
+    return markers.filter((m) => {
+      // Live markers: filter by host user ID
+      if (m.type === 'live') {
+        const hostId = m.id.replace('live_', '');
+        return !isHidden(hostId);
+      }
+      return true;
+    });
+  }, [liveMarkers, eventGroupMarkers, isHidden]);
 
   const filteredMarkers = useMemo(() => {
     let markers = allMarkers;

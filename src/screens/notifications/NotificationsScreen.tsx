@@ -24,6 +24,7 @@ import { NotificationsSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks/queries';
 import { formatTimeAgo } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 /** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
 const sanitizeText = (text: string | null | undefined): string => {
@@ -651,12 +652,23 @@ export default function NotificationsScreen(): React.JSX.Element {
       });
   }, []);
 
+  // Filter out notifications from blocked/muted users
+  const isHidden = useUserSafetyStore((s) => s.isHidden);
+  const safeNotifications = useMemo(() => {
+    return notifications.filter((n) => {
+      if ('user' in n && (n as UserNotification).user?.id) {
+        return !isHidden((n as UserNotification).user.id);
+      }
+      return true; // keep system notifications
+    });
+  }, [notifications, isHidden]);
+
   const filteredNotifications = useMemo(() => {
-    if (activeFilter === 'all') return notifications;
-    if (activeFilter === 'likes') return notifications.filter((n) => n.type === 'like' || n.type === 'peak_like');
-    if (activeFilter === 'peaks') return notifications.filter((n) => n.type === 'peak_reply' || n.type === 'peak_like');
-    return notifications.filter((n) => n.type === activeFilter);
-  }, [notifications, activeFilter]);
+    if (activeFilter === 'all') return safeNotifications;
+    if (activeFilter === 'likes') return safeNotifications.filter((n) => n.type === 'like' || n.type === 'peak_like');
+    if (activeFilter === 'peaks') return safeNotifications.filter((n) => n.type === 'peak_reply' || n.type === 'peak_like');
+    return safeNotifications.filter((n) => n.type === activeFilter);
+  }, [safeNotifications, activeFilter]);
 
   const [recentNotifications, olderNotifications] = useMemo(() => {
     const recent = filteredNotifications.filter(

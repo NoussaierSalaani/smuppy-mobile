@@ -9,7 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
-import { checkUserEscalation } from '../../shared/moderation/autoEscalation';
+import { checkUserEscalation, checkPeakEscalation } from '../../shared/moderation/autoEscalation';
 
 const log = createLogger('reports-peak');
 const MAX_REASON_LENGTH = 100;
@@ -112,8 +112,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     log.info('Peak report created', { reportId: result.rows[0].id });
 
-    // Auto-escalation: check if peak author should be escalated
+    // Auto-escalation: check if peak should be auto-hidden + user escalation
     try {
+      const peakEscalation = await checkPeakEscalation(db, peakId);
+      if (peakEscalation.action !== 'none') {
+        log.info('Peak escalation triggered', peakEscalation);
+      }
+
       const peakAuthorResult = await db.query('SELECT author_id FROM peaks WHERE id = $1', [peakId]);
       if (peakAuthorResult.rows.length > 0) {
         const userEscalation = await checkUserEscalation(db, peakAuthorResult.rows[0].author_id);

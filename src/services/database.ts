@@ -9,6 +9,7 @@ import type {
   Spot as SpotType,
   SpotReview as SpotReviewType,
 } from '../types';
+import { filterContent } from '../utils/contentFilters';
 
 /** Extract message from an unknown error */
 const getErrorMessage = (error: unknown): string => {
@@ -1079,6 +1080,12 @@ export const getComments = async (postId: string, _page = 0, limit = 20): Promis
 export const addComment = async (postId: string, text: string, parentId?: string): Promise<DbResponse<Comment>> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
+
+  // Client-side content filtering (backend also validates)
+  const filterResult = filterContent(text, { context: 'comment' });
+  if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+    return { data: null, error: filterResult.reason || 'Comment violates community guidelines.' };
+  }
 
   try {
     const result = await awsAPI.createComment(postId, text, parentId);

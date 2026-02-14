@@ -162,6 +162,10 @@ async function quarantineObject(sourceBucket: string, sourceKey: string): Promis
       Key: sourceKey,
     }),
   );
+
+  // Note: DB references to the quarantined image will return 404/403.
+  // Clients handle missing images gracefully with fallback placeholders.
+  // A future admin cleanup job can sweep DB records referencing deleted S3 keys.
 }
 
 async function sendAlert(

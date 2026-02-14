@@ -86,6 +86,65 @@ export async function checkPostEscalation(
 }
 
 /**
+ * Check if a peak should be auto-hidden based on report volume.
+ * Call this after inserting a new peak report.
+ */
+export async function checkPeakEscalation(
+  db: Pool,
+  peakId: string,
+): Promise<EscalationResult> {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Count reports in the last hour
+    const result = await client.query(
+      `SELECT COUNT(*) as cnt FROM peak_reports
+       WHERE peak_id = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
+      [peakId],
+    );
+
+    const count = parseInt(result.rows[0]?.cnt || '0', 10) || 0;
+
+    if (count >= 3) {
+      // Auto-hide the peak
+      const hideResult = await client.query(
+        `UPDATE peaks SET visibility = 'hidden' WHERE id = $1 AND visibility != 'hidden'
+         RETURNING author_id`,
+        [peakId],
+      );
+
+      await client.query('COMMIT');
+
+      log.info('Auto-hid peak due to report threshold', { peakId, reportCount: count });
+
+      if (hideResult.rows.length > 0) {
+        const authorId = hideResult.rows[0].author_id;
+        sendPushToUser(db, authorId, {
+          title: 'Peak Hidden',
+          body: 'Your peak has been hidden due to multiple reports. You can appeal this decision.',
+          data: { type: 'peak_hidden', peakId },
+        }).catch(err => log.error('Push notification failed for peak hide', err));
+      }
+
+      return {
+        action: 'hide_post',
+        targetId: peakId,
+        reason: `Peak auto-hidden: ${count} reports in 1 hour`,
+      };
+    }
+
+    await client.query('COMMIT');
+    return { action: 'none', targetId: peakId, reason: '' };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Check if a user should be auto-suspended based on report volume.
  * Call this after inserting any report against a user's content.
  */

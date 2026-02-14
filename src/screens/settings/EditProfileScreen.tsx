@@ -28,6 +28,7 @@ import { searchNominatim, isValidCoordinate, NominatimSearchResult } from '../..
 import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateForDisplay } from '../../utils/dateFormatters';
+import { filterContent } from '../../utils/contentFilters';
 
 interface EditProfileScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -256,10 +257,25 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const handleSave = async () => {
     if (isSaving) return;
 
+    // Client-side content filtering for bio and name
+    const fullName = `${firstName} ${lastName}`.trim();
+    if (bio) {
+      const bioFilter = filterContent(bio, { context: 'bio' });
+      if (!bioFilter.clean && (bioFilter.severity === 'critical' || bioFilter.severity === 'high')) {
+        alert.error('Content Policy', bioFilter.reason || 'Your bio contains inappropriate content.');
+        return;
+      }
+    }
+    if (fullName) {
+      const nameFilter = filterContent(fullName, { context: 'bio' });
+      if (!nameFilter.clean && nameFilter.severity === 'critical') {
+        alert.error('Content Policy', 'Your name contains content that violates our guidelines.');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
-      const fullName = `${firstName} ${lastName}`.trim();
-
       // Handle avatar upload if changed
       let avatarUrl = avatar;
       if (avatarChanged && avatar && !avatar.startsWith('http')) {

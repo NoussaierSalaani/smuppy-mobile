@@ -1547,6 +1547,9 @@ export class LambdaStack extends cdk.NestedStack {
       this.profilesUpdateFn,
       this.tipsSendFn,
       this.liveStreamsStartFn,
+      // WebSocket handlers that use text moderation
+      this.wsSendMessageFn,
+      this.wsLiveStreamFn,
     ];
     for (const fn of comprehendLambdas) {
       fn.addToRolePolicy(new iam.PolicyStatement({

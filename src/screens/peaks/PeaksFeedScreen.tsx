@@ -22,6 +22,7 @@ import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { awsAPI } from '../../services/aws-api';
 import { resolveDisplayName } from '../../types/profile';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 /** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
 const sanitizeText = (text: string | null | undefined): string => {
@@ -76,7 +77,8 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const [refreshing, setRefreshing] = useState(false);
   const [peaks, setPeaks] = useState<Peak[]>([]);
   const deletedPeakIds = useFeedStore((s) => s.deletedPeakIds);
-  const filteredPeaks = useMemo(() => peaks.filter(p => !deletedPeakIds[p.id]), [peaks, deletedPeakIds]);
+  const isHidden = useUserSafetyStore((s) => s.isHidden);
+  const filteredPeaks = useMemo(() => peaks.filter(p => !deletedPeakIds[p.id] && !isHidden(p.user.id)), [peaks, deletedPeakIds, isHidden]);
   const [loading, setLoading] = useState(true);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);

@@ -1031,13 +1031,6 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             <Ionicons name="play" size={12} color="#FFF" />
           </View>
         )}
-        {/* Stats overlay at bottom */}
-        <View style={styles.postStatsOverlay}>
-          <View style={styles.postStat}>
-            <SmuppyHeartIcon size={12} color="#FFF" filled />
-            <Text style={styles.postStatText}>{post.likes_count || 0}</Text>
-          </View>
-        </View>
       </TouchableOpacity>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps

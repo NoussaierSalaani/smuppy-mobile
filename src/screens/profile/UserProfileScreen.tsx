@@ -789,17 +789,6 @@ const UserProfileScreen = () => {
             <Ionicons name="play" size={14} color="#FFF" />
           </View>
         )}
-        {/* Stats overlay at bottom */}
-        <View style={styles.postStatsOverlay}>
-          <View style={styles.postStat}>
-            <SmuppyHeartIcon size={12} color="#FFF" filled />
-            <Text style={styles.postStatTextWhite}>{post.likes_count || 0}</Text>
-          </View>
-          <View style={styles.postStat}>
-            <Ionicons name="eye" size={12} color="#FFF" />
-            <Text style={styles.postStatTextWhite}>{post.views_count || 0}</Text>
-          </View>
-        </View>
       </TouchableOpacity>
     );
   }, [navigation, profile, colors, styles]);

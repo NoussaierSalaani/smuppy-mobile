@@ -278,7 +278,6 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
 
     <View style={styles.vibeOverlayContainer}>
       <BlurView intensity={20} tint="dark" style={styles.vibeBlurOverlay}>
-        <Text style={styles.vibeTitle} numberOfLines={2}>{sanitizeText(post.title)}</Text>
         <TouchableOpacity
           style={styles.vibeMeta}
           onPress={(e) => {
@@ -288,16 +287,6 @@ const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onU
         >
           <AvatarImage source={post.user.avatar} size={20} style={styles.vibeAvatar} />
           <Text style={styles.vibeUserName} numberOfLines={1}>{sanitizeText(post.user.name)}</Text>
-          <View style={styles.vibeLikes}>
-            <SmuppyHeartIcon
-              size={12}
-              color={post.isLiked ? colors.heartRed : "#fff"}
-              filled={post.isLiked}
-            />
-            <Text style={[styles.vibeLikesText, post.isLiked && styles.vibeLikesTextLiked]}>
-              {formatNumber(post.likes)}
-            </Text>
-          </View>
         </TouchableOpacity>
       </BlurView>
     </View>
@@ -1203,10 +1192,6 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                         }}
                       >
                         <OptimizedImage source={post.media} style={[styles.relatedImage, { height: 100 }]} />
-                        <View style={styles.relatedOverlay}>
-                          <SmuppyHeartIcon size={10} color="#fff" filled={post.isLiked} />
-                          <Text style={styles.relatedLikes}>{formatNumber(post.likes)}</Text>
-                        </View>
                       </TouchableOpacity>
                     ))}
                   </View>

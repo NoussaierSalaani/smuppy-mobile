@@ -2171,11 +2171,18 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
 };
 
 /**
- * Share a post to a conversation
+ * Share a post with a user via DM.
+ * Finds or creates a conversation with the recipient, then sends the shared post.
  */
-export const sharePostToConversation = async (postId: string, conversationId: string): Promise<{ error: string | null }> => {
+export const sharePostToUser = async (postId: string, recipientUserId: string): Promise<{ error: string | null }> => {
   try {
-    // Send the shared post as a message with a special content format
+    // Step 1: Get or create conversation with recipient
+    const { data: conversationId, error: convError } = await getOrCreateConversation(recipientUserId);
+    if (convError || !conversationId) {
+      return { error: convError || 'Could not start conversation' };
+    }
+
+    // Step 2: Send the shared post as a message
     await awsAPI.request(`/conversations/${conversationId}/messages`, {
       method: 'POST',
       body: { content: `[shared_post:${postId}]`, messageType: 'text' },
@@ -2185,6 +2192,11 @@ export const sharePostToConversation = async (postId: string, conversationId: st
     return { error: getErrorMessage(error) };
   }
 };
+
+/**
+ * @deprecated Use sharePostToUser instead — accepts userId and resolves conversation internally.
+ */
+export const sharePostToConversation = sharePostToUser;
 
 /**
  * Mark conversation as read

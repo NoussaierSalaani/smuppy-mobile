@@ -90,6 +90,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Sanitize content: strip HTML tags and control characters
     const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
 
+    // Detect shared post: content format is [shared_post:UUID]
+    const SHARED_POST_PATTERN = /^\[shared_post:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;
+    const sharedPostMatch = sanitizedContent.match(SHARED_POST_PATTERN);
+    let sharedPostId: string | null = null;
+    if (sharedPostMatch) {
+      sharedPostId = sharedPostMatch[1];
+    }
+
     // Check account status (suspended/banned users cannot send messages)
     const accountCheck = await requireActiveAccount(userId, headers);
     if (isAccountError(accountCheck)) return accountCheck;
@@ -203,10 +211,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       const messageResult = await client.query(
-        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, reply_to_message_id, read, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, false, NOW())
-         RETURNING id, content, media_url, media_type, sender_id, recipient_id, reply_to_message_id, read, created_at`,
-        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validReplyToMessageId]
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, reply_to_message_id, shared_post_id, read, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, NOW())
+         RETURNING id, content, media_url, media_type, sender_id, recipient_id, reply_to_message_id, shared_post_id, read, created_at`,
+        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validReplyToMessageId, sharedPostId]
       );
 
       await client.query(

@@ -7,8 +7,8 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
+  FlatList,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
@@ -20,10 +20,11 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import {
   getConversations,
   searchProfiles,
-  sharePostToConversation,
+  sharePostToUser,
   Conversation,
   Profile,
 } from '../services/database';
+import { useUserSafetyStore } from '../stores/userSafetyStore';
 import { resolveDisplayName } from '../types/profile';
 
 interface SharePostModalProps {
@@ -44,6 +45,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
   const { showError, showSuccess } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { isHidden } = useUserSafetyStore();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -56,7 +58,8 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     try {
       const { data } = await getConversations();
       if (data) {
-        setConversations(data);
+        // Filter out blocked/muted users
+        setConversations(data.filter(c => c.other_user && !isHidden(c.other_user.id)));
       } else {
         setConversations([]);
       }
@@ -66,72 +69,92 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isHidden]);
 
-  // Load recent conversations
+  // Load recent conversations when modal opens
   useEffect(() => {
     if (visible) {
       loadConversations();
+      setSearchQuery('');
+      setSearchResults([]);
     }
   }, [visible, loadConversations]);
 
-  // Search users
+  // Search users with debounce
   useEffect(() => {
     if (searchQuery.length >= 2) {
       const timer = setTimeout(async () => {
-        const { data } = await searchProfiles(searchQuery, 20);
-        if (data) {
-          setSearchResults(data);
+        try {
+          const { data } = await searchProfiles(searchQuery, 20);
+          if (data) {
+            // Filter out blocked/muted users
+            setSearchResults(data.filter(p => !isHidden(p.id)));
+          }
+        } catch (err) {
+          if (__DEV__) console.warn('[SharePostModal] Search failed:', err);
         }
       }, 300);
       return () => clearTimeout(timer);
     } else {
       setSearchResults([]);
     }
-  }, [searchQuery]);
+  }, [searchQuery, isHidden]);
 
-  // Share to a user from conversation
-  const handleShareToConversation = async (conv: Conversation) => {
-    if (!post || !conv.other_user) return;
+  // Share to a user from conversation list
+  const handleShareToConversation = useCallback(async (conv: Conversation) => {
+    if (!post || !conv.other_user || sending) return;
 
-    setSending(conv.id);
-    const { error } = await sharePostToConversation(post.id, conv.other_user.id);
-
-    if (error) {
-      showError('Error', 'Failed to share post');
-    } else {
-      showSuccess('Sent!', `Post shared with ${resolveDisplayName(conv.other_user)}`);
-      onClose();
+    const recipientId = conv.other_user.id;
+    setSending(recipientId);
+    try {
+      const { error } = await sharePostToUser(post.id, recipientId);
+      if (error) {
+        showError('Error', 'Failed to share post. Please try again.');
+      } else {
+        showSuccess('Sent!', `Post shared with ${resolveDisplayName(conv.other_user)}`);
+        onClose();
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[SharePostModal] Share to conversation failed:', err);
+      showError('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setSending(null);
     }
-    setSending(null);
-  };
+  }, [post, sending, showError, showSuccess, onClose]);
 
-  // Share to a user from search
-  const handleShareToUser = async (user: Profile) => {
-    if (!post) return;
+  // Share to a user from search results
+  const handleShareToUser = useCallback(async (user: Profile) => {
+    if (!post || sending) return;
 
     setSending(user.id);
-    const { error } = await sharePostToConversation(post.id, user.id);
-
-    if (error) {
-      showError('Error', 'Failed to share post');
-    } else {
-      showSuccess('Sent!', `Post shared with ${resolveDisplayName(user)}`);
-      onClose();
+    try {
+      const { error } = await sharePostToUser(post.id, user.id);
+      if (error) {
+        showError('Error', 'Failed to share post. Please try again.');
+      } else {
+        showSuccess('Sent!', `Post shared with ${resolveDisplayName(user)}`);
+        onClose();
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[SharePostModal] Share to user failed:', err);
+      showError('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setSending(null);
     }
-    setSending(null);
-  };
+  }, [post, sending, showError, showSuccess, onClose]);
 
   // Render conversation item
-  const renderConversation = ({ item }: { item: Conversation }) => {
+  const renderConversation = useCallback(({ item }: { item: Conversation }) => {
     const otherUser = item.other_user;
     if (!otherUser) return null;
+
+    const isSending = sending === otherUser.id;
 
     return (
       <TouchableOpacity
         style={styles.userItem}
         onPress={() => handleShareToConversation(item)}
-        disabled={sending === item.id}
+        disabled={isSending || sending !== null}
       >
         <AvatarImage source={otherUser.avatar_url} size={50} />
         <View style={styles.userInfo}>
@@ -144,50 +167,48 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
             />
           </View>
         </View>
-        {sending === item.id ? (
+        {isSending ? (
           <ActivityIndicator size="small" color={colors.primary} />
         ) : (
-          <TouchableOpacity
-            style={styles.sendButton}
-            onPress={() => handleShareToConversation(item)}
-          >
+          <View style={[styles.sendButton, sending !== null && styles.sendButtonDisabled]}>
             <Text style={styles.sendButtonText}>Send</Text>
-          </TouchableOpacity>
+          </View>
         )}
       </TouchableOpacity>
     );
-  };
+  }, [styles, colors.primary, sending, handleShareToConversation]);
 
   // Render search result
-  const renderSearchResult = ({ item }: { item: Profile }) => (
-    <TouchableOpacity
-      style={styles.userItem}
-      onPress={() => handleShareToUser(item)}
-      disabled={sending === item.id}
-    >
-      <AvatarImage source={item.avatar_url} size={50} />
-      <View style={styles.userInfo}>
-        <View style={styles.userNameRow}>
-          <Text style={styles.userName}>{resolveDisplayName(item)}</Text>
-          <AccountBadge
-            size={14}
-            isVerified={item.is_verified}
-            accountType={item.account_type}
-          />
+  const renderSearchResult = useCallback(({ item }: { item: Profile }) => {
+    const isSending = sending === item.id;
+
+    return (
+      <TouchableOpacity
+        style={styles.userItem}
+        onPress={() => handleShareToUser(item)}
+        disabled={isSending || sending !== null}
+      >
+        <AvatarImage source={item.avatar_url} size={50} />
+        <View style={styles.userInfo}>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName}>{resolveDisplayName(item)}</Text>
+            <AccountBadge
+              size={14}
+              isVerified={item.is_verified}
+              accountType={item.account_type}
+            />
+          </View>
         </View>
-      </View>
-      {sending === item.id ? (
-        <ActivityIndicator size="small" color={colors.primary} />
-      ) : (
-        <TouchableOpacity
-          style={styles.sendButton}
-          onPress={() => handleShareToUser(item)}
-        >
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
-      )}
-    </TouchableOpacity>
-  );
+        {isSending ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <View style={[styles.sendButton, sending !== null && styles.sendButtonDisabled]}>
+            <Text style={styles.sendButtonText}>Send</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }, [styles, colors.primary, sending, handleShareToUser]);
 
   return (
     <Modal
@@ -203,7 +224,7 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
             <Ionicons name="close" size={28} color={colors.dark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Share</Text>
-          <View style={{ width: 28 }} />
+          <View style={styles.headerSpacer} />
         </View>
 
         {/* Post Preview */}
@@ -247,10 +268,11 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : searchQuery.length >= 2 ? (
-          <FlashList
+          <FlatList
             data={searchResults}
             renderItem={renderSearchResult}
             keyExtractor={(item) => item.id}
+
             ListEmptyComponent={() => (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>No users found</Text>
@@ -260,10 +282,11 @@ export default function SharePostModal({ visible, post, onClose }: SharePostModa
         ) : (
           <>
             <Text style={styles.sectionTitle}>Recent Conversations</Text>
-            <FlashList
+            <FlatList
               data={conversations}
               renderItem={renderConversation}
               keyExtractor={(item) => item.id}
+  
               ListEmptyComponent={() => (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyText}>No recent conversations</Text>
@@ -296,6 +319,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 18,
     fontWeight: '600',
     color: colors.dark,
+  },
+  headerSpacer: {
+    width: 28,
   },
   postPreview: {
     flexDirection: 'row',
@@ -371,16 +397,14 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     color: colors.dark,
     marginRight: 4,
   },
-  userUsername: {
-    fontSize: 14,
-    color: colors.gray,
-    marginTop: 2,
-  },
   sendButton: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
   sendButtonText: {
     color: '#fff',

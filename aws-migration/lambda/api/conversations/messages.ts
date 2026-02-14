@@ -125,6 +125,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         m.created_at,
         m.reply_to_message_id,
         m.is_deleted,
+        m.shared_post_id,
         json_build_object(
           'id', p.id,
           'username', p.username,

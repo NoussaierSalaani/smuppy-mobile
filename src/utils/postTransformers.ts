@@ -181,9 +181,7 @@ export const transformToVibePost = (
   likedPostIds: Set<string>,
   savedPostIds?: Set<string>
 ): UIVibePost => {
-  // Generate varied heights for masonry layout based on post ID
-  const heights = [180, 200, 220, 240, 260, 280];
-  const randomHeight = heights[Math.abs(post.id.charCodeAt(0)) % heights.length];
+  const randomHeight = getMasonryHeight(post.id);
   const allMedia = post.media_urls?.filter(Boolean) || [];
 
   return {

@@ -28,7 +28,8 @@
     "aws-cdk-lib": "^2.175.0",
     "constructs": "^10.3.0",
     "dotenv": "^17.2.3",
-    "esbuild": "^0.27.2"
+    "esbuild": "^0.27.2",
+    "expo-updates": "~29.0.16"
   },
   "devDependencies": {
     "@types/node": "^20.19.0",

@@ -48,6 +48,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { filterContent } from '../../utils/contentFilters';
 
 import { ENV } from '../../config/env';
+import { FEATURES } from '../../config/featureFlags';
 
 Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
@@ -677,7 +678,9 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
         )}
       </TouchableOpacity>
 
-      {/* Pricing (keep existing logic) */}
+      {/* Pricing — hidden for MVP (PAID_ACTIVITIES feature flag) */}
+      {FEATURES.PAID_ACTIVITIES && (
+      <>
       <Text style={styles.label}>Pricing</Text>
       <View style={styles.visibilityRow}>
         <TouchableOpacity
@@ -704,6 +707,8 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           </View>
         </TouchableOpacity>
       </View>
+      </>
+      )}
       {!isFree && canUsePaid && (
         <TextInput
           style={styles.capsuleInput}

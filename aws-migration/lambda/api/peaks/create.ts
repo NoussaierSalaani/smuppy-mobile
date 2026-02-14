@@ -126,6 +126,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       account_type: accountCheck.accountType,
     };
 
+    // Business accounts cannot create peaks — view/like/share only
+    if (profile.account_type === 'pro_business') {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Peak creation is not available for business accounts' }),
+      };
+    }
+
     const db = await getPool();
 
     // Sanitize caption

@@ -47,9 +47,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
     const profileId = profileResult.rows[0].id;
 
-    // Check group exists and is active
+    // Check group exists and is active (include pricing fields for payment check)
     const groupResult = await client.query(
-      `SELECT id, status, max_participants, current_participants
+      `SELECT id, status, max_participants, current_participants, is_free, price, currency
        FROM groups WHERE id = $1`,
       [groupId]
     );
@@ -67,6 +67,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return cors({
         statusCode: 400,
         body: JSON.stringify({ success: false, message: 'Group is no longer active' }),
+      });
+    }
+
+    // Check if paid group — return payment required signal (same pattern as events/join.ts)
+    if (!group.is_free && group.price > 0) {
+      return cors({
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          requiresPayment: true,
+          price: typeof group.price === 'number' ? group.price : parseInt(group.price, 10),
+          currency: group.currency || 'EUR',
+          message: 'Payment required to join this group',
+        }),
       });
     }
 

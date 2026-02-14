@@ -9,6 +9,7 @@ import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
 const log = createLogger('challenges-respond');
 
@@ -37,6 +38,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const { allowed } = await checkRateLimit({ prefix: 'challenge-respond', identifier: cognitoSub, windowSeconds: 60, maxRequests: 20 });
     if (!allowed) {
       return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
+    }
+
+    // Account status check + block business accounts from participating
+    const accountCheck = await requireActiveAccount(cognitoSub, {});
+    if (isAccountError(accountCheck)) {
+      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+    }
+    if (accountCheck.accountType === 'pro_business') {
+      return cors({
+        statusCode: 403,
+        body: JSON.stringify({ success: false, message: 'Business accounts cannot participate in challenges' }),
+      });
     }
 
     // Resolve cognito sub to profile ID

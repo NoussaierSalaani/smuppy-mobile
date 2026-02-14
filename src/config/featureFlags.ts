@@ -44,6 +44,7 @@ const PROD_FEATURES = {
   BATTLES: false,              // V4: requires content moderation + live infra
 
   // ─── Monetization / Sessions ─────────────────────
+  PAID_ACTIVITIES: false,      // V3: paid events/groups — needs Apple IAP + payment endpoint
   PRIVATE_SESSIONS: false,     // V3: Stripe direct — needs Apple IAP
   CHANNEL_SUBSCRIBE: false,    // V3: Stripe direct — needs Apple IAP
   TIPPING: false,              // V3: Stripe direct — needs Apple IAP

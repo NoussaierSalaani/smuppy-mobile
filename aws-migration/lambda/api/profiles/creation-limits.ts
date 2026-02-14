@@ -10,8 +10,8 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('profiles-creation-limits');
 
-const MAX_EVENTS_PER_MONTH_PERSONAL = 3;
-const MAX_GROUPS_PER_MONTH_PERSONAL = 3;
+const MAX_EVENTS_PER_MONTH_PERSONAL = 4;
+const MAX_GROUPS_PER_MONTH_PERSONAL = 4;
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {

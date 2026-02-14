@@ -69,9 +69,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
     }
 
-    // Resolve cognito_sub to profile ID
+    // Resolve cognito_sub to profile ID and account type
     const profileResult = await client.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
     if (profileResult.rows.length === 0) {
@@ -81,6 +81,24 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
     const profileId = profileResult.rows[0].id;
+    const accountType = profileResult.rows[0].account_type;
+
+    // Enforce monthly creation limit for personal accounts (4/month)
+    if (accountType === 'personal') {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+      const countResult = await client.query(
+        `SELECT COUNT(*)::int AS count FROM events WHERE creator_id = $1 AND created_at >= $2 AND created_at < $3`,
+        [profileId, monthStart, nextMonth]
+      );
+      if (countResult.rows[0].count >= 4) {
+        return cors({
+          statusCode: 403,
+          body: JSON.stringify({ success: false, message: 'Monthly event creation limit reached (4 per month). Upgrade to Pro for unlimited.' }),
+        });
+      }
+    }
 
     const body: CreateEventRequest = JSON.parse(event.body || '{}');
     const {
@@ -198,14 +216,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Validate price if not free
-    if (!isFree && (!price || price <= 0)) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({
-          success: false,
-          message: 'Price is required for paid events',
-        }),
-      });
+    if (!isFree) {
+      // Only pro_creator can create paid events
+      if (accountType !== 'pro_creator') {
+        return cors({
+          statusCode: 403,
+          body: JSON.stringify({ success: false, message: 'Only Pro Creators can create paid events' }),
+        });
+      }
+      if (!price || price <= 0) {
+        return cors({
+          statusCode: 400,
+          body: JSON.stringify({ success: false, message: 'Price is required for paid events' }),
+        });
+      }
+      if (price > 50000) {
+        return cors({
+          statusCode: 400,
+          body: JSON.stringify({ success: false, message: 'Maximum price is 50,000' }),
+        });
+      }
     }
 
     await client.query('BEGIN');

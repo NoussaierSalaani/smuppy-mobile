@@ -32,6 +32,7 @@ import RouteMapPicker from '../../components/RouteMapPicker';
 import type { RouteResult, Coordinate } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { FEATURES } from '../../config/featureFlags';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -464,6 +465,8 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
         />
       </View>
 
+      {/* Pricing — hidden for MVP (PAID_ACTIVITIES feature flag) */}
+      {FEATURES.PAID_ACTIVITIES && (
       <View style={styles.formGroup}>
         <Text style={styles.label}>Pricing</Text>
         <View style={styles.toggleRow}>
@@ -501,6 +504,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
           </View>
         )}
       </View>
+      )}
     </View>
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [title, description, startDate, maxParticipants, isFree, price, isProCreator, currency.symbol, navigation]);
@@ -637,12 +641,14 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
           </Text>
         </View>
 
+        {FEATURES.PAID_ACTIVITIES && (
         <View style={styles.reviewRow}>
           <Ionicons name="pricetag" size={18} color={colors.gray} />
           <Text style={styles.reviewRowText}>
             {isFree ? 'Free activity' : `${currency.symbol}${price}`}
           </Text>
         </View>
+        )}
 
         <View style={styles.reviewDivider} />
 

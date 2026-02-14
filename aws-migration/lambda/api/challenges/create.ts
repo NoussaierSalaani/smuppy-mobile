@@ -60,6 +60,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
     }
 
+    // Only pro_creator can create challenges — personal and pro_business are blocked
+    if (accountCheck.accountType !== 'pro_creator') {
+      return cors({
+        statusCode: 403,
+        body: JSON.stringify({ success: false, message: 'Only Pro Creators can create challenges' }),
+      });
+    }
+
     // Resolve cognito_sub to profile ID
     const profileResult = await client.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
@@ -177,7 +185,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const user = userResult.rows[0];
       if (
         !user ||
-        (user.account_type !== 'pro_creator' && user.account_type !== 'pro_business') ||
+        user.account_type !== 'pro_creator' ||
         !user.is_verified
       ) {
         return cors({

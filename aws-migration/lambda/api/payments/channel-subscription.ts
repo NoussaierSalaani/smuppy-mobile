@@ -168,7 +168,7 @@ async function subscribeToChannel(
     const creatorResult = await client.query(
       `SELECT p.id, p.stripe_account_id, p.channel_price_cents, p.username, p.full_name, p.fan_count
        FROM profiles p
-       WHERE p.id = $1 AND p.account_type IN ('pro_creator', 'pro_business')`,
+       WHERE p.id = $1 AND p.account_type = 'pro_creator'`,
       [creatorId]
     );
 
@@ -530,11 +530,11 @@ async function setChannelPrice(
       };
     }
 
-    if (!['pro_creator', 'pro_business'].includes(result.rows[0].account_type)) {
+    if (result.rows[0].account_type !== 'pro_creator') {
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ error: 'Only Pro accounts can set channel prices' }),
+        body: JSON.stringify({ error: 'Only Pro Creators can set channel prices' }),
       };
     }
 

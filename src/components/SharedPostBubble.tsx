@@ -29,20 +29,33 @@ function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
-    loadPost();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postId]);
-
-  const loadPost = async () => {
-    setLoading(true);
-    const { data, error: fetchError } = await getPostById(postId);
-    if (fetchError || !data) {
+    // Validate postId before loading
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!postId || !uuidPattern.test(postId)) {
       setError(true);
-    } else {
-      setPost(data);
+      setLoading(false);
+      return;
     }
-    setLoading(false);
-  };
+
+    let cancelled = false;
+    const loadPost = async () => {
+      setLoading(true);
+      try {
+        const { data, error: fetchError } = await getPostById(postId);
+        if (cancelled) return;
+        if (fetchError || !data) {
+          setError(true);
+        } else {
+          setPost(data);
+        }
+      } catch {
+        if (!cancelled) setError(true);
+      }
+      if (!cancelled) setLoading(false);
+    };
+    loadPost();
+    return () => { cancelled = true; };
+  }, [postId]);
 
   const handlePress = () => {
     if (post) {

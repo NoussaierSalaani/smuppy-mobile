@@ -95,6 +95,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           )
           FROM messages m
           WHERE m.conversation_id = c.id
+            AND (m.is_deleted IS NULL OR m.is_deleted = false)
           ORDER BY m.created_at DESC
           LIMIT 1
         ) as last_message,

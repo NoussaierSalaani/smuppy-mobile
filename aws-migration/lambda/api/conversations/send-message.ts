@@ -237,10 +237,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Send push notification to recipient (non-blocking)
+    // SECURITY: Don't include full message content in push (visible on lock screen, logged by APNs/FCM)
     const displayName = profile.display_name || 'Someone';
+    const pushBody = sharedPostId ? 'Shared a post with you'
+      : (validMediaType === 'audio' || validMediaType === 'voice') ? 'Sent a voice message'
+      : validMediaUrl ? 'Sent you a photo'
+      : 'Sent you a message';
     sendPushToUser(db, recipientId, {
       title: displayName,
-      body: sanitizedContent.length > 100 ? sanitizedContent.substring(0, 100) + '…' : sanitizedContent,
+      body: pushBody,
       data: { type: 'message', conversationId, senderId: profile.id },
     }).catch(err => log.error('Push notification failed', err));
 

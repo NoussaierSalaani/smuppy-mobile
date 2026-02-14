@@ -301,6 +301,11 @@ const PeakViewScreen = (): React.JSX.Element => {
     if (peaks.length > 0 || !peakId) return;
     let cancelled = false;
     setIsLoadingPeak(true);
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(peakId)) {
+      setIsLoadingPeak(false);
+      return;
+    }
     awsAPI.getPeak(peakId).then((p) => {
       if (cancelled) return;
       const fetched: Peak = {
@@ -323,6 +328,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       setPeaks([fetched]);
     }).catch((err) => {
       if (__DEV__) console.warn('[PeakView] Failed to fetch peak by ID:', err);
+      showError('Error', 'Could not load this Peak. Please try again.');
     }).finally(() => {
       if (!cancelled) setIsLoadingPeak(false);
     });
@@ -548,7 +554,10 @@ const PeakViewScreen = (): React.JSX.Element => {
     }
   };
 
+  const isLikingRef = useRef(false);
   const toggleLike = useCallback(async (): Promise<void> => {
+    if (isLikingRef.current) return;
+    isLikingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const isCurrentlyLiked = likedPeaks.has(currentPeak.id);
 
@@ -586,6 +595,8 @@ const PeakViewScreen = (): React.JSX.Element => {
         }
         return newSet;
       });
+    } finally {
+      isLikingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeak.id, likedPeaks]);
@@ -889,7 +900,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           if (dy < -50) {
             if (currentPeak.repliesCount && currentPeak.repliesCount > 0) {
               setIsInChain(true);
-            } else {
+            } else if (currentUser?.accountType !== 'pro_business') {
               navigation.navigate('CreatePeak', {
                 replyTo: currentPeak.id,
                 originalPeak: currentPeak,
@@ -925,6 +936,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   };
 
   const handleCreatePeak = (): void => {
+    if (isBusiness) return;
     navigation.navigate('CreatePeak', {
       replyTo: currentPeak.id,
       originalPeak: currentPeak,
@@ -932,6 +944,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   };
 
   const handleAcceptChallenge = (): void => {
+    if (isBusiness) return;
     navigation.navigate('CreatePeak', {
       challengeId: currentPeak.challengeId,
       challengeTitle: currentPeak.challengeTitle,

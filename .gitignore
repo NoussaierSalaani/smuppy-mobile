@@ -59,6 +59,8 @@ aws-migration/infrastructure/cdk-diff-out/
 aws-migration/infrastructure/cdk-diff-out/**
 aws-migration/infrastructure/cdk.out.2/
 aws-migration/infrastructure/cdk.out.2/**
+aws-migration/infrastructure/cdk.out.notif/
+aws-migration/infrastructure/cdk.out.notif/**
 aws-migration/infrastructure/cdk-out-deploy/
 aws-migration/infrastructure/cdk-out-deploy/**
 aws-migration/infrastructure/cdk-out-diff/

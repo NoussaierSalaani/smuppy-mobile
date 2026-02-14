@@ -8,11 +8,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   ScrollView,
-  Dimensions,
   InteractionManager,
 } from 'react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import * as Clipboard from 'expo-clipboard';
 // FlashList import removed - not used
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';

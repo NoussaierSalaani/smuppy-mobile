@@ -252,7 +252,7 @@ interface VibeCardProps {
   onUserPress: (userId: string) => void;
 }
 
-const VibeCard = memo<VibeCardProps>(({ post, colors, styles, onLike, onTap, onUserPress }) => (
+const VibeCard = memo<VibeCardProps>(({ post, styles, onLike, onTap, onUserPress }) => (
   <DoubleTapLike
     key={post.id}
     onDoubleTap={() => { if (!post.isLiked) onLike(post.id); }}

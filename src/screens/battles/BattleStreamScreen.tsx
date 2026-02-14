@@ -467,7 +467,7 @@ export default function BattleStreamScreen() {
           receiver={{
             id: selectedParticipant.user_id,
             username: selectedParticipant.username,
-            displayName: selectedParticipant.full_name || selectedParticipant.username,
+            displayName: resolveDisplayName(selectedParticipant),
             avatarUrl: selectedParticipant.profile_picture_url,
           }}
           contextType="battle"

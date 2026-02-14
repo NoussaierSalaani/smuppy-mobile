@@ -23,6 +23,7 @@ import { useNavigation, useRoute, useFocusEffect, NavigationProp } from '@react-
 import type { MainStackParamList } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { HIT_SLOP } from '../../config/theme';
+import { resolveDisplayName } from '../../types/profile';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useProfile } from '../../hooks/queries';
 import { queryKeys } from '../../lib/queryClient';
@@ -1020,7 +1021,7 @@ const UserProfileScreen = () => {
                   duration: p.peak_duration || 15,
                   user: {
                     id: profile.id,
-                    name: profile.displayName || profile.username,
+                    name: resolveDisplayName(profile),
                     avatar: profile.avatar || '',
                   },
                   views: p.views_count || 0,

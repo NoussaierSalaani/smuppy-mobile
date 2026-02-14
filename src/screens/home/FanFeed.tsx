@@ -260,7 +260,7 @@ const PostItem = memo<PostItemProps>(({
         <View style={styles.taggedUsersRow}>
           <Ionicons name="people-outline" size={14} color={colors.gray} />
           <Text style={styles.taggedUsersText}>
-            {post.taggedUsers.map(t => t.fullName || t.username || 'User').join(', ')}
+            {post.taggedUsers.map(t => resolveDisplayName(t)).join(', ')}
           </Text>
         </View>
       )}

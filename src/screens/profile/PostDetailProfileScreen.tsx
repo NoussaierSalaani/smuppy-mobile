@@ -742,7 +742,7 @@ const PostDetailProfileScreen = () => {
               <View style={styles.taggedRow}>
                 <Ionicons name="people" size={14} color={colors.primary} />
                 <Text style={styles.taggedText}>
-                  {item.taggedUsers.map(t => t.fullName || t.username || 'User').join(', ')}
+                  {item.taggedUsers.map(t => resolveDisplayName(t)).join(', ')}
                 </Text>
               </View>
             ) : null}

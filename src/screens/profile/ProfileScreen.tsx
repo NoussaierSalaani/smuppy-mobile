@@ -16,6 +16,7 @@ import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveDisplayName } from '../../types/profile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -1284,7 +1285,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {post.author && (
             <View style={styles.collectionMeta}>
               <AvatarImage source={post.author.avatar_url} size={18} />
-              <Text style={styles.collectionAuthorName}>{post.author.full_name || post.author.username}</Text>
+              <Text style={styles.collectionAuthorName}>{resolveDisplayName(post.author)}</Text>
               <SmuppyHeartIcon size={12} color="#FF6B6B" filled />
               <Text style={styles.collectionLikes}>{post.likes_count || 0}</Text>
             </View>

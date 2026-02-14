@@ -24,6 +24,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
+import { resolveDisplayName } from '../../types/profile';
 
 const { width: _width } = Dimensions.get('window');
 const POLL_INTERVAL_MS = 3000;
@@ -301,7 +302,7 @@ export default function BattleLobbyScreen() {
               source={{
                 uri:
                   participant.profile_picture_url ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.full_name || participant.username)}&background=random`,
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(resolveDisplayName(participant))}&background=random`,
               }}
               style={styles.participantAvatar}
             />
@@ -321,7 +322,7 @@ export default function BattleLobbyScreen() {
           <View style={styles.participantInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.participantName}>
-                {isCurrentUser ? 'You' : participant.full_name || participant.username}
+                {isCurrentUser ? 'You' : resolveDisplayName(participant)}
               </Text>
               {participant.is_verified && (
                 <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />

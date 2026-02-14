@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { GRADIENTS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
+import { resolveDisplayName } from '../../types/profile';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -236,7 +237,7 @@ const TipModal: React.FC<TipModalProps> = ({
               </View>
               <Text style={styles.title}>Send a Tip</Text>
               <Text style={styles.subtitle}>
-                to <Text style={styles.username}>{receiver.displayName || receiver.username}</Text>
+                to <Text style={styles.username}>{resolveDisplayName(receiver)}</Text>
               </Text>
             </View>
 

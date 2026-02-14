@@ -59,7 +59,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
     title: _title = 'Live Session',
     audience: _audience = 'public',
     hostId = currentUser?.id || 'unknown',
-    hostName = currentUser?.displayName || currentUser?.username || 'Creator',
+    hostName = resolveDisplayName(currentUser, 'Creator'),
     hostAvatar = currentUser?.avatar || null,
   } = route.params || {};
 

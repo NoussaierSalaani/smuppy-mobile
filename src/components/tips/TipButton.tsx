@@ -181,7 +181,7 @@ export default function TipButton({
         receiver={{
           id: recipient.id,
           username: recipient.username,
-          displayName: recipient.displayName || recipient.username,
+          displayName: resolveDisplayName(recipient),
           avatarUrl: recipient.avatarUrl,
         }}
         contextType={contextType}

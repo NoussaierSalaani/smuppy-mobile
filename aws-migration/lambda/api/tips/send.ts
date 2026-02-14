@@ -18,9 +18,10 @@ import { getPool } from '../../shared/db';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { getStripeKey } from '../../shared/secrets';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('tips-send');
-import { getStripeKey } from '../../shared/secrets';
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -41,10 +42,8 @@ interface SendTipRequest {
   isAnonymous?: boolean;
 }
 
-// SECURITY: Rate limit tips per user (max 10/min)
-const tipRateLimits = new Map<string, { count: number; resetAt: number }>();
-const TIP_RATE_LIMIT = 10;
-const TIP_RATE_WINDOW = 60_000;
+// SECURITY: Whitelist of allowed currencies
+const ALLOWED_CURRENCIES = ['eur', 'usd'];
 // Max single tip amount in cents (500 EUR)
 const MAX_TIP_AMOUNT = 50000;
 // Platform fee percentage (Smuppy takes 20%, Creator gets 80%)
@@ -87,19 +86,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
     }
 
-    // Rate limit check
-    const now = Date.now();
-    const userLimit = tipRateLimits.get(userId);
-    if (userLimit && now < userLimit.resetAt) {
-      if (userLimit.count >= TIP_RATE_LIMIT) {
-        return cors({
-          statusCode: 429,
-          body: JSON.stringify({ success: false, message: 'Too many tips. Please wait.' }),
-        });
-      }
-      userLimit.count++;
-    } else {
-      tipRateLimits.set(userId, { count: 1, resetAt: now + TIP_RATE_WINDOW });
+    // Rate limit check (distributed via DynamoDB — works across Lambda instances)
+    const { allowed: rateLimitAllowed } = await checkRateLimit({
+      prefix: 'tips-send',
+      identifier: userId,
+      windowSeconds: 60,
+      maxRequests: 10,
+    });
+    if (!rateLimitAllowed) {
+      return cors({
+        statusCode: 429,
+        body: JSON.stringify({ success: false, message: 'Too many tips. Please wait.' }),
+      });
     }
 
     const body: SendTipRequest = JSON.parse(event.body || '{}');
@@ -112,6 +110,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       message,
       isAnonymous = false,
     } = body;
+
+    // SECURITY: Validate currency against whitelist
+    if (!ALLOWED_CURRENCIES.includes(currency.toLowerCase())) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: `Invalid currency. Allowed: ${ALLOWED_CURRENCIES.join(', ')}` }),
+      });
+    }
 
     // Validation
     if (!receiverId || !amount || amount < 100 || amount > MAX_TIP_AMOUNT) {

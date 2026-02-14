@@ -28,6 +28,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { validate } from '../../utils/validation';
 import { useUserStore } from '../../stores/userStore';
 import { awsAPI } from '../../services/aws-api';
 import Button from '../../components/Button';
@@ -221,7 +222,7 @@ const EvidenceCard = memo(function EvidenceCard({
       ) : evidence.url ? (
         <TouchableOpacity
           style={styles.evidencePreview}
-          onPress={() => Linking.openURL(evidence.url!)}
+          onPress={() => { if (validate.safeExternalUrl(evidence.url)) Linking.openURL(evidence.url!); }}
         >
           {evidence.type === 'screenshot' ? (
             <OptimizedImage source={evidence.url} style={styles.evidenceImage} />

@@ -33,8 +33,26 @@ if (!process.env.MEDIA_BUCKET) {
 }
 
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
-// Optional CDN domain (CloudFront) to build directly playable URLs
-const CDN_DOMAIN = process.env.CDN_DOMAIN || process.env.MEDIA_CDN_DOMAIN || process.env.CLOUDFRONT_URL || null;
+
+// SECURITY: Validate and whitelist CDN domain to prevent open redirect / host injection
+function getValidatedCdnDomain(): string | null {
+  const raw = process.env.CDN_DOMAIN || process.env.MEDIA_CDN_DOMAIN || process.env.CLOUDFRONT_URL || null;
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname.endsWith('.cloudfront.net') || hostname.endsWith('.amazonaws.com')) {
+      return `${parsed.protocol}//${parsed.hostname}`;
+    }
+    log.warn('CDN domain rejected — not in whitelist', { hostname });
+    return null;
+  } catch {
+    log.warn('CDN domain rejected — invalid URL', { raw: raw.substring(0, 50) });
+    return null;
+  }
+}
+
+const CDN_DOMAIN = getValidatedCdnDomain();
 
 const PRESIGNED_URL_EXPIRY_SECONDS = 300;
 
@@ -161,8 +179,7 @@ export async function handler(
     });
 
     // Build playback URLs (CloudFront preferred, fallback S3 direct)
-    const sanitizedCdn = CDN_DOMAIN ? CDN_DOMAIN.replace(/\/+$/, '') : null;
-    const cdnUrl = sanitizedCdn ? `${sanitizedCdn}/${key}` : null;
+    const cdnUrl = CDN_DOMAIN ? `${CDN_DOMAIN}/${key}` : null;
     const fileUrl = `https://${MEDIA_BUCKET}.s3.amazonaws.com/${key}`;
 
     log.info('Voice upload URL generated', {

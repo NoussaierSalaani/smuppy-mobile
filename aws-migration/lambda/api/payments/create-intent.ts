@@ -32,6 +32,9 @@ const PLATFORM_FEE_PERCENT = 20; // Smuppy takes 20%, Creator gets 80%
 const APPLE_FEE_PERCENT = 30; // Apple's in-app purchase fee
 const GOOGLE_FEE_PERCENT = 30; // Google's in-app purchase fee (15% for < $1M, but we use 30% to be safe)
 
+// SECURITY: Whitelist of allowed currencies
+const ALLOWED_CURRENCIES = ['eur', 'usd'];
+
 // Purchase sources
 type PurchaseSource = 'web' | 'ios' | 'android';
 
@@ -100,6 +103,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 400,
         headers,
         body: JSON.stringify({ message: 'creatorId and amount are required' }),
+      };
+    }
+
+    // SECURITY: Validate currency against whitelist
+    if (!ALLOWED_CURRENCIES.includes(currency.toLowerCase())) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: `Invalid currency. Allowed: ${ALLOWED_CURRENCIES.join(', ')}` }),
       };
     }
 

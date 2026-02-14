@@ -17,12 +17,19 @@ import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { checkRateLimit } from '../../api/utils/rate-limit';
 import Stripe from 'stripe';
+import { getStripeKey } from '../../shared/secrets';
 
 const log = createLogger('admin/disputes-resolve');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-12-15.clover',
-});
+// Lazy-initialized Stripe client (secret fetched from Secrets Manager)
+let stripeInstance: Stripe | null = null;
+async function getStripe(): Promise<Stripe> {
+  if (!stripeInstance) {
+    const key = await getStripeKey();
+    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
+  }
+  return stripeInstance;
+}
 
 interface ResolveBody {
   resolution: 'full_refund' | 'partial_refund' | 'no_refund' | 'rescheduled';
@@ -114,6 +121,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }),
       };
     }
+
+    const stripe = await getStripe();
 
     await client.query('BEGIN');
 

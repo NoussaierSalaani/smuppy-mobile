@@ -28,6 +28,7 @@ import * as Haptics from 'expo-haptics';
 import OptimizedImage from '../../components/OptimizedImage';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { validate } from '../../utils/validation';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -263,6 +264,11 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
 
   const handleOpenWebsite = useCallback(async () => {
     if (business?.contact.website) {
+      // SECURITY: Validate URL before opening (prevent javascript:, data:, etc.)
+      if (!validate.safeExternalUrl(business.contact.website)) {
+        Alert.alert('Error', 'Invalid website URL.');
+        return;
+      }
       try {
         const canOpen = await Linking.canOpenURL(business.contact.website);
         if (canOpen) {

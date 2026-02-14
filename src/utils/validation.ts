@@ -431,6 +431,16 @@ export const validate = {
   match: (v1: unknown, v2: unknown): boolean => v1 === v2,
   /** Validate URL format */
   url: (v: string | undefined | null): boolean => /^https?:\/\/.+\..+/.test(v?.trim() || ''),
+  /** Validate external URL is safe to open (HTTPS only, no javascript:/data: schemes) */
+  safeExternalUrl: (v: string | undefined | null): boolean => {
+    if (!v) return false;
+    try {
+      const parsed = new URL(v.trim());
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  },
   /** Check if value contains only digits */
   numeric: (v: string | undefined | null): boolean => /^\d+$/.test(v || ''),
   /** Check if value is alphanumeric */

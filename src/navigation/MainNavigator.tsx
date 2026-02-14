@@ -294,7 +294,7 @@ export default function MainNavigator() {
             id: data.id,
             username: data.username,
             fullName: data.full_name || '',
-            displayName: data.display_name || data.full_name || '',
+            displayName: (data.account_type === 'pro_business' && data.business_name) ? data.business_name : (data.display_name || data.full_name || ''),
             avatar: data.avatar_url || null,
             coverImage: data.cover_url || null,
             bio: data.bio || '',

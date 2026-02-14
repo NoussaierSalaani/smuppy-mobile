@@ -66,7 +66,7 @@ const convertProfileToUser = (profile: Profile) => ({
   id: profile.id,
   username: profile.username,
   fullName: profile.full_name,
-  displayName: profile.display_name || profile.full_name,
+  displayName: (profile.account_type === 'pro_business' && profile.business_name) ? profile.business_name : (profile.display_name || profile.full_name),
   avatar: profile.avatar_url || null,
   coverImage: profile.cover_url || null,
   bio: profile.bio || '',

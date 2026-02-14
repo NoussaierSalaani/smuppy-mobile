@@ -166,22 +166,8 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
 
   // Post type is always 'post' for this screen (Peaks use CreatePeakScreen)
 
-  // Request permissions and load media
-  useEffect(() => {
-    (async () => {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
-      
-      if (status === 'granted') {
-        loadMedia();
-      } else {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
   // Load media from gallery
-  const loadMedia = async () => {
+  const loadMedia = useCallback(async () => {
     try {
       // Load first batch quickly, then load more in background
       const { assets, endCursor, hasNextPage } = await MediaLibrary.getAssetsAsync({
@@ -211,7 +197,21 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       setLoading(false);
       errorAlert('Gallery Error', 'Could not load your photos. Please check permissions and try again.');
     }
-  };
+  }, [errorAlert]);
+
+  // Request permissions and load media
+  useEffect(() => {
+    (async () => {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      setHasPermission(status === 'granted');
+
+      if (status === 'granted') {
+        loadMedia();
+      } else {
+        setLoading(false);
+      }
+    })();
+  }, [loadMedia]);
 
   // Open camera
   const openCamera = () => {

@@ -17,8 +17,6 @@ import {
   FlatList,
   ActivityIndicator,
   BackHandler,
-  TextInput,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -111,41 +109,6 @@ const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, on
       </View>
       <Ionicons name="play-circle" size={28} color={colors.primary} />
     </TouchableOpacity>
-  );
-});
-
-interface CommentItemProps {
-  item: {
-    id: string;
-    text: string;
-    createdAt: string;
-    author: { id: string; username: string; fullName?: string; avatarUrl: string; isVerified: boolean };
-  };
-  colors: { primary: string; gray: string };
-  styles: ReturnType<typeof createStyles>;
-}
-
-const CommentItem = React.memo<CommentItemProps>(({ item, colors, styles }) => {
-  const avatarUri = useMemo(() => toCdn(item.author.avatarUrl), [item.author.avatarUrl]);
-
-  return (
-    <View style={styles.commentItem}>
-      <AvatarImage source={{ uri: avatarUri }} style={styles.commentAvatar} />
-      <View style={styles.commentContent}>
-        <View style={styles.commentHeader}>
-          <Text style={styles.commentUsername} numberOfLines={1}>
-            {item.author.fullName || item.author.username}
-          </Text>
-          {item.author.isVerified && (
-            <Ionicons name="checkmark-circle" size={12} color={colors.primary} />
-          )}
-          <Text style={styles.commentDate}>
-            {new Date(item.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-        <Text style={styles.commentText}>{item.text}</Text>
-      </View>
-    </View>
   );
 });
 
@@ -252,7 +215,6 @@ interface Peak {
   views: number;
   likes?: number;
   repliesCount?: number;
-  commentsCount?: number;
   tagsCount?: number;
   tags?: PeakTag[];
   textOverlay?: string;
@@ -320,7 +282,6 @@ const PeakViewScreen = (): React.JSX.Element => {
         },
         views: p.viewsCount || 0,
         likes: p.likesCount || 0,
-        repliesCount: p.commentsCount || 0,
         createdAt: p.createdAt || new Date().toISOString(),
         isLiked: p.isLiked || false,
         isOwnPeak: currentUser?.id != null && (p.authorId === currentUser.id || p.author?.id === currentUser.id),
@@ -367,16 +328,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
   const [_hiddenPeaks, setHiddenPeaks] = useState<Set<string>>(new Set()); // Not interested peaks
   const [showResponsesModal, setShowResponsesModal] = useState(false);
-  const [showCommentsModal, setShowCommentsModal] = useState(false);
-  const [comments, setComments] = useState<Array<{
-    id: string;
-    text: string;
-    createdAt: string;
-    author: { id: string; username: string; fullName?: string; avatarUrl: string; isVerified: boolean };
-  }>>([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [postingComment, setPostingComment] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportingPeak, setReportingPeak] = useState(false);
   const [challengeResponses, setChallengeResponses] = useState<Array<{
@@ -989,38 +940,6 @@ const PeakViewScreen = (): React.JSX.Element => {
     });
   }, [navigation]);
 
-  const handleOpenComments = useCallback(async () => {
-    setShowCommentsModal(true);
-    setCommentsLoading(true);
-    try {
-      const result = await awsAPI.getPeakComments(currentPeak.id, { limit: 30 });
-      if (result.data) {
-        setComments(result.data);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Failed to fetch comments:', error);
-    } finally {
-      setCommentsLoading(false);
-    }
-  }, [currentPeak.id]);
-
-  const handlePostComment = useCallback(async () => {
-    const text = commentText.trim();
-    if (!text || postingComment) return;
-    setPostingComment(true);
-    try {
-      const result = await awsAPI.commentOnPeak(currentPeak.id, text);
-      if (result.success && result.comment) {
-        setComments(prev => [result.comment, ...prev]);
-        setCommentText('');
-      }
-    } catch (_error) {
-      showError('Error', 'Failed to post comment');
-    } finally {
-      setPostingComment(false);
-    }
-  }, [currentPeak.id, commentText, postingComment, showError]);
-
   const handleReportPeak = useCallback(async (reason: string) => {
     if (reportingPeak) return;
     setReportingPeak(true);
@@ -1045,8 +964,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   const isLiked = likedPeaks.has(currentPeak.id);
   const isSaved = savedPeaks.has(currentPeak.id);
   const likesCount = currentPeak.likes ?? 0;
-  const repliesCount = currentPeak.repliesCount || 0;
-  const commentsCount = currentPeak.commentsCount || 0;
   const existingTags = peakTags.get(currentPeak.id) || [];
   const isOwnPeak = currentPeak.isOwnPeak || (currentUser?.id != null && currentPeak.user?.id === currentUser.id);
 
@@ -1097,7 +1014,6 @@ const PeakViewScreen = (): React.JSX.Element => {
     setIsPaused(false);
   }, []);
   const handleCloseResponsesModal = useCallback(() => setShowResponsesModal(false), []);
-  const handleCloseCommentsModal = useCallback(() => setShowCommentsModal(false), []);
   const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
 
   // Menu action handlers
@@ -1130,13 +1046,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     />
   ), [handleResponsePress, colors, styles]);
 
-  const renderComment = useCallback(({ item }: { item: CommentItemProps['item'] }) => (
-    <CommentItem
-      item={item}
-      colors={colors}
-      styles={styles}
-    />
-  ), [colors, styles]);
+
 
   const onVideoStatus = useCallback((status: AVPlaybackStatus) => {
     const s = status as AVPlaybackStatusSuccess;
@@ -1384,26 +1294,6 @@ const PeakViewScreen = (): React.JSX.Element => {
             </View>
             <Text style={styles.actionCount}>{formatCount(likesCount)}</Text>
           </TouchableOpacity>
-
-          {/* Comments Button */}
-          {!isBusiness && (
-          <TouchableOpacity style={styles.actionButton} onPress={handleOpenComments}>
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="chatbubble-outline" size={24} color={colors.white} />
-            </View>
-            <Text style={styles.actionCount}>{formatCount(commentsCount)}</Text>
-          </TouchableOpacity>
-          )}
-
-          {/* Reply with Peak Button */}
-          {!isBusiness && (
-          <TouchableOpacity style={styles.actionButton} onPress={handleCreatePeak}>
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="videocam-outline" size={24} color={colors.white} />
-            </View>
-            <Text style={styles.actionCount}>{formatCount(repliesCount)}</Text>
-          </TouchableOpacity>
-          )}
 
           {/* Share Button */}
           <TouchableOpacity style={styles.actionButton} onPress={handleShareAction}>
@@ -1715,72 +1605,6 @@ const PeakViewScreen = (): React.JSX.Element => {
               />
             )}
           </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Comments Modal */}
-      <Modal
-        visible={showCommentsModal}
-        transparent
-        animationType="slide"
-        onRequestClose={handleCloseCommentsModal}
-      >
-        <Pressable style={styles.responsesOverlay} onPress={handleCloseCommentsModal}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.commentsKeyboardView}
-          >
-            <Pressable style={styles.responsesContainer} onPress={NOOP}>
-              <View style={styles.responsesHeader}>
-                <View style={styles.menuHandle} />
-                <View style={styles.responsesTitleRow}>
-                  <Ionicons name="chatbubble" size={18} color={colors.primary} />
-                  <Text style={styles.responsesTitle}>Comments</Text>
-                </View>
-              </View>
-              {commentsLoading ? (
-                <View style={styles.responsesLoading}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                </View>
-              ) : comments.length === 0 ? (
-                <View style={styles.responsesEmpty}>
-                  <Ionicons name="chatbubble-outline" size={40} color={colors.gray} />
-                  <Text style={styles.responsesEmptyText}>No comments yet</Text>
-                  <Text style={styles.responsesEmptySubtext}>Be the first to comment!</Text>
-                </View>
-              ) : (
-                <FlatList
-                  data={comments}
-                  keyExtractor={(item) => item.id}
-                  style={styles.responsesList}
-                  renderItem={renderComment}
-                />
-              )}
-              {/* Comment Input */}
-              <View style={styles.commentInputContainer}>
-                <TextInput
-                  style={styles.commentInput}
-                  placeholder="Add a comment..."
-                  placeholderTextColor={colors.gray}
-                  value={commentText}
-                  onChangeText={setCommentText}
-                  maxLength={1000}
-                  multiline
-                />
-                <TouchableOpacity
-                  style={[styles.commentSendButton, (!commentText.trim() || postingComment) && styles.commentSendDisabled]}
-                  onPress={handlePostComment}
-                  disabled={!commentText.trim() || postingComment}
-                >
-                  {postingComment ? (
-                    <ActivityIndicator size="small" color={colors.white} />
-                  ) : (
-                    <Ionicons name="send" size={18} color={colors.white} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
 
@@ -2369,75 +2193,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   challengeMetaLink: {
     textDecorationLine: 'underline',
-  },
-  commentsKeyboardView: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  commentItem: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  commentContent: {
-    flex: 1,
-    gap: 2,
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  commentUsername: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: isDark ? colors.white : colors.dark,
-  },
-  commentDate: {
-    fontSize: 11,
-    color: colors.gray,
-    marginLeft: 'auto',
-  },
-  commentText: {
-    fontSize: 14,
-    color: isDark ? '#E5E5E5' : colors.dark,
-    lineHeight: 19,
-  },
-  commentInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: isDark ? '#2C2C2E' : colors.grayBorder,
-    gap: 10,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: isDark ? colors.white : colors.dark,
-    maxHeight: 80,
-  },
-  commentSendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  commentSendDisabled: {
-    opacity: 0.4,
   },
   reportSubtitle: {
     fontSize: 14,

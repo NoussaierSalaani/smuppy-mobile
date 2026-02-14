@@ -46,7 +46,8 @@ import VibeGuardianOverlay from '../../components/VibeGuardianOverlay';
 import SessionRecapModal from '../../components/SessionRecapModal';
 import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
-import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing } from '../../services/database';
+import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing, deletePost } from '../../services/database';
+import { sharePost } from '../../utils/share';
 import type { Peak } from '../../types';
 import { resolveDisplayName } from '../../types/profile';
 import { awsAPI } from '../../services/aws-api';
@@ -304,7 +305,7 @@ export interface VibesFeedRef {
 
 const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }, ref) => {
   const { colors, isDark } = useTheme();
-  const { showSuccess } = useSmuppyAlert();
+  const { showSuccess, showError, showDestructiveConfirm } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const { handleScroll, showBars } = useTabBar();
@@ -319,8 +320,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       showBars();
     },
   }));
-  const { isUnderReview } = useContentStore();
-  const { isHidden } = useUserSafetyStore();
+  const { isUnderReview, submitPostReport, hasUserReported } = useContentStore();
+  const { isHidden, mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
 
   // Account type and user ID (needed before useMoodAI to gate it)
   const accountType = useUserStore((state) => state.user?.accountType);
@@ -388,6 +389,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Share modal state (using shared hook)
   const shareModal = useShareModal();
+
+  // Menu & report modal state for inline modal
+  const [modalMenuVisible, setModalMenuVisible] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [menuLoading, setMenuLoading] = useState(false);
 
   // Follow state for modal
   const [isFollowingUser, setIsFollowingUser] = useState(false);
@@ -886,7 +892,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         const postTags = post.tags?.map(t => t.toLowerCase()) || [];
         return postTags.some(tag => currentTags.includes(tag));
       })
-      .slice(0, 6); // Limit to 6 related posts
+      .slice(0, 12); // More related posts in masonry
   }, [selectedPost, allPosts]);
 
   // Become a fan from modal
@@ -904,13 +910,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       const { error } = await followUser(userId);
       if (!error) {
         setIsFollowingUser(true);
+        showSuccess('Followed', `You are now a fan of ${selectedPost?.user?.name || 'this user'}.`);
       }
     } catch (err) {
       if (__DEV__) console.warn('[VibesFeed] Follow error:', err);
     } finally {
       setFollowLoading(false);
     }
-  }, [followLoading, selectedPost?.user?.id]);
+  }, [followLoading, selectedPost?.user?.id, selectedPost?.user?.name, showSuccess]);
 
 
   // Navigate to prescriptions (vibe press)
@@ -975,6 +982,125 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       goToUserProfile(selectedPost.user.id);
     }
   }, [selectedPost, goToUserProfile]);
+
+  // Native OS share (fast) — replaces in-app DM share as primary action
+  const handleModalNativeShare = useCallback(async () => {
+    if (!selectedPost) return;
+    try {
+      await sharePost(selectedPost.id, selectedPost.title, selectedPost.user.name);
+    } catch {
+      // User cancelled — silent
+    }
+  }, [selectedPost]);
+
+  // Open menu in modal
+  const handleModalMenu = useCallback(() => setModalMenuVisible(true), []);
+  const handleCloseModalMenu = useCallback(() => setModalMenuVisible(false), []);
+  const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
+
+  // Report post from modal
+  const handleReportPost = useCallback(() => {
+    if (!selectedPost) return;
+    if (hasUserReported(selectedPost.id)) {
+      setModalMenuVisible(false);
+      showError('Already Reported', 'You have already reported this content. It is under review.');
+      return;
+    }
+    if (isUnderReview(String(selectedPost.id))) {
+      setModalMenuVisible(false);
+      showError('Under Review', 'This content is already being reviewed by our team.');
+      return;
+    }
+    setModalMenuVisible(false);
+    setShowReportModal(true);
+  }, [selectedPost, hasUserReported, isUnderReview, showError]);
+
+  // Submit report with reason — async
+  const handleSubmitReport = useCallback(async (reason: string) => {
+    if (!selectedPost) return;
+    setShowReportModal(false);
+    const result = await submitPostReport(selectedPost.id, reason);
+    if (result.alreadyReported) {
+      showError('Already Reported', result.message);
+    } else if (result.success) {
+      showSuccess('Reported', result.message);
+    } else {
+      showError('Error', result.message || 'Could not report post. Please try again.');
+    }
+  }, [selectedPost, submitPostReport, showError, showSuccess]);
+
+  // Mute user from modal
+  const handleMuteUser = useCallback(() => {
+    if (!selectedPost) return;
+    const userId = selectedPost.user.id;
+    if (isUserMuted(userId)) {
+      setModalMenuVisible(false);
+      showError('Already Muted', 'This user is already muted.');
+      return;
+    }
+    setModalMenuVisible(false);
+    showDestructiveConfirm(
+      'Mute User',
+      `Mute ${selectedPost.user.name}? You won't see their posts anymore.`,
+      async () => {
+        const { error } = await mute(userId);
+        if (error) {
+          showError('Error', 'Could not mute user. Please try again.');
+        } else {
+          showSuccess('Muted', `You won't see posts from ${selectedPost.user.name} anymore.`);
+        }
+      }
+    );
+  }, [selectedPost, isUserMuted, mute, showDestructiveConfirm, showSuccess, showError]);
+
+  // Block user from modal
+  const handleBlockUser = useCallback(() => {
+    if (!selectedPost) return;
+    const userId = selectedPost.user.id;
+    if (isBlocked(userId)) {
+      setModalMenuVisible(false);
+      showError('Already Blocked', 'This user is already blocked.');
+      return;
+    }
+    setModalMenuVisible(false);
+    showDestructiveConfirm(
+      'Block User',
+      `Block ${selectedPost.user.name}? You will no longer see their posts and they won't be able to interact with you.`,
+      async () => {
+        const { error } = await block(userId);
+        if (error) {
+          showError('Error', 'Could not block user. Please try again.');
+        } else {
+          showSuccess('Blocked', `${selectedPost.user.name} has been blocked.`);
+        }
+      }
+    );
+  }, [selectedPost, isBlocked, block, showDestructiveConfirm, showSuccess, showError]);
+
+  // Delete own post from modal
+  const handleDeletePost = useCallback(() => {
+    if (!selectedPost) return;
+    setModalMenuVisible(false);
+    showDestructiveConfirm(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      async () => {
+        setMenuLoading(true);
+        try {
+          const { error } = await deletePost(selectedPost.id);
+          if (error) {
+            showError('Error', 'Could not delete post. Please try again.');
+          } else {
+            showSuccess('Deleted', 'Post has been deleted.');
+            setAllPosts(prev => prev.filter(p => p.id !== selectedPost.id));
+            closePostModal();
+          }
+        } finally {
+          setMenuLoading(false);
+        }
+      }
+    );
+  }, [selectedPost, showDestructiveConfirm, showSuccess, showError, closePostModal]);
 
   // Memoized inline styles
   const modalBottomStyle = useMemo(() => ({ height: insets.bottom + 20 }), [insets.bottom]);
@@ -1104,16 +1230,25 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   />
                 )}
 
-                {/* Close button on image */}
-                <TouchableOpacity
-                  style={[styles.closeButton, { top: insets.top + 12 }]}
-                  onPress={closePostModal}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.closeButtonBg}>
-                    <Ionicons name="close" size={22} color="#fff" />
-                  </View>
-                </TouchableOpacity>
+                {/* Header buttons on image */}
+                <View style={[styles.modalHeaderButtons, { top: insets.top + 12 }]}>
+                  <TouchableOpacity
+                    onPress={closePostModal}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.closeButtonBg}>
+                      <Ionicons name="close" size={22} color="#fff" />
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleModalMenu}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.closeButtonBg}>
+                      <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Post info */}
@@ -1158,10 +1293,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.modalAction}
-                    onPress={handleModalShare}
+                    onPress={handleModalNativeShare}
                   >
                     <Ionicons name="share-outline" size={24} color={colors.dark} />
                     <Text style={styles.modalActionText}>Share</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalAction}
+                    onPress={handleModalShare}
+                  >
+                    <Ionicons name="paper-plane-outline" size={24} color={colors.dark} />
+                    <Text style={styles.modalActionText}>Send</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.modalAction}
@@ -1363,6 +1505,87 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       />
 
       {renderModal()}
+
+      {/* Modal Menu (Report/Mute/Block/Delete) */}
+      <Modal
+        visible={modalMenuVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={handleCloseModalMenu}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={handleCloseModalMenu}
+        >
+          <View style={styles.menuSheet}>
+            <View style={styles.menuHandle} />
+            {selectedPost && selectedPost.user.id === currentUserId && (
+              <TouchableOpacity style={styles.menuItem} onPress={handleDeletePost} disabled={menuLoading}>
+                <Ionicons name="trash-outline" size={22} color="#FF6B6B" />
+                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
+              </TouchableOpacity>
+            )}
+            {selectedPost && selectedPost.user.id !== currentUserId && (
+              <>
+                <TouchableOpacity style={styles.menuItem} onPress={handleMuteUser}>
+                  <Ionicons name="eye-off-outline" size={22} color={colors.dark} />
+                  <Text style={styles.menuItemText}>Mute User</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={handleBlockUser}>
+                  <Ionicons name="ban-outline" size={22} color="#FF6B6B" />
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block User</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity style={styles.menuItem} onPress={handleReportPost}>
+              <Ionicons name="flag-outline" size={22} color="#FF6B6B" />
+              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuCancelButton} onPress={handleCloseModalMenu}>
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Report Reason Modal */}
+      <Modal
+        visible={showReportModal}
+        animationType="slide"
+        transparent
+        onRequestClose={handleCloseReportModal}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={handleCloseReportModal}
+        >
+          <View style={styles.menuSheet}>
+            <View style={styles.menuHandle} />
+            <Text style={styles.reportTitle}>Report this post</Text>
+            <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('spam')}>
+              <Text style={styles.reportOptionText}>Spam or misleading</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('inappropriate')}>
+              <Text style={styles.reportOptionText}>Inappropriate content</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('harassment')}>
+              <Text style={styles.reportOptionText}>Harassment or bullying</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('violence')}>
+              <Text style={styles.reportOptionText}>Violence or dangerous</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('other')}>
+              <Text style={styles.reportOptionText}>Other</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuCancelButton} onPress={handleCloseReportModal}>
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Share Post Modal */}
       <SharePostModal
@@ -1798,10 +2021,13 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     height: 8,
     borderRadius: 4,
   },
-  closeButton: {
+  modalHeaderButtons: {
     position: 'absolute',
+    left: 16,
     right: 16,
     zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   closeButtonBg: {
     width: 36,
@@ -1932,5 +2158,83 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   footerSpacer: {
     height: 100,
+  },
+
+  // Menu & Report Modals
+  menuOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  menuSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34,
+  },
+  menuHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: colors.grayBorder,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  menuItemText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.dark,
+  },
+  menuItemTextDanger: {
+    color: '#FF6B6B',
+  },
+  menuCancelButton: {
+    marginTop: 8,
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
+  },
+  menuCancelText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    color: colors.dark,
+  },
+  reportTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
+    color: colors.dark,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  reportSubtitle: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: colors.gray,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  reportOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.grayBorder,
+  },
+  reportOptionText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 16,
+    color: colors.dark,
   },
 });

@@ -29,7 +29,7 @@ import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sharePost, copyPostLink } from '../../utils/share';
-import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
+import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, deletePost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 
 const { width, height } = Dimensions.get('window');
@@ -57,7 +57,7 @@ const PostDetailVibesFeedScreen = () => {
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
 
   // Content store for reports and status
-  const { submitReport: storeSubmitReport, hasUserReported, isUnderReview } = useContentStore();
+  const { submitPostReport, hasUserReported, isUnderReview } = useContentStore();
   // User safety store for mute/block
   const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
   const currentUserId = useUserStore((state) => state.user?.id);
@@ -98,6 +98,7 @@ const PostDetailVibesFeedScreen = () => {
   const [muteLoading, setMuteLoading] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [blockLoading, setBlockLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Animation values
 
@@ -107,16 +108,12 @@ const PostDetailVibesFeedScreen = () => {
 
   // Card press animation refs
   const cardScales = useRef<{ [key: string]: Animated.Value }>({}).current;
-  const viewedPosts = useRef<Set<string>>(new Set());
   const getCardScale = useCallback((id: string) => {
     if (!cardScales[id]) {
       cardScales[id] = new Animated.Value(1);
     }
     return cardScales[id];
   }, [cardScales]);
-
-  // User follows me?
-  const _theyFollowMe = currentPost?.user?.followsMe || false;
 
   // Check follow status on mount
   useEffect(() => {
@@ -146,12 +143,6 @@ const PostDetailVibesFeedScreen = () => {
     };
     checkPostStatus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPost?.id]);
-
-  // Track viewed posts (for future analytics if needed)
-  useEffect(() => {
-    if (!currentPost?.id || !isValidUUID(currentPost.id)) return;
-    viewedPosts.current.add(currentPost.id);
   }, [currentPost?.id]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -277,6 +268,7 @@ const PostDetailVibesFeedScreen = () => {
       const { error } = await followUser(currentPost.user.id);
       if (!error) {
         setIsFan(true);
+        showSuccess('Followed', `You are now a fan of ${currentPost.user.name}.`);
       } else {
         if (__DEV__) console.warn('[PostDetail] Follow error:', error);
       }
@@ -285,7 +277,7 @@ const PostDetailVibesFeedScreen = () => {
     } finally {
       setFanLoading(false);
     }
-  }, [fanLoading, currentPost?.user?.id]);
+  }, [fanLoading, currentPost?.user?.id, currentPost?.user?.name, showSuccess]);
 
   // Double tap to like
   const handleDoubleTap = useCallback(() => {
@@ -390,22 +382,21 @@ const PostDetailVibesFeedScreen = () => {
     }
   }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError]);
 
-  // Submit report to store
-  const submitReport = useCallback((reason: string) => {
+  // Submit report to store (async with proper error handling)
+  const submitReport = useCallback(async (reason: string) => {
     if (!currentPost) return;
     setShowReportModal(false);
 
-    // Submit to content store
-    const result = storeSubmitReport(currentPost.id, reason);
+    const result = await submitPostReport(currentPost.id, reason);
 
     if (result.alreadyReported) {
       showError('Already Reported', result.message);
     } else if (result.success) {
       showSuccess('Reported', result.message);
     } else {
-      showError('Error', 'Something went wrong. Please try again.');
+      showError('Error', result.message || 'Could not report post. Please try again.');
     }
-  }, [currentPost, storeSubmitReport, showError, showSuccess]);
+  }, [currentPost, submitPostReport, showError, showSuccess]);
 
   // --- Extracted inline handlers ---
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
@@ -519,26 +510,29 @@ const PostDetailVibesFeedScreen = () => {
     );
   }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess]);
 
-  // Navigate to post detail with animation
-  const _handleGridPostPress = useCallback((post: GridPost) => {
-    const scale = getCardScale(post.id);
-
-    // Press animation
-    Animated.sequence([
-      Animated.timing(scale, {
-        toValue: 0.96,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      navigation.navigate('PostDetailVibesFeed', { postId: post.id, post });
-    });
-  }, [getCardScale, navigation]);
+  // Delete own post
+  const handleDeletePost = useCallback(() => {
+    if (deleteLoading || !currentPost) return;
+    setShowMenu(false);
+    showDestructiveConfirm(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      async () => {
+        setDeleteLoading(true);
+        try {
+          const { error } = await deletePost(currentPost.id);
+          if (error) {
+            showError('Error', 'Could not delete post. Please try again.');
+          } else {
+            showSuccess('Deleted', 'Post has been deleted.');
+            navigation.goBack();
+          }
+        } finally {
+          setDeleteLoading(false);
+        }
+      }
+    );
+  }, [deleteLoading, currentPost, showDestructiveConfirm, showSuccess, showError, navigation]);
 
   // Render modern grid post card
   const renderGridPost = useCallback((post: { id: string; type?: string; thumbnail: string; title?: string; likes?: number; category?: string; height?: number; duration?: string; user?: { id?: string; name?: string; avatar?: string } }, index: number) => {
@@ -1007,6 +1001,15 @@ const PostDetailVibesFeedScreen = () => {
           <BlurView intensity={20} tint="dark" style={styles.menuBlur}>
             <View style={styles.menuContent}>
               <View style={styles.modalHandle} />
+
+              {currentPost.user.id === currentUserId && (
+                <TouchableOpacity style={styles.menuItem} onPress={handleDeletePost} disabled={deleteLoading}>
+                  <View style={[styles.menuIconBg, styles.menuIconBgDanger]}>
+                    <Ionicons name="trash-outline" size={22} color={colors.heartRed} />
+                  </View>
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
                 <View style={styles.menuIconBg}>

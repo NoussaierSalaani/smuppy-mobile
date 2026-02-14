@@ -439,6 +439,11 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   const hasMarkedReadRef = useRef(false);
 
+  // Reset read tracking when conversationId changes (e.g., re-entering same chat)
+  useEffect(() => {
+    hasMarkedReadRef.current = false;
+  }, [conversationId]);
+
   const loadMessages = useCallback(async () => {
     if (!conversationId) return;
     const { data, error } = await getMessages(conversationId, 0, 100);
@@ -603,9 +608,18 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     setIsRecording(false);
     setVoicePreviewVisible(false);
     setVoicePreview(null);
-    setSending(true);
 
     const durationText = `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`;
+    const voiceLabel = `Voice message (${durationText})`;
+
+    // Content moderation check on voice label text
+    const filterResult = filterContent(voiceLabel, { context: 'chat', skipPersonalDataCheck: true });
+    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      showError('Content Policy', filterResult.reason || 'Your message contains inappropriate content.');
+      return;
+    }
+
+    setSending(true);
 
     // Optimistic: show voice message immediately with local URI
     const optimisticId = `optimistic-voice-${Date.now()}`;
@@ -613,7 +627,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       id: optimisticId,
       conversation_id: conversationId,
       sender_id: currentUserId || '',
-      content: `Voice message (${durationText})`,
+      content: voiceLabel,
       media_url: uri,
       media_type: 'audio',
       created_at: new Date().toISOString(),
@@ -648,7 +662,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     // Send message with audio URL
     const { data: sentMessage, error } = await sendMessageToDb(
       conversationId,
-      `Voice message (${durationText})`,
+      voiceLabel,
       voiceUrl,
       'audio',
       replyToMessage?.id
@@ -742,6 +756,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   // Handle delete message
   const handleDeleteMessage = useCallback(async (message: Message) => {
+    setShowMessageMenu(false);
+
     // Check if message is less than 15 minutes old
     const messageAge = Date.now() - new Date(message.created_at).getTime();
     const fifteenMinutes = 15 * 60 * 1000;
@@ -762,7 +778,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           onPress: async () => {
             const { success, error } = await deleteMessage(message.id);
             if (success) {
-              // Refresh messages
               loadMessages();
             } else {
               showError('Error', error || 'Failed to delete message');

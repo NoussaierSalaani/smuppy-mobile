@@ -240,6 +240,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // SECURITY: Don't include full message content in push (visible on lock screen, logged by APNs/FCM)
     const displayName = profile.display_name || 'Someone';
     const pushBody = sharedPostId ? 'Shared a post with you'
+      : sharedPeakId ? 'Shared a peak with you'
       : (validMediaType === 'audio' || validMediaType === 'voice') ? 'Sent a voice message'
       : validMediaUrl ? 'Sent you a photo'
       : 'Sent you a message';

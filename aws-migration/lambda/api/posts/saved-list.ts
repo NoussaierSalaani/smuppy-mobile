@@ -68,7 +68,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pr.full_name AS author_full_name,
         pr.avatar_url AS author_avatar_url,
         pr.account_type AS author_account_type,
-        pr.is_verified AS author_is_verified
+        pr.is_verified AS author_is_verified,
+        pr.business_name AS author_business_name
       FROM saved_posts sp
       INNER JOIN posts p ON p.id = sp.post_id
       INNER JOIN profiles pr ON pr.id = p.author_id
@@ -97,6 +98,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         avatarUrl: row.author_avatar_url,
         accountType: row.author_account_type,
         isVerified: row.author_is_verified || false,
+        businessName: row.author_business_name,
       },
     }));
 

@@ -124,7 +124,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Verify host is a creator
     const hostResult = await client.query(
-      `SELECT id, username, display_name, avatar_url, account_type, is_verified
+      `SELECT id, username, display_name, avatar_url, account_type, is_verified, business_name
        FROM profiles WHERE id = $1`,
       [profileId]
     );
@@ -149,7 +149,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Verify all invited users are creators
     const invitedResult = await client.query(
-      `SELECT id, username, display_name, avatar_url, account_type, is_verified
+      `SELECT id, username, display_name, avatar_url, account_type, is_verified, business_name
        FROM profiles
        WHERE id = ANY($1)
        AND (account_type = 'pro_creator' OR account_type = 'pro_business')`,
@@ -268,6 +268,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             displayName: host.display_name,
             avatarUrl: host.avatar_url,
             isVerified: host.is_verified,
+            accountType: host.account_type,
+            businessName: host.business_name,
           },
           participants: participants.map((p) => ({
             id: p.id,
@@ -275,6 +277,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             displayName: p.display_name,
             avatarUrl: p.avatar_url,
             isVerified: p.is_verified,
+            accountType: p.account_type,
+            businessName: p.business_name,
             position: p.position,
             status: p.status,
             isHost: p.isHost,

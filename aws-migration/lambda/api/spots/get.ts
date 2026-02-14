@@ -57,7 +57,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.full_name AS creator_full_name,
         p.avatar_url AS creator_avatar_url,
         p.is_verified AS creator_is_verified,
-        p.account_type AS creator_account_type
+        p.account_type AS creator_account_type,
+        p.business_name AS creator_business_name
       FROM spots s
       JOIN profiles p ON s.creator_id = p.id
       WHERE s.id = $1`,
@@ -111,6 +112,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             avatarUrl: s.creator_avatar_url,
             isVerified: s.creator_is_verified || false,
             accountType: s.creator_account_type,
+            businessName: s.creator_business_name,
           },
         },
       }),

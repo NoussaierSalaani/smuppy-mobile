@@ -271,7 +271,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const authorResult = await db.query(
-      `SELECT id, username, full_name, avatar_url, is_verified, account_type
+      `SELECT id, username, full_name, avatar_url, is_verified, account_type, business_name
        FROM profiles WHERE id = $1`,
       [userId]
     );
@@ -285,6 +285,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           avatarUrl: authorRow.avatar_url,
           isVerified: authorRow.is_verified,
           accountType: authorRow.account_type,
+          businessName: authorRow.business_name,
         }
       : null;
 

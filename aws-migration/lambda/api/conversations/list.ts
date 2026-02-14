@@ -114,7 +114,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             'display_name', p.display_name,
             'avatar_url', p.avatar_url,
             'is_verified', p.is_verified,
-            'account_type', p.account_type
+            'account_type', p.account_type,
+            'business_name', p.business_name
           )
           FROM profiles p
           WHERE p.id = CASE

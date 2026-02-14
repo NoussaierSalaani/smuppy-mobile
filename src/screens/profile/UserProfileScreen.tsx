@@ -40,6 +40,7 @@ import { awsAPI } from '../../services/aws-api';
 import { FEATURES } from '../../config/featureFlags';
 import GradeFrame from '../../components/GradeFrame';
 import { getGrade } from '../../utils/gradeSystem';
+import { getMasonryHeight } from '../../utils/postTransformers';
 import { ProfileSkeleton } from '../../components/skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -913,28 +914,24 @@ const UserProfileScreen = () => {
 
     if (activeTab === 'posts') {
       if (posts.length === 0) return renderEmpty('posts');
-      const postColumns = posts.length === 1 ? 1 : posts.length === 2 ? 2 : 3;
-      const cardAspect = postColumns === 1 ? 0.9 : 1;
-      const gridPadding = 16 * 2;
-      const gridGap = 12;
-      const totalGaps = gridGap * (postColumns - 1);
-      const cardWidth = (SCREEN_WIDTH - gridPadding - totalGaps) / postColumns;
+      const leftColumn = posts.filter((_, i) => i % 2 === 0);
+      const rightColumn = posts.filter((_, i) => i % 2 === 1);
       return (
-        <View style={styles.postsGrid}>
-          {posts.map((post, index) => (
-            <View
-              key={`post-${index}-${post.id}`}
-              style={[
-                styles.postCardWrapper,
-                {
-                  width: cardWidth,
-                  aspectRatio: cardAspect,
-                },
-              ]}
-            >
-              {renderPostItem(post, posts)}
-            </View>
-          ))}
+        <View style={styles.masonryContainer}>
+          <View style={styles.masonryColumn}>
+            {leftColumn.map((post) => (
+              <View key={post.id} style={[styles.masonryCard, { height: getMasonryHeight(post.id) }]}>
+                {renderPostItem(post, posts)}
+              </View>
+            ))}
+          </View>
+          <View style={styles.masonryColumn}>
+            {rightColumn.map((post) => (
+              <View key={post.id} style={[styles.masonryCard, { height: getMasonryHeight(post.id) }]}>
+                {renderPostItem(post, posts)}
+              </View>
+            ))}
+          </View>
         </View>
       );
     }
@@ -2107,6 +2104,24 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   postCardWrapper: {
     // width is set dynamically via flexBasis/maxWidth inline styles
   },
+  // ===== MASONRY LAYOUT =====
+  masonryContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  masonryColumn: {
+    flex: 1,
+    gap: 8,
+  },
+  masonryCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(14, 191, 138, 0.35)' : 'rgba(14, 191, 138, 0.25)',
+  },
+
   postCard: {
     width: '100%',
     height: '100%',

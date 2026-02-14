@@ -214,8 +214,11 @@ export const transformToVibePost = (
  * Uses first + last char code for consistent results across renders.
  */
 export const getMasonryHeight = (postId: string): number => {
-  const heights = [180, 210, 240, 260];
-  const charSum = Math.abs(postId.charCodeAt(0) + postId.charCodeAt(postId.length - 1));
+  const heights = [160, 200, 240, 280, 220, 180, 260];
+  const mid = Math.floor(postId.length / 2);
+  const charSum = Math.abs(
+    postId.charCodeAt(0) + postId.charCodeAt(mid) + postId.charCodeAt(postId.length - 1)
+  );
   return heights[charSum % heights.length];
 };
 

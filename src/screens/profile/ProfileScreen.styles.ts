@@ -379,11 +379,11 @@ export const createProfileStyles = (colors: ThemeColors, isDark = false) => Styl
   masonryContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 8,
   },
   masonryColumn: {
     flex: 1,
-    gap: 12,
+    gap: 8,
   },
   masonryCard: {
     borderRadius: 16,

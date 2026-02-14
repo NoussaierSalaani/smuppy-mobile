@@ -32,7 +32,7 @@ import { useShareModal } from '../../hooks/useModalState';
 import { usePostInteractions } from '../../hooks/usePostInteractions';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
 import SharePostModal from '../../components/SharePostModal';
-import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch, deletePost, muteUser } from '../../services/database';
+import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch, deletePost } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
@@ -1130,19 +1130,73 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           onPress={handleCloseMenu}
         >
           <View style={styles.menuContainer}>
+            {menuPost && menuPost.user.id === currentUser?.id && (
+              <TouchableOpacity style={styles.menuItem} onPress={handleDeletePost}>
+                <Ionicons name="trash-outline" size={22} color="#FF6B6B" />
+                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
+              </TouchableOpacity>
+            )}
+            {menuPost && menuPost.user.id !== currentUser?.id && (
+              <>
+                <TouchableOpacity style={styles.menuItem} onPress={handleMuteUser}>
+                  <Ionicons name="eye-off-outline" size={22} color={colors.dark} />
+                  <Text style={styles.menuItemText}>Mute User</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={handleBlockUser}>
+                  <Ionicons name="ban-outline" size={22} color="#FF6B6B" />
+                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block User</Text>
+                </TouchableOpacity>
+              </>
+            )}
             <TouchableOpacity style={styles.menuItem} onPress={handleReportPost}>
-              <Ionicons name="flag-outline" size={22} color={colors.dark} />
-              <Text style={styles.menuItemText}>Report</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleMuteUser}>
-              <Ionicons name="volume-mute-outline" size={22} color={colors.dark} />
-              <Text style={styles.menuItemText}>Mute User</Text>
+              <Ionicons name="flag-outline" size={22} color="#FF6B6B" />
+              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemLast]}
               onPress={handleCloseMenu}
             >
               <Ionicons name="close-outline" size={22} color={colors.gray} />
+              <Text style={[styles.menuItemText, styles.menuItemTextCancel]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Report Reason Modal */}
+      <Modal
+        visible={showReportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowReportModal(false)}
+        >
+          <View style={styles.menuContainer}>
+            <Text style={styles.reportTitle}>Report this post</Text>
+            <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('spam')}>
+              <Text style={styles.reportOptionText}>Spam or misleading</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('inappropriate')}>
+              <Text style={styles.reportOptionText}>Inappropriate content</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('harassment')}>
+              <Text style={styles.reportOptionText}>Harassment or bullying</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('violence')}>
+              <Text style={styles.reportOptionText}>Violence or dangerous</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('other')}>
+              <Text style={styles.reportOptionText}>Other</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemLast]}
+              onPress={() => setShowReportModal(false)}
+            >
               <Text style={[styles.menuItemText, styles.menuItemTextCancel]}>Cancel</Text>
             </TouchableOpacity>
           </View>

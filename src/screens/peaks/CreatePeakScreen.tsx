@@ -136,16 +136,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     setCameraKey(prev => prev + 1);
   };
 
-  // Show custom alert (for errors)
-  const showCustomAlert = (message: string): void => {
-    showSmuppyAlert({
-      title: 'Peak too short',
-      message,
-      type: 'warning',
-      buttons: [{ text: 'Try Again', onPress: resetCamera }],
-    });
-  };
-
   // Show toast (auto-dismiss after 2s)
   const showToastMessage = (message: string): void => {
     setToastMessage(message);

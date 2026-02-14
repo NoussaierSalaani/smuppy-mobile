@@ -747,7 +747,8 @@ const PeakViewScreen = (): React.JSX.Element => {
     setIsPaused(false);
   };
 
-  const handleMenuAction = async (action: string): Promise<void> => {
+   
+  const handleMenuAction = useCallback(async (action: string): Promise<void> => {
     closeMenu();
     switch (action) {
       case 'report':
@@ -828,7 +829,8 @@ const PeakViewScreen = (): React.JSX.Element => {
         }
         break;
     }
-  };
+  // Depend on currentPeak/currentIndex so menu handlers always reference the visible peak
+  }, [currentPeak, currentIndex, peaks, closeMenu, navigation, showDestructiveConfirm, showSuccess, showError]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -1011,16 +1013,11 @@ const PeakViewScreen = (): React.JSX.Element => {
   const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
 
   // Menu action handlers
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleShareAction = useCallback(() => handleMenuAction('share'), []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleMenuCopyLink = useCallback(() => handleMenuAction('copy_link'), []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleMenuDownload = useCallback(() => handleMenuAction('download'), []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleMenuDelete = useCallback(() => handleMenuAction('delete'), []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleMenuNotInterested = useCallback(() => handleMenuAction('not_interested'), []);
+  const handleShareAction = useCallback(() => handleMenuAction('share'), [handleMenuAction]);
+  const handleMenuCopyLink = useCallback(() => handleMenuAction('copy_link'), [handleMenuAction]);
+  const handleMenuDownload = useCallback(() => handleMenuAction('download'), [handleMenuAction]);
+  const handleMenuDelete = useCallback(() => handleMenuAction('delete'), [handleMenuAction]);
+  const handleMenuNotInterested = useCallback(() => handleMenuAction('not_interested'), [handleMenuAction]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMenuReport = useCallback(() => handleMenuAction('report'), []);
 

@@ -107,26 +107,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const accountCheck = await requireActiveAccount(userId, headers);
     if (isAccountError(accountCheck)) return accountCheck;
 
-    // Moderation: wordlist filter
-    const filterResult = await filterText(sanitizedContent);
-    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-      log.warn('DM blocked by text filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
-      };
-    }
+    // Skip moderation for pure shared content messages (only contain the share token)
+    if (!sharedMatch) {
+      // Moderation: wordlist filter
+      const filterResult = await filterText(sanitizedContent);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('DM blocked by text filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+        };
+      }
 
-    // Moderation: Comprehend toxicity analysis
-    const toxicityResult = await analyzeTextToxicity(sanitizedContent);
-    if (toxicityResult.action === 'block') {
-      log.warn('DM blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
-      };
+      // Moderation: Comprehend toxicity analysis
+      const toxicityResult = await analyzeTextToxicity(sanitizedContent);
+      if (toxicityResult.action === 'block') {
+        log.warn('DM blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+        };
+      }
     }
 
     const db = await getPool();

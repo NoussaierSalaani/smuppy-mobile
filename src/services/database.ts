@@ -1411,6 +1411,8 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
         last_message_at: c.last_message?.created_at ?? c.created_at,
         last_message_preview: c.last_message?.media_type === 'audio' || c.last_message?.media_type === 'voice'
           ? 'Voice message'
+          : c.last_message?.content?.match(/^\[shared_post:[0-9a-f-]+\]$/i) ? 'Shared a post'
+          : c.last_message?.content?.match(/^\[shared_peak:[0-9a-f-]+\]$/i) ? 'Shared a peak'
           : c.last_message?.content,
         updated_at: c.created_at,
         unread_count: c.unread_count ?? 0,
@@ -1431,7 +1433,7 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
     const result = await awsAPI.request<{ messages: Array<{
       id: string; content: string; media_url?: string; media_type?: string;
       sender_id: string; read: boolean; created_at: string;
-      shared_post_id?: string; is_deleted?: boolean;
+      shared_post_id?: string; shared_peak_id?: string; is_deleted?: boolean;
       sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
       reply_to_message_id?: string;
       reply_to_message?: {
@@ -1456,6 +1458,7 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
       media_url: m.media_url,
       media_type: m.media_type as Message['media_type'],
       shared_post_id: m.shared_post_id,
+      shared_peak_id: m.shared_peak_id,
       is_deleted: m.is_deleted,
       created_at: m.created_at,
       sender: m.sender ? {
@@ -1794,6 +1797,7 @@ export interface Message {
   media_url?: string;
   media_type?: 'image' | 'video' | 'voice' | 'audio';
   shared_post_id?: string;
+  shared_peak_id?: string;
   is_deleted?: boolean;
   created_at: string;
   read_at?: string;
@@ -2212,6 +2216,9 @@ export const sharePostToConversation = sharePostToUser;
  * Share a peak with a user via in-app messaging
  */
 export const sharePeakToUser = async (peakId: string, recipientUserId: string): Promise<{ error: string | null }> => {
+  if (!UUID_PATTERN.test(peakId)) return { error: 'Invalid peak ID' };
+  if (!UUID_PATTERN.test(recipientUserId)) return { error: 'Invalid user ID' };
+
   try {
     const { data: conversationId, error: convError } = await getOrCreateConversation(recipientUserId);
     if (convError || !conversationId) {

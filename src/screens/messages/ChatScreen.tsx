@@ -28,6 +28,7 @@ import { AccountBadge } from '../../components/Badge';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import VoiceMessage from '../../components/VoiceMessage';
 import SharedPostBubble from '../../components/SharedPostBubble';
+import SharedPeakBubble from '../../components/SharedPeakBubble';
 import { GRADIENTS, SPACING } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -209,7 +210,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
         style={[
           styles.messageBubble,
           isFromMe ? styles.messageBubbleRight : styles.messageBubbleLeft,
-          (item.shared_post_id || (item.media_type === 'audio' && item.media_url)) && styles.messageBubbleNoPadding,
+          (item.shared_post_id || item.shared_peak_id || (item.media_type === 'audio' && item.media_url)) && styles.messageBubbleNoPadding,
           item.reply_to_message && styles.messageBubbleWithReply,
         ]}
       >
@@ -223,13 +224,16 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
             {item.shared_post_id && (
               <SharedPostBubble postId={item.shared_post_id} isFromMe={isFromMe} />
             )}
+            {item.shared_peak_id && !item.shared_post_id && (
+              <SharedPeakBubble peakId={item.shared_peak_id} isFromMe={isFromMe} />
+            )}
             {item.media_type === 'audio' && item.media_url && (
               <VoiceMessage uri={item.media_url} isFromMe={isFromMe} />
             )}
             {item.media_type === 'audio' && !item.media_url && item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
-            {!item.shared_post_id && item.media_type !== 'audio' && item.content && (
+            {!item.shared_post_id && !item.shared_peak_id && item.media_type !== 'audio' && item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
             {item.media_url && item.media_type === 'image' && (
@@ -239,7 +243,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
             )}
           </>
         )}
-        {!item.shared_post_id && (item.media_type !== 'audio' || !item.media_url) && (
+        {!item.shared_post_id && !item.shared_peak_id && (item.media_type !== 'audio' || !item.media_url) && (
           <View style={styles.messageFooter}>
             <Text style={[styles.messageTime, isFromMe && styles.messageTimeRight]}>{formatTime(item.created_at)}</Text>
             {isFromMe && (
@@ -438,6 +442,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   }, []);
 
   const hasMarkedReadRef = useRef(false);
+  const pollFailCountRef = useRef(0);
 
   // Reset read tracking when conversationId changes (e.g., re-entering same chat)
   useEffect(() => {
@@ -454,8 +459,34 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       const optimisticMessages = optimisticIds.size > 0
         ? messagesRef.current.filter(m => optimisticIds.has(m.id))
         : [];
-      const merged = optimisticMessages.length > 0
-        ? [...data, ...optimisticMessages]
+      // Clean up optimistic messages that now exist on server
+      if (pendingOptimisticIdsRef.current.size > 0) {
+        const serverIds = new Set(data.map((m: Message) => m.id));
+        // Also check by content match for optimistic messages
+        for (const optId of pendingOptimisticIdsRef.current) {
+          const optMsg = messagesRef.current.find(m => m.id === optId);
+          if (!optMsg) {
+            pendingOptimisticIdsRef.current.delete(optId);
+            continue;
+          }
+          // If a server message with same content+sender exists within 30s, remove optimistic
+          const matched = data.some((m: Message) =>
+            m.sender_id === optMsg.sender_id &&
+            m.content === optMsg.content &&
+            Math.abs(new Date(m.created_at).getTime() - new Date(optMsg.created_at).getTime()) < 30000
+          );
+          if (matched) {
+            pendingOptimisticIdsRef.current.delete(optId);
+          }
+        }
+      }
+
+      // Re-compute optimistic messages after cleanup
+      const cleanedOptimisticMessages = pendingOptimisticIdsRef.current.size > 0
+        ? messagesRef.current.filter(m => pendingOptimisticIdsRef.current.has(m.id))
+        : [];
+      const merged = cleanedOptimisticMessages.length > 0
+        ? [...data, ...cleanedOptimisticMessages]
         : data;
 
       // Smart polling: only update state if messages actually changed
@@ -551,7 +582,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     setSending(true);
 
     // Optimistic: add message locally immediately
-    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     const optimisticMessage: Message = {
       id: optimisticId,
       conversation_id: conversationId,
@@ -720,8 +751,15 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   }, []);
   const handleCancelReply = useCallback(() => setReplyToMessage(null), []);
 
+  // Reaction cooldown to prevent spam
+  const reactionCooldownRef = useRef(false);
+
   // Handle message reaction
   const handleReaction = useCallback(async (messageId: string, emoji: string) => {
+    if (reactionCooldownRef.current) return;
+    reactionCooldownRef.current = true;
+    setTimeout(() => { reactionCooldownRef.current = false; }, 1000);
+
     const message = messages.find(m => m.id === messageId);
     if (!message) return;
 
@@ -1303,9 +1341,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                     key={emoji}
                     style={[styles.reactionButton, hasReaction && styles.reactionButtonActive]}
                     onPress={() => {
-                      if (selectedMessage) {
-                        handleReaction(selectedMessage.id, emoji);
-                      }
+                      if (!selectedMessage) return;
+                      handleReaction(selectedMessage.id, emoji);
                       setShowMessageMenu(false);
                     }}
                   >

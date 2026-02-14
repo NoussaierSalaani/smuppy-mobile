@@ -168,6 +168,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       .replace(/<[^>]*>/g, '')  // Strip HTML tags
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Strip control chars
 
+    // Detect shared content: [shared_post:UUID] or [shared_peak:UUID]
+    const SHARED_CONTENT_PATTERN = /^\[shared_(post|peak):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;
+    const sharedMatch = sanitizedContent.match(SHARED_CONTENT_PATTERN);
+    let sharedPostId: string | null = null;
+    let sharedPeakId: string | null = null;
+    if (sharedMatch) {
+      if (sharedMatch[1] === 'post') { sharedPostId = sharedMatch[2]; }
+      else { sharedPeakId = sharedMatch[2]; }
+    }
+
     if (!sanitizedContent.trim()) {
       return {
         statusCode: 400,
@@ -175,24 +185,27 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Moderation: wordlist filter
-    const filterResult = await filterText(sanitizedContent);
-    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-      log.warn('WS DM blocked by text filter', { senderId: senderId.substring(0, 8) + '***', severity: filterResult.severity });
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
-      };
-    }
+    // Skip moderation for pure shared content messages
+    if (!sharedMatch) {
+      // Moderation: wordlist filter
+      const filterResult = await filterText(sanitizedContent);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('WS DM blocked by text filter', { senderId: senderId.substring(0, 8) + '***', severity: filterResult.severity });
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+        };
+      }
 
-    // Moderation: Comprehend toxicity analysis
-    const toxicityResult = await analyzeTextToxicity(sanitizedContent);
-    if (toxicityResult.action === 'block') {
-      log.warn('WS DM blocked by toxicity', { senderId: senderId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
-      };
+      // Moderation: Comprehend toxicity analysis
+      const toxicityResult = await analyzeTextToxicity(sanitizedContent);
+      if (toxicityResult.action === 'block') {
+        log.warn('WS DM blocked by toxicity', { senderId: senderId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
+        };
+      }
     }
 
     // Insert message + update conversation in a transaction
@@ -202,10 +215,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await client.query('BEGIN');
 
       const messageResult = await client.query(
-        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, read, created_at)
-         VALUES ($1, $2, $3, $4, false, NOW())
-         RETURNING id, content, sender_id, recipient_id, read, created_at`,
-        [conversationId, senderId, recipientId, sanitizedContent]
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, read, created_at, shared_post_id, shared_peak_id)
+         VALUES ($1, $2, $3, $4, false, NOW(), $5, $6)
+         RETURNING id, content, sender_id, recipient_id, read, created_at, shared_post_id, shared_peak_id`,
+        [conversationId, senderId, recipientId, sanitizedContent, sharedPostId, sharedPeakId]
       );
 
       message = {

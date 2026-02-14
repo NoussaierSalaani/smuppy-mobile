@@ -509,6 +509,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const toggleLike = useCallback(async (): Promise<void> => {
     if (isLikingRef.current) return;
     isLikingRef.current = true;
+    setLikeButtonDisabled(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const isCurrentlyLiked = likedPeaks.has(currentPeak.id);
 
@@ -546,8 +547,11 @@ const PeakViewScreen = (): React.JSX.Element => {
         }
         return newSet;
       });
+      // Error haptic feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       isLikingRef.current = false;
+      setLikeButtonDisabled(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeak.id, likedPeaks]);
@@ -963,6 +967,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
   const isLiked = likedPeaks.has(currentPeak.id);
   const isSaved = savedPeaks.has(currentPeak.id);
+  const [likeButtonDisabled, setLikeButtonDisabled] = useState(false);
   const likesCount = currentPeak.likes ?? 0;
   const existingTags = peakTags.get(currentPeak.id) || [];
   const isOwnPeak = currentPeak.isOwnPeak || (currentUser?.id != null && currentPeak.user?.id === currentUser.id);
@@ -1162,10 +1167,13 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       {/* Back Button — always visible so user can exit */}
       <TouchableOpacity
-        style={[styles.backButton, topHeaderPaddingStyle]}
+        style={[styles.backButton, { top: insets.top + 8 }]}
         onPress={handleGoBack}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
-        <Ionicons name="chevron-back" size={26} color={colors.white} />
+        <View style={styles.backButtonBg}>
+          <Ionicons name="chevron-back" size={24} color={colors.white} />
+        </View>
       </TouchableOpacity>
 
       {/* Top Header with Avatar Carousel */}
@@ -1287,7 +1295,11 @@ const PeakViewScreen = (): React.JSX.Element => {
       {carouselVisible && (
         <View style={[styles.actionButtonsContainer, actionButtonsBottomStyle]}>
           {/* Like Button */}
-          <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
+          <TouchableOpacity
+            style={[styles.actionButton, likeButtonDisabled && { opacity: 0.5 }]}
+            onPress={toggleLike}
+            disabled={likeButtonDisabled}
+          >
             <View style={[styles.actionIconContainer, isLiked && styles.actionIconActive]}>
               <SmuppyHeartIcon
                 size={26}
@@ -1695,13 +1707,16 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   backButton: {
     position: 'absolute',
-    top: 0,
-    left: 12,
-    width: 40,
-    height: 40,
+    left: 16,
+    zIndex: 200,
+  },
+  backButtonBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 200,
   },
   addButton: {
     width: 40,

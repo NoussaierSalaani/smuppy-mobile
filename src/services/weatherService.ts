@@ -28,7 +28,10 @@ export interface WeatherData {
 
 const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const API_TIMEOUT_MS = 8000;
-const OPENWEATHERMAP_API_KEY = process.env.EXPO_PUBLIC_OPENWEATHERMAP_API_KEY || '';
+// Guard against Expo's `__MISSING_<NAME>__` placeholder in production builds
+const rawWeatherKey = process.env.EXPO_PUBLIC_OPENWEATHERMAP_API_KEY;
+const OPENWEATHERMAP_API_KEY =
+  typeof rawWeatherKey === 'string' && !rawWeatherKey.startsWith('__MISSING_') ? rawWeatherKey : '';
 const OPENWEATHERMAP_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
 // Conditions where outdoor activities are not recommended

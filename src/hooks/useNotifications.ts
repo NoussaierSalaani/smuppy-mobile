@@ -232,7 +232,7 @@ export const useAutoRegisterPushNotifications = (): void => {
     if (hasRegistered.current) return;
 
     let cancelled = false;
-    const RETRY_DELAYS = [0, 5000, 15000, 30000]; // immediate, 5s, 15s, 30s
+    const RETRY_DELAYS = [0, 10000, 30000]; // immediate, 10s, 30s
 
     const attemptRegistration = async (attempt: number) => {
       if (cancelled || hasRegistered.current) return;
@@ -248,25 +248,14 @@ export const useAutoRegisterPushNotifications = (): void => {
         if (__DEV__) console.log(`[Push] Will retry in ${delay / 1000}s`);
         timerRef.current = setTimeout(() => attemptRegistration(attempt + 1), delay);
       } else if (!cancelled) {
-        // All retries exhausted — schedule one final attempt after 60s
-        if (__DEV__) console.warn('[Push] All initial attempts failed, scheduling final retry in 60s');
-        timerRef.current = setTimeout(async () => {
-          if (cancelled || hasRegistered.current) return;
-          const lastChance = await registerPushToken(user.id);
-          if (lastChance) {
-            hasRegistered.current = true;
-            if (__DEV__) console.log('[Push] Final retry succeeded');
-          } else {
-            if (__DEV__) console.warn('[Push] All registration attempts exhausted');
-            try {
-              const { captureMessage } = require('../lib/sentry');
-              captureMessage('Push registration failed after all attempts', 'warning', {
-                userId: user.id,
-                attempts: RETRY_DELAYS.length + 1,
-              });
-            } catch { /* Sentry not available */ }
-          }
-        }, 60000);
+        if (__DEV__) console.warn('[Push] All registration attempts exhausted');
+        try {
+          const { captureMessage } = require('../lib/sentry');
+          captureMessage('Push registration failed after all attempts', 'warning', {
+            userId: user.id,
+            attempts: RETRY_DELAYS.length,
+          });
+        } catch { /* Sentry not available */ }
       }
     };
 

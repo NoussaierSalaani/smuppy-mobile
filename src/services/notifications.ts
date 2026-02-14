@@ -12,6 +12,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { awsAPI } from './aws-api';
 import { captureException } from '../lib/sentry';
 
+// Helper: read env var, rejecting Expo's `__MISSING_<NAME>__` placeholders
+const safeEnv = (key: string): string | undefined => {
+  try {
+    const value = typeof process !== 'undefined' ? process.env?.[key] : undefined;
+    if (typeof value === 'string' && value.startsWith('__MISSING_')) return undefined;
+    return value;
+  } catch {
+    return undefined;
+  }
+};
+
 // ============================================
 // TYPES
 // ============================================
@@ -135,7 +146,7 @@ export const getNativePushToken = async (): Promise<{ token: string; platform: '
   // Dev fallback to Expo token to keep push working in Expo Go
   try {
     const expoToken = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EXPO_PUBLIC_PROJECT_ID || Constants.expoConfig?.extra?.eas?.projectId || undefined,
+      projectId: safeEnv('EXPO_PUBLIC_PROJECT_ID') || Constants.expoConfig?.extra?.eas?.projectId || undefined,
     });
     if (expoToken?.data) {
       const platform = Platform.OS === 'ios' ? 'ios' : 'android';
@@ -152,7 +163,7 @@ export const getNativePushToken = async (): Promise<{ token: string; platform: '
 export const getExpoPushToken = async (): Promise<string | null> => {
   try {
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EXPO_PUBLIC_PROJECT_ID || Constants.expoConfig?.extra?.eas?.projectId || undefined,
+      projectId: safeEnv('EXPO_PUBLIC_PROJECT_ID') || Constants.expoConfig?.extra?.eas?.projectId || undefined,
     });
     return tokenData?.data || null;
   } catch (error) {
@@ -162,9 +173,13 @@ export const getExpoPushToken = async (): Promise<string | null> => {
 };
 
 /**
- * Register push token with backend
+ * Register push token with backend.
+ * Caches the token fingerprint in SecureStore to avoid redundant API calls
+ * and prevent hitting the backend's rate limit (5 req / 60s).
  * @param userId User ID to associate token with
  */
+const LAST_TOKEN_KEY = 'smuppy_last_push_token';
+
 export const registerPushToken = async (_userId: string): Promise<boolean> => {
   try {
     const native = await getNativePushToken();
@@ -176,12 +191,27 @@ export const registerPushToken = async (_userId: string): Promise<boolean> => {
     if (__DEV__) console.log(`[Push] Got token (${native.platform}): ${native.token.substring(0, 20)}...`);
 
     const deviceId = await getDeviceId();
+    const tokenFingerprint = `${native.token}:${deviceId}`;
+
+    // Skip API call if same token+device already registered
+    try {
+      const lastToken = await SecureStore.getItemAsync(LAST_TOKEN_KEY);
+      if (lastToken === tokenFingerprint) {
+        if (__DEV__) console.log('[Push] Token already registered, skipping');
+        return true;
+      }
+    } catch { /* SecureStore read failed — continue with registration */ }
 
     await awsAPI.registerPushToken({
       token: native.token,
       platform: native.platform,
       deviceId,
     });
+
+    // Cache on success so subsequent calls skip the API
+    try {
+      await SecureStore.setItemAsync(LAST_TOKEN_KEY, tokenFingerprint);
+    } catch { /* non-critical */ }
 
     if (__DEV__) console.log('[Push] Token registered with backend successfully');
     return true;
@@ -200,6 +230,8 @@ export const unregisterPushToken = async (_userId: string): Promise<void> => {
   try {
     const deviceId = await getDeviceId();
     await awsAPI.unregisterPushToken(deviceId);
+    // Clear cached token so re-registration after login works
+    try { await SecureStore.deleteItemAsync(LAST_TOKEN_KEY); } catch { /* non-critical */ }
     if (__DEV__) console.log('Push token unregistered');
   } catch (error) {
     captureException(error as Error, { context: 'unregisterPushToken' });

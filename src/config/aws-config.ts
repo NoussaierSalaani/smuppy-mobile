@@ -19,10 +19,14 @@
 
 import { captureMessage as sentryCaptureMessage } from '../lib/sentry';
 
-// Helper: read Expo env var (works with Expo's inline substitution)
+// Helper: read Expo env var (works with Expo's inline substitution).
+// Expo replaces missing EXPO_PUBLIC_* vars with `__MISSING_<NAME>__` at build time.
+// That string is truthy, so we must reject it explicitly.
 const env = (key: string): string | undefined => {
   try {
-    return typeof process !== 'undefined' ? process.env?.[key] : undefined;
+    const value = typeof process !== 'undefined' ? process.env?.[key] : undefined;
+    if (typeof value === 'string' && value.startsWith('__MISSING_')) return undefined;
+    return value;
   } catch {
     return undefined;
   }

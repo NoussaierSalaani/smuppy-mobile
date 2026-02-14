@@ -163,6 +163,17 @@ const ChallengesScreen = (): React.JSX.Element => {
       {/* Featured card (trending only) */}
       {featuredChallenge && (
         <View style={styles.featuredSection}>
+          <View style={styles.featuredLabel}>
+            <LinearGradient
+              colors={[...gradientColors]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.featuredLabelGradient}
+            >
+              <Ionicons name="star" size={12} color="#FFF" />
+              <Text style={styles.featuredLabelText}>Featured</Text>
+            </LinearGradient>
+          </View>
           <ChallengeCard
             challenge={featuredChallenge}
             onPress={handleChallengePress}
@@ -174,15 +185,19 @@ const ChallengesScreen = (): React.JSX.Element => {
       {/* Grid section header */}
       {gridChallenges.length > 0 && activeTab === 'trending' && (
         <View style={styles.gridSectionHeader}>
-          <Text style={styles.gridSectionTitle}>More Challenges</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionTitleDot} />
+            <Text style={styles.gridSectionTitle}>More Challenges</Text>
+          </View>
         </View>
       )}
     </>
-  ), [featuredChallenge, gridChallenges.length, activeTab, handleChallengePress, handleAcceptChallenge, styles]);
+  ), [featuredChallenge, gridChallenges.length, activeTab, handleChallengePress, handleAcceptChallenge, styles, gradientColors]);
 
   if (loading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -192,20 +207,31 @@ const ChallengesScreen = (): React.JSX.Element => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="chevron-back" size={26} color={isDark ? colors.text : colors.dark} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Ionicons name="trophy" size={20} color={colors.gold} />
-          <Text style={styles.headerTitle}>Challenges</Text>
+      {/* Header with gradient accent */}
+      <View style={styles.headerWrapper}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={26} color={isDark ? colors.text : colors.dark} />
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <View style={styles.headerIconBg}>
+              <Ionicons name="trophy" size={16} color="#FFF" />
+            </View>
+            <Text style={styles.headerTitle}>Challenges</Text>
+          </View>
+          <View style={styles.backButton} />
         </View>
-        <View style={styles.backButton} />
+        {/* Gradient underline */}
+        <LinearGradient
+          colors={[...gradientColors]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerUnderline}
+        />
       </View>
 
       {/* Tab bar */}
@@ -243,8 +269,11 @@ const ChallengesScreen = (): React.JSX.Element => {
       {/* Content */}
       {fetchError && activeChallenges.length === 0 ? (
         <View style={[styles.centered, { flex: 1, gap: 16 }]}>
-          <Ionicons name="cloud-offline-outline" size={48} color={colors.textMuted} />
+          <View style={styles.emptyIconBg}>
+            <Ionicons name="cloud-offline-outline" size={32} color={colors.textMuted} />
+          </View>
           <Text style={styles.emptyText}>Could not load challenges</Text>
+          <Text style={styles.emptySubText}>Check your connection and try again</Text>
           <TouchableOpacity onPress={onRefresh} activeOpacity={0.8}>
             <LinearGradient
               colors={[...gradientColors]}
@@ -252,13 +281,21 @@ const ChallengesScreen = (): React.JSX.Element => {
               end={{ x: 1, y: 0 }}
               style={styles.retryButton}
             >
+              <Ionicons name="refresh" size={16} color="#FFF" />
               <Text style={styles.retryButtonText}>Retry</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
       ) : activeChallenges.length === 0 ? (
-        <View style={[styles.centered, { flex: 1, gap: 12 }]}>
-          <Ionicons name="trophy-outline" size={48} color={colors.textMuted} />
+        <View style={[styles.centered, { flex: 1, gap: 14 }]}>
+          <LinearGradient
+            colors={[...gradientColors]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.emptyTrophyBg}
+          >
+            <Ionicons name="trophy-outline" size={36} color="#FFF" />
+          </LinearGradient>
           <Text style={styles.emptyText}>
             {activeTab === 'trending' ? 'No trending challenges yet' : 'No new challenges yet'}
           </Text>
@@ -294,6 +331,9 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
   },
   // Header
+  headerWrapper: {
+    marginBottom: 4,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,18 +350,38 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   headerCenter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  headerIconBg: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FFD700',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerTitle: {
     fontFamily: 'WorkSans-Bold',
-    fontSize: 22,
+    fontSize: 24,
     color: isDark ? colors.text : colors.dark,
+  },
+  headerUnderline: {
+    height: 3,
+    marginHorizontal: 16,
+    borderRadius: 2,
+    opacity: isDark ? 0.5 : 0.3,
   },
   // Tabs
   tabBar: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     gap: 10,
+    marginTop: 12,
     marginBottom: 16,
   },
   tabItem: {
@@ -363,10 +423,38 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     marginBottom: 20,
     alignItems: 'center',
   },
+  featuredLabel: {
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  featuredLabelGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  featuredLabelText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 12,
+    color: '#FFF',
+  },
   // Grid
   gridSectionHeader: {
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 14,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitleDot: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: colors.primary,
   },
   gridSectionTitle: {
     fontFamily: 'WorkSans-SemiBold',
@@ -383,22 +471,45 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   gridItem: {
     width: COMPACT_CARD_WIDTH,
   },
-  // Empty
+  // Empty states
+  emptyIconBg: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : colors.gray50,
+    borderWidth: 1,
+    borderColor: isDark ? colors.border : colors.grayBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyTrophyBg: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.85,
+  },
   emptyText: {
-    fontFamily: 'Poppins-Medium',
+    fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
-    color: colors.textMuted,
+    color: isDark ? colors.text : colors.dark,
     textAlign: 'center',
   },
   emptySubText: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
     color: colors.textMuted,
+    textAlign: 'center',
   },
   retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 28,
     paddingVertical: 10,
     borderRadius: 24,
+    ...SHADOWS.button,
   },
   retryButtonText: {
     fontFamily: 'Poppins-SemiBold',

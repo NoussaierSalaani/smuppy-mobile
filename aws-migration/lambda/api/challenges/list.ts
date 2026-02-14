@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getReaderPool, SqlParam } from '../../shared/db';
+import { getPool, getReaderPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
@@ -14,18 +14,23 @@ const log = createLogger('challenges-list');
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+  // Auto-expire on writer pool (reader replicas are read-only)
+  try {
+    const writerPool = await getPool();
+    await writerPool.query(
+      `UPDATE peak_challenges SET status = 'ended', updated_at = NOW()
+       WHERE status = 'active' AND ends_at IS NOT NULL AND ends_at < NOW()`
+    );
+  } catch (expireErr) {
+    log.error('Auto-expire failed (non-fatal)', expireErr);
+  }
+
   const pool = await getReaderPool();
   const client = await pool.connect();
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const filter = event.queryStringParameters?.filter || 'trending'; // trending, created, tagged, responded
-
-    // Auto-expire challenges whose ends_at has passed (idempotent, lightweight UPDATE)
-    await client.query(
-      `UPDATE peak_challenges SET status = 'ended', updated_at = NOW()
-       WHERE status = 'active' AND ends_at IS NOT NULL AND ends_at < NOW()`
-    );
 
     // Resolve cognito sub to profile ID (needed for all filters)
     let userId: string | undefined;

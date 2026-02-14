@@ -26,7 +26,8 @@ import { RouteProp } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
-const ITEM_SIZE = (width - 4) / 3;
+const GRID_GAP = 2;
+const ITEM_SIZE = Math.floor((width - GRID_GAP * 4) / 3);
 const MAX_SELECTION = 10;
 
 // Media item type
@@ -205,8 +206,10 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         });
         setMediaAssets(prev => [...prev, ...moreAssets]);
       }
-    } catch (_error) {
+    } catch (error) {
+      console.error('[CreatePost] Failed to load media:', error);
       setLoading(false);
+      errorAlert('Gallery Error', 'Could not load your photos. Please check permissions and try again.');
     }
   };
 
@@ -305,9 +308,15 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         return;
       }
 
-      if (item.mediaType === 'video' && (item.duration ?? 0) > 15) {
-        warningAlert('Video Too Long', 'Videos must be 15 seconds or less.');
-        return;
+      if (item.mediaType === 'video') {
+        if (item.duration == null) {
+          warningAlert('Video Error', 'Could not determine video duration. Please try another video.');
+          return;
+        }
+        if (item.duration > 15) {
+          warningAlert('Video Too Long', 'Videos must be 15 seconds or less.');
+          return;
+        }
       }
 
       setSelectedMedia([...current, mediaItem]);
@@ -561,6 +570,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           keyExtractor={(item) => item.id}
           numColumns={3}
           extraData={flashListExtraData}
+          drawDistance={ITEM_SIZE * 3}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.mediaGrid}
           style={styles.mediaList}
@@ -777,7 +787,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
 
   // Media Grid
   mediaGrid: {
-    paddingBottom: 150,
+    paddingHorizontal: GRID_GAP,
+    paddingBottom: 90,
   },
   mediaList: {
     flex: 1,
@@ -785,7 +796,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   mediaItem: {
     width: ITEM_SIZE,
     height: ITEM_SIZE,
-    padding: 1,
+    margin: GRID_GAP / 2,
   },
   mediaItemPreview: {
     opacity: 0.7,

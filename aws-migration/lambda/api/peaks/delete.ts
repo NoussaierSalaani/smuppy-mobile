@@ -70,6 +70,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Clean up orphaned notifications referencing this peak (no FK constraint on JSONB data)
+    await db.query(
+      `DELETE FROM notifications WHERE data->>'peakId' = $1`,
+      [peakId]
+    );
+
     // Delete peak (CASCADE will handle likes, comments, etc.)
     await db.query('DELETE FROM peaks WHERE id = $1', [peakId]);
 

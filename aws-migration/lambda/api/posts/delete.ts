@@ -78,6 +78,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
+      // Clean up orphaned notifications referencing this post (no FK constraint on JSONB data)
+      await client.query(
+        `DELETE FROM notifications WHERE data->>'postId' = $1`,
+        [postId]
+      );
+
       // Delete the post (CASCADE handles related data, DB trigger auto-decrements post_count)
       await client.query('DELETE FROM posts WHERE id = $1', [postId]);
 

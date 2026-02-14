@@ -85,6 +85,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       )
       LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
       WHERE n.user_id = $1
+        -- Exclude orphaned notifications whose referenced post/peak no longer exists
+        AND (
+          n.data->>'postId' IS NULL
+          OR NOT (n.data->>'postId' ~ ${UUID_PATTERN})
+          OR EXISTS (SELECT 1 FROM posts WHERE id = (n.data->>'postId')::uuid)
+        )
+        AND (
+          n.data->>'peakId' IS NULL
+          OR NOT (n.data->>'peakId' ~ ${UUID_PATTERN})
+          OR EXISTS (SELECT 1 FROM peaks WHERE id = (n.data->>'peakId')::uuid)
+        )
     `;
 
     const params: SqlParam[] = [profileId];

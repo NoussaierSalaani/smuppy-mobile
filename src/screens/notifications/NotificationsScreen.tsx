@@ -428,6 +428,8 @@ export default function NotificationsScreen(): React.JSX.Element {
   const cursorRef = useRef<string | null>(null);
   const togglingRef = useRef<Set<number | string>>(new Set());
   const [togglingIds, setTogglingIds] = useState<Set<number | string>>(new Set());
+  // Track IDs with pending delete API calls — prevents refetch from re-adding them
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -443,10 +445,16 @@ export default function NotificationsScreen(): React.JSX.Element {
       const items = response.data || [];
       const transformed = items.map(transformNotification);
 
+      // Exclude any items that have a pending delete — prevents race condition
+      // where a refetch re-adds a notification the user just deleted
+      const filtered = pendingDeletesRef.current.size > 0
+        ? transformed.filter(n => !pendingDeletesRef.current.has(String(n.id)))
+        : transformed;
+
       if (isRefresh) {
-        setNotifications(transformed);
+        setNotifications(filtered);
       } else {
-        setNotifications(prev => [...prev, ...transformed]);
+        setNotifications(prev => [...prev, ...filtered]);
       }
 
       cursorRef.current = response.nextCursor || null;
@@ -621,19 +629,32 @@ export default function NotificationsScreen(): React.JSX.Element {
   }, []);
 
   const deleteNotification = useCallback((id: number | string): void => {
-    // Capture removed item inside setState for rollback — avoids stale closure on notifications
+    const idStr = String(id);
+
+    // Mark as pending delete — prevents refetch from re-adding this item
+    pendingDeletesRef.current.add(idStr);
+
+    // Optimistic removal from state
     let removed: Notification | undefined;
     setNotifications(prev => {
-      removed = prev.find(n => n.id === id);
-      return prev.filter(n => n.id !== id);
+      removed = prev.find(n => String(n.id) === idStr);
+      return prev.filter(n => String(n.id) !== idStr);
     });
 
-    awsAPI.deleteNotification(String(id)).catch((err) => {
-      if (removed) {
-        setNotifications(prev => [...prev, removed!]);
-      }
-      if (__DEV__) console.warn('Error deleting notification:', err);
-    });
+    awsAPI.deleteNotification(idStr)
+      .then(() => {
+        // Success — remove from pending set after a delay to prevent
+        // any in-flight refetch from re-adding it
+        setTimeout(() => pendingDeletesRef.current.delete(idStr), 3000);
+      })
+      .catch((err) => {
+        // API failed — rollback and clear pending
+        pendingDeletesRef.current.delete(idStr);
+        if (removed) {
+          setNotifications(prev => [...prev, removed!]);
+        }
+        if (__DEV__) console.warn('Error deleting notification:', err);
+      });
   }, []);
 
   const filteredNotifications = useMemo(() => {

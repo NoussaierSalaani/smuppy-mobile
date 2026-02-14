@@ -1709,15 +1709,14 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   statsGlass: {
     borderRadius: 20,
     overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(14, 191, 138, 0.5)' : 'rgba(14, 191, 138, 0.4)',
   },
   statsBlurContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: isDark ? 'rgba(14, 191, 138, 0.5)' : 'rgba(14, 191, 138, 0.4)',
     backgroundColor: isDark ? 'rgba(26,26,26,0.8)' : 'rgba(255,255,255,0.4)',
   },
   statGlassItem: {

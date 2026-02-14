@@ -129,17 +129,12 @@ function Input({
   const currentStyle = stateStyles[state];
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  // Handle password visibility toggle
-  const handleToggleSecure = (): void => {
-    setIsSecure(!isSecure);
-  };
-
   // Render right icon or password toggle
   const renderRightIcon = useCallback((): React.JSX.Element | null => {
     if (secureTextEntry) {
       return (
         <TouchableOpacity
-          onPress={handleToggleSecure}
+          onPress={() => setIsSecure(prev => !prev)}
           style={styles.iconButton}
           accessible={true}
           accessibilityRole="button"
@@ -174,7 +169,7 @@ function Input({
       );
     }
     return null;
-  }, [secureTextEntry, rightIcon, handleToggleSecure, isSecure, onRightIconPress, styles.iconButton, currentStyle.iconColor]);
+  }, [secureTextEntry, rightIcon, isSecure, onRightIconPress, styles.iconButton, currentStyle.iconColor]);
 
   return (
     <View style={[styles.container, style]}>

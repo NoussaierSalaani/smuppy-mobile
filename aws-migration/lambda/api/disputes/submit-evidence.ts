@@ -11,7 +11,6 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../../lambda/shared/db';
-import type { Pool, PoolClient } from 'pg';
 import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
@@ -27,7 +26,7 @@ interface SubmitEvidenceBody {
   textContent?: string;
 }
 
-const ALLOWED_FILE_TYPES = [
+const _ALLOWED_FILE_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -36,7 +35,7 @@ const ALLOWED_FILE_TYPES = [
   'text/plain',
 ];
 
-const MAX_FILE_SIZE_MB = 50;
+const _MAX_FILE_SIZE_MB = 50;
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const headers = createHeaders(event);

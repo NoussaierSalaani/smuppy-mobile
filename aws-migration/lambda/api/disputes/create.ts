@@ -9,9 +9,9 @@
  * - Creates dispute record and notifies creator
  */
 
-import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
-import { getPool, SqlParam } from '../../../lambda/shared/db';
-import type { Pool, PoolClient } from 'pg';
+import { APIGatewayProxyHandler } from 'aws-lambda';
+import { getPool } from '../../../lambda/shared/db';
+import type { PoolClient } from 'pg';
 import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';

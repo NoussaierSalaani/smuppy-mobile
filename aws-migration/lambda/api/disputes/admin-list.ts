@@ -10,7 +10,6 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../../lambda/shared/db';
-import type { Pool } from 'pg';
 import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';

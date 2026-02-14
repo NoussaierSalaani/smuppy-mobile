@@ -42,6 +42,7 @@ import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { awsAPI } from '../../services/aws-api';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
@@ -257,6 +258,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [isLoadingPeak, setIsLoadingPeak] = useState(false);
   const currentUser = useUserStore((state) => state.user);
   const isBusiness = currentUser?.accountType === 'pro_business';
+  const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
 
   // If navigated with only peakId (no peaks array), fetch the peak from API
   useEffect(() => {
@@ -321,13 +323,11 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [viewedPeaks, setViewedPeaks] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(0);
   const videoRef = useRef<Video | null>(null);
-  const [_videoDuration, setVideoDuration] = useState(0);
   const [showTagModal, setShowTagModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
   const [showReactions, setShowReactions] = useState(false);
   const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
-  const [_hiddenPeaks, setHiddenPeaks] = useState<Set<string>>(new Set()); // Not interested peaks
   const [showResponsesModal, setShowResponsesModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportingPeak, setReportingPeak] = useState(false);
@@ -351,7 +351,6 @@ const PeakViewScreen = (): React.JSX.Element => {
     opacity: new Animated.Value(0),
   }))).current;
   const lastTap = useRef(0);
-  const _progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Refs for panResponder (avoids stale closure with useRef-created handler)
   const currentIndexRef = useRef(currentIndex);
@@ -368,7 +367,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   useEffect(() => {
     if (!currentPeak.videoUrl) {
       videoRef.current = null;
-      setVideoDuration(0);
       setProgress(0);
     }
   }, [currentPeak.videoUrl]);
@@ -398,7 +396,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   // Reset progress and play when peak changes
   useEffect(() => {
     setProgress(0);
-    setVideoDuration(0);
     if (videoRef.current) {
       videoRef.current.setPositionAsync(0).then(() => {
         videoRef.current?.playAsync().catch((err) => {
@@ -757,8 +754,6 @@ const PeakViewScreen = (): React.JSX.Element => {
         setShowReportModal(true);
         break;
       case 'not_interested':
-        // Hide peak from feed - optimistic update
-        setHiddenPeaks(prev => new Set(prev).add(currentPeak.id));
         // Move to next peak if available
         if (currentIndex < peaks.length - 1) {
           setCurrentIndex(currentIndex + 1);
@@ -773,12 +768,6 @@ const PeakViewScreen = (): React.JSX.Element => {
           showSuccess('Got it', "We won't show you similar content.");
         } catch (error) {
           if (__DEV__) console.warn('[Peak] Failed to hide peak:', error);
-          // Rollback on error
-          setHiddenPeaks(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(currentPeak.id);
-            return newSet;
-          });
         }
         break;
       case 'copy_link': {
@@ -1017,6 +1006,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     setShowReactions(false);
     setIsPaused(false);
   }, []);
+  const handleCloseShareModal = useCallback(() => setShowShareModal(false), []);
   const handleCloseResponsesModal = useCallback(() => setShowResponsesModal(false), []);
   const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
 
@@ -1033,6 +1023,68 @@ const PeakViewScreen = (): React.JSX.Element => {
   const handleMenuNotInterested = useCallback(() => handleMenuAction('not_interested'), []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMenuReport = useCallback(() => handleMenuAction('report'), []);
+
+  // Mute / Block handlers
+  const [muteLoading, setMuteLoading] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+
+  const handleMuteUser = useCallback(() => {
+    if (muteLoading) return;
+    const userId = currentPeak.user?.id;
+    if (!userId) return;
+    if (isUserMuted(userId)) {
+      setShowMenu(false);
+      showError('Already Muted', 'This user is already muted.');
+      return;
+    }
+    setShowMenu(false);
+    showDestructiveConfirm(
+      'Mute User',
+      `Mute ${currentPeak.user?.name}? You won't see their posts anymore.`,
+      async () => {
+        setMuteLoading(true);
+        try {
+          const { error } = await mute(userId);
+          if (error) {
+            showError('Error', 'Could not mute this user.');
+          } else {
+            showSuccess('User Muted', 'You will no longer see their posts.');
+          }
+        } finally {
+          setMuteLoading(false);
+        }
+      }
+    );
+  }, [muteLoading, currentPeak.user?.id, currentPeak.user?.name, isUserMuted, mute, showDestructiveConfirm, showSuccess, showError]);
+
+  const handleBlockUser = useCallback(() => {
+    if (blockLoading) return;
+    const userId = currentPeak.user?.id;
+    if (!userId) return;
+    if (isBlocked(userId)) {
+      setShowMenu(false);
+      showError('Already Blocked', 'This user is already blocked.');
+      return;
+    }
+    setShowMenu(false);
+    showDestructiveConfirm(
+      'Block User',
+      `Block ${currentPeak.user?.name}? You will no longer see their posts and they won't be able to interact with you.`,
+      async () => {
+        setBlockLoading(true);
+        try {
+          const { error } = await block(userId);
+          if (error) {
+            showError('Error', 'Could not block this user.');
+          } else {
+            showSuccess('User Blocked', 'You will no longer see their posts.');
+          }
+        } finally {
+          setBlockLoading(false);
+        }
+      }
+    );
+  }, [blockLoading, currentPeak.user?.id, currentPeak.user?.name, isBlocked, block, showDestructiveConfirm, showSuccess, showError]);
 
   const handleNavigateToUser = useCallback(() => {
     if (currentPeak.user?.id) {
@@ -1055,7 +1107,6 @@ const PeakViewScreen = (): React.JSX.Element => {
   const onVideoStatus = useCallback((status: AVPlaybackStatus) => {
     const s = status as AVPlaybackStatusSuccess;
     if (!s.isLoaded) return;
-    if (s.durationMillis) setVideoDuration(s.durationMillis);
     if (s.positionMillis && s.durationMillis) {
       const pct = Math.min(100, Math.max(0, (s.positionMillis / s.durationMillis) * 100));
       setProgress(pct);
@@ -1078,7 +1129,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   // Loading state when fetching peak by ID
   if (isLoadingPeak && peaks.length === 0) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, styles.loadingContainer]}>
         <StatusBar hidden />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
@@ -1088,12 +1139,12 @@ const PeakViewScreen = (): React.JSX.Element => {
   // No peaks available (fetch failed or empty params)
   if (peaks.length === 0) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, styles.loadingContainer]}>
         <StatusBar hidden />
         <Ionicons name="videocam-off-outline" size={48} color={colors.gray} />
-        <Text style={{ color: colors.gray, marginTop: 12, fontSize: 16 }}>Peak not available</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>Go back</Text>
+        <Text style={styles.emptyStateText}>Peak not available</Text>
+        <TouchableOpacity onPress={handleGoBack} style={styles.goBackButton}>
+          <Text style={styles.goBackText}>Go back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -1548,6 +1599,24 @@ const PeakViewScreen = (): React.JSX.Element => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleMuteUser}
+                  disabled={muteLoading}
+                >
+                  <Ionicons name="volume-mute-outline" size={24} color={isDark ? colors.white : colors.dark} />
+                  <Text style={styles.menuItemText}>Mute user</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleBlockUser}
+                  disabled={blockLoading}
+                >
+                  <Ionicons name="ban-outline" size={24} color={isDark ? colors.white : colors.dark} />
+                  <Text style={styles.menuItemText}>Block user</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   style={[styles.menuItem, styles.menuItemDanger]}
                   onPress={handleMenuReport}
                 >
@@ -1589,7 +1658,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             avatar: currentPeak.user?.avatar || null,
           },
         }}
-        onClose={() => setShowShareModal(false)}
+        onClose={handleCloseShareModal}
       />
 
       {/* Smuppy Reactions Bar */}
@@ -1701,6 +1770,23 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   container: {
     flex: 1,
     backgroundColor: colors.dark,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    color: colors.gray,
+    marginTop: 12,
+    fontSize: 16,
+  },
+  goBackButton: {
+    marginTop: 16,
+  },
+  goBackText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   mediaContainer: {
     flex: 1,
@@ -1992,10 +2078,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 14,
     fontWeight: '700',
     color: colors.dark,
-  },
-  bottomProgressBar: {
-    marginTop: 12,
-    marginBottom: 8,
   },
   // Heart Animation
   heartAnimationContainer: {

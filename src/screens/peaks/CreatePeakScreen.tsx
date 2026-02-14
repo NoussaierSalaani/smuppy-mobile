@@ -1,11 +1,10 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  Dimensions,
   Linking,
   ActivityIndicator,
 } from 'react-native';
@@ -14,30 +13,13 @@ import { Video, ResizeMode, Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  interpolate,
-  Extrapolation,
-} from 'react-native-reanimated';
 import RecordButton from '../../components/peaks/RecordButton';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { HIT_SLOP } from '../../config/theme';
 import { hapticButtonPress, hapticSubmit } from '../../utils/haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import {
-  useFilters,
-  FilterSelector,
-  OverlayEditor,
-  DraggableOverlay,
-  OverlayPosition,
-} from '../../filters';
 import { useUserStore } from '../../stores/userStore';
 import { isValidUUID } from '../../utils/formatters';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface DurationOption {
   value: number;
@@ -66,11 +48,9 @@ interface RecordedVideo {
   uri: string;
 }
 
-type OverlayData = { id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> };
-
 type RootStackParamList = {
   CreatePeak: { replyTo?: string; originalPeak?: OriginalPeak; challengeId?: string; challengeTitle?: string };
-  PeakPreview: { videoUri: string; duration: number; replyTo?: string; originalPeak?: OriginalPeak; challengeId?: string; challengeTitle?: string; filterId?: string; filterIntensity?: number; overlays?: OverlayData[] };
+  PeakPreview: { videoUri: string; duration: number; replyTo?: string; originalPeak?: OriginalPeak; challengeId?: string; challengeTitle?: string };
   [key: string]: object | undefined;
 };
 
@@ -138,42 +118,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Filter state
-  const [showFilters, setShowFilters] = useState(false);
-  const [showOverlayEditor, setShowOverlayEditor] = useState(false);
-  const { activeFilter, activeOverlays, updateOverlay } = useFilters();
-
-  // Animation for filter panel
-  const filterPanelProgress = useSharedValue(0);
-
-  const toggleFilters = useCallback(() => {
-    hapticButtonPress();
-    const newValue = !showFilters;
-    setShowFilters(newValue);
-    filterPanelProgress.value = withSpring(newValue ? 1 : 0, {
-      damping: 20,
-      stiffness: 300,
-    });
-  }, [showFilters, filterPanelProgress]);
-
-  const filterPanelStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: interpolate(
-          filterPanelProgress.value,
-          [0, 1],
-          [200, 0],
-          Extrapolation.CLAMP
-        ),
-      },
-    ],
-    opacity: filterPanelProgress.value,
-  }));
-
-  // Handle overlay position change
-  const handleOverlayPositionChange = useCallback((overlayId: string, position: Partial<OverlayPosition>) => {
-    updateOverlay(overlayId, { position: { ...position } } as Partial<import('../../filters/types').OverlayConfig>);
-  }, [updateOverlay]);
 
   const toggleCameraFacing = (): void => {
     hapticButtonPress();
@@ -223,12 +167,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
   // Start recording
   const handleRecordStart = async (): Promise<void> => {
-    // Hide filters when recording starts
-    if (showFilters) {
-      setShowFilters(false);
-      filterPanelProgress.value = withTiming(0, { duration: 200 });
-    }
-
     isRecordingRef.current = true;
     setIsRecording(true);
     setRecordedVideo(null);
@@ -321,11 +259,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     }
 
     if (recordedVideo) {
-      // Serialize filter/overlay metadata for navigation params
-      const overlayData: OverlayData[] | undefined = activeOverlays.length > 0
-        ? activeOverlays.map(o => ({ id: o.id, type: o.type, position: { ...o.position }, params: { ...o.params } }))
-        : undefined;
-
       navigation.navigate('PeakPreview', {
         videoUri: recordedVideo.uri,
         duration: selectedDuration,
@@ -333,9 +266,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         originalPeak,
         challengeId,
         challengeTitle,
-        filterId: activeFilter?.filterId,
-        filterIntensity: activeFilter?.intensity,
-        overlays: overlayData,
       });
       setRecordedVideo(null);
       setIsPreviewPlaying(false);
@@ -419,7 +349,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             <View style={{ width: 44 }} />
           </View>
 
-          {/* Right Side Toolbar - TikTok style */}
+          {/* Right Side Toolbar */}
           {!isRecording && (
             <View style={[styles.sideToolbar, { top: insets.top + 80 }]}>
               {/* Flip Camera */}
@@ -430,57 +360,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               >
                 <Ionicons name="camera-reverse" size={26} color={colors.white} />
                 <Text style={styles.toolbarLabel}>Flip</Text>
-              </TouchableOpacity>
-
-              {/* Filters Toggle */}
-              <TouchableOpacity
-                style={[
-                  styles.toolbarButton,
-                  showFilters && styles.toolbarButtonActive,
-                ]}
-                onPress={toggleFilters}
-                hitSlop={HIT_SLOP.medium}
-              >
-                <Ionicons
-                  name="color-wand"
-                  size={26}
-                  color={showFilters ? colors.primary : colors.white}
-                />
-                <Text style={[
-                  styles.toolbarLabel,
-                  showFilters && styles.toolbarLabelActive,
-                ]}>
-                  Filters
-                </Text>
-              </TouchableOpacity>
-
-              {/* Overlays */}
-              <TouchableOpacity
-                style={[
-                  styles.toolbarButton,
-                  activeOverlays.length > 0 && styles.toolbarButtonActive,
-                ]}
-                onPress={() => { hapticButtonPress(); setShowOverlayEditor(true); }}
-                hitSlop={HIT_SLOP.medium}
-              >
-                <View>
-                  <Ionicons
-                    name="layers"
-                    size={26}
-                    color={activeOverlays.length > 0 ? colors.primary : colors.white}
-                  />
-                  {activeOverlays.length > 0 && (
-                    <View style={styles.overlayBadge}>
-                      <Text style={styles.overlayBadgeText}>{activeOverlays.length}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={[
-                  styles.toolbarLabel,
-                  activeOverlays.length > 0 && styles.toolbarLabelActive,
-                ]}>
-                  Overlays
-                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -494,40 +373,10 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             </View>
           )}
 
-          {/* Active filter indicator - centered top */}
-          {activeFilter && !isRecording && (
-            <View style={[styles.activeFilterBadge, { top: insets.top + 70 }]}>
-              <Ionicons name="sparkles" size={14} color={colors.primary} />
-              <Text style={styles.activeFilterText}>Filter Active</Text>
-            </View>
-          )}
-
-          {/* Draggable overlays */}
-          {activeOverlays.map((overlay) => (
-            <DraggableOverlay
-              key={overlay.id}
-              overlay={overlay}
-              containerWidth={SCREEN_WIDTH}
-              containerHeight={SCREEN_HEIGHT}
-              onPositionChange={(pos) => handleOverlayPositionChange(overlay.id, pos)}
-            />
-          ))}
-
-          {/* Filter Panel - Animated slide up */}
-          {!isRecording && (
-            <Animated.View style={[styles.filterPanelContainer, filterPanelStyle]}>
-              <FilterSelector
-                compact
-                onOpenOverlays={() => setShowOverlayEditor(true)}
-              />
-            </Animated.View>
-          )}
-
           {/* Bottom zone - Record */}
           <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
-            {/* Duration selector */}
-            {!isRecording && (
-              <View style={styles.durationSelector}>
+            {/* Duration selector — hidden via opacity to preserve layout */}
+              <View style={[styles.durationSelector, isRecording && styles.hiddenPreserveLayout]}>
                 {DURATION_OPTIONS.map((option) => (
                   <TouchableOpacity
                     key={option.value}
@@ -546,7 +395,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
                   </TouchableOpacity>
                 ))}
               </View>
-            )}
 
             {/* Record button */}
             <View style={styles.recordButtonContainer}>
@@ -559,10 +407,8 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
               />
             </View>
 
-            {/* Instruction */}
-            {!isRecording && (
-              <Text style={styles.instructions}>Hold to record</Text>
-            )}
+            {/* Instruction — hidden via opacity to preserve layout */}
+            <Text style={[styles.instructions, isRecording && styles.hiddenPreserveLayout]}>Hold to record</Text>
           </View>
         </>
       )}
@@ -646,11 +492,6 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
         </View>
       )}
 
-      {/* Overlay Editor Modal */}
-      <OverlayEditor
-        visible={showOverlayEditor}
-        onClose={() => setShowOverlayEditor(false)}
-      />
     </View>
   );
 };
@@ -753,35 +594,11 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     borderRadius: 28,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  toolbarButtonActive: {
-    backgroundColor: 'rgba(0,230,118,0.15)',
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
   toolbarLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.8)',
     marginTop: 4,
-  },
-  toolbarLabelActive: {
-    color: colors.primary,
-  },
-  overlayBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overlayBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: colors.dark,
   },
 
   // Reply info
@@ -799,35 +616,6 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   replyText: {
     fontSize: 13,
     color: colors.white,
-  },
-
-  // Active filter badge
-  activeFilterBadge: {
-    position: 'absolute',
-    left: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 5,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  activeFilterText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-
-  // Filter Panel
-  filterPanelContainer: {
-    position: 'absolute',
-    bottom: 200,
-    left: 0,
-    right: 0,
-    zIndex: 50,
   },
 
   // Bottom Section
@@ -867,12 +655,16 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     fontWeight: '700',
   },
   recordButtonContainer: {
-    width: 90,
-    height: 90,
+    width: 72,
+    height: 72,
     marginBottom: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  hiddenPreserveLayout: {
+    opacity: 0,
+    pointerEvents: 'none',
+  } as const,
   instructions: {
     fontSize: 14,
     fontWeight: '500',

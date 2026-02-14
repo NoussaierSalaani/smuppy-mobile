@@ -92,6 +92,32 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const challenge = challengeResult.rows[0];
 
+    // Block self-response: creator cannot respond to their own challenge
+    if (challenge.creator_id === userId) {
+      return cors({
+        statusCode: 403,
+        body: JSON.stringify({
+          success: false,
+          message: 'You cannot respond to your own challenge',
+        }),
+      });
+    }
+
+    // Auto-expire: if ends_at has passed, update status to 'ended' and reject
+    if (challenge.status === 'active' && challenge.ends_at && new Date(challenge.ends_at) < new Date()) {
+      await client.query(
+        `UPDATE peak_challenges SET status = 'ended', updated_at = NOW() WHERE id = $1 AND status = 'active'`,
+        [challengeId]
+      );
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          message: 'This challenge has ended',
+        }),
+      });
+    }
+
     // Check if challenge is still active
     if (challenge.status !== 'active') {
       return cors({

@@ -28,6 +28,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     const offset = parseInt(event.queryStringParameters?.offset || '0', 10);
+    const sortBy = event.queryStringParameters?.sortBy || 'recent'; // recent | popular
 
     // Verify challenge exists
     const challengeCheck = await client.query(
@@ -66,7 +67,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       JOIN profiles p ON cr.user_id = p.id
       LEFT JOIN peaks pk ON cr.peak_id = pk.id
       WHERE cr.challenge_id = $1
-      ORDER BY cr.created_at DESC
+      ORDER BY ${sortBy === 'popular' ? 'cr.vote_count DESC, cr.created_at DESC' : 'cr.created_at DESC'}
       LIMIT $2 OFFSET $3`,
       [challengeId, limit, offset]
     );

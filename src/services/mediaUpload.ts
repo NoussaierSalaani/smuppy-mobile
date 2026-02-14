@@ -140,16 +140,19 @@ const getMimeType = (extension: string): string => {
 
 /**
  * Get file info - handles various URI formats
+ * For ph:// URIs, validates via fetch HEAD instead of blindly assuming existence
  */
 const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean }> => {
   try {
-    // Handle different URI schemes
-    let checkUri = uri;
-
-    // For ph:// URIs on iOS, we can't check directly
+    // For ph:// / assets-library:// URIs on iOS, validate via fetch
     if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
-      // Assume it exists since it came from MediaLibrary
-      return { size: 0, exists: true };
+      try {
+        const response = await fetch(uri, { method: 'HEAD' });
+        return { size: 0, exists: response.ok };
+      } catch {
+        // fetch failed — asset may have been deleted
+        return { size: 0, exists: false };
+      }
     }
 
     // For http/https URIs
@@ -157,17 +160,13 @@ const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean
       return { size: 0, exists: true };
     }
 
-    const info = await FileSystem.getInfoAsync(checkUri);
+    const info = await FileSystem.getInfoAsync(uri);
     return {
       size: (info as { size?: number }).size || 0,
       exists: info.exists,
     };
   } catch (error) {
     if (__DEV__) console.log('[getFileInfo] Error checking file:', uri.substring(0, 50), error);
-    // For MediaLibrary URIs, assume they exist
-    if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
-      return { size: 0, exists: true };
-    }
     return { size: 0, exists: false };
   }
 };

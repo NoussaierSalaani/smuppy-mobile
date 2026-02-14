@@ -20,6 +20,7 @@ import { hapticButtonPress, hapticSubmit } from '../../utils/haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores/userStore';
 import { isValidUUID } from '../../utils/formatters';
+import { captureException } from '../../lib/sentry';
 
 interface DurationOption {
   value: number;
@@ -88,6 +89,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const [recordedVideo, setRecordedVideo] = useState<RecordedVideo | null>(null);
   const [cameraKey, setCameraKey] = useState(1);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [actualDuration, setActualDuration] = useState<number | null>(null);
 
   // Request both camera + microphone permissions for video mode
   useEffect(() => {
@@ -129,6 +131,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     isRecordingRef.current = false;
     setIsRecording(false);
     setRecordedVideo(null);
+    setActualDuration(null);
     setIsPreviewPlaying(false);
     setCameraKey(prev => prev + 1);
   };
@@ -170,6 +173,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     isRecordingRef.current = true;
     setIsRecording(true);
     setRecordedVideo(null);
+    setActualDuration(null);
 
     if (cameraRef.current) {
       try {
@@ -179,19 +183,33 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
 
         if (video) {
           setRecordedVideo(video);
+          // Measure actual video duration via expo-av
+          try {
+            const { sound } = await Audio.Sound.createAsync({ uri: video.uri });
+            const status = await sound.getStatusAsync();
+            if (status.isLoaded && status.durationMillis) {
+              setActualDuration(Math.round(status.durationMillis / 1000));
+            }
+            await sound.unloadAsync();
+          } catch {
+            // Fallback: use selected duration if measurement fails
+            setActualDuration(selectedDuration);
+          }
         }
         isRecordingRef.current = false;
         setIsRecording(false);
         setIsPreviewPlaying(false);
-      } catch (_error) {
+      } catch (recordError) {
         isRecordingRef.current = false;
         setIsRecording(false);
-        const isSimulator = !cameraRef.current;
-        showCustomAlert(
-          isSimulator
-            ? 'Video recording is not available on simulator. Please use a real device.'
-            : 'Unable to record video. Please try again.'
-        );
+        if (__DEV__) console.warn('[CreatePeak] Recording failed:', recordError);
+        captureException(recordError instanceof Error ? recordError : new Error(String(recordError)));
+        showSmuppyAlert({
+          title: 'Recording Failed',
+          message: 'Unable to record video. Please try again.',
+          type: 'error',
+          buttons: [{ text: 'Try Again', onPress: resetCamera }],
+        });
       }
     }
   };
@@ -261,7 +279,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     if (recordedVideo) {
       navigation.navigate('PeakPreview', {
         videoUri: recordedVideo.uri,
-        duration: selectedDuration,
+        duration: actualDuration ?? selectedDuration,
         replyTo,
         originalPeak,
         challengeId,

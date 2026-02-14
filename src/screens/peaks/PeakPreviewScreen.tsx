@@ -34,6 +34,24 @@ import { filterContent } from '../../utils/contentFilters';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+interface ChallengeType {
+  slug: string;
+  name: string;
+  icon: string; // Ionicons name
+  category: string;
+}
+
+const CHALLENGE_TYPES: ChallengeType[] = [
+  { slug: 'freestyle', name: 'Freestyle', icon: 'star-outline', category: 'fun' },
+  { slug: 'pushups', name: 'Pushup Challenge', icon: 'barbell-outline', category: 'fitness' },
+  { slug: 'plank', name: 'Plank Hold', icon: 'body-outline', category: 'fitness' },
+  { slug: 'squats', name: 'Squat Challenge', icon: 'barbell-outline', category: 'fitness' },
+  { slug: 'burpees', name: 'Burpee Challenge', icon: 'flame-outline', category: 'fitness' },
+  { slug: 'sprint', name: 'Running Sprint', icon: 'walk-outline', category: 'sports' },
+  { slug: 'dance', name: 'Dance Move', icon: 'musical-notes-outline', category: 'fun' },
+  { slug: 'trickshot', name: 'Trick Shot', icon: 'basketball-outline', category: 'sports' },
+];
+
 interface VisibilityOption {
   value: number;
   label: string;
@@ -97,6 +115,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isChallenge, setIsChallenge] = useState(false);
+  const [challengeTypeSlug, setChallengeTypeSlug] = useState('freestyle');
   const [challengeTitle, setChallengeTitle] = useState('');
   const [challengeRules, setChallengeRules] = useState('');
   const [locationSuggestions, setLocationSuggestions] = useState<NominatimSearchResult[]>([]);
@@ -238,6 +257,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             peakId: peakResult.peak.id,
             title: challengeTitle.trim(),
             rules: challengeRules.trim() || undefined,
+            challengeTypeSlug: challengeTypeSlug || undefined,
             isPublic: true,
             allowAnyone: true,
           });
@@ -583,6 +603,18 @@ const PeakPreviewScreen = (): React.JSX.Element => {
 
             {isChallenge && (
               <View style={styles.challengeFields}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.challengeTypeScroll} contentContainerStyle={styles.challengeTypeScrollContent}>
+                  {CHALLENGE_TYPES.map((ct) => (
+                    <TouchableOpacity
+                      key={ct.slug}
+                      style={[styles.challengeTypeChip, challengeTypeSlug === ct.slug && styles.challengeTypeChipActive]}
+                      onPress={() => setChallengeTypeSlug(ct.slug)}
+                    >
+                      <Ionicons name={ct.icon as keyof typeof Ionicons.glyphMap} size={14} color={challengeTypeSlug === ct.slug ? colors.dark : colors.gray} />
+                      <Text style={[styles.challengeTypeChipText, challengeTypeSlug === ct.slug && styles.challengeTypeChipTextActive]}>{ct.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
                 <TextInput
                   style={styles.challengeInput}
                   placeholder="Challenge title"
@@ -929,6 +961,33 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     paddingVertical: 10,
     color: isDark ? colors.white : colors.dark,
     fontSize: 14,
+  },
+  challengeTypeScroll: {
+    marginBottom: 4,
+  },
+  challengeTypeScrollContent: {
+    gap: 8,
+  },
+  challengeTypeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.gray100,
+  },
+  challengeTypeChipActive: {
+    backgroundColor: '#FFD700',
+  },
+  challengeTypeChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.gray,
+  },
+  challengeTypeChipTextActive: {
+    color: colors.dark,
+    fontWeight: '600',
   },
 
   // Publish button

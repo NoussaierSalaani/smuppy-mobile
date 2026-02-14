@@ -21,6 +21,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const filter = event.queryStringParameters?.filter || 'trending'; // trending, created, tagged, responded
 
+    // Auto-expire challenges whose ends_at has passed (idempotent, lightweight UPDATE)
+    await client.query(
+      `UPDATE peak_challenges SET status = 'ended', updated_at = NOW()
+       WHERE status = 'active' AND ends_at IS NOT NULL AND ends_at < NOW()`
+    );
+
     // Resolve cognito sub to profile ID (needed for all filters)
     let userId: string | undefined;
     if (cognitoSub) {

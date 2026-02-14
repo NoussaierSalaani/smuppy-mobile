@@ -21,6 +21,7 @@ interface CreateChallengeRequest {
   description?: string;
   rules?: string;
   challengeTypeId?: string;
+  challengeTypeSlug?: string;
   durationSeconds?: number;
   endsAt?: string;
   isPublic?: boolean;
@@ -78,7 +79,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       title,
       description,
       rules,
-      challengeTypeId,
+      challengeTypeId: rawChallengeTypeId,
+      challengeTypeSlug,
       durationSeconds,
       endsAt,
       isPublic = true,
@@ -122,11 +124,24 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
-    if (!isValidUUID(peakId) || (challengeTypeId && !isValidUUID(challengeTypeId)) || !taggedUserIds.every(isValidUUID)) {
+    if (!isValidUUID(peakId) || (rawChallengeTypeId && !isValidUUID(rawChallengeTypeId)) || !taggedUserIds.every(isValidUUID)) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       });
+    }
+
+    // Resolve challenge type: accept UUID directly, or resolve from slug
+    let challengeTypeId = rawChallengeTypeId || null;
+    if (!challengeTypeId && challengeTypeSlug && typeof challengeTypeSlug === 'string') {
+      const slug = challengeTypeSlug.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim().substring(0, 50);
+      const typeResult = await client.query(
+        'SELECT id FROM challenge_types WHERE slug = $1',
+        [slug]
+      );
+      if (typeResult.rows.length > 0) {
+        challengeTypeId = typeResult.rows[0].id;
+      }
     }
 
     // Verify peak exists and belongs to user

@@ -2453,6 +2453,7 @@ class AWSAPIService {
     description?: string;
     rules?: string;
     challengeTypeId?: string;
+    challengeTypeSlug?: string;
     durationSeconds?: number;
     endsAt?: string;
     isPublic?: boolean;
@@ -2527,6 +2528,20 @@ class AWSAPIService {
     return this.request(`/challenges/${challengeId}/respond`, {
       method: 'POST',
       body: data,
+    });
+  }
+
+  /**
+   * Vote (toggle) on a challenge response
+   */
+  async voteChallengeResponse(challengeId: string, responseId: string): Promise<{
+    success: boolean;
+    voted?: boolean;
+    voteCount?: number;
+    message?: string;
+  }> {
+    return this.request(`/challenges/${challengeId}/responses/${responseId}/vote`, {
+      method: 'POST',
     });
   }
 

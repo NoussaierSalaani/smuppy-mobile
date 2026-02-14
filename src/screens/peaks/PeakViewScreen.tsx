@@ -59,17 +59,21 @@ const toCdn = (url?: string | null): string => {
 interface ChallengeResponseItemProps {
   item: {
     id: string;
+    challengeId?: string;
     peakId: string;
     user?: { id: string; username: string; displayName?: string; avatarUrl?: string; isVerified?: boolean };
     peak?: { id: string; thumbnailUrl?: string; videoUrl?: string; duration?: number; viewsCount?: number };
+    voteCount?: number;
     createdAt: string;
   };
   onPress: (peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string, videoUrl: string) => void;
+  onVote: (responseId: string, challengeId: string) => void;
+  votedResponses: Set<string>;
   colors: { primary: string; gray: string };
   styles: ReturnType<typeof createStyles>;
 }
 
-const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, onPress, colors, styles }) => {
+const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, onPress, onVote, votedResponses, colors, styles }) => {
   const handlePress = useCallback(() => {
     onPress(
       item.peakId,
@@ -80,6 +84,12 @@ const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, on
       item.peak?.videoUrl || ''
     );
   }, [item, onPress]);
+
+  const handleVote = useCallback(() => {
+    onVote(item.id, item.challengeId || '');
+  }, [item.id, item.challengeId, onVote]);
+
+  const isVoted = votedResponses.has(item.id);
 
   return (
     <TouchableOpacity
@@ -108,7 +118,15 @@ const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, on
           {new Date(item.createdAt).toLocaleDateString()}
         </Text>
       </View>
-      <Ionicons name="play-circle" size={28} color={colors.primary} />
+      <View style={styles.responseActions}>
+        <TouchableOpacity style={styles.voteButton} onPress={handleVote} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name={isVoted ? 'arrow-up-circle' : 'arrow-up-circle-outline'} size={24} color={isVoted ? colors.primary : colors.gray} />
+          {(item.voteCount ?? 0) > 0 && (
+            <Text style={[styles.voteCountText, isVoted && { color: colors.primary }]}>{item.voteCount}</Text>
+          )}
+        </TouchableOpacity>
+        <Ionicons name="play-circle" size={24} color={colors.primary} />
+      </View>
     </TouchableOpacity>
   );
 });
@@ -333,12 +351,15 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [reportingPeak, setReportingPeak] = useState(false);
   const [challengeResponses, setChallengeResponses] = useState<Array<{
     id: string;
+    challengeId?: string;
     peakId: string;
     user?: { id: string; username: string; displayName?: string; avatarUrl?: string; isVerified?: boolean };
     peak?: { id: string; thumbnailUrl?: string; videoUrl?: string; duration?: number; viewsCount?: number };
+    voteCount?: number;
     createdAt: string;
   }>>([]);
   const [responsesLoading, setResponsesLoading] = useState(false);
+  const [votedResponses, setVotedResponses] = useState<Set<string>>(new Set());
 
   // Content store for reporting
   const { submitPeakReport } = useContentStore();
@@ -742,10 +763,10 @@ const PeakViewScreen = (): React.JSX.Element => {
     }
   };
 
-  const closeMenu = (): void => {
+  const closeMenu = useCallback((): void => {
     setShowMenu(false);
     setIsPaused(false);
-  };
+  }, []);
 
    
   const handleMenuAction = useCallback(async (action: string): Promise<void> => {
@@ -903,9 +924,12 @@ const PeakViewScreen = (): React.JSX.Element => {
     setShowResponsesModal(true);
     setResponsesLoading(true);
     try {
-      const result = await awsAPI.getChallengeResponses(cId, { limit: 30 });
+      const result = await awsAPI.getChallengeResponses(cId, { limit: 30, sortBy: 'popular' });
       if (result.responses) {
-        setChallengeResponses(result.responses);
+        setChallengeResponses(result.responses.map((r) => ({
+          ...r,
+          challengeId: cId,
+        })));
       }
     } catch (error) {
       if (__DEV__) console.warn('Failed to fetch challenge responses:', error);
@@ -913,6 +937,40 @@ const PeakViewScreen = (): React.JSX.Element => {
       setResponsesLoading(false);
     }
   }, [currentPeak.challengeId]);
+
+  const handleVoteResponse = useCallback(async (responseId: string, challengeId: string): Promise<void> => {
+    if (!challengeId || !responseId) return;
+    // Optimistic toggle
+    const wasVoted = votedResponses.has(responseId);
+    setVotedResponses(prev => {
+      const next = new Set(prev);
+      if (wasVoted) next.delete(responseId);
+      else next.add(responseId);
+      return next;
+    });
+    setChallengeResponses(prev => prev.map(r =>
+      r.id === responseId
+        ? { ...r, voteCount: (r.voteCount ?? 0) + (wasVoted ? -1 : 1) }
+        : r
+    ));
+    try {
+      await awsAPI.voteChallengeResponse(challengeId, responseId);
+    } catch (error) {
+      // Revert on failure
+      setVotedResponses(prev => {
+        const next = new Set(prev);
+        if (wasVoted) next.add(responseId);
+        else next.delete(responseId);
+        return next;
+      });
+      setChallengeResponses(prev => prev.map(r =>
+        r.id === responseId
+          ? { ...r, voteCount: (r.voteCount ?? 0) + (wasVoted ? 1 : -1) }
+          : r
+      ));
+      if (__DEV__) console.warn('Failed to vote on response:', error);
+    }
+  }, [votedResponses]);
 
   const handleResponsePress = useCallback((peakId: string, userId: string, displayName: string, avatarUrl: string, thumbnailUrl: string, videoUrl: string) => {
     setShowResponsesModal(false);
@@ -1095,10 +1153,12 @@ const PeakViewScreen = (): React.JSX.Element => {
     <ChallengeResponseItem
       item={item}
       onPress={handleResponsePress}
+      onVote={handleVoteResponse}
+      votedResponses={votedResponses}
       colors={colors}
       styles={styles}
     />
-  ), [handleResponsePress, colors, styles]);
+  ), [handleResponsePress, handleVoteResponse, votedResponses, colors, styles]);
 
 
 
@@ -2307,6 +2367,20 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   responseDate: {
     fontSize: 12,
     color: colors.gray,
+  },
+  responseActions: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  voteButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voteCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.gray,
+    marginTop: 2,
   },
   challengeMetaLink: {
     textDecorationLine: 'underline',

@@ -200,6 +200,10 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     const challengeResponses = challengeById.addResource('responses');
     challengeResponses.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.challengesResponsesFn));
 
+    const challengeResponseById = challengeResponses.addResource('{responseId}');
+    const challengeResponseVote = challengeResponseById.addResource('vote');
+    challengeResponseVote.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.challengesVoteFn), authMethodOptions);
+
     // ========================================
     // Battles Endpoints - FROM LambdaStack3
     // ========================================

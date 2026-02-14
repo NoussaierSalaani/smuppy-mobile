@@ -221,7 +221,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ success: false, message: 'Cannot send message to this user' }),
+        body: JSON.stringify({ message: 'Cannot send message to this user' }),
       };
     }
 
@@ -299,6 +299,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 201,
       headers,
       body: JSON.stringify({
+        success: true,
         message: {
           ...message,
           sender: {

@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, SqlParam } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -40,7 +40,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const db = await getPool();
+    const db = await getReaderPool();
 
     // Get user's profile ID (check both id and cognito_sub for consistency)
     const userResult = await db.query(
@@ -146,6 +146,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 200,
       headers,
       body: JSON.stringify({
+        success: true,
         conversations,
         nextCursor: hasMore ? (conversations[conversations.length - 1].last_message_at || conversations[conversations.length - 1].created_at) : null,
         hasMore,

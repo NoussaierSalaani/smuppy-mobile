@@ -528,7 +528,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   }, [conversationId, loadMessages]);
 
-  // Poll for new messages every 3s when app is active
+  // Poll for new messages every 10s when app is active
   useEffect(() => {
     if (!conversationId) return;
     const BASE_POLL_INTERVAL_MS = 10000;
@@ -1237,7 +1237,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               onChangeText={setInputText}
               onFocus={handleCloseEmojiPicker}
               multiline
-              maxLength={1000}
+              maxLength={5000}
             />
           </View>
           {inputText.trim() ? (

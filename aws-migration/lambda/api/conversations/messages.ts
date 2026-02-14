@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, SqlParam } from '../../shared/db';
+import { getPool, getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
@@ -59,10 +59,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const db = await getPool();
+    const readerDb = await getReaderPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
+    // Get user's profile ID
+    const userResult = await readerDb.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
@@ -78,7 +78,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const profileId = userResult.rows[0].id;
 
     // Check if user is participant in this conversation
-    const conversationResult = await db.query(
+    const conversationResult = await readerDb.query(
       `SELECT id FROM conversations
        WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
       [conversationId, profileId]
@@ -150,15 +150,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     query += ` ORDER BY m.created_at DESC LIMIT $${params.length + 1}`;
     params.push(limit + 1);
 
-    const result = await db.query(query, params);
+    const result = await readerDb.query(query, params);
 
     const hasMore = result.rows.length > limit;
     const messages = hasMore ? result.rows.slice(0, -1) : result.rows;
 
-    // Mark messages as read only when explicitly requested (no separate mark-read endpoint exists yet)
+    // Mark messages as read only when explicitly requested (uses writer pool for mutations)
     const shouldMarkRead = event.queryStringParameters?.markAsRead === 'true';
     if (shouldMarkRead) {
-      await db.query(
+      const writerDb = await getPool();
+      await writerDb.query(
         `UPDATE messages
          SET read = true
          WHERE conversation_id = $1 AND sender_id != $2 AND read = false`,
@@ -170,6 +171,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 200,
       headers,
       body: JSON.stringify({
+        success: true,
         messages: messages.reverse(), // Return in chronological order
         nextCursor: hasMore ? messages[0].created_at : null,
         hasMore,

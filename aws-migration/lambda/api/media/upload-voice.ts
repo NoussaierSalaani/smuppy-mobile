@@ -173,7 +173,7 @@ export async function handler(
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ url, key, cdnUrl, fileUrl }),
+      body: JSON.stringify({ success: true, url, key, cdnUrl, fileUrl }),
     };
   } catch (error: unknown) {
     log.error('Error generating voice upload URL', error);

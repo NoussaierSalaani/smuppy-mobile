@@ -134,6 +134,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 200,
         headers,
         body: JSON.stringify({
+          success: true,
           conversation: {
             ...existingConversation.rows[0],
             other_participant: {
@@ -165,6 +166,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 201,
       headers,
       body: JSON.stringify({
+        success: true,
         conversation: {
           ...newConversation.rows[0],
           other_participant: {

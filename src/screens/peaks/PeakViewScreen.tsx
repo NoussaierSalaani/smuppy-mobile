@@ -1160,16 +1160,19 @@ const PeakViewScreen = (): React.JSX.Element => {
         </View>
       </TouchableWithoutFeedback>
 
+      {/* Back Button — always visible so user can exit */}
+      <TouchableOpacity
+        style={[styles.backButton, topHeaderPaddingStyle]}
+        onPress={handleGoBack}
+      >
+        <Ionicons name="chevron-back" size={26} color={colors.white} />
+      </TouchableOpacity>
+
       {/* Top Header with Avatar Carousel */}
       {carouselVisible && (
         <View style={[styles.topHeader, topHeaderPaddingStyle]}>
-          {/* Back Button */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleGoBack}
-          >
-            <Ionicons name="chevron-back" size={26} color={colors.white} />
-          </TouchableOpacity>
+          {/* Spacer for back button */}
+          <View style={{ width: 40 }} />
 
           {/* Circular Avatar Carousel */}
           <View style={styles.avatarCarousel}>
@@ -1691,10 +1694,14 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     zIndex: 100,
   },
   backButton: {
+    position: 'absolute',
+    top: 0,
+    left: 12,
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 200,
   },
   addButton: {
     width: 40,

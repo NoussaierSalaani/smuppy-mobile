@@ -4,7 +4,7 @@
  * Features: caching, blurhash placeholders, lazy loading
  */
 
-import React, { memo, ReactNode } from 'react';
+import React, { memo, useState, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native';
 import { Image, ImageContentFit, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,6 +68,8 @@ const OptimizedImage = memo<OptimizedImageProps>(({
   onError,
   ...props
 }) => {
+  const [hasError, setHasError] = useState(false);
+
   // Handle different source formats and normalize CDN URLs
   let resolvedSource: ImageSource | number | undefined;
   if (typeof source === 'string') {
@@ -80,10 +82,12 @@ const OptimizedImage = memo<OptimizedImageProps>(({
     resolvedSource = source;
   }
 
-  // Skip rendering if no valid source
-  if (!resolvedSource || (typeof resolvedSource === 'object' && !resolvedSource.uri)) {
+  // Skip rendering if no valid source or image failed to load
+  if (hasError || !resolvedSource || (typeof resolvedSource === 'object' && !resolvedSource.uri)) {
     return (
-      <View style={[styles.placeholder, style as StyleProp<ViewStyle>]} />
+      <View style={[styles.placeholder, styles.errorPlaceholder, style as StyleProp<ViewStyle>]}>
+        <Ionicons name="image-outline" size={24} color="#9CA3AF" />
+      </View>
     );
   }
 
@@ -99,7 +103,10 @@ const OptimizedImage = memo<OptimizedImageProps>(({
       priority={priority}
       recyclingKey={recyclingKey}
       onLoad={onLoad}
-      onError={onError}
+      onError={() => {
+        setHasError(true);
+        onError?.();
+      }}
       {...props}
     />
   );
@@ -208,6 +215,10 @@ export const ThumbnailImage = memo<ThumbnailImageProps>(({
 const styles = StyleSheet.create({
   placeholder: {
     backgroundColor: '#F3F4F6',
+  },
+  errorPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backgroundContainer: {
     flex: 1,

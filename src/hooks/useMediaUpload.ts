@@ -3,7 +3,7 @@
  * Provides easy-to-use media upload functionality with progress tracking
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import {
   uploadImage,
@@ -66,6 +66,13 @@ export const useMediaUpload = (
   const { autoCompress = true, maxFiles = 10, allowVideo = true } = options;
 
   const user = useUserStore((state) => state.user);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const [state, setState] = useState<UploadState>({
     isUploading: false,
@@ -87,9 +94,10 @@ export const useMediaUpload = (
   }, []);
 
   /**
-   * Update progress
+   * Update progress (only if still mounted)
    */
   const updateProgress = useCallback((progress: number) => {
+    if (!isMountedRef.current) return;
     setState((prev) => ({ ...prev, progress }));
   }, []);
 
@@ -196,22 +204,26 @@ export const useMediaUpload = (
           onProgress: updateProgress,
         });
 
-        setState((prev) => ({
-          ...prev,
-          isUploading: false,
-          progress: 100,
-          results: [result],
-          error: result.success ? null : result.error || 'Upload failed',
-        }));
+        if (isMountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            isUploading: false,
+            progress: 100,
+            results: [result],
+            error: result.success ? null : result.error || 'Upload failed',
+          }));
+        }
 
         return result;
       } catch (error) {
         captureException(error as Error, { context: 'pickAndUploadImage' });
-        setState((prev) => ({
-          ...prev,
-          isUploading: false,
-          error: 'Upload failed',
-        }));
+        if (isMountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            isUploading: false,
+            error: 'Upload failed',
+          }));
+        }
         return null;
       }
     },
@@ -239,22 +251,26 @@ export const useMediaUpload = (
         onProgress: updateProgress,
       });
 
-      setState((prev) => ({
-        ...prev,
-        isUploading: false,
-        progress: 100,
-        results: [result],
-        error: result.success ? null : result.error || 'Upload failed',
-      }));
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isUploading: false,
+          progress: 100,
+          results: [result],
+          error: result.success ? null : result.error || 'Upload failed',
+        }));
+      }
 
       return result;
     } catch (error) {
       captureException(error as Error, { context: 'pickAndUploadVideo' });
-      setState((prev) => ({
-        ...prev,
-        isUploading: false,
-        error: 'Upload failed',
-      }));
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isUploading: false,
+          error: 'Upload failed',
+        }));
+      }
       return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -290,22 +306,26 @@ export const useMediaUpload = (
 
         const hasErrors = results.some((r) => !r.success);
 
-        setState((prev) => ({
-          ...prev,
-          isUploading: false,
-          progress: 100,
-          results,
-          error: hasErrors ? 'Some uploads failed' : null,
-        }));
+        if (isMountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            isUploading: false,
+            progress: 100,
+            results,
+            error: hasErrors ? 'Some uploads failed' : null,
+          }));
+        }
 
         return results;
       } catch (error) {
         captureException(error as Error, { context: 'pickAndUploadMultiple' });
-        setState((prev) => ({
-          ...prev,
-          isUploading: false,
-          error: 'Upload failed',
-        }));
+        if (isMountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            isUploading: false,
+            error: 'Upload failed',
+          }));
+        }
         return [];
       }
     },
@@ -334,22 +354,26 @@ export const useMediaUpload = (
           ? await uploadVideo(user.id, uri, { folder, onProgress: updateProgress })
           : await uploadImage(user.id, uri, { folder, compress: true, onProgress: updateProgress });
 
-        setState((prev) => ({
-          ...prev,
-          isUploading: false,
-          progress: 100,
-          results: [result],
-          error: result.success ? null : result.error || 'Upload failed',
-        }));
+        if (isMountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            isUploading: false,
+            progress: 100,
+            results: [result],
+            error: result.success ? null : result.error || 'Upload failed',
+          }));
+        }
 
         return result;
       } catch (error) {
         captureException(error as Error, { context: 'uploadFromUri' });
-        setState((prev) => ({
-          ...prev,
-          isUploading: false,
-          error: 'Upload failed',
-        }));
+        if (isMountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            isUploading: false,
+            error: 'Upload failed',
+          }));
+        }
         return null;
       }
     },
@@ -373,22 +397,26 @@ export const useMediaUpload = (
 
       const result = await uploadAvatar(user.id, asset.uri);
 
-      setState((prev) => ({
-        ...prev,
-        isUploading: false,
-        progress: 100,
-        results: [result],
-        error: result.success ? null : result.error || 'Upload failed',
-      }));
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isUploading: false,
+          progress: 100,
+          results: [result],
+          error: result.success ? null : result.error || 'Upload failed',
+        }));
+      }
 
       return result;
     } catch (error) {
       captureException(error as Error, { context: 'uploadAvatarImage' });
-      setState((prev) => ({
-        ...prev,
-        isUploading: false,
-        error: 'Upload failed',
-      }));
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isUploading: false,
+          error: 'Upload failed',
+        }));
+      }
       return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -411,22 +439,26 @@ export const useMediaUpload = (
 
       const result = await uploadCoverImage(user.id, asset.uri);
 
-      setState((prev) => ({
-        ...prev,
-        isUploading: false,
-        progress: 100,
-        results: [result],
-        error: result.success ? null : result.error || 'Upload failed',
-      }));
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isUploading: false,
+          progress: 100,
+          results: [result],
+          error: result.success ? null : result.error || 'Upload failed',
+        }));
+      }
 
       return result;
     } catch (error) {
       captureException(error as Error, { context: 'uploadCover' });
-      setState((prev) => ({
-        ...prev,
-        isUploading: false,
-        error: 'Upload failed',
-      }));
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isUploading: false,
+          error: 'Upload failed',
+        }));
+      }
       return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

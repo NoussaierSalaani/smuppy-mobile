@@ -1103,9 +1103,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 thumbnail: p.media_urls?.[0],
                 duration: p.peak_duration || 15,
                 user: {
-                  id: displayProfile?.id || user.id,
-                  name: displayProfile?.displayName || user.displayName,
-                  avatar: displayProfile?.avatar || user.avatar || '',
+                  id: displayProfile?.id ?? user?.id ?? '',
+                  name: displayProfile?.displayName ?? user?.displayName ?? 'Unknown',
+                  avatar: displayProfile?.avatar ?? user?.avatar ?? '',
                 },
                 views: p.views_count || 0,
                 likes: p.likes_count || 0,
@@ -1238,22 +1238,22 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         onPress={() => {
           const collectionForDetail = collections.map(p => {
             const allMedia = p.media_urls?.filter(Boolean) || [];
-            const author = p.author || (p['user'] as typeof p.author);
+            const author = p.author ?? (p['user'] as typeof p.author) ?? undefined;
             return {
               id: p.id,
               type: p.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
               media: allMedia[0] || '',
               thumbnail: allMedia[0] || '',
               description: p.content || '',
-              likes: p.likes_count || 0,
-              views: p.views_count || 0,
-              location: p.location || null,
-              taggedUsers: p.tagged_users || [],
+              likes: p.likes_count ?? 0,
+              views: p.views_count ?? 0,
+              location: p.location ?? null,
+              taggedUsers: p.tagged_users ?? [],
               allMedia: allMedia.length > 1 ? allMedia : undefined,
               user: {
-                id: author?.id || '',
-                name: author?.full_name || author?.username || '',
-                avatar: author?.avatar_url || '',
+                id: author?.id ?? '',
+                name: author?.full_name ?? author?.username ?? '',
+                avatar: author?.avatar_url ?? '',
               },
             };
           });

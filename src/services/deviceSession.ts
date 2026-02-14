@@ -32,7 +32,13 @@ async function getOrCreateDeviceId(): Promise<string> {
 
       // Create a hash-like ID
       deviceId = `${Platform.OS}-${hashCode(uniqueData)}-${Math.random().toString(36).substring(2, 10)}`;
-      await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
+      try {
+        await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
+      } catch (writeError) {
+        // Retry once on write failure
+        if (__DEV__) console.warn('[DeviceSession] First write failed, retrying:', writeError);
+        await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
+      }
     }
 
     return deviceId;

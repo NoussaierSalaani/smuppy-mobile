@@ -16,6 +16,7 @@
 
 import { ComprehendClient, DetectToxicContentCommand } from '@aws-sdk/client-comprehend';
 import { createLogger } from '../../api/utils/logger';
+import { filterText } from './textFilter';
 
 const log = createLogger('text-moderation');
 
@@ -126,9 +127,26 @@ export async function analyzeTextToxicity(text: string): Promise<TextModerationR
       categories,
     };
   } catch (error) {
-    // Non-blocking: if Comprehend is unavailable, allow content through
-    // The backend text filter (filterText) already catches critical content
-    log.error('Comprehend DetectToxicContent failed (non-blocking)', error);
+    // Fail-closed: if Comprehend is unavailable, fall back to filterText
+    // If filterText detects critical content, block it
+    log.error('Comprehend DetectToxicContent failed, falling back to filterText', error);
+    try {
+      const fallbackResult = await filterText(text);
+      if (!fallbackResult.clean && (fallbackResult.severity === 'critical' || fallbackResult.severity === 'high')) {
+        log.warn('FilterText fallback blocked content after Comprehend failure', {
+          severity: fallbackResult.severity,
+          violations: fallbackResult.violations,
+        });
+        return {
+          action: 'block',
+          maxScore: 1.0,
+          topCategory: 'HATE_SPEECH',
+          categories: [],
+        };
+      }
+    } catch (filterError) {
+      log.error('FilterText fallback also failed', filterError);
+    }
     return passResult;
   }
 }

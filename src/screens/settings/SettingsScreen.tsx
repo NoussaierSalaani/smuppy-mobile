@@ -56,7 +56,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const { preference, setTheme, colors, isDark: _isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
-  const getFullName = useUserStore((state) => state.getFullName);
+
   const { data: profileData, refetch } = useCurrentProfile();
   const { mutateAsync: updateDbProfile } = useUpdateProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -79,12 +79,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       const authUser = await backend.getCurrentUser();
       const email = authUser?.email || user?.email || '';
       const emailPrefix = email?.split('@')[0]?.toLowerCase() || '';
-
-      const isEmailDerivedName = (name: string | undefined | null): boolean => {
-        if (!name) return true;
-        return name.toLowerCase() === emailPrefix ||
-               name.toLowerCase().replace(/[^a-z0-9]/g, '') === emailPrefix.replace(/[^a-z0-9]/g, '');
-      };
 
       // Use resolveDisplayName to properly handle business accounts
       const nameSource = {
@@ -127,7 +121,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       setInterests(profileData?.interests || user?.interests || []);
       setIsPrivate(profileData?.is_private || false);
     }
-  }, [user, getFullName, profileData]);
+  }, [user, profileData]);
 
   useEffect(() => {
     loadUserData();

@@ -69,6 +69,21 @@ export async function getStripeWebhookSecret(): Promise<string> {
   return secrets.STRIPE_WEBHOOK_SECRET;
 }
 
+/**
+ * Invalidate cached Stripe secrets.
+ * Call this when webhook signature validation fails to force a refresh
+ * on the next retrieval (handles secret rotation gracefully).
+ */
+export function invalidateStripeSecrets(): void {
+  stripeSecrets = null;
+  stripeSecretsExpiresAt = 0;
+  // Also invalidate the underlying secret cache entry
+  const arn = process.env.STRIPE_SECRET_ARN;
+  if (arn) {
+    cache.delete(arn);
+  }
+}
+
 export async function getStripePublishableKey(): Promise<string> {
   const secrets = await getStripeSecrets();
   return secrets.STRIPE_PUBLISHABLE_KEY;

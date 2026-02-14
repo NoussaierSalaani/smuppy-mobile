@@ -74,9 +74,11 @@ class CognitoStorageAdapter {
     // Persist to SecureStore asynchronously
     const secureKey = sanitizeKey(key);
     SecureStore.setItemAsync(secureKey, value).catch((error) => {
-      if (__DEV__) console.warn('[CognitoStorage] SecureStore setItem error:', error);
+      console.error('[CognitoStorage] SecureStore setItem failed:', error);
     });
-    addKeyToIndex(key).catch(() => {});
+    addKeyToIndex(key).catch((error) => {
+      if (__DEV__) console.warn('[CognitoStorage] addKeyToIndex failed:', error);
+    });
 
     return value;
   }
@@ -97,9 +99,11 @@ class CognitoStorageAdapter {
 
     const secureKey = sanitizeKey(key);
     SecureStore.deleteItemAsync(secureKey).catch((error) => {
-      if (__DEV__) console.warn('[CognitoStorage] SecureStore removeItem error:', error);
+      console.error('[CognitoStorage] SecureStore removeItem failed:', error);
     });
-    removeKeyFromIndex(key).catch(() => {});
+    removeKeyFromIndex(key).catch((error) => {
+      if (__DEV__) console.warn('[CognitoStorage] removeKeyFromIndex failed:', error);
+    });
   }
 
   /**
@@ -112,12 +116,14 @@ class CognitoStorageAdapter {
       .then(async (keys) => {
         for (const key of keys) {
           const secureKey = sanitizeKey(key);
-          await SecureStore.deleteItemAsync(secureKey).catch(() => {});
+          await SecureStore.deleteItemAsync(secureKey).catch((err) => {
+            console.error('[CognitoStorage] clear: failed to delete key:', secureKey, err);
+          });
         }
         await AsyncStorage.removeItem(COGNITO_KEYS_INDEX);
       })
       .catch((error) => {
-        if (__DEV__) console.warn('[CognitoStorage] clear error:', error);
+        console.error('[CognitoStorage] clear error:', error);
       });
   }
 

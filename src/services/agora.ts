@@ -188,15 +188,19 @@ class AgoraService {
         ? ClientRoleType.ClientRoleBroadcaster
         : ClientRoleType.ClientRoleAudience;
 
-      this.engine!.setClientRole(clientRole);
+      if (!this.engine) {
+        throw new Error('[Agora] Engine not initialized');
+      }
+
+      this.engine.setClientRole(clientRole);
 
       // If broadcaster, start local preview
       if (role === 'broadcaster') {
-        this.engine!.startPreview();
+        this.engine.startPreview();
       }
 
       // Join the channel
-      this.engine!.joinChannel(token || '', channelName, uid, {
+      this.engine.joinChannel(token || '', channelName, uid, {
         clientRoleType: clientRole,
         publishMicrophoneTrack: role === 'broadcaster',
         publishCameraTrack: role === 'broadcaster',

@@ -134,7 +134,33 @@ async function loadWordlist(): Promise<WordlistCache> {
 // ============================================
 
 function normalizeText(text: string): string {
-  return text
+  // 1. Remove zero-width characters used to evade detection
+  let normalized = text.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF\u00AD]/g, '');
+
+  // 2. Unicode NFD normalization: decompose accented chars and strip combining marks
+  // e.g., "nig\u0308er" → "niger", "fa\u0301ggot" → "faggot"
+  normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // 3. Cyrillic homoglyph replacement (visually identical to Latin)
+  const cyrillicMap: Record<string, string> = {
+    '\u0410': 'a', '\u0430': 'a', // А/а → a
+    '\u0412': 'b', '\u0432': 'b', // В/в → b
+    '\u0421': 'c', '\u0441': 'c', // С/с → c
+    '\u0415': 'e', '\u0435': 'e', // Е/е → e
+    '\u041D': 'h', '\u043D': 'h', // Н/н → h
+    '\u041A': 'k', '\u043A': 'k', // К/к → k
+    '\u041C': 'm', '\u043C': 'm', // М/м → m
+    '\u041E': 'o', '\u043E': 'o', // О/о → o
+    '\u0420': 'p', '\u0440': 'p', // Р/р → p
+    '\u0422': 't', '\u0442': 't', // Т/т → t
+    '\u0425': 'x', '\u0445': 'x', // Х/х → x
+    '\u0423': 'y', '\u0443': 'y', // У/у → y
+  };
+  normalized = normalized.replace(/[\u0410\u0430\u0412\u0432\u0421\u0441\u0415\u0435\u041D\u043D\u041A\u043A\u041C\u043C\u041E\u043E\u0420\u0440\u0422\u0442\u0425\u0445\u0423\u0443]/g,
+    (ch) => cyrillicMap[ch] || ch);
+
+  // 4. Leet-speak normalization
+  return normalized
     .toLowerCase()
     .replace(/[@]/g, 'a')
     .replace(/[0]/g, 'o')
@@ -143,7 +169,11 @@ function normalizeText(text: string): string {
     .replace(/[4]/g, 'a')
     .replace(/[5$]/g, 's')
     .replace(/[7]/g, 't')
-    .replace(/[8]/g, 'b');
+    .replace(/[8]/g, 'b')
+    .replace(/[9]/g, 'g')
+    .replace(/[6]/g, 'g')
+    .replace(/[2]/g, 'z')
+    .replace(/\+/g, 't');
 }
 
 function checkWordlist(text: string, wordlist: string[]): boolean {

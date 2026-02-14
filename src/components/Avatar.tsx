@@ -141,7 +141,7 @@ const Avatar = memo(function Avatar({
           },
         ]}
       >
-        {badgeCount && badgeCount > 0 && (
+        {badgeCount !== undefined && badgeCount > 0 && (
           <Text style={styles.badgeText}>
             {badgeCount > 99 ? '99+' : badgeCount}
           </Text>

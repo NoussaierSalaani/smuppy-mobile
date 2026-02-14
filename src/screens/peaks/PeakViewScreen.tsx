@@ -17,7 +17,6 @@ import {
   FlatList,
   ActivityIndicator,
   BackHandler,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
@@ -295,7 +294,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       if (!cancelled) setIsLoadingPeak(false);
     });
     return () => { cancelled = true; };
-  }, [peakId, peaks.length, currentUser?.id]);
+  }, [peakId, peaks.length, currentUser?.id, showError]);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [carouselVisible, setCarouselVisible] = useState(true);

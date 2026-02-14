@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   StatusBar,
   RefreshControl,
-  Dimensions,
   ActivityIndicator,
   ListRenderItem,
 } from 'react-native';
@@ -22,9 +21,6 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
 import { awsAPI } from '../../services/aws-api';
 import { resolveDisplayName } from '../../types/profile';
-
-const { width } = Dimensions.get('window');
-const COLUMN_WIDTH = (width - 48) / 2;
 
 /** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
 const sanitizeText = (text: string | null | undefined): string => {

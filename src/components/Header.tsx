@@ -37,9 +37,9 @@ function Header({
   rightComponent,
   style,
 }: HeaderProps): React.JSX.Element {
-  const { colors, isDark: _isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(colors, _isDark), [colors, _isDark]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const renderLeft = (): ReactNode => {
     if (leftComponent) return leftComponent;
@@ -145,7 +145,7 @@ function Header({
 
 export default React.memo(Header);
 
-const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.white,
     borderBottomWidth: 0,

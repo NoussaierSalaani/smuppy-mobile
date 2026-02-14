@@ -118,6 +118,7 @@ export const resolveProfile = (
   const fallback = (storeUser || {}) as ProfileDataSource;
 
   // Build display name
+  // Priority: businessName (if business) > fullName (non-email) > full_name (non-email) > display_name > displayName > firstName+lastName > full_name > fullName
   let displayName = 'User';
   const email = fallback.email || base.email || '';
 

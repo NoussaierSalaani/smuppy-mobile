@@ -8,7 +8,7 @@
  */
 
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 
 interface AccountStatusResult {
   profileId: string;
@@ -32,7 +32,8 @@ export async function requireActiveAccount(
   cognitoSub: string,
   headers: Record<string, string>,
 ): Promise<AccountStatusResult | APIGatewayProxyResult> {
-  const db = await getReaderPool();
+  // Use writer pool for suspension checks — needs read-after-write consistency
+  const db = await getPool();
 
   const result = await db.query(
     `SELECT id, username, full_name, avatar_url, is_verified, account_type, business_name, moderation_status, suspended_until, ban_reason
@@ -60,8 +61,7 @@ export async function requireActiveAccount(
 
     // If suspension has expired, auto-reactivate
     if (suspendedUntil && suspendedUntil < new Date()) {
-      const writeDb = await (await import('../../shared/db')).getPool();
-      await writeDb.query(
+      await db.query(
         `UPDATE profiles
          SET moderation_status = 'active', suspended_until = NULL
          WHERE id = $1`,

@@ -128,9 +128,9 @@ export default function PrivateCallScreen(): React.JSX.Element {
   useEffect(() => {
     if (!isMountedRef.current) return;
     
-    if (isJoined && remoteUsers.length > 0) {
+    if (isJoined && Array.isArray(remoteUsers) && remoteUsers.length > 0) {
       setCallState('connected');
-    } else if (isJoined && remoteUsers.length === 0 && callState === 'connected') {
+    } else if (isJoined && (!Array.isArray(remoteUsers) || remoteUsers.length === 0) && callState === 'connected') {
       handleCallEnded('The other person left the call');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

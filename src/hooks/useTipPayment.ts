@@ -9,6 +9,8 @@ import { awsAPI } from '../services/aws-api';
 import * as Haptics from 'expo-haptics';
 import { useStripeCheckout } from './useStripeCheckout';
 
+const TIP_COOLDOWN_MS = 2000; // Minimum delay between tip attempts to prevent double charge
+
 interface TipRecipient {
   id: string;
   username: string;
@@ -38,6 +40,7 @@ export function useTipPayment(): UseTipPaymentReturn {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const processingRef = useRef(false);
+  const lastTipTimeRef = useRef(0);
 
   const sendTip = useCallback(
     async (
@@ -47,6 +50,8 @@ export function useTipPayment(): UseTipPaymentReturn {
       options?: { message?: string; isAnonymous?: boolean }
     ): Promise<boolean> => {
       if (processingRef.current) return false;
+      const now = Date.now();
+      if (now - lastTipTimeRef.current < TIP_COOLDOWN_MS) return false;
       processingRef.current = true;
       setIsProcessing(true);
       setError(null);
@@ -71,8 +76,6 @@ export function useTipPayment(): UseTipPaymentReturn {
           const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
           if (checkoutResult.status === 'cancelled') {
-            processingRef.current = false;
-            setIsProcessing(false);
             return false;
           }
 
@@ -85,8 +88,6 @@ export function useTipPayment(): UseTipPaymentReturn {
           } else {
             showWarning('Tip Processing', 'Your tip is being processed. You will be notified when complete.');
           }
-          processingRef.current = false;
-          setIsProcessing(false);
           return checkoutResult.status === 'success' || checkoutResult.status === 'pending';
         }
 
@@ -103,9 +104,11 @@ export function useTipPayment(): UseTipPaymentReturn {
         setError(message);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         showError('Payment Failed', message || 'Could not process your tip. Please try again.');
+        return false;
+      } finally {
+        lastTipTimeRef.current = Date.now();
         processingRef.current = false;
         setIsProcessing(false);
-        return false;
       }
     },
     [openCheckout, showError, showSuccess, showWarning]

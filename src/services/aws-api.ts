@@ -361,6 +361,9 @@ class AWSAPIService {
         const isRetryable = status ? RETRYABLE_STATUSES.includes(status) : false;
 
         if (!isRetryable || attempt === MAX_RETRIES) {
+          if (attempt > 0 && error instanceof Error) {
+            error.message = `${error.message} (after ${attempt + 1} attempts)`;
+          }
           throw error;
         }
 
@@ -554,8 +557,9 @@ class AWSAPIService {
     const response = await this.request<{ posts?: Post[]; data?: Post[]; nextCursor?: string | null; hasMore?: boolean; total?: number }>(`/posts${query ? `?${query}` : ''}`);
 
     // Map API response (posts) to expected format (data)
+    const posts = Array.isArray(response.posts) ? response.posts : Array.isArray(response.data) ? response.data : [];
     return {
-      data: response.posts || response.data || [],
+      data: posts,
       nextCursor: response.nextCursor || null,
       hasMore: response.hasMore || false,
       total: response.total || 0,

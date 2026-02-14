@@ -61,15 +61,18 @@ export function usePostInteractions<T extends InteractablePost>({
       // Single toggle endpoint: backend returns { liked: true/false }
       const { error } = await likePost(postId);
       if (error) {
-        // Revert optimistic update
+        // Revert optimistic update in both local state and feed store atomically
         setPosts(prev => prev.map(p =>
           p.id === postId ? { ...p, isLiked: wasLiked, likes: wasLiked ? p.likes + 1 : Math.max(0, p.likes - 1) } : p
         ));
-      } else if (!wasLiked) {
-        onLike?.(postId);
+        useFeedStore.getState().toggleLikeOptimistic(postId, wasLiked);
+      } else {
+        if (!wasLiked) {
+          onLike?.(postId);
+        }
+        // Sync to feed store for cross-screen consistency
+        useFeedStore.getState().toggleLikeOptimistic(postId, !wasLiked);
       }
-      // Sync to feed store for cross-screen consistency
-      useFeedStore.getState().toggleLikeOptimistic(postId, !wasLiked);
     } catch (err) {
       if (__DEV__) console.warn('[usePostInteractions] Like error:', err);
     } finally {

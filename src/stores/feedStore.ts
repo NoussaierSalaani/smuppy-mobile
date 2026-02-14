@@ -9,6 +9,7 @@ import { immer } from 'zustand/middleware/immer';
 export interface Post {
   id: string;
   likes_count?: number;
+  // Index signature needed: feed posts arrive with dynamic/varying fields from multiple API sources
   [key: string]: unknown;
 }
 
@@ -73,7 +74,7 @@ export const useFeedStore = create<FeedState>()(
         // Update like count in cache
         const post = state.feedCache.find((p) => p.id === postId);
         if (post) {
-          post.likes_count = (post.likes_count || 0) + (liked ? 1 : -1);
+          post.likes_count = Math.max(0, (post.likes_count ?? 0) + (liked ? 1 : -1));
         }
       }),
 

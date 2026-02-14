@@ -84,8 +84,10 @@ export const useUserStore = create<UserState>()(
 
       updateProfile: (updates: Partial<User>) =>
         set((state) => {
-          if (state.user) {
-            state.user = { ...state.user, ...updates };
+          if (state.user && updates && typeof updates === 'object' && !Array.isArray(updates)) {
+            // Ensure id cannot be overwritten by partial updates
+            const { id: _id, ...safeUpdates } = updates;
+            state.user = { ...state.user, ...safeUpdates };
           }
         }),
 

@@ -8,6 +8,7 @@ import OptimizedImage, { AvatarImage } from './OptimizedImage';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
+const AVATAR_MARGIN_RIGHT = { marginRight: 2 } as const;
 
 type CardVariant = 'post' | 'suggestion' | 'addFriend' | 'vibe';
 type VibeSize = 'tall' | 'short';
@@ -91,7 +92,7 @@ const Card = memo(function Card({ variant = 'post', data, size = 'tall', onPress
               <AvatarImage
                 source={postData.authorAvatar}
                 size={SIZES.avatarXs}
-                style={{ marginRight: 2 }}
+                style={AVATAR_MARGIN_RIGHT}
               />
               <Text style={styles.postAuthorName} numberOfLines={1}>
                 {postData.authorName}

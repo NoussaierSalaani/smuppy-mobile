@@ -170,7 +170,7 @@ export const DARK_COLORS = {
     text: '#E5E7EB',
     textSecondary: '#8E8E93',
     card: '#1A1A1A',
-    textMuted: '#6B7280',
+    textMuted: '#9CA3AF',
     darkBg: '#0D0D0D',
     cardBg: '#1A1A1A',
     border: '#2A2A2A',

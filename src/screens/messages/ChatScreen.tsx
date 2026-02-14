@@ -109,7 +109,7 @@ const MessageReactions = memo(({ reactions, isFromMe, styles, colors, currentUse
   const grouped = reactions.reduce((acc, r) => {
     acc[r.emoji] = acc[r.emoji] || { count: 0, users: [], hasMe: false };
     acc[r.emoji].count++;
-    acc[r.emoji].users.push(r.user);
+    if (r.user) acc[r.emoji].users.push(r.user);
     if (r.user_id === currentUserId) acc[r.emoji].hasMe = true;
     return acc;
   }, {} as Record<string, { count: number; users: (Profile | undefined)[]; hasMe: boolean }>);
@@ -983,7 +983,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       },
       'Block'
     );
-  }, [otherUserProfile?.id, otherUserProfile?.full_name, showDestructiveConfirm, showError, showSuccess, navigation]);
+  }, [otherUserProfile, showDestructiveConfirm, showError, showSuccess, navigation]);
   const handleRetry = useCallback(() => {
     setLoading(true);
     setInitError(null);

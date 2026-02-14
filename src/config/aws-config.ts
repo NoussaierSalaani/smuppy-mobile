@@ -17,6 +17,8 @@
  *   (never crash).
  */
 
+import { captureMessage as sentryCaptureMessage } from '../lib/sentry';
+
 // Helper: read Expo env var (works with Expo's inline substitution)
 const env = (key: string): string | undefined => {
   try {
@@ -129,10 +131,8 @@ export const getAWSConfig = (): AWSConfig => {
         `Missing: ${fallbackVars.join(', ')}. ` +
         'Ensure all EXPO_PUBLIC_* vars are set in EAS Secrets.';
       console.error(msg);
-      // Report to Sentry so we know about misconfigured builds (lazy import to avoid circular deps)
       try {
-        const { captureMessage } = require('../lib/sentry');
-        captureMessage(msg, 'fatal', { fallbackVars, environment: currentEnv });
+        sentryCaptureMessage(msg, 'fatal', { fallbackVars, environment: currentEnv });
       } catch { /* Sentry not available — ignore */ }
     } else if (devUsesStaging) {
       // DEV with opt-in: single consolidated warning

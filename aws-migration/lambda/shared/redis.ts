@@ -87,7 +87,19 @@ export async function getRedis(): Promise<Redis | Cluster | null> {
   }
 
   if (redis && redis.status === 'ready') {
-    return redis;
+    // Verify connection is alive with a ping before reusing
+    try {
+      await redis.ping();
+      return redis;
+    } catch {
+      log.warn('Redis ping failed on cached connection, reconnecting');
+      try {
+        await redis.quit();
+      } catch {
+        // Ignore close errors
+      }
+      redis = null;
+    }
   }
 
   // Close existing connection if not ready

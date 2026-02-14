@@ -235,9 +235,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Send notification to followers (fire and forget, capped at 500)
-    // JOIN profiles to ensure follower still exists (no orphaned notifications)
+    // Uses a transaction to ensure atomicity: snapshot of followers + insert are consistent
+    // INSERT...SELECT is atomic within a single statement, wrapped in explicit transaction for safety
+    const notifClient = await db.connect();
     try {
-      await db.query(
+      await notifClient.query('BEGIN');
+      await notifClient.query(
         `INSERT INTO notifications (user_id, type, title, body, data)
          SELECT f.follower_id, 'new_peak', 'New Peak', $1, $2
          FROM follows f
@@ -250,8 +253,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           profile.id,
         ]
       );
+      await notifClient.query('COMMIT');
     } catch (notifErr) {
+      await notifClient.query('ROLLBACK').catch(() => {});
       log.error('Failed to send follower notifications', notifErr);
+    } finally {
+      notifClient.release();
     }
 
     return {

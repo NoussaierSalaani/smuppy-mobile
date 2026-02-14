@@ -21,7 +21,6 @@ interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
   errorInfo: React.ErrorInfo | null;
-  eventId: string | null;
 }
 
 /**
@@ -36,7 +35,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       hasError: false,
       error: null,
       errorInfo: null,
-      eventId: null,
     };
   }
 
@@ -69,7 +67,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       hasError: false,
       error: null,
       errorInfo: null,
-      eventId: null,
     });
   };
 

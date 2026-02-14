@@ -10,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -26,8 +25,6 @@ import Slider from '@react-native-community/slider';
 import { useFilters } from '../../stores/filterStore';
 import { FilterDefinition } from '../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-
-Dimensions.get('window');
 const FILTER_ITEM_SIZE = 72;
 
 interface FilterSelectorProps {

@@ -2,9 +2,8 @@
  * Shared Rate Limiting Utility
  * Uses DynamoDB atomic counters with TTL for distributed rate limiting.
  *
- * Default: fail-open — if DynamoDB is unavailable, allow the request
- * (WAF provides baseline protection). Set failOpen: false for
- * payment/financial endpoints that must fail-closed.
+ * Default: fail-closed — if DynamoDB is unavailable, block the request.
+ * Set failOpen: true for non-critical endpoints where WAF provides baseline protection.
  */
 
 import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
@@ -29,12 +28,12 @@ interface RateLimitOptions {
   windowSeconds?: number;
   /** Max requests per window (default: 10) */
   maxRequests?: number;
-  /** If true (default), allow requests when DynamoDB is unavailable. Set false for payment endpoints. */
+  /** If true, allow requests when DynamoDB is unavailable. Default: false (fail-closed). Set true only for non-critical endpoints. */
   failOpen?: boolean;
 }
 
 export const checkRateLimit = async (options: RateLimitOptions): Promise<RateLimitResult> => {
-  const { prefix, identifier, windowSeconds = 60, maxRequests = 10, failOpen = true } = options;
+  const { prefix, identifier, windowSeconds = 60, maxRequests = 10, failOpen = false } = options;
   const now = Math.floor(Date.now() / 1000);
   const windowKey = `${prefix}#${identifier}#${Math.floor(now / windowSeconds)}`;
   const windowEnd = (Math.floor(now / windowSeconds) + 1) * windowSeconds;

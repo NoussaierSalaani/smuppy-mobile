@@ -253,6 +253,8 @@ const ProfileIcon = ({ imageUri, isActive, size = 26, activeColor }: ProfileIcon
   );
 };
 
+const MENU_BOTTOM_OFFSET = 80;
+
 interface TabConfig {
   name: string;
   iconFilled?: React.ComponentType<IconProps>;
@@ -287,23 +289,28 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
   // Pro creator menu state
   const [showProMenu, setShowProMenu] = useState(false);
   const menuAnim = useRef(new Animated.Value(0)).current;
+  const animatingRef = useRef(false);
 
   const openProMenu = () => {
+    if (animatingRef.current) return;
+    animatingRef.current = true;
     setShowProMenu(true);
     Animated.spring(menuAnim, {
       toValue: 1,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
-    }).start();
+    }).start(() => { animatingRef.current = false; });
   };
 
   const closeProMenu = () => {
+    if (animatingRef.current) return;
+    animatingRef.current = true;
     Animated.timing(menuAnim, {
       toValue: 0,
       duration: 150,
       useNativeDriver: true,
-    }).start(() => setShowProMenu(false));
+    }).start(() => { animatingRef.current = false; setShowProMenu(false); });
   };
 
   const handleMenuOption = (option: 'live' | 'peaks' | 'post' | 'sessions' | 'dashboard' | 'planning') => {
@@ -390,7 +397,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
       ) : (
         <View style={styles.personalBorderWrapper} />
       )}
-      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, isBusiness ? styles.businessBlurContainer : styles.proBlurContainer, { backgroundColor: isDark ? 'rgba(13,13,13,0.92)' : 'rgba(255,255,255,0.92)', paddingBottom: businessBottomInset }]}>
+      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, isBusiness ? styles.businessBlurContainer : styles.proBlurContainer, { backgroundColor: isDark ? colors.overlay : colors.overlayLight, paddingBottom: businessBottomInset }]}>
         <View style={styles.tabsContainer}>
           {tabs.map((tab, index) => {
             const isActive = state.index === index;
@@ -429,7 +436,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
                   accessibilityLabel="Create new post"
                   accessibilityHint="Double-tap to create a new post"
                 >
-                  <View style={[styles.createButton, { backgroundColor: isDark ? 'rgba(13,13,13,0.95)' : 'rgba(255,255,255,0.95)', borderColor: colors.primary, shadowColor: colors.primary }]}>
+                  <View style={[styles.createButton, { backgroundColor: isDark ? colors.background : colors.white, borderColor: colors.primary, shadowColor: colors.primary }]}>
                     <CreateIcon size={22} />
                   </View>
                 </TouchableOpacity>
@@ -501,7 +508,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
               style={[
                 styles.menuContainer,
                 {
-                  bottom: 80 + bottomPadding,
+                  bottom: MENU_BOTTOM_OFFSET + bottomPadding,
                   opacity: menuAnim,
                   transform: [
                     {

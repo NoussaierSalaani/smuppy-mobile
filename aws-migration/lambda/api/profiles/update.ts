@@ -92,12 +92,10 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
   }
 
   // Account type validation
-  // All types are allowed during initial profile creation (onboarding).
-  // Pro upgrades on existing accounts are enforced server-side via Stripe webhook.
+  // SECURITY: Only 'personal' is allowed via API. Pro upgrades ONLY happen via Stripe webhook.
   if (field === 'accountType') {
-    const validTypes = ['personal', 'pro_creator', 'pro_business'];
-    if (!validTypes.includes(value as string)) {
-      return { valid: false, sanitized: null, error: `Invalid account type '${value}'.` };
+    if (value !== 'personal') {
+      return { valid: false, sanitized: null, error: 'Account type can only be set to personal. Pro upgrades require a subscription.' };
     }
     return { valid: true, sanitized: value };
   }

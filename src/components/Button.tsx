@@ -176,7 +176,7 @@ function Button({
   );
 
   // Derive accessibility label from children if not provided
-  const derivedLabel = accessibilityLabel || (typeof children === 'string' ? children : undefined);
+  const derivedLabel = accessibilityLabel || (typeof children === 'string' ? children : 'Action button');
   const loadingLabel = loading ? 'Loading, please wait' : undefined;
 
   // Button with gradient

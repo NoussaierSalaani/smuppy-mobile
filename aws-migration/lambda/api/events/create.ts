@@ -111,36 +111,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       routeWaypoints,
     } = body;
 
-    // Sanitize user-provided text fields
-    const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
-    const sanitizedTitle = sanitize(title || '');
-    const sanitizedDescription = description ? sanitize(description) : description;
-    const sanitizedLocationName = sanitize(locationName || '');
-    const sanitizedAddress = address ? sanitize(address) : address;
-
-    // Moderation: check title and description for violations
-    const textsToCheck = [sanitizedTitle, sanitizedDescription].filter(Boolean) as string[];
-    for (const text of textsToCheck) {
-      const filterResult = await filterText(text);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Event text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-      const toxicityResult = await analyzeTextToxicity(text);
-      if (toxicityResult.action === 'block') {
-        log.warn('Event text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-    }
-
-    // Validation
-    if (!title || !categorySlug || !locationName || !latitude || !longitude || !startsAt) {
+    // Validation — check required fields and lengths BEFORE moderation (avoid wasting Comprehend calls)
+    if (!title || typeof title !== 'string' || title.trim().length === 0 || !categorySlug || !locationName || !latitude || !longitude || !startsAt) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({
           success: false,
           message: 'Title, category, location, and start date are required',
         }),
+      });
+    }
+
+    // Validate title length
+    if (title.length > 200) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Title too long (max 200 characters)' }),
       });
     }
 
@@ -162,12 +148,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Validate title length
-    if (title.length > 200) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Title too long (max 200 characters)' }),
-      });
+    // Sanitize user-provided text fields
+    const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+    const sanitizedTitle = sanitize(title);
+    const sanitizedDescription = description ? sanitize(description) : description;
+    const sanitizedLocationName = sanitize(locationName || '');
+    const sanitizedAddress = address ? sanitize(address) : address;
+
+    // Moderation: check title and description for violations
+    const textsToCheck = [sanitizedTitle, sanitizedDescription].filter(Boolean) as string[];
+    for (const text of textsToCheck) {
+      const filterResult = await filterText(text);
+      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+        log.warn('Event text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
+      const toxicityResult = await analyzeTextToxicity(text);
+      if (toxicityResult.action === 'block') {
+        log.warn('Event text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
+      }
     }
 
     // Get category

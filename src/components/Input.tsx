@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -135,7 +135,7 @@ function Input({
   };
 
   // Render right icon or password toggle
-  const renderRightIcon = (): React.JSX.Element | null => {
+  const renderRightIcon = useCallback((): React.JSX.Element | null => {
     if (secureTextEntry) {
       return (
         <TouchableOpacity
@@ -174,7 +174,7 @@ function Input({
       );
     }
     return null;
-  };
+  }, [secureTextEntry, rightIcon, handleToggleSecure, isSecure, onRightIconPress, styles.iconButton, currentStyle.iconColor]);
 
   return (
     <View style={[styles.container, style]}>

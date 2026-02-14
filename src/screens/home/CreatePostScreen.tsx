@@ -264,6 +264,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
 
   // Stable callback for grid item tap
   const handleItemPress = useCallback((item: MediaLibrary.Asset) => {
+    if (!item?.uri) return;
     setSelectedPreview(item);
     if (selectedMediaRef.current.length === 0) {
       const mediaItem: MediaItem = {

@@ -230,30 +230,32 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
     if (taggedUserIds.length > 0) {
-      const placeholders: string[] = [];
-      const params: (string)[] = [];
+      // Batch insert challenge_tags: $1 = challenge_id (shared), $2..$N = tagged user IDs
+      const tagPlaceholders: string[] = [];
+      const tagParams: string[] = [challenge.id];
 
       for (let i = 0; i < taggedUserIds.length; i++) {
-        const base = i * 2 + 1;
-        placeholders.push(`($${base}, $${base + 1})`);
-        params.push(challenge.id, taggedUserIds[i]);
+        tagPlaceholders.push(`($1, $${i + 2})`);
+        tagParams.push(taggedUserIds[i]);
       }
 
       await client.query(
         `INSERT INTO challenge_tags (challenge_id, tagged_user_id)
-         VALUES ${placeholders.join(', ')}
+         VALUES ${tagPlaceholders.join(', ')}
          ON CONFLICT DO NOTHING`,
-        params
+        tagParams
       );
 
       // Batch insert notifications for all tagged users (single query instead of N queries)
+      // Each row needs 2 dynamic params: user_id and data (type/title/body are constant)
       const notifPlaceholders: string[] = [];
-      const notifParams: (string)[] = [];
+      const notifParams: string[] = [];
+      let paramIdx = 1;
+      const notifData = JSON.stringify({ challengeId: challenge.id, peakId, title: sanitizedTitle, senderId: profileId });
       for (let i = 0; i < taggedUserIds.length; i++) {
-        const base = i * 2 + 1;
-        notifPlaceholders.push(`($${base}, 'challenge_tag', 'Challenge Invitation', 'You have been challenged!', $${base + 1})`);
-        const notifData = JSON.stringify({ challengeId: challenge.id, peakId, title, senderId: profileId });
+        notifPlaceholders.push(`($${paramIdx}, 'challenge_tag', 'Challenge Invitation', 'You have been challenged!', $${paramIdx + 1})`);
         notifParams.push(taggedUserIds[i], notifData);
+        paramIdx += 2;
       }
       await client.query(
         `INSERT INTO notifications (user_id, type, title, body, data) VALUES ${notifPlaceholders.join(', ')}`,

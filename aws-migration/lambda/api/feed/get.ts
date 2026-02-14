@@ -110,13 +110,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Compound cursor: created_at|id
         const cursorDate = cursor.substring(0, pipeIndex);
         const cursorId = cursor.substring(pipeIndex + 1);
+        const parsedDate = new Date(cursorDate);
+        if (isNaN(parsedDate.getTime())) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: 'Invalid cursor: date portion is not a valid date' }),
+          };
+        }
         cursorCondition = `AND (p.created_at, p.id) < ($2::timestamptz, $3::uuid)`;
-        queryParams.push(new Date(cursorDate));
+        queryParams.push(parsedDate);
         queryParams.push(cursorId);
       } else {
         // Legacy cursor: created_at only (backward compatibility)
+        const parsedDate = new Date(cursor);
+        if (isNaN(parsedDate.getTime())) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: 'Invalid cursor: not a valid date' }),
+          };
+        }
         cursorCondition = 'AND p.created_at < $2';
-        queryParams.push(new Date(cursor));
+        queryParams.push(parsedDate);
       }
     }
 

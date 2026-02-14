@@ -145,10 +145,11 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
 
   const pool = new Pool(poolConfig);
 
-  // Handle pool errors gracefully
+  // Handle pool errors gracefully — nullify pool reference so next query creates a fresh pool
   pool.on('error', (err: Error) => {
     log.error('Unexpected database pool error', err);
-    // Don't nullify the pool reference here - let the next query attempt to reconnect
+    if (writerPool === pool) writerPool = null;
+    if (readerPool === pool) readerPool = null;
   });
 
   return pool;
@@ -206,4 +207,38 @@ export async function getReaderPool(): Promise<Pool> {
  * Re-export CORS utilities for backwards compatibility
  * @deprecated Import from '../api/utils/cors' instead
  */
+/**
+ * Invalidate cached credentials and pools when an auth failure (28P01) is detected.
+ * Call this from error handlers that catch authentication errors, so the next
+ * query attempt fetches fresh credentials from Secrets Manager.
+ */
+export function invalidateCredentials(): void {
+  cachedCredentials = null;
+  if (writerPool) {
+    writerPool.end().catch(() => {});
+    writerPool = null;
+  }
+  if (readerPool) {
+    readerPool.end().catch(() => {});
+    readerPool = null;
+  }
+  log.info('Database credentials and pools invalidated for refresh');
+}
+
+/**
+ * Check if an error is a PostgreSQL authentication failure (28P01)
+ * and invalidate credentials if so.
+ */
+export function handleDbError(error: unknown): void {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code: string }).code === '28P01'
+  ) {
+    log.warn('Database authentication failure (28P01) detected, invalidating credentials');
+    invalidateCredentials();
+  }
+}
+
 export { headers as corsHeaders, createCorsResponse, getCorsHeaders, getSecureHeaders } from '../api/utils/cors';

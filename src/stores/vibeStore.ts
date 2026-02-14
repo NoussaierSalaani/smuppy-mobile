@@ -116,6 +116,7 @@ const LEVEL_THRESHOLDS: Array<{ min: number; level: VibeLevel }> = [
   { min: 0, level: 'newcomer' },
 ];
 
+const MAX_VIBE_SCORE = 9999;
 const MAX_ACTION_HISTORY = 200;
 const MAX_RIPPLE_HISTORY = 100;
 
@@ -157,7 +158,7 @@ export const useVibeStore = create<VibeState>()(
       addVibeAction: (type: VibeActionType) =>
         set((state) => {
           const points = ACTION_POINTS[type] || 0;
-          state.vibeScore += points;
+          state.vibeScore = Math.min(MAX_VIBE_SCORE, state.vibeScore + points);
           state.vibeLevel = resolveLevel(state.vibeScore);
 
           state.actionHistory.push({ type, timestamp: Date.now() });
@@ -195,9 +196,9 @@ export const useVibeStore = create<VibeState>()(
           state.lastLoginDate = today;
 
           // Award points
-          state.vibeScore += ACTION_POINTS.daily_login;
+          state.vibeScore = Math.min(MAX_VIBE_SCORE, state.vibeScore + ACTION_POINTS.daily_login);
           if (state.currentStreak >= 7) {
-            state.vibeScore += ACTION_POINTS.streak_bonus;
+            state.vibeScore = Math.min(MAX_VIBE_SCORE, state.vibeScore + ACTION_POINTS.streak_bonus);
           }
           state.vibeLevel = resolveLevel(state.vibeScore);
         }),
@@ -315,7 +316,7 @@ export const useVibeStore = create<VibeState>()(
             }
           }
 
-          state.vibeScore += finalReward;
+          state.vibeScore = Math.min(MAX_VIBE_SCORE, state.vibeScore + finalReward);
           state.vibeLevel = resolveLevel(state.vibeScore);
           state.prescriptionStartedAt = null;
         }),

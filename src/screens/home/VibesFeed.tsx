@@ -864,7 +864,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     const checkFollowStatus = async () => {
       const userId = selectedPost?.user?.id;
       // Validate UUID format before API call (CLAUDE.md compliance)
-      if (userId && UUID_REGEX.test(userId) && modalVisible) {
+      if (typeof userId === 'string' && UUID_REGEX.test(userId) && modalVisible) {
         const { following } = await isFollowing(userId);
         setIsFollowingUser(following);
       }
@@ -1211,15 +1211,18 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                       ))}
                     </ScrollView>
                     <View style={styles.modalCarouselPagination}>
-                      {selectedPost.allMedia.map((_, dotIndex) => (
-                        <View
-                          key={`dot-${dotIndex}`}
-                          style={[
-                            styles.modalCarouselDot,
-                            (carouselIndexes[selectedPost.id] || 0) === dotIndex && styles.modalCarouselDotActive,
-                          ]}
-                        />
-                      ))}
+                      {selectedPost.allMedia.map((_, dotIndex) => {
+                        const activeIndex = carouselIndexes[selectedPost.id] ?? 0;
+                        return (
+                          <View
+                            key={`dot-${dotIndex}`}
+                            style={[
+                              styles.modalCarouselDot,
+                              activeIndex === dotIndex && styles.modalCarouselDotActive,
+                            ]}
+                          />
+                        );
+                      })}
                     </View>
                   </>
                 ) : (
@@ -1359,7 +1362,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         renderItem={renderGridItem}
         keyExtractor={keyExtractor}
         numColumns={2}
-        {...{ masonry: true, optimizeItemArrangement: true, estimatedItemSize: 230 } as Record<string, unknown>}
+        {...({ masonry: true, optimizeItemArrangement: true, estimatedItemSize: 230 } as { masonry: boolean; optimizeItemArrangement: boolean; estimatedItemSize: number })}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight, paddingHorizontal: GRID_PADDING - GRID_GAP / 2 } : { paddingHorizontal: GRID_PADDING - GRID_GAP / 2 }}
         onScroll={handleCombinedScroll}

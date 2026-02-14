@@ -32,43 +32,57 @@ export async function checkPostEscalation(
   db: Pool,
   postId: string,
 ): Promise<EscalationResult> {
-  // Count reports in the last hour
-  const result = await db.query(
-    `SELECT COUNT(*) as cnt FROM post_reports
-     WHERE post_id = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
-    [postId],
-  );
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
 
-  const count = parseInt(result.rows[0].cnt, 10);
-
-  if (count >= 3) {
-    // Auto-hide the post (use 'hidden' — distinct from user 'private')
-    const hideResult = await db.query(
-      `UPDATE posts SET visibility = 'hidden' WHERE id = $1 AND visibility NOT IN ('private', 'hidden')
-       RETURNING author_id`,
+    // Count reports in the last hour
+    const result = await client.query(
+      `SELECT COUNT(*) as cnt FROM post_reports
+       WHERE post_id = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
       [postId],
     );
 
-    log.info('Auto-hid post due to report threshold', { postId, reportCount: count });
+    const count = parseInt(result.rows[0]?.cnt || '0', 10) || 0;
 
-    // Send push notification to the post author (non-blocking)
-    if (hideResult.rows.length > 0) {
-      const authorId = hideResult.rows[0].author_id;
-      sendPushToUser(db, authorId, {
-        title: 'Post Hidden',
-        body: 'Your post has been hidden due to multiple reports. You can appeal this decision.',
-        data: { type: 'post_hidden', postId },
-      }).catch(err => log.error('Push notification failed for post hide', err));
+    if (count >= 3) {
+      // Auto-hide the post (use 'hidden' — distinct from user 'private')
+      // Idempotency: only hide if not already hidden/private
+      const hideResult = await client.query(
+        `UPDATE posts SET visibility = 'hidden' WHERE id = $1 AND visibility NOT IN ('private', 'hidden')
+         RETURNING author_id`,
+        [postId],
+      );
+
+      await client.query('COMMIT');
+
+      log.info('Auto-hid post due to report threshold', { postId, reportCount: count });
+
+      // Send push notification to the post author (non-blocking, fire-and-forget)
+      if (hideResult.rows.length > 0) {
+        const authorId = hideResult.rows[0].author_id;
+        sendPushToUser(db, authorId, {
+          title: 'Post Hidden',
+          body: 'Your post has been hidden due to multiple reports. You can appeal this decision.',
+          data: { type: 'post_hidden', postId },
+        }).catch(err => log.error('Push notification failed for post hide', err));
+      }
+
+      return {
+        action: 'hide_post',
+        targetId: postId,
+        reason: `Post auto-hidden: ${count} reports in 1 hour`,
+      };
     }
 
-    return {
-      action: 'hide_post',
-      targetId: postId,
-      reason: `Post auto-hidden: ${count} reports in 1 hour`,
-    };
+    await client.query('COMMIT');
+    return { action: 'none', targetId: postId, reason: '' };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
   }
-
-  return { action: 'none', targetId: postId, reason: '' };
 }
 
 /**
@@ -79,117 +93,124 @@ export async function checkUserEscalation(
   db: Pool,
   targetUserId: string,
 ): Promise<EscalationResult> {
-  // Count unique reports against this user in the last 24h
-  // (across all report tables)
-  const result24h = await db.query(
-    `SELECT COUNT(DISTINCT reporter_id) as cnt FROM (
-       SELECT reporter_id FROM post_reports pr
-         JOIN posts p ON p.id = pr.post_id
-         WHERE p.author_id = $1 AND pr.created_at > NOW() - INTERVAL '24 hours'
-       UNION ALL
-       SELECT reporter_id FROM user_reports
-         WHERE reported_user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'
-       UNION ALL
-       SELECT reporter_id FROM comment_reports cr
-         JOIN comments c ON c.id = cr.comment_id
-         WHERE c.user_id = $1 AND cr.created_at > NOW() - INTERVAL '24 hours'
-       UNION ALL
-       SELECT reporter_id FROM peak_reports pkr
-         JOIN peaks pk ON pk.id = pkr.peak_id
-         WHERE pk.author_id = $1 AND pkr.created_at > NOW() - INTERVAL '24 hours'
-     ) all_reports`,
-    [targetUserId],
-  );
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
 
-  const count24h = parseInt(result24h.rows[0].cnt, 10);
-
-  // 5+ unique reporters in 24h → auto-suspend 24h
-  if (count24h >= 5) {
-    // Check if already suspended
-    const profileResult = await db.query(
-      `SELECT moderation_status FROM profiles WHERE id = $1`,
+    // Count unique reports against this user in the last 24h
+    // (across all report tables)
+    const result24h = await client.query(
+      `SELECT COUNT(DISTINCT reporter_id) as cnt FROM (
+         SELECT reporter_id FROM post_reports pr
+           JOIN posts p ON p.id = pr.post_id
+           WHERE p.author_id = $1 AND pr.created_at > NOW() - INTERVAL '24 hours'
+         UNION ALL
+         SELECT reporter_id FROM user_reports
+           WHERE reported_user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'
+         UNION ALL
+         SELECT reporter_id FROM comment_reports cr
+           JOIN comments c ON c.id = cr.comment_id
+           WHERE c.user_id = $1 AND cr.created_at > NOW() - INTERVAL '24 hours'
+         UNION ALL
+         SELECT reporter_id FROM peak_reports pkr
+           JOIN peaks pk ON pk.id = pkr.peak_id
+           WHERE pk.author_id = $1 AND pkr.created_at > NOW() - INTERVAL '24 hours'
+       ) all_reports`,
       [targetUserId],
     );
-    const currentStatus = profileResult.rows[0]?.moderation_status;
 
-    if (currentStatus === 'active') {
-      await db.query(
+    const count24h = parseInt(result24h.rows[0]?.cnt || '0', 10) || 0;
+
+    // 5+ unique reporters in 24h → auto-suspend 24h
+    if (count24h >= 5) {
+      // Idempotency: only suspend if currently active (not already suspended/banned)
+      const suspendResult = await client.query(
         `UPDATE profiles
          SET moderation_status = 'suspended',
              suspended_until = NOW() + INTERVAL '24 hours',
              ban_reason = 'Multiple reports received — automatic 24h suspension'
-         WHERE id = $1`,
+         WHERE id = $1 AND moderation_status = 'active'
+         RETURNING id`,
         [targetUserId],
       );
 
-      // Log in moderation_log with system moderator ID
-      await db.query(
-        `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, reason)
-         VALUES ($1, 'suspend', $2, 'Auto-escalation: 5+ reports in 24h')`,
-        [SYSTEM_MODERATOR_ID, targetUserId],
-      );
+      if (suspendResult.rows.length > 0) {
+        // Log in moderation_log with system moderator ID
+        await client.query(
+          `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, reason)
+           VALUES ($1, 'suspend', $2, 'Auto-escalation: 5+ reports in 24h')`,
+          [SYSTEM_MODERATOR_ID, targetUserId],
+        );
 
-      log.info('Auto-suspended user due to report threshold', { targetUserId, reportCount: count24h });
+        await client.query('COMMIT');
 
-      // Send push notification to suspended user (non-blocking)
-      sendPushToUser(db, targetUserId, {
-        title: 'Account Suspended',
-        body: 'Your account has been suspended for 24 hours due to multiple reports.',
-        data: { type: 'account_suspended' },
-      }).catch(err => log.error('Push notification failed for user suspend', err));
+        log.info('Auto-suspended user due to report threshold', { targetUserId, reportCount: count24h });
 
-      return {
-        action: 'suspend_user',
-        targetId: targetUserId,
-        reason: `User auto-suspended: ${count24h} unique reporters in 24 hours`,
-      };
+        // Send push notification to suspended user (non-blocking, fire-and-forget)
+        sendPushToUser(db, targetUserId, {
+          title: 'Account Suspended',
+          body: 'Your account has been suspended for 24 hours due to multiple reports.',
+          data: { type: 'account_suspended' },
+        }).catch(err => log.error('Push notification failed for user suspend', err));
+
+        return {
+          action: 'suspend_user',
+          targetId: targetUserId,
+          reason: `User auto-suspended: ${count24h} unique reporters in 24 hours`,
+        };
+      }
+      // Already suspended/banned — fall through to 30d check
     }
-  }
 
-  // Count confirmed (resolved) reports in last 30 days
-  const result30d = await db.query(
-    `SELECT COUNT(*) as cnt FROM (
-       SELECT id FROM post_reports pr
-         JOIN posts p ON p.id = pr.post_id
-         WHERE p.author_id = $1 AND pr.status = 'resolved' AND pr.created_at > NOW() - INTERVAL '30 days'
-       UNION ALL
-       SELECT id FROM user_reports
-         WHERE reported_user_id = $1 AND status = 'resolved' AND created_at > NOW() - INTERVAL '30 days'
-       UNION ALL
-       SELECT id FROM comment_reports cr
-         JOIN comments c ON c.id = cr.comment_id
-         WHERE c.user_id = $1 AND cr.status = 'resolved' AND cr.created_at > NOW() - INTERVAL '30 days'
-       UNION ALL
-       SELECT id FROM peak_reports pkr
-         JOIN peaks pk ON pk.id = pkr.peak_id
-         WHERE pk.author_id = $1 AND pkr.status = 'resolved' AND pkr.created_at > NOW() - INTERVAL '30 days'
-     ) confirmed_reports`,
-    [targetUserId],
-  );
+    // Count confirmed (resolved) reports in last 30 days
+    const result30d = await client.query(
+      `SELECT COUNT(*) as cnt FROM (
+         SELECT id FROM post_reports pr
+           JOIN posts p ON p.id = pr.post_id
+           WHERE p.author_id = $1 AND pr.status = 'resolved' AND pr.created_at > NOW() - INTERVAL '30 days'
+         UNION ALL
+         SELECT id FROM user_reports
+           WHERE reported_user_id = $1 AND status = 'resolved' AND created_at > NOW() - INTERVAL '30 days'
+         UNION ALL
+         SELECT id FROM comment_reports cr
+           JOIN comments c ON c.id = cr.comment_id
+           WHERE c.user_id = $1 AND cr.status = 'resolved' AND cr.created_at > NOW() - INTERVAL '30 days'
+         UNION ALL
+         SELECT id FROM peak_reports pkr
+           JOIN peaks pk ON pk.id = pkr.peak_id
+           WHERE pk.author_id = $1 AND pkr.status = 'resolved' AND pkr.created_at > NOW() - INTERVAL '30 days'
+       ) confirmed_reports`,
+      [targetUserId],
+    );
 
-  const count30d = parseInt(result30d.rows[0].cnt, 10);
+    const count30d = parseInt(result30d.rows[0]?.cnt || '0', 10) || 0;
 
-  // 10+ confirmed reports in 30 days → flag for ban
-  if (count30d >= 10) {
-    log.info('User flagged for ban review', { targetUserId, confirmedReportCount: count30d });
+    // 10+ confirmed reports in 30 days → flag for ban
+    if (count30d >= 10) {
+      log.info('User flagged for ban review', { targetUserId, confirmedReportCount: count30d });
 
-    // Insert moderation_log entry for flag_for_ban
-    try {
-      await db.query(
+      // Insert moderation_log entry for flag_for_ban
+      await client.query(
         `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, reason)
          VALUES ($1, 'flag_for_ban', $2, $3)`,
         [SYSTEM_MODERATOR_ID, targetUserId, `Auto-escalation: ${count30d} confirmed reports in 30 days`],
       );
-    } catch (logErr) {
-      log.error('Failed to log flag_for_ban (non-blocking)', logErr);
+
+      await client.query('COMMIT');
+
+      return {
+        action: 'flag_for_ban',
+        targetId: targetUserId,
+        reason: `User flagged for ban: ${count30d} confirmed reports in 30 days`,
+      };
     }
 
-    return {
-      action: 'flag_for_ban',
-      targetId: targetUserId,
-      reason: `User flagged for ban: ${count30d} confirmed reports in 30 days`,
-    };
+    await client.query('COMMIT');
+    return { action: 'none', targetId: targetUserId, reason: '' };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
   }
-
-  return { action: 'none', targetId: targetUserId, reason: '' };
 }

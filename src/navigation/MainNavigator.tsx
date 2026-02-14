@@ -288,17 +288,17 @@ export default function MainNavigator() {
 
       try {
         const { data, error } = await getCurrentProfile();
-        if (data && !error) {
+        if (data && !error && data.id && data.username) {
           // Update Zustand with fresh profile data
           setUser({
             id: data.id,
             username: data.username,
-            fullName: data.full_name,
-            displayName: data.display_name || data.full_name,
+            fullName: data.full_name || '',
+            displayName: data.display_name || data.full_name || '',
             avatar: data.avatar_url || null,
             coverImage: data.cover_url || null,
             bio: data.bio || '',
-            accountType: data.account_type as 'personal' | 'pro_creator' | 'pro_business',
+            accountType: (data.account_type as 'personal' | 'pro_creator' | 'pro_business') || 'personal',
             isVerified: data.is_verified || false,
             isPremium: data.is_premium || false,
             interests: data.interests || [],

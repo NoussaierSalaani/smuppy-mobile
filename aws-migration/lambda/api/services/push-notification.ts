@@ -27,15 +27,27 @@ let firebaseInitFailed = false;
  * Initialize Firebase Admin SDK
  * Tracks failure state to avoid retrying indefinitely on persistent errors.
  */
+/**
+ * Initialize Firebase Admin SDK.
+ * Only marks as permanently failed for credential issues (missing project_id,
+ * missing FCM_SECRET_ARN). Temporary errors (network, Secrets Manager throttle)
+ * allow retry on next invocation.
+ */
 async function initializeFirebase(): Promise<void> {
   if (firebaseInitialized) return;
   if (firebaseInitFailed) {
-    log.warn('Firebase init previously failed — skipping retry');
+    log.warn('Firebase init permanently failed (missing credentials) — skipping retry');
+    return;
+  }
+
+  const secretArn = process.env.FCM_SECRET_ARN;
+  if (!secretArn) {
+    firebaseInitFailed = true;
+    log.warn('FCM_SECRET_ARN not configured — Android push permanently disabled');
     return;
   }
 
   try {
-    const secretArn = process.env.FCM_SECRET_ARN || 'smuppy/staging/fcm-credentials';
     const command = new GetSecretValueCommand({ SecretId: secretArn });
     const response = await secretsClient.send(command);
     const serviceAccount = JSON.parse(response.SecretString || '{}');
@@ -47,12 +59,13 @@ async function initializeFirebase(): Promise<void> {
       firebaseInitialized = true;
       log.info('Firebase Admin SDK initialized');
     } else {
+      // Permanent failure: credentials exist but are incomplete
       firebaseInitFailed = true;
-      log.warn('Firebase credentials missing project_id — Android push disabled');
+      log.warn('Firebase credentials missing project_id — Android push permanently disabled');
     }
   } catch (error) {
-    firebaseInitFailed = true;
-    log.error('Failed to initialize Firebase — Android push disabled until next cold start', error);
+    // Temporary failure: do NOT set firebaseInitFailed so next invocation retries
+    log.error('Failed to initialize Firebase — will retry on next invocation', error);
   }
 }
 
@@ -379,7 +392,19 @@ export async function sendPushToUser(
     snsEndpointArn: row.sns_endpoint_arn as string | null,
   }));
 
-  return sendPushNotificationBatch(targets, payload);
+  const batchResult = await sendPushNotificationBatch(targets, payload);
+
+  // Log failed token count for future dead token cleanup
+  if (batchResult.failed > 0) {
+    log.warn('Push notification batch had failures — tokens may need cleanup', {
+      userId,
+      totalTokens: targets.length,
+      successCount: batchResult.success,
+      failedCount: batchResult.failed,
+    });
+  }
+
+  return batchResult;
 }
 
 export default {

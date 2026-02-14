@@ -193,6 +193,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // Event/Group/Live markers loaded from API
   const [eventGroupMarkers, setEventGroupMarkers] = useState<MapMarker[]>([]);
   const [liveMarkers, setLiveMarkers] = useState<MapMarker[]>([]);
+  const [spotMarkers, setSpotMarkers] = useState<MapMarker[]>([]);
   // Event or Group detail data for popup display
   const [selectedEventData, setSelectedEventData] = useState<{
     id?: string;
@@ -318,6 +319,49 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       }
     };
     fetchEventsGroups();
+  }, [hasLocation, userCoords, filterDistance]);
+
+  // Fetch nearby spots when location is available
+  useEffect(() => {
+    if (!hasLocation) return;
+    const lat = userCoords[1];
+    const lng = userCoords[0];
+    if (!isValidCoordinate(lat, lng)) return;
+    const fetchSpots = async () => {
+      try {
+        const res = await awsAPI.getNearbySpots({
+          latitude: lat,
+          longitude: lng,
+          radiusKm: filterDistance,
+          limit: 50,
+        });
+        if (res.success && res.data) {
+          const markers: MapMarker[] = [];
+          for (const spot of res.data) {
+            const spotLat = spot.latitude as number | undefined;
+            const spotLng = spot.longitude as number | undefined;
+            if (spotLat != null && spotLng != null && isValidCoordinate(spotLat, spotLng)) {
+              markers.push({
+                id: `spot_${spot.id}`,
+                type: 'spots',
+                subcategory: (spot as unknown as Record<string, unknown>).subcategory as string || spot.category || 'Other',
+                category: 'spot',
+                name: spot.name,
+                avatar: spot.images?.[0] || '',
+                bio: spot.description,
+                fans: 0,
+                coordinate: { latitude: spotLat, longitude: spotLng },
+                address: spot.address,
+              });
+            }
+          }
+          setSpotMarkers(markers);
+        }
+      } catch (error) {
+        if (__DEV__) console.warn('[XplorerFeed] Failed to fetch spots:', error);
+      }
+    };
+    fetchSpots();
   }, [hasLocation, userCoords, filterDistance]);
 
   // Fetch active live streams (poll every 30s)
@@ -533,6 +577,15 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   }, []);
 
   const handleMarkerPress = useCallback((marker: MapMarker) => {
+    // Spot markers: navigate directly to SpotDetail
+    if (marker.category === 'spot') {
+      const spotId = marker.id.replace('spot_', '');
+      if (UUID_REGEX.test(spotId)) {
+        navigation.navigate('SpotDetail', { spotId });
+      }
+      return;
+    }
+
     // Live markers: go directly to viewer stream
     if (marker.category === 'live') {
       const hostId = marker.id.replace('live_', '');
@@ -661,7 +714,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // Filter out markers from blocked/muted users (live streams from hidden users)
   const isHidden = useUserSafetyStore((s) => s.isHidden);
   const allMarkers = useMemo(() => {
-    const markers = [...liveMarkers, ...eventGroupMarkers];
+    const markers = [...liveMarkers, ...eventGroupMarkers, ...spotMarkers];
     return markers.filter((m) => {
       // Live markers: filter by host user ID
       if (m.type === 'live') {
@@ -670,7 +723,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       }
       return true;
     });
-  }, [liveMarkers, eventGroupMarkers, isHidden]);
+  }, [liveMarkers, eventGroupMarkers, spotMarkers, isHidden]);
 
   const filteredMarkers = useMemo(() => {
     let markers = allMarkers;
@@ -745,6 +798,18 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           <View style={styles.liveBadge}>
             <Text style={styles.liveBadgeText}>LIVE</Text>
           </View>
+        </View>
+      );
+    }
+
+    // Spot markers: teardrop with location pin
+    if (marker.type === 'spots') {
+      return (
+        <View style={styles.teardropContainer}>
+          <View style={[styles.teardropPin, { backgroundColor: pinColor }]}>
+            <Ionicons name="location" size={normalize(16)} color={colors.white} />
+          </View>
+          <View style={[styles.teardropPointer, { borderTopColor: pinColor }]} />
         </View>
       );
     }
@@ -1300,8 +1365,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       {selectedMarker && (selectedMarker.category === 'event' || selectedMarker.category === 'group') && (
         renderEventDetailPopup()
       )}
-      {selectedMarker && selectedMarker.category !== 'event' && selectedMarker.category !== 'group' && (
-        selectedMarker.category === 'business' || selectedMarker.category === 'spot'
+      {selectedMarker && selectedMarker.category !== 'event' && selectedMarker.category !== 'group' && selectedMarker.category !== 'spot' && (
+        selectedMarker.category === 'business'
           ? renderBusinessPopup()
           : renderUserPopup()
       )}

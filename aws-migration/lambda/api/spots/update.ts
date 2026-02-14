@@ -29,6 +29,9 @@ const ALLOWED_FIELDS: Record<string, { column: string; maxLength?: number; type:
   amenities: { column: 'amenities', type: 'text[]' },
   openingHours: { column: 'opening_hours', type: 'jsonb' },
   contactInfo: { column: 'contact_info', type: 'jsonb' },
+  subcategory: { column: 'subcategory', maxLength: 100, type: 'text' },
+  tags: { column: 'tags', type: 'text[]' },
+  qualities: { column: 'qualities', type: 'text[]' },
 };
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

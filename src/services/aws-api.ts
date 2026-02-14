@@ -3610,13 +3610,15 @@ class AWSAPIService {
     longitude: number;
     radiusKm?: number;
     category?: string;
-    subcategory?: string;
     limit?: number;
-    offset?: number;
-  }): Promise<{ success: boolean; spots?: Spot[]; pagination?: ApiPagination }> {
+  }): Promise<{ success: boolean; data?: Spot[] }> {
     const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/spots?${query.toString()}`);
+    query.set('lat', String(params.latitude));
+    query.set('lng', String(params.longitude));
+    if (params.radiusKm) query.set('radius', String(Math.round(params.radiusKm * 1000)));
+    if (params.category) query.set('category', params.category);
+    if (params.limit) query.set('limit', String(params.limit));
+    return this.request(`/spots/nearby?${query.toString()}`);
   }
 
   // ============================================

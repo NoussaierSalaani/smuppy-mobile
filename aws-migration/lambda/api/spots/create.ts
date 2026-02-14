@@ -176,26 +176,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const sanitizedCountry = country ? sanitizeText(country, 100) : null;
     const sanitizedImages = images ? images.map((img: string) => sanitizeText(img, 2000)) : null;
     const sanitizedAmenities = amenities ? amenities.map((a: string) => sanitizeText(a, 100)) : null;
-    // NOTE: The columns tags, qualities, subcategory, initial_rating, initial_review do not exist in the spots table yet.
-    // A database migration is required to add these columns before using them in the INSERT statement.
-    // After running the migration, rename these to remove underscore prefix and add to INSERT/RETURNING.
-    // Migration needed:
-    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
-    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS qualities TEXT[] DEFAULT '{}';
-    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS subcategory VARCHAR(100);
-    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS initial_rating INTEGER CHECK (initial_rating >= 1 AND initial_rating <= 5);
-    //   ALTER TABLE spots ADD COLUMN IF NOT EXISTS initial_review TEXT;
-    const _sanitizedTags = tags ? tags.map((t: string) => sanitizeText(t, 100)) : null;
-    const _sanitizedQualities = qualities ? qualities.map((q: string) => sanitizeText(q, 100)) : null;
-    const _sanitizedSubcategory = subcategory ? sanitizeText(subcategory, 100) : null;
-    const _sanitizedInitialRating = initial_rating ?? null;
-    const _sanitizedInitialReview = initial_review ? sanitizeText(initial_review, 5000) : null;
-    // Suppress unused variable warnings - these are prepared for post-migration use
-    void _sanitizedTags;
-    void _sanitizedQualities;
-    void _sanitizedSubcategory;
-    void _sanitizedInitialRating;
-    void _sanitizedInitialReview;
+    const sanitizedTags = tags ? tags.map((t: string) => sanitizeText(t, 100)) : null;
+    const sanitizedQualities = qualities ? qualities.map((q: string) => sanitizeText(q, 100)) : null;
+    const sanitizedSubcategory = subcategory ? sanitizeText(subcategory, 100) : null;
+    const sanitizedInitialRating = initial_rating ?? null;
+    const sanitizedInitialReview = initial_review ? sanitizeText(initial_review, 5000) : null;
 
     // Moderation: check name and description for violations
     const textsToCheck = [sanitizedName, sanitizedDescription].filter(Boolean) as string[];
@@ -224,12 +209,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       `INSERT INTO spots (
         creator_id, name, description, category, sport_type,
         address, city, country, latitude, longitude,
-        images, amenities, opening_hours, contact_info
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        images, amenities, opening_hours, contact_info,
+        tags, qualities, subcategory, initial_rating, initial_review
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING id, creator_id, name, description, category, sport_type,
         address, city, country, latitude, longitude,
         images, amenities, rating, review_count, is_verified,
-        opening_hours, contact_info, created_at`,
+        opening_hours, contact_info, tags, qualities, subcategory,
+        initial_rating, initial_review, created_at`,
       [
         profileId, sanitizedName, sanitizedDescription, sanitizedCategory, sanitizedSportType,
         sanitizedAddress, sanitizedCity, sanitizedCountry,
@@ -237,6 +224,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         sanitizedImages, sanitizedAmenities,
         opening_hours ? JSON.stringify(opening_hours) : null,
         contact_info ? JSON.stringify(contact_info) : null,
+        sanitizedTags, sanitizedQualities, sanitizedSubcategory,
+        sanitizedInitialRating, sanitizedInitialReview,
       ]
     );
 
@@ -266,6 +255,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           isVerified: s.is_verified || false,
           openingHours: s.opening_hours,
           contactInfo: s.contact_info,
+          tags: s.tags || [],
+          qualities: s.qualities || [],
+          subcategory: s.subcategory,
+          initialRating: s.initial_rating,
+          initialReview: s.initial_review,
           createdAt: s.created_at,
         },
       }),

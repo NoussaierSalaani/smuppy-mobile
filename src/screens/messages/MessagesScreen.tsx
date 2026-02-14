@@ -27,6 +27,7 @@ import { ConversationListSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks/queries';
 import { formatRelativeTimeShort } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 interface MessagesScreenProps {
   navigation: {
@@ -121,6 +122,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark: _isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { isHidden } = useUserSafetyStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -130,22 +132,24 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   // Fingerprint for smart diffing — avoid re-renders when nothing changed
   const conversationsFingerprint = useRef('');
 
-  // Load conversations and sync unread badge to accurate total
+  // Load conversations and sync unread badge to accurate total — filter out blocked/muted users
   const loadConversations = useCallback(async () => {
     const { data, error } = await getConversations();
     if (!error && data) {
+      // Filter out blocked/muted users
+      const filtered = data.filter(c => c.other_user && !isHidden(c.other_user.id));
       // Smart diff: only update state if conversations actually changed
-      const fingerprint = data.map(c => `${c.id}:${c.last_message_at}:${c.unread_count}`).join('|');
+      const fingerprint = filtered.map(c => `${c.id}:${c.last_message_at}:${c.unread_count}`).join('|');
       if (fingerprint !== conversationsFingerprint.current) {
         conversationsFingerprint.current = fingerprint;
-        setConversations(data);
+        setConversations(filtered);
       }
-      const total = data.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      const total = filtered.reduce((sum, c) => sum + (c.unread_count || 0), 0);
       useAppStore.getState().setUnreadMessages(total);
     }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [isHidden]);
 
   // Initial load
   useEffect(() => {

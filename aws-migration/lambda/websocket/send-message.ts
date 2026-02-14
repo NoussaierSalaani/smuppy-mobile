@@ -69,9 +69,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Parse message body
-    const body = event.body ? JSON.parse(event.body) : {};
-    const { action, conversationId, content } = body;
+    // Parse message body — safely handle invalid JSON
+    let body: Record<string, unknown>;
+    try {
+      body = event.body ? JSON.parse(event.body) : {};
+    } catch {
+      return { statusCode: 400, body: JSON.stringify({ message: 'Invalid request body' }) };
+    }
+    const { action, conversationId, content } = body as { action?: string; conversationId?: string; content?: string };
 
     if (action !== 'sendMessage') {
       return {
@@ -115,6 +120,33 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? conversation.participant_2_id
       : conversation.participant_1_id;
 
+    // SECURITY: Check if either user has blocked the other
+    const blockCheck = await db.query(
+      `SELECT 1 FROM blocks
+       WHERE (user_id = $1 AND blocked_user_id = $2)
+          OR (user_id = $2 AND blocked_user_id = $1)
+       LIMIT 1`,
+      [senderId, recipientId]
+    );
+    if (blockCheck.rows.length > 0) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: 'Cannot send message to this user' }),
+      };
+    }
+
+    // SECURITY: Check recipient account status (suspended/banned users cannot receive messages)
+    const recipientCheck = await db.query(
+      'SELECT moderation_status FROM profiles WHERE id = $1',
+      [recipientId]
+    );
+    if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].moderation_status === 'suspended' || recipientCheck.rows[0].moderation_status === 'banned') {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: 'Cannot send message to this user' }),
+      };
+    }
+
     // Get sender profile
     const senderResult = await db.query(
       'SELECT id, username, display_name, avatar_url FROM profiles WHERE id = $1',
@@ -122,9 +154,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     );
     const sender = senderResult.rows[0];
 
+    // Validate content length (consistent with HTTP handler)
+    const MAX_MESSAGE_LENGTH = 5000;
+    if (typeof content !== 'string' || content.length > MAX_MESSAGE_LENGTH) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` }),
+      };
+    }
+
     // Sanitize message content: strip HTML tags and control characters
     const sanitizedContent = content
-      .substring(0, 5000)
       .replace(/<[^>]*>/g, '')  // Strip HTML tags
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Strip control chars
 

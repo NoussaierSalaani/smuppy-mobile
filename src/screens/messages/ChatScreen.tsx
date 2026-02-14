@@ -54,6 +54,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { formatTime } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 import { filterContent } from '../../utils/contentFilters';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 const { width } = Dimensions.get('window');
 
@@ -303,8 +304,9 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
   const { conversationId: initialConversationId, otherUser, userId, unreadCount: routeUnreadCount } = route.params;
   const insets = useSafeAreaInsets();
+  const { isHidden } = useUserSafetyStore();
 
-  // SECURITY: Validate UUID params on mount
+  // SECURITY: Validate UUID params and block check on mount
   useEffect(() => {
     if (initialConversationId && !isValidUUID(initialConversationId)) {
       if (__DEV__) console.warn('[ChatScreen] Invalid conversationId:', initialConversationId);
@@ -316,8 +318,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       if (__DEV__) console.warn('[ChatScreen] Invalid userId:', userId);
       showError('Error', 'Invalid user');
       navigation.goBack();
+      return;
     }
-  }, [initialConversationId, userId, showError, navigation]);
+    // SECURITY: Prevent opening chat with blocked/muted users
+    const otherUserId = otherUser?.id || userId;
+    if (otherUserId && isHidden(otherUserId)) {
+      if (__DEV__) console.warn('[ChatScreen] Blocked/muted user:', otherUserId);
+      showError('Unavailable', 'This conversation is not available.');
+      navigation.goBack();
+    }
+  }, [initialConversationId, userId, otherUser?.id, isHidden, showError, navigation]);
   const flatListRef = useRef<typeof FlashList.prototype | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -378,8 +388,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         setCurrentUserId(id);
         currentUserIdRef.current = id;
       }
-    }).catch(() => {
-      // Storage read failure — userId stays null, safe fallback
+    }).catch((err) => {
+      if (__DEV__) console.warn('[ChatScreen] Failed to get current user:', err);
     });
     return () => { mounted = false; };
   }, []);
@@ -767,13 +777,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const handleForwardPress = useCallback(() => {
     setShowMessageMenu(false);
     setShowForwardModal(true);
-    // Load conversations
+    // Load conversations — filter out blocked/muted users
     getConversations().then(({ data }) => {
-      if (data) setConversations(data);
+      if (data) setConversations(data.filter(c => c.other_user && !isHidden(c.other_user.id)));
     }).catch(() => {
       // Conversation load failed — forward modal shows empty list
     });
-  }, []);
+  }, [isHidden]);
 
   const handleForwardToConversation = useCallback(async (conversationId: string) => {
     if (!selectedMessage) return;

@@ -22,6 +22,7 @@ import {
   Profile,
 } from '../../services/database';
 import { isValidUUID } from '../../utils/formatters';
+import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 interface NewMessageScreenProps {
   navigation: {
@@ -35,6 +36,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
   const { colors, isDark } = useTheme();
   const { showError } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
+  const { isHidden } = useUserSafetyStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,14 +44,18 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  // Search users with debounce
+  // Search users with debounce — filter out blocked/muted users
   useEffect(() => {
     if (searchQuery.length >= 2) {
       setLoading(true);
       const timer = setTimeout(async () => {
-        const { data } = await searchProfiles(searchQuery, 30);
-        if (data) {
-          setSearchResults(data);
+        try {
+          const { data } = await searchProfiles(searchQuery, 30);
+          if (data) {
+            setSearchResults(data.filter(p => !isHidden(p.id)));
+          }
+        } catch {
+          // Search failed silently — results stay empty
         }
         setLoading(false);
       }, 300);
@@ -58,7 +64,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
       setSearchResults([]);
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, isHidden]);
 
   // Navigate to chat with user
   const handleSelectUser = useCallback(async (user: Profile) => {

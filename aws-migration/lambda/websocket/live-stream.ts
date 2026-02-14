@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
 import { getPool } from '../shared/db';
 import type { Pool } from 'pg';
+import { randomUUID } from 'crypto';
 import { createLogger } from '../api/utils/logger';
 import { hasStatusCode } from '../api/utils/error-handler';
 import { filterText } from '../shared/moderation/textFilter';
@@ -77,9 +78,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Parse body
-    const body: LiveStreamAction = event.body ? JSON.parse(event.body) : {};
+    // Parse body — safely handle invalid JSON
+    let body: LiveStreamAction;
+    try {
+      body = event.body ? JSON.parse(event.body) : {};
+    } catch {
+      return { statusCode: 400, body: JSON.stringify({ message: 'Invalid request body' }) };
+    }
     const { action, channelName, content, emoji } = body;
+
+    // Validate action type
+    const VALID_ACTIONS = ['joinLive', 'leaveLive', 'liveComment', 'liveReaction'];
+    if (!action || !VALID_ACTIONS.includes(action)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Invalid action' }),
+      };
+    }
 
     if (!channelName) {
       return {
@@ -207,7 +222,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
 
         const comment = {
-          id: `${Date.now()}-${userId}`,
+          id: randomUUID(),
           user: {
             id: user.id,
             username: user.username,
@@ -249,7 +264,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
 
         const reaction = {
-          id: `${Date.now()}-${userId}`,
+          id: randomUUID(),
           userId: user.id,
           username: user.username,
           emoji,

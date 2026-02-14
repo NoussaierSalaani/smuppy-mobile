@@ -142,9 +142,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           'id', pr.id,
           'username', pr.username,
           'full_name', pr.full_name,
+          'display_name', pr.display_name,
           'avatar_url', pr.avatar_url,
           'is_verified', pr.is_verified,
-          'account_type', pr.account_type
+          'account_type', pr.account_type,
+          'business_name', pr.business_name
         ) as author,
         EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${queryParams.length + 1}) as is_liked,
         EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $${queryParams.length + 1}) as is_saved

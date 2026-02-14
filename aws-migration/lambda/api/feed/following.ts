@@ -69,7 +69,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const result = await db.query(
       `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
               p.likes_count, p.comments_count, p.created_at,
-              pr.id as profile_id, pr.username, pr.full_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name,
+              pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name,
               EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as is_liked,
               EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $1) as is_saved
        FROM posts p
@@ -100,6 +100,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         id: row.profile_id,
         username: row.username,
         fullName: row.full_name,
+        displayName: row.display_name,
         avatarUrl: row.avatar_url,
         isVerified: row.is_verified,
         accountType: row.account_type,

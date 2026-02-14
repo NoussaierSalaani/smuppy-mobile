@@ -154,13 +154,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const hasMore = result.rows.length > limit;
     const messages = hasMore ? result.rows.slice(0, -1) : result.rows;
 
-    // Mark messages as read (those sent by other user)
-    await db.query(
-      `UPDATE messages
-       SET read = true
-       WHERE conversation_id = $1 AND sender_id != $2 AND read = false`,
-      [conversationId, profileId]
-    );
+    // Mark messages as read only when explicitly requested (no separate mark-read endpoint exists yet)
+    const shouldMarkRead = event.queryStringParameters?.markAsRead === 'true';
+    if (shouldMarkRead) {
+      await db.query(
+        `UPDATE messages
+         SET read = true
+         WHERE conversation_id = $1 AND sender_id != $2 AND read = false`,
+        [conversationId, profileId]
+      );
+    }
 
     return {
       statusCode: 200,

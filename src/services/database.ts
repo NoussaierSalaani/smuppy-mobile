@@ -27,6 +27,9 @@ const getErrorStatusCode = (error: unknown): number | undefined => {
   return undefined;
 };
 
+/** UUID validation pattern */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Get current authenticated user ID
  */
@@ -1524,6 +1527,10 @@ export const sendMessage = async (
   mediaType?: 'image' | 'video' | 'voice' | 'audio',
   replyToMessageId?: string
 ): Promise<DbResponse<Message>> => {
+  if (!UUID_PATTERN.test(conversationId)) {
+    return { data: null, error: 'Invalid conversation ID' };
+  }
+
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
@@ -2163,22 +2170,21 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
 
   try {
     // Lambda returns { conversation: { id, ... }, created: boolean }
-    const result = await awsAPI.request<{ conversation: { id: string } }>('/conversations', {
+    // Some backends may return { id } directly instead of nested { conversation: { id } }
+    const result = await awsAPI.request<{ conversation?: { id: string }; id?: string }>('/conversations', {
       method: 'POST',
       body: { participantId: otherUserId },
     });
-    if (!result.conversation?.id) {
+    const conversationId = result.conversation?.id || result.id;
+    if (!conversationId) {
       return { data: null, error: 'Invalid conversation response' };
     }
-    return { data: result.conversation.id, error: null };
+    return { data: conversationId, error: null };
   } catch (error: unknown) {
     if (__DEV__) console.warn('[getOrCreateConversation] ERROR:', getErrorMessage(error));
     return { data: null, error: getErrorMessage(error) };
   }
 };
-
-/** UUID validation pattern */
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Share a post with a user via DM.
@@ -2293,15 +2299,23 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
       body: { conversationId },
     });
 
-    // Step 2: Upload the audio file to S3
+    // Step 2: Upload the audio file to S3 (retry up to 3 times with backoff)
     const { uploadWithFileSystem } = await import('./mediaUpload');
-    const uploadSuccess = await uploadWithFileSystem(audioUri, presignedResult.url, 'audio/mp4');
+    let uploadSuccess = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      uploadSuccess = await uploadWithFileSystem(audioUri, presignedResult.url, 'audio/mp4');
+      if (uploadSuccess) break;
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
     if (!uploadSuccess) {
-      return { data: null, error: 'Failed to upload voice message' };
+      return { data: null, error: 'Failed to upload voice message after 3 attempts' };
     }
 
     // Step 3: Return the best playback URL available (prefer CDN over S3 direct URL)
-    const resolvedUrl = presignedResult.cdnUrl || awsAPI.getCDNUrl(presignedResult.key) || presignedResult.fileUrl || null;
+    const resolvedUrl = presignedResult.cdnUrl || awsAPI.getCDNUrl(presignedResult.key) || presignedResult.fileUrl;
+    if (!resolvedUrl) {
+      return { data: null, error: 'Failed to resolve voice message URL' };
+    }
     return { data: resolvedUrl, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
@@ -2329,6 +2343,8 @@ export const addMessageReaction = async (
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
+    // Toggle behavior: if the user already reacted with this emoji, the backend
+    // removes the reaction (ON CONFLICT). No client-side dedup needed.
     const result = await awsAPI.request<{ reaction: {
       id: string;
       message_id: string;

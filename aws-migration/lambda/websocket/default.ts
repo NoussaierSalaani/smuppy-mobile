@@ -9,7 +9,7 @@ import { createLogger } from '../api/utils/logger';
 const log = createLogger('websocket-default');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  log.info('Default handler received', { body: event.body });
+  log.info('Default handler received', { body: event.body?.substring(0, 200) });
 
   return {
     statusCode: 400,

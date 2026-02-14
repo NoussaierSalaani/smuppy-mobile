@@ -199,7 +199,6 @@ export async function handler(
       Bucket: string;
       Key: string;
       ContentType: string;
-      ContentLength?: number;
       Metadata: Record<string, string>;
     } = {
       Bucket: MEDIA_BUCKET,
@@ -211,10 +210,8 @@ export async function handler(
         'original-filename': (request.filename || 'unknown').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255),
       },
     };
-    // Only set ContentLength if fileSize is provided — otherwise S3 rejects mismatched sizes
-    if (fileSize && fileSize > 0) {
-      putObjectParams.ContentLength = fileSize;
-    }
+    // Don't set ContentLength — mobile clients estimate may differ from actual upload size
+    // S3 will accept the upload regardless of size (within bucket limits)
     const command = new PutObjectCommand(putObjectParams);
 
     // SECURITY: Short-lived presigned URL (5 minutes)

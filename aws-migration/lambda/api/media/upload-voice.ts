@@ -97,11 +97,11 @@ export async function handler(
       };
     }
 
-    if (duration !== undefined && (typeof duration !== 'number' || duration < 0)) {
+    if (duration !== undefined && (typeof duration !== 'number' || duration < 0 || duration > 600)) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid duration' }),
+        body: JSON.stringify({ error: 'Invalid duration: must be between 0 and 600 seconds' }),
       };
     }
 

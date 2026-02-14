@@ -453,16 +453,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     if (!conversationId) return;
     const { data, error } = await getMessages(conversationId, 0, 100);
     if (!mountedRef.current) return;
+    if (error) {
+      pollFailCountRef.current = Math.min(pollFailCountRef.current + 1, 5);
+    }
     if (!error && data) {
-      // Preserve any optimistic messages that haven't been confirmed by the server yet
-      const optimisticIds = pendingOptimisticIdsRef.current;
-      const optimisticMessages = optimisticIds.size > 0
-        ? messagesRef.current.filter(m => optimisticIds.has(m.id))
-        : [];
+      pollFailCountRef.current = 0;
       // Clean up optimistic messages that now exist on server
       if (pendingOptimisticIdsRef.current.size > 0) {
-        const serverIds = new Set(data.map((m: Message) => m.id));
-        // Also check by content match for optimistic messages
+        // Check by content match for optimistic messages
         for (const optId of pendingOptimisticIdsRef.current) {
           const optMsg = messagesRef.current.find(m => m.id === optId);
           if (!optMsg) {
@@ -520,13 +518,14 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   // Poll for new messages every 3s when app is active
   useEffect(() => {
     if (!conversationId) return;
-    const POLL_INTERVAL_MS = 10000;
+    const BASE_POLL_INTERVAL_MS = 10000;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startPolling = () => {
+      const interval = BASE_POLL_INTERVAL_MS * (1 + pollFailCountRef.current);
       intervalId = setInterval(() => {
         loadMessages();
-      }, POLL_INTERVAL_MS);
+      }, interval);
     };
 
     const stopPolling = () => {
@@ -796,7 +795,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const handleDeleteMessage = useCallback(async (message: Message) => {
     setShowMessageMenu(false);
 
-    // Check if message is less than 15 minutes old
+    // Client-side UX check only — backend also enforces 15-min window via messages/delete.ts
     const messageAge = Date.now() - new Date(message.created_at).getTime();
     const fifteenMinutes = 15 * 60 * 1000;
 

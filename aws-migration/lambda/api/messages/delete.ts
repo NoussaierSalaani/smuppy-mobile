@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('messages-delete');
 
@@ -21,6 +22,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 30 deletes per minute
+    const { allowed } = await checkRateLimit({ prefix: 'message-delete', identifier: userId, windowSeconds: 60, maxRequests: 30 });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 
@@ -60,16 +71,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profileId = userResult.rows[0].id;
 
-    // Soft-delete message only if user is the sender
+    // Soft-delete message only if user is the sender and within 15-minute window
     const result = await db.query(
       `UPDATE messages
        SET is_deleted = true, content = '', media_url = NULL
        WHERE id = $1 AND sender_id = $2 AND is_deleted = false
+         AND created_at > NOW() - INTERVAL '15 minutes'
        RETURNING id`,
       [messageId, profileId]
     );
 
     if (result.rows.length === 0) {
+      // Check if message exists but is outside the time window
+      const existsCheck = await db.query(
+        `SELECT id, created_at FROM messages WHERE id = $1 AND sender_id = $2 AND is_deleted = false`,
+        [messageId, profileId]
+      );
+      if (existsCheck.rows.length > 0) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: 'Messages can only be deleted within 15 minutes of sending' }),
+        };
+      }
       return {
         statusCode: 404,
         headers,

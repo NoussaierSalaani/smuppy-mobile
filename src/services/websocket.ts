@@ -279,15 +279,20 @@ class WebSocketService {
 
   private scheduleReconnect(): void {
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const delay = Math.min(60000, this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1));
 
     if (process.env.NODE_ENV === 'development') console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null;
       try {
-        // Refresh token before reconnecting to avoid using an expired token
-        await awsAuth.getIdToken();
+        // Verify token before reconnecting — abort if no valid session
+        const token = await awsAuth.getIdToken();
+        if (!token) {
+          console.error('[WebSocket] Cannot reconnect: no valid token');
+          this.reconnectAttempts = this.maxReconnectAttempts;
+          return;
+        }
         await this.connect();
       } catch (error) {
         if (__DEV__) console.warn('[WebSocket] Reconnection failed:', error);

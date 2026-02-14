@@ -20,13 +20,21 @@ const RATE_WINDOW = 10000; // 10 seconds
 
 function checkWsRateLimit(connectionId: string): boolean {
   const now = Date.now();
-  const entry = rateLimits.get(connectionId);
-  if (!entry || now > entry.resetAt) {
+
+  // Clean stale entries on every check to prevent memory leak
+  for (const [key, entry] of rateLimits.entries()) {
+    if (now > entry.resetAt) {
+      rateLimits.delete(key);
+    }
+  }
+
+  const existing = rateLimits.get(connectionId);
+  if (!existing || now > existing.resetAt) {
     rateLimits.set(connectionId, { count: 1, resetAt: now + RATE_WINDOW });
     return true;
   }
-  entry.count++;
-  return entry.count <= RATE_LIMIT;
+  existing.count++;
+  return existing.count <= RATE_LIMIT;
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

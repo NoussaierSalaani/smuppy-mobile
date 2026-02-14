@@ -109,7 +109,6 @@ const ActivitySkeleton = React.memo(function ActivitySkeleton() {
 interface ActivityItemRowProps {
   item: ActivityItem;
   styles: ReturnType<typeof createStyles>;
-  colors: ThemeColors;
   onPress: (item: ActivityItem) => void;
   onAvatarPress: (userId: string) => void;
 }
@@ -117,7 +116,6 @@ interface ActivityItemRowProps {
 const ActivityItemRow = React.memo(function ActivityItemRow({
   item,
   styles,
-  colors,
   onPress,
   onAvatarPress,
 }: ActivityItemRowProps) {
@@ -280,11 +278,10 @@ export default function ActivityHistoryScreen(): React.JSX.Element {
     <ActivityItemRow
       item={item}
       styles={styles}
-      colors={colors}
       onPress={navigateToContent}
       onAvatarPress={goToUserProfile}
     />
-  ), [styles, colors, navigateToContent, goToUserProfile]);
+  ), [styles, navigateToContent, goToUserProfile]);
 
   const keyExtractor = useCallback((item: ActivityItem, index: number) =>
     `${item.activityType}-${item.createdAt}-${index}`, []);

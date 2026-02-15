@@ -116,6 +116,30 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ success: false, message: 'Invalid media URL' }),
         };
       }
+
+      // SECURITY: Validate media URLs point to our S3/CDN domains
+      const ALLOWED_MEDIA_DOMAINS = [
+        '.s3.amazonaws.com',
+        '.s3.us-east-1.amazonaws.com',
+        '.cloudfront.net',
+      ];
+      const hasUntrustedUrl = body.mediaUrls!.some(
+        (url) => {
+          try {
+            const parsed = new URL(url);
+            return !ALLOWED_MEDIA_DOMAINS.some(domain => parsed.hostname.endsWith(domain));
+          } catch {
+            return true;
+          }
+        }
+      );
+      if (hasUntrustedUrl) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, message: 'Media URLs must point to our CDN' }),
+        };
+      }
     }
 
     const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;

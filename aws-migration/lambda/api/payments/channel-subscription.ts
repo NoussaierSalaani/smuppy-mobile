@@ -16,7 +16,10 @@ import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { checkRateLimit } from '../utils/rate-limit';
 import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+
+const log = createLogger('payments-channel-subscription');
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -131,7 +134,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
     }
   } catch (error: unknown) {
-    console.error('Channel subscription error:', error);
+    log.error('Channel subscription error', error);
     return {
       statusCode: 500,
       headers,

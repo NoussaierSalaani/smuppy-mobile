@@ -94,76 +94,102 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     `;
 
     if (filter === 'trending') {
+      const statusIdx = paramIndex++;
+      const categoryIdx = category ? paramIndex++ : -1;
+      const limitIdx = paramIndex++;
+      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         WHERE pc.is_public = TRUE
-        AND pc.status = $${paramIndex++}
-        ${category ? `AND ct.category = $${paramIndex++}` : ''}
+        AND pc.status = $${statusIdx}
+        ${category ? `AND ct.category = $${categoryIdx}` : ''}
         ORDER BY
           (pc.response_count * 2 + pc.view_count + COALESCE(pc.total_tips, 0) * 10) DESC,
           pc.created_at DESC
-        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
       params = category
         ? [status, category, limit, offset]
         : [status, limit, offset];
     } else if (filter === 'new') {
+      const statusIdx = paramIndex++;
+      const categoryIdx = category ? paramIndex++ : -1;
+      const limitIdx = paramIndex++;
+      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         WHERE pc.is_public = TRUE
-        AND pc.status = $${paramIndex++}
-        ${category ? `AND ct.category = $${paramIndex++}` : ''}
+        AND pc.status = $${statusIdx}
+        ${category ? `AND ct.category = $${categoryIdx}` : ''}
         ORDER BY pc.created_at DESC
-        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
       params = category
         ? [status, category, limit, offset]
         : [status, limit, offset];
     } else if (filter === 'created' && userId) {
+      const creatorIdx = paramIndex++;
+      const statusFilterIdx = status !== 'all' ? paramIndex++ : -1;
+      const limitIdx = paramIndex++;
+      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
-        WHERE pc.creator_id = $${paramIndex++}
-        ${status !== 'all' ? `AND pc.status = $${paramIndex++}` : ''}
+        WHERE pc.creator_id = $${creatorIdx}
+        ${status !== 'all' ? `AND pc.status = $${statusFilterIdx}` : ''}
         ORDER BY pc.created_at DESC
-        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
       params = status !== 'all' ? [userId, status, limit, offset] : [userId, limit, offset];
     } else if (filter === 'tagged' && userId) {
+      const taggedUserIdx = paramIndex++;
+      const statusIdx = paramIndex++;
+      const limitIdx = paramIndex++;
+      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         JOIN challenge_tags ct_tag ON pc.id = ct_tag.challenge_id
-        WHERE ct_tag.tagged_user_id = $${paramIndex++}
-        AND pc.status = $${paramIndex++}
+        WHERE ct_tag.tagged_user_id = $${taggedUserIdx}
+        AND pc.status = $${statusIdx}
         ORDER BY ct_tag.created_at DESC
-        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
       params = [userId, status, limit, offset];
     } else if (filter === 'responded' && userId) {
+      const userIdx = paramIndex++;
+      const limitIdx = paramIndex++;
+      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         JOIN challenge_responses cr ON pc.id = cr.challenge_id
-        WHERE cr.user_id = $${paramIndex++}
+        WHERE cr.user_id = $${userIdx}
         ORDER BY cr.created_at DESC
-        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
       params = [userId, limit, offset];
     } else if (creatorId) {
+      const creatorIdx = paramIndex++;
+      const statusIdx = paramIndex++;
+      const limitIdx = paramIndex++;
+      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
-        WHERE pc.creator_id = $${paramIndex++}
+        WHERE pc.creator_id = $${creatorIdx}
         AND pc.is_public = TRUE
-        AND pc.status = $${paramIndex++}
+        AND pc.status = $${statusIdx}
         ORDER BY pc.created_at DESC
-        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
       params = [creatorId, status, limit, offset];
     } else {
+      const statusIdx = paramIndex++;
+      const limitIdx = paramIndex++;
+      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         WHERE pc.is_public = TRUE
-        AND pc.status = $${paramIndex++}
+        AND pc.status = $${statusIdx}
         ORDER BY pc.created_at DESC
-        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
       params = [status, limit, offset];
     }

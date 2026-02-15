@@ -131,7 +131,7 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
     password,
     // SSL configuration for AWS Aurora PostgreSQL
     ssl: {
-      rejectUnauthorized: process.env.NODE_ENV === 'production',
+      rejectUnauthorized: process.env.NODE_ENV !== 'development',
     },
     // Connection pool settings optimized for Lambda with RDS Proxy
     // RDS Proxy handles connection pooling, so Lambda can use fewer connections
@@ -144,6 +144,11 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   };
 
   const pool = new Pool(poolConfig);
+
+  // SECURITY: Set statement timeout to prevent slow query DoS
+  pool.on('connect', (client: any) => {
+    client.query("SET statement_timeout = '10000'");
+  });
 
   // Handle pool errors gracefully — nullify pool reference so next query creates a fresh pool
   pool.on('error', (err: Error) => {

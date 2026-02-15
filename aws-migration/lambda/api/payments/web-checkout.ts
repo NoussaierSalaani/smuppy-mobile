@@ -508,6 +508,12 @@ async function createCheckoutSession(
         };
       }
 
+      // SECURITY: Validate tip amount (match tips/send.ts constraints)
+      const tipAmountCents = Math.round(amount * 100);
+      if (tipAmountCents < 100 || tipAmountCents > 50000) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid tip amount. Min 1.00, max 500.00' }) };
+      }
+
       // Get creator details
       const creatorResult = await db.query(
         'SELECT id, full_name, username, stripe_account_id FROM profiles WHERE id = $1',
@@ -523,7 +529,6 @@ async function createCheckoutSession(
       }
 
       const creator = creatorResult.rows[0];
-      const tipAmountCents = Math.round(amount * 100);
       const platformFee = Math.round(tipAmountCents * 0.15); // 15% on tips
 
       sessionConfig = {
@@ -609,6 +614,9 @@ async function checkSessionStatus(sessionId: string, headers: Record<string, str
       expand: ['payment_intent', 'subscription'],
     });
 
+    // SECURITY: Only return metadata to the session owner
+    const sanitizedMetadata = session.metadata ? { productType: session.metadata.productType } : {};
+
     return {
       statusCode: 200,
       headers,
@@ -616,7 +624,7 @@ async function checkSessionStatus(sessionId: string, headers: Record<string, str
         success: true,
         status: session.status,
         paymentStatus: session.payment_status,
-        metadata: session.metadata,
+        metadata: sanitizedMetadata,
         amountTotal: session.amount_total,
         currency: session.currency,
       }),

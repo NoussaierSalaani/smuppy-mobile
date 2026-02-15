@@ -155,7 +155,7 @@ async function listRefunds(
   }
 
   query += ` ORDER BY r.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-  params.push(parseInt(limit), parseInt(offset));
+  params.push(Math.min(parseInt(limit), 50), parseInt(offset));
 
   const result = await db.query(query, params);
 
@@ -316,27 +316,6 @@ async function createRefund(
     };
   }
 
-  // Get payment details
-  const paymentResult = await db.query(
-    `SELECT
-      p.*,
-      creator.stripe_account_id as creator_stripe_account
-    FROM payments p
-    JOIN profiles creator ON p.creator_id = creator.id
-    WHERE p.id = $1`,
-    [paymentId]
-  );
-
-  if (paymentResult.rows.length === 0) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Payment not found' }),
-    };
-  }
-
-  const payment = paymentResult.rows[0];
-
   // Check authorization - only admin, buyer, or creator can request refund
   const adminCheck = await db.query(
     'SELECT account_type FROM profiles WHERE id = $1',
@@ -344,156 +323,195 @@ async function createRefund(
   );
   const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
 
-  if (!isAdmin && payment.buyer_id !== user.id && payment.creator_id !== user.id) {
-    return {
-      statusCode: 403,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Forbidden' }),
-    };
-  }
-
-  // Check if payment can be refunded
-  if (payment.status !== 'succeeded') {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        success: false,
-        message: 'Only succeeded payments can be refunded',
-      }),
-    };
-  }
-
-  // Check if already refunded
-  const existingRefund = await db.query(
-    'SELECT id FROM refunds WHERE payment_id = $1 AND status IN ($2, $3)',
-    [paymentId, 'pending', 'succeeded']
-  );
-
-  if (existingRefund.rows.length > 0) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        success: false,
-        message: 'A refund already exists for this payment',
-      }),
-    };
-  }
-
-  // Calculate refund amount
-  const refundAmountCents = amount
-    ? Math.round(amount * 100)
-    : payment.amount_cents;
-
-  if (refundAmountCents > payment.amount_cents) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        success: false,
-        message: 'Refund amount cannot exceed payment amount',
-      }),
-    };
-  }
-
-  // Map reason to Stripe reason
-  const stripeReason = mapToStripeReason(reason);
-
+  // Use a transaction with FOR UPDATE to prevent race conditions on concurrent refund requests
+  const client = await db.connect();
   try {
-    // Create Stripe refund
-    const stripeRefund = await stripe.refunds.create({
-      payment_intent: payment.stripe_payment_intent_id,
-      amount: refundAmountCents,
-      reason: stripeReason,
-      metadata: {
-        paymentId,
-        reason,
-        requestedBy: user.id,
-        platform: 'smuppy',
-      },
-      // If using Connect, reverse the transfer too
-      ...(payment.creator_stripe_account && {
-        reverse_transfer: true,
-      }),
-    });
+    await client.query('BEGIN');
 
-    // Create refund record
-    const refundResult = await db.query(
-      `INSERT INTO refunds (
-        payment_id, stripe_refund_id, amount_cents, reason, notes, status, requested_by, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-      RETURNING id`,
-      [
-        paymentId,
-        stripeRefund.id,
-        refundAmountCents,
-        reason,
-        notes || null,
-        stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
-        user.id,
-      ]
+    // Get payment details with FOR UPDATE to lock the row during refund processing
+    const paymentResult = await client.query(
+      `SELECT
+        p.id, p.buyer_id, p.creator_id, p.status, p.amount_cents,
+        p.stripe_payment_intent_id, p.currency,
+        creator.stripe_account_id as creator_stripe_account
+      FROM payments p
+      JOIN profiles creator ON p.creator_id = creator.id
+      WHERE p.id = $1
+      FOR UPDATE OF p`,
+      [paymentId]
     );
 
-    // Update payment status
-    await db.query(
-      `UPDATE payments
-       SET status = $1, updated_at = NOW()
-       WHERE id = $2`,
-      [refundAmountCents === payment.amount_cents ? 'refunded' : 'partially_refunded', paymentId]
+    if (paymentResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Payment not found' }),
+      };
+    }
+
+    const payment = paymentResult.rows[0];
+
+    if (!isAdmin && payment.buyer_id !== user.id && payment.creator_id !== user.id) {
+      await client.query('ROLLBACK');
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Forbidden' }),
+      };
+    }
+
+    // Check if payment can be refunded
+    if (payment.status !== 'succeeded') {
+      await client.query('ROLLBACK');
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          message: 'Only succeeded payments can be refunded',
+        }),
+      };
+    }
+
+    // Check if already refunded (inside transaction to prevent race condition)
+    const existingRefund = await client.query(
+      'SELECT id FROM refunds WHERE payment_id = $1 AND status IN ($2, $3)',
+      [paymentId, 'pending', 'succeeded']
     );
 
-    // Create notification for affected user
-    const notifyUserId = user.id === payment.buyer_id ? payment.creator_id : payment.buyer_id;
-    await db.query(
-      `INSERT INTO notifications (user_id, type, title, body, data)
-       VALUES ($1, 'refund_processed', 'Refund Processed', $2, $3)`,
-      [
-        notifyUserId,
-        `A refund of ${(refundAmountCents / 100).toFixed(2)} ${(payment.currency || 'EUR').toUpperCase()} has been processed`,
-        JSON.stringify({ paymentId, refundId: refundResult.rows[0].id }),
-      ]
-    );
+    if (existingRefund.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          message: 'A refund already exists for this payment',
+        }),
+      };
+    }
 
-    log.info('Refund created', {
-      refundId: refundResult.rows[0].id,
-      stripeRefundId: stripeRefund.id,
-      amount: refundAmountCents,
-    });
+    // Calculate refund amount
+    const refundAmountCents = amount
+      ? Math.round(amount * 100)
+      : payment.amount_cents;
 
-    return {
-      statusCode: 201,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        refund: {
-          id: refundResult.rows[0].id,
-          stripeRefundId: stripeRefund.id,
-          amount: refundAmountCents / 100,
-          status: stripeRefund.status,
+    if (refundAmountCents > payment.amount_cents) {
+      await client.query('ROLLBACK');
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          message: 'Refund amount cannot exceed payment amount',
+        }),
+      };
+    }
+
+    // Map reason to Stripe reason
+    const stripeReason = mapToStripeReason(reason);
+
+    try {
+      // Create Stripe refund
+      const stripeRefund = await stripe.refunds.create({
+        payment_intent: payment.stripe_payment_intent_id,
+        amount: refundAmountCents,
+        reason: stripeReason,
+        metadata: {
+          paymentId,
           reason,
+          requestedBy: user.id,
+          platform: 'smuppy',
         },
-      }),
-    };
-  } catch (error: unknown) {
-    log.error('Stripe refund failed', error);
+        // If using Connect, reverse the transfer too
+        ...(payment.creator_stripe_account && {
+          reverse_transfer: true,
+        }),
+      });
 
-    // Store failed refund attempt
-    await db.query(
-      `INSERT INTO refunds (
-        payment_id, amount_cents, reason, notes, status, requested_by, error_message, created_at
-      ) VALUES ($1, $2, $3, $4, 'failed', $5, $6, NOW())`,
-      [paymentId, refundAmountCents, reason, notes || null, user.id, 'Refund processing failed']
-    );
+      // Create refund record
+      const refundResult = await client.query(
+        `INSERT INTO refunds (
+          payment_id, stripe_refund_id, amount_cents, reason, notes, status, requested_by, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        RETURNING id`,
+        [
+          paymentId,
+          stripeRefund.id,
+          refundAmountCents,
+          reason,
+          notes || null,
+          stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
+          user.id,
+        ]
+      );
 
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to process refund',
-      }),
-    };
+      // Update payment status
+      await client.query(
+        `UPDATE payments
+         SET status = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [refundAmountCents === payment.amount_cents ? 'refunded' : 'partially_refunded', paymentId]
+      );
+
+      await client.query('COMMIT');
+
+      // Create notification for affected user (outside transaction — non-critical)
+      const notifyUserId = user.id === payment.buyer_id ? payment.creator_id : payment.buyer_id;
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'refund_processed', 'Refund Processed', $2, $3)`,
+        [
+          notifyUserId,
+          `A refund of ${(refundAmountCents / 100).toFixed(2)} ${(payment.currency || 'EUR').toUpperCase()} has been processed`,
+          JSON.stringify({ paymentId, refundId: refundResult.rows[0].id }),
+        ]
+      );
+
+      log.info('Refund created', {
+        refundId: refundResult.rows[0].id,
+        stripeRefundId: stripeRefund.id,
+        amount: refundAmountCents,
+      });
+
+      return {
+        statusCode: 201,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          refund: {
+            id: refundResult.rows[0].id,
+            stripeRefundId: stripeRefund.id,
+            amount: refundAmountCents / 100,
+            status: stripeRefund.status,
+            reason,
+          },
+        }),
+      };
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      log.error('Stripe refund failed', error);
+
+      // Store failed refund attempt (outside transaction)
+      await db.query(
+        `INSERT INTO refunds (
+          payment_id, amount_cents, reason, notes, status, requested_by, error_message, created_at
+        ) VALUES ($1, $2, $3, $4, 'failed', $5, $6, NOW())`,
+        [paymentId, refundAmountCents, reason, notes || null, user.id, 'Refund processing failed']
+      );
+
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          message: 'Failed to process refund',
+        }),
+      };
+    }
+  } finally {
+    client.release();
   }
 }
 

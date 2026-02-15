@@ -76,15 +76,24 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       case 'get-balance':
         return await getBalance(profileId);
       case 'admin-set-account': {
-        // Staging-only: set stripe_account_id on any profile
-        if (process.env.ENVIRONMENT === 'production') {
-          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Not available in production' }) };
+        // SECURITY: Require admin key verification, not just environment check
+        const { getAdminKey } = await import('../../shared/secrets');
+        const adminKey = event.headers?.['x-admin-key'] || event.headers?.['X-Admin-Key'];
+        if (!adminKey) {
+          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Admin key required' }) };
+        }
+        const expectedKey = await getAdminKey();
+        const { timingSafeEqual } = await import('crypto');
+        const a = Buffer.from(adminKey);
+        const b = Buffer.from(expectedKey);
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid admin key' }) };
         }
         if (!body.targetProfileId || !body.stripeAccountId) {
           return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Missing targetProfileId or stripeAccountId' }) };
         }
-        const pool = await getPool();
-        await pool.query('UPDATE profiles SET stripe_account_id = $1, channel_price_cents = COALESCE(channel_price_cents, 999), updated_at = NOW() WHERE id = $2', [body.stripeAccountId, body.targetProfileId]);
+        const adminPool = await getPool();
+        await adminPool.query('UPDATE profiles SET stripe_account_id = $1, channel_price_cents = COALESCE(channel_price_cents, 999), updated_at = NOW() WHERE id = $2', [body.stripeAccountId, body.targetProfileId]);
         return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, targetProfileId: body.targetProfileId, stripeAccountId: body.stripeAccountId }) };
       }
       default:

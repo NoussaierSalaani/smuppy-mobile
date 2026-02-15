@@ -134,11 +134,32 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `;
       params = cursor ? [requesterId, parsedLimit + 1, new Date(parseInt(cursor))] : [requesterId, parsedLimit + 1];
     } else if (userId) {
+      // SECURITY: Check profile privacy — don't show posts from private profiles to non-followers
+      if (userId && requesterId !== userId) {
+        const privacyCheck = await pool.query(
+          `SELECT is_private FROM profiles WHERE id = $1`,
+          [userId]
+        );
+        if (privacyCheck.rows[0]?.is_private) {
+          const followCheck = await pool.query(
+            `SELECT id FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
+            [requesterId, userId]
+          );
+          if (!requesterId || followCheck.rows.length === 0) {
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({ success: true, posts: [], nextCursor: null }),
+            };
+          }
+        }
+      }
+
       // User profile: show own posts normally, filter moderation for other users
       const isOwnProfile = requesterId === userId;
       const moderationFilter = isOwnProfile
         ? ''
-        : `AND u.moderation_status NOT IN ('banned', 'shadow_banned') AND p.visibility != 'hidden'`;
+        : `AND u.moderation_status NOT IN ('banned', 'shadow_banned') AND p.visibility != 'hidden' AND p.visibility != 'fans'`;
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",

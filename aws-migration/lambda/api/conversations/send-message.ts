@@ -192,60 +192,65 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profile = userResult.rows[0];
 
-    // Check if user is participant in this conversation
-    const conversationResult = await db.query(
-      `SELECT id, participant_1_id, participant_2_id FROM conversations
-       WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
-      [conversationId, profile.id]
-    );
-
-    if (conversationResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'Conversation not found' }),
-      };
-    }
-
-    const conversation = conversationResult.rows[0];
-    const recipientId = conversation.participant_1_id === profile.id
-      ? conversation.participant_2_id
-      : conversation.participant_1_id;
-
-    // Check recipient account is active (suspended/banned users cannot receive messages)
-    const recipientCheck = await db.query(
-      'SELECT moderation_status FROM profiles WHERE id = $1',
-      [recipientId]
-    );
-    if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].moderation_status === 'suspended' || recipientCheck.rows[0].moderation_status === 'banned') {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ message: 'Cannot send message to this user' }),
-      };
-    }
-
-    // Check if either user has blocked the other
-    const blockCheck = await db.query(
-      `SELECT 1 FROM blocks
-       WHERE (user_id = $1 AND blocked_user_id = $2)
-          OR (user_id = $2 AND blocked_user_id = $1)
-       LIMIT 1`,
-      [profile.id, recipientId]
-    );
-    if (blockCheck.rows.length > 0) {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ message: 'Cannot send message to this user' }),
-      };
-    }
-
-    // Insert message and update conversation in a transaction
+    // SECURITY: Participant check, block check, and message insert in a single transaction
+    // to prevent TOCTOU race conditions (e.g., block happening between check and insert)
     const client = await db.connect();
     let message;
+    let recipientId: string;
     try {
       await client.query('BEGIN');
+
+      // Check if user is participant in this conversation
+      const conversationResult = await client.query(
+        `SELECT id, participant_1_id, participant_2_id FROM conversations
+         WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
+        [conversationId, profile.id]
+      );
+
+      if (conversationResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'Conversation not found' }),
+        };
+      }
+
+      const conversation = conversationResult.rows[0];
+      recipientId = conversation.participant_1_id === profile.id
+        ? conversation.participant_2_id
+        : conversation.participant_1_id;
+
+      // Check recipient account is active (suspended/banned users cannot receive messages)
+      const recipientCheck = await client.query(
+        'SELECT moderation_status FROM profiles WHERE id = $1',
+        [recipientId]
+      );
+      if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].moderation_status === 'suspended' || recipientCheck.rows[0].moderation_status === 'banned') {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: 'Cannot send message to this user' }),
+        };
+      }
+
+      // Check if either user has blocked the other
+      const blockCheck = await client.query(
+        `SELECT 1 FROM blocks
+         WHERE (user_id = $1 AND blocked_user_id = $2)
+            OR (user_id = $2 AND blocked_user_id = $1)
+         LIMIT 1`,
+        [profile.id, recipientId]
+      );
+      if (blockCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: 'Cannot send message to this user' }),
+        };
+      }
 
       // Validate replyToMessageId if provided
       let validReplyToMessageId = null;

@@ -702,6 +702,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ message: 'SQL query required' }),
         };
       }
+      // SECURITY: Block destructive keywords (defense-in-depth)
+      const normalizedDdl = sql.toUpperCase().replace(/\s+/g, ' ').trim();
+      const blockedDdl = ['DROP', 'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE'];
+      if (blockedDdl.some(kw => normalizedDdl.includes(kw))) {
+        return { statusCode: 400, headers, body: JSON.stringify({ message: `Blocked: DDL contains restricted keyword` }) };
+      }
       log.info('Running DDL migration...');
       const requestId = getRequestId(event);
       log.info(`[${requestId}] DDL migration requested`);
@@ -713,12 +719,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ message: 'DDL migration executed successfully' }),
         };
       } catch (ddlError: unknown) {
-        const errMsg = ddlError instanceof Error ? ddlError.message : 'Unknown error';
         log.error('DDL migration failed', ddlError);
         return {
           statusCode: 500,
           headers,
-          body: JSON.stringify({ message: 'DDL migration failed', error: errMsg }),
+          body: JSON.stringify({ message: 'DDL migration failed' }),
         };
       }
     }
@@ -743,7 +748,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
       // Block dangerous keywords even in SELECT
-      const blocked = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE'];
+      const blocked = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'INTO', 'COPY', 'SET', 'DO', 'EXECUTE'];
       if (blocked.some(kw => normalizedSql.includes(kw))) {
         return {
           statusCode: 400,
@@ -752,16 +757,33 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
       log.info('Running custom SQL...');
-      const sqlResult = await db.query(sql);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          message: 'SQL executed',
-          rowCount: sqlResult.rowCount,
-          rows: sqlResult.rows?.slice(0, 100),
-        }),
-      };
+      // SECURITY: Execute in read-only transaction to prevent write operations
+      const client = await db.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('SET TRANSACTION READ ONLY');
+        const sqlResult = await client.query(sql);
+        await client.query('COMMIT');
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            message: 'SQL executed',
+            rowCount: sqlResult.rowCount,
+            rows: sqlResult.rows?.slice(0, 100),
+          }),
+        };
+      } catch (sqlError: unknown) {
+        await client.query('ROLLBACK').catch(() => {});
+        log.error('SQL execution failed', sqlError);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ message: 'SQL execution failed' }),
+        };
+      } finally {
+        client.release();
+      }
     }
 
     // Handle fix-constraint action - updates CHECK constraint for account_type
@@ -794,6 +816,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const resetMode = event.queryStringParameters?.reset === 'true' || body.reset === true;
 
     if (resetMode) {
+      if (process.env.ENVIRONMENT === 'production') {
+        return { statusCode: 403, headers, body: JSON.stringify({ message: 'Reset mode is disabled in production' }) };
+      }
       log.info('RESET MODE: Dropping all tables...');
       await db.query(DROP_ALL_SQL);
       log.info('All tables dropped successfully');

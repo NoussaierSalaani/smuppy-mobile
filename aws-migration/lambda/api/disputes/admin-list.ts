@@ -130,7 +130,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       END,
       d.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(Math.min(parseInt(limit), 50), parseInt(offset));
 
     const disputesResult = await db.query(query, params);
 

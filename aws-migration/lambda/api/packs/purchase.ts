@@ -6,8 +6,12 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
+import { createLogger } from '../utils/logger';
 import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
+
+const log = createLogger('packs-purchase');
 
 let stripeInstance: Stripe | null = null;
 async function getStripe(): Promise<Stripe> {
@@ -40,6 +44,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
+    const { allowed } = await checkRateLimit({ prefix: 'packs-purchase', identifier: userId, windowSeconds: 60, maxRequests: 10 });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Too many requests' }),
+      };
+    }
+
     const stripe = await getStripe();
     const body: PurchaseBody = JSON.parse(event.body || '{}');
     const { packId } = body;
@@ -166,7 +179,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('Purchase pack error:', error);
+    log.error('Purchase pack error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

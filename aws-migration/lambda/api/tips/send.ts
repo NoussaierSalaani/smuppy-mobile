@@ -239,11 +239,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
-    // Calculate fees (80% creator, 20% platform)
+    // Calculate fees (80% creator, 20% platform) — all math in cents first
     const amountInCents = amount;
-    const amountDecimal = amount / 100;
-    const platformFee = Math.round(amount * (PLATFORM_FEE_PERCENT / 100)) / 100;
-    const creatorAmount = amountDecimal - platformFee;
+    const platformFeeCents = Math.round(amountInCents * PLATFORM_FEE_PERCENT / 100);
+    const creatorAmountCents = amountInCents - platformFeeCents;
+    const amountDecimal = amountInCents / 100;
+    const platformFee = platformFeeCents / 100;
+    const creatorAmount = creatorAmountCents / 100;
 
     // Get or create Stripe customer
     let customerId = sender.stripe_customer_id;
@@ -305,7 +307,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       try {
         // Verify the connected account exists under the current Stripe key
         await stripe.accounts.retrieve(receiver.stripe_account_id);
-        const creatorAmountCents = Math.round(creatorAmount * 100);
         paymentIntentParams.transfer_data = {
           destination: receiver.stripe_account_id,
           amount: creatorAmountCents,

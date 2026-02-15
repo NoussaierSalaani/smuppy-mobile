@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getReaderPool } from '../../shared/db';
 import { headers as corsHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-search');
 
@@ -15,7 +16,9 @@ const MAX_LIMIT = 50;
 
 function sanitizeQuery(raw: string): string {
   const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
-  return raw.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().substring(0, MAX_QUERY_LENGTH);
+  const sanitized = raw.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().substring(0, MAX_QUERY_LENGTH);
+  // SECURITY: Escape ILIKE special characters to prevent wildcard injection
+  return sanitized.replace(/[%_\\]/g, '\\$&');
 }
 
 function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
@@ -31,6 +34,17 @@ function response(statusCode: number, body: Record<string, unknown>): APIGateway
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
+    const userId = event.requestContext.authorizer?.claims?.sub;
+    const { allowed } = await checkRateLimit({
+      prefix: 'peaks-search',
+      identifier: userId || event.requestContext.identity?.sourceIp || 'anonymous',
+      windowSeconds: 60,
+      maxRequests: 30,
+    });
+    if (!allowed) {
+      return response(429, { success: false, message: 'Too many requests' });
+    }
+
     const {
       q = '',
       limit = '20',

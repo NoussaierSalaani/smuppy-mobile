@@ -45,7 +45,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const result = await pool.query(
       `SELECT
-        s.*,
+        s.id, s.status, s.scheduled_at, s.duration, s.price,
+        s.notes, s.started_at, s.ended_at, s.created_at,
         -- Creator info
         cp.id as creator_id,
         cp.full_name as creator_name,

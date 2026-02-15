@@ -238,6 +238,24 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
+    // SECURITY: Validate image URLs
+    const ALLOWED_MEDIA_DOMAINS = ['.s3.amazonaws.com', '.s3.us-east-1.amazonaws.com', '.cloudfront.net'];
+    const isAllowedUrl = (url: string): boolean => {
+      try {
+        const parsed = new URL(url);
+        return ALLOWED_MEDIA_DOMAINS.some(d => parsed.hostname.endsWith(d));
+      } catch { return false; }
+    };
+    if (coverImageUrl && !isAllowedUrl(coverImageUrl)) {
+      return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cover image URL' }) });
+    }
+    if (images && images.length > 0) {
+      const hasInvalidImage = images.some((url: string) => typeof url !== 'string' || !isAllowedUrl(url));
+      if (hasInvalidImage) {
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid image URL' }) });
+      }
+    }
+
     await client.query('BEGIN');
 
     // Create event

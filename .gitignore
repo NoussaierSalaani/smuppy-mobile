@@ -94,3 +94,7 @@ aws-migration/infrastructure/.env
 # Duplicate project folder
 smuppy-mobile/
 
+# Security: prevent accidental commits of secrets/infra
+.claude/settings.local.json
+aws-migration/infrastructure/cdk.out.new/
+

@@ -7,70 +7,35 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getReaderPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('posts-search');
-
-// Rate limiting configuration
-const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 30; // Max 30 searches per minute
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 const MAX_QUERY_LENGTH = 100;
 const MAX_LIMIT = 50;
 
-// Clean up old rate limit entries periodically (every 5 minutes)
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now > value.resetTime) {
-      rateLimitMap.delete(key);
-    }
-  }
-}, 300000);
-
-/**
- * Check rate limit for a given IP or user
- * @returns true if request should be allowed, false if rate limited
- */
-function checkRateLimit(identifier: string): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const entry = rateLimitMap.get(identifier);
-
-  if (!entry || now > entry.resetTime) {
-    // New window
-    rateLimitMap.set(identifier, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1 };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count };
-}
-
 function sanitizeQuery(raw: string): string {
   const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
-  return raw.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().substring(0, MAX_QUERY_LENGTH);
+  const sanitized = raw.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().substring(0, MAX_QUERY_LENGTH);
+  // SECURITY: Escape ILIKE special characters to prevent wildcard injection
+  return sanitized.replace(/[%_\\]/g, '\\$&');
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
 
   // Rate limiting - use cognito_sub (authenticated user) or IP (anonymous)
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-  const sourceIp = event.requestContext.identity?.sourceIp || 'unknown';
-  const rateLimitKey = cognitoSub || `ip:${sourceIp}`;
+  const userId = event.requestContext.authorizer?.claims?.sub;
+  const clientIp = event.requestContext.identity?.sourceIp;
 
-  const { allowed } = checkRateLimit(rateLimitKey);
+  const { allowed } = await checkRateLimit({
+    prefix: 'posts-search',
+    identifier: userId || clientIp || 'anonymous',
+    windowSeconds: 60,
+    maxRequests: 30,
+  });
   if (!allowed) {
-    log.warn('Rate limit exceeded', { identifier: rateLimitKey.substring(0, 8) + '***' });
-    return {
-      statusCode: 429,
-      headers: { ...headers, 'Retry-After': '60' },
-      body: JSON.stringify({ success: false, error: 'Too many requests. Please try again later.' }),
-    };
+    return { statusCode: 429, headers, body: JSON.stringify({ error: 'Too many search requests. Please wait.' }) };
   }
 
   try {

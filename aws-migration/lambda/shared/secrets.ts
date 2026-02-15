@@ -88,3 +88,15 @@ export async function getStripePublishableKey(): Promise<string> {
   const secrets = await getStripeSecrets();
   return secrets.STRIPE_PUBLISHABLE_KEY;
 }
+
+/**
+ * Retrieve the admin API key from Secrets Manager.
+ * Used for admin-only endpoints that require key verification.
+ */
+export async function getAdminKey(): Promise<string> {
+  const arn = process.env.ADMIN_KEY_SECRET_ARN;
+  if (!arn) {
+    throw new Error('ADMIN_KEY_SECRET_ARN environment variable is not set');
+  }
+  return getSecret(arn);
+}

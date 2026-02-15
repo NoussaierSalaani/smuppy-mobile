@@ -5,6 +5,9 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders, SqlParam } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('sessions-settings');
 
 interface SessionAvailability {
   [day: string]: { start: string; end: string }[];
@@ -128,7 +131,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('Update session settings error:', error);
+    log.error('Update session settings error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

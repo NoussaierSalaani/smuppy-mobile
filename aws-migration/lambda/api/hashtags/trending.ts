@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getReaderPool } from '../../shared/db';
 import { headers as corsHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('hashtags-trending');
 
@@ -25,6 +26,12 @@ function response(statusCode: number, body: Record<string, unknown>): APIGateway
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
+    const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
+    const { allowed } = await checkRateLimit({ prefix: 'hashtags-trending', identifier: clientIp, windowSeconds: 60, maxRequests: 30 });
+    if (!allowed) {
+      return response(429, { success: false, error: 'Too many requests' });
+    }
+
     const { limit = '20' } = event.queryStringParameters || {};
 
     const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);

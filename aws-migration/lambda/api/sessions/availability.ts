@@ -5,6 +5,9 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getReaderPool, corsHeaders } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('sessions-availability');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -163,7 +166,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('Get availability error:', error);
+    log.error('Get availability error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

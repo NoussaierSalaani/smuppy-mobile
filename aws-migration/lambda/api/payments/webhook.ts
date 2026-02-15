@@ -116,9 +116,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         processedEvents.set(stripeEvent.id, Date.now());
         return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'duplicate' }) };
       }
-      // Table may not exist yet — log and continue (dedup is best-effort)
+      // TRADE-OFF: We continue processing even if dedup fails, because blocking
+      // webhook processing on infra issues (missing table, DB outage) would cause
+      // Stripe to retry and potentially miss time-sensitive events (subscriptions,
+      // payouts). The in-memory dedup Map above provides a fast-path fallback for
+      // the same Lambda instance. This means cross-instance duplicates are possible
+      // when the table is missing — monitor and fix the table urgently.
       if (errCode === '42P01') {
-        log.warn('processed_webhook_events table not found, skipping DB dedup');
+        log.error('CRITICAL: processed_webhook_events table not found — DB dedup disabled, only in-memory dedup active. Create the table immediately.');
       } else {
         log.error('Webhook dedup insert failed', dedupErr);
       }

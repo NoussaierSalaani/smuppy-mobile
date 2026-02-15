@@ -5,6 +5,9 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('earnings-get');
 
 // Revenue share tiers (must match wallet.ts and webhook.ts)
 function getCreatorSharePercent(fanCount: number): number {
@@ -32,12 +35,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const pool = await getPool();
 
+    // Resolve cognito_sub to profile ID
+    const profileResult = await pool.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [userId]
+    );
+    if (profileResult.rows.length === 0) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+    }
+    const profileId = profileResult.rows[0].id;
+
     // Verify user is a creator
     const userResult = await pool.query(
       `SELECT account_type, stripe_account_id,
               (SELECT COUNT(*) FROM follows WHERE following_id = $1 AND status = 'accepted') AS fan_count
        FROM profiles WHERE id = $1`,
-      [userId]
+      [profileId]
     );
 
     if (userResult.rows.length === 0 || userResult.rows[0].account_type !== 'pro_creator') {
@@ -52,7 +65,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const creatorShare = getCreatorSharePercent(fanCount) / 100; // e.g. 0.60 – 0.80
 
     const period = event.queryStringParameters?.period || 'month'; // 'week', 'month', 'year', 'all'
-    const limit = parseInt(event.queryStringParameters?.limit || '20');
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
 
     // Calculate date range
     let startDate: Date;
@@ -79,7 +92,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        FROM private_sessions
        WHERE creator_id = $1 AND status = 'completed'
        AND created_at >= $2`,
-      [userId, startDate.toISOString(), creatorShare]
+      [profileId, startDate.toISOString(), creatorShare]
     );
 
     // Get earnings from pack purchases (tier-based creator share)
@@ -90,7 +103,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        FROM pending_pack_purchases
        WHERE creator_id = $1 AND status = 'completed'
        AND created_at >= $2`,
-      [userId, startDate.toISOString(), creatorShare]
+      [profileId, startDate.toISOString(), creatorShare]
     );
 
     // Get earnings from subscriptions (tier-based creator share)
@@ -102,7 +115,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        LEFT JOIN payments p ON p.subscription_id = cs.id
        WHERE cs.creator_id = $1
        AND p.created_at >= $2`,
-      [userId, startDate.toISOString(), creatorShare]
+      [profileId, startDate.toISOString(), creatorShare]
     );
 
     // Get recent transactions (tier-based creator share, currency from payment record)
@@ -137,7 +150,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        ) combined
        ORDER BY created_at DESC
        LIMIT $2`,
-      [userId, limit, creatorShare]
+      [profileId, limit, creatorShare]
     );
 
     // Get buyer info for transactions
@@ -202,7 +215,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('Get earnings error:', error);
+    log.error('Get earnings error', error);
     return {
       statusCode: 500,
       headers: corsHeaders,

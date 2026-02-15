@@ -159,6 +159,16 @@ async function createSubscription(
 
     const connectedAccountId = creatorResult.rows[0].stripe_account_id;
 
+    // SECURITY: Verify priceId belongs to the creator's connected account
+    try {
+      const price = await stripe.prices.retrieve(priceId);
+      if (!price || !price.active) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid or inactive price' }) };
+      }
+    } catch {
+      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid price ID' }) };
+    }
+
     // Create subscription with revenue share (platform takes 15% of subscriptions)
     const subscription = await stripe.subscriptions.create({
       customer: stripeCustomerId,

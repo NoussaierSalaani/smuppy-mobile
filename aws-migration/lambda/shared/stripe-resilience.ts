@@ -11,8 +11,8 @@ import Stripe from 'stripe';
 
 /** Logger interface matching createLogger output */
 interface Logger {
-  warn: (msg: string, ...args: unknown[]) => void;
-  error: (msg: string, ...args: unknown[]) => void;
+  warn: (message: string, data?: Record<string, unknown>) => void;
+  error: (message: string, data?: Record<string, unknown>) => void;
 }
 
 /** Stripe error classification */

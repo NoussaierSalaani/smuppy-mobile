@@ -8,13 +8,13 @@ import { awsAuth } from './aws-auth';
 import { secureFetch } from '../utils/certificatePinning';
 import type { Spot, SpotReview, GroupActivity, MapMarker, LivePin, Subcategory } from '../types';
 import type {
-  Profile, Post, Peak, PeakChallenge, Comment,
+  Profile, Post, Peak, Comment,
   Notification, NotificationPreferences,
   Conversation, Message,
   Payment, Subscription, SubscriptionTier,
   WalletTransaction, Session, SessionPack, UserSessionPack,
   ActivityItem,
-  TaggedUser, CreatePostInput, CreatePeakInput, UpdateProfileInput,
+  CreatePostInput, CreatePeakInput, UpdateProfileInput,
 } from './api/types';
 import { APIError } from './api/error';
 import type {

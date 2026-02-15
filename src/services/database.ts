@@ -1564,6 +1564,9 @@ export const sendMessage = async (
   const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F]/g, '');
   if (!sanitizedContent) return { data: null, error: 'Message content is required' };
 
+  // Generate client-side idempotency key for network retry dedup
+  const clientMessageId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+
   try {
     // Lambda returns { message: {...} } with snake_case fields
     const result = await awsAPI.request<{ message: {
@@ -1577,7 +1580,7 @@ export const sendMessage = async (
       };
     } }>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: { content: sanitizedContent, mediaUrl, mediaType, replyToMessageId, voiceDuration },
+      body: { content: sanitizedContent, mediaUrl, mediaType, replyToMessageId, voiceDuration, clientMessageId },
     });
     const m = result.message;
     return { data: {

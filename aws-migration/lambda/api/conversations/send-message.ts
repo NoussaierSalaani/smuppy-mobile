@@ -258,6 +258,36 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
 
+      // Validate shared content exists (prevent sharing deleted/nonexistent posts/peaks)
+      if (sharedPostId) {
+        const postCheck = await client.query(
+          'SELECT 1 FROM posts WHERE id = $1 LIMIT 1',
+          [sharedPostId]
+        );
+        if (postCheck.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: 'Shared post not found' }),
+          };
+        }
+      }
+      if (sharedPeakId) {
+        const peakCheck = await client.query(
+          'SELECT 1 FROM peaks WHERE id = $1 LIMIT 1',
+          [sharedPeakId]
+        );
+        if (peakCheck.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: 'Shared peak not found' }),
+          };
+        }
+      }
+
       // Validate replyToMessageId if provided
       let validReplyToMessageId = null;
       if (typeof replyToMessageId === 'string' && isValidUUID(replyToMessageId)) {

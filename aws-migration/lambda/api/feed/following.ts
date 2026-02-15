@@ -54,6 +54,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Compound cursor: created_at|id
         const cursorDate = cursor.substring(0, pipeIndex);
         const cursorId = cursor.substring(pipeIndex + 1);
+        // SECURITY: Validate cursor UUID to prevent SQL injection via ::uuid cast
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!UUID_REGEX.test(cursorId)) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: 'Invalid cursor format' }),
+          };
+        }
         cursorCondition = `AND (p.created_at, p.id) < ($2::timestamptz, $3::uuid)`;
         queryParams.push(new Date(cursorDate));
         queryParams.push(cursorId);

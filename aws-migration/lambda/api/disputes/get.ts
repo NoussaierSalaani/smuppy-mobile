@@ -16,6 +16,7 @@ import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { checkRateLimit } from '../../api/utils/rate-limit';
+import { isValidUUID } from '../../api/utils/security';
 
 const log = createLogger('disputes/get');
 
@@ -40,6 +41,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 400,
       headers,
       body: JSON.stringify({ success: false, message: 'Dispute ID required' }),
+    };
+  }
+
+  // SECURITY: Validate UUID format
+  if (!isValidUUID(disputeId)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Invalid dispute ID format' }),
     };
   }
 
@@ -71,12 +81,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const db = await getPool();
 
-    // Check if user is admin
-    const adminCheck = await db.query(
-      'SELECT account_type FROM profiles WHERE id = $1',
+    // Resolve cognito_sub → profile ID (SECURITY: user.id is cognito_sub, not profiles.id)
+    const profileLookup = await db.query(
+      'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
       [user.id]
     );
-    const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
+    if (profileLookup.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      };
+    }
+    const profileId = profileLookup.rows[0].id;
+    const isAdmin = profileLookup.rows[0].account_type === 'admin';
 
     // Get dispute
     const disputeResult = await db.query(
@@ -118,7 +136,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const dispute = disputeResult.rows[0];
 
     // Authorization check
-    if (!isAdmin && dispute.complainant_id !== user.id && dispute.respondent_id !== user.id) {
+    if (!isAdmin && dispute.complainant_id !== profileId && dispute.respondent_id !== profileId) {
       return {
         statusCode: 403,
         headers,
@@ -215,7 +233,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           username: dispute.complainant_username,
           avatar: dispute.complainant_avatar,
           // Email only for admins or self
-          email: isAdmin || dispute.complainant_id === user.id
+          email: isAdmin || dispute.complainant_id === profileId
             ? dispute.complainant_email
             : undefined,
         },
@@ -223,7 +241,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           id: dispute.respondent_id,
           username: dispute.respondent_username,
           avatar: dispute.respondent_avatar,
-          email: isAdmin || dispute.respondent_id === user.id
+          email: isAdmin || dispute.respondent_id === profileId
             ? dispute.respondent_email
             : undefined,
         },
@@ -266,9 +284,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         })),
 
         // User's role in this dispute
-        userRole: dispute.complainant_id === user.id
+        userRole: dispute.complainant_id === profileId
           ? 'complainant'
-          : dispute.respondent_id === user.id
+          : dispute.respondent_id === profileId
             ? 'respondent'
             : 'admin',
       },

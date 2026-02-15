@@ -32,6 +32,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
+  // SECURITY: Validate UUID format
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_REGEX.test(creatorId)) {
+    return {
+      statusCode: 400,
+      headers: corsHeaders,
+      body: JSON.stringify({ success: false, message: 'Invalid creator ID format' }),
+    };
+  }
+
   // Get date from query params or default to next 7 days
   const startDate = event.queryStringParameters?.startDate || new Date().toISOString().split('T')[0];
   const daysAhead = parseInt(event.queryStringParameters?.days || '7');

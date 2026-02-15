@@ -16,6 +16,7 @@ import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { checkRateLimit } from '../../api/utils/rate-limit';
+import { isValidUUID } from '../../api/utils/security';
 
 const log = createLogger('disputes/submit-evidence');
 
@@ -59,6 +60,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 400,
       headers,
       body: JSON.stringify({ success: false, message: 'Dispute ID required' }),
+    };
+  }
+
+  // SECURITY: Validate UUID format
+  if (!isValidUUID(disputeId)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Invalid dispute ID format' }),
     };
   }
 
@@ -144,6 +154,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const db = await getPool();
+
+    // Resolve cognito_sub → profile ID (SECURITY: user.id is cognito_sub, not profiles.id)
+    const profileLookup = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [user.id]
+    );
+    if (profileLookup.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      };
+    }
+    const profileId = profileLookup.rows[0].id;
+
     client = await db.connect();
 
     // Get dispute and check authorization
@@ -171,7 +196,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const dispute = disputeResult.rows[0];
 
     // Check if user can submit evidence
-    if (dispute.complainant_id !== user.id && dispute.respondent_id !== user.id) {
+    if (dispute.complainant_id !== profileId && dispute.respondent_id !== profileId) {
       return {
         statusCode: 403,
         headers,
@@ -210,7 +235,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Count existing evidence to enforce limit
     const evidenceCount = await client.query(
       'SELECT COUNT(*) as count FROM dispute_evidence WHERE dispute_id = $1 AND uploaded_by = $2',
-      [disputeId, user.id]
+      [disputeId, profileId]
     );
 
     if (parseInt(evidenceCount.rows[0].count) >= 10) {
@@ -232,7 +257,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        (dispute_id, type, url, filename, description, text_content, uploaded_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, uploaded_at`,
-      [disputeId, type, url || null, filename || null, description, textContent || null, user.id]
+      [disputeId, type, url || null, filename || null, description, textContent || null, profileId]
     );
 
     const evidence = evidenceResult.rows[0];
@@ -247,19 +272,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         JSON.stringify({
           evidenceId: evidence.id,
           evidenceType: type,
-          submittedBy: user.id,
+          submittedBy: profileId,
         }),
-        user.id,
+        profileId,
         evidence.uploaded_at,
       ]
     );
 
     // Notify the other party
-    const otherPartyId = dispute.complainant_id === user.id
+    const otherPartyId = dispute.complainant_id === profileId
       ? dispute.respondent_id
       : dispute.complainant_id;
 
-    const submitterName = dispute.complainant_id === user.id
+    const submitterName = dispute.complainant_id === profileId
       ? dispute.complainant_username
       : dispute.respondent_username;
 
@@ -288,7 +313,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     log.info('Evidence submitted', {
       evidenceId: evidence.id,
       disputeId,
-      userId: user.id,
+      userId: String(profileId).substring(0, 8) + '***',
       type,
     });
 

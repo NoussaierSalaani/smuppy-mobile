@@ -10,7 +10,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getPool } from '../../shared/db';
-import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
+import { getStripePublishableKey } from '../../shared/secrets';
+import { getStripeClient } from '../../shared/stripe-client';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -18,16 +19,6 @@ import { safeStripeCall } from '../../shared/stripe-resilience';
 import { PLATFORM_FEE_PERCENT, APPLE_FEE_PERCENT, GOOGLE_FEE_PERCENT, MIN_PAYMENT_CENTS, MAX_PAYMENT_CENTS } from '../utils/constants';
 
 const log = createLogger('payments/create-intent');
-
-// Lazy-initialized Stripe client (secret fetched from Secrets Manager)
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 // SECURITY: Whitelist of allowed currencies
 const ALLOWED_CURRENCIES = ['eur', 'usd'];
@@ -68,7 +59,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const stripe = await getStripe();
+    const stripe = await getStripeClient();
 
     // Get authenticated user
     const userId = event.requestContext.authorizer?.claims?.sub;
@@ -196,7 +187,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       customerId = customerResult.rows[0].stripe_customer_id;
     } else {
       // Create new Stripe customer (wrapped in safeStripeCall for timeout + circuit breaker)
-      const stripe = await getStripe();
+      const stripe = await getStripeClient();
       const customer = await safeStripeCall(
         () => stripe.customers.create({
           email: buyer.email,

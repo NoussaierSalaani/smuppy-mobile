@@ -1146,7 +1146,6 @@ const CAPSULE_RADIUS = 28;
 const INPUT_HEIGHT = 52;
 
 const createStyles = (colors: ThemeColors, _isDark: boolean) => {
-  const _TEAL_BORDER = colors.primary;
   const INACTIVE_BORDER = '#B5E8DC';
 
   return StyleSheet.create({

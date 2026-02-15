@@ -28,17 +28,6 @@ interface SubmitEvidenceBody {
   textContent?: string;
 }
 
-const _ALLOWED_FILE_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'video/mp4',
-  'application/pdf',
-  'text/plain',
-];
-
-const _MAX_FILE_SIZE_MB = 50;
-
 export const handler: APIGatewayProxyHandler = async (event) => {
   const headers = createHeaders(event);
 

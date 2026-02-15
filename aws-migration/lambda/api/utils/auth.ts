@@ -7,6 +7,7 @@
  */
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
+import type { Pool, PoolClient } from 'pg';
 import { getSecureHeaders } from './cors';
 
 /** @deprecated Use createHeaders(event) from cors.ts instead */
@@ -53,4 +54,19 @@ export function requireUser(event: APIGatewayProxyEvent): AuthUser {
   }
 
   return user;
+}
+
+/**
+ * Resolve a Cognito sub to a profiles.id.
+ * Returns the profile UUID or null if not found.
+ */
+export async function resolveProfileId(
+  db: Pool | PoolClient,
+  cognitoSub: string
+): Promise<string | null> {
+  const result = await db.query(
+    'SELECT id FROM profiles WHERE cognito_sub = $1',
+    [cognitoSub]
+  );
+  return result.rows[0]?.id ?? null;
 }

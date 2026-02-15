@@ -3,9 +3,8 @@
  * Handles monthly subscriptions to creators
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import Stripe from 'stripe';
-import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { getStripeClient } from '../../shared/stripe-client';
 import { createLogger } from '../utils/logger';
 import { createHeaders, getSecureHeaders } from '../utils/cors';
 
@@ -15,15 +14,6 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 
 const log = createLogger('payments-subscriptions');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 interface SubscriptionBody {
   action: 'create' | 'cancel' | 'list' | 'get-prices';
@@ -40,7 +30,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    await getStripe();
+    await getStripeClient();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -119,7 +109,7 @@ async function createSubscription(
   creatorId: string,
   priceId: string
 ): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -230,7 +220,7 @@ async function cancelSubscription(
   userId: string,
   subscriptionId: string
 ): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {

@@ -222,6 +222,8 @@ const FindFriendsScreen = lazyScreen(() => import('../screens/onboarding/FindFri
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+const AUTH_RETRY_DELAY_MS = 3000;
+
 const screenWithBackSwipe = { gestureEnabled: true, gestureDirection: 'horizontal' as const };
 
 interface TabNavigatorProps {
@@ -323,9 +325,9 @@ export default function MainNavigator() {
 
     syncProfile();
 
-    // Fetch initial unread counts (retry after 3s in case auth token wasn't ready)
+    // Fetch initial unread counts (retry in case auth token wasn't ready)
     fetchBadgeCounts();
-    const retryTimer = setTimeout(fetchBadgeCounts, 3000);
+    const retryTimer = setTimeout(fetchBadgeCounts, AUTH_RETRY_DELAY_MS);
     return () => clearTimeout(retryTimer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

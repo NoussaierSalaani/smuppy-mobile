@@ -11,7 +11,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
-import { getStripeKey, getStripeWebhookSecret } from '../../shared/secrets';
+import { getStripeWebhookSecret } from '../../shared/secrets';
+import { getStripeClient } from '../../shared/stripe-client';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
@@ -22,15 +23,6 @@ import { safeStripeCall } from '../../shared/stripe-resilience';
 const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
 const log = createLogger('payments/webhook');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 // Webhook secret loaded from Secrets Manager at runtime
 let webhookSecret: string | null = null;
@@ -61,7 +53,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const stripe = await getStripe();
+    const stripe = await getStripeClient();
     const signature = event.headers['Stripe-Signature'] || event.headers['stripe-signature'];
 
     if (!signature) {

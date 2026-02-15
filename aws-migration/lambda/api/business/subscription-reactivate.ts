@@ -11,19 +11,9 @@ import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
-import { getStripeKey } from '../../shared/secrets';
-import Stripe from 'stripe';
+import { getStripeClient } from '../../shared/stripe-client';
 
 const log = createLogger('business/subscription-reactivate');
-
-let stripe: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripe) {
-    const key = await getStripeKey();
-    stripe = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripe;
-}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -101,7 +91,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // If there's a Stripe subscription, reactivate it
     if (subscription.stripe_subscription_id) {
       try {
-        const stripeClient = await getStripe();
+        const stripeClient = await getStripeClient();
         await stripeClient.subscriptions.update(subscription.stripe_subscription_id, {
           cancel_at_period_end: false,
         });

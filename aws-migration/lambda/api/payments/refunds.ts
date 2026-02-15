@@ -7,9 +7,8 @@
  */
 
 import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
-import Stripe from 'stripe';
-import { getStripeKey } from '../../shared/secrets';
 import { getPool, SqlParam } from '../../shared/db';
+import { getStripeClient } from '../../shared/stripe-client';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
@@ -18,15 +17,6 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 
 const log = createLogger('payments/refunds');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 // Refund reason types
 type RefundReason =
@@ -47,7 +37,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    await getStripe();
+    await getStripeClient();
     const user = await getUserFromEvent(event);
     if (!user) {
       return {
@@ -213,7 +203,7 @@ async function getRefund(
   refundId: string,
   headers: Record<string, string>
 ) {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const result = await db.query(
     `SELECT
       r.id, r.payment_id, r.stripe_refund_id, r.amount_cents, r.reason,
@@ -313,7 +303,7 @@ async function createRefund(
   event: APIGatewayProxyEvent,
   headers: Record<string, string>
 ) {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const body = JSON.parse(event.body || '{}');
   const { paymentId, amount, reason, notes } = body as {
     paymentId: string;

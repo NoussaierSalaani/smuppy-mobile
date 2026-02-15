@@ -28,6 +28,9 @@ import { resolveDisplayName } from '../../types/profile';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+const MIN_TIP_AMOUNT_CENTS = 100;
+const MAX_TIP_AMOUNT_CENTS = 50000;
+
 interface TipModalProps {
   visible: boolean;
   onClose: () => void;
@@ -131,10 +134,10 @@ const TipModal: React.FC<TipModalProps> = ({
 
     if (cleaned) {
       const amountCents = Math.round(parseFloat(cleaned) * 100);
-      if (amountCents < 100) {
-        setError('Minimum tip is ' + formatAmount(100));
-      } else if (amountCents > 50000) {
-        setError('Maximum tip is ' + formatAmount(50000));
+      if (amountCents < MIN_TIP_AMOUNT_CENTS) {
+        setError('Minimum tip is ' + formatAmount(MIN_TIP_AMOUNT_CENTS));
+      } else if (amountCents > MAX_TIP_AMOUNT_CENTS) {
+        setError('Maximum tip is ' + formatAmount(MAX_TIP_AMOUNT_CENTS));
       } else {
         setError(null);
       }
@@ -151,7 +154,7 @@ const TipModal: React.FC<TipModalProps> = ({
 
   const handleConfirm = async () => {
     const amount = getFinalAmount();
-    if (amount < 100) {
+    if (amount < MIN_TIP_AMOUNT_CENTS) {
       setError('Please select or enter an amount');
       return;
     }

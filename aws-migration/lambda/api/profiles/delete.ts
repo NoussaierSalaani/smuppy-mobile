@@ -20,26 +20,16 @@ import {
   CognitoIdentityProviderClient,
   AdminDisableUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import Stripe from 'stripe';
 import { getPool } from '../../shared/db';
+import { getStripeClient } from '../../shared/stripe-client';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
-import { getStripeKey } from '../../shared/secrets';
 
 const log = createLogger('profiles-delete');
 
 const cognitoClient = new CognitoIdentityProviderClient({});
 const USER_POOL_ID = process.env.USER_POOL_ID || '';
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -85,7 +75,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Step 1: Cancel active Stripe subscriptions (best-effort)
     if (profile.stripe_customer_id) {
       try {
-        const stripe = await getStripe();
+        const stripe = await getStripeClient();
 
         // Cancel all active subscriptions for this customer
         const subscriptions = await stripe.subscriptions.list({

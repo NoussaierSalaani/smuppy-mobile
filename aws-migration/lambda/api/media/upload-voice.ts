@@ -34,8 +34,6 @@ if (!process.env.MEDIA_BUCKET) {
 }
 
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
-const _MAX_VOICE_FILE_SIZE = 5 * 1024 * 1024; // 5 MB max for voice messages
-
 // SECURITY: Validate and whitelist CDN domain to prevent open redirect / host injection
 function getValidatedCdnDomain(): string | null {
   const raw = process.env.CDN_DOMAIN || process.env.MEDIA_CDN_DOMAIN || process.env.CLOUDFRONT_URL || null;

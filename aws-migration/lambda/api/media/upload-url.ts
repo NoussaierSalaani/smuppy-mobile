@@ -233,6 +233,7 @@ export async function handler(
       statusCode: 200,
       headers,
       body: JSON.stringify({
+        success: true,
         uploadUrl,
         publicUrl,
         fileUrl: key,

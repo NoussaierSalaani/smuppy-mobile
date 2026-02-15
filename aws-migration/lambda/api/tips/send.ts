@@ -18,21 +18,12 @@ import { getPool } from '../../shared/db';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
-import { getStripeKey } from '../../shared/secrets';
+import { getStripeClient } from '../../shared/stripe-client';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 import { checkRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_TIP_AMOUNT_CENTS, PLATFORM_FEE_PERCENT, MIN_PAYMENT_CENTS } from '../utils/constants';
 
 const log = createLogger('tips-send');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 interface SendTipRequest {
   receiverId: string;
@@ -54,7 +45,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   try {
     await client.query('BEGIN');
-    const stripe = await getStripe();
+    const stripe = await getStripeClient();
     // Get authenticated user
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {

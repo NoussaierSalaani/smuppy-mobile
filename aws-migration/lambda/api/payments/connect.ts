@@ -4,23 +4,14 @@
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
-import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { getStripeClient } from '../../shared/stripe-client';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments/connect');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 // SECURITY: Allowed URL patterns for Stripe redirects
 const ALLOWED_URL_PATTERN = /^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/;
@@ -41,7 +32,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    await getStripe();
+    await getStripeClient();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -106,7 +97,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Missing targetProfileId or stripeAccountId' }) };
         }
         // Verify the Stripe account exists and is an Express account
-        const stripeForAdmin = await getStripe();
+        const stripeForAdmin = await getStripeClient();
         let adminAccount: Stripe.Account;
         try {
           adminAccount = await stripeForAdmin.accounts.retrieve(body.stripeAccountId);
@@ -146,7 +137,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 };
 
 async function createConnectAccount(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -250,7 +241,7 @@ async function createAccountLink(
   refreshUrl: string,
   corsHeaders: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -289,7 +280,7 @@ async function createAccountLink(
 }
 
 async function getAccountStatus(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -338,7 +329,7 @@ async function getAccountStatus(userId: string, corsHeaders: Record<string, stri
 }
 
 async function getDashboardLink(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -373,7 +364,7 @@ async function getDashboardLink(userId: string, corsHeaders: Record<string, stri
 }
 
 async function getBalance(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {

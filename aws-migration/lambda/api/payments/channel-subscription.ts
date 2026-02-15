@@ -11,9 +11,8 @@
  * - 1M+ fans: Creator 80%, Smuppy 20%
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import Stripe from 'stripe';
-import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { getStripeClient } from '../../shared/stripe-client';
 import { checkRateLimit } from '../utils/rate-limit';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
@@ -22,15 +21,6 @@ import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client
 import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments-channel-subscription');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 // CORS headers now dynamically created via createHeaders(event)
 
@@ -78,7 +68,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    await getStripe();
+    await getStripeClient();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -161,7 +151,7 @@ async function subscribeToChannel(
   creatorId: string,
   headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -340,7 +330,7 @@ async function getOrCreateChannelPrice(
   creatorName: string,
   priceCents: number
 ): Promise<string> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const productName = `${creatorName}'s Channel`;
 
   // Search for existing product for this creator
@@ -418,7 +408,7 @@ async function cancelChannelSubscription(
   subscriptionId: string,
   headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {

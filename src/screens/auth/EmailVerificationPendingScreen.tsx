@@ -18,6 +18,8 @@ import * as backend from '../../services/backend';
 import { awsAuth } from '../../services/aws-auth';
 import { RouteProp } from '@react-navigation/native';
 
+const VERIFICATION_POLL_INTERVAL_MS = 5000;
+
 type EmailVerificationRouteParams = {
   EmailVerificationPending: { email?: string };
 };
@@ -65,7 +67,7 @@ export default function EmailVerificationPendingScreen({
       }
     };
 
-    const interval = setInterval(checkVerificationStatus, 5000);
+    const interval = setInterval(checkVerificationStatus, VERIFICATION_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, []);
 

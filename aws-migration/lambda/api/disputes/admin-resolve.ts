@@ -16,20 +16,9 @@ import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { checkRateLimit } from '../../api/utils/rate-limit';
-import Stripe from 'stripe';
-import { getStripeKey } from '../../shared/secrets';
+import { getStripeClient } from '../../shared/stripe-client';
 
 const log = createLogger('admin/disputes-resolve');
-
-// Lazy-initialized Stripe client (secret fetched from Secrets Manager)
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 interface ResolveBody {
   resolution: 'full_refund' | 'partial_refund' | 'no_refund' | 'rescheduled';
@@ -136,7 +125,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid refund amount' }) };
     }
 
-    const stripe = await getStripe();
+    const stripe = await getStripeClient();
 
     await client.query('BEGIN');
 

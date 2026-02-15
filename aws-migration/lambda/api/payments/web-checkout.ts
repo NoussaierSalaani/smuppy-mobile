@@ -12,8 +12,8 @@
 
 import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
 import Stripe from 'stripe';
-import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { getStripeClient } from '../../shared/stripe-client';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
@@ -22,15 +22,6 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments/web-checkout');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 const WEB_DOMAIN = process.env.WEB_DOMAIN || 'https://smuppy.com';
 
@@ -118,7 +109,7 @@ async function createCheckoutSession(
   event: APIGatewayProxyEvent,
   headers: Record<string, string>
 ) {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const body = JSON.parse(event.body || '{}') as CheckoutRequest;
   const { productType, productId, creatorId, amount, planType } = body;
 
@@ -624,7 +615,7 @@ async function createCheckoutSession(
  * Check the status of a checkout session
  */
 async function checkSessionStatus(sessionId: string, userSub: string, headers: Record<string, string>) {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   try {
     const session = await safeStripeCall(
       () => stripe.checkout.sessions.retrieve(sessionId, {

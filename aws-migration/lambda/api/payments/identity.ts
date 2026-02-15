@@ -9,7 +9,8 @@
  */
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
-import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
+import { getStripePublishableKey } from '../../shared/secrets';
+import { getStripeClient } from '../../shared/stripe-client';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
@@ -17,15 +18,6 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { VERIFICATION_FEE_CENTS } from '../utils/constants';
 
 const log = createLogger('payments-identity');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 // Stripe Price ID — resolved lazily by getOrCreateVerificationPrice()
 let cachedVerificationPriceId: string | null = null;
@@ -43,7 +35,7 @@ async function getVerificationPriceId(): Promise<string> {
     return cachedVerificationPriceId;
   }
 
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
 
   // Search for existing product
   const products = await stripe.products.search({
@@ -106,7 +98,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    const stripe = await getStripe();
+    const stripe = await getStripeClient();
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -408,7 +400,7 @@ async function getVerificationConfig(stripe: Stripe, headers: Record<string, str
  * This must be completed before starting verification
  */
 async function createVerificationPaymentIntent(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -536,7 +528,7 @@ async function confirmPaymentAndStartVerification(
   returnUrl: string,
   headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -581,7 +573,7 @@ async function createVerificationSession(
   returnUrl: string,
   headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -684,7 +676,7 @@ async function createVerificationSession(
 }
 
 async function getVerificationStatus(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -746,7 +738,7 @@ async function getVerificationStatus(userId: string, headers: Record<string, str
 }
 
 async function getVerificationReport(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {

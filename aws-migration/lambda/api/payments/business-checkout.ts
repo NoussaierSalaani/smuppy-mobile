@@ -6,8 +6,8 @@
 
 import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
 import Stripe from 'stripe';
-import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
+import { getStripeClient } from '../../shared/stripe-client';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
@@ -17,15 +17,6 @@ import { isValidUUID } from '../utils/security';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments/business-checkout');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 const WEB_DOMAIN = process.env.WEB_DOMAIN || 'https://smuppy.com';
 
@@ -92,7 +83,7 @@ async function createBusinessCheckout(
   event: APIGatewayProxyEvent,
   headers: Record<string, string>
 ) {
-  const stripe = await getStripe();
+  const stripe = await getStripeClient();
   const body = JSON.parse(event.body || '{}') as BusinessCheckoutRequest;
   const { businessId, serviceId, date, slotId } = body;
 

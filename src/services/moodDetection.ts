@@ -82,6 +82,68 @@ export interface ContentPreferences {
 }
 
 // ============================================================================
+// CONSTANTS — Thresholds, limits, and buffer sizes
+// ============================================================================
+
+// Scroll tracking buffers
+const MAX_VELOCITY_BUFFER_SIZE = 1000;
+const VELOCITY_BUFFER_TRIM_SIZE = 500;
+const MAX_PAUSE_BUFFER_SIZE = 500;
+const PAUSE_BUFFER_TRIM_SIZE = 250;
+const MAX_TIME_PER_POST_BUFFER_SIZE = 200;
+const TIME_PER_POST_TRIM_SIZE = 100;
+
+// Scroll behavior thresholds
+const SCROLL_DELTA_THRESHOLD = -50;
+const LOW_VELOCITY_THRESHOLD = 10;
+const MIN_PAUSE_DURATION_MS = 500;
+const SKIP_TIME_THRESHOLD_SECONDS = 1;
+
+// Behavioral mood thresholds
+const HIGH_VELOCITY_THRESHOLD = 500;
+const LOW_VELOCITY_MOOD_THRESHOLD = 200;
+const MIN_PAUSE_COUNT_ENERGETIC = 3;
+const HIGH_PAUSE_COUNT_FOCUSED = 5;
+const MIN_REVERSE_SCROLL_COUNT = 3;
+const LONG_SESSION_DURATION_MS = 600000; // 10 minutes
+
+// Engagement mood thresholds
+const HIGH_LIKE_RATE = 0.3;
+const HIGH_COMMENT_RATE = 0.1;
+const HIGH_SHARE_RATE = 0.05;
+const HIGH_SAVE_RATE = 0.1;
+const LONG_TIME_PER_POST_SECONDS = 10;
+const HIGH_SKIP_RATE = 0.5;
+const HIGH_REWATCH_RATE = 0.1;
+
+// Temporal mood thresholds
+const LONG_SESSION_GAP_MINUTES = 480; // 8 hours
+
+// Content mood thresholds
+const TOP_CATEGORIES_LIMIT = 3;
+const HIGH_CREATOR_DIVERSITY = 0.7;
+const LOW_CREATOR_DIVERSITY = 0.3;
+const DOMINANT_CONTENT_TYPE_RATIO = 0.5;
+
+// Signal strength thresholds
+const SHORT_SESSION_THRESHOLD_MS = 30000;  // 30 seconds
+const MEDIUM_SESSION_THRESHOLD_MS = 120000; // 2 minutes
+const MIN_POSTS_FOR_CONTENT_SIGNAL = 5;
+const MIN_ACTIONS_LOW_STRENGTH = 2;
+const MIN_ACTIONS_MEDIUM_STRENGTH = 5;
+
+// Mood history & analysis
+const MAX_MOOD_HISTORY_SIZE = 20;
+const MAX_SCROLL_HISTORY_SIZE = 10;
+const MAX_CONFIDENCE = 0.95;
+const CONFIDENCE_BOOST = 0.3;
+
+// Signal strength values
+const LOW_SIGNAL_STRENGTH = 0.3;
+const MEDIUM_SIGNAL_STRENGTH = 0.6;
+const HIGH_SIGNAL_STRENGTH = 0.9;
+
+// ============================================================================
 // MOOD DETECTION ENGINE
 // ============================================================================
 
@@ -146,26 +208,26 @@ class MoodDetectionEngine {
       const velocity = Math.abs(deltaY) / (deltaTime / 1000); // pixels per second
       this.scrollVelocities.push(velocity);
 
-      // Prevent memory leak: limit array size (keep last 1000 entries)
-      if (this.scrollVelocities.length > 1000) {
-        this.scrollVelocities = this.scrollVelocities.slice(-500);
+      // Prevent memory leak: limit array size
+      if (this.scrollVelocities.length > MAX_VELOCITY_BUFFER_SIZE) {
+        this.scrollVelocities = this.scrollVelocities.slice(-VELOCITY_BUFFER_TRIM_SIZE);
       }
 
       // Detect reverse scroll (scrolling back up)
-      if (deltaY < -50) {
+      if (deltaY < SCROLL_DELTA_THRESHOLD) {
         this.reverseScrolls++;
       }
 
       // Detect pause (very low velocity or no scroll for 500ms+)
-      if (velocity < 10 && !this.pauseStartTime) {
+      if (velocity < LOW_VELOCITY_THRESHOLD && !this.pauseStartTime) {
         this.pauseStartTime = timestamp;
-      } else if (velocity >= 10 && this.pauseStartTime) {
+      } else if (velocity >= LOW_VELOCITY_THRESHOLD && this.pauseStartTime) {
         const pauseDuration = timestamp - this.pauseStartTime;
-        if (pauseDuration >= 500) {
+        if (pauseDuration >= MIN_PAUSE_DURATION_MS) {
           this.pauseDurations.push(pauseDuration);
           // Prevent memory leak: limit array size
-          if (this.pauseDurations.length > 500) {
-            this.pauseDurations = this.pauseDurations.slice(-250);
+          if (this.pauseDurations.length > MAX_PAUSE_BUFFER_SIZE) {
+            this.pauseDurations = this.pauseDurations.slice(-PAUSE_BUFFER_TRIM_SIZE);
           }
         }
         this.pauseStartTime = null;
@@ -232,13 +294,13 @@ class MoodDetectionEngine {
   trackTimeOnPost(postId: string, timeSeconds: number): void {
     this.timePerPost.push(timeSeconds);
 
-    // Prevent memory leak: limit array size (keep last 200 entries)
-    if (this.timePerPost.length > 200) {
-      this.timePerPost = this.timePerPost.slice(-100);
+    // Prevent memory leak: limit array size
+    if (this.timePerPost.length > MAX_TIME_PER_POST_BUFFER_SIZE) {
+      this.timePerPost = this.timePerPost.slice(-TIME_PER_POST_TRIM_SIZE);
     }
 
-    // If less than 1 second, consider it a skip
-    if (timeSeconds < 1) {
+    // If less than threshold, consider it a skip
+    if (timeSeconds < SKIP_TIME_THRESHOLD_SECONDS) {
       this.postsSkipped++;
     }
   }
@@ -337,7 +399,7 @@ class MoodDetectionEngine {
       categoryDistribution,
       creatorDiversity: this.creatorsViewed.size / Math.max(this.postsViewed, 1),
       avgContentLength: 0, // Would need video duration tracking
-      preferredContentType: maxType.count > this.postsViewed * 0.5
+      preferredContentType: maxType.count > this.postsViewed * DOMINANT_CONTENT_TYPE_RATIO
         ? maxType.type as 'image' | 'video' | 'carousel'
         : 'mixed',
     };
@@ -361,30 +423,30 @@ class MoodDetectionEngine {
     };
 
     // High velocity + few pauses = energetic browsing
-    if (scroll.avgVelocity > 500 && scroll.pauseCount < 3) {
+    if (scroll.avgVelocity > HIGH_VELOCITY_THRESHOLD && scroll.pauseCount < MIN_PAUSE_COUNT_ENERGETIC) {
       probs.energetic += 0.3;
       probs.neutral -= 0.1;
     }
 
     // Low velocity + many pauses = focused/engaged
-    if (scroll.avgVelocity < 200 && scroll.pauseCount > 5) {
+    if (scroll.avgVelocity < LOW_VELOCITY_MOOD_THRESHOLD && scroll.pauseCount > HIGH_PAUSE_COUNT_FOCUSED) {
       probs.focused += 0.3;
       probs.relaxed += 0.2;
     }
 
     // Moderate velocity + some pauses = relaxed browsing
-    if (scroll.avgVelocity >= 200 && scroll.avgVelocity <= 500) {
+    if (scroll.avgVelocity >= LOW_VELOCITY_MOOD_THRESHOLD && scroll.avgVelocity <= HIGH_VELOCITY_THRESHOLD) {
       probs.relaxed += 0.25;
     }
 
     // Many reverse scrolls = re-engaging, interested
-    if (scroll.reverseScrollCount > 3) {
+    if (scroll.reverseScrollCount > MIN_REVERSE_SCROLL_COUNT) {
       probs.focused += 0.15;
       probs.creative += 0.1;
     }
 
     // Long session = engaged (could be any mood)
-    if (scroll.sessionDuration > 600000) { // > 10 minutes
+    if (scroll.sessionDuration > LONG_SESSION_DURATION_MS) {
       probs.relaxed += 0.1;
       probs.social += 0.1;
     }
@@ -406,42 +468,42 @@ class MoodDetectionEngine {
     };
 
     // High like rate = positive mood
-    if (engagement.likeRate > 0.3) {
+    if (engagement.likeRate > HIGH_LIKE_RATE) {
       probs.energetic += 0.2;
       probs.social += 0.15;
     }
 
     // Comments = social engagement
-    if (engagement.commentRate > 0.1) {
+    if (engagement.commentRate > HIGH_COMMENT_RATE) {
       probs.social += 0.35;
     }
 
     // Shares = wants to connect
-    if (engagement.shareRate > 0.05) {
+    if (engagement.shareRate > HIGH_SHARE_RATE) {
       probs.social += 0.25;
       probs.energetic += 0.1;
     }
 
     // Saves = thoughtful, focused
-    if (engagement.saveRate > 0.1) {
+    if (engagement.saveRate > HIGH_SAVE_RATE) {
       probs.focused += 0.2;
       probs.creative += 0.15;
     }
 
     // Long time per post = focused/relaxed
-    if (engagement.avgTimePerPost > 10) {
+    if (engagement.avgTimePerPost > LONG_TIME_PER_POST_SECONDS) {
       probs.focused += 0.2;
       probs.relaxed += 0.15;
     }
 
     // High skip rate = distracted or bored
-    if (engagement.skipRate > 0.5) {
+    if (engagement.skipRate > HIGH_SKIP_RATE) {
       probs.neutral += 0.3;
       probs.energetic += 0.1;
     }
 
     // Re-watching = engaged
-    if (engagement.rewatchRate > 0.1) {
+    if (engagement.rewatchRate > HIGH_REWATCH_RATE) {
       probs.focused += 0.15;
       probs.creative += 0.1;
     }
@@ -502,7 +564,7 @@ class MoodDetectionEngine {
     }
 
     // Long time since last session = eager
-    if (temporal.timeSinceLastSession > 480) { // > 8 hours
+    if (temporal.timeSinceLastSession > LONG_SESSION_GAP_MINUTES) {
       probs.social += 0.1;
       probs.energetic += 0.1;
     }
@@ -530,7 +592,7 @@ class MoodDetectionEngine {
     const socialCategories = ['Trending', 'Viral', 'Community', 'Challenges'];
     const focusedCategories = ['Education', 'Tutorial', 'HowTo', 'Productivity', 'Tips'];
 
-    for (const cat of content.topCategories.slice(0, 3)) {
+    for (const cat of content.topCategories.slice(0, TOP_CATEGORIES_LIMIT)) {
       if (creativeCategories.some(c => cat.toLowerCase().includes(c.toLowerCase()))) {
         probs.creative += 0.2;
       }
@@ -549,13 +611,13 @@ class MoodDetectionEngine {
     }
 
     // High creator diversity = exploring, social
-    if (content.creatorDiversity > 0.7) {
+    if (content.creatorDiversity > HIGH_CREATOR_DIVERSITY) {
       probs.social += 0.1;
       probs.neutral += 0.05;
     }
 
     // Low diversity = focused on specific content
-    if (content.creatorDiversity < 0.3) {
+    if (content.creatorDiversity < LOW_CREATOR_DIVERSITY) {
       probs.focused += 0.15;
     }
 
@@ -636,20 +698,20 @@ class MoodDetectionEngine {
       behavioral: this.calculateSignalStrength(scroll),
       engagement: this.calculateEngagementStrength(engagement),
       temporal: 0.8, // Always available
-      content: this.postsViewed > 5 ? 0.9 : 0.4, // More data = more reliable
+      content: this.postsViewed > MIN_POSTS_FOR_CONTENT_SIGNAL ? HIGH_SIGNAL_STRENGTH : 0.4, // More data = more reliable
     };
 
     const result: MoodAnalysisResult = {
       primaryMood,
       probabilities: normalizedProbs,
-      confidence: Math.min(0.95, confidence + 0.3), // Boost confidence a bit
+      confidence: Math.min(MAX_CONFIDENCE, confidence + CONFIDENCE_BOOST), // Boost confidence a bit
       signals,
       timestamp: Date.now(),
     };
 
-    // Store in mood history (cap at 20)
+    // Store in mood history
     this.moodHistory.push(result);
-    if (this.moodHistory.length > 20) {
+    if (this.moodHistory.length > MAX_MOOD_HISTORY_SIZE) {
       this.moodHistory.shift();
     }
 
@@ -668,9 +730,9 @@ class MoodDetectionEngine {
    */
   private calculateSignalStrength(scroll: ScrollBehavior): number {
     // More scroll data = stronger signal
-    if (scroll.sessionDuration < 30000) return 0.3; // < 30s
-    if (scroll.sessionDuration < 120000) return 0.6; // < 2min
-    return 0.9;
+    if (scroll.sessionDuration < SHORT_SESSION_THRESHOLD_MS) return LOW_SIGNAL_STRENGTH;
+    if (scroll.sessionDuration < MEDIUM_SESSION_THRESHOLD_MS) return MEDIUM_SIGNAL_STRENGTH;
+    return HIGH_SIGNAL_STRENGTH;
   }
 
   /**
@@ -678,9 +740,9 @@ class MoodDetectionEngine {
    */
   private calculateEngagementStrength(_engagement: EngagementSignals): number {
     const totalActions = this.postsLiked + this.postsCommented + this.postsShared + this.postsSaved;
-    if (totalActions < 2) return 0.3;
-    if (totalActions < 5) return 0.6;
-    return 0.9;
+    if (totalActions < MIN_ACTIONS_LOW_STRENGTH) return LOW_SIGNAL_STRENGTH;
+    if (totalActions < MIN_ACTIONS_MEDIUM_STRENGTH) return MEDIUM_SIGNAL_STRENGTH;
+    return HIGH_SIGNAL_STRENGTH;
   }
 
   // ============================================================================
@@ -712,8 +774,8 @@ class MoodDetectionEngine {
     // Store scroll behavior for history
     this.scrollHistory.push(this.getScrollBehavior());
 
-    // Keep only last 10 sessions
-    if (this.scrollHistory.length > 10) {
+    // Keep only last N sessions
+    if (this.scrollHistory.length > MAX_SCROLL_HISTORY_SIZE) {
       this.scrollHistory.shift();
     }
   }

@@ -7,6 +7,7 @@
  */
 
 import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { createLogger } from './logger';
 
 const log = createLogger('rate-limit');
@@ -71,3 +72,22 @@ export const checkRateLimit = async (options: RateLimitOptions): Promise<RateLim
     return { allowed: false, retryAfter: 60 };
   }
 };
+
+/**
+ * Check rate limit and return 429 response if exceeded.
+ * Returns null if allowed, or an early-exit response if rate limited.
+ */
+export async function requireRateLimit(
+  options: RateLimitOptions,
+  headers: Record<string, string>
+): Promise<APIGatewayProxyResult | null> {
+  const { allowed } = await checkRateLimit(options);
+  if (!allowed) {
+    return {
+      statusCode: 429,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+    };
+  }
+  return null;
+}

@@ -9,18 +9,9 @@ import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
 import Stripe from 'stripe';
-import { getStripeKey } from '../../shared/secrets';
+import { getStripeClient } from '../../shared/stripe-client';
 
 const log = createLogger('packs-purchase');
-
-let stripeInstance: Stripe | null = null;
-async function getStripe(): Promise<Stripe> {
-  if (!stripeInstance) {
-    const key = await getStripeKey();
-    stripeInstance = new Stripe(key, { apiVersion: '2025-12-15.clover' });
-  }
-  return stripeInstance;
-}
 
 // Platform fee percentage (Smuppy takes 20%, Creator gets 80%)
 const PLATFORM_FEE_PERCENT = 20;
@@ -53,7 +44,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    const stripe = await getStripe();
+    const stripe = await getStripeClient();
     const body: PurchaseBody = JSON.parse(event.body || '{}');
     const { packId } = body;
 

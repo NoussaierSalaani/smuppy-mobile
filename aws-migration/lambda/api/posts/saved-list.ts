@@ -27,11 +27,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const rawLimit = parseInt(event.queryStringParameters?.limit || String(DEFAULT_LIMIT), 10);
-    const rawPage = parseInt(event.queryStringParameters?.page || '1', 10);
-
     const limit = Math.min(Math.max(1, isNaN(rawLimit) ? DEFAULT_LIMIT : rawLimit), MAX_LIMIT);
-    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
-    const offset = (page - 1) * limit;
+    const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();
 
@@ -49,6 +46,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const profileId = userResult.rows[0].id;
+
+    // Build cursor condition
+    let cursorCondition = '';
+    const params: (string | number)[] = [profileId];
+
+    if (cursor) {
+      const parsedDate = new Date(cursor);
+      if (isNaN(parsedDate.getTime())) {
+        return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
+      }
+      params.push(parsedDate.toISOString());
+      cursorCondition = `AND sp.created_at < $${params.length}::timestamptz`;
+    }
+
+    params.push(limit + 1);
+    const limitIdx = params.length;
 
     const result = await db.query(
       `SELECT
@@ -74,12 +87,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       INNER JOIN posts p ON p.id = sp.post_id
       INNER JOIN profiles pr ON pr.id = p.author_id
       WHERE sp.user_id = $1
+        ${cursorCondition}
       ORDER BY sp.created_at DESC
-      LIMIT $2 OFFSET $3`,
-      [profileId, limit, offset]
+      LIMIT $${limitIdx}`,
+      params
     );
 
-    const data = result.rows.map((row: Record<string, unknown>) => ({
+    const hasMore = result.rows.length > limit;
+    const rows = result.rows.slice(0, limit);
+
+    const data = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       authorId: row.author_id,
       content: row.content,
@@ -102,12 +119,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     }));
 
+    const nextCursor = hasMore && rows.length > 0
+      ? new Date(rows[rows.length - 1].saved_at as string).toISOString()
+      : null;
+
     log.info('Listed saved posts', { profileId: profileId.slice(0, 8) + '***', count: data.length });
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, data }),
+      body: JSON.stringify({ success: true, data, nextCursor, hasMore }),
     };
   } catch (error: unknown) {
     log.error('Error listing saved posts', error);

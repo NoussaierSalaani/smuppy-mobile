@@ -53,7 +53,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const category = event.queryStringParameters?.category;
     const status = event.queryStringParameters?.status || 'active';
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
-    const offset = parseInt(event.queryStringParameters?.offset || '0', 10);
+    const cursor = event.queryStringParameters?.cursor || undefined;
 
     let query: string;
     let params: SqlParam[] = [];
@@ -93,7 +93,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       LEFT JOIN challenge_types ct ON pc.challenge_type_id = ct.id
     `;
 
+    // Cap offset to prevent deep scanning on engagement-ranked results
+    const MAX_OFFSET = 500;
+
     if (filter === 'trending') {
+      const trendingOffset = cursor ? Math.min(Math.max(0, parseInt(cursor, 10) || 0), MAX_OFFSET) : 0;
       const statusIdx = paramIndex++;
       const categoryIdx = category ? paramIndex++ : -1;
       const limitIdx = paramIndex++;
@@ -109,98 +113,138 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         LIMIT $${limitIdx} OFFSET $${offsetIdx}
       `;
       params = category
-        ? [status, category, limit, offset]
-        : [status, limit, offset];
+        ? [status, category, limit + 1, trendingOffset]
+        : [status, limit + 1, trendingOffset];
     } else if (filter === 'new') {
       const statusIdx = paramIndex++;
       const categoryIdx = category ? paramIndex++ : -1;
+      const cursorIdx = cursor ? paramIndex++ : -1;
       const limitIdx = paramIndex++;
-      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         WHERE pc.is_public = TRUE
         AND pc.status = $${statusIdx}
         ${category ? `AND ct.category = $${categoryIdx}` : ''}
+        ${cursor ? `AND pc.created_at < $${cursorIdx}::timestamptz` : ''}
         ORDER BY pc.created_at DESC
-        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+        LIMIT $${limitIdx}
       `;
-      params = category
-        ? [status, category, limit, offset]
-        : [status, limit, offset];
+      params = [status];
+      if (category) params.push(category);
+      if (cursor) params.push(cursor);
+      params.push(limit + 1);
     } else if (filter === 'created' && userId) {
       const creatorIdx = paramIndex++;
       const statusFilterIdx = status !== 'all' ? paramIndex++ : -1;
+      const cursorIdx = cursor ? paramIndex++ : -1;
       const limitIdx = paramIndex++;
-      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         WHERE pc.creator_id = $${creatorIdx}
         ${status !== 'all' ? `AND pc.status = $${statusFilterIdx}` : ''}
+        ${cursor ? `AND pc.created_at < $${cursorIdx}::timestamptz` : ''}
         ORDER BY pc.created_at DESC
-        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+        LIMIT $${limitIdx}
       `;
-      params = status !== 'all' ? [userId, status, limit, offset] : [userId, limit, offset];
+      params = [userId];
+      if (status !== 'all') params.push(status);
+      if (cursor) params.push(cursor);
+      params.push(limit + 1);
     } else if (filter === 'tagged' && userId) {
       const taggedUserIdx = paramIndex++;
       const statusIdx = paramIndex++;
+      const cursorIdx = cursor ? paramIndex++ : -1;
       const limitIdx = paramIndex++;
-      const offsetIdx = paramIndex++;
       query = `
-        ${baseSelect}
+        ${baseSelect.replace('FROM peak_challenges pc', ', ct_tag.created_at as tag_created_at\n      FROM peak_challenges pc')}
         JOIN challenge_tags ct_tag ON pc.id = ct_tag.challenge_id
         WHERE ct_tag.tagged_user_id = $${taggedUserIdx}
         AND pc.status = $${statusIdx}
+        ${cursor ? `AND ct_tag.created_at < $${cursorIdx}::timestamptz` : ''}
         ORDER BY ct_tag.created_at DESC
-        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+        LIMIT $${limitIdx}
       `;
-      params = [userId, status, limit, offset];
+      params = [userId, status];
+      if (cursor) params.push(cursor);
+      params.push(limit + 1);
     } else if (filter === 'responded' && userId) {
       const userIdx = paramIndex++;
+      const cursorIdx = cursor ? paramIndex++ : -1;
       const limitIdx = paramIndex++;
-      const offsetIdx = paramIndex++;
       query = `
-        ${baseSelect}
+        ${baseSelect.replace('FROM peak_challenges pc', ', cr.created_at as response_created_at\n      FROM peak_challenges pc')}
         JOIN challenge_responses cr ON pc.id = cr.challenge_id
         WHERE cr.user_id = $${userIdx}
+        ${cursor ? `AND cr.created_at < $${cursorIdx}::timestamptz` : ''}
         ORDER BY cr.created_at DESC
-        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+        LIMIT $${limitIdx}
       `;
-      params = [userId, limit, offset];
+      params = [userId];
+      if (cursor) params.push(cursor);
+      params.push(limit + 1);
     } else if (creatorId) {
       const creatorIdx = paramIndex++;
       const statusIdx = paramIndex++;
+      const cursorIdx = cursor ? paramIndex++ : -1;
       const limitIdx = paramIndex++;
-      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         WHERE pc.creator_id = $${creatorIdx}
         AND pc.is_public = TRUE
         AND pc.status = $${statusIdx}
+        ${cursor ? `AND pc.created_at < $${cursorIdx}::timestamptz` : ''}
         ORDER BY pc.created_at DESC
-        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+        LIMIT $${limitIdx}
       `;
-      params = [creatorId, status, limit, offset];
+      params = [creatorId, status];
+      if (cursor) params.push(cursor);
+      params.push(limit + 1);
     } else {
       const statusIdx = paramIndex++;
+      const cursorIdx = cursor ? paramIndex++ : -1;
       const limitIdx = paramIndex++;
-      const offsetIdx = paramIndex++;
       query = `
         ${baseSelect}
         WHERE pc.is_public = TRUE
         AND pc.status = $${statusIdx}
+        ${cursor ? `AND pc.created_at < $${cursorIdx}::timestamptz` : ''}
         ORDER BY pc.created_at DESC
-        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+        LIMIT $${limitIdx}
       `;
-      params = [status, limit, offset];
+      params = [status];
+      if (cursor) params.push(cursor);
+      params.push(limit + 1);
     }
 
     const result = await client.query(query, params);
 
+    // Detect hasMore and slice to requested limit
+    const hasMore = result.rows.length > limit;
+    const rows = result.rows.slice(0, limit);
+
+    // Compute nextCursor
+    let nextCursor: string | null = null;
+    if (hasMore && rows.length > 0) {
+      if (filter === 'trending') {
+        const trendingOffset = cursor ? Math.max(0, parseInt(cursor, 10) || 0) : 0;
+        nextCursor = String(trendingOffset + limit);
+      } else if (filter === 'tagged') {
+        const lastRow = rows[rows.length - 1] as Record<string, unknown>;
+        nextCursor = new Date((lastRow.tag_created_at ?? lastRow.created_at) as string).toISOString();
+      } else if (filter === 'responded') {
+        const lastRow = rows[rows.length - 1] as Record<string, unknown>;
+        nextCursor = new Date((lastRow.response_created_at ?? lastRow.created_at) as string).toISOString();
+      } else {
+        const lastRow = rows[rows.length - 1] as Record<string, unknown>;
+        nextCursor = new Date(lastRow.created_at as string).toISOString();
+      }
+    }
+
     // Check if current user has responded (if logged in)
     const profileIdForResponseCheck = userId;
     let userResponses: Record<string, boolean> = {};
-    if (profileIdForResponseCheck && result.rows.length > 0) {
-      const challengeIds = result.rows.map((r: Record<string, unknown>) => r.id);
+    if (profileIdForResponseCheck && rows.length > 0) {
+      const challengeIds = rows.map((r: Record<string, unknown>) => r.id);
       const responseCheck = await client.query(
         `SELECT challenge_id FROM challenge_responses
          WHERE challenge_id = ANY($1) AND user_id = $2`,
@@ -212,7 +256,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }, {} as Record<string, boolean>);
     }
 
-    const challenges = result.rows.map((row: Record<string, unknown>) => ({
+    const challenges = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       peakId: row.peak_id,
       title: row.title,
@@ -258,8 +302,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         challenges,
         pagination: {
           limit,
-          offset,
-          hasMore: result.rows.length === limit,
+          hasMore,
+          nextCursor,
         },
       }),
     });

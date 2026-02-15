@@ -30,7 +30,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const lng = q.lng ? parseFloat(q.lng) : undefined;
     const radius = q.radius ? Math.min(parseFloat(q.radius), 100) : DEFAULT_RADIUS_KM;
     const limit = Math.min(parseInt(q.limit || String(DEFAULT_LIMIT)), MAX_LIMIT);
-    const offset = Math.max(parseInt(q.offset || '0'), 0);
+    const cursor = q.cursor || undefined;
 
     const db = await getPool();
 
@@ -73,9 +73,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Geo filter using Haversine approximation
     let distanceSelect = '';
-    let orderClause = 'ORDER BY p.created_at DESC';
+    let orderClause = 'ORDER BY p.created_at DESC, p.id DESC';
+    let isGeoSort = false;
 
     if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+      isGeoSort = true;
       distanceSelect = `, (
         6371 * acos(
           cos(radians($${paramIdx})) * cos(radians(p.latitude)) *
@@ -96,32 +98,71 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       params.push(radius);
       paramIdx += 3;
 
-      orderClause = 'ORDER BY distance_km ASC';
+      orderClause = 'ORDER BY distance_km ASC, p.id ASC';
     }
 
-    params.push(limit, offset);
+    // Cursor-based pagination
+    let offsetValue = 0;
+    if (cursor) {
+      if (isGeoSort) {
+        // For geo sort, cursor is a numeric offset (distance is volatile)
+        offsetValue = Math.max(parseInt(cursor) || 0, 0);
+      } else {
+        // For created_at sort, cursor is "created_at|id" keyset
+        const parts = cursor.split('|');
+        if (parts.length === 2) {
+          const cursorCreatedAt = parts[0];
+          const cursorId = parts[1];
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursorId)) {
+            conditions.push(`(p.created_at, p.id) < ($${paramIdx}::timestamptz, $${paramIdx + 1}::uuid)`);
+            params.push(cursorCreatedAt, cursorId);
+            paramIdx += 2;
+          }
+        }
+      }
+    }
+
+    // Fetch limit + 1 to detect hasMore
+    const fetchLimit = limit + 1;
+    params.push(fetchLimit);
+    const limitParamIdx = paramIdx;
+    paramIdx++;
 
     const whereClause = conditions.join(' AND ');
+
+    let paginationClause = `LIMIT $${limitParamIdx}`;
+    if (isGeoSort && offsetValue > 0) {
+      params.push(offsetValue);
+      paginationClause = `LIMIT $${limitParamIdx} OFFSET $${paramIdx}`;
+      paramIdx++;
+    }
 
     const result = await db.query(
       `SELECT p.id, p.full_name, p.username, p.avatar_url, p.bio,
               p.business_category, p.business_address, p.is_verified,
-              p.latitude, p.longitude
+              p.latitude, p.longitude, p.created_at
               ${distanceSelect}
        FROM profiles p
        WHERE ${whereClause}
        ${orderClause}
-       LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+       ${paginationClause}`,
       params
     );
 
-    // Get total count
-    const countResult = await db.query(
-      `SELECT COUNT(*) as total FROM profiles p WHERE ${whereClause}`,
-      params.slice(0, params.length - 2) // exclude limit/offset
-    );
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
 
-    const businesses = result.rows.map((b: Record<string, unknown>) => ({
+    let nextCursor: string | null = null;
+    if (hasMore && rows.length > 0) {
+      if (isGeoSort) {
+        nextCursor = String(offsetValue + limit);
+      } else {
+        const lastRow = rows[rows.length - 1];
+        nextCursor = `${lastRow.created_at}|${lastRow.id}`;
+      }
+    }
+
+    const businesses = rows.map((b: Record<string, unknown>) => ({
       id: b.id,
       name: b.full_name,
       username: b.username,
@@ -141,7 +182,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify({
         success: true,
         businesses,
-        total: parseInt(countResult.rows[0]?.total || '0'),
+        nextCursor,
+        hasMore,
       }),
     };
   } catch (error) {

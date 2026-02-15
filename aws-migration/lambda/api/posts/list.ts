@@ -252,13 +252,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
+    // Batch-fetch is_liked and is_saved (2 queries instead of 2×N EXISTS subqueries)
+    let likedSet = new Set<string>();
+    let savedSet = new Set<string>();
+    if (requesterId && postIds.length > 0) {
+      const [likedRes, savedRes] = await Promise.all([
+        pool.query('SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [requesterId, postIds]),
+        pool.query('SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [requesterId, postIds]),
+      ]);
+      likedSet = new Set(likedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+      savedSet = new Set(savedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+    }
+
     const formattedPosts = posts.map((post: Record<string, unknown>) => ({
       id: post.id, authorId: post.authorId, content: post.content, mediaUrls: post.mediaUrls || [],
       mediaType: post.mediaType, isPeak: post.isPeak || false, location: post.location || null,
       tags: post.tags || [],
       taggedUsers: tagsByPost[post.id as string] || [],
       likesCount: parseInt(post.likesCount as string) || 0, commentsCount: parseInt(post.commentsCount as string) || 0,
-      createdAt: post.createdAt, isLiked: post.isLiked || false, isSaved: post.isSaved || false,
+      createdAt: post.createdAt, isLiked: likedSet.has(post.id as string), isSaved: savedSet.has(post.id as string),
       author: { id: post.authorId, username: post.username, fullName: post.fullName, avatarUrl: post.avatarUrl, isVerified: post.isVerified, accountType: post.accountType, businessName: post.businessName },
     }));
 

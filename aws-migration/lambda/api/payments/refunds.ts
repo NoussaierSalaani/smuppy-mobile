@@ -120,7 +120,7 @@ async function listRefunds(
   event: APIGatewayProxyEvent,
   headers: Record<string, string>
 ) {
-  const { limit = '20', offset = '0', status } = event.queryStringParameters || {};
+  const { limit = '20', cursor, status } = event.queryStringParameters || {};
 
   // Check if user is admin
   const adminCheck = await db.query(
@@ -160,17 +160,34 @@ async function listRefunds(
     paramIndex++;
   }
 
-  query += ` ORDER BY r.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-  params.push(Math.min(parseInt(limit), 50), parseInt(offset));
+  // Cursor-based pagination on r.created_at
+  if (cursor) {
+    const parsedDate = new Date(cursor);
+    if (!isNaN(parsedDate.getTime())) {
+      query += ` AND r.created_at < $${paramIndex}::timestamptz`;
+      params.push(parsedDate.toISOString());
+      paramIndex++;
+    }
+  }
+
+  const parsedLimit = Math.min(parseInt(limit), 50);
+  query += ` ORDER BY r.created_at DESC LIMIT $${paramIndex}`;
+  params.push(parsedLimit + 1);
 
   const result = await db.query(query, params);
+
+  const hasMore = result.rows.length > parsedLimit;
+  const rows = result.rows.slice(0, parsedLimit);
+  const nextCursor = hasMore && rows.length > 0
+    ? new Date(rows[rows.length - 1].created_at as string).toISOString()
+    : null;
 
   return {
     statusCode: 200,
     headers,
     body: JSON.stringify({
       success: true,
-      refunds: result.rows.map((r: Record<string, unknown>) => ({
+      refunds: rows.map((r: Record<string, unknown>) => ({
         id: r.id,
         paymentId: r.payment_id,
         stripeRefundId: r.stripe_refund_id,
@@ -189,7 +206,8 @@ async function listRefunds(
         createdAt: r.created_at,
         processedAt: r.processed_at,
       })),
-      total: result.rowCount,
+      nextCursor,
+      hasMore,
     }),
   };
 }

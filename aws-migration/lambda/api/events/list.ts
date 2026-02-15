@@ -38,12 +38,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       isFree,
       hasRoute,
       limit = '20',
-      offset = '0',
+      cursor,
     } = event.queryStringParameters || {};
 
     // NaN guard: parseInt can return NaN for non-numeric strings
     const limitNum = Math.min(parseInt(limit) || 20, 50);
-    const offsetNum = parseInt(offset) || 0;
 
     // Resolve profile ID for authenticated user
     let profileId: string | null = null;
@@ -208,16 +207,54 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       query += ` AND e.has_route = TRUE`;
     }
 
-    // Order by
-    const orderBy = (filter === 'nearby' && hasCoords) ? 'distance_km ASC' : 'e.starts_at ASC';
+    // Determine ordering strategy
+    const isNearbyWithDistance = filter === 'nearby' && hasCoords;
+    const orderBy = isNearbyWithDistance ? 'distance_km ASC' : 'e.starts_at ASC, e.id ASC';
 
-    params.push(limitNum);
-    const limitIdx = params.length;
-    params.push(offsetNum);
-    const offsetIdx = params.length;
-    query += ` ORDER BY ${orderBy} LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
+    // Cursor-based pagination
+    if (cursor) {
+      if (isNearbyWithDistance) {
+        // For nearby filter: cursor is a numeric offset string (distance changes, keyset not possible)
+        const cursorOffset = parseInt(cursor) || 0;
+        params.push(cursorOffset);
+        query += ` ORDER BY ${orderBy} LIMIT ${limitNum + 1} OFFSET $${params.length}`;
+      } else {
+        // For starts_at order: cursor is "ISO_DATE|UUID"
+        const separatorIdx = cursor.indexOf('|');
+        if (separatorIdx === -1) {
+          return cors({
+            statusCode: 400,
+            body: JSON.stringify({ success: false, message: 'Invalid cursor format. Expected ISO_DATE|UUID.' }),
+          });
+        }
+        const cursorDate = cursor.substring(0, separatorIdx);
+        const cursorId = cursor.substring(separatorIdx + 1);
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(cursorId)) {
+          return cors({
+            statusCode: 400,
+            body: JSON.stringify({ success: false, message: 'Invalid cursor: bad UUID.' }),
+          });
+        }
+        params.push(cursorDate);
+        const cursorDateIdx = params.length;
+        params.push(cursorId);
+        const cursorIdIdx = params.length;
+        query += ` AND (e.starts_at, e.id) > ($${cursorDateIdx}::timestamptz, $${cursorIdIdx}::uuid)`;
+        query += ` ORDER BY ${orderBy} LIMIT ${limitNum + 1}`;
+      }
+    } else {
+      query += ` ORDER BY ${orderBy} LIMIT ${limitNum + 1}`;
+    }
 
     const result = await client.query(query, params);
+
+    // Detect hasMore and trim the extra row
+    const hasMore = result.rows.length > limitNum;
+    if (hasMore) {
+      result.rows.pop();
+    }
 
     // Check user participation status
     let userParticipation: Record<string, string> = {};
@@ -299,8 +336,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         events,
         pagination: {
           limit: limitNum,
-          offset: offsetNum,
-          hasMore: result.rows.length === limitNum,
+          hasMore,
+          nextCursor: hasMore
+            ? isNearbyWithDistance
+              ? String((cursor ? parseInt(cursor) || 0 : 0) + limitNum)
+              : `${result.rows[result.rows.length - 1].starts_at}|${result.rows[result.rows.length - 1].id}`
+            : null,
         },
       }),
     });

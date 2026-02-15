@@ -65,7 +65,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       status,
       type,
       limit = '20',
-      offset = '0',
+      cursor,
       as = 'all', // 'complainant', 'respondent', 'all'
     } = event.queryStringParameters || {};
 
@@ -77,7 +77,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const isAdmin = adminCheck.rows[0]?.account_type === 'admin';
 
     let query = `
-      SELECT 
+      SELECT
         d.id,
         d.dispute_number,
         d.type,
@@ -137,59 +137,36 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       paramIndex++;
     }
 
-    // Sort and paginate
-    query += ` ORDER BY 
-      CASE d.status 
-        WHEN 'open' THEN 1 
-        WHEN 'under_review' THEN 2 
-        WHEN 'evidence_requested' THEN 3 
-        ELSE 4 
+    // Disputes use multi-column CASE ORDER BY (status rank + created_at).
+    // Use offset-encoded cursor since keyset on CASE expressions is complex.
+    const offset = cursor ? parseInt(cursor, 10) || 0 : 0;
+    const parsedLimit = Math.min(parseInt(limit), 50);
+
+    params.push(parsedLimit + 1);
+    params.push(offset);
+    query += ` ORDER BY
+      CASE d.status
+        WHEN 'open' THEN 1
+        WHEN 'under_review' THEN 2
+        WHEN 'evidence_requested' THEN 3
+        ELSE 4
       END,
       d.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(Math.min(parseInt(limit), 50), parseInt(offset));
+    paramIndex += 2;
 
     const result = await db.query(query, params);
 
-    // Get total count for pagination
-    let countQuery = 'SELECT COUNT(*) as total FROM session_disputes d WHERE 1=1';
-    const countParams: (string | number)[] = [];
-    let countIndex = 1;
-
-    if (!isAdmin) {
-      if (as === 'complainant') {
-        countQuery += ` AND d.complainant_id = $${countIndex}`;
-        countParams.push(user.id);
-      } else if (as === 'respondent') {
-        countQuery += ` AND d.respondent_id = $${countIndex}`;
-        countParams.push(user.id);
-      } else {
-        countQuery += ` AND (d.complainant_id = $${countIndex} OR d.respondent_id = $${countIndex})`;
-        countParams.push(user.id);
-      }
-      countIndex++;
-    }
-
-    if (status) {
-      countQuery += ` AND d.status = $${countIndex}`;
-      countParams.push(status);
-      countIndex++;
-    }
-
-    if (type) {
-      countQuery += ` AND d.type = $${countIndex}`;
-      countParams.push(type);
-    }
-
-    const countResult = await db.query(countQuery, countParams);
-    const total = parseInt(countResult.rows[0].total);
+    const hasMore = result.rows.length > parsedLimit;
+    const rows = result.rows.slice(0, parsedLimit);
+    const nextCursor = hasMore ? String(offset + parsedLimit) : null;
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        disputes: result.rows.map((d) => ({
+        disputes: rows.map((d) => ({
           id: d.id,
           disputeNumber: d.dispute_number,
           type: d.type,
@@ -218,12 +195,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             avatar: d.respondent_avatar,
           },
         })),
-        pagination: {
-          total,
-          limit: parseInt(limit),
-          offset: parseInt(offset),
-          hasMore: total > parseInt(offset) + result.rows.length,
-        },
+        nextCursor,
+        hasMore,
       }),
     };
   } catch (error) {

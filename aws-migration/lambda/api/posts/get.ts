@@ -59,8 +59,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const post = result.rows[0];
 
     // SECURITY: Hide posts from banned/shadow_banned users (unless requester is the author)
-    const isAuthorByModeration = currentUserId && currentUserId === post.author_cognito_sub;
-    if (!isAuthorByModeration) {
+    const isAuthor = currentUserId && currentUserId === post.author_cognito_sub;
+    if (!isAuthor) {
       const authorStatus = post.author_moderation_status;
       if (authorStatus === 'banned' || authorStatus === 'shadow_banned') {
         return {
@@ -78,62 +78,58 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // SECURITY: Check if requester is blocked by or has blocked the author
-    if (currentUserId && !isAuthorByModeration) {
-      const blockCheck = await db.query(
-        `SELECT 1 FROM blocked_users bu
-         JOIN profiles p ON p.cognito_sub = $1
-         WHERE (bu.blocker_id = p.id AND bu.blocked_id = $2)
-            OR (bu.blocker_id = $2 AND bu.blocked_id = p.id)
-         LIMIT 1`,
-        [currentUserId, post.author_id]
-      );
-      if (blockCheck.rows.length > 0) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ message: 'Post not found' }),
-        };
-      }
-    }
+    // Parallel: block check + follow check + tagged users (3 sequential queries → 1 parallel batch)
+    const needsBlockCheck = currentUserId && !isAuthor;
+    const needsFollowCheck = post.author_is_private && !isAuthor && currentUserId;
+    const noRows = { rows: [] as Record<string, unknown>[] };
 
-    // SECURITY: Check visibility for private profiles
-    if (post.author_is_private) {
-      // If author is private, check if current user can view
-      const isAuthor = currentUserId && currentUserId === post.author_cognito_sub;
-
-      if (!isAuthor) {
-        // Check if current user follows the author
-        let isFollowing = false;
-        if (currentUserId) {
-          const followCheck = await db.query(
+    const [blockResult, followResult, taggedResult] = await Promise.all([
+      needsBlockCheck
+        ? db.query(
+            `SELECT 1 FROM blocked_users bu
+             JOIN profiles p ON p.cognito_sub = $1
+             WHERE (bu.blocker_id = p.id AND bu.blocked_id = $2)
+                OR (bu.blocker_id = $2 AND bu.blocked_id = p.id)
+             LIMIT 1`,
+            [currentUserId, post.author_id]
+          )
+        : Promise.resolve(noRows),
+      needsFollowCheck
+        ? db.query(
             `SELECT 1 FROM follows f
              JOIN profiles p ON f.follower_id = p.id
              WHERE p.cognito_sub = $1 AND f.following_id = $2 AND f.status = 'accepted'
              LIMIT 1`,
             [currentUserId, post.author_id]
-          );
-          isFollowing = followCheck.rows.length > 0;
-        }
+          )
+        : Promise.resolve(noRows),
+      db.query(
+        `SELECT pt.tagged_user_id as id, pr.username, pr.full_name, pr.avatar_url
+         FROM post_tags pt
+         JOIN profiles pr ON pt.tagged_user_id = pr.id
+         WHERE pt.post_id = $1`,
+        [postId]
+      ),
+    ]);
 
-        if (!isFollowing) {
-          return {
-            statusCode: 403,
-            headers,
-            body: JSON.stringify({ message: 'This post is from a private account' }),
-          };
-        }
-      }
+    // SECURITY: Check block result
+    if (needsBlockCheck && blockResult.rows.length > 0) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: 'Post not found' }),
+      };
     }
 
-    // Fetch tagged users for this post
-    const taggedResult = await db.query(
-      `SELECT pt.tagged_user_id as id, pr.username, pr.full_name, pr.avatar_url
-       FROM post_tags pt
-       JOIN profiles pr ON pt.tagged_user_id = pr.id
-       WHERE pt.post_id = $1`,
-      [postId]
-    );
+    // SECURITY: Check private profile follow result
+    if (needsFollowCheck && followResult.rows.length === 0) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'This post is from a private account' }),
+      };
+    }
+
     const taggedUsers = taggedResult.rows.map((r: Record<string, unknown>) => ({
       id: r.id,
       username: r.username,

@@ -88,14 +88,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Get total following count (separate query — result.rowCount only returns current page size)
-    const countResult = await db.query(
-      `SELECT COUNT(*) as total FROM follows WHERE follower_id = $1 AND status = 'accepted'`,
-      [profileId]
-    );
-    const totalCount = parseInt(countResult.rows[0].total, 10);
-
-    // Build query - get following (people this profile follows)
+    // Build query - get following with total count via window function (saves a separate COUNT query)
     let query = `
       SELECT
         p.id,
@@ -106,7 +99,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.is_verified,
         p.account_type,
         p.business_name,
-        f.created_at as followed_at
+        f.created_at as followed_at,
+        COUNT(*) OVER() as total_count
       FROM follows f
       JOIN profiles p ON f.following_id = p.id
       WHERE f.follower_id = $1 AND f.status = 'accepted'
@@ -130,6 +124,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Check if there are more results
     const hasMore = result.rows.length > limit;
     const following = hasMore ? result.rows.slice(0, -1) : result.rows;
+    const totalCount = result.rows.length > 0 ? parseInt(result.rows[0].total_count as string, 10) : 0;
 
     // Format response
     const formattedFollowing = following.map((user: Record<string, unknown>) => ({

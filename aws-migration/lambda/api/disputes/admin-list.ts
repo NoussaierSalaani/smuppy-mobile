@@ -75,7 +75,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Parse query params
-    const { status, priority, limit = '50', offset = '0' } = event.queryStringParameters || {};
+    const { status, priority, limit = '50', cursor } = event.queryStringParameters || {};
 
     // Build query
     let query = `
@@ -115,6 +115,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       paramIndex++;
     }
 
+    // Admin disputes use multi-CASE ORDER BY — use offset-encoded cursor
+    const offset = cursor ? parseInt(cursor, 10) || 0 : 0;
+    const parsedLimit = Math.min(parseInt(limit), 50);
+
+    params.push(parsedLimit + 1);
+    params.push(offset);
     query += ` ORDER BY
       CASE d.status
         WHEN 'open' THEN 1
@@ -130,9 +136,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       END,
       d.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(Math.min(parseInt(limit), 50), parseInt(offset));
+    paramIndex += 2;
 
     const disputesResult = await db.query(query, params);
+
+    const hasMore = disputesResult.rows.length > parsedLimit;
+    const rows = disputesResult.rows.slice(0, parsedLimit);
+    const nextCursor = hasMore ? String(offset + parsedLimit) : null;
 
     // Get statistics
     const statsResult = await db.query(`
@@ -152,7 +162,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers,
       body: JSON.stringify({
         success: true,
-        disputes: disputesResult.rows.map((d) => ({
+        nextCursor,
+        hasMore,
+        disputes: rows.map((d) => ({
           id: d.id,
           disputeNumber: d.dispute_number,
           type: d.type,

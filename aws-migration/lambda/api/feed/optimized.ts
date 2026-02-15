@@ -25,8 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
-    const page = Math.max(parseInt(event.queryStringParameters?.page || '1', 10), 1);
-    const offset = (page - 1) * limit;
+    const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();
 
@@ -39,29 +38,72 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ data: [] }),
+        body: JSON.stringify({ data: [], nextCursor: null, hasMore: false }),
       };
     }
 
     const userId = userResult.rows[0].id;
 
+    // Build cursor condition (compound cursor: created_at|id)
+    let cursorCondition = '';
+    const params: (string | number | Date)[] = [userId];
+
+    if (cursor) {
+      const pipeIndex = cursor.indexOf('|');
+      if (pipeIndex !== -1) {
+        const cursorDate = cursor.substring(0, pipeIndex);
+        const cursorId = cursor.substring(pipeIndex + 1);
+        const parsedDate = new Date(cursorDate);
+        if (isNaN(parsedDate.getTime())) {
+          return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
+        }
+        cursorCondition = 'AND (p.created_at, p.id) < ($2::timestamptz, $3::uuid)';
+        params.push(parsedDate.toISOString(), cursorId);
+      } else {
+        const parsedDate = new Date(cursor);
+        if (isNaN(parsedDate.getTime())) {
+          return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
+        }
+        cursorCondition = 'AND p.created_at < $2::timestamptz';
+        params.push(parsedDate.toISOString());
+      }
+    }
+
+    params.push(limit + 1); // Fetch one extra to detect hasMore
+    const limitIdx = params.length;
+
     const result = await db.query(
       `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
               p.likes_count, p.comments_count, p.created_at,
-              pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name,
-              EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as is_liked,
-              EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $1) as is_saved
+              pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name
        FROM posts p
        LEFT JOIN profiles pr ON p.author_id = pr.id
        WHERE pr.id IS NOT NULL
          AND p.visibility = 'public'
          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
-       ORDER BY p.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [userId, limit, offset]
+         ${cursorCondition}
+       ORDER BY p.created_at DESC, p.id DESC
+       LIMIT $${limitIdx}`,
+      params
     );
 
-    const data = result.rows.map((row: Record<string, unknown>) => ({
+    const hasMore = result.rows.length > limit;
+    const rows = result.rows.slice(0, limit);
+
+    // Batch-fetch is_liked and is_saved (2 queries instead of 2×N EXISTS subqueries)
+    const postIds = rows.map((r: Record<string, unknown>) => r.id);
+    let likedSet = new Set<string>();
+    let savedSet = new Set<string>();
+    if (postIds.length > 0) {
+      const [likedRes, savedRes] = await Promise.all([
+        db.query('SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
+        db.query('SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
+      ]);
+      likedSet = new Set(likedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+      savedSet = new Set(savedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+    }
+
+    const data = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       authorId: row.author_id,
       content: row.content,
@@ -71,8 +113,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       likesCount: row.likes_count || 0,
       commentsCount: row.comments_count || 0,
       createdAt: row.created_at,
-      isLiked: row.is_liked,
-      isSaved: row.is_saved,
+      isLiked: likedSet.has(row.id as string),
+      isSaved: savedSet.has(row.id as string),
       author: {
         id: row.profile_id,
         username: row.username,
@@ -85,10 +127,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     }));
 
+    const nextCursor = hasMore && rows.length > 0
+      ? `${rows[rows.length - 1].created_at}|${rows[rows.length - 1].id}`
+      : null;
+
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data, nextCursor, hasMore }),
     };
   } catch (error: unknown) {
     log.error('Error getting optimized feed', error);

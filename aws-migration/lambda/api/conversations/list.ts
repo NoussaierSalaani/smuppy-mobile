@@ -80,51 +80,45 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Build query for conversations with last message
+    // Build query for conversations with last message (LATERAL JOINs for better planner flexibility)
     let query = `
       SELECT
         c.id,
         c.created_at,
         COALESCE(c.last_message_at, c.created_at) AS last_message_at,
-        (
-          SELECT json_build_object(
-            'id', m.id,
-            'content', m.content,
-            'media_type', m.media_type,
-            'created_at', m.created_at,
-            'sender_id', m.sender_id
-          )
-          FROM messages m
-          WHERE m.conversation_id = c.id
-            AND (m.is_deleted IS NULL OR m.is_deleted = false)
-          ORDER BY m.created_at DESC
-          LIMIT 1
-        ) as last_message,
-        (
-          SELECT COUNT(*)::int
-          FROM messages m
-          WHERE m.conversation_id = c.id
-            AND m.sender_id != $1
-            AND m.read = false
-        ) as unread_count,
-        (
-          SELECT json_build_object(
-            'id', p.id,
-            'username', p.username,
-            'full_name', p.full_name,
-            'display_name', p.display_name,
-            'avatar_url', p.avatar_url,
-            'is_verified', p.is_verified,
-            'account_type', p.account_type,
-            'business_name', p.business_name
-          )
-          FROM profiles p
-          WHERE p.id = CASE
-            WHEN c.participant_1_id = $1 THEN c.participant_2_id
-            ELSE c.participant_1_id
-          END
-        ) as other_participant
+        lm.last_message,
+        uc.unread_count,
+        op.other_participant
       FROM conversations c
+      LEFT JOIN LATERAL (
+        SELECT json_build_object(
+          'id', m.id, 'content', m.content, 'media_type', m.media_type,
+          'created_at', m.created_at, 'sender_id', m.sender_id
+        ) as last_message
+        FROM messages m
+        WHERE m.conversation_id = c.id
+          AND (m.is_deleted IS NULL OR m.is_deleted = false)
+        ORDER BY m.created_at DESC
+        LIMIT 1
+      ) lm ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int as unread_count
+        FROM messages m
+        WHERE m.conversation_id = c.id AND m.sender_id != $1 AND m.read = false
+      ) uc ON true
+      LEFT JOIN LATERAL (
+        SELECT json_build_object(
+          'id', p.id, 'username', p.username, 'full_name', p.full_name,
+          'display_name', p.display_name, 'avatar_url', p.avatar_url,
+          'is_verified', p.is_verified, 'account_type', p.account_type,
+          'business_name', p.business_name
+        ) as other_participant
+        FROM profiles p
+        WHERE p.id = CASE
+          WHEN c.participant_1_id = $1 THEN c.participant_2_id
+          ELSE c.participant_1_id
+        END
+      ) op ON true
       WHERE (c.participant_1_id = $1 OR c.participant_2_id = $1)
         AND NOT EXISTS (
           SELECT 1 FROM blocked_users bu

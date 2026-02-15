@@ -2680,11 +2680,12 @@ class AWSAPIService {
     price_range?: string[];
     search?: string;
     limit?: number;
-    offset?: number;
+    cursor?: string;
   }): Promise<{
     success: boolean;
     businesses?: BusinessSummary[];
-    total?: number;
+    nextCursor?: string | null;
+    hasMore?: boolean;
   }> {
     const queryParams = new URLSearchParams();
     if (params?.category) queryParams.append('category', params.category);
@@ -2696,7 +2697,7 @@ class AWSAPIService {
     if (params?.price_range) queryParams.append('price_range', params.price_range.join(','));
     if (params?.search) queryParams.append('search', params.search);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    if (params?.cursor) queryParams.append('cursor', params.cursor);
 
     return this.request(`/businesses/discover?${queryParams.toString()}`);
   }

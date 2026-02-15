@@ -34,11 +34,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       radiusKm = '50',
       category,
       limit = '20',
-      offset = '0',
+      cursor,
     } = event.queryStringParameters || {};
 
     const limitNum = Math.min(parseInt(limit) || 20, 50);
-    const offsetNum = parseInt(offset) || 0;
 
     // Resolve profile if authenticated
     let profileId: string | null = null;
@@ -159,6 +158,35 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       );
     }
 
+    // Order by
+    const isNearby = filter === 'nearby' && hasCoords;
+    const orderBy = isNearby ? 'distance_km ASC' : 'g.starts_at ASC, g.id ASC';
+
+    // Cursor-based pagination — parse cursor BEFORE building query so keyset conditions are included in WHERE
+    let cursorOffset = 0;
+    if (cursor) {
+      if (isNearby) {
+        // For nearby: cursor is a numeric offset (distance changes with position, keyset not possible)
+        cursorOffset = Math.max(0, parseInt(cursor) || 0);
+      } else {
+        // For starts_at order: cursor is "ISO_DATE|UUID"
+        const separatorIdx = cursor.indexOf('|');
+        if (separatorIdx > 0) {
+          const cursorDate = cursor.substring(0, separatorIdx);
+          const cursorId = cursor.substring(separatorIdx + 1);
+          // Validate UUID format
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (cursorId.match(uuidRegex) && !isNaN(Date.parse(cursorDate))) {
+            params.push(cursorDate);
+            const cursorDateIdx = params.length;
+            params.push(cursorId);
+            const cursorIdIdx = params.length;
+            whereConditions.push(`(g.starts_at, g.id) > ($${cursorDateIdx}::timestamptz, $${cursorIdIdx}::uuid)`);
+          }
+        }
+      }
+    }
+
     let query: string;
 
     if (filter === 'my-groups' && profileId) {
@@ -177,44 +205,39 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       query = `${baseSelect} WHERE ${whereConditions.join(' AND ')}`;
     }
 
-    // Order by
-    const orderBy = (filter === 'nearby' && hasCoords) ? 'distance_km ASC' : 'g.starts_at ASC';
-
-    params.push(limitNum);
+    // Fetch one extra row to detect hasMore
+    params.push(limitNum + 1);
     const limitIdx = params.length;
-    params.push(offsetNum);
-    const offsetIdx = params.length;
-    query += ` ORDER BY ${orderBy} LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
+
+    if (isNearby && cursorOffset > 0) {
+      params.push(cursorOffset);
+      const offsetIdx = params.length;
+      query += ` ORDER BY ${orderBy} LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
+    } else {
+      query += ` ORDER BY ${orderBy} LIMIT $${limitIdx}`;
+    }
 
     const result = await client.query(query, params);
 
-    // BUG-2026-02-14: Count queries must match main query filters (moderation + blocked users)
-    let totalQuery: string;
-    const countParams: SqlParam[] = [];
+    // Detect hasMore from extra row
+    const hasMore = result.rows.length > limitNum;
+    const rows = hasMore ? result.rows.slice(0, limitNum) : result.rows;
 
-    const countBase = `FROM groups g JOIN profiles creator ON g.creator_id = creator.id`;
-    const countModFilter = `g.status != 'cancelled' AND creator.moderation_status NOT IN ('banned', 'shadow_banned')`;
-
-    if (filter === 'my-groups' && profileId) {
-      countParams.push(profileId);
-      totalQuery = `SELECT COUNT(*) AS total ${countBase} WHERE ${countModFilter} AND g.creator_id = $1`;
-    } else if (filter === 'joined' && profileId) {
-      countParams.push(profileId);
-      totalQuery = `SELECT COUNT(*) AS total ${countBase} JOIN group_participants gp ON g.id = gp.group_id WHERE gp.user_id = $1 AND ${countModFilter}`;
-    } else {
-      totalQuery = `SELECT COUNT(*) AS total ${countBase} WHERE ${countModFilter} AND g.starts_at > NOW() AND g.is_public = TRUE`;
+    // Compute nextCursor from last row
+    let nextCursor: string | null = null;
+    if (hasMore && rows.length > 0) {
+      const lastRow = rows[rows.length - 1];
+      if (isNearby) {
+        nextCursor = String(cursorOffset + limitNum);
+      } else {
+        const startsAtStr = lastRow.starts_at instanceof Date
+          ? lastRow.starts_at.toISOString()
+          : String(lastRow.starts_at);
+        nextCursor = `${startsAtStr}|${lastRow.id}`;
+      }
     }
 
-    // Exclude blocked users in count too
-    if (profileId) {
-      countParams.push(profileId);
-      totalQuery += ` AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${countParams.length} AND blocked_id = creator.id)`;
-    }
-
-    const totalResult = await client.query(totalQuery, countParams);
-    const total = parseInt(totalResult.rows[0].total);
-
-    const groups = result.rows.map((row: Record<string, unknown>) => ({
+    const groups = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       name: row.name,
       description: row.description,
@@ -265,9 +288,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         success: true,
         groups,
         pagination: {
-          total,
           limit: limitNum,
-          offset: offsetNum,
+          hasMore,
+          nextCursor,
         },
       }),
     });

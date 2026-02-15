@@ -38,11 +38,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    const {
-      q = '',
-      limit = '20',
-      offset = '0',
-    } = event.queryStringParameters || {};
+    const q = event.queryStringParameters?.q || '';
+    const limit = event.queryStringParameters?.limit || '20';
+    const cursor = event.queryStringParameters?.cursor;
 
     const sanitized = sanitizeQuery(q);
     if (!sanitized) {
@@ -50,7 +48,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);
-    const parsedOffset = Math.max(parseInt(offset) || 0, 0);
 
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const pool = await getPool();
@@ -65,13 +62,31 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       requesterId = userResult.rows[0]?.id || null;
     }
 
-    const likedSelect = requesterId
-      ? `, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $4) as "isLiked"`
-      : '';
+    // Build cursor condition
+    let cursorCondition = '';
+    const cursorParams: string[] = [];
+    if (cursor) {
+      const parsedDate = new Date(cursor);
+      if (isNaN(parsedDate.getTime())) {
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'Invalid cursor format' }) };
+      }
+      cursorParams.push(parsedDate.toISOString());
+    }
 
     // Try full-text search first, fallback to ILIKE
     let result;
     try {
+      // Build params: $1=query, $2=limit+1, ($3=cursor if present), ($N=requesterId if present)
+      const params: (string | number)[] = [sanitized];
+      let cursorIdx = '';
+      if (cursorParams.length > 0) {
+        params.push(cursorParams[0]);
+        cursorIdx = `AND p.created_at < $${params.length}::timestamptz`;
+      }
+      params.push(parsedLimit + 1);
+      const limitIdx = params.length;
+      if (requesterId) params.push(requesterId);
+
       const ftsQuery = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
                p.media_type as "mediaType", p.likes_count as "likesCount",
@@ -79,23 +94,31 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType",
                pr.business_name as "businessName"
-               ${likedSelect}
+               ${requesterId ? `, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${params.length}) as "isLiked"` : ''}
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
         WHERE to_tsvector('english', p.content) @@ plainto_tsquery('english', $1)
           AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
           AND p.visibility = 'public'
+          ${cursorIdx}
         ORDER BY p.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $${limitIdx}
       `;
-      const params = requesterId
-        ? [sanitized, parsedLimit, parsedOffset, requesterId]
-        : [sanitized, parsedLimit, parsedOffset];
 
       result = await pool.query(ftsQuery, params);
     } catch {
       // Fallback to ILIKE if tsquery fails
       log.info('FTS failed, falling back to ILIKE', { query: sanitized.substring(0, 2) + '***' });
+
+      const params: (string | number)[] = [`%${sanitized}%`];
+      let cursorIdx = '';
+      if (cursorParams.length > 0) {
+        params.push(cursorParams[0]);
+        cursorIdx = `AND p.created_at < $${params.length}::timestamptz`;
+      }
+      params.push(parsedLimit + 1);
+      const limitIdx = params.length;
+      if (requesterId) params.push(requesterId);
 
       const ilikeQuery = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
@@ -104,23 +127,24 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType",
                pr.business_name as "businessName"
-               ${likedSelect}
+               ${requesterId ? `, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${params.length}) as "isLiked"` : ''}
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
         WHERE p.content ILIKE $1
           AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
           AND p.visibility = 'public'
+          ${cursorIdx}
         ORDER BY p.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $${limitIdx}
       `;
-      const params = requesterId
-        ? [`%${sanitized}%`, parsedLimit, parsedOffset, requesterId]
-        : [`%${sanitized}%`, parsedLimit, parsedOffset];
 
       result = await pool.query(ilikeQuery, params);
     }
 
-    const posts = result.rows.map((post: Record<string, unknown>) => ({
+    const hasMore = result.rows.length > parsedLimit;
+    const rows = result.rows.slice(0, parsedLimit);
+
+    const posts = rows.map((post: Record<string, unknown>) => ({
       id: post.id,
       authorId: post.authorId,
       content: post.content,
@@ -141,7 +165,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
     }));
 
-    return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=30' }, body: JSON.stringify({ success: true, data: posts, total: posts.length }) };
+    const nextCursor = hasMore && posts.length > 0 ? String(posts[posts.length - 1].createdAt) : null;
+
+    return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=30' }, body: JSON.stringify({ success: true, data: posts, nextCursor, hasMore }) };
   } catch (error: unknown) {
     log.error('Error searching posts', error);
     return { statusCode: 500, headers: { ...headers, 'Cache-Control': 'no-cache' }, body: JSON.stringify({ success: false, error: 'Internal server error' }) };

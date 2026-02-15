@@ -53,8 +53,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let query: string;
     let params: SqlParam[];
 
-    // Get offset for pagination (to get fresh results each time)
-    const offset = parseInt(event.queryStringParameters?.offset || '0');
+    // Ranked feeds use offset-encoded cursor (keyset not possible — fan_count changes)
+    // Cap offset to prevent deep scanning
+    const MAX_OFFSET = 500;
+    const cursor = event.queryStringParameters?.cursor;
+    const offset = cursor ? Math.min(parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
+    const fetchLimit = limit + 1; // Fetch one extra to detect hasMore
 
     if (cognitoSub) {
       // First, get the current user's profile ID from their cognito_sub
@@ -92,11 +96,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.created_at DESC
           LIMIT $1 OFFSET $2
         `;
-        params = [limit, offset];
+        params = [fetchLimit, offset];
       } else {
-        // Authenticated: exclude users already in FanFeed relationship (following or followed by)
-        // Use NOT EXISTS instead of NOT IN for better performance
+        // Authenticated: CTE pre-computes excluded IDs once instead of 3x NOT EXISTS per candidate row
         query = `
+          WITH excluded_ids AS (
+            SELECT following_id AS id FROM follows WHERE follower_id = $1 AND status = 'accepted'
+            UNION
+            SELECT follower_id AS id FROM follows WHERE following_id = $1 AND status = 'accepted'
+            UNION
+            SELECT blocked_id AS id FROM blocked_users WHERE blocker_id = $1
+          )
           SELECT
             p.id,
             p.username,
@@ -116,20 +126,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           WHERE p.id != $1
             AND p.is_private = false
             AND p.onboarding_completed = true
-            -- Exclude people I follow (NOT EXISTS is faster than NOT IN)
-            AND NOT EXISTS (
-              SELECT 1 FROM follows f
-              WHERE f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
-            )
-            -- Exclude people who follow me
-            AND NOT EXISTS (
-              SELECT 1 FROM follows f
-              WHERE f.following_id = $1 AND f.follower_id = p.id AND f.status = 'accepted'
-            )
-            -- Exclude users the current user has blocked
-            AND NOT EXISTS (
-              SELECT 1 FROM blocked_users WHERE blocker_id = $1 AND blocked_id = p.id
-            )
+            AND p.id NOT IN (SELECT id FROM excluded_ids)
             AND p.moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,
@@ -140,7 +137,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.created_at DESC
           LIMIT $2 OFFSET $3
         `;
-        params = [currentUserId, limit, offset];
+        params = [currentUserId, fetchLimit, offset];
       }
     } else {
       // Unauthenticated: just get popular profiles
@@ -169,12 +166,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           p.created_at DESC
         LIMIT $1 OFFSET $2
       `;
-      params = [limit, offset];
+      params = [fetchLimit, offset];
     }
 
     const result = await db.query(query, params);
 
-    const profiles = result.rows.map((profile: Record<string, unknown>) => ({
+    const hasMore = result.rows.length > limit;
+    const slicedRows = result.rows.slice(0, limit);
+    const nextCursor = hasMore ? String(offset + limit) : null;
+
+    const profiles = slicedRows.map((profile: Record<string, unknown>) => ({
       id: profile.id,
       username: profile.username,
       fullName: profile.full_name,
@@ -196,7 +197,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({
         profiles,
-        total: profiles.length,
+        nextCursor,
+        hasMore,
       }),
     };
   } catch (error: unknown) {

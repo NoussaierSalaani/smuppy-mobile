@@ -266,16 +266,29 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
   const client = await pool.connect();
   try {
     const limit = Math.min(options.limit || 20, 50);
-    const offset = options.offset || 0;
     const type = options.type || 'all';
 
-    let typeFilter = '';
-    const params: SqlParam[] = [userId, limit, offset];
+    const params: SqlParam[] = [userId];
 
-    if (type !== 'all') {
-      typeFilter = 'AND type = $4';
-      params.push(type);
+    // Cursor-based pagination on created_at
+    let cursorCondition = '';
+    if (options.offset !== undefined && typeof options.offset === 'string' && options.offset.length > 10) {
+      // Treat as ISO cursor
+      const parsedDate = new Date(options.offset as unknown as string);
+      if (!isNaN(parsedDate.getTime())) {
+        params.push(parsedDate.toISOString());
+        cursorCondition = `AND p.created_at < $${params.length}::timestamptz`;
+      }
     }
+
+    let typeFilter = '';
+    if (type !== 'all') {
+      params.push(type);
+      typeFilter = `AND type = $${params.length}`;
+    }
+
+    params.push(limit + 1);
+    const limitIdx = params.length;
 
     const result = await client.query(
       `SELECT
@@ -293,27 +306,24 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
          buyer.avatar_url as buyer_avatar
        FROM payments p
        JOIN profiles buyer ON p.buyer_id = buyer.id
-       WHERE p.creator_id = $1 ${typeFilter}
+       WHERE p.creator_id = $1 ${cursorCondition} ${typeFilter}
        ORDER BY p.created_at DESC
-       LIMIT $2 OFFSET $3`,
+       LIMIT $${limitIdx}`,
       params
     );
 
-    // Get total count
-    const countParams = type !== 'all' ? [userId, type] : [userId];
-    const countResult = await client.query(
-      `SELECT COUNT(1) as total
-       FROM payments
-       WHERE creator_id = $1 ${type !== 'all' ? 'AND type = $2' : ''}`,
-      countParams
-    );
+    const hasMore = result.rows.length > limit;
+    const rows = result.rows.slice(0, limit);
+    const nextCursor = hasMore && rows.length > 0
+      ? new Date(rows[rows.length - 1].created_at as string).toISOString()
+      : null;
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        transactions: result.rows.map((row: Record<string, unknown>) => ({
+        transactions: rows.map((row: Record<string, unknown>) => ({
           id: row.id,
           type: row.type,
           source: row.source,
@@ -331,12 +341,8 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
             avatar: row.buyer_avatar,
           },
         })),
-        pagination: {
-          total: parseInt(countResult.rows[0].total) || 0,
-          limit,
-          offset,
-          hasMore: offset + limit < parseInt(countResult.rows[0].total),
-        },
+        nextCursor,
+        hasMore,
       }),
     };
   } finally {

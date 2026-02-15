@@ -178,9 +178,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           'is_verified', pr.is_verified,
           'account_type', pr.account_type,
           'business_name', pr.business_name
-        ) as author,
-        EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${userIdIndex}) as is_liked,
-        EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $${userIdIndex}) as is_saved
+        ) as author
       FROM posts p
       LEFT JOIN profiles pr ON p.author_id = pr.id
       WHERE p.author_id = ANY($1)
@@ -201,6 +199,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const hasMore = result.rows.length > limit;
     const posts = result.rows.slice(0, limit);
 
+    // Batch-fetch is_liked and is_saved (2 queries instead of 2×N EXISTS subqueries)
+    const postIds = posts.map((p: Record<string, unknown>) => p.id);
+    let likedSet = new Set<string>();
+    let savedSet = new Set<string>();
+    if (postIds.length > 0) {
+      const [likedRes, savedRes] = await Promise.all([
+        db.query('SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
+        db.query('SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
+      ]);
+      likedSet = new Set(likedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+      savedSet = new Set(savedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+    }
+
     const response = {
       data: posts.map((post: Record<string, unknown>) => ({
         id: post.id,
@@ -212,8 +223,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         likesCount: post.likes_count || 0,
         commentsCount: post.comments_count || 0,
         createdAt: post.created_at,
-        isLiked: post.is_liked,
-        isSaved: post.is_saved,
+        isLiked: likedSet.has(post.id as string),
+        isSaved: savedSet.has(post.id as string),
         author: post.author,
       })),
       nextCursor: hasMore ? `${posts[posts.length - 1].created_at}|${posts[posts.length - 1].id}` : null,

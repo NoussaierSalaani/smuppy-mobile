@@ -45,7 +45,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const profileId = userResult.rows[0].id;
 
-    // Build query - get pending follow requests where user is the target
+    // Build query - get pending follow requests with total count via window function
     let query = `
       SELECT
         fr.id,
@@ -57,7 +57,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.bio as requester_bio,
         p.is_verified as requester_is_verified,
         p.account_type as requester_account_type,
-        p.business_name as requester_business_name
+        p.business_name as requester_business_name,
+        COUNT(*) OVER() as total_count
       FROM follow_requests fr
       JOIN profiles p ON fr.requester_id = p.id
       WHERE fr.target_id = $1 AND fr.status = 'pending'
@@ -103,11 +104,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? new Date(requests[requests.length - 1].created_at).getTime().toString()
       : null;
 
-    // Get total pending count
-    const countResult = await db.query(
-      'SELECT COUNT(*) as count FROM follow_requests WHERE target_id = $1 AND status = $2',
-      [profileId, 'pending']
-    );
+    // Extract total from window function (no separate COUNT query needed)
+    const totalPending = result.rows.length > 0 ? parseInt(result.rows[0].total_count as string, 10) : 0;
 
     return {
       statusCode: 200,
@@ -116,7 +114,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         requests: formattedRequests,
         cursor: nextCursor,
         hasMore,
-        totalPending: parseInt(countResult.rows[0].count),
+        totalPending,
       }),
     };
   } catch (error: unknown) {

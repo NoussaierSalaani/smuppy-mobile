@@ -141,9 +141,32 @@ export const useUserStore = create<UserState>()(
     {
       name: '@smuppy_user_store',
       storage: createJSONStorage(() => AsyncStorage),
-      // Persist user data and auth state - all user fields are important
+      // SECURITY: Only persist non-sensitive fields to unencrypted AsyncStorage.
+      // Sensitive data (email, phone, location) is re-fetched on session restore.
       partialize: (state) => ({
-        user: state.user,
+        user: state.user ? {
+          id: state.user.id,
+          username: state.user.username,
+          fullName: state.user.fullName,
+          displayName: state.user.displayName,
+          firstName: state.user.firstName,
+          lastName: state.user.lastName,
+          avatar: state.user.avatar,
+          coverImage: state.user.coverImage,
+          bio: state.user.bio,
+          accountType: state.user.accountType,
+          isVerified: state.user.isVerified,
+          isPremium: state.user.isPremium,
+          interests: state.user.interests,
+          expertise: state.user.expertise,
+          businessName: state.user.businessName,
+          businessCategory: state.user.businessCategory,
+          locationsMode: state.user.locationsMode,
+          stats: state.user.stats,
+          // EXCLUDED: email, dateOfBirth, gender, businessAddress,
+          // businessLatitude, businessLongitude, businessPhone, website,
+          // socialLinks, location
+        } : null,
         isAuthenticated: state.isAuthenticated,
       }),
     }

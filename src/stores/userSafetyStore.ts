@@ -116,7 +116,6 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       if (!get().mutedUserIds.includes(userId)) return { error: null };
 
       // Optimistic update
-      const previousMutedUsers = get().mutedUsers;
       set((state) => {
         const muteIdx = state.mutedUserIds.indexOf(userId);
         if (muteIdx !== -1) state.mutedUserIds.splice(muteIdx, 1);
@@ -127,12 +126,11 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       const { error } = await dbUnmuteUser(userId);
 
       if (error) {
-        // Rollback
+        // Rollback: re-fetch fresh state from DB to avoid stale reference race
+        const { data: freshMuted } = await getMutedUsers();
         set((state) => {
-          if (!state.mutedUserIds.includes(userId)) {
-            state.mutedUserIds.push(userId);
-          }
-          state.mutedUsers = previousMutedUsers;
+          state.mutedUsers = freshMuted || [];
+          state.mutedUserIds = (freshMuted || []).map((m) => m.muted_user_id);
         });
         return { error };
       }
@@ -195,7 +193,6 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       if (!get().blockedUserIds.includes(userId)) return { error: null };
 
       // Optimistic update
-      const previousBlockedUsers = get().blockedUsers;
       set((state) => {
         const blockIdx = state.blockedUserIds.indexOf(userId);
         if (blockIdx !== -1) state.blockedUserIds.splice(blockIdx, 1);
@@ -206,12 +203,11 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       const { error } = await dbUnblockUser(userId);
 
       if (error) {
-        // Rollback
+        // Rollback: re-fetch fresh state from DB to avoid stale reference race
+        const { data: freshBlocked } = await getBlockedUsers();
         set((state) => {
-          if (!state.blockedUserIds.includes(userId)) {
-            state.blockedUserIds.push(userId);
-          }
-          state.blockedUsers = previousBlockedUsers;
+          state.blockedUsers = freshBlocked || [];
+          state.blockedUserIds = (freshBlocked || []).map((b) => b.blocked_user_id);
         });
         return { error };
       }

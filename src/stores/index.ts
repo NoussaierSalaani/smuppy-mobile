@@ -58,13 +58,13 @@ export const resetAllStores = async () => {
     errorModal: { visible: false, title: '', message: '' },
   });
 
-  // Reset all Zustand stores
+  // Reset all Zustand stores (except themeStore — user preference should persist across accounts)
   contentStore.reset();
   userSafetyStore.reset();
   filterStore.reset();
   tabBarStore.reset();
   vibeStore.reset();
-  themeStore.reset();
+  // NOTE: themeStore intentionally NOT reset — theme is a device preference, not per-user
   useModerationStore.getState().clearModeration();
 
   // Clear module-level feed caches to prevent cross-user data leaks
@@ -89,7 +89,7 @@ export const resetAllStores = async () => {
       '@smuppy_user_store',
       '@smuppy_analytics_queue',
       '@smuppy_vibe_store',
-      '@smuppy_theme_store',
+      // NOTE: '@smuppy_theme_store' intentionally kept — device preference
       '@smuppy_query_cache',
     ]);
   } catch {

@@ -122,8 +122,8 @@ bundle_handler() {
     --outfile="$out_dir/index.js" \
     --minify \
     --sourcemap \
-    --external:@aws-sdk/* \
-    --quiet 2>/dev/null
+    '--external:@aws-sdk/*' \
+    --log-level=silent
 
   # Create zip
   (cd "$out_dir" && zip -qr handler.zip index.js index.js.map 2>/dev/null)
@@ -154,7 +154,7 @@ log "Lambda deploy script — environment: $ENVIRONMENT, region: $REGION"
 # If no handlers specified, discover all
 if [[ ${#HANDLERS[@]} -eq 0 ]]; then
   log "Discovering all handlers..."
-  mapfile -t HANDLERS < <(discover_handlers)
+  while IFS= read -r line; do HANDLERS+=("$line"); done < <(discover_handlers)
   log "Found ${#HANDLERS[@]} handlers"
 fi
 

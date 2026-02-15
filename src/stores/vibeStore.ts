@@ -377,3 +377,18 @@ export const useVibeStore = create<VibeState>()(
 export const vibeStore = {
   reset: () => useVibeStore.getState().reset(),
 };
+
+// ============================================================================
+// ATOMIC SELECTORS — use these to avoid unnecessary re-renders
+// Each selector returns a primitive or stable reference, so Zustand's
+// default `===` comparison works correctly.
+// ============================================================================
+
+export const selectVibeScore = (state: VibeState) => state.vibeScore;
+export const selectVibeLevel = (state: VibeState) => state.vibeLevel;
+export const selectCurrentStreak = (state: VibeState) => state.currentStreak;
+export const selectLongestStreak = (state: VibeState) => state.longestStreak;
+export const selectEarnedBadges = (state: VibeState) => state.earnedBadges;
+export const selectRippleScore = (state: VibeState) => state.rippleScore;
+export const selectCompletedToday = (state: VibeState) => state.completedToday;
+export const selectPrescriptionPreferences = (state: VibeState) => state.prescriptionPreferences;

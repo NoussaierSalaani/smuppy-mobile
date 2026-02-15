@@ -74,7 +74,7 @@ export class DatabaseStack extends cdk.NestedStack {
       storageEncryptionKey: dbEncryptionKey,
       deletionProtection: isProduction,
       backup: {
-        retention: cdk.Duration.days(isProduction ? 30 : 7),
+        retention: cdk.Duration.days(isProduction ? 35 : 7),
         preferredWindow: '03:00-04:00',
       },
       writer: rds.ClusterInstance.provisioned('Writer', {

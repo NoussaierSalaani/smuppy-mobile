@@ -33,7 +33,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const body = JSON.parse(event.body);
+    let body: { postIds?: unknown };
+    try {
+      body = JSON.parse(event.body);
+    } catch {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid JSON body' }),
+      };
+    }
     const { postIds } = body;
 
     if (!Array.isArray(postIds) || postIds.length === 0) {

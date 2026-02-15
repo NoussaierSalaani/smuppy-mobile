@@ -89,6 +89,21 @@ export class SmuppyGlobalStack extends cdk.Stack {
       }],
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: !isProduction,
+      // SECURITY: S3 access logging for audit compliance
+      serverAccessLogsBucket: new s3.Bucket(this, 'MediaAccessLogsBucket', {
+        bucketName: `smuppy-media-access-logs-${environment}-${this.account}`,
+        encryption: s3.BucketEncryption.S3_MANAGED,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+        enforceSSL: true,
+        objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
+        lifecycleRules: [{
+          id: 'DeleteOldAccessLogs',
+          expiration: cdk.Duration.days(isProduction ? 90 : 30),
+        }],
+        removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+        autoDeleteObjects: !isProduction,
+      }),
+      serverAccessLogsPrefix: 'media-access-logs/',
     });
 
     // ========================================

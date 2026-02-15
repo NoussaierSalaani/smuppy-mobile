@@ -124,6 +124,9 @@ export class NetworkStack extends cdk.NestedStack {
     });
     // Allow HTTPS outbound only (Stripe, Google, AWS services, etc.)
     this.lambdaSecurityGroup.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'HTTPS outbound');
+    // Allow DNS resolution (required for VPC endpoints and external service resolution)
+    this.lambdaSecurityGroup.addEgressRule(ec2.Peer.ipv4(this.vpc.vpcCidrBlock), ec2.Port.udp(53), 'DNS UDP');
+    this.lambdaSecurityGroup.addEgressRule(ec2.Peer.ipv4(this.vpc.vpcCidrBlock), ec2.Port.tcp(53), 'DNS TCP');
     // Allow PostgreSQL to RDS via private subnets
     this.lambdaSecurityGroup.addEgressRule(ec2.Peer.ipv4(this.vpc.vpcCidrBlock), ec2.Port.tcp(5432), 'RDS PostgreSQL');
     // Allow Redis to ElastiCache via private subnets

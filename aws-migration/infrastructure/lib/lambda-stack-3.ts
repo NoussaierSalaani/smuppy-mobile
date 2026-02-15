@@ -213,7 +213,11 @@ export class LambdaStack3 extends cdk.NestedStack {
     for (const fn of comprehendLambdas) {
       fn.addToRolePolicy(new iam.PolicyStatement({
         actions: ['comprehend:DetectToxicContent'],
+        // Comprehend is a stateless API — resource-level ARNs are not supported by AWS
         resources: ['*'],
+        conditions: {
+          StringEquals: { 'aws:RequestedRegion': cdk.Stack.of(this).region },
+        },
       }));
     }
   }

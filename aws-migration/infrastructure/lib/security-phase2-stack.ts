@@ -547,9 +547,13 @@ def handler(event, context):
     }));
 
     // Grant Rekognition DetectModerationLabels
+    // Rekognition is a stateless API — resource-level ARNs are not supported by AWS
     this.imageModerationFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ['rekognition:DetectModerationLabels'],
       resources: ['*'],
+      conditions: {
+        StringEquals: { 'aws:RequestedRegion': cdk.Stack.of(this).region },
+      },
     }));
 
     // Grant SNS publish for alerts

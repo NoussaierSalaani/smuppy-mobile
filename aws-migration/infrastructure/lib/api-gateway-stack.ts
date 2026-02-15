@@ -171,6 +171,10 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const profileMeDelete = profileMe.addResource('delete');
     profileMeDelete.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesDeleteFn), authMethodOptions);
 
+    // GDPR Article 15 — data export
+    const profileExportData = profiles.addResource('export-data');
+    profileExportData.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesExportDataFn), authMethodOptions);
+
     const profilesCreationLimits = profiles.addResource('creation-limits');
     profilesCreationLimits.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesCreationLimitsFn), authMethodOptions);
 

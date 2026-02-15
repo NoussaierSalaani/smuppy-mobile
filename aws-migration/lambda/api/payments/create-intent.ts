@@ -292,14 +292,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // SECURITY: Check for existing active payment before creating a new one
-    const existingPayment = await db.query(
-      `SELECT stripe_payment_intent_id FROM payments
-       WHERE buyer_id = $1 AND ${sessionId ? 'session_id = $2' : 'pack_id = $2'}
-       AND status IN ('pending', 'processing')
-       AND created_at > NOW() - INTERVAL '1 hour'
-       LIMIT 1`,
-      [buyer.id, sessionId || packId]
-    );
+    // Use separate queries to avoid template literal in SQL (no dynamic column names)
+    const existingPayment = sessionId
+      ? await db.query(
+          `SELECT stripe_payment_intent_id FROM payments
+           WHERE buyer_id = $1 AND session_id = $2
+           AND status IN ('pending', 'processing')
+           AND created_at > NOW() - INTERVAL '1 hour'
+           LIMIT 1`,
+          [buyer.id, sessionId]
+        )
+      : await db.query(
+          `SELECT stripe_payment_intent_id FROM payments
+           WHERE buyer_id = $1 AND pack_id = $2
+           AND status IN ('pending', 'processing')
+           AND created_at > NOW() - INTERVAL '1 hour'
+           LIMIT 1`,
+          [buyer.id, packId]
+        );
     if (existingPayment.rows.length > 0 && (sessionId || packId)) {
       return {
         statusCode: 409,

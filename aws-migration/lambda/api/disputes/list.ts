@@ -139,7 +139,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Disputes use multi-column CASE ORDER BY (status rank + created_at).
     // Use offset-encoded cursor since keyset on CASE expressions is complex.
-    const offset = cursor ? parseInt(cursor, 10) || 0 : 0;
+    const MAX_OFFSET = 500;
+    const offset = cursor ? Math.min(parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
     const parsedLimit = Math.min(parseInt(limit), 50);
 
     params.push(parsedLimit + 1);

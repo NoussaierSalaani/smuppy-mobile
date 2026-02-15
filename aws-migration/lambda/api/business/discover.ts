@@ -103,22 +103,25 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Cursor-based pagination
     let offsetValue = 0;
+    const MAX_OFFSET = 500;
     if (cursor) {
       if (isGeoSort) {
         // For geo sort, cursor is a numeric offset (distance is volatile)
-        offsetValue = Math.max(parseInt(cursor) || 0, 0);
+        offsetValue = Math.min(Math.max(parseInt(cursor) || 0, 0), MAX_OFFSET);
       } else {
         // For created_at sort, cursor is "created_at|id" keyset
         const parts = cursor.split('|');
-        if (parts.length === 2) {
-          const cursorCreatedAt = parts[0];
-          const cursorId = parts[1];
-          if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursorId)) {
-            conditions.push(`(p.created_at, p.id) < ($${paramIdx}::timestamptz, $${paramIdx + 1}::uuid)`);
-            params.push(cursorCreatedAt, cursorId);
-            paramIdx += 2;
-          }
+        if (parts.length !== 2) {
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
         }
+        const cursorCreatedAt = parts[0];
+        const cursorId = parts[1];
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursorId) || isNaN(Date.parse(cursorCreatedAt))) {
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
+        }
+        conditions.push(`(p.created_at, p.id) < ($${paramIdx}::timestamptz, $${paramIdx + 1}::uuid)`);
+        params.push(cursorCreatedAt, cursorId);
+        paramIdx += 2;
       }
     }
 

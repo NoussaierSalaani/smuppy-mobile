@@ -55,6 +55,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     const cursor = event.queryStringParameters?.cursor || undefined;
 
+    // Validate cursor as ISO date for non-trending filters (trending uses numeric offset)
+    if (cursor && filter !== 'trending') {
+      const testDate = new Date(cursor);
+      if (isNaN(testDate.getTime())) {
+        return cors({
+          statusCode: 400,
+          body: JSON.stringify({ success: false, message: 'Invalid cursor format' }),
+        });
+      }
+    }
+
     let query: string;
     let params: SqlParam[] = [];
     let paramIndex = 1;
@@ -131,7 +142,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `;
       params = [status];
       if (category) params.push(category);
-      if (cursor) params.push(cursor);
+      if (cursor) params.push(new Date(cursor).toISOString());
       params.push(limit + 1);
     } else if (filter === 'created' && userId) {
       const creatorIdx = paramIndex++;
@@ -148,7 +159,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `;
       params = [userId];
       if (status !== 'all') params.push(status);
-      if (cursor) params.push(cursor);
+      if (cursor) params.push(new Date(cursor).toISOString());
       params.push(limit + 1);
     } else if (filter === 'tagged' && userId) {
       const taggedUserIdx = paramIndex++;
@@ -165,7 +176,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         LIMIT $${limitIdx}
       `;
       params = [userId, status];
-      if (cursor) params.push(cursor);
+      if (cursor) params.push(new Date(cursor).toISOString());
       params.push(limit + 1);
     } else if (filter === 'responded' && userId) {
       const userIdx = paramIndex++;
@@ -180,7 +191,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         LIMIT $${limitIdx}
       `;
       params = [userId];
-      if (cursor) params.push(cursor);
+      if (cursor) params.push(new Date(cursor).toISOString());
       params.push(limit + 1);
     } else if (creatorId) {
       const creatorIdx = paramIndex++;
@@ -197,7 +208,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         LIMIT $${limitIdx}
       `;
       params = [creatorId, status];
-      if (cursor) params.push(cursor);
+      if (cursor) params.push(new Date(cursor).toISOString());
       params.push(limit + 1);
     } else {
       const statusIdx = paramIndex++;
@@ -212,7 +223,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         LIMIT $${limitIdx}
       `;
       params = [status];
-      if (cursor) params.push(cursor);
+      if (cursor) params.push(new Date(cursor).toISOString());
       params.push(limit + 1);
     }
 
@@ -227,7 +238,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (hasMore && rows.length > 0) {
       if (filter === 'trending') {
         const trendingOffset = cursor ? Math.max(0, parseInt(cursor, 10) || 0) : 0;
-        nextCursor = String(trendingOffset + limit);
+        const nextOffset = trendingOffset + limit;
+        nextCursor = nextOffset <= MAX_OFFSET ? String(nextOffset) : null;
       } else if (filter === 'tagged') {
         const lastRow = rows[rows.length - 1] as Record<string, unknown>;
         nextCursor = new Date((lastRow.tag_created_at ?? lastRow.created_at) as string).toISOString();

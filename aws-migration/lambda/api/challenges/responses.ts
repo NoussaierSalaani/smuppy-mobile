@@ -78,7 +78,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (sortBy === 'popular') {
       // Popular sort uses offset-encoded cursor (scores change between requests)
-      const offset = cursor ? parseInt(cursor, 10) || 0 : 0;
+      const MAX_OFFSET = 500;
+      const offset = cursor ? Math.min(parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
       params.push(limit + 1);
       params.push(offset);
 
@@ -115,10 +116,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Recent sort uses keyset cursor on created_at
     if (cursor) {
       const parsedDate = new Date(cursor);
-      if (!isNaN(parsedDate.getTime())) {
-        params.push(parsedDate.toISOString());
-        cursorCondition = `AND cr.created_at < $${params.length}::timestamptz`;
+      if (isNaN(parsedDate.getTime())) {
+        return cors({
+          statusCode: 400,
+          body: JSON.stringify({ success: false, message: 'Invalid cursor format' }),
+        });
       }
+      params.push(parsedDate.toISOString());
+      cursorCondition = `AND cr.created_at < $${params.length}::timestamptz`;
     }
 
     params.push(limit + 1);

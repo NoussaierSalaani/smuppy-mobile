@@ -57,6 +57,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (isNaN(parsedDate.getTime())) {
           return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
         }
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(cursorId)) {
+          return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
+        }
         cursorCondition = 'AND (p.created_at, p.id) < ($2::timestamptz, $3::uuid)';
         params.push(parsedDate.toISOString(), cursorId);
       } else {

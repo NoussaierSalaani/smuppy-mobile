@@ -164,26 +164,28 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Cursor-based pagination — parse cursor BEFORE building query so keyset conditions are included in WHERE
     let cursorOffset = 0;
+    const MAX_OFFSET = 500;
     if (cursor) {
       if (isNearby) {
         // For nearby: cursor is a numeric offset (distance changes with position, keyset not possible)
-        cursorOffset = Math.max(0, parseInt(cursor) || 0);
+        cursorOffset = Math.min(Math.max(0, parseInt(cursor) || 0), MAX_OFFSET);
       } else {
         // For starts_at order: cursor is "ISO_DATE|UUID"
         const separatorIdx = cursor.indexOf('|');
-        if (separatorIdx > 0) {
-          const cursorDate = cursor.substring(0, separatorIdx);
-          const cursorId = cursor.substring(separatorIdx + 1);
-          // Validate UUID format
-          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-          if (cursorId.match(uuidRegex) && !isNaN(Date.parse(cursorDate))) {
-            params.push(cursorDate);
-            const cursorDateIdx = params.length;
-            params.push(cursorId);
-            const cursorIdIdx = params.length;
-            whereConditions.push(`(g.starts_at, g.id) > ($${cursorDateIdx}::timestamptz, $${cursorIdIdx}::uuid)`);
-          }
+        if (separatorIdx <= 0) {
+          return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) });
         }
+        const cursorDate = cursor.substring(0, separatorIdx);
+        const cursorId = cursor.substring(separatorIdx + 1);
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(cursorId) || isNaN(Date.parse(cursorDate))) {
+          return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) });
+        }
+        params.push(cursorDate);
+        const cursorDateIdx = params.length;
+        params.push(cursorId);
+        const cursorIdIdx = params.length;
+        whereConditions.push(`(g.starts_at, g.id) > ($${cursorDateIdx}::timestamptz, $${cursorIdIdx}::uuid)`);
       }
     }
 

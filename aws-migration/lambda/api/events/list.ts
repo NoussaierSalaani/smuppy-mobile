@@ -188,11 +188,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Date range filter
     if (startDate) {
+      if (isNaN(new Date(startDate).getTime())) {
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid startDate.' }) });
+      }
       params.push(new Date(startDate));
       query += ` AND e.starts_at >= $${params.length}`;
     }
 
     if (endDate) {
+      if (isNaN(new Date(endDate).getTime())) {
+        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid endDate.' }) });
+      }
       params.push(new Date(endDate));
       query += ` AND e.starts_at <= $${params.length}`;
     }
@@ -215,9 +221,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (cursor) {
       if (isNearbyWithDistance) {
         // For nearby filter: cursor is a numeric offset string (distance changes, keyset not possible)
-        const cursorOffset = parseInt(cursor) || 0;
+        const cursorOffset = Math.min(parseInt(cursor) || 0, 500);
         params.push(cursorOffset);
-        query += ` ORDER BY ${orderBy} LIMIT ${limitNum + 1} OFFSET $${params.length}`;
+        params.push(limitNum + 1);
+        query += ` ORDER BY ${orderBy} LIMIT $${params.length} OFFSET $${params.length - 1}`;
       } else {
         // For starts_at order: cursor is "ISO_DATE|UUID"
         const separatorIdx = cursor.indexOf('|');
@@ -237,29 +244,32 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             body: JSON.stringify({ success: false, message: 'Invalid cursor: bad UUID.' }),
           });
         }
+        if (isNaN(Date.parse(cursorDate))) {
+          return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor: bad date.' }) });
+        }
         params.push(cursorDate);
         const cursorDateIdx = params.length;
         params.push(cursorId);
         const cursorIdIdx = params.length;
         query += ` AND (e.starts_at, e.id) > ($${cursorDateIdx}::timestamptz, $${cursorIdIdx}::uuid)`;
-        query += ` ORDER BY ${orderBy} LIMIT ${limitNum + 1}`;
+        params.push(limitNum + 1);
+        query += ` ORDER BY ${orderBy} LIMIT $${params.length}`;
       }
     } else {
-      query += ` ORDER BY ${orderBy} LIMIT ${limitNum + 1}`;
+      params.push(limitNum + 1);
+      query += ` ORDER BY ${orderBy} LIMIT $${params.length}`;
     }
 
     const result = await client.query(query, params);
 
     // Detect hasMore and trim the extra row
     const hasMore = result.rows.length > limitNum;
-    if (hasMore) {
-      result.rows.pop();
-    }
+    const rows = result.rows.slice(0, limitNum);
 
     // Check user participation status
     let userParticipation: Record<string, string> = {};
-    if (profileId && result.rows.length > 0) {
-      const eventIds = result.rows.map((r: Record<string, unknown>) => r.id);
+    if (profileId && rows.length > 0) {
+      const eventIds = rows.map((r: Record<string, unknown>) => r.id);
       const participationResult = await client.query(
         `SELECT event_id, status FROM event_participants
          WHERE event_id = ANY($1) AND user_id = $2`,
@@ -271,7 +281,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }, {} as Record<string, string>);
     }
 
-    const events = result.rows.map((row: Record<string, unknown>) => ({
+    const events = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       title: row.title,
       description: row.description,
@@ -340,7 +350,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           nextCursor: hasMore
             ? isNearbyWithDistance
               ? String((cursor ? parseInt(cursor) || 0 : 0) + limitNum)
-              : `${result.rows[result.rows.length - 1].starts_at}|${result.rows[result.rows.length - 1].id}`
+              : `${rows[rows.length - 1].starts_at}|${rows[rows.length - 1].id}`
             : null,
         },
       }),

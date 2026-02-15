@@ -101,7 +101,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
           AND p.visibility = 'public'
           ${cursorIdx}
-        ORDER BY p.created_at DESC
+        ORDER BY p.created_at DESC, p.id DESC
         LIMIT $${limitIdx}
       `;
 
@@ -134,7 +134,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
           AND p.visibility = 'public'
           ${cursorIdx}
-        ORDER BY p.created_at DESC
+        ORDER BY p.created_at DESC, p.id DESC
         LIMIT $${limitIdx}
       `;
 

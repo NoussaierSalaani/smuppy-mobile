@@ -88,7 +88,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       INNER JOIN profiles pr ON pr.id = p.author_id
       WHERE sp.user_id = $1
         ${cursorCondition}
-      ORDER BY sp.created_at DESC
+      ORDER BY sp.created_at DESC, sp.id DESC
       LIMIT $${limitIdx}`,
       params
     );

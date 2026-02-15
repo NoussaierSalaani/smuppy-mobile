@@ -72,7 +72,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     switch (body.action) {
       case 'create-account':
-        return await createConnectAccount(profileId);
+        return await createConnectAccount(profileId, corsHeaders);
       case 'create-link':
         // SECURITY: Validate returnUrl and refreshUrl against allowlist
         if (!body.returnUrl || !ALLOWED_URL_PATTERN.test(body.returnUrl)) {
@@ -81,13 +81,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (!body.refreshUrl || !ALLOWED_URL_PATTERN.test(body.refreshUrl)) {
           return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid refresh URL' }) };
         }
-        return await createAccountLink(profileId, body.returnUrl, body.refreshUrl);
+        return await createAccountLink(profileId, body.returnUrl, body.refreshUrl, corsHeaders);
       case 'get-status':
-        return await getAccountStatus(profileId);
+        return await getAccountStatus(profileId, corsHeaders);
       case 'get-dashboard-link':
-        return await getDashboardLink(profileId);
+        return await getDashboardLink(profileId, corsHeaders);
       case 'get-balance':
-        return await getBalance(profileId);
+        return await getBalance(profileId, corsHeaders);
       case 'admin-set-account': {
         // SECURITY: Require admin key verification, not just environment check
         const { getAdminKey } = await import('../../shared/secrets');
@@ -145,7 +145,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 };
 
-async function createConnectAccount(userId: string): Promise<APIGatewayProxyResult> {
+async function createConnectAccount(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
   const pool = await getPool();
   const client = await pool.connect();
@@ -247,7 +247,8 @@ async function createConnectAccount(userId: string): Promise<APIGatewayProxyResu
 async function createAccountLink(
   userId: string,
   returnUrl: string,
-  refreshUrl: string
+  refreshUrl: string,
+  corsHeaders: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
   const pool = await getPool();
@@ -287,7 +288,7 @@ async function createAccountLink(
   }
 }
 
-async function getAccountStatus(userId: string): Promise<APIGatewayProxyResult> {
+async function getAccountStatus(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
   const pool = await getPool();
   const client = await pool.connect();
@@ -329,7 +330,7 @@ async function getAccountStatus(userId: string): Promise<APIGatewayProxyResult> 
   }
 }
 
-async function getDashboardLink(userId: string): Promise<APIGatewayProxyResult> {
+async function getDashboardLink(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
   const pool = await getPool();
   const client = await pool.connect();
@@ -364,7 +365,7 @@ async function getDashboardLink(userId: string): Promise<APIGatewayProxyResult> 
   }
 }
 
-async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
+async function getBalance(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripe();
   const pool = await getPool();
   const client = await pool.connect();

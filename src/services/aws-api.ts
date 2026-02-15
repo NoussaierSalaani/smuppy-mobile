@@ -1912,7 +1912,7 @@ class AWSAPIService {
    */
   async listRefunds(params?: {
     limit?: number;
-    offset?: number;
+    cursor?: string;
     status?: 'pending' | 'succeeded' | 'failed';
   }): Promise<{
     success: boolean;
@@ -1929,12 +1929,13 @@ class AWSAPIService {
       createdAt: string;
       processedAt: string | null;
     }>;
-    total?: number;
+    nextCursor?: string | null;
+    hasMore?: boolean;
     message?: string;
   }> {
     const queryParams = new URLSearchParams();
     if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.cursor) queryParams.set('cursor', params.cursor);
     if (params?.status) queryParams.set('status', params.status);
     const query = queryParams.toString();
     return this.request(`/payments/refunds${query ? `?${query}` : ''}`);
@@ -2200,19 +2201,20 @@ class AWSAPIService {
     type?: 'sent' | 'received';
     contextType?: string;
     limit?: number;
-    offset?: number;
+    cursor?: string;
   }): Promise<{
     success: boolean;
     type?: string;
     tips?: TipEntry[];
     totals?: { count: number; totalAmount: number; monthAmount: number };
-    pagination?: { limit: number; offset: number; hasMore: boolean };
+    nextCursor?: string | null;
+    hasMore?: boolean;
   }> {
     const query = new URLSearchParams();
     if (params.type) query.append('type', params.type);
     if (params.contextType) query.append('contextType', params.contextType);
     if (params.limit) query.append('limit', params.limit.toString());
-    if (params.offset) query.append('offset', params.offset.toString());
+    if (params.cursor) query.append('cursor', params.cursor);
     return this.request(`/tips/history?${query.toString()}`);
   }
 
@@ -2269,8 +2271,7 @@ class AWSAPIService {
     category?: string;
     status?: string;
     limit?: number;
-    offset?: number;
-    page?: number;
+    cursor?: string;
   }): Promise<{ success: boolean; challenges?: ApiChallenge[]; pagination?: ApiPagination }> {
     const query = new URLSearchParams();
     if (params?.filter) query.append('filter', params.filter);
@@ -2278,7 +2279,7 @@ class AWSAPIService {
     if (params?.category) query.append('category', params.category);
     if (params?.status) query.append('status', params.status);
     if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.offset) query.append('offset', params.offset.toString());
+    if (params?.cursor) query.append('cursor', params.cursor);
     return this.request(`/challenges?${query.toString()}`);
   }
 
@@ -2291,18 +2292,19 @@ class AWSAPIService {
   }
 
   async getChallengeResponses(challengeId: string, params?: {
-    sortBy?: 'recent' | 'popular' | 'tips';
+    sortBy?: 'recent' | 'popular';
     limit?: number;
-    offset?: number;
+    cursor?: string;
   }): Promise<{
     success: boolean;
     responses?: ChallengeResponseEntry[];
-    pagination?: ApiPagination;
+    nextCursor?: string | null;
+    hasMore?: boolean;
   }> {
     const query = new URLSearchParams();
     if (params?.sortBy) query.append('sortBy', params.sortBy);
     if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.offset) query.append('offset', params.offset.toString());
+    if (params?.cursor) query.append('cursor', params.cursor);
     return this.request(`/challenges/${challengeId}/responses?${query.toString()}`, { method: 'GET' });
   }
 
@@ -2460,7 +2462,7 @@ class AWSAPIService {
     isFree?: boolean;
     hasRoute?: boolean;
     limit?: number;
-    offset?: number;
+    cursor?: string;
   }): Promise<{ success: boolean; events?: ApiEvent[]; pagination?: ApiPagination }> {
     const query = new URLSearchParams();
     if (params?.filter) query.append('filter', params.filter);
@@ -2473,7 +2475,7 @@ class AWSAPIService {
     if (params?.isFree !== undefined) query.append('isFree', params.isFree.toString());
     if (params?.hasRoute !== undefined) query.append('hasRoute', params.hasRoute.toString());
     if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.offset) query.append('offset', params.offset.toString());
+    if (params?.cursor) query.append('cursor', params.cursor);
     return this.request(`/events?${query.toString()}`);
   }
 
@@ -3320,7 +3322,7 @@ class AWSAPIService {
     radiusKm?: number;
     category?: string;
     limit?: number;
-    offset?: number;
+    cursor?: string;
   }): Promise<{ success: boolean; groups?: GroupActivity[]; pagination?: ApiPagination }> {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });

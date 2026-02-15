@@ -333,7 +333,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState<UISuggestion[]>([]);
-  const suggestionsOffsetRef = useRef(0);
+  const suggestionsCursorRef = useRef<string | null>(null);
   const loadingSuggestionsRef = useRef(false);
   const hasMoreSuggestionsRef = useRef(true);
   const suggestionsErrorCountRef = useRef(0);
@@ -473,8 +473,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
     try {
       loadingSuggestionsRef.current = true;
-      const offset = append ? suggestionsOffsetRef.current : 0;
-      const { data, error } = await getSuggestedProfiles(15, offset); // Fetch 15 to have buffer
+      const cursor = append ? suggestionsCursorRef.current ?? undefined : undefined;
+      const { data, error, nextCursor, hasMore: apiHasMore } = await getSuggestedProfiles(15, cursor); // Fetch 15 to have buffer
 
       // Stop retrying after too many consecutive errors
       if (error) {
@@ -517,8 +517,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           setSuggestions(filtered);
         }
 
-        suggestionsOffsetRef.current = offset + data.length;
-        hasMoreSuggestionsRef.current = data.length >= 10;
+        suggestionsCursorRef.current = nextCursor ?? null;
+        hasMoreSuggestionsRef.current = apiHasMore ?? data.length >= 10;
       } else {
         hasMoreSuggestionsRef.current = false;
       }
@@ -552,7 +552,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       let cancelled = false;
 
       // Reset and refetch suggestions — the API excludes already-followed profiles
-      suggestionsOffsetRef.current = 0;
+      suggestionsCursorRef.current = null;
       hasMoreSuggestionsRef.current = true;
       fetchSuggestions(false, true);
 

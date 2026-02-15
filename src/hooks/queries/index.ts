@@ -315,16 +315,16 @@ export const useHasSavedPost = (postId: string | null | undefined) => {
 export const useSavedPosts = () => {
   return useInfiniteQuery({
     queryKey: queryKeys.collections.saved(0),
-    queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await database.getSavedPosts(pageParam, 20);
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, nextCursor, hasMore } = await database.getSavedPosts(pageParam, 20);
       if (error) throw new Error(error);
-      return { posts: data || [], nextPage: pageParam + 1 };
+      return { posts: data || [], nextCursor, hasMore };
     },
     getNextPageParam: (lastPage) => {
-      if (lastPage.posts.length < 20) return undefined;
-      return lastPage.nextPage;
+      if (!lastPage.hasMore || !lastPage.nextCursor) return undefined;
+      return lastPage.nextCursor;
     },
-    initialPageParam: 0,
+    initialPageParam: undefined as string | undefined,
   });
 };
 

@@ -22,9 +22,9 @@ export interface PaginatedResponse<T> {
 
 export interface ApiPagination {
   limit: number;
-  offset: number;
   hasMore: boolean;
-  total?: number;
+  nextCursor?: string | null;
+  offset?: number;
 }
 
 export interface DeviceSession {

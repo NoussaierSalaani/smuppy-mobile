@@ -407,15 +407,17 @@ export const searchProfiles = async (
 export const searchPosts = async (
   query: string,
   limit = 20,
-  offset = 0
-): Promise<DbResponse<Post[]>> => {
+  cursor?: string
+): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   if (!query || query.trim().length === 0) {
     return { data: [], error: null };
   }
 
   try {
-    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
-    return { data: result.data.map(convertPost), error: null };
+    const params = new URLSearchParams({ q: query, limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/posts/search?${params.toString()}`);
+    return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };
   }
@@ -447,8 +449,8 @@ export const searchPeaks = async (
 export const searchByHashtag = async (
   hashtag: string,
   limit = 20,
-  offset = 0
-): Promise<DbResponse<Post[]>> => {
+  cursor?: string
+): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   if (!hashtag || hashtag.trim().length === 0) {
     return { data: [], error: null };
   }
@@ -457,8 +459,10 @@ export const searchByHashtag = async (
 
   try {
     // Use posts search with hashtag prefix — ILIKE fallback will match #tag in content
-    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/search?q=${encodeURIComponent('#' + tag)}&limit=${limit}&offset=${offset}`);
-    return { data: result.data.map(convertPost), error: null };
+    const params = new URLSearchParams({ q: '#' + tag, limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/posts/search?${params.toString()}`);
+    return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };
   }
@@ -479,12 +483,14 @@ export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag:
 /**
  * Get suggested profiles (for discovery/explore)
  */
-export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbResponse<Profile[]>> => {
+export const getSuggestedProfiles = async (limit = 10, cursor?: string): Promise<DbResponse<Profile[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   try {
     // Try suggested endpoint first with pagination
-    const result = await awsAPI.request<{ profiles?: AWSProfile[]; data?: AWSProfile[] }>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await awsAPI.request<{ profiles?: AWSProfile[]; data?: AWSProfile[]; nextCursor?: string | null; hasMore?: boolean }>(`/profiles/suggested?${params.toString()}`);
     const profiles = result.profiles || result.data || [];
-    return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+    return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch {
     // Fallback: use search for popular profiles
     try {
@@ -551,18 +557,20 @@ export const getFeedPosts = async (_page = 0, limit = 10): Promise<DbResponse<Po
 /**
  * Get optimized feed with likes/saves status included
  */
-export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
+export const getOptimizedFeed = async (cursor?: string, limit = 20): Promise<DbResponse<PostWithStatus[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   try {
-    const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[] }>(`/feed/optimized?limit=${limit}&page=${page}`);
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[]; nextCursor?: string | null; hasMore?: boolean }>(`/feed/optimized?${params.toString()}`);
     const posts: PostWithStatus[] = result.data.map((p: AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean }) => ({
       ...convertPost(p),
       has_liked: p.isLiked || p.has_liked,
       has_saved: p.isSaved || p.has_saved,
     }));
-    return { data: posts, error: null };
+    return { data: posts, error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch {
     // Fallback to regular feed — has_liked/has_saved default to false (batch check handles sync later)
-    const fallback = await getFeedPosts(page, limit);
+    const fallback = await getFeedPosts(0, limit);
     const postsWithStatus: PostWithStatus[] | null = fallback.data
       ? fallback.data.map(p => ({ ...p, has_liked: false, has_saved: false }))
       : null;
@@ -637,23 +645,26 @@ export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbRespo
 export const getDiscoveryFeed = async (
   selectedInterests: string[] = [],
   userInterests: string[] = [],
-  page = 0,
+  cursor?: string,
   limit = 20
-): Promise<DbResponse<Post[]>> => {
+): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   try {
     const interests = selectedInterests.length > 0 ? selectedInterests : userInterests;
-    const interestsParam = interests.length > 0 ? `&interests=${encodeURIComponent(interests.join(','))}` : '';
-    const result = await awsAPI.request<{ posts?: AWSPost[]; data?: AWSPost[] }>(`/feed/discover?limit=${limit}&page=${page}${interestsParam}`);
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    if (interests.length > 0) params.set('interests', interests.join(','));
+    const result = await awsAPI.request<{ posts?: AWSPost[]; data?: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/feed/discover?${params.toString()}`);
     const posts = result.posts || result.data || [];
 
-    // If interests filter returned empty results, retry without interests
-    if (posts.length === 0 && interestsParam && page === 0) {
-      const fallbackResult = await awsAPI.request<{ posts?: AWSPost[]; data?: AWSPost[] }>(`/feed/discover?limit=${limit}&page=${page}`);
+    // If interests filter returned empty results on first page, retry without interests
+    if (posts.length === 0 && interests.length > 0 && !cursor) {
+      const fallbackParams = new URLSearchParams({ limit: String(limit) });
+      const fallbackResult = await awsAPI.request<{ posts?: AWSPost[]; data?: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/feed/discover?${fallbackParams.toString()}`);
       const fallbackPosts = fallbackResult.posts || fallbackResult.data || [];
-      return { data: fallbackPosts.map(convertPost), error: null };
+      return { data: fallbackPosts.map(convertPost), error: null, nextCursor: fallbackResult.nextCursor, hasMore: fallbackResult.hasMore };
     }
 
-    return { data: posts.map(convertPost), error: null };
+    return { data: posts.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch (error: unknown) {
     // Fallback to explore
     try {
@@ -881,10 +892,12 @@ export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string,
 /**
  * Get user's saved posts (collections)
  */
-export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Post[]>> => {
+export const getSavedPosts = async (cursor?: string, limit = 20): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   try {
-    const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/saved?limit=${limit}&page=${page}`);
-    return { data: result.data.map(convertPost), error: null };
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/posts/saved?${params.toString()}`);
+    return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }

@@ -73,15 +73,15 @@ const PEAK_CARD_HEIGHT = 140;
 // Module-level cache — survives navigation but not app restart
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_POSTS = 500; // Prevent unbounded memory growth
-let vibesFeedCache: { posts: UIVibePost[]; timestamp: number; page: number } = {
+let vibesFeedCache: { posts: UIVibePost[]; timestamp: number; cursor: string | null } = {
   posts: [],
   timestamp: 0,
-  page: 0,
+  cursor: null,
 };
 
 /** Clear the module-level feed cache (call on logout/account switch) */
 export const clearVibesFeedCache = () => {
-  vibesFeedCache = { posts: [], timestamp: 0, page: 0 };
+  vibesFeedCache = { posts: [], timestamp: 0, cursor: null };
 };
 
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
@@ -378,7 +378,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [allPosts, setAllPosts] = useState<UIVibePost[]>(vibesFeedCache.posts);
   const [, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(() => vibesFeedCache.posts.length === 0);
-  const [_page, setPage] = useState(vibesFeedCache.page);
+  const [_cursor, setCursor] = useState<string | null>(vibesFeedCache.cursor);
 
   const [selectedPost, setSelectedPost] = useState<UIVibePost | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -386,7 +386,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [loadError, setLoadError] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
-  const pageRef = useRef(vibesFeedCache.page);
+  const cursorRef = useRef<string | null>(vibesFeedCache.cursor);
   const [peaksData, setPeaksData] = useState<PeakCardData[]>([]);
   const [_hasMore, setHasMore] = useState(true);
   const hasMoreRef = useRef(true);
@@ -498,11 +498,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   );
 
   // Fetch posts from API - backend filters by user interests, local sorting refines
-  const fetchPosts = useCallback(async (pageNum = 0, refresh = false) => {
+  const fetchPosts = useCallback(async (cursor?: string, refresh = false) => {
     try {
       // Pass active chip filters as selectedInterests, user profile preferences as fallback
       const selectedArr = activeInterests.size > 0 ? Array.from(activeInterests) : [];
-      const { data, error } = await getDiscoveryFeed(selectedArr, userInterests, pageNum, 40);
+      const { data, error, nextCursor, hasMore: apiHasMore } = await getDiscoveryFeed(selectedArr, userInterests, cursor, 40);
 
       if (error) {
         if (__DEV__) console.warn('[VibesFeed] Error fetching posts:', error);
@@ -512,7 +512,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       setLoadError(false);
 
       if (!data || data.length === 0) {
-        if (refresh || pageNum === 0) {
+        if (refresh || !cursor) {
           hasMoreRef.current = false;
           setHasMore(false);
         }
@@ -537,25 +537,29 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       const transformedPosts = data.map(post => transformToVibePost(post, likedIds, savedIds));
 
-      if (refresh || pageNum === 0) {
+      // Save cursor for next page
+      cursorRef.current = nextCursor ?? null;
+      setCursor(nextCursor ?? null);
+
+      if (refresh || !cursor) {
         setAllPosts(transformedPosts);
         setLikedPostIds(likedIds);
-        vibesFeedCache = { posts: transformedPosts, timestamp: Date.now(), page: 0 };
+        vibesFeedCache = { posts: transformedPosts, timestamp: Date.now(), cursor: nextCursor ?? null };
       } else {
         setAllPosts(prev => {
-          // Dedup: prevent duplicate posts from offset-based pagination
+          // Dedup: cursor-based pagination shouldn't produce duplicates, but guard anyway
           const existingIds = new Set(prev.map(p => p.id));
           const uniquePosts = transformedPosts.filter(p => !existingIds.has(p.id));
           // Cap cache size to prevent unbounded memory growth on long scroll sessions
           const updated = [...prev, ...uniquePosts].slice(0, MAX_CACHE_POSTS);
-          vibesFeedCache = { posts: updated, timestamp: Date.now(), page: pageNum };
+          vibesFeedCache = { posts: updated, timestamp: Date.now(), cursor: nextCursor ?? null };
           return updated;
         });
         setLikedPostIds(prev => new Set([...prev, ...likedIds]));
       }
 
-      hasMoreRef.current = data.length >= 40;
-      setHasMore(data.length >= 40);
+      hasMoreRef.current = apiHasMore ?? data.length >= 40;
+      setHasMore(apiHasMore ?? data.length >= 40);
     } catch (err) {
       if (__DEV__) console.warn('[VibesFeed] Error:', err);
       if (allPosts.length === 0) setLoadError(true);
@@ -570,9 +574,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       return;
     }
     setIsLoading(true);
-    pageRef.current = 0;
-    setPage(0);
-    fetchPosts(0, true).finally(() => setIsLoading(false));
+    cursorRef.current = null;
+    setCursor(null);
+    fetchPosts(undefined, true).finally(() => setIsLoading(false));
   }, [fetchPosts]);
 
   // Fetch peaks for carousel
@@ -1146,9 +1150,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    pageRef.current = 0;
-    setPage(0);
-    await fetchPosts(0, true);
+    cursorRef.current = null;
+    setCursor(null);
+    await fetchPosts(undefined, true);
     setRefreshing(false);
   }, [fetchPosts]);
 
@@ -1158,10 +1162,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const nextPage = pageRef.current + 1;
-      pageRef.current = nextPage;
-      setPage(nextPage);
-      await fetchPosts(nextPage);
+      await fetchPosts(cursorRef.current ?? undefined);
     } finally {
       loadingMoreRef.current = false;
       setLoadingMore(false);
@@ -1517,7 +1518,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               <Text style={styles.emptySubtitle}>Check your connection and try again</Text>
               <TouchableOpacity
                 style={styles.retryButton}
-                onPress={() => { setLoadError(false); setIsLoading(true); fetchPosts(0, true).finally(() => setIsLoading(false)); }}
+                onPress={() => { setLoadError(false); setIsLoading(true); fetchPosts(undefined, true).finally(() => setIsLoading(false)); }}
               >
                 <Text style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>

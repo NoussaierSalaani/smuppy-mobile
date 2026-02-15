@@ -112,6 +112,9 @@ const SearchScreen = (): React.JSX.Element => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Cursor refs for search endpoints that use cursor-based pagination
+  const postsCursorRef = useRef<string | null>(null);
+  const tagsCursorRef = useRef<string | null>(null);
 
   // Load current user on mount
   useEffect(() => {
@@ -212,7 +215,7 @@ const SearchScreen = (): React.JSX.Element => {
 
     try {
       const [profilesRes, hashtagsRes] = await Promise.all([
-        getSuggestedProfiles(PAGE_SIZE, 0),
+        getSuggestedProfiles(PAGE_SIZE),
         getTrendingHashtags(10),
       ]);
 
@@ -263,15 +266,24 @@ const SearchScreen = (): React.JSX.Element => {
 
     try {
       const offset = pageNum * PAGE_SIZE;
+      // Reset cursors on fresh search
+      if (!append) {
+        postsCursorRef.current = null;
+        tagsCursorRef.current = null;
+      }
 
       // For "All" tab, search everything in parallel
       if (tabType === 'all') {
         const [usersRes, postsRes, peaksRes, tagsRes] = await Promise.all([
           searchProfiles(query, PAGE_SIZE, offset),
-          searchPosts(query, PAGE_SIZE, offset),
+          searchPosts(query, PAGE_SIZE, postsCursorRef.current ?? undefined),
           searchPeaks(query, PAGE_SIZE, offset),
-          searchByHashtag(query, PAGE_SIZE, offset),
+          searchByHashtag(query, PAGE_SIZE, tagsCursorRef.current ?? undefined),
         ]);
+
+        // Store cursors for next page
+        postsCursorRef.current = postsRes.nextCursor ?? null;
+        tagsCursorRef.current = tagsRes.nextCursor ?? null;
 
         const users = (usersRes.data || []).filter(p => p.id !== currentUserId && !isHidden(p.id));
         const posts = (postsRes.data || []).filter(p => !isHidden(p.author_id));
@@ -310,8 +322,9 @@ const SearchScreen = (): React.JSX.Element => {
           break;
         }
         case 'posts': {
-          const { data } = await searchPosts(query, PAGE_SIZE, offset);
-          const newPosts = (data || []).filter(p => !isHidden(p.author_id));
+          const res = await searchPosts(query, PAGE_SIZE, postsCursorRef.current ?? undefined);
+          postsCursorRef.current = res.nextCursor ?? null;
+          const newPosts = (res.data || []).filter(p => !isHidden(p.author_id));
           newDataLength = newPosts.length;
           if (append) {
             setPostResults(prev => [...prev, ...newPosts]);
@@ -332,8 +345,9 @@ const SearchScreen = (): React.JSX.Element => {
           break;
         }
         case 'tags': {
-          const { data } = await searchByHashtag(query, PAGE_SIZE, offset);
-          const newHashtags = (data || []).filter(p => !isHidden(p.author_id));
+          const res = await searchByHashtag(query, PAGE_SIZE, tagsCursorRef.current ?? undefined);
+          tagsCursorRef.current = res.nextCursor ?? null;
+          const newHashtags = (res.data || []).filter(p => !isHidden(p.author_id));
           newDataLength = newHashtags.length;
           if (append) {
             setHashtagResults(prev => [...prev, ...newHashtags]);

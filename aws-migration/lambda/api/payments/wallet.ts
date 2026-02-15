@@ -32,7 +32,7 @@ interface WalletBody {
     | 'get-stripe-dashboard-link';
   period?: 'day' | 'week' | 'month' | 'year' | 'all';
   limit?: number;
-  offset?: number;
+  cursor?: string;
   type?: 'channel' | 'session' | 'pack' | 'all';
 }
 
@@ -272,9 +272,8 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
 
     // Cursor-based pagination on created_at
     let cursorCondition = '';
-    if (options.offset !== undefined && typeof options.offset === 'string' && options.offset.length > 10) {
-      // Treat as ISO cursor
-      const parsedDate = new Date(options.offset as unknown as string);
+    if (options.cursor) {
+      const parsedDate = new Date(options.cursor);
       if (!isNaN(parsedDate.getTime())) {
         params.push(parsedDate.toISOString());
         cursorCondition = `AND p.created_at < $${params.length}::timestamptz`;

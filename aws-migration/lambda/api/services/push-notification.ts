@@ -23,6 +23,44 @@ const secretsClient = new SecretsManagerClient({});
 let firebaseInitialized = false;
 let firebaseInitFailed = false;
 
+// Cached Expo access token (fetched from Secrets Manager on first use)
+let expoAccessToken: string | null = null;
+let expoTokenFetchFailed = false;
+
+/**
+ * Fetch Expo access token from Secrets Manager (lazy, cached for Lambda lifetime).
+ * Required for authenticated Expo Push API calls.
+ */
+async function getExpoAccessToken(): Promise<string | null> {
+  if (expoAccessToken) return expoAccessToken;
+  if (expoTokenFetchFailed) return null;
+
+  const secretArn = process.env.EXPO_ACCESS_TOKEN_SECRET_ARN;
+  if (!secretArn) {
+    expoTokenFetchFailed = true;
+    log.warn('EXPO_ACCESS_TOKEN_SECRET_ARN not configured — Expo push will send without auth');
+    return null;
+  }
+
+  try {
+    const command = new GetSecretValueCommand({ SecretId: secretArn });
+    const response = await secretsClient.send(command);
+    const secretValue = response.SecretString?.trim();
+    if (secretValue) {
+      expoAccessToken = secretValue;
+      log.info('Expo access token loaded from Secrets Manager');
+      return expoAccessToken;
+    }
+    expoTokenFetchFailed = true;
+    log.warn('Expo access token secret is empty — push will send without auth');
+    return null;
+  } catch (error) {
+    // Temporary failure: allow retry on next invocation
+    log.error('Failed to fetch Expo access token — will retry', error);
+    return null;
+  }
+}
+
 /**
  * Initialize Firebase Admin SDK
  * Tracks failure state to avoid retrying indefinitely on persistent errors.
@@ -197,25 +235,47 @@ async function sendViaExpo(
   }));
 
   try {
+    // Fetch Expo access token for authenticated push (required for production)
+    const accessToken = await getExpoAccessToken();
+
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
     const response = await fetch(EXPO_PUSH_API_URL, {
       method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(messages),
     });
 
     if (!response.ok) {
-      log.error('Expo Push API error', { status: response.status });
+      const errorBody = await response.text().catch(() => 'unreadable');
+      log.error('Expo Push API error', {
+        status: response.status,
+        body: errorBody.substring(0, 500),
+        tokenCount: tokens.length,
+      });
       return { success: 0, failed: tokens.length };
     }
 
-    const result = await response.json() as { data: Array<{ status: string }> };
+    const result = await response.json() as { data: Array<{ status: string; message?: string; details?: { error?: string } }> };
     let success = 0;
     let failed = 0;
     for (const ticket of result.data) {
-      ticket.status === 'ok' ? success++ : failed++;
+      if (ticket.status === 'ok') {
+        success++;
+      } else {
+        failed++;
+        log.warn('Expo push ticket failed', {
+          status: ticket.status,
+          message: ticket.message,
+          error: ticket.details?.error,
+        });
+      }
     }
     if (success > 0) log.info('Expo push sent', { success, failed });
     return { success, failed };

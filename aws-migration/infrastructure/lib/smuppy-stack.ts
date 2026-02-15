@@ -918,6 +918,8 @@ export class SmuppyStack extends cdk.Stack {
       // Android uses GCM platform type in SNS (Firebase Cloud Messaging)
       ANDROID_PLATFORM_APPLICATION_ARN: `arn:aws:sns:${this.region}:${this.account}:app/GCM/smuppy-android-${environment}`,
       FCM_SECRET_ARN: `smuppy/${environment}/fcm-credentials`,
+      // Expo access token for authenticated Expo Push API calls
+      EXPO_ACCESS_TOKEN_SECRET_ARN: `smuppy/${environment}/expo-access-token`,
       // Moderation wordlist bucket for text filtering
       MODERATION_WORDLIST_BUCKET: mediaBucket.bucketName,
     };

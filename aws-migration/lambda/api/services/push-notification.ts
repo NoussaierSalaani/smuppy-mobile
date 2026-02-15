@@ -240,7 +240,7 @@ export async function sendPushNotification(
   }
 
   if (target.platform === 'ios' && target.snsEndpointArn) {
-    return sendToiOS(target.snsEndpointArn, payload);
+    return (await sendToiOS(target.snsEndpointArn, payload)) === 'success';
   } else if (target.platform === 'android') {
     return sendToAndroid(target.token, payload);
   }

@@ -8,6 +8,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('feed-discover');
 
@@ -18,6 +19,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+
+    if (cognitoSub) {
+      const { allowed } = await checkRateLimit({ prefix: 'feed-discover', identifier: cognitoSub, windowSeconds: 60, maxRequests: 60 });
+      if (!allowed) {
+        return {
+          statusCode: 429,
+          headers,
+          body: JSON.stringify({ message: 'Too many requests' }),
+        };
+      }
+    }
 
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     // Discover feed uses offset-based pagination (engagement-ranked feeds can't use cursor on created_at)

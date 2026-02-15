@@ -40,32 +40,23 @@ export class AuthStack extends cdk.NestedStack {
         'profile_id': new cognito.StringAttribute({ mutable: true }),
       },
       passwordPolicy: {
-        minLength: 10,
+        minLength: 8,
         requireLowercase: true,
         requireUppercase: true,
         requireDigits: true,
         requireSymbols: true,
       },
-      mfa: cognito.Mfa.OPTIONAL,
-      mfaSecondFactor: {
-        sms: false,
-        otp: true,
-      },
-      advancedSecurityMode: isProduction
-        ? cognito.AdvancedSecurityMode.ENFORCED
-        : cognito.AdvancedSecurityMode.AUDIT,
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
-    // User Pool Client — short-lived tokens, token revocation enabled
+    // User Pool Client
     this.userPoolClient = this.userPool.addClient('AppClient', {
       userPoolClientName: `smuppy-app-${environment}`,
       authFlows: {
         userPassword: true,
         userSrp: true,
         custom: true,
-        adminUserPassword: true,
       },
       oAuth: {
         flows: { authorizationCodeGrant: true },
@@ -74,10 +65,9 @@ export class AuthStack extends cdk.NestedStack {
         logoutUrls: ['smuppy://auth/logout'],
       },
       preventUserExistenceErrors: true,
-      enableTokenRevocation: true,
-      accessTokenValidity: cdk.Duration.minutes(15),
-      idTokenValidity: cdk.Duration.minutes(15),
-      refreshTokenValidity: cdk.Duration.days(7),
+      accessTokenValidity: cdk.Duration.hours(1),
+      idTokenValidity: cdk.Duration.hours(1),
+      refreshTokenValidity: cdk.Duration.days(30),
     });
 
     // Identity Pool

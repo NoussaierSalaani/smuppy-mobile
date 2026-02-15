@@ -968,18 +968,6 @@ export class SmuppyStack extends cdk.Stack {
       },
     });
 
-    // SNS Topic for alerts (created early so nested stacks can reference it)
-    const alertsTopic = new sns.Topic(this, 'AlertsTopic', {
-      topicName: `smuppy-alerts-${environment}`,
-      displayName: `Smuppy ${environment} Alerts`,
-      masterKey: snsEncryptionKey,
-    });
-    if (props.alertEmail) {
-      alertsTopic.addSubscription(
-        new snsSubscriptions.EmailSubscription(props.alertEmail)
-      );
-    }
-
     // Create nested Lambda stack to stay under CloudFormation's 500 resource limit
     const lambdaStack = new LambdaStack(this, 'LambdaStack', {
       vpc,
@@ -1002,7 +990,6 @@ export class SmuppyStack extends cdk.Stack {
       rdsProxyArn: cdk.Fn.sub('arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${ProxyId}/*', {
         ProxyId: cdk.Fn.select(6, cdk.Fn.split(':', rdsProxy.dbProxyArn)),
       }),
-      alertsTopic,
     });
 
     // Note: Lambda stack no longer depends on Redis directly
@@ -1144,35 +1131,11 @@ export class SmuppyStack extends cdk.Stack {
       integration: new WebSocketLambdaIntegration('LiveReactionIntegration', lambdaStack.wsLiveStreamFn),
     });
 
-    // WebSocket access logging
-    const wsAccessLogGroup = new logs.LogGroup(this, 'WebSocketAccessLogs', {
-      logGroupName: `/aws/apigateway/smuppy-ws-${environment}/access`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
-
     // WebSocket Stage
     const webSocketStage = new apigatewayv2.WebSocketStage(this, 'WebSocketStage', {
       webSocketApi,
       stageName: environment,
       autoDeploy: true,
-    });
-
-    // Enable access logging on the WebSocket stage via L1 construct
-    const cfnWsStage = webSocketStage.node.defaultChild as cdk.CfnResource;
-    cfnWsStage.addPropertyOverride('AccessLogSettings', {
-      DestinationArn: wsAccessLogGroup.logGroupArn,
-      Format: JSON.stringify({
-        requestId: '$context.requestId',
-        ip: '$context.identity.sourceIp',
-        routeKey: '$context.routeKey',
-        status: '$context.status',
-        connectionId: '$context.connectionId',
-        requestTime: '$context.requestTime',
-        eventType: '$context.eventType',
-        error: '$context.error.message',
-        integrationError: '$context.integration.error',
-      }),
     });
 
     // Grant Lambda permissions to manage WebSocket connections
@@ -1678,6 +1641,20 @@ export class SmuppyStack extends cdk.Stack {
     // ========================================
     const cloudwatch = require('aws-cdk-lib/aws-cloudwatch');
     const cloudwatchActions = require('aws-cdk-lib/aws-cloudwatch-actions');
+
+    // SNS Topic for alerts
+    const alertsTopic = new sns.Topic(this, 'AlertsTopic', {
+      topicName: `smuppy-alerts-${environment}`,
+      displayName: `Smuppy ${environment} Alerts`,
+      masterKey: snsEncryptionKey,
+    });
+
+    // Subscribe alert email to receive alarm notifications
+    if (props.alertEmail) {
+      alertsTopic.addSubscription(
+        new snsSubscriptions.EmailSubscription(props.alertEmail)
+      );
+    }
 
     // API Gateway 5xx errors alarm
     const api5xxAlarm = new cloudwatch.Alarm(this, 'Api5xxAlarm', {

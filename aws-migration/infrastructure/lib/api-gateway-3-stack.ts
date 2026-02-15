@@ -8,6 +8,7 @@ import { Construct } from 'constructs';
 import * as path from 'path';
 import { LambdaStack } from './lambda-stack';
 import { LambdaStack2 } from './lambda-stack-2';
+import { LambdaStack3 } from './lambda-stack-3';
 import { LambdaStackDisputes } from './lambda-stack-disputes';
 
 
@@ -15,6 +16,7 @@ export interface ApiGateway3StackProps extends cdk.NestedStackProps {
   userPool: cognito.IUserPool;
   lambdaStack: LambdaStack;
   lambdaStack2: LambdaStack2;
+  lambdaStack3: LambdaStack3;
   lambdaStackDisputes: LambdaStackDisputes;
   environment: string;
   isProduction: boolean;
@@ -30,7 +32,7 @@ export class ApiGateway3Stack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiGateway3StackProps) {
     super(scope, id, props);
 
-    const { userPool, lambdaStack, lambdaStack2, lambdaStackDisputes, environment, isProduction } = props;
+    const { userPool, lambdaStack, lambdaStack2, lambdaStack3, lambdaStackDisputes, environment, isProduction } = props;
 
     // ========================================
     // API Gateway - REST API
@@ -176,6 +178,44 @@ export class ApiGateway3Stack extends cdk.NestedStack {
 
     const reportUser = reports.addResource('user');
     reportUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsUserFn), authWithBodyValidation);
+
+    // ========================================
+    // Search Endpoints (moved from ApiGatewayStack — 500 resource limit)
+    // ========================================
+    const posts = this.api.root.addResource('posts');
+    const postsSearch = posts.addResource('search');
+    postsSearch.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.postsSearchFn), authMethodOptions);
+
+    const peaks = this.api.root.addResource('peaks');
+    const peaksSearch = peaks.addResource('search');
+    peaksSearch.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.peaksSearchFn), authMethodOptions);
+
+    // ========================================
+    // Feed Variants (moved from ApiGatewayStack — 500 resource limit)
+    // ========================================
+    const feed = this.api.root.addResource('feed');
+    const feedOptimized = feed.addResource('optimized');
+    feedOptimized.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.feedOptimizedFn), authMethodOptions);
+
+    const feedFollowing = feed.addResource('following');
+    feedFollowing.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.feedFollowingFn), authMethodOptions);
+
+    const feedDiscover = feed.addResource('discover');
+    feedDiscover.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.feedDiscoverFn), authMethodOptions);
+
+    // ========================================
+    // Posts Batch & Saved (moved from ApiGatewayStack — 500 resource limit)
+    // ========================================
+    const postsLikes = posts.addResource('likes');
+    const postsLikesBatch = postsLikes.addResource('batch');
+    postsLikesBatch.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.postsLikesBatchFn), authMethodOptions);
+
+    const postsSaves = posts.addResource('saves');
+    const postsSavesBatch = postsSaves.addResource('batch');
+    postsSavesBatch.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.postsSavesBatchFn), authMethodOptions);
+
+    const postsSaved = posts.addResource('saved');
+    postsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsSavedListFn), authMethodOptions);
 
     // ========================================
     // Health Check (public — no auth, no VPC)

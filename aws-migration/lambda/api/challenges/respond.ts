@@ -210,14 +210,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Create response
+    // Create response (ON CONFLICT prevents race condition if two requests pass the check simultaneously)
     const responseResult = await client.query(
       `INSERT INTO challenge_responses (
         challenge_id, peak_id, user_id, score, time_seconds
       ) VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (challenge_id, user_id) DO NOTHING
       RETURNING id, challenge_id, peak_id, user_id, score, time_seconds, status, created_at`,
       [challengeId, peakId, userId, score || null, timeSeconds || null]
     );
+
+    if (responseResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          message: 'You have already responded to this challenge',
+        }),
+      });
+    }
 
     const response = responseResult.rows[0];
 

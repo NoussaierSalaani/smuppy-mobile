@@ -125,6 +125,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // SECURITY: Prevent following if either user has blocked the other
+    const blockCheck = await db.query(
+      `SELECT 1 FROM blocked_users
+       WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)
+       LIMIT 1`,
+      [followerId, followingId]
+    );
+    if (blockCheck.rows.length > 0) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Cannot follow this user' }),
+      };
+    }
+
     // Check for anti-spam cooldown (7 days after 2+ unfollows)
     // Note: This is optional - if the table doesn't exist, skip cooldown check
     try {

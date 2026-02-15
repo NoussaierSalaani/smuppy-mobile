@@ -376,7 +376,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [allPosts, setAllPosts] = useState<UIVibePost[]>(vibesFeedCache.posts);
   const [, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(() => vibesFeedCache.posts.length === 0);
-  const [page, setPage] = useState(vibesFeedCache.page);
+  const [_page, setPage] = useState(vibesFeedCache.page);
 
   const [selectedPost, setSelectedPost] = useState<UIVibePost | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -386,7 +386,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const loadingMoreRef = useRef(false);
   const pageRef = useRef(vibesFeedCache.page);
   const [peaksData, setPeaksData] = useState<PeakCardData[]>([]);
-  const [hasMore, setHasMore] = useState(true);
+  const [_hasMore, setHasMore] = useState(true);
   const hasMoreRef = useRef(true);
 
   // Share modal state (using shared hook)

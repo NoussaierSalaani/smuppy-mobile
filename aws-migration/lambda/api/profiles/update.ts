@@ -335,6 +335,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    // SECURITY: Prevent setting pro account type on profile CREATE
+    // Account type upgrades can ONLY happen via Stripe webhook
+    if (existingProfile.rows.length === 0 && body.accountType && body.accountType !== 'personal') {
+      logSecurityEvent('suspicious_activity', {
+        userId,
+        requestedType: body.accountType,
+        ip: event.requestContext.identity?.sourceIp,
+      });
+      // Silently downgrade to personal — don't reveal the guard to the client
+      body.accountType = 'personal';
+    }
+
     let result;
     if (existingProfile.rows.length === 0) {
       // Create new profile - use cognito_sub as the primary id for simplicity
@@ -411,8 +423,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         businessName: profile.business_name,
         businessCategory: profile.business_category,
         businessAddress: profile.business_address,
-        businessLatitude: profile.business_latitude ? parseFloat(profile.business_latitude) : null,
-        businessLongitude: profile.business_longitude ? parseFloat(profile.business_longitude) : null,
+        businessLatitude: profile.business_latitude && String(profile.business_latitude).trim() ? parseFloat(profile.business_latitude) : null,
+        businessLongitude: profile.business_longitude && String(profile.business_longitude).trim() ? parseFloat(profile.business_longitude) : null,
         businessPhone: profile.business_phone,
         locationsMode: profile.locations_mode,
         onboardingCompleted: profile.onboarding_completed,

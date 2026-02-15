@@ -162,7 +162,7 @@ export class SmuppyStack extends cdk.Stack {
 
     // Track S3 data events for media bucket
     trail.addS3EventSelector([{
-      bucket: s3.Bucket.fromBucketName(this, 'MediaBucketForTrail', 'smuppy-media'),
+      bucket: s3.Bucket.fromBucketName(this, 'MediaBucketForTrail', isProduction ? 'smuppy-media-prod' : `smuppy-media-${environment}-${this.account}`),
     }], {
       readWriteType: cloudtrail.ReadWriteType.WRITE_ONLY,
       includeManagementEvents: false,
@@ -864,8 +864,9 @@ export class SmuppyStack extends cdk.Stack {
       cacheNodeType: isProduction ? 'cache.r6g.large' : 'cache.t3.medium',
       engine: 'redis',
       engineVersion: '7.0',
-      numNodeGroups: isProduction ? 2 : 1, // Sharding for scale
-      replicasPerNodeGroup: isProduction ? 2 : 0,
+      // Production: cluster mode with sharding (numNodeGroups >= 1 enables cluster mode)
+      // Staging: non-cluster mode (numCacheClusters) so PrimaryEndPoint is available
+      ...(isProduction ? { numNodeGroups: 2, replicasPerNodeGroup: 2 } : { numCacheClusters: 1 }),
       cacheSubnetGroupName: redisSubnetGroup.cacheSubnetGroupName,
       securityGroupIds: [redisSecurityGroup.securityGroupId],
       // Security: Encryption
@@ -886,7 +887,8 @@ export class SmuppyStack extends cdk.Stack {
     // ========================================
     // Reference existing S3 bucket
     // ========================================
-    const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'smuppy-media');
+    const mediaBucketName = isProduction ? 'smuppy-media-prod' : `smuppy-media-${environment}-${this.account}`;
+    const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', mediaBucketName);
 
     // ========================================
     // Lambda Functions - Nested Stack

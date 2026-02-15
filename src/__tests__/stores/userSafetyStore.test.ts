@@ -132,6 +132,8 @@ describe('UserSafetyStore', () => {
     it('should rollback unmute on failure', async () => {
       mockMuteUser.mockResolvedValue({ data: { muted_user_id: 'user-1' }, error: null });
       mockUnmuteUser.mockResolvedValue({ error: 'DB error' });
+      // Rollback re-fetches from DB — DB still has user muted since unmute failed
+      mockGetMutedUsers.mockResolvedValue({ data: [{ muted_user_id: 'user-1' }] });
 
       await useUserSafetyStore.getState().mute('user-1');
       const result = await useUserSafetyStore.getState().unmute('user-1');

@@ -324,18 +324,22 @@ jobs:
         run: |
           for STACK in SmuppyStack-dev SmuppySecurity-dev; do
             echo "Checking $STACK..."
-            for i in $(seq 1 30); do
+            for i in $(seq 1 60); do
               STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
               case "$STATUS" in
                 *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
-                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/30)..."
+                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/60)..."
                   sleep 30 ;;
+                NOT_FOUND)
+                  echo "  $STACK not found — skipping"
+                  break ;;
                 *)
                   echo "  $STACK is $STATUS — ready"
                   break ;;
               esac
-              if [ "$i" -eq 30 ]; then
-                echo "::warning::$STACK still in $STATUS after 15 min — proceeding anyway"
+              if [ "$i" -eq 60 ]; then
+                echo "::error::$STACK still in $STATUS after 30 min — aborting"
+                exit 1
               fi
             done
           done
@@ -343,21 +347,38 @@ jobs:
       - name: CDK Deploy (dev)
         if: steps.creds.outputs.ok == 'true'
         run: |
-          # Wait for stack stability right before deploy (no race window)
-          for STACK in SmuppyStack-dev SmuppySecurity-dev; do
-            for i in $(seq 1 40); do
-              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
-              case "$STATUS" in
-                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
-                  echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
-                  sleep 15 ;;
-                *)
-                  echo "  $STACK is $STATUS — ready"
-                  break ;;
-              esac
+          MAX_RETRIES=3
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "=== CDK Deploy attempt $attempt/$MAX_RETRIES ==="
+            for STACK in SmuppyStack-dev SmuppySecurity-dev; do
+              for i in $(seq 1 40); do
+                STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+                case "$STATUS" in
+                  *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                    echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
+                    sleep 15 ;;
+                  *)
+                    echo "  $STACK is $STATUS — ready"
+                    break ;;
+                esac
+                if [ "$i" -eq 40 ]; then
+                  echo "::error::$STACK still in $STATUS after 10 min"
+                  exit 1
+                fi
+              done
             done
+            if npx cdk deploy --all --context environment=dev --require-approval never --method=direct; then
+              echo "CDK Deploy succeeded on attempt $attempt"
+              break
+            else
+              if [ "$attempt" -eq "$MAX_RETRIES" ]; then
+                echo "::error::CDK Deploy failed after $MAX_RETRIES attempts"
+                exit 1
+              fi
+              echo "CDK Deploy failed — waiting 60s before retry..."
+              sleep 60
+            fi
           done
-          npx cdk deploy --all --context environment=dev --require-approval never
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: us-east-1
@@ -451,18 +472,22 @@ jobs:
         run: |
           for STACK in SmuppyStack-staging SmuppySecurity-staging; do
             echo "Checking $STACK..."
-            for i in $(seq 1 30); do
+            for i in $(seq 1 60); do
               STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
               case "$STATUS" in
                 *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
-                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/30)..."
+                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/60)..."
                   sleep 30 ;;
+                NOT_FOUND)
+                  echo "  $STACK not found — skipping"
+                  break ;;
                 *)
                   echo "  $STACK is $STATUS — ready"
                   break ;;
               esac
-              if [ "$i" -eq 30 ]; then
-                echo "::warning::$STACK still in $STATUS after 15 min — proceeding anyway"
+              if [ "$i" -eq 60 ]; then
+                echo "::error::$STACK still in $STATUS after 30 min — aborting"
+                exit 1
               fi
             done
           done
@@ -470,21 +495,39 @@ jobs:
       - name: CDK Deploy (staging)
         if: steps.creds.outputs.ok == 'true'
         run: |
-          # Wait for stack stability right before deploy (no race window)
-          for STACK in SmuppyStack-staging SmuppySecurity-staging; do
-            for i in $(seq 1 40); do
-              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
-              case "$STATUS" in
-                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
-                  echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
-                  sleep 15 ;;
-                *)
-                  echo "  $STACK is $STATUS — ready"
-                  break ;;
-              esac
+          MAX_RETRIES=3
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "=== CDK Deploy attempt $attempt/$MAX_RETRIES ==="
+            # Wait for stack stability right before deploy (no race window)
+            for STACK in SmuppyStack-staging SmuppySecurity-staging; do
+              for i in $(seq 1 40); do
+                STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+                case "$STATUS" in
+                  *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                    echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
+                    sleep 15 ;;
+                  *)
+                    echo "  $STACK is $STATUS — ready"
+                    break ;;
+                esac
+                if [ "$i" -eq 40 ]; then
+                  echo "::error::$STACK still in $STATUS after 10 min"
+                  exit 1
+                fi
+              done
             done
+            if npx cdk deploy --all --context environment=staging --require-approval never --method=direct; then
+              echo "CDK Deploy succeeded on attempt $attempt"
+              break
+            else
+              if [ "$attempt" -eq "$MAX_RETRIES" ]; then
+                echo "::error::CDK Deploy failed after $MAX_RETRIES attempts"
+                exit 1
+              fi
+              echo "CDK Deploy failed — waiting 60s before retry..."
+              sleep 60
+            fi
           done
-          npx cdk deploy --all --context environment=staging --require-approval never
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: us-east-1
@@ -585,18 +628,22 @@ jobs:
         run: |
           for STACK in SmuppyStack-production SmuppySecurity-production; do
             echo "Checking $STACK..."
-            for i in $(seq 1 30); do
+            for i in $(seq 1 60); do
               STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
               case "$STATUS" in
                 *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
-                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/30)..."
+                  echo "  $STACK is $STATUS — waiting 30s (attempt $i/60)..."
                   sleep 30 ;;
+                NOT_FOUND)
+                  echo "  $STACK not found — skipping"
+                  break ;;
                 *)
                   echo "  $STACK is $STATUS — ready"
                   break ;;
               esac
-              if [ "$i" -eq 30 ]; then
-                echo "::warning::$STACK still in $STATUS after 15 min — proceeding anyway"
+              if [ "$i" -eq 60 ]; then
+                echo "::error::$STACK still in $STATUS after 30 min — aborting"
+                exit 1
               fi
             done
           done
@@ -604,21 +651,38 @@ jobs:
       - name: CDK Deploy (production)
         if: steps.creds.outputs.ok == 'true'
         run: |
-          # Wait for stack stability right before deploy (no race window)
-          for STACK in SmuppyStack-production SmuppySecurity-production; do
-            for i in $(seq 1 40); do
-              STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
-              case "$STATUS" in
-                *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
-                  echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
-                  sleep 15 ;;
-                *)
-                  echo "  $STACK is $STATUS — ready"
-                  break ;;
-              esac
+          MAX_RETRIES=3
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "=== CDK Deploy attempt $attempt/$MAX_RETRIES ==="
+            for STACK in SmuppyStack-production SmuppySecurity-production; do
+              for i in $(seq 1 40); do
+                STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
+                case "$STATUS" in
+                  *_IN_PROGRESS|*_CLEANUP_IN_PROGRESS)
+                    echo "  $STACK is $STATUS — waiting 15s (attempt $i/40)..."
+                    sleep 15 ;;
+                  *)
+                    echo "  $STACK is $STATUS — ready"
+                    break ;;
+                esac
+                if [ "$i" -eq 40 ]; then
+                  echo "::error::$STACK still in $STATUS after 10 min"
+                  exit 1
+                fi
+              done
             done
+            if npx cdk deploy --all --context environment=production --require-approval never --method=direct; then
+              echo "CDK Deploy succeeded on attempt $attempt"
+              break
+            else
+              if [ "$attempt" -eq "$MAX_RETRIES" ]; then
+                echo "::error::CDK Deploy failed after $MAX_RETRIES attempts"
+                exit 1
+              fi
+              echo "CDK Deploy failed — waiting 60s before retry..."
+              sleep 60
+            fi
           done
-          npx cdk deploy --all --context environment=production --require-approval never
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
           CDK_DEFAULT_REGION: us-east-1

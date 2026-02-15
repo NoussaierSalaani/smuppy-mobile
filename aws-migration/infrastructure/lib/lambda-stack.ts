@@ -50,6 +50,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly followsCreateFn: NodejsFunction;
   public readonly followsDeleteFn: NodejsFunction;
   public readonly profilesUpdateFn: NodejsFunction;
+  public readonly profilesDeleteFn: NodejsFunction;
   public readonly profilesSuggestedFn: NodejsFunction;
   public readonly profilesIsFollowingFn: NodejsFunction;
 
@@ -383,6 +384,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.followsCreateFn = createLambda('FollowsCreateFunction', 'follows/create');
     this.followsDeleteFn = createLambda('FollowsDeleteFunction', 'follows/delete');
     this.profilesUpdateFn = createLambda('ProfilesUpdateFunction', 'profiles/update');
+    this.profilesDeleteFn = createLambda('ProfilesDeleteFunction', 'profiles/delete');
     this.profilesSuggestedFn = createLambda('ProfilesSuggestedFunction', 'profiles/suggested');
     this.profilesIsFollowingFn = createLambda('ProfilesIsFollowingFunction', 'profiles/is-following');
 
@@ -976,6 +978,10 @@ export class LambdaStack extends cdk.NestedStack {
     // Grant Cognito ListUsers to payment Lambdas that need email fallback
     userPool.grant(this.paymentConnectFn, 'cognito-idp:ListUsers');
     userPool.grant(this.paymentChannelSubFn, 'cognito-idp:ListUsers');
+
+    // Account deletion: needs Cognito disable + Stripe subscription cancel
+    stripeSecret.grantRead(this.profilesDeleteFn);
+    userPool.grant(this.profilesDeleteFn, 'cognito-idp:AdminDisableUser');
 
     // DLQ for non-intent/webhook payment lambdas (intent & webhook have their own config)
     const paymentLambdasForDlq = [

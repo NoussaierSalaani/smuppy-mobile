@@ -168,6 +168,9 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const profileMe = profiles.addResource('me');
     profileMe.addMethod('PATCH', new apigateway.LambdaIntegration(lambdaStack.profilesUpdateFn), authWithBodyValidation);
 
+    const profileMeDelete = profileMe.addResource('delete');
+    profileMeDelete.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesDeleteFn), authMethodOptions);
+
     const profilesCreationLimits = profiles.addResource('creation-limits');
     profilesCreationLimits.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesCreationLimitsFn), authMethodOptions);
 

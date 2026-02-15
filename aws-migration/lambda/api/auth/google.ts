@@ -171,14 +171,15 @@ const authenticateUser = async (username: string, password: string): Promise<{
     })
   );
 
-  if (!authResult.AuthenticationResult) {
-    throw new Error('Authentication failed');
+  const tokens = authResult.AuthenticationResult;
+  if (!tokens?.AccessToken || !tokens.IdToken || !tokens.RefreshToken) {
+    throw new Error('Incomplete token set from Cognito');
   }
 
   return {
-    accessToken: authResult.AuthenticationResult.AccessToken!,
-    idToken: authResult.AuthenticationResult.IdToken!,
-    refreshToken: authResult.AuthenticationResult.RefreshToken!,
+    accessToken: tokens.AccessToken,
+    idToken: tokens.IdToken,
+    refreshToken: tokens.RefreshToken,
   };
 };
 

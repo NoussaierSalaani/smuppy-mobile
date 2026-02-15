@@ -14,7 +14,7 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -185,14 +185,15 @@ const authenticateUser = async (username: string, password: string): Promise<{
     })
   );
 
-  if (!authResult.AuthenticationResult) {
-    throw new Error('Authentication failed');
+  const tokens = authResult.AuthenticationResult;
+  if (!tokens?.AccessToken || !tokens.IdToken || !tokens.RefreshToken) {
+    throw new Error('Incomplete token set from Cognito');
   }
 
   return {
-    accessToken: authResult.AuthenticationResult.AccessToken!,
-    idToken: authResult.AuthenticationResult.IdToken!,
-    refreshToken: authResult.AuthenticationResult.RefreshToken!,
+    accessToken: tokens.AccessToken,
+    idToken: tokens.IdToken,
+    refreshToken: tokens.RefreshToken,
   };
 };
 
@@ -256,9 +257,13 @@ export const handler = async (
         body: JSON.stringify({ success: false, message: 'Missing nonce - required for security' }),
       };
     }
-    if (applePayload.nonce !== nonce) {
+    // The client sends SHA256(rawNonce) to Apple as the nonce parameter.
+    // Apple includes it as-is in the JWT. We must hash the rawNonce from
+    // the client to compare with the JWT claim.
+    const hashedClientNonce = createHash('sha256').update(nonce).digest('hex');
+    if (applePayload.nonce !== hashedClientNonce) {
       log.logSecurity('Nonce mismatch - possible replay attack', {
-        expectedNonce: nonce ? '[PRESENT]' : '[MISSING]',
+        expectedNonce: hashedClientNonce ? '[PRESENT]' : '[MISSING]',
       });
       return {
         statusCode: 401,

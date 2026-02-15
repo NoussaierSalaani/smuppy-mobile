@@ -10,7 +10,7 @@
  */
 
 import { S3Client, CopyObjectCommand, DeleteObjectCommand, PutObjectTaggingCommand, GetObjectTaggingCommand } from '@aws-sdk/client-s3';
-import { RekognitionClient, DetectModerationLabelsCommand, type ModerationLabel } from '@aws-sdk/client-rekognition';
+import { RekognitionClient, DetectModerationLabelsCommand, StartContentModerationCommand, type ModerationLabel } from '@aws-sdk/client-rekognition';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { createLogger } from '../utils/logger';
 
@@ -22,6 +22,8 @@ const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
 const QUARANTINE_BUCKET = process.env.QUARANTINE_BUCKET || '';
 const SECURITY_ALERTS_TOPIC_ARN = process.env.SECURITY_ALERTS_TOPIC_ARN || '';
+const VIDEO_MODERATION_TOPIC_ARN = process.env.VIDEO_MODERATION_TOPIC_ARN || '';
+const REKOGNITION_ROLE_ARN = process.env.REKOGNITION_ROLE_ARN || '';
 
 // Image extensions we should analyze
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic']);
@@ -56,12 +58,39 @@ export async function handler(event: EventBridgeS3Event): Promise<void> {
     return;
   }
 
-  // Videos: tag for manual moderation review
-  // Rekognition DetectModerationLabels is image-only; async video pipeline (StartContentModeration) planned
+  // Videos: use Rekognition StartContentModeration (async)
+  // Results delivered to SNS → process-video-moderation Lambda
   if (isVideo) {
-    log.info('Video detected, tagging for moderation review', { objectKey, fileSize });
-    await tagObject(bucketName, objectKey, 'video_pending_moderation');
-    await sendAlert('FLAG', objectKey, [{ Name: 'Video-Unscanned', Confidence: 0 }], 0);
+    if (!VIDEO_MODERATION_TOPIC_ARN || !REKOGNITION_ROLE_ARN) {
+      log.warn('Video moderation not configured, tagging for manual review', { objectKey });
+      await tagObject(bucketName, objectKey, 'video_pending_moderation');
+      return;
+    }
+
+    log.info('Starting async video moderation', { objectKey, fileSize });
+    await tagObject(bucketName, objectKey, 'video_moderation_in_progress');
+
+    try {
+      const response = await rekognitionClient.send(
+        new StartContentModerationCommand({
+          Video: {
+            S3Object: {
+              Bucket: bucketName,
+              Name: objectKey,
+            },
+          },
+          MinConfidence: 50,
+          NotificationChannel: {
+            SNSTopicArn: VIDEO_MODERATION_TOPIC_ARN,
+            RoleArn: REKOGNITION_ROLE_ARN,
+          },
+        }),
+      );
+      log.info('Video moderation job started', { objectKey, jobId: response.JobId });
+    } catch (error) {
+      log.error('Failed to start video moderation', { objectKey, error });
+      await tagObject(bucketName, objectKey, 'video_scan_error');
+    }
     return;
   }
 

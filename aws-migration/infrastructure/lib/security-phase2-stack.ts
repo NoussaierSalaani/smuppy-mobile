@@ -615,6 +615,92 @@ def handler(event, context):
     }));
 
     // ========================================
+    // 4. ASYNC VIDEO MODERATION with Rekognition
+    // ========================================
+
+    // Dedicated SNS topic for Rekognition async video moderation callbacks
+    // Not KMS-encrypted: Rekognition publishes directly and requires simpler permissions
+    const videoModerationTopic = new sns.Topic(this, 'VideoModerationTopic', {
+      topicName: `smuppy-video-moderation-${environment}`,
+      displayName: 'Smuppy Video Moderation Callbacks',
+    });
+
+    // IAM role for Rekognition to publish results to the video SNS topic
+    const rekognitionRole = new iam.Role(this, 'RekognitionVideoRole', {
+      roleName: `smuppy-rekognition-video-${environment}`,
+      assumedBy: new iam.ServicePrincipal('rekognition.amazonaws.com'),
+      description: 'Allows Rekognition to publish video moderation results to SNS',
+    });
+    videoModerationTopic.grantPublish(rekognitionRole);
+
+    // Lambda to process video moderation results from Rekognition
+    const videoModerationFunction = new NodejsFunction(this, 'VideoModerationFunction', {
+      functionName: `smuppy-video-moderation-results-${environment}`,
+      entry: path.join(__dirname, '../../lambda/api/moderation/process-video-moderation.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        QUARANTINE_BUCKET: quarantineBucket.bucketName,
+        SECURITY_ALERTS_TOPIC_ARN: this.securityAlertsTopic.topicArn,
+      },
+      bundling: {
+        minify: true,
+        sourceMap: !isProduction,
+        externalModules: [],
+      },
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+
+    // Grant permissions to video moderation results handler
+    mediaBucket.grantRead(videoModerationFunction);
+    mediaBucket.grantDelete(videoModerationFunction);
+    quarantineBucket.grantPut(videoModerationFunction);
+    videoModerationFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['s3:PutObjectTagging', 's3:GetObjectTagging'],
+      resources: [`${mediaBucket.bucketArn}/*`],
+    }));
+    videoModerationFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['rekognition:GetContentModeration'],
+      resources: ['*'],
+      conditions: {
+        StringEquals: { 'aws:RequestedRegion': cdk.Stack.of(this).region },
+      },
+    }));
+    this.securityAlertsTopic.grantPublish(videoModerationFunction);
+
+    // Subscribe Lambda to Rekognition video moderation SNS topic
+    videoModerationTopic.addSubscription(
+      new snsSubscriptions.LambdaSubscription(videoModerationFunction),
+    );
+
+    // Grant image moderation Lambda permission to start async video jobs
+    this.imageModerationFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['rekognition:StartContentModeration'],
+      resources: ['*'],
+      conditions: {
+        StringEquals: { 'aws:RequestedRegion': cdk.Stack.of(this).region },
+      },
+    }));
+
+    // Allow image moderation Lambda to pass the Rekognition role
+    this.imageModerationFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['iam:PassRole'],
+      resources: [rekognitionRole.roleArn],
+      conditions: {
+        StringEquals: { 'iam:PassedToService': 'rekognition.amazonaws.com' },
+      },
+    }));
+
+    // Inject video moderation config into the image moderation Lambda
+    this.imageModerationFunction.addEnvironment('VIDEO_MODERATION_TOPIC_ARN', videoModerationTopic.topicArn);
+    this.imageModerationFunction.addEnvironment('REKOGNITION_ROLE_ARN', rekognitionRole.roleArn);
+
+    // ========================================
     // CloudWatch Alarms for Backup Monitoring
     // ========================================
 

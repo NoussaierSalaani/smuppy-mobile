@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('notifications-mark-all-read');
 
@@ -20,6 +21,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 10 mark-all-read per minute
+    const { allowed } = await checkRateLimit({ prefix: 'notif-mark-read', identifier: userId, windowSeconds: 60, maxRequests: 10, failOpen: true });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 

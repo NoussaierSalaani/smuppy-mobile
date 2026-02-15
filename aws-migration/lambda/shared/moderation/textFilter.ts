@@ -141,8 +141,12 @@ function normalizeText(text: string): string {
   // e.g., "nig\u0308er" → "niger", "fa\u0301ggot" → "faggot"
   normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-  // 3. Cyrillic homoglyph replacement (visually identical to Latin)
-  const cyrillicMap: Record<string, string> = {
+  // 3. Strip bidirectional override characters (used to reverse text direction for evasion)
+  normalized = normalized.replace(/[\u202A-\u202E\u2066-\u2069]/g, '');
+
+  // 4. Cyrillic + Greek homoglyph replacement (visually identical to Latin)
+  const homoglyphMap: Record<string, string> = {
+    // Cyrillic
     '\u0410': 'a', '\u0430': 'a', // А/а → a
     '\u0412': 'b', '\u0432': 'b', // В/в → b
     '\u0421': 'c', '\u0441': 'c', // С/с → c
@@ -155,11 +159,26 @@ function normalizeText(text: string): string {
     '\u0422': 't', '\u0442': 't', // Т/т → t
     '\u0425': 'x', '\u0445': 'x', // Х/х → x
     '\u0423': 'y', '\u0443': 'y', // У/у → y
+    // Greek
+    '\u0391': 'a', '\u03B1': 'a', // Α/α → a
+    '\u0392': 'b', '\u03B2': 'b', // Β/β → b
+    '\u0395': 'e', '\u03B5': 'e', // Ε/ε → e
+    '\u0397': 'h', '\u03B7': 'h', // Η/η → h
+    '\u0399': 'i', '\u03B9': 'i', // Ι/ι → i
+    '\u039A': 'k', '\u03BA': 'k', // Κ/κ → k
+    '\u039C': 'm',                 // Μ → m
+    '\u039D': 'n', '\u03BD': 'n', // Ν/ν → n
+    '\u039F': 'o', '\u03BF': 'o', // Ο/ο → o
+    '\u03A1': 'p', '\u03C1': 'p', // Ρ/ρ → p
+    '\u03A4': 't', '\u03C4': 't', // Τ/τ → t
+    '\u03A5': 'y', '\u03C5': 'y', // Υ/υ → y
+    '\u03A7': 'x', '\u03C7': 'x', // Χ/χ → x
+    '\u0396': 'z', '\u03B6': 'z', // Ζ/ζ → z
   };
-  normalized = normalized.replace(/[\u0410\u0430\u0412\u0432\u0421\u0441\u0415\u0435\u041D\u043D\u041A\u043A\u041C\u043C\u041E\u043E\u0420\u0440\u0422\u0442\u0425\u0445\u0423\u0443]/g,
-    (ch) => cyrillicMap[ch] || ch);
+  normalized = normalized.replace(/[\u0410\u0430\u0412\u0432\u0421\u0441\u0415\u0435\u041D\u043D\u041A\u043A\u041C\u043C\u041E\u043E\u0420\u0440\u0422\u0442\u0425\u0445\u0423\u0443\u0391\u03B1\u0392\u03B2\u0395\u03B5\u0397\u03B7\u0399\u03B9\u039A\u03BA\u039C\u039D\u03BD\u039F\u03BF\u03A1\u03C1\u03A4\u03C4\u03A5\u03C5\u03A7\u03C7\u0396\u03B6]/g,
+    (ch) => homoglyphMap[ch] || ch);
 
-  // 4. Leet-speak normalization
+  // 5. Leet-speak normalization
   return normalized
     .toLowerCase()
     .replace(/[@]/g, 'a')

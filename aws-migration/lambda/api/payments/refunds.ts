@@ -414,6 +414,8 @@ async function createRefund(
 
     try {
       // Create Stripe refund
+      // SECURITY: Idempotency key prevents duplicate refunds from double-clicks/retries
+      const refundIdempotencyKey = `refund_${paymentId}_${refundAmountCents}_${user.id}`;
       const stripeRefund = await stripe.refunds.create({
         payment_intent: payment.stripe_payment_intent_id,
         amount: refundAmountCents,
@@ -428,7 +430,7 @@ async function createRefund(
         ...(payment.creator_stripe_account && {
           reverse_transfer: true,
         }),
-      });
+      }, { idempotencyKey: refundIdempotencyKey });
 
       // Create refund record
       const refundResult = await client.query(

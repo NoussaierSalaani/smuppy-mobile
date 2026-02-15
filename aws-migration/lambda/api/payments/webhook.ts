@@ -665,7 +665,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (paidSubDetails?.metadata?.subscriptionType === 'channel') {
           const creatorId = paidSubDetails.metadata.creatorId;
           const fanId = paidSubDetails.metadata.fanId;
-          const fanCount = parseInt(paidSubDetails.metadata.creatorFanCount || '0');
+          // SECURITY: Derive fan count from DB, not from client-controlled metadata
+          const fanCountResult = await client.query(
+            'SELECT fan_count FROM profiles WHERE id = $1',
+            [creatorId]
+          );
+          const fanCount = fanCountResult.rows[0]?.fan_count || 0;
 
           const platformFeePercent = calculatePlatformFeePercent(fanCount);
           const totalAmount = invoice.amount_paid;

@@ -237,6 +237,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           }),
         });
       }
+
+      // SECURITY: Verify the peak belongs to the receiver (prevent tip misdirection)
+      if (peakCheck.rows[0].user_id !== receiverId) {
+        return cors({
+          statusCode: 403,
+          body: JSON.stringify({
+            success: false,
+            message: 'Peak does not belong to this creator',
+          }),
+        });
+      }
     }
 
     // Calculate fees (80% creator, 20% platform) — all math in cents first

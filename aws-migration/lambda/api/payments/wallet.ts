@@ -15,6 +15,7 @@ import { getStripeKey } from '../../shared/secrets';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments-wallet');
@@ -60,6 +61,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 20 wallet requests per minute
+    const { allowed } = await checkRateLimit({ prefix: 'wallet', identifier: userId, windowSeconds: 60, maxRequests: 20, failOpen: true });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       };
     }
 

@@ -61,10 +61,14 @@ function maskPII(obj: unknown, depth = 0): unknown {
     // Strip zero-width characters that could be used to evade masking
     let cleaned = obj.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, '');
 
-    // Mask email addresses (multiple patterns)
+    // Mask email addresses — hide both local part and domain to prevent PII leakage
     cleaned = cleaned.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (match) => {
       const atIndex = match.indexOf('@');
-      return match.substring(0, Math.min(2, atIndex)) + '***' + match.substring(atIndex);
+      const localPart = match.substring(0, Math.min(2, atIndex)) + '***';
+      const domain = match.substring(atIndex + 1);
+      const dotIndex = domain.lastIndexOf('.');
+      const maskedDomain = domain.substring(0, Math.min(2, dotIndex)) + '***' + domain.substring(dotIndex);
+      return localPart + '@' + maskedDomain;
     });
 
     // Mask phone numbers (international and local formats)

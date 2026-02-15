@@ -46,7 +46,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth,
       interests, expertise, social_links, business_name, business_category,
       business_address, business_latitude, business_longitude, business_phone,
-      locations_mode, onboarding_completed,
+      locations_mode, onboarding_completed, moderation_status,
       fan_count, following_count, post_count,
       (SELECT COUNT(*) FROM peaks WHERE author_id = profiles.id AND (expires_at IS NULL OR expires_at > NOW() OR saved_to_profile = true)) AS peak_count`;
 
@@ -72,6 +72,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const profile = result.rows[0];
+
+    // SECURITY: Enforce moderation status — banned/suspended profiles are not viewable
+    if (profile.moderation_status === 'banned') {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: 'Profile not found' }),
+      };
+    }
+
+    if (profile.moderation_status === 'suspended') {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'This account has been suspended' }),
+      };
+    }
 
     // Check follow status and resolve current user ID
     let isFollowing = false;

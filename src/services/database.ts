@@ -1441,9 +1441,10 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
 /**
  * Get messages in a conversation
  */
-export const getMessages = async (conversationId: string, _page = 0, limit = 50): Promise<DbResponse<Message[]>> => {
+export const getMessages = async (conversationId: string, _page = 0, limit = 50, markAsRead = false): Promise<DbResponse<Message[]>> => {
   try {
     // Lambda returns { messages: [...], nextCursor, hasMore } with snake_case fields
+    const url = `/conversations/${conversationId}/messages?limit=${limit}${markAsRead ? '&markAsRead=true' : ''}`;
     const result = await awsAPI.request<{ messages: Array<{
       id: string; content: string; media_url?: string; media_type?: string;
       sender_id: string; read: boolean; created_at: string;
@@ -1463,7 +1464,7 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50)
         user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
       }>;
       is_read?: boolean;
-    }> }>(`/conversations/${conversationId}/messages?limit=${limit}`);
+    }> }>(url);
     const messages: Message[] = (result.messages || []).map((m) => ({
       id: m.id,
       conversation_id: conversationId,
@@ -2306,9 +2307,7 @@ export const shareTextToUser = async (text: string, recipientUserId: string): Pr
  */
 export const markConversationAsRead = async (conversationId: string): Promise<{ error: string | null }> => {
   try {
-    // Mark-as-read is handled automatically when fetching messages (GET /conversations/{id}/messages)
-    // No-op here since no dedicated endpoint exists; reading messages triggers the mark-as-read.
-    await awsAPI.request(`/conversations/${conversationId}/messages?limit=1`);
+    await awsAPI.request(`/conversations/${conversationId}/messages?limit=1&markAsRead=true`);
     return { error: null };
   } catch (error: unknown) {
     return { error: getErrorMessage(error) };

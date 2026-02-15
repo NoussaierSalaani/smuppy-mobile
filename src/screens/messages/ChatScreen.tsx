@@ -319,7 +319,7 @@ interface ChatScreenProps {
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const { colors, isDark } = useTheme();
   const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
-  const { conversationId: initialConversationId, otherUser, userId, unreadCount: routeUnreadCount } = route.params;
+  const { conversationId: initialConversationId, otherUser, userId } = route.params;
   const insets = useSafeAreaInsets();
   const { isHidden } = useUserSafetyStore();
 
@@ -464,7 +464,9 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   const loadMessages = useCallback(async () => {
     if (!conversationId) return;
-    const { data, error } = await getMessages(conversationId, 0, 100);
+    // Mark as read on first load only — subsequent polls skip the DB write
+    const shouldMarkRead = !hasMarkedReadRef.current;
+    const { data, error } = await getMessages(conversationId, 0, 100, shouldMarkRead);
     if (!mountedRef.current) return;
     if (error) {
       pollFailCountRef.current = Math.min(pollFailCountRef.current + 1, 5);
@@ -473,14 +475,12 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       pollFailCountRef.current = 0;
       // Clean up optimistic messages that now exist on server
       if (pendingOptimisticIdsRef.current.size > 0) {
-        // Check by content match for optimistic messages
         for (const optId of pendingOptimisticIdsRef.current) {
           const optMsg = messagesRef.current.find(m => m.id === optId);
           if (!optMsg) {
             pendingOptimisticIdsRef.current.delete(optId);
             continue;
           }
-          // If a server message with same content+sender exists within 30s, remove optimistic
           const matched = data.some((m: Message) =>
             m.sender_id === optMsg.sender_id &&
             m.content === optMsg.content &&
@@ -507,19 +507,20 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       if (changed) {
         messagesRef.current = merged;
         setMessages(merged);
-        // Mark as read is handled automatically by the backend when fetching messages.
-        // We only need to update the local unread badge once on first load.
-        if (!hasMarkedReadRef.current) {
-          hasMarkedReadRef.current = true;
-          // Decrement the global unread messages badge
-          if (routeUnreadCount && routeUnreadCount > 0) {
-            useAppStore.getState().setUnreadMessages((prev) => Math.max(0, prev - routeUnreadCount));
+      }
+
+      // Sync badge from DB after marking read — accurate count, no local hack
+      if (!hasMarkedReadRef.current) {
+        hasMarkedReadRef.current = true;
+        getConversations(50).then(({ data: convos }) => {
+          if (convos) {
+            const total = convos.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+            useAppStore.getState().setUnreadMessages(total);
           }
-        }
+        }).catch(() => {});
       }
     }
     setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
   useEffect(() => {

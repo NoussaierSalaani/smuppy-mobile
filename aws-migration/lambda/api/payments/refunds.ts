@@ -141,7 +141,8 @@ async function listRefunds(
 
   let query = `
     SELECT
-      r.*,
+      r.id, r.payment_id, r.stripe_refund_id, r.amount_cents, r.reason,
+      r.status, r.notes, r.created_at, r.processed_at,
       p.stripe_payment_intent_id,
       buyer.username as buyer_username,
       buyer.full_name as buyer_name,
@@ -215,7 +216,8 @@ async function getRefund(
   const stripe = await getStripe();
   const result = await db.query(
     `SELECT
-      r.*,
+      r.id, r.payment_id, r.stripe_refund_id, r.amount_cents, r.reason,
+      r.status, r.notes, r.created_at, r.processed_at,
       p.stripe_payment_intent_id,
       p.buyer_id,
       p.creator_id,

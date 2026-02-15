@@ -42,8 +42,8 @@ const checkRateLimit = async (ip: string): Promise<{ allowed: boolean; retryAfte
     }
     return { allowed: true };
   } catch (error) {
-    log.error('Rate limit check failed', error);
-    return { allowed: true }; // Fail-open for non-sensitive endpoint
+    log.error('Rate limit check failed, blocking request', error);
+    return { allowed: false, retryAfter: 60 }; // Fail-closed to prevent abuse
   }
 };
 

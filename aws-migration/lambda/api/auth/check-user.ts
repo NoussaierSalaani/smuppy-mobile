@@ -167,7 +167,7 @@ export const handler = async (
     const cognitoUsername = generateUsername(normalizedEmail);
 
     log.setRequestId(getRequestId(event));
-    log.info('Checking user', { username: cognitoUsername });
+    log.info('Checking user', { username: cognitoUsername.substring(0, 2) + '***' });
 
     // SECURITY: Anti-enumeration — check user but return same response shape
     // to prevent attackers from determining if an email is registered.
@@ -211,13 +211,13 @@ export const handler = async (
     log.error('CheckUser error', error, { errorName: error instanceof Error ? error.name : String(error) });
 
     // Generic error - allow signup to continue (will fail later if needed)
+    // SECURITY: Use canSignup instead of exists/confirmed to prevent enumeration
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        exists: false,
-        confirmed: false,
+        canSignup: true,
         message: 'Unable to verify. Please continue.',
       }),
     };

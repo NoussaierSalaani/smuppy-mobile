@@ -17,6 +17,7 @@ import { getPool } from '../../shared/db';
 import { checkRateLimit } from '../utils/rate-limit';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { isValidUUID } from '../utils/security';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 
@@ -114,15 +115,26 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
     const profileId = profileLookup.rows[0].id as string;
 
+    // SECURITY: Validate UUID format on creatorId and subscriptionId before use
+    if (body.creatorId && !isValidUUID(body.creatorId)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid creatorId format' }) };
+    }
+    if (body.subscriptionId && !isValidUUID(body.subscriptionId)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid subscriptionId format' }) };
+    }
+
     switch (body.action) {
       case 'subscribe':
-        return await subscribeToChannel(profileId, body.creatorId!, headers);
+        if (!body.creatorId) return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'creatorId is required' }) };
+        return await subscribeToChannel(profileId, body.creatorId, headers);
       case 'cancel':
-        return await cancelChannelSubscription(profileId, body.subscriptionId!, headers);
+        if (!body.subscriptionId) return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'subscriptionId is required' }) };
+        return await cancelChannelSubscription(profileId, body.subscriptionId, headers);
       case 'list-subscriptions':
         return await listMySubscriptions(profileId, headers);
       case 'get-channel-info':
-        return await getChannelInfo(body.creatorId!, headers);
+        if (!body.creatorId) return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'creatorId is required' }) };
+        return await getChannelInfo(body.creatorId, headers);
       case 'set-price':
         return await setChannelPrice(profileId, body.pricePerMonth!, headers);
       case 'get-subscribers':

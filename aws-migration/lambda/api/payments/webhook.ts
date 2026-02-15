@@ -235,13 +235,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           error: paymentIntent.last_payment_error?.message,
         });
 
+        // SECURITY: Sanitize error message before storing — strip sensitive details, limit length
+        const sanitizedErrorMsg = (paymentIntent.last_payment_error?.message || 'Payment failed')
+          .replace(/<[^>]*>/g, '').substring(0, 200);
         await client.query(
           `UPDATE payments
            SET status = 'failed',
                error_message = $2,
                updated_at = NOW()
            WHERE stripe_payment_intent_id = $1`,
-          [paymentIntent.id, paymentIntent.last_payment_error?.message || 'Payment failed']
+          [paymentIntent.id, sanitizedErrorMsg]
         );
         break;
       }
@@ -1020,7 +1023,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                 JSON.stringify({
                   payoutId: payout.id,
                   failureCode: payout.failure_code,
-                  failureMessage: payout.failure_message,
+                  // SECURITY: Sanitize payout failure message before storing
+                  failureMessage: (payout.failure_message || '').replace(/<[^>]*>/g, '').substring(0, 200),
                 }),
               ]
             );

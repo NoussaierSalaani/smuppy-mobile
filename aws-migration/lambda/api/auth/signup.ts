@@ -359,8 +359,8 @@ export const handler = async (
       }
     }
 
-    // Create new user
-    const { userSub } = await createUser(cognitoUsername, email, password, fullName);
+    // Create new user — SECURITY: use normalizedEmail, not raw email
+    const { userSub } = await createUser(cognitoUsername, normalizedEmail, password, fullName);
 
     return {
       statusCode: 200,

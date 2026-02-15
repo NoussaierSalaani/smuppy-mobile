@@ -143,15 +143,11 @@ export const handler = async (
 
     log.setRequestId(getRequestId(event));
 
-    // Look up actual username by email (handles any username format)
-    // Falls back to generated username if lookup fails
-    let cognitoUsername = username;
+    // SECURITY: Always derive username from email lookup — never trust client-supplied username
+    let cognitoUsername = await getUsernameByEmail(email);
     if (!cognitoUsername) {
-      cognitoUsername = await getUsernameByEmail(email);
-      if (!cognitoUsername) {
-        // Fallback to generated username
-        cognitoUsername = generateUsername(email);
-      }
+      // Fallback to generated username if email lookup fails
+      cognitoUsername = username || generateUsername(email);
     }
 
     log.info('Confirming user', { username: cognitoUsername.substring(0, 2) + '***', code: code.substring(0, 2) + '****' });

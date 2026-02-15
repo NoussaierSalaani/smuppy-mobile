@@ -64,8 +64,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Rate limit: 20 wallet requests per minute
-    const { allowed } = await checkRateLimit({ prefix: 'wallet', identifier: userId, windowSeconds: 60, maxRequests: 20, failOpen: true });
+    // Rate limit: 20 wallet requests per minute — fail-closed for financial data
+    const { allowed } = await checkRateLimit({ prefix: 'wallet', identifier: userId, windowSeconds: 60, maxRequests: 20, failOpen: false });
     if (!allowed) {
       return {
         statusCode: 429,

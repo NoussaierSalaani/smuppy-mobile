@@ -7,11 +7,20 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('events-list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
+
+  // Rate limit: 30 requests per minute per IP (unauthenticated) or user
+  const identifier = event.requestContext.authorizer?.claims?.sub ||
+                     event.requestContext.identity?.sourceIp || 'unknown';
+  const { allowed } = await checkRateLimit({ prefix: 'events-list', identifier, maxRequests: 30 });
+  if (!allowed) {
+    return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
+  }
 
   const pool = await getPool();
   const client = await pool.connect();
@@ -32,8 +41,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       offset = '0',
     } = event.queryStringParameters || {};
 
-    const limitNum = Math.min(parseInt(limit), 50);
-    const offsetNum = parseInt(offset);
+    // NaN guard: parseInt can return NaN for non-numeric strings
+    const limitNum = Math.min(parseInt(limit) || 20, 50);
+    const offsetNum = parseInt(offset) || 0;
 
     // Resolve profile ID for authenticated user
     let profileId: string | null = null;

@@ -233,7 +233,7 @@ export const handler = async (
     // Verify Google token
     log.info('Verifying Google token');
     const googlePayload = await verifyGoogleToken(idToken);
-    log.info('Token verified', { googleUserId: googlePayload.sub });
+    log.info('Token verified', { googleUserId: googlePayload.sub.substring(0, 8) + '***' });
 
     // Get or create Cognito user
     const { userId, isNewUser, password } = await getOrCreateCognitoUser(
@@ -241,7 +241,7 @@ export const handler = async (
       googlePayload.email,
       googlePayload.name
     );
-    log.info('User authenticated', { userId, isNewUser });
+    log.info('User authenticated', { userId: userId.substring(0, 10) + '***', isNewUser });
 
     // Get Cognito tokens
     const tokens = await authenticateUser(userId, password);

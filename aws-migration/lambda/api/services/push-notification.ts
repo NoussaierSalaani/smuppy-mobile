@@ -185,7 +185,7 @@ async function sendToAndroid(
     await initializeFirebase();
 
     if (!firebaseInitialized) {
-      log.warn('Firebase not available — Android push skipped', { token: token.substring(0, 20) });
+      log.warn('Firebase not available — Android push skipped', { token: token.substring(0, 8) + '***' });
       return false;
     }
 

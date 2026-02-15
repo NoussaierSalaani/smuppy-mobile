@@ -73,7 +73,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     if (httpMethod === 'GET') {
       // Get all peak replies
-      const limit = parseInt(event.queryStringParameters?.limit || '20');
+      // Cap limit to 50 to prevent excessive queries
+      const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20') || 20, 50);
       const cursor = event.queryStringParameters?.cursor;
 
       let query = `

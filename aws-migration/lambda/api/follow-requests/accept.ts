@@ -102,27 +102,28 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // BUG-2026-02-14: Check bidirectional block before accepting follow request
-    const blockCheck = await db.query(
-      `SELECT 1 FROM blocked_users
-       WHERE (blocker_id = $1 AND blocked_id = $2)
-          OR (blocker_id = $2 AND blocked_id = $1)`,
-      [profileId, request.requester_id]
-    );
-    if (blockCheck.rows.length > 0) {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ message: 'Cannot accept this follow request' }),
-      };
-    }
-
     // Accept the request in a transaction
     // CRITICAL: Use dedicated client for transaction isolation with connection pooling
     const client = await db.connect();
 
     try {
       await client.query('BEGIN');
+
+      // BUG-2026-02-14: Check bidirectional block INSIDE transaction to prevent TOCTOU race
+      const blockCheck = await client.query(
+        `SELECT 1 FROM blocked_users
+         WHERE (blocker_id = $1 AND blocked_id = $2)
+            OR (blocker_id = $2 AND blocked_id = $1)`,
+        [profileId, request.requester_id]
+      );
+      if (blockCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: 'Cannot accept this follow request' }),
+        };
+      }
 
       // Update request status
       await client.query(

@@ -80,10 +80,12 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const isHidden = useUserSafetyStore((s) => s.isHidden);
   const filteredPeaks = useMemo(() => peaks.filter(p => !deletedPeakIds[p.id] && !isHidden(p.user.id)), [peaks, deletedPeakIds, isHidden]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
   const fetchPeaks = useCallback(async (reset = false) => {
+    setLoadError(false);
     try {
       if (__DEV__) {
         console.log('[PeaksFeedScreen] Fetching peaks...', { reset, cursor, userId: user?.id });
@@ -128,7 +130,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         overlays: p.overlays || undefined,
         expiresAt: p.expiresAt || undefined,
         isOwnPeak: (p.author?.id || p.authorId) === user?.id,
-        isViewed: !!(p as unknown as { isViewed?: boolean }).isViewed,
+        isViewed: !!p.isViewed,
       }));
       
       if (__DEV__) {
@@ -140,6 +142,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
       setHasMore(!!response.nextCursor);
     } catch (error) {
       if (__DEV__) console.warn('[PeaksFeedScreen] Failed to fetch peaks:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -335,23 +338,39 @@ const PeaksFeedScreen = (): React.JSX.Element => {
             />
           }
         >
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <Ionicons name="videocam-outline" size={56} color={colors.primary} />
+          {loadError ? (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="cloud-offline-outline" size={56} color={colors.gray} />
+              </View>
+              <Text style={styles.emptyTitle}>Couldn't load peaks</Text>
+              <Text style={styles.emptySubtitle}>
+                Check your connection and try again
+              </Text>
+              <TouchableOpacity style={styles.emptyButton} onPress={onRefresh}>
+                <Ionicons name="refresh" size={22} color={colors.white} />
+                <Text style={styles.emptyButtonText}>Retry</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.emptyTitle}>No Peaks yet</Text>
-            <Text style={styles.emptySubtitle}>
-              {isBusiness
-                ? 'Peaks are a creator feature. Switch to a Creator account to start sharing.'
-                : 'Peaks are short videos from 6 to 60 seconds to share your fitness moments'}
-            </Text>
-            {!isBusiness && (
-            <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
-              <Ionicons name="add-circle" size={22} color={colors.white} />
-              <Text style={styles.emptyButtonText}>Create my first Peak</Text>
-            </TouchableOpacity>
-            )}
-          </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="videocam-outline" size={56} color={colors.primary} />
+              </View>
+              <Text style={styles.emptyTitle}>No Peaks yet</Text>
+              <Text style={styles.emptySubtitle}>
+                {isBusiness
+                  ? 'Peaks are a creator feature. Switch to a Creator account to start sharing.'
+                  : 'Peaks are short videos from 6 to 60 seconds to share your fitness moments'}
+              </Text>
+              {!isBusiness && (
+              <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePeak}>
+                <Ionicons name="add-circle" size={22} color={colors.white} />
+                <Text style={styles.emptyButtonText}>Create my first Peak</Text>
+              </TouchableOpacity>
+              )}
+            </View>
+          )}
         </ScrollView>
       ) : (
         /* Grid */

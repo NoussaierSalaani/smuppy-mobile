@@ -2,6 +2,10 @@
 // SMUPPY - DATABASE SERVICES
 // Frontend <-> AWS Backend connection
 // ============================================
+//
+// RULE: Do NOT gate API calls with getCurrentUser().
+// awsAPI.request() handles auth internally (token + 401 retry).
+// Only use getCurrentUser() when user.id is needed in request body/response.
 
 import { awsAuth } from './aws-auth';
 import { awsAPI, Profile as AWSProfile, Post as AWSPost, Comment as AWSComment, Peak as AWSPeak, Notification as AWSNotification } from './aws-api';
@@ -476,9 +480,6 @@ export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag:
  * Get suggested profiles (for discovery/explore)
  */
 export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbResponse<Profile[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: [], error: 'Not authenticated' };
-
   try {
     // Try suggested endpoint first with pagination
     const result = await awsAPI.request<{ profiles?: AWSProfile[]; data?: AWSProfile[] }>(`/profiles/suggested?limit=${limit}&offset=${offset}`);
@@ -489,8 +490,8 @@ export const getSuggestedProfiles = async (limit = 10, offset = 0): Promise<DbRe
     try {
       const profiles = await awsAPI.searchProfiles('', limit);
       return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
-    } catch {
-      return { data: [], error: null };
+    } catch (innerError: unknown) {
+      return { data: [], error: getErrorMessage(innerError) };
     }
   }
 };
@@ -551,9 +552,6 @@ export const getFeedPosts = async (_page = 0, limit = 10): Promise<DbResponse<Po
  * Get optimized feed with likes/saves status included
  */
 export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[] }>(`/feed/optimized?limit=${limit}&page=${page}`);
     const posts: PostWithStatus[] = result.data.map((p: AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean }) => ({
@@ -595,9 +593,6 @@ export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: n
   hasMore: boolean;
   error: string | null;
 }> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, nextCursor: null, hasMore: false, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.getPosts({
       type: 'following',
@@ -619,9 +614,6 @@ export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: n
  * Get optimized FanFeed with likes/saves status included
  */
 export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[] }>(`/feed/following?limit=${limit}&page=${page}`);
     const posts: PostWithStatus[] = result.data.map((p: AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean }) => ({
@@ -874,9 +866,6 @@ export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string,
  * Get user's saved posts (collections)
  */
 export const getSavedPosts = async (page = 0, limit = 20): Promise<DbResponse<Post[]>> => {
-  const user = await awsAuth.getCurrentUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
-
   try {
     const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/saved?limit=${limit}&page=${page}`);
     return { data: result.data.map(convertPost), error: null };

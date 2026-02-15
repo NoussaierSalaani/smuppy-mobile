@@ -94,6 +94,7 @@ export interface Peak {
   expiresAt: string | null;
   savedToProfile: boolean | null;
   isLiked?: boolean;
+  isViewed?: boolean;
   author: Profile;
   challenge: PeakChallenge | null;
 }

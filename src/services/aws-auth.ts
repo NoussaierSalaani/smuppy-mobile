@@ -642,7 +642,9 @@ class AWSAuthService {
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Access token expired, refreshing...');
       const refreshed = await this.refreshSessionOnce();
       if (!refreshed) {
-        return null;
+        // Network error: tokens still in memory → return stale, let server decide.
+        // Auth error: clearSession() already nullified this.accessToken → returns null.
+        return this.accessToken;
       }
     }
     return this.accessToken;
@@ -660,9 +662,9 @@ class AWSAuthService {
       if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] ID token expired, refreshing...');
       const refreshed = await this.refreshSessionOnce();
       if (!refreshed) {
-        // Refresh failed — return null instead of stale expired token.
-        // Callers must handle null (skip auth header or show login).
-        return null;
+        // Network error: tokens still in memory → return stale, let server decide.
+        // Auth error: clearSession() already nullified this.idToken → returns null.
+        return this.idToken;
       }
     }
     return this.idToken;

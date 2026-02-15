@@ -2366,9 +2366,11 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
     }
 
     // Step 2: Get presigned URL (after file validation passes)
+    // Send fileSize so the backend enforces ContentLength in the presigned URL
+    const voiceFileSize = ('size' in fileCheckResult && typeof fileCheckResult.size === 'number') ? fileCheckResult.size : undefined;
     const presignedResult = await awsAPI.request<{ url: string; key: string; cdnUrl?: string; fileUrl?: string }>('/media/upload-voice', {
       method: 'POST',
-      body: { conversationId },
+      body: { conversationId, fileSize: voiceFileSize },
     });
 
     // Step 2: Upload the audio file to S3 (retry up to 3 times with backoff)

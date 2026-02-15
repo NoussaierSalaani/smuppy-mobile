@@ -21,6 +21,7 @@ export const PRESIGNED_URL_EXPIRY_SECONDS = 300; // 5 minutes
 export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;   // 10 MB
 export const MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024;   // 100 MB
 export const MAX_AUDIO_SIZE_BYTES = 20 * 1024 * 1024;    // 20 MB
+export const MAX_VOICE_SIZE_BYTES = 5 * 1024 * 1024;     // 5 MB
 
 // ── Text Length Limits ────────────────────────────────────────────────
 export const MAX_MESSAGE_LENGTH = 5000;

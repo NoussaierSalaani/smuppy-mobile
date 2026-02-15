@@ -31,6 +31,7 @@ interface OptimizedListProps<T> {
   showsHorizontalScrollIndicator?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
   drawDistance?: number;
+  estimatedItemSize?: number;
 }
 
 interface FeedListProps<T> {
@@ -209,6 +210,7 @@ function FeedListInner<T extends ItemWithId>(
       refreshing={refreshing}
       isLoadingMore={isLoadingMore}
       ListHeaderComponent={ListHeaderComponent}
+      estimatedItemSize={500}
       emptyText="No posts yet"
       {...props}
     />
@@ -243,6 +245,7 @@ function UserListInner<T extends ItemWithId>(
       onRefresh={onRefresh}
       refreshing={refreshing}
       isLoadingMore={isLoadingMore}
+      estimatedItemSize={72}
       emptyText="No users found"
       {...props}
     />
@@ -275,6 +278,7 @@ function CommentListInner<T extends ItemWithId>(
       onEndReached={onLoadMore}
       isLoadingMore={isLoadingMore}
       ListHeaderComponent={ListHeaderComponent}
+      estimatedItemSize={100}
       emptyText="No comments yet. Be the first!"
       {...props}
     />
@@ -308,6 +312,7 @@ function GridListInner<T extends ItemWithId>(
       numColumns={numColumns}
       onEndReached={onLoadMore}
       isLoadingMore={isLoadingMore}
+      estimatedItemSize={200}
       contentContainerStyle={{ padding: spacing }}
       {...props}
     />

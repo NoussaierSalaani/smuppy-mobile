@@ -20,7 +20,7 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { randomUUID } from 'crypto';
-import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS, MAX_VOICE_MESSAGE_SECONDS } from '../utils/constants';
+import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS, MAX_VOICE_MESSAGE_SECONDS, MAX_VOICE_SIZE_BYTES } from '../utils/constants';
 
 const log = createLogger('media-upload-voice');
 
@@ -57,6 +57,7 @@ const CDN_DOMAIN = getValidatedCdnDomain();
 interface VoiceUploadRequest {
   conversationId: string;
   duration?: number;
+  fileSize?: number;
 }
 
 export async function handler(
@@ -100,7 +101,25 @@ export async function handler(
     } catch {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) };
     }
-    const { conversationId, duration } = request;
+    const { conversationId, duration, fileSize } = request;
+
+    // SECURITY: Validate fileSize to enforce ContentLength in presigned URL
+    if (fileSize !== undefined) {
+      if (typeof fileSize !== 'number' || fileSize <= 0) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, message: 'fileSize must be a positive number' }),
+        };
+      }
+      if (fileSize > MAX_VOICE_SIZE_BYTES) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, message: `Voice message too large (max ${MAX_VOICE_SIZE_BYTES / (1024 * 1024)} MB)` }),
+        };
+      }
+    }
 
     if (!conversationId || typeof conversationId !== 'string') {
       return {
@@ -164,12 +183,12 @@ export async function handler(
     const key = `voice-messages/${profileId}/${conversationId}/${fileId}.m4a`;
 
     // Create presigned URL
-    // NOTE: PutObject presigned URLs cannot enforce max ContentLength (only exact match).
-    // Max upload size should be enforced via S3 bucket policy or Lambda@Edge.
+    // ContentLength is enforced when provided — S3 rejects uploads with mismatched Content-Length
     const command = new PutObjectCommand({
       Bucket: MEDIA_BUCKET,
       Key: key,
       ContentType: 'audio/mp4',
+      ...(fileSize ? { ContentLength: fileSize } : {}),
       ContentDisposition: 'inline',
       CacheControl: 'public, max-age=31536000',
       Metadata: {

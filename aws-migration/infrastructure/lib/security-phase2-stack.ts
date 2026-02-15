@@ -6,6 +6,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -482,6 +483,28 @@ def handler(event, context):
       resources: [`${mediaBucket.bucketArn}/*`],
     }));
 
+    // Dead Letter Queue for failed scan events — prevents silent loss of unscanned files
+    const scanDlq = new sqs.Queue(this, 'ScanDeadLetterQueue', {
+      queueName: `smuppy-scan-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
+
+    const scanDlqAlarm = new cdk.aws_cloudwatch.Alarm(this, 'ScanDLQAlarm', {
+      alarmName: `smuppy-scan-dlq-depth-${environment}`,
+      alarmDescription: 'Failed scan events accumulating — files may be unscanned',
+      metric: scanDlq.metricApproximateNumberOfMessagesVisible(),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cdk.aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    scanDlqAlarm.addAlarmAction({
+      bind: () => ({
+        alarmActionArn: this.securityAlertsTopic.topicArn,
+      }),
+    });
+
     // Use EventBridge to trigger virus scan (avoids cyclic dependency)
     // S3 must have EventBridge notifications enabled
     const virusScanRule = new events.Rule(this, 'VirusScanRule', {
@@ -500,6 +523,8 @@ def handler(event, context):
               { prefix: 'posts/' },
               { prefix: 'peaks/' },
               { prefix: 'users/' },
+              { prefix: 'private/' },
+              { prefix: 'voice-messages/' },
             ],
           },
         },
@@ -508,6 +533,7 @@ def handler(event, context):
 
     virusScanRule.addTarget(new targets.LambdaFunction(this.virusScanFunction, {
       retryAttempts: 2,
+      deadLetterQueue: scanDlq,
     }));
 
     // ========================================
@@ -559,10 +585,10 @@ def handler(event, context):
     // Grant SNS publish for alerts
     this.securityAlertsTopic.grantPublish(this.imageModerationFunction);
 
-    // EventBridge rule: trigger on image uploads to media bucket
+    // EventBridge rule: trigger on media uploads to media bucket (images + videos)
     const imageModerationRule = new events.Rule(this, 'ImageModerationRule', {
       ruleName: `smuppy-image-moderation-trigger-${environment}`,
-      description: 'Trigger Rekognition moderation on image uploads',
+      description: 'Trigger Rekognition moderation on media uploads',
       eventPattern: {
         source: ['aws.s3'],
         detailType: ['Object Created'],
@@ -576,6 +602,7 @@ def handler(event, context):
               { prefix: 'posts/' },
               { prefix: 'peaks/' },
               { prefix: 'users/' },
+              { prefix: 'private/' },
             ],
           },
         },
@@ -584,6 +611,7 @@ def handler(event, context):
 
     imageModerationRule.addTarget(new targets.LambdaFunction(this.imageModerationFunction, {
       retryAttempts: 2,
+      deadLetterQueue: scanDlq,
     }));
 
     // ========================================

@@ -26,6 +26,9 @@ const SECURITY_ALERTS_TOPIC_ARN = process.env.SECURITY_ALERTS_TOPIC_ARN || '';
 // Image extensions we should analyze
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic']);
 
+// Video extensions — tag for moderation review (Rekognition DetectModerationLabels is image-only)
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.webm', '.m4v']);
+
 interface EventBridgeS3Event {
   detail: {
     bucket: { name: string };
@@ -38,21 +41,35 @@ export async function handler(event: EventBridgeS3Event): Promise<void> {
   const objectKey = event.detail.object.key;
   const fileSize = event.detail.object.size;
 
-  // Only analyze image files
   const extension = objectKey.substring(objectKey.lastIndexOf('.')).toLowerCase();
-  if (!IMAGE_EXTENSIONS.has(extension)) {
-    log.info('Skipping non-image file', { objectKey, extension });
-    return;
-  }
+  const isImage = IMAGE_EXTENSIONS.has(extension);
+  const isVideo = VIDEO_EXTENSIONS.has(extension);
 
-  // Skip files that are too large for Rekognition (max 15 MB via S3)
-  if (fileSize > 15 * 1024 * 1024) {
-    log.info('Skipping oversized image', { objectKey, fileSize });
+  // Skip non-media files (virus scanner handles these separately)
+  if (!isImage && !isVideo) {
+    log.info('Skipping non-media file', { objectKey, extension });
     return;
   }
 
   // Skip quarantine bucket objects
   if (objectKey.startsWith('quarantine/')) {
+    return;
+  }
+
+  // Videos: tag for manual moderation review
+  // Rekognition DetectModerationLabels is image-only; async video pipeline (StartContentModeration) planned
+  if (isVideo) {
+    log.info('Video detected, tagging for moderation review', { objectKey, fileSize });
+    await tagObject(bucketName, objectKey, 'video_pending_moderation');
+    await sendAlert('FLAG', objectKey, [{ Name: 'Video-Unscanned', Confidence: 0 }], 0);
+    return;
+  }
+
+  // Oversized images: tag for manual review instead of silently skipping
+  // Rekognition max is 15 MB when referencing an S3 object
+  if (fileSize > 15 * 1024 * 1024) {
+    log.info('Oversized image, tagging for manual review', { objectKey, fileSize });
+    await tagObject(bucketName, objectKey, 'oversized_pending_review');
     return;
   }
 

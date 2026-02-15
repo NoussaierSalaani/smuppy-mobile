@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, StatusBar, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { View, StyleSheet, ScrollView, Dimensions, StatusBar, NativeSyntheticEvent, NativeScrollEvent, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeHeader from '../../components/HomeHeader';
@@ -8,7 +8,9 @@ import { useTheme } from '../../hooks/useTheme';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import FanFeed from './FanFeed';
 import VibesFeed from './VibesFeed';
-import XplorerFeed from './XplorerFeed';
+
+// Lazy-load XplorerFeed to defer @rnmapbox/maps module evaluation (~100-300ms saved)
+const XplorerFeed = React.lazy(() => import('./XplorerFeed'));
 
 const { width } = Dimensions.get('window');
 const TABS = ['Fan', 'Vibes', 'Xplorer'] as const;
@@ -57,15 +59,15 @@ export default function FeedScreen() {
     setVisitedTabs(prev => new Set([...prev, activeTab]));
   }, [activeTab, setBottomBarHidden]);
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / width);
     if (index !== activeTab && index >= 0 && index < TABS.length) {
       setActiveTab(index);
     }
-  };
+  }, [activeTab]);
 
-  const handleTabChange = (tabName: string) => {
+  const handleTabChange = useCallback((tabName: string) => {
     const index = TABS.indexOf(tabName as typeof TABS[number]);
     if (index === -1) return;
 
@@ -86,7 +88,7 @@ export default function FeedScreen() {
       scrollRef.current.scrollTo({ x: index * width, animated: true });
       setActiveTab(index);
     }
-  };
+  }, [activeTab, showBars]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -119,11 +121,13 @@ export default function FeedScreen() {
           )}
         </View>
 
-        {/* Xplorer - lazy loaded when visited */}
+        {/* Xplorer - lazy loaded when visited (defers @rnmapbox/maps eval) */}
         <View style={styles.page}>
           {visitedTabs.has(2) ? (
             <ErrorBoundary name="XplorerFeed" minimal>
-              <XplorerFeed navigation={navigation} isActive={activeTab === 2} />
+              <Suspense fallback={<View style={[styles.placeholder, { backgroundColor: colors.background }]}><ActivityIndicator color={colors.primary} /></View>}>
+                <XplorerFeed navigation={navigation} isActive={activeTab === 2} />
+              </Suspense>
             </ErrorBoundary>
           ) : (
             <View style={[styles.placeholder, { backgroundColor: colors.background }]} />

@@ -14,6 +14,8 @@ interface UseImagePreloadOptions {
  * Preload images when component mounts
  * Useful for preloading images before navigation
  */
+const MAX_PRELOADED_URLS = 200;
+
 export const useImagePreload = (
   imageUrls: (string | undefined | null)[],
   options: UseImagePreloadOptions = {}
@@ -32,6 +34,12 @@ export const useImagePreload = (
       // Skip if already preloaded
       if (preloadedRef.current.has(url)) return;
 
+      // Cap the set to prevent unbounded memory growth
+      if (preloadedRef.current.size >= MAX_PRELOADED_URLS) {
+        const firstKey = preloadedRef.current.values().next().value;
+        if (firstKey) preloadedRef.current.delete(firstKey);
+      }
+
       // Mark as preloaded
       preloadedRef.current.add(url);
 
@@ -40,6 +48,11 @@ export const useImagePreload = (
         // Silently fail - preload is optional optimization
       });
     });
+
+    const currentSet = preloadedRef.current;
+    return () => {
+      currentSet.clear();
+    };
   }, [imageUrls, enabled]);
 };
 

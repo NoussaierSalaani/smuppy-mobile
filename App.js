@@ -18,7 +18,8 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 import { queryClient, restoreQueryCache, persistQueryCache } from './src/lib/queryClient';
 import { initSentry, setUserContext } from './src/lib/sentry';
 import { rateLimiter } from './src/utils/rateLimiter';
-import { useUserStore, useAppStore } from './src/stores';
+import { useUserStore } from './src/stores/userStore';
+import { useAppStore } from './src/stores/appStore';
 
 // Push Notifications
 import { initializeNotifications, registerPushToken, clearBadge } from './src/services/notifications';
@@ -137,13 +138,12 @@ export default function App() {
         if (__DEV__) console.warn('[Sentry] init failed:', e);
       }
 
-      // Initialize Mapbox lazily — deferred to reduce cold start time
-      try {
-        const Mapbox = require('@rnmapbox/maps').default;
-        Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
-      } catch (e) {
+      // Initialize Mapbox lazily — async dynamic import to avoid blocking JS thread
+      import('@rnmapbox/maps').then((module) => {
+        module.default.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
+      }).catch((e) => {
         if (__DEV__) console.warn('[Mapbox] init failed:', e);
-      }
+      });
 
       try {
         // Run independent init tasks in parallel for faster startup

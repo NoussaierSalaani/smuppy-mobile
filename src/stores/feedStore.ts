@@ -93,7 +93,7 @@ export const useFeedStore = create<FeedState>()(
 
     prependToFeed: (newPost: Post) =>
       set((state) => {
-        state.feedCache = [newPost, ...state.feedCache];
+        state.feedCache = [newPost, ...state.feedCache].slice(0, MAX_FEED_CACHE);
       }),
 
     removeFromFeed: (postId: string) =>

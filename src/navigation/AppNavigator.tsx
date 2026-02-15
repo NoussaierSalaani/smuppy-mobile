@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, StyleSheet, StatusBar } from 'react-native';
@@ -9,8 +9,10 @@ import { awsAuth } from '../services/aws-auth';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import { getCurrentProfile } from '../services/database';
 import { registerDeviceSession } from '../services/deviceSession';
-import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+
+// Lazy-load AuthNavigator to avoid evaluating 20 auth screen modules for logged-in users (~100-400ms saved)
+const AuthNavigator = React.lazy(() => import('./AuthNavigator'));
 import EmailVerificationPendingScreen from '../screens/auth/EmailVerificationPendingScreen';
 import AccountSuspendedScreen from '../screens/moderation/AccountSuspendedScreen';
 import AccountBannedScreen from '../screens/moderation/AccountBannedScreen';
@@ -339,10 +341,13 @@ export default function AppNavigator(): React.JSX.Element {
                 }}
               >
                 {showAuth && (
-                  <RootStack.Screen
-                    name="Auth"
-                    component={AuthNavigator}
-                  />
+                  <RootStack.Screen name="Auth">
+                    {() => (
+                      <Suspense fallback={<View style={{ flex: 1, backgroundColor: colors.background }} />}>
+                        <AuthNavigator />
+                      </Suspense>
+                    )}
+                  </RootStack.Screen>
                 )}
 
                 {showEmailPending && (

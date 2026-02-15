@@ -25,6 +25,12 @@ config.server = {
   },
 };
 
+// Inline requires: defer module evaluation to first use (reduces cold start 200-500ms)
+config.transformer = {
+  ...config.transformer,
+  inlineRequires: true,
+};
+
 // Asset resolution + tree-shaking via package.json exports fields
 config.resolver = {
   ...config.resolver,

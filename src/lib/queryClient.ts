@@ -3,12 +3,31 @@
  * Optimized for 2M+ users with caching, offline support, and retry logic
  */
 
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, onlineManager, focusManager } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { AppState, Platform } from 'react-native';
 
 // Cache keys for persistence
 const QUERY_CACHE_KEY = '@smuppy_query_cache';
+const MAX_PERSISTED_QUERIES = 50;
+
+// Integrate onlineManager with NetInfo so networkMode: 'offlineFirst' works correctly
+onlineManager.setEventListener((setOnline) => {
+  return NetInfo.addEventListener((state) => {
+    setOnline(!!state.isConnected);
+  });
+});
+
+// Integrate focusManager with AppState so refetchOnReconnect works on app foreground
+focusManager.setEventListener((setFocused) => {
+  const subscription = AppState.addEventListener('change', (status) => {
+    if (Platform.OS !== 'web') {
+      setFocused(status === 'active');
+    }
+  });
+  return () => subscription.remove();
+});
 
 /**
  * Custom retry function with exponential backoff
@@ -68,6 +87,8 @@ export const persistQueryCache = async () => {
     const cache = queryClient.getQueryCache().getAll();
     const serializableCache = cache
       .filter((query) => query.state.data !== undefined)
+      .sort((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)
+      .slice(0, MAX_PERSISTED_QUERIES)
       .map((query) => ({
         queryKey: query.queryKey,
         data: query.state.data,

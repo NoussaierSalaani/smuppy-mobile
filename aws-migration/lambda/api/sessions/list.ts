@@ -6,6 +6,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('sessions-list');
 
@@ -21,6 +22,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers: corsHeaders,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
+  }
+
+  const { allowed } = await checkRateLimit({ prefix: 'sessions-list', identifier: cognitoSub, maxRequests: 30 });
+  if (!allowed) {
+    return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
   }
 
   try {
@@ -81,6 +87,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     query += ` ORDER BY s.scheduled_at ${status === 'past' ? 'DESC' : 'ASC'}`;
+    query += ` LIMIT 100`;
 
     const result = await pool.query(query, params);
 

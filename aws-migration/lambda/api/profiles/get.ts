@@ -89,6 +89,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       isOwner = resolvedUserId === profile.id;
 
       if (resolvedUserId && !isOwner) {
+        // SECURITY: Check if either user has blocked the other
+        const blockCheck = await db.query(
+          `SELECT 1 FROM blocked_users
+           WHERE (blocker_id = $1 AND blocked_id = $2)
+              OR (blocker_id = $2 AND blocked_id = $1)
+           LIMIT 1`,
+          [resolvedUserId, profile.id]
+        );
+        if (blockCheck.rows.length > 0) {
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ message: 'Profile not found' }),
+          };
+        }
+
         // Query actual follow rows instead of EXISTS() to avoid boolean conversion issues
         const followResult = await db.query(
           `SELECT status, follower_id, following_id FROM follows

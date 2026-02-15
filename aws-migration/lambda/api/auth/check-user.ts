@@ -169,94 +169,43 @@ export const handler = async (
     log.setRequestId(getRequestId(event));
     log.info('Checking user', { username: cognitoUsername });
 
-    // FIRST: Check by email attribute (catches legacy accounts with different username formats)
+    // SECURITY: Anti-enumeration — check user but return same response shape
+    // to prevent attackers from determining if an email is registered.
     const emailCheck = await checkUserByEmail(normalizedEmail);
 
-    if (emailCheck.exists) {
-      log.info('User found by email', { confirmed: emailCheck.confirmed, username: emailCheck.username });
+    let isConfirmed = emailCheck.confirmed;
 
-      if (emailCheck.confirmed) {
-        // User exists and is confirmed - generic message (anti-enumeration)
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            success: true,
-            exists: true,
-            confirmed: true,
-            message: 'Unable to proceed.',
-          }),
-        };
-      } else {
-        // User exists but not confirmed - allow signup (will delete and recreate)
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            success: true,
-            exists: true,
-            confirmed: false,
-            message: 'OK',
-          }),
-        };
+    if (!emailCheck.exists) {
+      // Fallback: check by generated username (legacy accounts)
+      try {
+        const user = await cognitoClient.send(
+          new AdminGetUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: cognitoUsername,
+          })
+        );
+        isConfirmed = user.UserStatus === 'CONFIRMED';
+      } catch (error) {
+        if (!(error instanceof UserNotFoundException)) throw error;
       }
     }
 
-    // SECOND: Also check by generated username (fallback)
-    try {
-      const user = await cognitoClient.send(
-        new AdminGetUserCommand({
-          UserPoolId: USER_POOL_ID,
-          Username: cognitoUsername,
-        })
-      );
+    // ANTI-ENUMERATION: Response never reveals exists/confirmed booleans.
+    // confirmed=true → "proceed to login" (canSignup=false)
+    // confirmed=false or not found → "proceed to signup" (canSignup=true)
+    const canSignup = !isConfirmed;
 
-      // User exists - check if confirmed
-      const isConfirmed = user.UserStatus === 'CONFIRMED';
+    log.info('Check user result', { canSignup });
 
-      log.info('User found by username', { confirmed: isConfirmed });
-
-      if (isConfirmed) {
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            success: true,
-            exists: true,
-            confirmed: true,
-            message: 'Unable to proceed.',
-          }),
-        };
-      } else {
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            success: true,
-            exists: true,
-            confirmed: false,
-            message: 'OK',
-          }),
-        };
-      }
-
-    } catch (error) {
-      if (error instanceof UserNotFoundException) {
-        // User doesn't exist by username either - can proceed with signup
-        log.info('User not found, can proceed');
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            success: true,
-            exists: false,
-            confirmed: false,
-            message: 'OK',
-          }),
-        };
-      }
-      throw error;
-    }
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        canSignup,
+        message: canSignup ? 'OK' : 'Unable to proceed.',
+      }),
+    };
 
   } catch (error: unknown) {
     log.error('CheckUser error', error, { errorName: error instanceof Error ? error.name : String(error) });

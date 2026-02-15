@@ -7,6 +7,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
@@ -22,6 +23,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
       return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
+    }
+
+    // Rate limit: 5 stream starts per hour (prevents abuse)
+    const { allowed } = await checkRateLimit({
+      prefix: 'live-stream-start',
+      identifier: cognitoSub,
+      windowSeconds: 3600,
+      maxRequests: 5,
+    });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many live streams started. Please try again later.' }) };
     }
 
     // Account status check (suspended/banned users cannot go live)

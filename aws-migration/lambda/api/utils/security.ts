@@ -123,25 +123,43 @@ export function checkRateLimit(
 
 /**
  * Extract Cognito sub from API Gateway event.
- * Prefers the authorizer claims (when a Cognito authorizer is attached),
- * but falls back to decoding the JWT from the Authorization header
- * (for routes without a Cognito authorizer).
+ * SECURITY: Only trusts the Cognito authorizer claims (verified by API Gateway).
+ * Never decodes JWT manually — unverified tokens allow impersonation.
  */
 export function extractCognitoSub(event: APIGatewayProxyEvent): string | undefined {
-  const fromAuthorizer = event.requestContext.authorizer?.claims?.sub;
-  if (fromAuthorizer) return fromAuthorizer;
+  return event.requestContext.authorizer?.claims?.sub;
+}
 
-  const authHeader = event.headers?.Authorization || event.headers?.authorization;
-  if (!authHeader) return undefined;
+/**
+ * SECURITY: Reserved usernames that cannot be claimed by users.
+ * Prevents brand impersonation, social engineering, and confusion.
+ */
+const RESERVED_USERNAMES = new Set([
+  // Brand / platform
+  'smuppy', 'smuppyapp', 'smuppy_app', 'smuppyofficial', 'smuppy_official',
+  'admin', 'administrator', 'mod', 'moderator', 'moderation',
+  'support', 'help', 'helpdesk', 'customer_support', 'customersupport',
+  'official', 'verified', 'team', 'staff', 'employee',
+  // System / technical
+  'system', 'bot', 'automod', 'noreply', 'no_reply', 'mailer',
+  'security', 'abuse', 'report', 'reports', 'legal', 'compliance',
+  'api', 'dev', 'developer', 'root', 'superuser', 'sysadmin',
+  'null', 'undefined', 'void', 'test', 'testing', 'debug',
+  // Common impersonation targets
+  'ceo', 'cto', 'cfo', 'founder', 'cofounder', 'co_founder',
+  'press', 'media', 'news', 'info', 'contact', 'feedback',
+  'billing', 'payments', 'finance', 'sales', 'marketing',
+  // Safety
+  'everyone', 'all', 'here', 'channel', 'announcement', 'announcements',
+  'notification', 'notifications', 'alert', 'alerts',
+  'delete', 'deleted', 'removed', 'banned', 'suspended',
+]);
 
-  try {
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
-    return payload.sub;
-  } catch {
-    log.warn('Failed to decode JWT from Authorization header');
-    return undefined;
-  }
+/**
+ * SECURITY: Check if a username is reserved (case-insensitive).
+ */
+export function isReservedUsername(username: string): boolean {
+  return RESERVED_USERNAMES.has(username.toLowerCase());
 }
 
 /**

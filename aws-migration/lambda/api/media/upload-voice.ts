@@ -115,11 +115,13 @@ export async function handler(
       };
     }
 
-    if (duration !== undefined && (typeof duration !== 'number' || duration < 0 || duration > 600)) {
+    // BUG-2026-02-14: Align max duration with frontend (300s) and send-message.ts validation
+    if (duration !== undefined && (typeof duration !== 'number' || duration < 0 || duration > 300)) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid duration: must be between 0 and 600 seconds' }),
+        // BUG-2026-02-14: Align with frontend MAX_DURATION_SECONDS=300 and send-message.ts validation
+        body: JSON.stringify({ error: 'Invalid duration: must be between 0 and 300 seconds' }),
       };
     }
 

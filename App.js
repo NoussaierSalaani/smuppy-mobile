@@ -26,8 +26,7 @@ import { initializeNotifications, registerPushToken, clearBadge, addNotification
 // Backend Services
 import { initializeBackend } from './src/services/backend';
 
-// Map
-import Mapbox from '@rnmapbox/maps';
+// Map — lazy-loaded to reduce cold start time
 import { ENV } from './src/config/env';
 
 // UI Components
@@ -160,8 +159,9 @@ export default function App() {
         if (__DEV__) console.warn('[Sentry] init failed:', e);
       }
 
-      // Initialize Mapbox globally before any map component renders
+      // Initialize Mapbox lazily — deferred to reduce cold start time
       try {
+        const Mapbox = require('@rnmapbox/maps').default;
         Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
       } catch (e) {
         if (__DEV__) console.warn('[Mapbox] init failed:', e);
@@ -186,8 +186,9 @@ export default function App() {
           rateLimiter.init(),
           initializeNotifications(),
           initializeBackend(),
-          restoreQueryCache().catch(() => {}),
         ]);
+        // Restore query cache after TTI (non-blocking) to reduce cold start
+        restoreQueryCache().catch(() => {});
       } catch (error) {
         if (__DEV__) console.error('Error initializing app:', error);
       } finally {

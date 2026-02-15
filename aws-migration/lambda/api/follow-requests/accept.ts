@@ -101,6 +101,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // BUG-2026-02-14: Check bidirectional block before accepting follow request
+    const blockCheck = await db.query(
+      `SELECT 1 FROM blocked_users
+       WHERE (blocker_id = $1 AND blocked_id = $2)
+          OR (blocker_id = $2 AND blocked_id = $1)`,
+      [profileId, request.requester_id]
+    );
+    if (blockCheck.rows.length > 0) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Cannot accept this follow request' }),
+      };
+    }
+
     // Accept the request in a transaction
     // CRITICAL: Use dedicated client for transaction isolation with connection pooling
     const client = await db.connect();
@@ -133,12 +148,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const accepterRow = accepterResult.rows[0];
       const accepterName = accepterRow?.display_name || 'Someone';
 
-      // Create notification for the requester
-      await client.query(
-        `INSERT INTO notifications (user_id, type, title, body, data, created_at)
-         VALUES ($1, 'follow_accepted', 'Follow Request Accepted', $2, $3, NOW())`,
-        [request.requester_id, `${accepterName} accepted your follow request`, JSON.stringify({ senderId: profileId })]
+      // Create notification for the requester (dedup: 24h window)
+      const notifData = JSON.stringify({ senderId: profileId });
+      const existingNotif = await client.query(
+        `SELECT 1 FROM notifications
+         WHERE user_id = $1 AND type = 'follow_accepted' AND data = $2::jsonb
+           AND created_at > NOW() - INTERVAL '24 hours'
+         LIMIT 1`,
+        [request.requester_id, notifData]
       );
+      if (existingNotif.rows.length === 0) {
+        await client.query(
+          `INSERT INTO notifications (user_id, type, title, body, data, created_at)
+           VALUES ($1, 'follow_accepted', 'Follow Request Accepted', $2, $3, NOW())`,
+          [request.requester_id, `${accepterName} accepted your follow request`, notifData]
+        );
+      }
 
       await client.query('COMMIT');
 

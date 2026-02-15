@@ -379,6 +379,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             break;
           }
 
+          // BUG-2026-02-14: Verify payment was actually collected before upgrading account
+          if (session.payment_status !== 'paid') {
+            log.warn('Platform subscription checkout completed but payment not collected', {
+              userId: userId?.substring(0, 8) + '***',
+              paymentStatus: session.payment_status,
+            });
+            break;
+          }
+
           await client.query(
             `INSERT INTO platform_subscriptions (
                user_id, stripe_subscription_id, plan_type, status, created_at

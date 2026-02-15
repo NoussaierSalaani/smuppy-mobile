@@ -9,6 +9,8 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as path from 'path';
@@ -30,6 +32,7 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   adminLogGroup: logs.ILogGroup;
   authLogGroup: logs.ILogGroup;
   rdsProxyArn?: string; // Optional: ARN for RDS Proxy IAM auth
+  alertsTopic?: sns.ITopic; // Optional: SNS topic for CloudWatch alarm notifications
 }
 
 /**
@@ -1562,40 +1565,88 @@ export class LambdaStack extends cdk.NestedStack {
     const cloudwatch = cdk.aws_cloudwatch;
 
     // Payment webhook errors
-    new cloudwatch.Alarm(this, 'PaymentWebhookErrorsAlarm', {
+    const paymentWebhookErrorsAlarm = new cloudwatch.Alarm(this, 'PaymentWebhookErrorsAlarm', {
       metric: this.paymentWebhookFn.metricErrors({ period: cdk.Duration.minutes(5) }),
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: 'Payment webhook Lambda is erroring',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    if (props.alertsTopic) {
+      paymentWebhookErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
 
     // Payment webhook throttles
-    new cloudwatch.Alarm(this, 'PaymentWebhookThrottlesAlarm', {
+    const paymentWebhookThrottlesAlarm = new cloudwatch.Alarm(this, 'PaymentWebhookThrottlesAlarm', {
       metric: this.paymentWebhookFn.metricThrottles({ period: cdk.Duration.minutes(5) }),
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: 'Payment webhook Lambda is being throttled',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    if (props.alertsTopic) {
+      paymentWebhookThrottlesAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
 
     // Payment create-intent errors
-    new cloudwatch.Alarm(this, 'PaymentCreateIntentErrorsAlarm', {
+    const paymentCreateIntentErrorsAlarm = new cloudwatch.Alarm(this, 'PaymentCreateIntentErrorsAlarm', {
       metric: this.paymentCreateIntentFn.metricErrors({ period: cdk.Duration.minutes(5) }),
       threshold: 3,
       evaluationPeriods: 1,
       alarmDescription: 'Payment create-intent Lambda is erroring',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    if (props.alertsTopic) {
+      paymentCreateIntentErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
 
     // DLQ messages alarm
-    new cloudwatch.Alarm(this, 'CriticalDLQAlarm', {
+    const criticalDlqAlarm = new cloudwatch.Alarm(this, 'CriticalDLQAlarm', {
       metric: criticalDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) }),
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: 'Messages in critical DLQ — failed Lambda invocations',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    if (props.alertsTopic) {
+      criticalDlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
+
+    // Auth Lambda errors — users cannot sign up/login
+    const authErrorsAlarm = new cloudwatch.Alarm(this, 'AuthErrorsAlarm', {
+      metric: this.signupAuthFn.metricErrors({ period: cdk.Duration.minutes(5) }),
+      threshold: 3,
+      evaluationPeriods: 1,
+      alarmDescription: 'Auth Lambda is erroring — users cannot sign up/login',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    if (props.alertsTopic) {
+      authErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
+
+    // Feed Lambda errors — users see empty feed
+    const feedErrorsAlarm = new cloudwatch.Alarm(this, 'FeedErrorsAlarm', {
+      metric: this.feedGetFn.metricErrors({ period: cdk.Duration.minutes(5) }),
+      threshold: 5,
+      evaluationPeriods: 2,
+      alarmDescription: 'Feed Lambda is erroring — users see empty feed',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    if (props.alertsTopic) {
+      feedErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
+
+    // Messaging Lambda errors — DMs broken
+    const messagingErrorsAlarm = new cloudwatch.Alarm(this, 'MessagingErrorsAlarm', {
+      metric: this.conversationsSendMessageFn.metricErrors({ period: cdk.Duration.minutes(5) }),
+      threshold: 3,
+      evaluationPeriods: 1,
+      alarmDescription: 'Messaging Lambda is erroring — DMs broken',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    if (props.alertsTopic) {
+      messagingErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
 
     // ========================================
     // Provisioned Concurrency with Auto-Scaling

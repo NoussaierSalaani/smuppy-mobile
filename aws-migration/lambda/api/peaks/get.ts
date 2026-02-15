@@ -50,7 +50,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Get peak with author info
+    // Get peak with author info (include expiration fields)
     let query = `
       SELECT
         pk.id,
@@ -64,6 +64,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pk.comments_count,
         pk.views_count,
         pk.created_at,
+        pk.expires_at,
+        pk.saved_to_profile,
         pk.filter_id,
         pk.filter_intensity,
         pk.overlays,
@@ -105,6 +107,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       WHERE pk.id = $${paramIndex}
     `;
     params.push(peakId);
+    paramIndex++;
+
+    // SECURITY: Exclude peaks from blocked users (bidirectional)
+    if (currentProfileId) {
+      query += `
+        AND NOT EXISTS (
+          SELECT 1 FROM blocked_users bu
+          WHERE (bu.blocker_id = $1 AND bu.blocked_id = pk.author_id)
+             OR (bu.blocker_id = pk.author_id AND bu.blocked_id = $1)
+        )
+      `;
+    }
 
     const result = await db.query(query, params);
 
@@ -117,6 +131,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const peak = result.rows[0];
+    const isAuthor = currentProfileId === peak.author_id;
+
+    // SECURITY: Check if peak is expired (unless author is viewing their own)
+    if (!isAuthor) {
+      const isExpired = peak.expires_at
+        ? new Date(peak.expires_at) <= new Date()
+        : new Date(peak.created_at) <= new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+      if (isExpired && peak.saved_to_profile !== true) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'Peak not found' }),
+        };
+      }
+    }
 
     // Increment view count with user dedup (fire and forget)
     // Use profile ID (not Cognito sub) for peak_views foreign key

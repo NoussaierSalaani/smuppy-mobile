@@ -127,12 +127,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
 
       // Create notification for post author (if not self-like)
+      // Dedup: 24h window to prevent like/unlike cycling notification spam
       if (post.author_id !== profileId) {
-        await client.query(
-          `INSERT INTO notifications (user_id, type, title, body, data)
-           VALUES ($1, 'like', 'New Like', $2, $3)`,
-          [post.author_id, `${likerName} liked your post`, JSON.stringify({ postId, likerId: profileId })]
+        const notifData = JSON.stringify({ postId, likerId: profileId });
+        const existingNotif = await client.query(
+          `SELECT 1 FROM notifications
+           WHERE user_id = $1 AND type = 'like' AND data = $2::jsonb
+             AND created_at > NOW() - INTERVAL '24 hours'
+           LIMIT 1`,
+          [post.author_id, notifData]
         );
+        if (existingNotif.rows.length === 0) {
+          await client.query(
+            `INSERT INTO notifications (user_id, type, title, body, data)
+             VALUES ($1, 'like', 'New Like', $2, $3)`,
+            [post.author_id, `${likerName} liked your post`, notifData]
+          );
+        }
       }
 
       await client.query('COMMIT');

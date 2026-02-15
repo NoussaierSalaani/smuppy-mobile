@@ -78,6 +78,25 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    // SECURITY: Check if requester is blocked by or has blocked the author
+    if (currentUserId && !isAuthorByModeration) {
+      const blockCheck = await db.query(
+        `SELECT 1 FROM blocked_users bu
+         JOIN profiles p ON p.cognito_sub = $1
+         WHERE (bu.blocker_id = p.id AND bu.blocked_id = $2)
+            OR (bu.blocker_id = $2 AND bu.blocked_id = p.id)
+         LIMIT 1`,
+        [currentUserId, post.author_id]
+      );
+      if (blockCheck.rows.length > 0) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'Post not found' }),
+        };
+      }
+    }
+
     // SECURITY: Check visibility for private profiles
     if (post.author_is_private) {
       // If author is private, check if current user can view

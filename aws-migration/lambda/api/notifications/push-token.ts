@@ -111,7 +111,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Per CLAUDE.md: rate limit ALL endpoints that create resources or cost money
     if (event.httpMethod === 'POST' || event.httpMethod === 'DELETE') {
       const rateLimitResult = await checkRateLimit({
-        prefix: `push-token-${event.httpMethod.toLowerCase()}`,
+        // BUG-2026-02-14: Use shared prefix so POST+DELETE share the same rate window
+        prefix: 'push-token-mutation',
         identifier: userId,
         windowSeconds: 60,
         maxRequests: 5,

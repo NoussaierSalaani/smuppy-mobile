@@ -7,6 +7,7 @@ import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments-subscriptions');
 
@@ -46,6 +47,21 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers: corsHeaders,
         body: JSON.stringify({ error: 'Unauthorized' }),
+      };
+    }
+
+    // Rate limit: 10 subscription operations per minute
+    const { allowed } = await checkRateLimit({
+      prefix: 'subscriptions',
+      identifier: userId,
+      windowSeconds: 60,
+      maxRequests: 10,
+    });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
       };
     }
 

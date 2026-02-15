@@ -100,6 +100,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       query += ` WHERE p.moderation_status NOT IN ('banned', 'shadow_banned')`;
     }
 
+    // SECURITY: Exclude peaks from blocked/blocking users
+    if (currentProfileId) {
+      query += `
+        AND NOT EXISTS (
+          SELECT 1 FROM blocked_users bu
+          WHERE (bu.blocker_id = $1 AND bu.blocked_id = pk.author_id)
+             OR (bu.blocker_id = pk.author_id AND bu.blocked_id = $1)
+        )
+      `;
+    }
+
     // Feed mode: only show active (non-expired) peaks
     // Profile mode: show all peaks except explicitly dismissed (saved_to_profile = false)
     // This ensures expired peaks with no decision (saved_to_profile IS NULL) remain

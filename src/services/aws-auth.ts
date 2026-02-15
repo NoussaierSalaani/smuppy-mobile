@@ -762,6 +762,13 @@ class AWSAuthService {
         secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
       ]);
 
+      // BUG-2026-02-14: Verify critical token was persisted (same pattern as signIn)
+      const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
+      if (!storedToken) {
+        if (__DEV__) console.warn('[AWS Auth] CRITICAL: Failed to persist Apple access token to SecureStore');
+        await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken);
+      }
+
       this.notifyAuthStateChange(result.user);
       return result.user;
     } catch (error: unknown) {
@@ -799,6 +806,13 @@ class AWSAuthService {
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
         secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
       ]);
+
+      // BUG-2026-02-14: Verify critical token was persisted (same pattern as signIn)
+      const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
+      if (!storedToken) {
+        if (__DEV__) console.warn('[AWS Auth] CRITICAL: Failed to persist Google access token to SecureStore');
+        await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken);
+      }
 
       this.notifyAuthStateChange(result.user);
       return result.user;

@@ -94,7 +94,7 @@ const isExpoToken = (token: string): boolean =>
 async function sendToiOS(
   endpointArn: string,
   payload: PushNotificationPayload
-): Promise<boolean> {
+): Promise<'success' | 'failed' | 'disabled'> {
   try {
     const apnsPayload = {
       aps: {
@@ -121,10 +121,18 @@ async function sendToiOS(
 
     await snsClient.send(command);
     log.info('iOS notification sent successfully');
-    return true;
+    return 'success';
   } catch (error: unknown) {
+    // BUG-2026-02-14: Detect disabled/invalid SNS endpoints for cleanup
+    const errName = error instanceof Error ? (error as Error & { name?: string }).name : '';
+    const errMsg = error instanceof Error ? error.message : '';
+    if (errName === 'EndpointDisabledException' || errName === 'NotFoundException' ||
+        (errName === 'InvalidParameterException' && errMsg.includes('endpoint'))) {
+      log.warn('SNS endpoint disabled/invalid — marking for cleanup', { endpointArn });
+      return 'disabled';
+    }
     log.error('Failed to send iOS notification', error);
-    return false;
+    return 'failed';
   }
 }
 
@@ -247,9 +255,10 @@ export async function sendPushNotification(
 export async function sendPushNotificationBatch(
   targets: PushTarget[],
   payload: PushNotificationPayload
-): Promise<{ success: number; failed: number }> {
+): Promise<{ success: number; failed: number; disabledArns: string[] }> {
   let success = 0;
   let failed = 0;
+  const disabledArns: string[] = [];
 
   // Split targets: Expo tokens vs native tokens
   const expoTokens = targets.filter(t => isExpoToken(t.token)).map(t => t.token);
@@ -271,8 +280,16 @@ export async function sendPushNotificationBatch(
     const iosResults = await Promise.all(
       iosTargets.map(target => sendToiOS(target.snsEndpointArn!, payload))
     );
-    for (const result of iosResults) {
-      result ? success++ : failed++;
+    for (let i = 0; i < iosResults.length; i++) {
+      if (iosResults[i] === 'success') {
+        success++;
+      } else {
+        failed++;
+        // BUG-2026-02-14: Collect disabled endpoint ARNs for cleanup
+        if (iosResults[i] === 'disabled') {
+          disabledArns.push(iosTargets[i].snsEndpointArn!);
+        }
+      }
     }
   }
 
@@ -310,7 +327,7 @@ export async function sendPushNotificationBatch(
     }
   }
 
-  return { success, failed };
+  return { success, failed, disabledArns };
 }
 
 /**
@@ -394,9 +411,8 @@ export async function sendPushToUser(
 
   const batchResult = await sendPushNotificationBatch(targets, payload);
 
-  // Log failed token count for future dead token cleanup
   if (batchResult.failed > 0) {
-    log.warn('Push notification batch had failures — tokens may need cleanup', {
+    log.warn('Push notification batch had failures', {
       userId,
       totalTokens: targets.length,
       successCount: batchResult.success,
@@ -404,7 +420,16 @@ export async function sendPushToUser(
     });
   }
 
-  return batchResult;
+  // BUG-2026-02-14: Disable dead/invalid SNS endpoints to prevent wasted future calls
+  if (batchResult.disabledArns.length > 0) {
+    db.query(
+      `UPDATE push_tokens SET enabled = false
+       WHERE sns_endpoint_arn = ANY($1) AND user_id = $2`,
+      [batchResult.disabledArns, userId]
+    ).catch(err => log.error('Failed to disable dead push tokens', err));
+  }
+
+  return { success: batchResult.success, failed: batchResult.failed };
 }
 
 export default {

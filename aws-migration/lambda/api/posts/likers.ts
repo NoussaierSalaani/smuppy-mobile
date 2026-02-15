@@ -92,6 +92,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       params.push(new Date(parseInt(cursor, 10)));
     }
 
+    // SECURITY: Resolve requester profile for block filtering
+    let blockClause = '';
+    const requesterResult = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [cognitoSub]
+    );
+    const requesterProfileId = requesterResult.rows[0]?.id || null;
+    if (requesterProfileId) {
+      params.push(requesterProfileId);
+      const blockParamIdx = params.length;
+      blockClause = `AND NOT EXISTS (
+        SELECT 1 FROM blocked_users bu
+        WHERE (bu.blocker_id = $${blockParamIdx} AND bu.blocked_id = p.id)
+           OR (bu.blocker_id = p.id AND bu.blocked_id = $${blockParamIdx})
+      )`;
+    }
+
     const likersResult = await db.query(
       `SELECT
         p.id,
@@ -104,7 +121,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         l.created_at as liked_at
       FROM likes l
       INNER JOIN profiles p ON p.id = l.user_id
-      WHERE l.post_id = $1 ${cursorClause}
+      WHERE l.post_id = $1 ${cursorClause} ${blockClause}
       ORDER BY l.created_at DESC
       LIMIT $2`,
       params

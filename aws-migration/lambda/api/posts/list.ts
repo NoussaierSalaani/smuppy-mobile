@@ -68,7 +68,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const cognitoSub = extractCognitoSub(event);
 
-    const cacheKey = `posts:list:${type}:${userId || 'all'}:${cursor || 'first'}:${parsedLimit}`;
+    // BUG-2026-02-14: Include cognitoSub in cache key to prevent cross-user isLiked/blocked data leaks
+    const cacheKey = `posts:list:${type}:${userId || 'all'}:${cognitoSub || 'anon'}:${cursor || 'first'}:${parsedLimit}`;
 
     // Try cache first (for public feeds)
     const redisClient = await getRedis();

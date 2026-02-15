@@ -110,10 +110,15 @@ export const headers = {
  */
 export function createHeaders(event?: { headers?: Record<string, string | undefined> }): Record<string, string> {
   const origin = event?.headers?.origin || event?.headers?.Origin;
-  return {
+  const requestId = event?.headers?.['x-request-id'] || event?.headers?.['X-Request-Id'];
+  const responseHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...getCorsHeaders(origin),
   };
+  if (requestId) {
+    responseHeaders['X-Request-Id'] = requestId;
+  }
+  return responseHeaders;
 }
 
 /**

@@ -82,6 +82,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR c.user_id = $2)
     `;
 
+    // SECURITY: Hide comments from blocked users (bidirectional)
+    if (requesterId) {
+      query += `
+        AND NOT EXISTS (
+          SELECT 1 FROM blocked_users bu
+          WHERE (bu.blocker_id = $2 AND bu.blocked_id = c.user_id)
+             OR (bu.blocker_id = c.user_id AND bu.blocked_id = $2)
+        )
+      `;
+    }
+
     const params: SqlParam[] = [postId, requesterId];
     let paramIndex = 3;
 

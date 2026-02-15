@@ -8,7 +8,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
-import { sanitizeInput, isValidUsername, logSecurityEvent } from '../utils/security';
+import { sanitizeInput, isValidUsername, isReservedUsername, logSecurityEvent } from '../utils/security';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { hasErrorCode } from '../utils/error-handler';
@@ -203,12 +203,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Special validation for username
-    if (body.username && !isValidUsername(body.username as string)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Username must be 3-30 characters, alphanumeric and underscores only' }),
-      };
+    if (body.username) {
+      const usernameStr = body.username as string;
+      if (!isValidUsername(usernameStr)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Username must be 3-30 characters, alphanumeric and underscores only' }),
+        };
+      }
+      if (isReservedUsername(usernameStr)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'This username is not available' }),
+        };
+      }
     }
 
     // Moderation: check text fields (bio, fullName, displayName, username) for violations

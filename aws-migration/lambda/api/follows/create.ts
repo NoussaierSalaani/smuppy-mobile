@@ -211,18 +211,39 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
       const followerDisplayName = followerProfileResult.rows[0]?.full_name || 'Someone';
 
+      // Dedup: 24h window to prevent follow/unfollow cycling notification spam
       if (status === 'accepted') {
-        await client.query(
-          `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
-           VALUES ($1, $2, 'new_follower', 'New Follower', $3, $4, NOW())`,
-          [uuidv4(), followingId, `${followerDisplayName} started following you`, JSON.stringify({ followerId })]
+        const notifData = JSON.stringify({ followerId });
+        const existingNotif = await client.query(
+          `SELECT 1 FROM notifications
+           WHERE user_id = $1 AND type = 'new_follower' AND data = $2::jsonb
+             AND created_at > NOW() - INTERVAL '24 hours'
+           LIMIT 1`,
+          [followingId, notifData]
         );
+        if (existingNotif.rows.length === 0) {
+          await client.query(
+            `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
+             VALUES ($1, $2, 'new_follower', 'New Follower', $3, $4, NOW())`,
+            [uuidv4(), followingId, `${followerDisplayName} started following you`, notifData]
+          );
+        }
       } else {
-        await client.query(
-          `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
-           VALUES ($1, $2, 'follow_request', 'Follow Request', $3, $4, NOW())`,
-          [uuidv4(), followingId, `${followerDisplayName} wants to follow you`, JSON.stringify({ requesterId: followerId })]
+        const notifData = JSON.stringify({ requesterId: followerId });
+        const existingNotif = await client.query(
+          `SELECT 1 FROM notifications
+           WHERE user_id = $1 AND type = 'follow_request' AND data = $2::jsonb
+             AND created_at > NOW() - INTERVAL '24 hours'
+           LIMIT 1`,
+          [followingId, notifData]
         );
+        if (existingNotif.rows.length === 0) {
+          await client.query(
+            `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
+             VALUES ($1, $2, 'follow_request', 'Follow Request', $3, $4, NOW())`,
+            [uuidv4(), followingId, `${followerDisplayName} wants to follow you`, notifData]
+          );
+        }
       }
 
       await client.query('COMMIT');

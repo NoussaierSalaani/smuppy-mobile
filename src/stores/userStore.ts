@@ -53,6 +53,7 @@ export interface UserState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  lastProfileFetchedAt: number | null;
   setUser: (user: User | null) => void;
   updateProfile: (updates: Partial<User>) => void;
   updateAvatar: (avatarUrl: string) => void;
@@ -61,12 +62,16 @@ export interface UserState {
   getFullName: () => string;
   isPro: () => boolean;
   isProfileComplete: () => boolean;
+  isProfileStale: () => boolean;
 }
+
+const PROFILE_STALE_THRESHOLD_MS = 300_000; // 5 minutes
 
 const initialUserState = {
   user: null as User | null,
   isLoading: true,
   isAuthenticated: false,
+  lastProfileFetchedAt: null as number | null,
 };
 
 export const useUserStore = create<UserState>()(
@@ -80,6 +85,7 @@ export const useUserStore = create<UserState>()(
           state.user = user;
           state.isAuthenticated = !!user;
           state.isLoading = false;
+          state.lastProfileFetchedAt = user ? Date.now() : null;
         }),
 
       updateProfile: (updates: Partial<User>) =>
@@ -88,6 +94,7 @@ export const useUserStore = create<UserState>()(
             // Ensure id cannot be overwritten by partial updates
             const { id: _id, ...safeUpdates } = updates;
             state.user = { ...state.user, ...safeUpdates };
+            state.lastProfileFetchedAt = Date.now();
           }
         }),
 
@@ -108,6 +115,7 @@ export const useUserStore = create<UserState>()(
           state.user = null;
           state.isAuthenticated = false;
           state.isLoading = false;
+          state.lastProfileFetchedAt = null;
         }),
 
       // Selectors (computed values)
@@ -136,6 +144,12 @@ export const useUserStore = create<UserState>()(
           return hasBasicInfo && !!(user.businessName && user.businessCategory);
         }
         return hasBasicInfo;
+      },
+
+      isProfileStale: () => {
+        const { lastProfileFetchedAt } = get();
+        if (lastProfileFetchedAt === null) return true;
+        return Date.now() - lastProfileFetchedAt > PROFILE_STALE_THRESHOLD_MS;
       },
     })),
     {
@@ -168,7 +182,11 @@ export const useUserStore = create<UserState>()(
           // socialLinks, location
         } : null,
         isAuthenticated: state.isAuthenticated,
+        lastProfileFetchedAt: state.lastProfileFetchedAt,
       }),
     }
   )
 );
+
+export const selectIsProfileStale = (state: UserState) =>
+  state.lastProfileFetchedAt === null || Date.now() - state.lastProfileFetchedAt > PROFILE_STALE_THRESHOLD_MS;

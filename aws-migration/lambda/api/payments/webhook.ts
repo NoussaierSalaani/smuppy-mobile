@@ -38,13 +38,14 @@ let webhookSecret: string | null = null;
 // Event deduplication: reject replayed events
 const processedEvents = new Map<string, number>();
 
-// Cleanup old entries every 60s
-setInterval(() => {
+// Cleanup old entries at handler start (not setInterval — Lambda freezes between invocations)
+function cleanupProcessedEvents(): void {
+  if (processedEvents.size < 500) return;
   const cutoff = Date.now() - MAX_WEBHOOK_EVENT_AGE_SECONDS * 2 * 1000;
   for (const [id, ts] of processedEvents.entries()) {
     if (ts < cutoff) processedEvents.delete(id);
   }
-}, 60_000);
+}
 
 // Revenue share tiers for channel subscriptions
 function calculatePlatformFeePercent(fanCount: number): number {
@@ -56,6 +57,7 @@ function calculatePlatformFeePercent(fanCount: number): number {
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  cleanupProcessedEvents();
   const headers = createHeaders(event);
 
   try {

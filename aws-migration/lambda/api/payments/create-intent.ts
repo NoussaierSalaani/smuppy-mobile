@@ -14,6 +14,7 @@ import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { safeStripeCall } from '../../shared/stripe-resilience';
 import { PLATFORM_FEE_PERCENT, APPLE_FEE_PERCENT, GOOGLE_FEE_PERCENT, MIN_PAYMENT_CENTS, MAX_PAYMENT_CENTS } from '../utils/constants';
 
 const log = createLogger('payments/create-intent');
@@ -143,7 +144,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate verified amount (minimum $1.00 = 100 cents, maximum $50,000)
-    if (!verifiedAmount || verifiedAmount < MIN_PAYMENT_CENTS || verifiedAmount > MAX_PAYMENT_CENTS) {
+    if (!Number.isFinite(verifiedAmount) || verifiedAmount < MIN_PAYMENT_CENTS || verifiedAmount > MAX_PAYMENT_CENTS) {
       return {
         statusCode: 400,
         headers,
@@ -194,15 +195,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (customerResult.rows[0]?.stripe_customer_id) {
       customerId = customerResult.rows[0].stripe_customer_id;
     } else {
-      // Create new Stripe customer
+      // Create new Stripe customer (wrapped in safeStripeCall for timeout + circuit breaker)
       const stripe = await getStripe();
-      const customer = await stripe.customers.create({
-        email: buyer.email,
-        name: buyer.full_name,
-        metadata: {
-          smuppy_user_id: buyer.id,
-        },
-      });
+      const customer = await safeStripeCall(
+        () => stripe.customers.create({
+          email: buyer.email,
+          name: buyer.full_name,
+          metadata: { smuppy_user_id: buyer.id },
+        }),
+        'customers.create',
+        log
+      );
       customerId = customer.id;
 
       // Save customer ID to database
@@ -317,9 +320,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // SECURITY: Idempotency key prevents duplicate PaymentIntents from double-clicks
     // Key includes verified amount to prevent amount manipulation on retry
     const idempotencyKey = `pi_${buyer.id}_${type}_${verifiedAmount}_${sessionId || packId || 'direct'}`;
-    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams, {
-      idempotencyKey,
-    });
+    const paymentIntent = await safeStripeCall(
+      () => stripe.paymentIntents.create(paymentIntentParams, { idempotencyKey }),
+      'paymentIntents.create',
+      log
+    );
 
     log.info('Payment intent created', {
       paymentIntentId: paymentIntent.id,

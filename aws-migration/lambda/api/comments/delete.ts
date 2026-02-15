@@ -105,15 +105,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [commentId]
       );
 
-      const totalDeleted = deleteResult.rowCount || 0;
-
-      // Update comments count on post using the exact deleted count
-      if (totalDeleted > 0) {
-        await client.query(
-          'UPDATE posts SET comments_count = GREATEST(comments_count - $1, 0) WHERE id = $2',
-          [totalDeleted, comment.post_id]
-        );
-      }
+      // Counter update handled atomically by trigger_comments_count (migration-015)
 
       await client.query('COMMIT');
 

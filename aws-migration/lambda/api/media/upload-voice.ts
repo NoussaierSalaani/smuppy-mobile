@@ -96,7 +96,12 @@ export async function handler(
       };
     }
 
-    const request: VoiceUploadRequest = JSON.parse(event.body);
+    let request: VoiceUploadRequest;
+    try {
+      request = JSON.parse(event.body);
+    } catch {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) };
+    }
     const { conversationId, duration } = request;
 
     if (!conversationId || typeof conversationId !== 'string') {

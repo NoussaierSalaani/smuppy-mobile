@@ -108,7 +108,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Parse body
-    const body: ResolveBody = JSON.parse(event.body || '{}');
+    let body: ResolveBody;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) };
+    }
     const { resolution, reason, refundAmount, processRefund } = body;
 
     if (!resolution || !reason) {
@@ -120,6 +125,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           message: 'Resolution and reason are required',
         }),
       };
+    }
+
+    const ALLOWED_RESOLUTIONS = ['full_refund', 'partial_refund', 'no_refund', 'rescheduled'];
+    if (!ALLOWED_RESOLUTIONS.includes(resolution)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid resolution type' }) };
+    }
+
+    if (processRefund && (typeof refundAmount !== 'number' || !Number.isFinite(refundAmount) || refundAmount < 0)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid refund amount' }) };
     }
 
     const stripe = await getStripe();

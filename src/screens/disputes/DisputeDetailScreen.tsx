@@ -540,11 +540,27 @@ export default function DisputeDetailScreen() {
     );
   }, [disputeId, fetchDispute]);
 
-  if (loading || !dispute) {
+  if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!dispute) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.loadingContainer}>
+          <Text style={{ color: colors.graySecondary, fontSize: 16 }}>Litige introuvable</Text>
+          <TouchableOpacity
+            onPress={() => { setLoading(true); fetchDispute(); }}
+            style={{ marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 8 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Réessayer</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

@@ -19,6 +19,7 @@ import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { getStripeKey } from '../../shared/secrets';
+import { safeStripeCall } from '../../shared/stripe-resilience';
 import { checkRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_TIP_AMOUNT_CENTS, PLATFORM_FEE_PERCENT, MIN_PAYMENT_CENTS } from '../utils/constants';
 
@@ -96,7 +97,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const body: SendTipRequest = JSON.parse(event.body || '{}');
+    let body: SendTipRequest;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch {
+      return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) });
+    }
     const {
       receiverId,
       amount,
@@ -115,8 +121,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Validation
-    if (!receiverId || !amount || amount < MIN_PAYMENT_CENTS || amount > MAX_TIP_AMOUNT_CENTS) {
+    // Validation — ensure amount is a finite positive number
+    if (!receiverId || typeof amount !== 'number' || !Number.isFinite(amount) || amount < MIN_PAYMENT_CENTS || amount > MAX_TIP_AMOUNT_CENTS) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({
@@ -258,9 +264,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Get or create Stripe customer
     let customerId = sender.stripe_customer_id;
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        metadata: { smuppy_user_id: profileId },
-      });
+      const customer = await safeStripeCall(
+        () => stripe.customers.create({ metadata: { smuppy_user_id: profileId } }),
+        'customers.create',
+        log
+      );
       customerId = customer.id;
 
       await client.query(
@@ -314,7 +322,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (receiver.stripe_account_id) {
       try {
         // Verify the connected account exists under the current Stripe key
-        await stripe.accounts.retrieve(receiver.stripe_account_id);
+        await safeStripeCall(() => stripe.accounts.retrieve(receiver.stripe_account_id), 'accounts.retrieve', log);
         paymentIntentParams.transfer_data = {
           destination: receiver.stripe_account_id,
           amount: creatorAmountCents,
@@ -330,7 +338,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // SECURITY: Idempotency key prevents duplicate PaymentIntents from double-clicks/retries
     const idempotencyKey = `tip_${profileId}_${receiverId}_${amountInCents}_${tipId}`;
-    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams, { idempotencyKey });
+    const paymentIntent = await safeStripeCall(
+      () => stripe.paymentIntents.create(paymentIntentParams, { idempotencyKey }),
+      'paymentIntents.create',
+      log
+    );
 
     // Update tip with payment intent
     await client.query(

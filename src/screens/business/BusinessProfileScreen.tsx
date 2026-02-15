@@ -136,6 +136,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
   const [activeTab, setActiveTab] = useState<'about' | 'services' | 'schedule' | 'reviews'>('about');
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
 
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -159,6 +160,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
     }
 
     try {
+      setLoadError(null);
       const [profileRes, servicesRes, scheduleRes, reviewsRes] = await Promise.all([
         awsAPI.getBusinessProfile(businessId),
         awsAPI.getBusinessServices(businessId),
@@ -177,6 +179,9 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
       if (reviewsRes.success) setReviews((reviewsRes.reviews || []) as unknown as Review[]);
     } catch (error) {
       if (__DEV__) console.warn('Load business profile error:', error);
+      if (isMountedRef.current) {
+        setLoadError('Failed to load business profile');
+      }
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
@@ -394,6 +399,21 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="cloud-offline-outline" size={64} color={colors.gray} />
+        <Text style={styles.errorText}>{loadError}</Text>
+        <TouchableOpacity
+          style={styles.errorButton}
+          onPress={() => { setIsLoading(true); loadBusinessProfile(); }}
+        >
+          <Text style={styles.errorButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }

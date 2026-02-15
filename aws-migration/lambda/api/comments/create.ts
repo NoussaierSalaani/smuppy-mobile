@@ -157,6 +157,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     try {
       await client.query('BEGIN');
 
+      // Prevent duplicate comments (same user, same post, same text within 60 seconds)
+      const dupeCheck = await client.query(
+        `SELECT id FROM comments WHERE user_id = $1 AND post_id = $2 AND text = $3 AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1`,
+        [profile.id, postId, sanitizedText]
+      );
+      if (dupeCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return { statusCode: 409, headers, body: JSON.stringify({ success: false, message: 'Duplicate comment' }) };
+      }
+
       // Insert comment
       const commentResult = await client.query(
         `INSERT INTO comments (user_id, post_id, text, parent_comment_id, content_status, toxicity_score, toxicity_category)

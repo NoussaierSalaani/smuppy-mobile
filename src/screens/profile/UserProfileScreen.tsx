@@ -184,6 +184,8 @@ const UserProfileScreen = () => {
           old ? { ...old, is_following: true } : old
         );
       }
+    }).catch((err: unknown) => {
+      if (__DEV__) console.warn('[UserProfile] Async error:', err);
     }).finally(() => {
       if (!cancelled) setIsVerifyingFollow(false);
     });

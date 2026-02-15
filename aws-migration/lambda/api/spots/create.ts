@@ -86,11 +86,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate arrays
-    if (images !== undefined && !Array.isArray(images)) {
+    if (images !== undefined && (!Array.isArray(images) || images.length > 20)) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: 'Images must be an array' }),
+        body: JSON.stringify({ message: 'Images must be an array (max 20)' }),
       };
     }
     if (amenities !== undefined && !Array.isArray(amenities)) {

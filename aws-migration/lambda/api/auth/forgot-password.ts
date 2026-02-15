@@ -152,22 +152,21 @@ export const handler = async (
     log.setRequestId(getRequestId(event));
 
     // SECURITY: Always derive username from email lookup — never trust client-supplied username
-    let cognitoUsername = await getUsernameByEmail(email);
-    if (!cognitoUsername) {
-      // Fallback to generated username if email lookup fails
-      cognitoUsername = username || generateUsername(email);
-    }
-    if (!cognitoUsername) {
+    const resolvedUsername: string | null = await getUsernameByEmail(email)
+      || username
+      || generateUsername(email)
+      || null;
+    if (!resolvedUsername) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Unable to resolve username' }) };
     }
 
     // SECURITY: Log only masked identifier to prevent PII in logs
-    log.info('Initiating reset for user', { username: cognitoUsername.substring(0, 2) + '***' });
+    log.info('Initiating reset for user', { username: resolvedUsername.substring(0, 2) + '***' });
 
     await cognitoClient.send(
       new ForgotPasswordCommand({
         ClientId: CLIENT_ID,
-        Username: cognitoUsername,
+        Username: resolvedUsername,
       })
     );
 

@@ -45,7 +45,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   const pool = await getPool();
-  const client = await pool.connect();
 
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
@@ -75,8 +74,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Resolve cognito_sub to profile ID
-    const profileResult = await client.query(
+    // Resolve cognito_sub to profile ID (pre-transaction read via pool)
+    const profileResult = await pool.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
@@ -88,7 +87,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
     const profileId = profileResult.rows[0].id;
 
-    const body: UpdateEventRequest = JSON.parse(event.body || '{}');
+    let body: UpdateEventRequest;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch {
+      return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) });
+    }
 
     // Validate fields if provided
     if (body.title !== undefined) {
@@ -230,6 +234,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const creatorIdIdx = paramIndex;
     params.push(profileId);
 
+    // Acquire transaction client only after all validation passes
+    const client = await pool.connect();
+    try {
     await client.query('BEGIN');
 
     const updateResult = await client.query(
@@ -312,8 +319,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     });
+    } catch (txError: unknown) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
   } catch (error: unknown) {
-    await client.query('ROLLBACK');
     log.error('Update event error', error);
     return cors({
       statusCode: 500,
@@ -322,7 +334,5 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         message: 'Failed to update event',
       }),
     });
-  } finally {
-    client.release();
   }
 };

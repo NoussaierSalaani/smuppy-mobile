@@ -18,7 +18,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   const pool = await getPool();
-  const client = await pool.connect();
 
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
@@ -48,8 +47,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Resolve cognito_sub to profile ID
-    const profileResult = await client.query(
+    // Resolve cognito_sub to profile ID (pre-transaction read via pool)
+    const profileResult = await pool.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',
       [userId]
     );
@@ -62,7 +61,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const profileId = profileResult.rows[0].id;
 
     // Ownership check: verify event exists and belongs to the user
-    const ownerCheck = await client.query(
+    const ownerCheck = await pool.query(
       `SELECT id, title, status FROM events WHERE id = $1 AND creator_id = $2`,
       [eventId, profileId]
     );
@@ -82,6 +81,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const eventTitle = ownerCheck.rows[0].title;
 
+    // Acquire transaction client only after all validation passes
+    const client = await pool.connect();
+    try {
     await client.query('BEGIN');
 
     // Soft delete: set status to cancelled
@@ -142,8 +144,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         message: 'Event cancelled successfully',
       }),
     });
+    } catch (txError: unknown) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
   } catch (error: unknown) {
-    await client.query('ROLLBACK');
     log.error('Cancel event error', error);
     return cors({
       statusCode: 500,
@@ -152,7 +159,5 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         message: 'Failed to cancel event',
       }),
     });
-  } finally {
-    client.release();
   }
 };

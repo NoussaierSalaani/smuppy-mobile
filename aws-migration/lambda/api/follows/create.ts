@@ -60,7 +60,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const body = JSON.parse(event.body || '{}');
+    let body: { followingId?: string };
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid JSON body' }) };
+    }
     const followingId = body.followingId;
 
     // SECURITY: Validate UUID format

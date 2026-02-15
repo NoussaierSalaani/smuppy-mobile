@@ -144,26 +144,25 @@ export const handler = async (
     log.setRequestId(getRequestId(event));
 
     // SECURITY: Always derive username from email lookup — never trust client-supplied username
-    let cognitoUsername = await getUsernameByEmail(email);
-    if (!cognitoUsername) {
-      // Fallback to generated username if email lookup fails
-      cognitoUsername = username || generateUsername(email);
-    }
-    if (!cognitoUsername) {
+    const resolvedUsername: string | null = await getUsernameByEmail(email)
+      || username
+      || generateUsername(email)
+      || null;
+    if (!resolvedUsername) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Unable to resolve username' }) };
     }
 
-    log.info('Confirming user', { username: cognitoUsername.substring(0, 2) + '***', code: code.substring(0, 2) + '****' });
+    log.info('Confirming user', { username: resolvedUsername.substring(0, 2) + '***', code: code.substring(0, 2) + '****' });
 
     await cognitoClient.send(
       new ConfirmSignUpCommand({
         ClientId: CLIENT_ID,
-        Username: cognitoUsername,
+        Username: resolvedUsername,
         ConfirmationCode: code,
       })
     );
 
-    log.info('User confirmed successfully', { username: cognitoUsername.substring(0, 2) + '***' });
+    log.info('User confirmed successfully', { username: resolvedUsername.substring(0, 2) + '***' });
 
     return {
       statusCode: 200,

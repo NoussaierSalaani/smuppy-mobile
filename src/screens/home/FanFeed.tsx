@@ -40,6 +40,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { FeedSkeleton } from '../../components/skeleton';
 import { usePrefetchProfile } from '../../hooks/queries';
 import { formatNumber } from '../../utils/formatters';
+import { preloadImages } from '../../hooks/useImagePreload';
 import { resolveDisplayName } from '../../types/profile';
 
 
@@ -959,6 +960,22 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     navigation.navigate('PostLikers', { postId });
   }, [navigation]);
 
+  // Prefetch upcoming images as user scrolls for faster feed rendering
+  const prefetchedUrlsRef = useRef<Set<string>>(new Set());
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    if (!viewableItems.length) return;
+    const maxIndex = Math.max(...viewableItems.map(v => v.index ?? 0));
+    const upcoming = visiblePosts.slice(maxIndex + 1, maxIndex + 6);
+    const urls = upcoming
+      .flatMap(p => p.allMedia?.length ? p.allMedia : [p.media])
+      .filter((url): url is string => typeof url === 'string' && !prefetchedUrlsRef.current.has(url));
+    if (urls.length > 0) {
+      urls.forEach(url => prefetchedUrlsRef.current.add(url));
+      preloadImages(urls);
+    }
+  }, [visiblePosts]);
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
   // Handle carousel index changes from PostItem (persisted in parent ref)
   const handleCarouselIndexChange = useCallback((postId: string, index: number) => {
     carouselIndexesRef.current[postId] = index;
@@ -1148,6 +1165,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           ListEmptyComponent={EmptyState}
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}

@@ -263,6 +263,13 @@ export const compressThumbnail = (imageUri: string): Promise<CompressedImage> =>
 };
 
 /**
+ * Compress for message/chat image
+ */
+export const compressMessage = (imageUri: string): Promise<CompressedImage> => {
+  return compressWithPreset(imageUri, 'message');
+};
+
+/**
  * Smart compress - automatically chooses best settings based on file size
  */
 export const smartCompress = async (
@@ -334,6 +341,7 @@ export default {
   compressCover,
   compressPost,
   compressThumbnail,
+  compressMessage,
   smartCompress,
   getImageInfo,
   formatFileSize,

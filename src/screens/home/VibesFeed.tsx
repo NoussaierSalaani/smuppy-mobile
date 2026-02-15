@@ -60,6 +60,7 @@ import { awsAPI } from '../../services/aws-api';
 import { usePrefetchProfile } from '../../hooks/queries';
 import { useExpiredPeaks } from '../../hooks/useExpiredPeaks';
 import { formatNumber } from '../../utils/formatters';
+import { preloadImages } from '../../hooks/useImagePreload';
 import ExpiredPeakModal from '../../components/peaks/ExpiredPeakModal';
 
 const { width } = Dimensions.get('window');
@@ -973,6 +974,22 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     handleMoodScroll(event);
   }, [handleScroll, handleMoodScroll]);
 
+  // Prefetch upcoming images as user scrolls for faster feed rendering
+  const prefetchedUrlsRef = useRef<Set<string>>(new Set());
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    if (!viewableItems.length) return;
+    const maxIndex = Math.max(...viewableItems.map(v => v.index ?? 0));
+    const upcoming = filteredPosts.slice(maxIndex + 1, maxIndex + 6);
+    const urls = upcoming
+      .map(p => p.media)
+      .filter((url): url is string => typeof url === 'string' && !prefetchedUrlsRef.current.has(url));
+    if (urls.length > 0) {
+      urls.forEach(url => prefetchedUrlsRef.current.add(url));
+      preloadImages(urls);
+    }
+  }, [filteredPosts]);
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
   // Close expired peak modal
   const handleCloseExpiredModal = useCallback(() => setShowExpiredModal(false), []);
 
@@ -1385,6 +1402,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         scrollEventThrottle={16}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

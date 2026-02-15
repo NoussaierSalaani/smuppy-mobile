@@ -927,9 +927,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         return;
       }
 
-      // Upload image
+      // Compress image before upload (800x800, q0.75 — saves ~80% bandwidth)
+      const { compressMessage } = await import('../../utils/imageCompression');
+      const compressed = await compressMessage(imageUri);
+
+      // Upload compressed image
       const { uploadWithFileSystem } = await import('../../services/mediaUpload');
-      const uploadSuccess = await uploadWithFileSystem(imageUri, presignedResult.uploadUrl, 'image/jpeg');
+      const uploadSuccess = await uploadWithFileSystem(compressed.uri, presignedResult.uploadUrl, 'image/jpeg');
 
       if (!uploadSuccess) {
         pendingOptimisticIdsRef.current.delete(optimisticId);

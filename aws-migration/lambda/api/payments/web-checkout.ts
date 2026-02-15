@@ -524,7 +524,7 @@ async function createCheckoutSession(
       // SECURITY: Validate tip amount (match tips/send.ts constraints)
       const tipAmountCents = Math.round(amount * 100);
       if (tipAmountCents < 100 || tipAmountCents > 50000) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid tip amount. Min 1.00, max 500.00' }) };
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid tip amount. Min 1.00, max 500.00' }) };
       }
 
       // Get creator details

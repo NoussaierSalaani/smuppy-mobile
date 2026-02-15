@@ -197,7 +197,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Missing request body' }),
+        body: JSON.stringify({ success: false, message: 'Missing request body' }),
       };
     }
 
@@ -208,7 +208,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Missing ID token' }),
+        body: JSON.stringify({ success: false, message: 'Missing ID token' }),
       };
     }
 
@@ -225,7 +225,7 @@ export const handler = async (
       return {
         statusCode: 429,
         headers,
-        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       };
     }
 

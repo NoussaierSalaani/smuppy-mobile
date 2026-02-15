@@ -211,7 +211,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Missing request body' }),
+        body: JSON.stringify({ success: false, message: 'Missing request body' }),
       };
     }
 
@@ -222,7 +222,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Missing identity token' }),
+        body: JSON.stringify({ success: false, message: 'Missing identity token' }),
       };
     }
 
@@ -239,7 +239,7 @@ export const handler = async (
       return {
         statusCode: 429,
         headers,
-        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       };
     }
 
@@ -253,7 +253,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Missing nonce - required for security' }),
+        body: JSON.stringify({ success: false, message: 'Missing nonce - required for security' }),
       };
     }
     if (applePayload.nonce !== nonce) {
@@ -263,7 +263,7 @@ export const handler = async (
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ error: 'Invalid nonce' }),
+        body: JSON.stringify({ success: false, message: 'Invalid nonce' }),
       };
     }
 

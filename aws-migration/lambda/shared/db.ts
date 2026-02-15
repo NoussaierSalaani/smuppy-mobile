@@ -146,8 +146,11 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   const pool = new Pool(poolConfig);
 
   // SECURITY: Set statement timeout to prevent slow query DoS
+  // Reader pool gets shorter timeout (reads should be fast)
+  // Writer pool gets longer timeout (transactions may take longer)
+  const timeoutMs = options?.maxConnections === 10 ? 15000 : 30000;
   pool.on('connect', (client: any) => {
-    client.query("SET statement_timeout = '10000'");
+    client.query(`SET statement_timeout = '${timeoutMs}'`);
   });
 
   // Handle pool errors gracefully — nullify pool reference so next query creates a fresh pool

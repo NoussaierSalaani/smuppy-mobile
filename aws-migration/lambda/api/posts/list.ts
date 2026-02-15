@@ -60,7 +60,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid userId format' }),
+        body: JSON.stringify({ success: false, message: 'Invalid userId format' }),
       };
     }
 
@@ -100,7 +100,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ error: 'Authentication required for following feed' }),
+        body: JSON.stringify({ success: false, message: 'Authentication required for following feed' }),
       };
     }
 
@@ -226,6 +226,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=60' }, body: JSON.stringify({ ...responseData, cached: false, latency: Date.now() - startTime }) };
   } catch (error: unknown) {
     log.error('Error fetching posts', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Internal server error' }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
   }
 };

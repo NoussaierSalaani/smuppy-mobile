@@ -59,7 +59,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 
@@ -72,7 +72,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ error: 'Profile not found' }) };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
@@ -95,7 +95,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'Invalid action' }),
+          body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
   } catch (error) {
@@ -103,7 +103,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
 };
@@ -128,7 +128,7 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
@@ -138,7 +138,7 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ error: 'Only Pro accounts can access wallet' }),
+        body: JSON.stringify({ success: false, message: 'Only Pro accounts can access wallet' }),
       };
     }
 
@@ -469,7 +469,7 @@ async function getBalance(userId: string, headers: Record<string, string>): Prom
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Stripe Connect not set up' }),
+        body: JSON.stringify({ success: false, message: 'Stripe Connect not set up' }),
       };
     }
 
@@ -521,7 +521,7 @@ async function getPayouts(userId: string, limit: number, headers: Record<string,
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Stripe Connect not set up' }),
+        body: JSON.stringify({ success: false, message: 'Stripe Connect not set up' }),
       };
     }
 
@@ -572,7 +572,7 @@ async function createPayout(userId: string, headers: Record<string, string>): Pr
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Stripe Connect not set up' }),
+        body: JSON.stringify({ success: false, message: 'Stripe Connect not set up' }),
       };
     }
 
@@ -590,7 +590,7 @@ async function createPayout(userId: string, headers: Record<string, string>): Pr
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'No available balance to payout' }),
+        body: JSON.stringify({ success: false, message: 'No available balance to payout' }),
       };
     }
 
@@ -640,7 +640,7 @@ async function getStripeDashboardLink(userId: string, headers: Record<string, st
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Stripe Connect not set up' }),
+        body: JSON.stringify({ success: false, message: 'Stripe Connect not set up' }),
       };
     }
 

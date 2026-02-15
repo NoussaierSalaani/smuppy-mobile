@@ -205,7 +205,7 @@ export const handler = async (
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 

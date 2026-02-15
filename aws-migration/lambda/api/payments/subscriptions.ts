@@ -46,7 +46,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 
@@ -61,7 +61,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 429,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       };
     }
 
@@ -74,7 +74,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
@@ -91,7 +91,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           statusCode: 400,
           headers: corsHeaders,
-          body: JSON.stringify({ error: 'Invalid action' }),
+          body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
   } catch (error: unknown) {
@@ -99,7 +99,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
 };
@@ -123,7 +123,7 @@ async function createSubscription(
       return {
         statusCode: 404,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Subscriber not found' }),
+        body: JSON.stringify({ success: false, message: 'Subscriber not found' }),
       };
     }
 
@@ -153,7 +153,7 @@ async function createSubscription(
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Creator has not set up payments' }),
+        body: JSON.stringify({ success: false, message: 'Creator has not set up payments' }),
       };
     }
 
@@ -163,10 +163,10 @@ async function createSubscription(
     try {
       const price = await stripe.prices.retrieve(priceId);
       if (!price || !price.active) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid or inactive price' }) };
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid or inactive price' }) };
       }
     } catch {
-      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid price ID' }) };
+      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid price ID' }) };
     }
 
     // Create subscription with revenue share (platform takes 15% of subscriptions)
@@ -234,7 +234,7 @@ async function cancelSubscription(
       return {
         statusCode: 404,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Subscription not found' }),
+        body: JSON.stringify({ success: false, message: 'Subscription not found' }),
       };
     }
 

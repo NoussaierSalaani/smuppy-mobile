@@ -117,7 +117,7 @@ export async function handler(
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 
@@ -127,7 +127,7 @@ export async function handler(
       return {
         statusCode: 429,
         headers,
-        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       };
     }
 
@@ -135,7 +135,7 @@ export async function handler(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Request body is required' }),
+        body: JSON.stringify({ success: false, message: 'Request body is required' }),
       };
     }
 
@@ -147,7 +147,7 @@ export async function handler(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'fileSize is required and must be a positive number' }),
+        body: JSON.stringify({ success: false, message: 'fileSize is required and must be a positive number' }),
       };
     }
     // Default uploadType to 'post', also infer from filename prefix
@@ -247,7 +247,7 @@ export async function handler(
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Failed to generate upload URL' }),
+      body: JSON.stringify({ success: false, message: 'Failed to generate upload URL' }),
     };
   }
 }

@@ -19,7 +19,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const httpMethod = event.httpMethod;
 
   if (!userId) {
-    return createCorsResponse(401, { error: 'Unauthorized' });
+    return createCorsResponse(401, { success: false, message: 'Unauthorized' });
   }
 
   // Only rate limit POST (creating replies), not GET (listing)
@@ -31,17 +31,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       maxRequests: 10,
     });
     if (!rateLimit.allowed) {
-      return createCorsResponse(429, { error: 'Too many requests. Please wait.' });
+      return createCorsResponse(429, { success: false, message: 'Too many requests. Please wait.' });
     }
   }
 
   if (!peakId) {
-    return createCorsResponse(400, { error: 'Peak ID is required' });
+    return createCorsResponse(400, { success: false, message: 'Peak ID is required' });
   }
 
   // Validate UUID format
   if (!isValidUUID(peakId)) {
-    return createCorsResponse(400, { error: 'Invalid peak ID format' });
+    return createCorsResponse(400, { success: false, message: 'Invalid peak ID format' });
   }
 
   try {
@@ -53,7 +53,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileResult.rows.length === 0) {
-      return createCorsResponse(404, { error: 'Profile not found' });
+      return createCorsResponse(404, { success: false, message: 'Profile not found' });
     }
     const profileId = profileResult.rows[0].id;
 
@@ -66,7 +66,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     );
 
     if (peakResult.rows.length === 0) {
-      return createCorsResponse(404, { error: 'Peak not found' });
+      return createCorsResponse(404, { success: false, message: 'Peak not found' });
     }
 
     const parentPeak = peakResult.rows[0];
@@ -141,12 +141,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Check if responses are allowed
       if (!parentPeak.allow_peak_responses) {
-        return createCorsResponse(403, { error: 'Peak responses are disabled for this peak' });
+        return createCorsResponse(403, { success: false, message: 'Peak responses are disabled for this peak' });
       }
 
       // Check visibility - if private, only author can respond
       if (parentPeak.visibility === 'private' && parentPeak.author_id !== profileId) {
-        return createCorsResponse(403, { error: 'This peak is private' });
+        return createCorsResponse(403, { success: false, message: 'This peak is private' });
       }
 
       // Parse request body
@@ -154,11 +154,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const { videoUrl, thumbnailUrl, caption, duration } = body;
 
       if (!videoUrl) {
-        return createCorsResponse(400, { error: 'Video URL is required' });
+        return createCorsResponse(400, { success: false, message: 'Video URL is required' });
       }
 
       if (!duration || typeof duration !== 'number' || duration <= 0) {
-        return createCorsResponse(400, { error: 'Valid duration is required' });
+        return createCorsResponse(400, { success: false, message: 'Valid duration is required' });
       }
 
       // Inherit parent peak's visibility for replies
@@ -256,10 +256,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       });
     }
 
-    return createCorsResponse(405, { error: 'Method not allowed' });
+    return createCorsResponse(405, { success: false, message: 'Method not allowed' });
 
   } catch (error: unknown) {
     log.error('Error in peak replies handler', error);
-    return createCorsResponse(500, { error: 'Internal server error' });
+    return createCorsResponse(500, { success: false, message: 'Internal server error' });
   }
 }

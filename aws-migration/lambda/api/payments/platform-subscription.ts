@@ -51,7 +51,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 
@@ -61,7 +61,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 429,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Too many requests, please try again later' }),
+        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
       };
     }
 
@@ -74,14 +74,14 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
     switch (body.action) {
       case 'subscribe':
         if (!body.planType || !['pro_creator', 'pro_business'].includes(body.planType)) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid plan type' }) };
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid plan type' }) };
         }
         return await createPlatformSubscription(profileId, body.planType);
       case 'cancel':
@@ -94,7 +94,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           statusCode: 400,
           headers: corsHeaders,
-          body: JSON.stringify({ error: 'Invalid action' }),
+          body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
   } catch (error) {
@@ -102,7 +102,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
 };
@@ -125,7 +125,7 @@ async function createPlatformSubscription(
       return {
         statusCode: 404,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
@@ -136,7 +136,7 @@ async function createPlatformSubscription(
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Already subscribed to a Pro plan' }),
+        body: JSON.stringify({ success: false, message: 'Already subscribed to a Pro plan' }),
       };
     }
 
@@ -263,7 +263,7 @@ async function cancelPlatformSubscription(userId: string): Promise<APIGatewayPro
       return {
         statusCode: 404,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'No active subscription found' }),
+        body: JSON.stringify({ success: false, message: 'No active subscription found' }),
       };
     }
 
@@ -356,7 +356,7 @@ async function getCustomerPortalLink(userId: string): Promise<APIGatewayProxyRes
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'No Stripe customer found' }),
+        body: JSON.stringify({ success: false, message: 'No Stripe customer found' }),
       };
     }
 

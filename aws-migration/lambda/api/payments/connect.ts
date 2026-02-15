@@ -47,7 +47,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 
@@ -60,7 +60,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: 'Profile not found' }) };
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
@@ -80,17 +80,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const { getAdminKey } = await import('../../shared/secrets');
         const adminKey = event.headers?.['x-admin-key'] || event.headers?.['X-Admin-Key'];
         if (!adminKey) {
-          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Admin key required' }) };
+          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Admin key required' }) };
         }
         const expectedKey = await getAdminKey();
         const { timingSafeEqual } = await import('crypto');
         const a = Buffer.from(adminKey);
         const b = Buffer.from(expectedKey);
         if (a.length !== b.length || !timingSafeEqual(a, b)) {
-          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: 'Invalid admin key' }) };
+          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid admin key' }) };
         }
         if (!body.targetProfileId || !body.stripeAccountId) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Missing targetProfileId or stripeAccountId' }) };
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Missing targetProfileId or stripeAccountId' }) };
         }
         const adminPool = await getPool();
         await adminPool.query('UPDATE profiles SET stripe_account_id = $1, channel_price_cents = COALESCE(channel_price_cents, 999), updated_at = NOW() WHERE id = $2', [body.stripeAccountId, body.targetProfileId]);
@@ -100,7 +100,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           statusCode: 400,
           headers: corsHeaders,
-          body: JSON.stringify({ error: 'Invalid action' }),
+          body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
   } catch (error) {
@@ -108,7 +108,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
 };
@@ -128,7 +128,7 @@ async function createConnectAccount(userId: string): Promise<APIGatewayProxyResu
       return {
         statusCode: 404,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
@@ -166,7 +166,7 @@ async function createConnectAccount(userId: string): Promise<APIGatewayProxyResu
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'No email found for this account' }),
+        body: JSON.stringify({ success: false, message: 'No email found for this account' }),
       };
     }
 
@@ -230,7 +230,7 @@ async function createAccountLink(
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'No Connect account found. Create one first.' }),
+        body: JSON.stringify({ success: false, message: 'No Connect account found. Create one first.' }),
       };
     }
 
@@ -311,7 +311,7 @@ async function getDashboardLink(userId: string): Promise<APIGatewayProxyResult> 
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'No Connect account found' }),
+        body: JSON.stringify({ success: false, message: 'No Connect account found' }),
       };
     }
 
@@ -346,7 +346,7 @@ async function getBalance(userId: string): Promise<APIGatewayProxyResult> {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'No Connect account found' }),
+        body: JSON.stringify({ success: false, message: 'No Connect account found' }),
       };
     }
 

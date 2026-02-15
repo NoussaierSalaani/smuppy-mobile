@@ -35,7 +35,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     maxRequests: 30,
   });
   if (!allowed) {
-    return { statusCode: 429, headers, body: JSON.stringify({ error: 'Too many search requests. Please wait.' }) };
+    return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many search requests. Please wait.' }) };
   }
 
   try {

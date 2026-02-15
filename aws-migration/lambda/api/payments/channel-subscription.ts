@@ -83,7 +83,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 
@@ -93,7 +93,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 429,
         headers,
-        body: JSON.stringify({ error: 'Too many requests, please try again later' }),
+        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
       };
     }
 
@@ -109,7 +109,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'Profile not found' }),
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
     const profileId = profileLookup.rows[0].id as string;
@@ -131,7 +131,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'Invalid action' }),
+          body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
   } catch (error: unknown) {
@@ -139,7 +139,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
 };
@@ -164,7 +164,7 @@ async function subscribeToChannel(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Already subscribed to this channel' }),
+        body: JSON.stringify({ success: false, message: 'Already subscribed to this channel' }),
       };
     }
 
@@ -180,7 +180,7 @@ async function subscribeToChannel(
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'Creator not found or not a Pro account' }),
+        body: JSON.stringify({ success: false, message: 'Creator not found or not a Pro account' }),
       };
     }
 
@@ -190,7 +190,7 @@ async function subscribeToChannel(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Creator has not set up payments yet' }),
+        body: JSON.stringify({ success: false, message: 'Creator has not set up payments yet' }),
       };
     }
 
@@ -198,7 +198,7 @@ async function subscribeToChannel(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Creator has not set a channel subscription price' }),
+        body: JSON.stringify({ success: false, message: 'Creator has not set a channel subscription price' }),
       };
     }
 
@@ -212,7 +212,7 @@ async function subscribeToChannel(
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
@@ -415,7 +415,7 @@ async function cancelChannelSubscription(
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'Subscription not found' }),
+        body: JSON.stringify({ success: false, message: 'Subscription not found' }),
       };
     }
 
@@ -511,7 +511,7 @@ async function getChannelInfo(creatorId: string, headers: Record<string, string>
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'Creator not found' }),
+        body: JSON.stringify({ success: false, message: 'Creator not found' }),
       };
     }
 
@@ -560,7 +560,7 @@ async function setChannelPrice(
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
@@ -568,7 +568,7 @@ async function setChannelPrice(
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ error: 'Only Pro Creators can set channel prices' }),
+        body: JSON.stringify({ success: false, message: 'Only Pro Creators can set channel prices' }),
       };
     }
 
@@ -577,7 +577,7 @@ async function setChannelPrice(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Price must be between $1 and $999 per month' }),
+        body: JSON.stringify({ success: false, message: 'Price must be between $1 and $999 per month' }),
       };
     }
 

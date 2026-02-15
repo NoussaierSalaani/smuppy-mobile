@@ -113,7 +113,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 
@@ -126,13 +126,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ error: 'Profile not found' }) };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
     // Validate returnUrl if provided — must be smuppy:// deep link or https://smuppy.com
     if (body.returnUrl && !/^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/.test(body.returnUrl)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid return URL' }) };
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid return URL' }) };
     }
 
     switch (body.action) {
@@ -140,7 +140,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await createVerificationSubscription(stripe, profileId, headers);
       case 'confirm-subscription':
         if (!body.returnUrl) {
-          return { statusCode: 400, headers, body: JSON.stringify({ error: 'returnUrl is required' }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'returnUrl is required' }) };
         }
         return await confirmSubscriptionAndStartVerification(stripe, profileId, body.returnUrl, headers);
       case 'cancel-subscription':
@@ -152,12 +152,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await createVerificationPaymentIntent(profileId, headers);
       case 'confirm-payment':
         if (!body.paymentIntentId || !body.returnUrl) {
-          return { statusCode: 400, headers, body: JSON.stringify({ error: 'paymentIntentId and returnUrl are required' }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'paymentIntentId and returnUrl are required' }) };
         }
         return await confirmPaymentAndStartVerification(profileId, body.paymentIntentId, body.returnUrl, headers);
       case 'create-session':
         if (!body.returnUrl) {
-          return { statusCode: 400, headers, body: JSON.stringify({ error: 'returnUrl is required' }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'returnUrl is required' }) };
         }
         return await createVerificationSession(profileId, body.returnUrl, headers);
       case 'get-status':
@@ -168,7 +168,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'Invalid action' }),
+          body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
   } catch (error) {
@@ -176,7 +176,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
 };
@@ -202,7 +202,7 @@ async function createVerificationSubscription(stripe: Stripe, userId: string, he
     );
 
     if (result.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ error: 'User not found' }) };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'User not found' }) };
     }
 
     const { email, full_name, stripe_customer_id, is_verified, verification_subscription_id } = result.rows[0];
@@ -304,12 +304,12 @@ async function confirmSubscriptionAndStartVerification(
     );
 
     if (result.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ error: 'User not found' }) };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'User not found' }) };
     }
 
     const { verification_subscription_id } = result.rows[0];
     if (!verification_subscription_id) {
-      return { statusCode: 402, headers, body: JSON.stringify({ error: 'No subscription found' }) };
+      return { statusCode: 402, headers, body: JSON.stringify({ success: false, message: 'No subscription found' }) };
     }
 
     const sub = await stripe.subscriptions.retrieve(verification_subscription_id);
@@ -347,7 +347,7 @@ async function cancelVerificationSubscription(stripe: Stripe, userId: string, he
     );
 
     if (!result.rows[0]?.verification_subscription_id) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'No active subscription' }) };
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'No active subscription' }) };
     }
 
     // Cancel at period end so user keeps verified status until billing period expires
@@ -417,7 +417,7 @@ async function createVerificationPaymentIntent(userId: string, headers: Record<s
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
@@ -428,7 +428,7 @@ async function createVerificationPaymentIntent(userId: string, headers: Record<s
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'User is already verified' }),
+        body: JSON.stringify({ success: false, message: 'User is already verified' }),
       };
     }
 
@@ -554,7 +554,7 @@ async function confirmPaymentAndStartVerification(
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ error: 'Payment does not belong to this user' }),
+        body: JSON.stringify({ success: false, message: 'Payment does not belong to this user' }),
       };
     }
 
@@ -591,7 +591,7 @@ async function createVerificationSession(
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
@@ -692,7 +692,7 @@ async function getVerificationStatus(userId: string, headers: Record<string, str
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
@@ -754,7 +754,7 @@ async function getVerificationReport(userId: string, headers: Record<string, str
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'No verification session found' }),
+        body: JSON.stringify({ success: false, message: 'No verification session found' }),
       };
     }
 
@@ -767,7 +767,7 @@ async function getVerificationReport(userId: string, headers: Record<string, str
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Verification not completed' }),
+        body: JSON.stringify({ success: false, message: 'Verification not completed' }),
       };
     }
 

@@ -21,7 +21,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const httpMethod = event.httpMethod;
 
   if (!userId) {
-    return createCorsResponse(401, { error: 'Unauthorized' });
+    return createCorsResponse(401, { success: false, message: 'Unauthorized' });
   }
 
   const rateLimit = await checkRateLimit({
@@ -31,16 +31,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     maxRequests: 30,
   });
   if (!rateLimit.allowed) {
-    return createCorsResponse(429, { error: 'Too many requests. Please wait.' });
+    return createCorsResponse(429, { success: false, message: 'Too many requests. Please wait.' });
   }
 
   if (!peakId) {
-    return createCorsResponse(400, { error: 'Peak ID is required' });
+    return createCorsResponse(400, { success: false, message: 'Peak ID is required' });
   }
 
   // Validate UUID format
   if (!isValidUUID(peakId)) {
-    return createCorsResponse(400, { error: 'Invalid peak ID format' });
+    return createCorsResponse(400, { success: false, message: 'Invalid peak ID format' });
   }
 
   try {
@@ -52,7 +52,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileResult.rows.length === 0) {
-      return createCorsResponse(404, { error: 'Profile not found' });
+      return createCorsResponse(404, { success: false, message: 'Profile not found' });
     }
     const profileId = profileResult.rows[0].id;
 
@@ -63,7 +63,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     );
 
     if (peakResult.rows.length === 0) {
-      return createCorsResponse(404, { error: 'Peak not found' });
+      return createCorsResponse(404, { success: false, message: 'Peak not found' });
     }
 
     if (httpMethod === 'POST') {
@@ -122,10 +122,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       });
     }
 
-    return createCorsResponse(405, { error: 'Method not allowed' });
+    return createCorsResponse(405, { success: false, message: 'Method not allowed' });
 
   } catch (error: unknown) {
     log.error('Error in peak react handler', error);
-    return createCorsResponse(500, { error: 'Internal server error' });
+    return createCorsResponse(500, { success: false, message: 'Internal server error' });
   }
 }

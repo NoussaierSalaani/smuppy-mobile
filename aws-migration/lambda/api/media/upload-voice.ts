@@ -73,7 +73,7 @@ export async function handler(
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ error: 'Unauthorized' }),
+        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
 
@@ -83,7 +83,7 @@ export async function handler(
       return {
         statusCode: 429,
         headers,
-        body: JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       };
     }
 
@@ -92,7 +92,7 @@ export async function handler(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Request body is required' }),
+        body: JSON.stringify({ success: false, message: 'Request body is required' }),
       };
     }
 
@@ -103,7 +103,7 @@ export async function handler(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'conversationId is required' }),
+        body: JSON.stringify({ success: false, message: 'conversationId is required' }),
       };
     }
 
@@ -111,7 +111,7 @@ export async function handler(
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid conversationId format' }),
+        body: JSON.stringify({ success: false, message: 'Invalid conversationId format' }),
       };
     }
 
@@ -121,7 +121,7 @@ export async function handler(
         statusCode: 400,
         headers,
         // BUG-2026-02-14: Align with frontend MAX_DURATION_SECONDS=300 and send-message.ts validation
-        body: JSON.stringify({ error: 'Invalid duration: must be between 0 and 300 seconds' }),
+        body: JSON.stringify({ success: false, message: 'Invalid duration: must be between 0 and 300 seconds' }),
       };
     }
 
@@ -136,7 +136,7 @@ export async function handler(
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: 'Profile not found' }),
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
 
@@ -152,7 +152,7 @@ export async function handler(
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ error: 'Not a participant of this conversation' }),
+        body: JSON.stringify({ success: false, message: 'Not a participant of this conversation' }),
       };
     }
 
@@ -199,7 +199,7 @@ export async function handler(
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Failed to generate upload URL' }),
+      body: JSON.stringify({ success: false, message: 'Failed to generate upload URL' }),
     };
   }
 }

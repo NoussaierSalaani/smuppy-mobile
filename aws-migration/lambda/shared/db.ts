@@ -255,4 +255,7 @@ export function handleDbError(error: unknown): void {
   }
 }
 
-export { headers as corsHeaders, createCorsResponse, getCorsHeaders, getSecureHeaders } from '../api/utils/cors';
+import { getSecureHeaders as _getSecureHeaders } from '../api/utils/cors';
+export { createCorsResponse, getCorsHeaders, getSecureHeaders } from '../api/utils/cors';
+/** @deprecated Use createHeaders(event) from cors.ts for dynamic origin validation */
+export const corsHeaders = _getSecureHeaders();

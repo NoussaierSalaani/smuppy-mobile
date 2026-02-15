@@ -5,7 +5,9 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { headers as corsHeaders } from '../utils/cors';
+import { getSecureHeaders } from '../utils/cors';
+
+const corsHeaders = getSecureHeaders();
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';

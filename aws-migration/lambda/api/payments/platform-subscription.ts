@@ -22,15 +22,10 @@ async function getStripe(): Promise<Stripe> {
   return stripeInstance;
 }
 
-// Fallback headers for inner functions that don't receive the event
-const fallbackCorsHeaders = {
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-  'Content-Type': 'application/json',
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'X-Content-Type-Options': 'nosniff',
-};
+import { getSecureHeaders } from '../utils/cors';
+
+// Security headers for inner functions that don't receive the event
+const fallbackCorsHeaders = getSecureHeaders();
 
 // Platform subscription prices (in cents)
 const PLATFORM_PRICES = {

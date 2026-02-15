@@ -7,7 +7,10 @@ import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
-import { createHeaders } from '../utils/cors';
+import { createHeaders, getSecureHeaders } from '../utils/cors';
+
+// Security headers for inner functions that don't receive the event
+const secureHeaders = getSecureHeaders();
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 
@@ -105,7 +108,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     log.error('Subscription error', error);
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
+      headers: secureHeaders,
       body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
@@ -129,7 +132,7 @@ async function createSubscription(
     if (subscriberResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
+        headers: secureHeaders,
         body: JSON.stringify({ success: false, message: 'Subscriber not found' }),
       };
     }
@@ -159,7 +162,7 @@ async function createSubscription(
     if (!creatorResult.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
+        headers: secureHeaders,
         body: JSON.stringify({ success: false, message: 'Creator has not set up payments' }),
       };
     }
@@ -170,10 +173,10 @@ async function createSubscription(
     try {
       const price = await stripe.prices.retrieve(priceId);
       if (!price || !price.active) {
-        return { statusCode: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }, body: JSON.stringify({ success: false, message: 'Invalid or inactive price' }) };
+        return { statusCode: 400, headers: secureHeaders, body: JSON.stringify({ success: false, message: 'Invalid or inactive price' }) };
       }
     } catch {
-      return { statusCode: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }, body: JSON.stringify({ success: false, message: 'Invalid price ID' }) };
+      return { statusCode: 400, headers: secureHeaders, body: JSON.stringify({ success: false, message: 'Invalid price ID' }) };
     }
 
     // Create subscription with revenue share (platform takes 15% of subscriptions)
@@ -208,7 +211,7 @@ async function createSubscription(
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
+      headers: secureHeaders,
       body: JSON.stringify({
         success: true,
         subscription: {
@@ -240,7 +243,7 @@ async function cancelSubscription(
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
+        headers: secureHeaders,
         body: JSON.stringify({ success: false, message: 'Subscription not found' }),
       };
     }
@@ -259,7 +262,7 @@ async function cancelSubscription(
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
+      headers: secureHeaders,
       body: JSON.stringify({
         success: true,
         message: 'Subscription will be canceled at end of billing period',
@@ -289,7 +292,7 @@ async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult>
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
+      headers: secureHeaders,
       body: JSON.stringify({
         success: true,
         subscriptions: result.rows.map((row: Record<string, unknown>) => ({
@@ -326,7 +329,7 @@ async function getCreatorPrices(creatorId: string): Promise<APIGatewayProxyResul
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
+      headers: secureHeaders,
       body: JSON.stringify({
         success: true,
         tiers: result.rows,

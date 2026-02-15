@@ -99,13 +99,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         );
       }
 
-      // Atomic delete: remove comment + all replies, get exact count via RETURNING
-      const deleteResult = await client.query(
-        'DELETE FROM comments WHERE id = $1 OR parent_comment_id = $1 RETURNING id',
+      // Atomic delete: remove comment + all replies
+      // Counter update handled atomically by trigger_comments_count (migration-015)
+      await client.query(
+        'DELETE FROM comments WHERE id = $1 OR parent_comment_id = $1',
         [commentId]
       );
-
-      // Counter update handled atomically by trigger_comments_count (migration-015)
 
       await client.query('COMMIT');
 

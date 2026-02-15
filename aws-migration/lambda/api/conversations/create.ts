@@ -105,9 +105,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Check if either user has blocked the other
     const blockCheck = await db.query(
-      `SELECT 1 FROM blocks
-       WHERE (user_id = $1 AND blocked_user_id = $2)
-          OR (user_id = $2 AND blocked_user_id = $1)
+      `SELECT 1 FROM blocked_users
+       WHERE (blocker_id = $1 AND blocked_id = $2)
+          OR (blocker_id = $2 AND blocked_id = $1)
        LIMIT 1`,
       [profileId, participantId]
     );

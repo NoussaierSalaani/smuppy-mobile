@@ -124,7 +124,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           END
         ) as other_participant
       FROM conversations c
-      WHERE c.participant_1_id = $1 OR c.participant_2_id = $1
+      WHERE (c.participant_1_id = $1 OR c.participant_2_id = $1)
+        AND NOT EXISTS (
+          SELECT 1 FROM blocked_users bu
+          WHERE (bu.blocker_id = $1 AND bu.blocked_id = CASE WHEN c.participant_1_id = $1 THEN c.participant_2_id ELSE c.participant_1_id END)
+             OR (bu.blocked_id = $1 AND bu.blocker_id = CASE WHEN c.participant_1_id = $1 THEN c.participant_2_id ELSE c.participant_1_id END)
+        )
     `;
 
     const params: SqlParam[] = [profileId];

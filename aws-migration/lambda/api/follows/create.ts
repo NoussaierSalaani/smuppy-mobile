@@ -97,11 +97,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Check if target user exists and if they're private
+    // Check if target user exists, is not banned/suspended, and if they're private
     // NOTE: FOR UPDATE lock is taken inside the transaction below to prevent
     // privacy race condition (user toggles private between check and insert)
     const targetResult = await db.query(
-      `SELECT id, is_private FROM profiles WHERE id = $1`,
+      `SELECT id, is_private, moderation_status FROM profiles WHERE id = $1`,
       [followingId]
     );
 
@@ -114,6 +114,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const targetUser = targetResult.rows[0];
+
+    // Prevent following banned or suspended accounts
+    if (targetUser.moderation_status === 'banned' || targetUser.moderation_status === 'suspended') {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Cannot follow this user' }),
+      };
+    }
 
     // Check for anti-spam cooldown (7 days after 2+ unfollows)
     // Note: This is optional - if the table doesn't exist, skip cooldown check

@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
 
 export interface AuthStackProps extends cdk.NestedStackProps {
@@ -55,6 +54,10 @@ export class AuthStack extends cdk.NestedStack {
         ? cognito.AdvancedSecurityMode.ENFORCED
         : cognito.AdvancedSecurityMode.AUDIT,
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      deviceTracking: {
+        challengeRequiredOnNewDevice: true,
+        deviceOnlyRememberedOnUserPrompt: true,
+      },
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 

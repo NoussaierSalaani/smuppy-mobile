@@ -51,14 +51,14 @@ const secureStore = {
     try {
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] setItem failed for "${key}" (${value.length} chars):`, (error as Error).message);
+      if (__DEV__) console.warn(`[SecureStore] setItem failed for "${key}" (${value.length} chars):`, (error as Error).message);
     }
   },
   async getItem(key: string): Promise<string | null> {
     try {
       return await SecureStore.getItemAsync(key);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] getItem failed for "${key}":`, (error as Error).message);
+      if (__DEV__) console.warn(`[SecureStore] getItem failed for "${key}":`, (error as Error).message);
       return null;
     }
   },
@@ -66,7 +66,7 @@ const secureStore = {
     try {
       await SecureStore.deleteItemAsync(key);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') console.warn(`[SecureStore] removeItem failed for "${key}":`, (error as Error).message);
+      if (__DEV__) console.warn(`[SecureStore] removeItem failed for "${key}":`, (error as Error).message);
     }
   },
 };
@@ -136,7 +136,7 @@ class AWSAuthService {
    */
   async initialize(): Promise<AuthUser | null> {
     try {
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Initializing...');
+      if (__DEV__) console.log('[AWS Auth] Initializing...');
 
       // Load tokens and user profile from secure storage
       const [accessToken, refreshToken, idToken, userJson] = await Promise.all([
@@ -164,16 +164,16 @@ class AWSAuthService {
 
       try {
         this.user = JSON.parse(userJson);
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Restored session');
+        if (__DEV__) console.log('[AWS Auth] Restored session');
 
         // Check token expiry locally (no network call) to avoid failing on cold start
         if (!this.isTokenExpired(accessToken)) {
-          if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Token still valid (local check)');
+          if (__DEV__) console.log('[AWS Auth] Token still valid (local check)');
           return this.user;
         }
 
         // Token expired locally — try refresh
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Token expired, trying refresh...');
+        if (__DEV__) console.log('[AWS Auth] Token expired, trying refresh...');
         const refreshed = await this.refreshSession();
         if (!refreshed && !this.user) {
           // refreshSession only clears session on auth errors, not network errors.
@@ -201,7 +201,7 @@ class AWSAuthService {
   async signUp(params: SignUpParams): Promise<{ user: AuthUser | null; confirmationRequired: boolean }> {
     const { email, password, username, fullName } = params;
 
-    if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] SignUp attempt');
+    if (__DEV__) console.log('[AWS Auth] SignUp attempt');
 
     try {
       // Try server-side smart signup first (handles unconfirmed users)
@@ -214,7 +214,7 @@ class AWSAuthService {
         fullName,
       });
 
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Smart SignUp result:', result);
+      if (__DEV__) console.log('[AWS Auth] Smart SignUp result:', result);
 
       if (!result.success) {
         throw new Error(result.message || 'Signup failed');
@@ -232,7 +232,7 @@ class AWSAuthService {
       };
     } catch (apiError: unknown) {
       const err = apiError as { statusCode?: number; message?: string };
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', err.message);
+      if (__DEV__) console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', err.message);
 
       // Fall back to direct Cognito on any server/network error (404, 500, 502, 503, timeout, CORS, etc.).
       // Only re-throw client validation errors (400) with a clear message from the server.
@@ -269,7 +269,7 @@ class AWSAuthService {
         userAttributes.push({ Name: 'name', Value: fullName });
       }
 
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Direct SignUp username:', cognitoUsername);
+      if (__DEV__) console.log('[AWS Auth] Direct SignUp username:', cognitoUsername);
 
       const command = new SignUpCommand({
         ClientId: CLIENT_ID,
@@ -280,7 +280,7 @@ class AWSAuthService {
 
       const response = await client.send(command);
 
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Direct SignUp success:', response.UserSub);
+      if (__DEV__) console.log('[AWS Auth] Direct SignUp success:', response.UserSub);
 
       return {
         user: response.UserSub ? {
@@ -304,7 +304,7 @@ class AWSAuthService {
    * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async confirmSignUp(email: string, code: string): Promise<boolean> {
-    if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Confirming signup');
+    if (__DEV__) console.log('[AWS Auth] Confirming signup');
 
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
@@ -315,7 +315,7 @@ class AWSAuthService {
       const result = await awsAPI.confirmSignup({ email, code });
 
       if (result.success) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Confirm signup success via API');
+        if (__DEV__) console.log('[AWS Auth] Confirm signup success via API');
         return true;
       }
 
@@ -323,7 +323,7 @@ class AWSAuthService {
     } catch (apiError: unknown) {
       // If API endpoint doesn't exist, fall back to direct Cognito
       if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
+        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
         const { ConfirmSignUpCommand } = await getCognitoCommands();
@@ -336,7 +336,7 @@ class AWSAuthService {
         });
 
         await client.send(command);
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Confirm signup success via Cognito');
+        if (__DEV__) console.log('[AWS Auth] Confirm signup success via Cognito');
         return true;
       }
 
@@ -351,7 +351,7 @@ class AWSAuthService {
    * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async resendConfirmationCode(email: string): Promise<boolean> {
-    if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Resending confirmation code');
+    if (__DEV__) console.log('[AWS Auth] Resending confirmation code');
 
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
@@ -362,7 +362,7 @@ class AWSAuthService {
       const result = await awsAPI.resendConfirmationCode(email);
 
       if (result.success) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Resend confirmation code success via API');
+        if (__DEV__) console.log('[AWS Auth] Resend confirmation code success via API');
         return true;
       }
 
@@ -370,13 +370,13 @@ class AWSAuthService {
     } catch (apiError: unknown) {
       // Handle rate limiting
       if ((apiError as { statusCode?: number; message?: string }).statusCode === 429) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Rate limited');
+        if (__DEV__) console.log('[AWS Auth] Rate limited');
         throw apiError;
       }
 
       // If API endpoint doesn't exist, fall back to direct Cognito
       if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
+        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
         const { ResendConfirmationCodeCommand } = await getCognitoCommands();
@@ -388,7 +388,7 @@ class AWSAuthService {
         });
 
         await client.send(command);
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Resend confirmation code success via Cognito');
+        if (__DEV__) console.log('[AWS Auth] Resend confirmation code success via Cognito');
         return true;
       }
 
@@ -484,7 +484,7 @@ class AWSAuthService {
    * Sign out user
    */
   async signOut(): Promise<void> {
-    if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] SignOut');
+    if (__DEV__) console.log('[AWS Auth] SignOut');
 
     try {
       if (this.accessToken) {
@@ -537,7 +537,7 @@ class AWSAuthService {
    * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async forgotPassword(email: string): Promise<boolean> {
-    if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Forgot password');
+    if (__DEV__) console.log('[AWS Auth] Forgot password');
 
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
@@ -548,7 +548,7 @@ class AWSAuthService {
       const result = await awsAPI.forgotPassword(email);
 
       if (result.success) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Forgot password code sent via API');
+        if (__DEV__) console.log('[AWS Auth] Forgot password code sent via API');
         return true;
       }
 
@@ -562,7 +562,7 @@ class AWSAuthService {
 
       // If API endpoint doesn't exist, fall back to direct Cognito
       if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
+        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
         const { ForgotPasswordCommand } = await getCognitoCommands();
@@ -574,7 +574,7 @@ class AWSAuthService {
         });
 
         await client.send(command);
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Forgot password code sent via Cognito');
+        if (__DEV__) console.log('[AWS Auth] Forgot password code sent via Cognito');
         return true;
       }
 
@@ -588,7 +588,7 @@ class AWSAuthService {
    * NOTE: Uses email directly as username (Cognito supports email alias)
    */
   async confirmForgotPassword(email: string, code: string, newPassword: string): Promise<boolean> {
-    if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Confirm forgot password');
+    if (__DEV__) console.log('[AWS Auth] Confirm forgot password');
 
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
@@ -599,7 +599,7 @@ class AWSAuthService {
       const result = await awsAPI.confirmForgotPassword({ email, code, newPassword });
 
       if (result.success) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Password reset success via API');
+        if (__DEV__) console.log('[AWS Auth] Password reset success via API');
         return true;
       }
 
@@ -607,7 +607,7 @@ class AWSAuthService {
     } catch (apiError: unknown) {
       // If API endpoint doesn't exist, fall back to direct Cognito
       if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] API not available, using direct Cognito');
+        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
 
         const client = await getCognitoClient();
         const { ConfirmForgotPasswordCommand } = await getCognitoCommands();
@@ -621,7 +621,7 @@ class AWSAuthService {
         });
 
         await client.send(command);
-        if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Password reset success via Cognito');
+        if (__DEV__) console.log('[AWS Auth] Password reset success via Cognito');
         return true;
       }
 
@@ -654,7 +654,7 @@ class AWSAuthService {
       await this.initialize();
     }
     if (this.accessToken && this.isTokenExpired(this.accessToken)) {
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Access token expired, refreshing...');
+      if (__DEV__) console.log('[AWS Auth] Access token expired, refreshing...');
       const refreshed = await this.refreshSessionOnce();
       if (!refreshed) {
         // Network error: tokens still in memory → return stale, let server decide.
@@ -674,7 +674,7 @@ class AWSAuthService {
       await this.initialize();
     }
     if (this.idToken && this.isTokenExpired(this.idToken)) {
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] ID token expired, refreshing...');
+      if (__DEV__) console.log('[AWS Auth] ID token expired, refreshing...');
       const refreshed = await this.refreshSessionOnce();
       if (!refreshed) {
         // Network error: tokens still in memory → return stale, let server decide.
@@ -736,7 +736,7 @@ class AWSAuthService {
       });
 
       await client.send(command);
-      if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Password changed successfully');
+      if (__DEV__) console.log('[AWS Auth] Password changed successfully');
     } catch (error: unknown) {
       if (__DEV__) console.warn('[AWS Auth] Change password error:', (error as Error).name, (error as Error).message);
       throw error;
@@ -754,7 +754,7 @@ class AWSAuthService {
    * Sign in with Apple ID token
    */
   async signInWithApple(identityToken: string, nonce: string): Promise<AuthUser> {
-    if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Apple Sign-In');
+    if (__DEV__) console.log('[AWS Auth] Apple Sign-In');
 
     try {
       const { awsAPI } = await import('./aws-api');
@@ -801,7 +801,7 @@ class AWSAuthService {
    * Sign in with Google ID token
    */
   async signInWithGoogle(idToken: string, accessToken?: string): Promise<AuthUser> {
-    if (process.env.NODE_ENV === 'development') console.log('[AWS Auth] Google Sign-In');
+    if (__DEV__) console.log('[AWS Auth] Google Sign-In');
 
     try {
       const { awsAPI } = await import('./aws-api');

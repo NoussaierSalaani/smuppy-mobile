@@ -28,10 +28,11 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_post_tags_post_id
 
 -- P2: posts engagement score for explore feed optimization
 -- Supports ORDER BY (likes_count + comments_count) DESC, created_at DESC
--- with 30-day window filter
+-- Note: time window filter (30 days) applied at query time, not in index
+-- (NOW() is volatile and cannot be used in partial index predicates)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_posts_engagement_recent
   ON posts(created_at DESC, likes_count DESC, comments_count DESC)
-  WHERE visibility != 'hidden' AND created_at > NOW() - INTERVAL '30 days';
+  WHERE visibility != 'hidden';
 
 -- Rollback:
 -- DROP INDEX CONCURRENTLY IF EXISTS idx_notifications_data_gin;

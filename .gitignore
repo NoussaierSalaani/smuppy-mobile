@@ -101,4 +101,6 @@ smuppy-mobile/
 # CDK output directories (all variants)
 aws-migration/infrastructure/cdk.out.*/
 aws-migration/infrastructure/cdk.out.*/**
+aws-migration/infrastructure/cdk-out-deploy*/
+aws-migration/infrastructure/cdk-out-deploy*/**
 

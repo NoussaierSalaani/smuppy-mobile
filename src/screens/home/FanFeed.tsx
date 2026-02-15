@@ -114,7 +114,13 @@ const PostItem = memo<PostItemProps>(({
             </Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.postMore} onPress={() => onMenu(post)}>
+        <TouchableOpacity
+          style={styles.postMore}
+          onPress={() => onMenu(post)}
+          accessibilityLabel="Post options"
+          accessibilityRole="button"
+          hitSlop={HIT_SLOP.medium}
+        >
           <Ionicons name="ellipsis-horizontal" size={20} color={colors.dark} />
         </TouchableOpacity>
       </View>
@@ -236,7 +242,7 @@ const PostItem = memo<PostItemProps>(({
       </TouchableOpacity>
 
       {/* Caption */}
-      <View style={styles.postCaption}>
+      <View style={styles.postCaption} accessibilityRole="text">
         <Text style={styles.postCaptionText}>
           <Text
             style={styles.postCaptionUser}
@@ -314,7 +320,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   // State for real posts from API
   const [posts, setPosts] = useState<UIPost[]>([]);
-  const [, setLikedPostIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const nextCursorRef = useRef<string | null>(null);
@@ -435,7 +440,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
       if (refresh || isInitial) {
         setPosts(transformedPosts);
-        setLikedPostIds(likedIds);
       } else {
         // Deduplicate when appending — cursor pagination guarantees no overlap,
         // but guard against edge cases (e.g. posts created between requests)
@@ -444,7 +448,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           const newPosts = transformedPosts.filter(p => !existingIds.has(p.id));
           return [...prev, ...newPosts];
         });
-        setLikedPostIds(prev => new Set([...prev, ...likedIds]));
       }
 
       nextCursorRef.current = nextCursor;
@@ -459,8 +462,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         setLoadError('Unable to load feed. Check your connection and try again.');
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [showError]);
 
   // Fetch suggestions with pagination - uses refs to avoid re-render loops
   const fetchSuggestions = useCallback(async (append = false, force = false) => {
@@ -545,6 +547,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         isFirstFocus.current = false;
         return;
       }
+
+      let cancelled = false;
+
       // Reset and refetch suggestions — the API excludes already-followed profiles
       suggestionsOffsetRef.current = 0;
       hasMoreSuggestionsRef.current = true;
@@ -578,6 +583,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           hasLikedPostsBatch(postIds),
           hasSavedPostsBatch(postIds),
         ]).then(([likedResult, savedResult]) => {
+          if (cancelled) return;
           const likedMap = likedResult.status === 'fulfilled' ? likedResult.value : new Map<string, boolean>();
           const savedMap = savedResult.status === 'fulfilled' ? savedResult.value : new Map<string, boolean>();
           setPosts(prev => prev.map(p => ({
@@ -599,6 +605,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         // No posts to re-sync, clear overrides immediately
         useFeedStore.getState().clearOptimisticLikes(overrideIds);
       }
+
+      return () => { cancelled = true; };
     }, [fetchSuggestions])
   );
 
@@ -630,7 +638,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       // Follow user in background (don't await to keep UI responsive)
       followUser(userId).then(() => {
         // If feed is empty, refresh to show new posts from followed user
-        if (posts.length === 0) {
+        if (postsRef.current.length === 0) {
           fetchPosts(undefined, true);
         }
       }).catch(err => {
@@ -663,7 +671,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
       trackingTimeoutsRef.current.set(userId, timeoutId);
     }
-  }, [trackingUserIds, posts.length, fetchPosts, fetchSuggestions]);
+  }, [trackingUserIds, fetchPosts, fetchSuggestions]);
 
   // Refill suggestions when running low - load more from database
   useEffect(() => {
@@ -743,6 +751,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     setPosts,
     onSaveToggle: (_postId, saved) => {
       showSuccess(saved ? 'Saved' : 'Removed', saved ? 'Post added to your collection.' : 'Post removed from saved.');
+    },
+    onError: (action) => {
+      showError('Action Failed', action === 'like' ? 'Could not update like. Please try again.' : 'Could not save post. Please try again.');
     },
   });
 
@@ -867,6 +878,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     setRefreshing(true);
     nextCursorRef.current = null;
     loadMoreErrorCount.current = 0;
+    carouselIndexesRef.current = {};
     await fetchPosts(undefined, true);
     setRefreshing(false);
   }, [fetchPosts]);
@@ -931,8 +943,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         />
       </View>
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goToUserProfile, handleTrackUser, trackingUserIds]);
+  }, [goToUserProfile, handleTrackUser, trackingUserIds, styles, colors, isDark]);
 
   const handleCloseMenu = useCallback(() => setMenuVisible(false), []);
 
@@ -957,7 +968,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const renderPost = useCallback(({ item: post, index }: { item: UIPost; index: number }) => (
     <PostItem
       post={post}
-      isLast={index === visiblePosts.length - 1}
+      isLast={index === visiblePostsRef.current.length - 1}
       colors={colors}
       styles={styles}
       onUserPress={goToUserProfile}
@@ -970,7 +981,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       initialCarouselIndex={carouselIndexesRef.current[post.id] ?? 0}
       onCarouselIndexChange={handleCarouselIndexChange}
     />
-  ), [visiblePosts.length, colors, styles, goToUserProfile, toggleLike, toggleSave, handlePostMenu, handleSharePost, handleOpenPostDetail, handleLikersPress, handleCarouselIndexChange]);
+  ), [colors, styles, goToUserProfile, toggleLike, toggleSave, handlePostMenu, handleSharePost, handleOpenPostDetail, handleLikersPress, handleCarouselIndexChange]);
 
   // Invite friends using native share
   const inviteFriends = useCallback(async () => {
@@ -1052,8 +1063,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         )}
       </View>
     </View>
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [suggestions, suggestionsExhausted, renderSuggestion, handleNavigateSearch, inviteFriends]);
+  ), [suggestions, suggestionsExhausted, renderSuggestion, handleNavigateSearch, inviteFriends, styles, colors, isDark]);
 
   // List footer with loading indicator
   const ListFooter = useCallback(() => {
@@ -1065,7 +1075,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       );
     }
     // Only show "All Caught Up" when there IS content and user has seen it all
-    if (!hasMore && posts.length > 0) {
+    if (!hasMore && postsRef.current.length > 0) {
       return (
         <View style={styles.endOfFeed}>
           <Ionicons name="checkmark-circle" size={50} color={colors.primary} />
@@ -1077,7 +1087,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       );
     }
     return null;
-  }, [loadingMore, hasMore, posts.length, styles, colors]);
+  }, [loadingMore, hasMore, styles, colors]);
 
   const keyExtractor = useCallback((item: UIPost) => String(item.id), []);
   const getItemType = useCallback((item: UIPost) => {
@@ -1132,7 +1142,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           renderItem={renderPost}
           keyExtractor={keyExtractor}
           getItemType={getItemType}
-          {...{ estimatedItemSize: 450 } as Record<string, number>}
+          {...{ estimatedItemSize: 550 } as Record<string, number>}
           ListHeaderComponent={ListHeader}
           ListFooterComponent={ListFooter}
           ListEmptyComponent={EmptyState}

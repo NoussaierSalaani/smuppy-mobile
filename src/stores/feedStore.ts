@@ -36,6 +36,7 @@ export interface FeedState {
 }
 
 const MAX_FEED_CACHE = 100;
+const MAX_DELETED_IDS = 200;
 
 export const useFeedStore = create<FeedState>()(
   immer((set, get) => ({
@@ -56,6 +57,27 @@ export const useFeedStore = create<FeedState>()(
       set((state) => {
         state.feedCache = posts.slice(0, MAX_FEED_CACHE);
         state.lastFetchTime = Date.now();
+
+        // Auto-cleanup: prune optimistic overrides not in the new cache
+        const cacheIds = new Set(posts.map((p) => p.id));
+        for (const id of Object.keys(state.optimisticLikes)) {
+          if (!cacheIds.has(id)) delete state.optimisticLikes[id];
+        }
+        for (const id of Object.keys(state.optimisticPeakLikes)) {
+          if (!cacheIds.has(id)) delete state.optimisticPeakLikes[id];
+        }
+
+        // Cap deletion tracking maps to prevent unbounded growth
+        const deletedPostKeys = Object.keys(state.deletedPostIds);
+        if (deletedPostKeys.length > MAX_DELETED_IDS) {
+          const toRemove = deletedPostKeys.slice(0, deletedPostKeys.length - MAX_DELETED_IDS);
+          for (const id of toRemove) delete state.deletedPostIds[id];
+        }
+        const deletedPeakKeys = Object.keys(state.deletedPeakIds);
+        if (deletedPeakKeys.length > MAX_DELETED_IDS) {
+          const toRemove = deletedPeakKeys.slice(0, deletedPeakKeys.length - MAX_DELETED_IDS);
+          for (const id of toRemove) delete state.deletedPeakIds[id];
+        }
       }),
 
     appendToFeed: (newPosts: Post[]) =>

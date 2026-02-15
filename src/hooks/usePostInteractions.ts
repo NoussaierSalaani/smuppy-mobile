@@ -20,6 +20,8 @@ interface UsePostInteractionsOptions<T extends InteractablePost> {
   onLike?: (postId: string) => void;
   /** Optional callback fired after a successful save toggle. */
   onSaveToggle?: (postId: string, saved: boolean) => void;
+  /** Optional callback fired when a like or save fails (for user feedback). */
+  onError?: (action: 'like' | 'save', postId: string) => void;
 }
 
 /**
@@ -30,6 +32,7 @@ export function usePostInteractions<T extends InteractablePost>({
   setPosts,
   onLike,
   onSaveToggle,
+  onError,
 }: UsePostInteractionsOptions<T>) {
   // Pending sets to prevent spam — skip if a like/save is already in-flight
   const pendingLikes = useRef(new Set<string>());
@@ -66,6 +69,7 @@ export function usePostInteractions<T extends InteractablePost>({
           p.id === postId ? { ...p, isLiked: wasLiked, likes: wasLiked ? p.likes + 1 : Math.max(0, p.likes - 1) } : p
         ));
         useFeedStore.getState().toggleLikeOptimistic(postId, wasLiked);
+        onError?.('like', postId);
       } else {
         if (!wasLiked) {
           onLike?.(postId);
@@ -78,7 +82,7 @@ export function usePostInteractions<T extends InteractablePost>({
     } finally {
       pendingLikes.current.delete(postId);
     }
-  }, [setPosts, onLike]);
+  }, [setPosts, onLike, onError]);
 
   const toggleSave = useCallback(async (postId: string) => {
     // Prevent concurrent save requests for the same post
@@ -121,10 +125,11 @@ export function usePostInteractions<T extends InteractablePost>({
           saves: (p.saves ?? 0) + (wasSaved ? 1 : -1),
         };
       }));
+      onError?.('save', postId);
     } finally {
       pendingSaves.current.delete(postId);
     }
-  }, [setPosts, onSaveToggle]);
+  }, [setPosts, onSaveToggle, onError]);
 
   return { toggleLike, toggleSave };
 }

@@ -41,6 +41,7 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
   const [navigating, setNavigating] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState(false);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -48,20 +49,24 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
   useEffect(() => {
     if (searchQuery.length >= 2) {
       setLoading(true);
+      setSearchError(false);
       const timer = setTimeout(async () => {
         try {
-          const { data } = await searchProfiles(searchQuery, 30);
-          if (data) {
+          const { data, error } = await searchProfiles(searchQuery, 30);
+          if (error) {
+            setSearchError(true);
+          } else if (data) {
             setSearchResults(data.filter(p => !isHidden(p.id)));
           }
         } catch {
-          // Search failed silently — results stay empty
+          setSearchError(true);
         }
         setLoading(false);
       }, 300);
       return () => clearTimeout(timer);
     } else {
       setSearchResults([]);
+      setSearchError(false);
       setLoading(false);
     }
   }, [searchQuery, isHidden]);
@@ -163,6 +168,14 @@ export default function NewMessageScreen({ navigation }: NewMessageScreenProps) 
           <Text style={styles.emptyTitle}>Search for someone</Text>
           <Text style={styles.emptySubtitle}>
             Type at least 2 characters to search
+          </Text>
+        </View>
+      ) : searchError ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="alert-circle-outline" size={50} color={colors.grayLight} />
+          <Text style={styles.emptyTitle}>Search failed</Text>
+          <Text style={styles.emptySubtitle}>
+            Please try again
           </Text>
         </View>
       ) : searchResults.length === 0 ? (

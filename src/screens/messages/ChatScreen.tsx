@@ -473,11 +473,17 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
     if (!error && data) {
       pollFailCountRef.current = 0;
-      // Clean up optimistic messages that now exist on server
+      // Clean up optimistic messages: matched on server or older than 2 minutes (stale)
       if (pendingOptimisticIdsRef.current.size > 0) {
+        const now = Date.now();
         for (const optId of pendingOptimisticIdsRef.current) {
           const optMsg = messagesRef.current.find(m => m.id === optId);
           if (!optMsg) {
+            pendingOptimisticIdsRef.current.delete(optId);
+            continue;
+          }
+          // Prune stale optimistic messages older than 2 minutes
+          if (now - new Date(optMsg.created_at).getTime() > 120000) {
             pendingOptimisticIdsRef.current.delete(optId);
             continue;
           }

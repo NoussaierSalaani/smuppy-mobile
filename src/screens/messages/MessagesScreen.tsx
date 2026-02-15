@@ -139,7 +139,7 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
       // Filter out blocked/muted users
       const filtered = data.filter(c => c.other_user && !isHidden(c.other_user.id));
       // Smart diff: only update state if conversations actually changed
-      const fingerprint = filtered.map(c => `${c.id}:${c.last_message_at}:${c.unread_count}`).join('|');
+      const fingerprint = filtered.map(c => `${c.id}:${c.last_message?.id}:${c.last_message_at}:${c.unread_count}`).join('|');
       if (fingerprint !== conversationsFingerprint.current) {
         conversationsFingerprint.current = fingerprint;
         setConversations(filtered);

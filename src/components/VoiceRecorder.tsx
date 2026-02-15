@@ -147,6 +147,8 @@ export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps
         }
       }, 1000);
     } catch (err) {
+      // Reset audio mode so playback isn't broken after a failed recording attempt
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
       if (__DEV__) console.warn('Failed to start recording:', err);
       showError('Error', 'Failed to start recording');
     }

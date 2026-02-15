@@ -252,7 +252,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         sendPushToUser(db, replyParentAuthorId, {
           title: 'New Peak Reply',
           body: `${profile.full_name || 'Someone'} replied to your Peak`,
-          data: { type: 'peak_reply', peakId: peak.id },
+          data: { type: 'peak_reply', peakId: peak.id as string },
         }, profile.id).catch(err => log.error('Push peak_reply failed', err));
       } catch (notifErr) {
         log.error('Failed to send reply notification', notifErr);

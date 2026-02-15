@@ -128,7 +128,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
 
   const togglePlayback = useCallback(async () => {
     if (loadError) {
-      if (retryCountRef.current >= MAX_RETRIES) return; // Stop retrying after max
+      // Allow retry even after max — reset counter so user can keep trying
       retryCountRef.current += 1;
       setLoadError(false);
       setReloadTick(t => t + 1);
@@ -197,11 +197,11 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
         ]}
         onPress={togglePlayback}
         disabled={!isLoaded && !loadError}
-        accessibilityLabel={isPlaying ? "Pause voice message" : loadError ? "Retry loading voice message" : "Play voice message"}
+        accessibilityLabel={isPlaying ? "Pause voice message" : loadError ? "Tap to retry loading" : "Play voice message"}
         accessibilityRole="button"
       >
         <Ionicons
-          name={isPlaying ? "pause" : "play"}
+          name={loadError ? "refresh" : isPlaying ? "pause" : "play"}
           size={20}
           color={isFromMe ? colors.primary : "#fff"}
         />
@@ -216,7 +216,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
           styles.duration,
           { color: isFromMe ? 'rgba(255,255,255,0.8)' : colors.gray }
         ]}>
-          {loadError ? (retryCountRef.current >= MAX_RETRIES ? 'Unavailable' : 'Tap to retry') : displayTime}
+          {loadError ? 'Tap to retry' : displayTime}
         </Text>
       </View>
     </View>

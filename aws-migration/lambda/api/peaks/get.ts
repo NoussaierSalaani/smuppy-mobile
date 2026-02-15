@@ -5,7 +5,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
+import { createHeaders, createCacheableHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
 
@@ -165,7 +165,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers,
+      headers: createCacheableHeaders(event, 'private, max-age=60'),
       body: JSON.stringify({
         peak: {
           id: peak.id,

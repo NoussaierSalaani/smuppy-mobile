@@ -161,6 +161,24 @@ export function cors(
 }
 
 /**
+ * Create headers for cacheable read endpoints
+ * Overrides the default no-store Cache-Control with a configurable value
+ *
+ * @param event - The API Gateway event (to extract Origin header)
+ * @param cacheControl - Cache-Control directive (e.g. 'public, max-age=86400')
+ * @returns Headers object with validated CORS origin and cache directives
+ */
+export function createCacheableHeaders(
+  event?: { headers?: Record<string, string | undefined> },
+  cacheControl = 'private, max-age=60'
+): Record<string, string> {
+  const h = createHeaders(event);
+  h['Cache-Control'] = cacheControl;
+  delete h['Pragma'];
+  return h;
+}
+
+/**
  * Handle OPTIONS preflight requests
  * @returns 200 response with CORS headers
  */

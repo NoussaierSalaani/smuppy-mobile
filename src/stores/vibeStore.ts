@@ -211,59 +211,29 @@ export const useVibeStore = create<VibeState>()(
           const earned = new Set(state.earnedBadges);
           const actions = state.actionHistory;
 
-          // First Post
-          if (!earned.has('first_post') && actions.some(a => a.type === 'post')) {
-            earned.add('first_post');
+          // Single-pass: count action types and detect time-based badges
+          const counts: Record<string, number> = {};
+          let hasEarlyPost = false;
+          let hasLatePost = false;
+          for (const a of actions) {
+            counts[a.type] = (counts[a.type] || 0) + 1;
+            if (a.type === 'post') {
+              const hour = new Date(a.timestamp).getHours();
+              if (hour < 8) hasEarlyPost = true;
+              if (hour >= 23) hasLatePost = true;
+            }
           }
 
-          // Social Butterfly — 10 follows
-          if (!earned.has('social_butterfly') && actions.filter(a => a.type === 'follow_user').length >= 10) {
-            earned.add('social_butterfly');
-          }
-
-          // Explorer — visited 5 spots
-          if (!earned.has('explorer') && actions.filter(a => a.type === 'explore_spot').length >= 5) {
-            earned.add('explorer');
-          }
-
-          // Streak Master — 7-day streak
-          if (!earned.has('streak_master') && state.currentStreak >= 7) {
-            earned.add('streak_master');
-          }
-
-          // Wellness Warrior — 10 prescriptions
-          if (!earned.has('wellness_warrior') && actions.filter(a => a.type === 'prescription_complete').length >= 10) {
-            earned.add('wellness_warrior');
-          }
-
-          // Generous Soul — 50 likes
-          if (!earned.has('generous_soul') && actions.filter(a => a.type === 'like').length >= 50) {
-            earned.add('generous_soul');
-          }
-
-          // Early Bird — post before 8am (check latest post)
-          if (!earned.has('early_bird')) {
-            const posts = actions.filter(a => a.type === 'post');
-            const hasEarlyPost = posts.some(a => new Date(a.timestamp).getHours() < 8);
-            if (hasEarlyPost) earned.add('early_bird');
-          }
-
-          // Night Owl — post after 11pm
-          if (!earned.has('night_owl')) {
-            const posts = actions.filter(a => a.type === 'post');
-            const hasLatePost = posts.some(a => new Date(a.timestamp).getHours() >= 23);
-            if (hasLatePost) earned.add('night_owl');
-          }
-
-          // Event Lover — joined 3 events
-          if (!earned.has('event_lover') && actions.filter(a => a.type === 'join_event').length >= 3) {
-            earned.add('event_lover');
-          }
-
-          // Content Sharer — 10 shares
-          if (!earned.has('content_sharer') && actions.filter(a => a.type === 'share').length >= 10) {
-            earned.add('content_sharer');
-          }
+          if (!earned.has('first_post') && (counts['post'] || 0) > 0) earned.add('first_post');
+          if (!earned.has('social_butterfly') && (counts['follow_user'] || 0) >= 10) earned.add('social_butterfly');
+          if (!earned.has('explorer') && (counts['explore_spot'] || 0) >= 5) earned.add('explorer');
+          if (!earned.has('streak_master') && state.currentStreak >= 7) earned.add('streak_master');
+          if (!earned.has('wellness_warrior') && (counts['prescription_complete'] || 0) >= 10) earned.add('wellness_warrior');
+          if (!earned.has('generous_soul') && (counts['like'] || 0) >= 50) earned.add('generous_soul');
+          if (!earned.has('early_bird') && hasEarlyPost) earned.add('early_bird');
+          if (!earned.has('night_owl') && hasLatePost) earned.add('night_owl');
+          if (!earned.has('event_lover') && (counts['join_event'] || 0) >= 3) earned.add('event_lover');
+          if (!earned.has('content_sharer') && (counts['share'] || 0) >= 10) earned.add('content_sharer');
 
           state.earnedBadges = Array.from(earned);
         }),

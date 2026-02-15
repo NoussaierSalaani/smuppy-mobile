@@ -142,37 +142,39 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `;
       params = cursor ? [requesterId, parsedLimit + 1, new Date(parseInt(cursor))] : [requesterId, parsedLimit + 1];
     } else if (userId) {
-      // SECURITY: Check profile privacy — don't show posts from private profiles to non-followers
-      if (userId && requesterId !== userId) {
+      // SECURITY: Check profile privacy + follow status in parallel (single follow query serves both checks)
+      const isOwnProfile = requesterId === userId;
+      let isFollowing = false;
+
+      if (!isOwnProfile && requesterId) {
+        const [privacyCheck, followResult] = await Promise.all([
+          pool.query(`SELECT is_private FROM profiles WHERE id = $1`, [userId]),
+          pool.query(
+            `SELECT id FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
+            [requesterId, userId]
+          ),
+        ]);
+        isFollowing = followResult.rows.length > 0;
+        if (privacyCheck.rows[0]?.is_private && !isFollowing) {
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ success: true, posts: [], nextCursor: null }),
+          };
+        }
+      } else if (!isOwnProfile) {
+        // No requesterId — check if private profile (no follow to check)
         const privacyCheck = await pool.query(
           `SELECT is_private FROM profiles WHERE id = $1`,
           [userId]
         );
         if (privacyCheck.rows[0]?.is_private) {
-          const followCheck = await pool.query(
-            `SELECT id FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
-            [requesterId, userId]
-          );
-          if (!requesterId || followCheck.rows.length === 0) {
-            return {
-              statusCode: 200,
-              headers,
-              body: JSON.stringify({ success: true, posts: [], nextCursor: null }),
-            };
-          }
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ success: true, posts: [], nextCursor: null }),
+          };
         }
-      }
-
-      // User profile: show own posts normally, filter moderation for other users
-      // Check if viewer follows this user (for 'fans' visibility posts)
-      const isOwnProfile = requesterId === userId;
-      let isFollowing = false;
-      if (!isOwnProfile && requesterId) {
-        const followResult = await pool.query(
-          `SELECT id FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
-          [requesterId, userId]
-        );
-        isFollowing = followResult.rows.length > 0;
       }
       // Build parameterized visibility filter
       // $1 = userId (profile), $2 = limit, $3 = cursor (optional), next = requesterId

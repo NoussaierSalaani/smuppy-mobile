@@ -16,7 +16,6 @@ export type SqlParam = string | number | boolean | null | Date | string[] | numb
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { Signer } from '@aws-sdk/rds-signer';
 import { createLogger } from '../api/utils/logger';
-import { RDS_CA_BUNDLE } from './rds-ca-bundle';
 
 const log = createLogger('db');
 

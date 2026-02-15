@@ -13,6 +13,13 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage, { AvatarImage, ThumbnailImage } from '../../components/OptimizedImage';
@@ -148,7 +155,7 @@ const LEVEL_COLORS: Record<string, string> = {
 
 const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicatorProps) => {
   const { colors, isDark } = useTheme();
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseScale = useSharedValue(1);
   const vibeScore = useVibeStore((s) => s.vibeScore);
   const vibeLevel = useVibeStore((s) => s.vibeLevel);
   const currentStreak = useVibeStore((s) => s.currentStreak);
@@ -164,24 +171,18 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
   };
 
   useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.02,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.02, { duration: 2000 }),
+        withTiming(1, { duration: 2000 }),
+      ),
+      -1
     );
-    pulse.start();
-    return () => pulse.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pulseScale]);
+
+  const pulseAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
 
   if (!mood) return null;
 
@@ -191,7 +192,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
 
   return (
     <TouchableOpacity onPress={onVibePress || onRefresh} activeOpacity={0.8}>
-      <Animated.View style={[styles.moodContainer, { transform: [{ scale: pulseAnim }] }]}>
+      <Reanimated.View style={[styles.moodContainer, pulseAnimStyle]}>
         <LinearGradient
           colors={[display.color + '25', display.color + '10', 'transparent']}
           start={{ x: 0, y: 0 }}
@@ -236,7 +237,7 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
             )}
           </View>
         </LinearGradient>
-      </Animated.View>
+      </Reanimated.View>
     </TouchableOpacity>
   );
 });

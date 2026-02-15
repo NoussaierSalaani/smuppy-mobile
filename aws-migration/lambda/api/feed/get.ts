@@ -7,7 +7,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
+import { createHeaders, createCacheableHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { CACHE_TTL_SHORT } from '../utils/constants';
@@ -233,7 +233,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers,
+      headers: createCacheableHeaders(event, 'private, max-age=30'),
       body: JSON.stringify(response),
     };
   } catch (error: unknown) {

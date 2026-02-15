@@ -5,13 +5,13 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
+import { createCacheableHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('interests-list');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
+  const headers = createCacheableHeaders(event, 'public, max-age=86400');
 
   try {
     const db = await getPool();

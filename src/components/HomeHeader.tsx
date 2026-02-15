@@ -1,5 +1,5 @@
 // src/components/HomeHeader.tsx
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -58,18 +58,6 @@ function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): Reac
     { id: 'Vibes', label: 'Vibes' },
     { id: 'Xplorer', label: 'Xplorer' },
   ], []);
-
-  const indicatorAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const activeIndex = tabs.findIndex(t => t.id === activeTab);
-    Animated.spring(indicatorAnim, {
-      toValue: activeIndex,
-      useNativeDriver: true,
-      tension: 120,
-      friction: 12,
-    }).start();
-  }, [activeTab, indicatorAnim, tabs]);
 
   // Hide header in fullscreen map mode only
   // Must be after all hooks to comply with React rules

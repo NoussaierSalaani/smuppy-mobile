@@ -169,12 +169,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Get sender info
-    const senderResult = await client.query(
-      `SELECT id, username, display_name, stripe_customer_id
-       FROM profiles WHERE id = $1`,
-      [profileId]
-    );
+    // Get sender + receiver info in parallel (independent queries on same transaction)
+    const [senderResult, receiverResult] = await Promise.all([
+      client.query(
+        `SELECT id, username, display_name, stripe_customer_id
+         FROM profiles WHERE id = $1`,
+        [profileId]
+      ),
+      client.query(
+        `SELECT p.id, p.username, p.display_name, p.stripe_account_id,
+                p.account_type, p.is_verified
+         FROM profiles p
+         WHERE p.id = $1`,
+        [receiverId]
+      ),
+    ]);
 
     if (senderResult.rows.length === 0) {
       return cors({
@@ -184,15 +193,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const sender = senderResult.rows[0];
-
-    // Get receiver info (must be a verified creator)
-    const receiverResult = await client.query(
-      `SELECT p.id, p.username, p.display_name, p.stripe_account_id,
-              p.account_type, p.is_verified
-       FROM profiles p
-       WHERE p.id = $1`,
-      [receiverId]
-    );
 
     if (receiverResult.rows.length === 0) {
       return cors({
@@ -220,7 +220,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         `SELECT pc.tips_enabled, p.user_id
          FROM peak_challenges pc
          JOIN peaks p ON pc.peak_id = p.id
-         WHERE pc.peak_id = $1`,
+         WHERE pc.peak_id = $1
+         LIMIT 1`,
         [contextId]
       );
 

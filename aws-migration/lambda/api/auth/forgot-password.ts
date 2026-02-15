@@ -157,6 +157,9 @@ export const handler = async (
       // Fallback to generated username if email lookup fails
       cognitoUsername = username || generateUsername(email);
     }
+    if (!cognitoUsername) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Unable to resolve username' }) };
+    }
 
     // SECURITY: Log only masked identifier to prevent PII in logs
     log.info('Initiating reset for user', { username: cognitoUsername.substring(0, 2) + '***' });

@@ -1,8 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
+import * as path from 'path';
 import { LambdaStack2 } from './lambda-stack-2';
 import { LambdaStackDisputes } from './lambda-stack-disputes';
 
@@ -149,6 +152,23 @@ export class ApiGateway3Stack extends cdk.NestedStack {
 
     const spotReviewById = spotReviews.addResource('{reviewId}');
     spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsReviewsDeleteFn), authMethodOptions);
+
+    // ========================================
+    // Health Check (public — no auth, no VPC)
+    // ========================================
+    const healthCheckFn = new NodejsFunction(this, 'HealthCheckFunction', {
+      entry: path.join(__dirname, '../../lambda/api/health/check.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 128,
+      timeout: cdk.Duration.seconds(5),
+      environment: {
+        ENVIRONMENT: environment,
+      },
+    });
+
+    const health = this.api.root.addResource('health');
+    health.addMethod('GET', new apigateway.LambdaIntegration(healthCheckFn));
 
     // ========================================
     // WAF for API 3

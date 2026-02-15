@@ -60,14 +60,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const params: SqlParam[] = [];
     let paramIndex = 1;
-    let userIdParamIndex: number | null = null;
-
     // Build WHERE clauses
     const whereClauses: string[] = [];
 
     if (userId) {
       params.push(userId);
-      userIdParamIndex = paramIndex;
       whereClauses.push(
         `p.author_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $${paramIndex} AND status = 'accepted')`
       );
@@ -90,15 +87,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const whereClause = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
-    // Build is_liked/is_saved subqueries using correct parameter index
-    let isLikedExpr = 'false as is_liked';
-    let isSavedExpr = 'false as is_saved';
-
-    if (userId && userIdParamIndex !== null) {
-      isLikedExpr = `EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${userIdParamIndex}) as is_liked`;
-      isSavedExpr = `EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $${userIdParamIndex}) as is_saved`;
-    }
-
     params.push(limit + 1); // Fetch one extra to check hasMore
     const limitParam = paramIndex;
     paramIndex++;
@@ -109,9 +97,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const result = await db.query(
       `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
               p.likes_count, p.comments_count, p.created_at,
-              pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name,
-              ${isLikedExpr},
-              ${isSavedExpr}
+              pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name
        FROM posts p
        JOIN profiles pr ON p.author_id = pr.id
        ${whereClause}
@@ -123,6 +109,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const hasMore = result.rows.length > limit;
     const rows = result.rows.slice(0, limit);
 
+    // Batch fetch is_liked / is_saved (2 queries instead of 2 per-row EXISTS subqueries)
+    const postIds = rows.map((r: Record<string, unknown>) => r.id);
+    let likedSet = new Set<string>();
+    let savedSet = new Set<string>();
+    if (userId && postIds.length > 0) {
+      const [likedRes, savedRes] = await Promise.all([
+        db.query('SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
+        db.query('SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
+      ]);
+      likedSet = new Set(likedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+      savedSet = new Set(savedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+    }
+
     const data = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
       authorId: row.author_id,
@@ -133,8 +132,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       likesCount: row.likes_count || 0,
       commentsCount: row.comments_count || 0,
       createdAt: row.created_at,
-      isLiked: row.is_liked,
-      isSaved: row.is_saved,
+      isLiked: likedSet.has(row.id as string),
+      isSaved: savedSet.has(row.id as string),
       author: {
         id: row.profile_id,
         username: row.username,

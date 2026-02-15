@@ -120,9 +120,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         )
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
-               u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName",
-               EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as "isLiked",
-               EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $1) as "isSaved"
+               u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
         FROM posts p
         JOIN my_connections mc ON p.author_id = mc.author_id
         JOIN profiles u ON p.author_id = u.id
@@ -264,7 +262,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       author: { id: post.authorId, username: post.username, fullName: post.fullName, avatarUrl: post.avatarUrl, isVerified: post.isVerified, accountType: post.accountType, businessName: post.businessName },
     }));
 
-    const responseData = { posts: formattedPosts, nextCursor: hasMore ? posts[posts.length - 1].createdAt.getTime().toString() : null, hasMore, total: formattedPosts.length };
+    const responseData = { success: true, posts: formattedPosts, nextCursor: hasMore ? posts[posts.length - 1].createdAt.getTime().toString() : null, hasMore, total: formattedPosts.length };
 
     if (type !== 'following' && redisClient) {
       try { await redisClient.setex(cacheKey, CACHE_TTL.POSTS_LIST, JSON.stringify(responseData)); } catch { /* Ignore */ }

@@ -225,6 +225,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     creator?: { id: string; username?: string; displayName?: string; full_name?: string; avatar_url?: string | null };
   } | null>(null);
   const [joiningEvent, setJoiningEvent] = useState(false);
+  // AbortController to cancel stale event/group detail fetches
+  const detailAbortRef = useRef<AbortController | null>(null);
   // Request counter to prevent stale event/group detail responses
   const detailFetchCounterRef = useRef(0);
 
@@ -250,7 +252,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     if (!isValidCoordinate(lat, lng)) return;
     const fetchEventsGroups = async () => {
       try {
-        const [eventsRes, groupsRes] = await Promise.all([
+        const [eventsResult, groupsResult] = await Promise.allSettled([
           awsAPI.getEvents({
             filter: 'nearby',
             latitude: lat,
@@ -267,9 +269,12 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           }),
         ]);
 
+        const eventsRes = eventsResult.status === 'fulfilled' ? eventsResult.value : null;
+        const groupsRes = groupsResult.status === 'fulfilled' ? groupsResult.value : null;
+
         const markers: MapMarker[] = [];
 
-        if (eventsRes.success && eventsRes.events) {
+        if (eventsRes?.success && eventsRes.events) {
           for (const rawEvt of eventsRes.events) {
             const evt = rawEvt as unknown as Record<string, unknown>;
             const evtLat = evt.latitude as number | undefined;
@@ -293,7 +298,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           }
         }
 
-        if (groupsRes.success && groupsRes.groups) {
+        if (groupsRes?.success && groupsRes.groups) {
           for (const grp of groupsRes.groups) {
             if (grp.latitude != null && grp.longitude != null && isValidCoordinate(grp.latitude, grp.longitude)) {
               markers.push({
@@ -600,7 +605,12 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
 
     setSelectedMarker(marker);
-    // For event/group markers, also load full detail with abort tracking
+    // Cancel any in-flight detail fetch before starting a new one
+    detailAbortRef.current?.abort();
+    detailAbortRef.current = new AbortController();
+    const { signal } = detailAbortRef.current;
+
+    // For event/group markers, also load full detail
     if (marker.category === 'event') {
       const eventId = marker.id.replace('event_', '');
       if (!UUID_REGEX.test(eventId)) {
@@ -609,9 +619,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       }
       const fetchId = ++detailFetchCounterRef.current;
       awsAPI.getEventDetail(eventId).then(res => {
-        if (fetchId !== detailFetchCounterRef.current) return; // Stale response
+        if (signal.aborted || fetchId !== detailFetchCounterRef.current) return;
         if (res.success && res.event) setSelectedEventData(res.event);
-      }).catch((err) => { if (__DEV__) console.warn('[XplorerFeed]', err); });
+      }).catch((err) => { if (!signal.aborted && __DEV__) console.warn('[XplorerFeed]', err); });
     } else if (marker.category === 'group') {
       const groupId = marker.id.replace('group_', '');
       if (!UUID_REGEX.test(groupId)) {
@@ -620,9 +630,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       }
       const fetchId = ++detailFetchCounterRef.current;
       awsAPI.getGroup(groupId).then(res => {
-        if (fetchId !== detailFetchCounterRef.current) return; // Stale response
+        if (signal.aborted || fetchId !== detailFetchCounterRef.current) return;
         if (res.success && res.group) setSelectedEventData(res.group);
-      }).catch((err) => { if (__DEV__) console.warn('[XplorerFeed]', err); });
+      }).catch((err) => { if (!signal.aborted && __DEV__) console.warn('[XplorerFeed]', err); });
     } else {
       setSelectedEventData(null);
     }

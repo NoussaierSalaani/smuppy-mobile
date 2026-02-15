@@ -39,8 +39,8 @@ export class ApiGateway2Stack extends cdk.NestedStack {
       cloudWatchRole: false, // Already set in primary API stack
       deployOptions: {
         stageName: environment,
-        throttlingRateLimit: isProduction ? 100000 : 1000,
-        throttlingBurstLimit: isProduction ? 50000 : 500,
+        throttlingRateLimit: isProduction ? 10000 : 1000,
+        throttlingBurstLimit: isProduction ? 5000 : 500,
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: !isProduction,
         metricsEnabled: true,
@@ -260,7 +260,15 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     const settings = this.api.root.addResource('settings');
     const settingsCurrency = settings.addResource('currency');
     settingsCurrency.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.settingsCurrencyFn));
-    settingsCurrency.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.settingsCurrencyFn), authMethodOptions);
+    const settingsBodyValidator = new apigateway.RequestValidator(this, 'SettingsBodyValidator', {
+      restApi: this.api,
+      requestValidatorName: `smuppy-settings-body-validator-${environment}`,
+      validateRequestBody: true,
+    });
+    settingsCurrency.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.settingsCurrencyFn), {
+      ...authMethodOptions,
+      requestValidator: settingsBodyValidator,
+    });
 
     // ========================================
     // Admin Endpoints (API key required + internal admin key check in Lambda)
@@ -467,8 +475,32 @@ export class ApiGateway2Stack extends cdk.NestedStack {
           },
         },
         {
-          name: 'WriteOperationsRateLimit',
+          name: 'WebhookEndpointRateLimit',
           priority: 2,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: {
+              limit: isProduction ? 500 : 100,
+              aggregateKeyType: 'IP',
+              scopeDownStatement: {
+                andStatement: {
+                  statements: [
+                    { byteMatchStatement: { searchString: '/payments/webhook', fieldToMatch: { uriPath: {} }, textTransformations: [{ priority: 0, type: 'LOWERCASE' }], positionalConstraint: 'CONTAINS' } },
+                    { byteMatchStatement: { searchString: 'POST', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                  ],
+                },
+              },
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'WebhookEndpointRateLimit2',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'WriteOperationsRateLimit',
+          priority: 3,
           action: { block: {} },
           statement: {
             rateBasedStatement: {
@@ -493,7 +525,7 @@ export class ApiGateway2Stack extends cdk.NestedStack {
         },
         {
           name: 'AWSManagedRulesCommonRuleSet',
-          priority: 3,
+          priority: 4,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -509,7 +541,7 @@ export class ApiGateway2Stack extends cdk.NestedStack {
         },
         {
           name: 'AWSManagedRulesSQLiRuleSet',
-          priority: 4,
+          priority: 5,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -525,7 +557,7 @@ export class ApiGateway2Stack extends cdk.NestedStack {
         },
         {
           name: 'AWSManagedRulesKnownBadInputsRuleSet',
-          priority: 5,
+          priority: 6,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {

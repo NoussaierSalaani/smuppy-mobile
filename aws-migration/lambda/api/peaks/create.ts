@@ -196,30 +196,48 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       replyParentAuthorId = parentResult.rows[0].author_id;
     }
 
-    // Create peak
-    const result = await db.query(
-      `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, expires_at, saved_to_profile, content_status, toxicity_score, toxicity_category)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + $10 * INTERVAL '1 hour', $11, $12, $13, $14)
-       RETURNING id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, likes_count, comments_count, views_count, created_at, expires_at, saved_to_profile`,
-      [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration, replyToPeakId || null, validFilterId, validFilterIntensity, validOverlays, validFeedDuration, validSaveToProfile, contentFlagged ? 'flagged' : 'clean', flagScore, flagCategory]
-    );
+    // Create peak + hashtags in a single transaction for atomicity
+    const peakClient = await db.connect();
+    let peak: Record<string, unknown>;
+    try {
+      await peakClient.query('BEGIN');
 
-    const peak = result.rows[0];
+      const result = await peakClient.query(
+        `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, expires_at, saved_to_profile, content_status, toxicity_score, toxicity_category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + $10 * INTERVAL '1 hour', $11, $12, $13, $14)
+         RETURNING id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, likes_count, comments_count, views_count, created_at, expires_at, saved_to_profile`,
+        [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration, replyToPeakId || null, validFilterId, validFilterIntensity, validOverlays, validFeedDuration, validSaveToProfile, contentFlagged ? 'flagged' : 'clean', flagScore, flagCategory]
+      );
 
-    // Log flagged peak for moderator review (non-blocking)
-    if (contentFlagged) {
-      try {
-        await db.query(
+      peak = result.rows[0];
+
+      // Insert hashtags atomically with the peak
+      if (validHashtags.length > 0) {
+        const hashtagValues = validHashtags.map((_, i) => `($1, $${i + 2})`).join(', ');
+        await peakClient.query(
+          `INSERT INTO peak_hashtags (peak_id, hashtag) VALUES ${hashtagValues} ON CONFLICT DO NOTHING`,
+          [peak.id, ...validHashtags]
+        );
+      }
+
+      // Log flagged peak for moderator review (inside transaction)
+      if (contentFlagged) {
+        await peakClient.query(
           `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, reason)
            VALUES ($1, 'flag_content', $2, $3)`,
           [SYSTEM_MODERATOR_ID, profile.id, `Comprehend toxicity on peak ${peak.id}: ${flagCategory} score=${flagScore}`],
         );
-      } catch (flagErr) {
-        log.error('Failed to log flagged peak (non-blocking)', flagErr);
       }
+
+      await peakClient.query('COMMIT');
+    } catch (txErr) {
+      await peakClient.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    } finally {
+      peakClient.release();
     }
 
-    // Send notification to parent peak author if this is a reply (uses pre-validated author_id)
+    // Send notification to parent peak author if this is a reply (non-blocking, best-effort)
     if (replyToPeakId && replyParentAuthorId && replyParentAuthorId !== profile.id) {
       try {
         await db.query(
@@ -231,7 +249,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             JSON.stringify({ peakId: peak.id, replyToPeakId, authorId: profile.id, thumbnailUrl: thumbnailUrl || null }),
           ]
         );
-        // BUG-2026-02-15: Send push notification for peak replies (was missing)
         sendPushToUser(db, replyParentAuthorId, {
           title: 'New Peak Reply',
           body: `${profile.full_name || 'Someone'} replied to your Peak`,
@@ -239,19 +256,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }, profile.id).catch(err => log.error('Push peak_reply failed', err));
       } catch (notifErr) {
         log.error('Failed to send reply notification', notifErr);
-      }
-    }
-
-    // Insert hashtags (fire and forget)
-    if (validHashtags.length > 0) {
-      try {
-        const hashtagValues = validHashtags.map((_, i) => `($1, $${i + 2})`).join(', ');
-        await db.query(
-          `INSERT INTO peak_hashtags (peak_id, hashtag) VALUES ${hashtagValues} ON CONFLICT DO NOTHING`,
-          [peak.id, ...validHashtags]
-        );
-      } catch (hashtagErr) {
-        log.error('Failed to insert peak hashtags', hashtagErr);
       }
     }
 

@@ -43,8 +43,8 @@ export class ApiGateway3Stack extends cdk.NestedStack {
       cloudWatchRole: true,
       deployOptions: {
         stageName: environment,
-        throttlingRateLimit: isProduction ? 50000 : 1000,
-        throttlingBurstLimit: isProduction ? 25000 : 500,
+        throttlingRateLimit: isProduction ? 5000 : 1000,
+        throttlingBurstLimit: isProduction ? 2500 : 500,
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: !isProduction,
         metricsEnabled: true,
@@ -78,6 +78,19 @@ export class ApiGateway3Stack extends cdk.NestedStack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     };
 
+    // Body validation for POST/PUT mutations (defense-in-depth alongside Lambda validation)
+    const bodyValidator = new apigateway.RequestValidator(this, 'BodyValidator3', {
+      restApi: this.api,
+      requestValidatorName: 'body-validator-3',
+      validateRequestBody: true,
+    });
+
+    const authWithBodyValidation: apigateway.MethodOptions = {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      requestValidator: bodyValidator,
+    };
+
     // ========================================
     // Business Access Endpoints
     // ========================================
@@ -85,11 +98,11 @@ export class ApiGateway3Stack extends cdk.NestedStack {
 
     // POST /businesses/validate-access - Validate member QR code
     const validateAccess = businesses.addResource('validate-access');
-    validateAccess.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessValidateAccessFn), authMethodOptions);
+    validateAccess.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessValidateAccessFn), authWithBodyValidation);
 
     // POST /businesses/log-entry - Log member check-in
     const logEntry = businesses.addResource('log-entry');
-    logEntry.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessLogEntryFn), authMethodOptions);
+    logEntry.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessLogEntryFn), authWithBodyValidation);
 
     // /businesses/subscriptions resources
     const subscriptions = businesses.addResource('subscriptions');
@@ -107,27 +120,15 @@ export class ApiGateway3Stack extends cdk.NestedStack {
 
     // POST /businesses/subscriptions/{subscriptionId}/cancel - Cancel subscription
     const cancelSubscription = subscriptionById.addResource('cancel');
-    cancelSubscription.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authMethodOptions);
+    cancelSubscription.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authWithBodyValidation);
 
     // POST /businesses/subscriptions/{subscriptionId}/reactivate - Reactivate subscription
     const reactivate = subscriptionById.addResource('reactivate');
-    reactivate.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authMethodOptions);
+    reactivate.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.businessSubscriptionManageFn), authWithBodyValidation);
 
     // ========================================
     // Spots Endpoints (moved from ApiGateway2Stack — CloudFormation 500 resource limit)
     // ========================================
-    const bodyValidator = new apigateway.RequestValidator(this, 'BodyValidator3', {
-      restApi: this.api,
-      requestValidatorName: 'body-validator-3',
-      validateRequestBody: true,
-    });
-
-    const authWithBodyValidation: apigateway.MethodOptions = {
-      authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      requestValidator: bodyValidator,
-    };
-
     const spots = this.api.root.addResource('spots');
     spots.addMethod('GET', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsListFn), authMethodOptions);
     spots.addMethod('POST', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsCreateFn), authWithBodyValidation);
@@ -264,8 +265,33 @@ export class ApiGateway3Stack extends cdk.NestedStack {
           },
         },
         {
-          name: 'AWSManagedRulesCommonRuleSet',
+          name: 'WriteOperationsRateLimit',
           priority: 2,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: {
+              limit: isProduction ? 2500 : 500,
+              aggregateKeyType: 'IP',
+              scopeDownStatement: {
+                orStatement: {
+                  statements: [
+                    { byteMatchStatement: { searchString: 'POST', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'PUT', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                    { byteMatchStatement: { searchString: 'DELETE', fieldToMatch: { method: {} }, textTransformations: [{ priority: 0, type: 'NONE' }], positionalConstraint: 'EXACTLY' } },
+                  ],
+                },
+              },
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'WriteOperationsRateLimit3',
+            sampledRequestsEnabled: true,
+          },
+        },
+        {
+          name: 'AWSManagedRulesCommonRuleSet',
+          priority: 3,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -281,7 +307,7 @@ export class ApiGateway3Stack extends cdk.NestedStack {
         },
         {
           name: 'AWSManagedRulesSQLiRuleSet',
-          priority: 3,
+          priority: 4,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {
@@ -297,7 +323,7 @@ export class ApiGateway3Stack extends cdk.NestedStack {
         },
         {
           name: 'AWSManagedRulesKnownBadInputsRuleSet',
-          priority: 4,
+          priority: 5,
           overrideAction: { none: {} },
           statement: {
             managedRuleGroupStatement: {

@@ -277,13 +277,13 @@ describe('Transform Functions', () => {
       expect(result.category).toBe('health');
     });
 
-    it('should default to "Fitness" when no tags', () => {
+    it('should default to empty string when no tags', () => {
       const post = createMockPost({ tags: undefined });
       const likedPostIds = new Set<string>();
 
       const result = transformToVibePost(post, likedPostIds);
 
-      expect(result.category).toBe('Fitness');
+      expect(result.category).toBe('');
     });
 
     it('should generate consistent height based on post ID', () => {

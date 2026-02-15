@@ -971,7 +971,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         loadMessages();
       }
     } catch (_error) {
-      console.error('[ChatScreen] Image send failed:', _error);
+      if (__DEV__) console.error('[ChatScreen] Image send failed:', _error);
       pendingOptimisticIdsRef.current.delete(optimisticId);
       setMessages(prev => {
         const next = prev.filter(m => m.id !== optimisticId);

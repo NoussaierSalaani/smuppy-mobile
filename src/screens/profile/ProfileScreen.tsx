@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -196,6 +196,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     return realPosts;
   }, [allUserPosts, deletedPostIds]);
 
+  // Ref to avoid posts array in renderPostItem deps (prevents rebuild on every post change)
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+
   // Fallback peaks from posts table (if peaks API fails or filters incorrectly)
   const peaksFromPosts = useMemo(() => {
     const peaksOnly = allUserPosts.filter(post => post.is_peak);
@@ -309,6 +313,9 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const {
     data: savedPostsData,
     refetch: refetchSavedPosts,
+    fetchNextPage: fetchNextCollectionsPage,
+    hasNextPage: hasNextCollectionsPage,
+    isFetchingNextPage: isFetchingNextCollectionsPage,
   } = useSavedPosts();
 
   const collections = useMemo(() => {
@@ -1001,7 +1008,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         style={styles.postCard}
         onPress={() => navigation.navigate('PostDetailProfile', {
           postId: post.id,
-          profilePosts: transformPostsForDetail(posts) as unknown,
+          profilePosts: transformPostsForDetail(postsRef.current) as unknown,
         })}
         accessibilityLabel={`Post with ${post.likes_count || 0} likes`}
         accessibilityRole="button"
@@ -1022,13 +1029,40 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       </TouchableOpacity>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, posts, transformPostsForDetail]);
+  }, [navigation, transformPostsForDetail]);
+
+  // Memoized peak time groups — avoids recomputing on every render
+  const displayPeaks = useMemo(() => filteredPeaks.length > 0 ? filteredPeaks : peaksFromPosts, [filteredPeaks, peaksFromPosts]);
+
+  const peakTimeGroups = useMemo(() => {
+    if (displayPeaks.length === 0) return [];
+    const groupMap = new Map<string, { key: string; peaks: ProfilePeak[]; totalLikes: number; totalViews: number }>();
+    for (const p of displayPeaks) {
+      const dateKey = (p.created_at || '').slice(0, 10);
+      if (!dateKey) continue;
+      const existing = groupMap.get(dateKey);
+      if (existing) {
+        existing.peaks.push(p);
+        existing.totalLikes += (p.likes_count || 0);
+        existing.totalViews += (p.views_count || 0);
+      } else {
+        groupMap.set(dateKey, { key: dateKey, peaks: [p], totalLikes: p.likes_count || 0, totalViews: p.views_count || 0 });
+      }
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    return Array.from(groupMap.values())
+      .sort((a, b) => b.key.localeCompare(a.key))
+      .map(g => ({
+        ...g,
+        label: g.key === today ? 'Today' : g.key === yesterday ? 'Yesterday' : g.key.slice(5),
+        latestThumbnail: g.peaks[0]?.media_urls?.[0],
+        peakCount: g.peaks.length,
+      }));
+  }, [displayPeaks]);
 
   // ==================== RENDER PEAKS ====================
   const renderPeaks = () => {
-    // Use API peaks first, fallback to peaks extracted from posts table
-    const displayPeaks = filteredPeaks.length > 0 ? filteredPeaks : peaksFromPosts;
-
     if (displayPeaks.length === 0) {
       return (
         <View style={styles.emptyContainer}>
@@ -1052,33 +1086,6 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         </View>
       );
     }
-
-    // Group peaks by calendar date (24h grouping for profile)
-    const peakTimeGroups: { key: string; label: string; latestThumbnail: string | undefined; peakCount: number; peaks: ProfilePeak[]; totalLikes: number; totalViews: number }[] = (() => {
-      const groupMap = new Map<string, { key: string; peaks: ProfilePeak[]; totalLikes: number; totalViews: number }>();
-      for (const p of displayPeaks) {
-        const dateKey = (p.created_at || '').slice(0, 10);
-        if (!dateKey) continue;
-        const existing = groupMap.get(dateKey);
-        if (existing) {
-          existing.peaks.push(p);
-          existing.totalLikes += (p.likes_count || 0);
-          existing.totalViews += (p.views_count || 0);
-        } else {
-          groupMap.set(dateKey, { key: dateKey, peaks: [p], totalLikes: p.likes_count || 0, totalViews: p.views_count || 0 });
-        }
-      }
-      const today = new Date().toISOString().slice(0, 10);
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      return Array.from(groupMap.values())
-        .sort((a, b) => b.key.localeCompare(a.key))
-        .map(g => ({
-          ...g,
-          label: g.key === today ? 'Today' : g.key === yesterday ? 'Yesterday' : g.key.slice(5),
-          latestThumbnail: g.peaks[0]?.media_urls?.[0],
-          peakCount: g.peaks.length,
-        }));
-    })();
 
     // Show peaks grouped by day in 2-column layout
     return (
@@ -1323,8 +1330,25 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }
 
     return (
-      <View style={styles.collectionsGrid}>
-        {collections.map((post) => renderCollectionItem(post as typeof post & { author?: { id?: string; username?: string; full_name?: string; avatar_url?: string } }))}
+      <View>
+        <View style={styles.collectionsGrid}>
+          {collections.map((post) => renderCollectionItem(post as typeof post & { author?: { id?: string; username?: string; full_name?: string; avatar_url?: string } }))}
+        </View>
+        {hasNextCollectionsPage && (
+          <TouchableOpacity
+            style={styles.loadMoreBtn}
+            onPress={() => fetchNextCollectionsPage()}
+            disabled={isFetchingNextCollectionsPage}
+            accessibilityLabel="Load more saved posts"
+            accessibilityRole="button"
+          >
+            {isFetchingNextCollectionsPage ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={styles.loadMoreBtnText}>Load more</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     );
   };

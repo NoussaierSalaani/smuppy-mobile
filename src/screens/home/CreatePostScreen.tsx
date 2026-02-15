@@ -193,7 +193,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
         setMediaAssets(prev => [...prev, ...moreAssets]);
       }
     } catch (error) {
-      console.error('[CreatePost] Failed to load media:', error);
+      if (__DEV__) console.error('[CreatePost] Failed to load media:', error);
       setLoading(false);
       errorAlert('Gallery Error', 'Could not load your photos. Please check permissions and try again.');
     }

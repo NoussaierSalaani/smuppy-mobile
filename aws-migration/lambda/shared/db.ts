@@ -16,6 +16,7 @@ export type SqlParam = string | number | boolean | null | Date | string[] | numb
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { Signer } from '@aws-sdk/rds-signer';
 import { createLogger } from '../api/utils/logger';
+import { RDS_CA_BUNDLE } from './rds-ca-bundle';
 
 const log = createLogger('db');
 
@@ -130,7 +131,9 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
     user: credentials.username,
     password,
     // SSL configuration for AWS Aurora PostgreSQL
+    // BUG-2026-02-15: Added CA bundle — Lambda runtime doesn't include AWS RDS CAs
     ssl: {
+      ca: RDS_CA_BUNDLE,
       rejectUnauthorized: process.env.NODE_ENV !== 'development',
     },
     // Connection pool settings optimized for Lambda with RDS Proxy

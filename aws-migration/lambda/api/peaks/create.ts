@@ -18,11 +18,15 @@ import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('peaks-create');
 
-// Validate URL format
+// SECURITY: Validate URL format and restrict to trusted CDN/S3 domains
+const ALLOWED_MEDIA_HOSTS = ['.s3.amazonaws.com', '.s3.us-east-1.amazonaws.com', '.cloudfront.net'];
+
 function isValidUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return ['http:', 'https:'].includes(parsed.protocol);
+    if (parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    return ALLOWED_MEDIA_HOSTS.some(suffix => hostname.endsWith(suffix));
   } catch {
     return false;
   }

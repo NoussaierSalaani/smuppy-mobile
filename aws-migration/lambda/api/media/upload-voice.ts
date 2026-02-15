@@ -34,6 +34,7 @@ if (!process.env.MEDIA_BUCKET) {
 }
 
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
+const MAX_VOICE_FILE_SIZE = 5 * 1024 * 1024; // 5 MB max for voice messages
 
 // SECURITY: Validate and whitelist CDN domain to prevent open redirect / host injection
 function getValidatedCdnDomain(): string | null {
@@ -160,13 +161,14 @@ export async function handler(
     const key = `voice-messages/${profileId}/${conversationId}/${fileId}.m4a`;
 
     // Create presigned URL
+    // NOTE: PutObject presigned URLs cannot enforce max ContentLength (only exact match).
+    // Max upload size should be enforced via S3 bucket policy or Lambda@Edge.
     const command = new PutObjectCommand({
       Bucket: MEDIA_BUCKET,
       Key: key,
       ContentType: 'audio/mp4',
       ContentDisposition: 'inline',
       CacheControl: 'public, max-age=31536000',
-      // Do NOT set ContentLength — it would force exact match and reject smaller files
       Metadata: {
         'uploaded-by': cognitoSub,
         'conversation-id': conversationId,

@@ -193,7 +193,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         businessAddress: profile.business_address,
         businessLatitude: profile.business_latitude ? parseFloat(profile.business_latitude) : null,
         businessLongitude: profile.business_longitude ? parseFloat(profile.business_longitude) : null,
-        businessPhone: profile.business_phone,
+        businessPhone: (isOwner || profile.account_type === 'pro_business') ? profile.business_phone : undefined,
         locationsMode: profile.locations_mode,
         onboardingCompleted: profile.onboarding_completed,
         followersCount: profile.fan_count || 0,

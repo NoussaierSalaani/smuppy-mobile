@@ -100,7 +100,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    const cancellationReason = body.reason || (isCreator ? 'Declined by creator' : 'Cancelled by fan');
+    // SECURITY: Sanitize user-provided reason — strip HTML, control chars, limit length
+    const rawReason = typeof body.reason === 'string'
+      ? body.reason.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim().substring(0, 500)
+      : null;
+    const cancellationReason = rawReason || (isCreator ? 'Declined by creator' : 'Cancelled by fan');
 
     // Update session status to cancelled
     await client.query(

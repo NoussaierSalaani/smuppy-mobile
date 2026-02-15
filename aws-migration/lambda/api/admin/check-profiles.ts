@@ -5,15 +5,21 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { timingSafeEqual } from 'crypto';
 import { getPool } from '../../shared/db';
+import { getAdminKey } from '../../shared/secrets';
 import { createHeaders } from '../utils/cors';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
 
-  // SECURITY: Verify admin API key
+  // SECURITY: Verify admin API key from Secrets Manager
   const adminKey = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
-  const expectedKey = process.env.ADMIN_API_KEY;
-  if (!adminKey || !expectedKey || adminKey.length !== expectedKey.length || !timingSafeEqual(Buffer.from(adminKey), Buffer.from(expectedKey))) {
+  if (!adminKey) {
+    return { statusCode: 403, headers, body: JSON.stringify({ message: 'Forbidden' }) };
+  }
+  const expectedKey = await getAdminKey();
+  const a = Buffer.from(adminKey);
+  const b = Buffer.from(expectedKey);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
     return {
       statusCode: 403,
       headers,

@@ -312,6 +312,14 @@ async function getAccountStatus(userId: string, corsHeaders: Record<string, stri
 
     const account = await stripe.accounts.retrieve(result.rows[0].stripe_account_id);
 
+    // SECURITY: Filter Stripe response to only expose necessary fields
+    const filteredRequirements = account.requirements ? {
+      currentlyDue: account.requirements.currently_due || [],
+      eventuallyDue: account.requirements.eventually_due || [],
+      pastDue: account.requirements.past_due || [],
+      disabledReason: account.requirements.disabled_reason || null,
+    } : null;
+
     return {
       statusCode: 200,
       headers: corsHeaders,
@@ -321,8 +329,7 @@ async function getAccountStatus(userId: string, corsHeaders: Record<string, stri
         status: account.charges_enabled ? 'active' : 'pending',
         chargesEnabled: account.charges_enabled,
         payoutsEnabled: account.payouts_enabled,
-        requirements: account.requirements,
-        capabilities: account.capabilities,
+        requirements: filteredRequirements,
       }),
     };
   } finally {

@@ -51,6 +51,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { queryClient, queryKeys } from '../../lib/queryClient';
 import { useFeedStore } from '../../stores/feedStore';
 import { filterContent } from '../../utils/contentFilters';
+import { resolveDisplayName } from '../../types/profile';
 
 const { width } = Dimensions.get('window');
 
@@ -928,7 +929,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                   onPress={() => handleRemoveTag(person.id)}
                 >
                   <AvatarImage source={person.avatar_url || person.avatar} size={24} style={styles.taggedChipAvatar} />
-                  <Text style={styles.taggedChipName}>{person.full_name || person.name}</Text>
+                  <Text style={styles.taggedChipName}>{resolveDisplayName(person) || person.name}</Text>
                   <Ionicons name="close" size={16} color={colors.gray} />
                 </TouchableOpacity>
               ))}
@@ -972,7 +973,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
               >
                 <AvatarImage source={user.avatar_url} size={44} />
                 <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{user.full_name || 'User'}</Text>
+                  <Text style={styles.userName}>{resolveDisplayName(user)}</Text>
                 </View>
                 <View style={[styles.checkbox, isTagged && styles.checkboxActive]}>
                   {isTagged && <Ionicons name="checkmark" size={16} color={colors.white} />}

@@ -23,6 +23,7 @@ import { GRADIENTS, COLORS } from '../../config/theme';
 const STAR_COLOR = COLORS.gold;
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
+import { resolveDisplayName } from '../../types/profile';
 import { formatDistance, formatDuration } from '../../services/mapbox-directions';
 import AddReviewSheet from '../../components/AddReviewSheet';
 import type { ReviewData } from '../../components/AddReviewSheet';
@@ -227,7 +228,7 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
               onPress={() => navigation.navigate('UserProfile', { userId: spot.creator_id })}
             >
               <AvatarImage source={spot.creator.avatar_url} size={normalize(32)} />
-              <Text style={styles.creatorName}>Suggested by {spot.creator.full_name}</Text>
+              <Text style={styles.creatorName}>Suggested by {resolveDisplayName(spot.creator)}</Text>
             </TouchableOpacity>
           )}
 
@@ -300,7 +301,7 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
                   <View style={styles.reviewHeader}>
                     <AvatarImage source={rev.user?.avatar_url} size={normalize(30)} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.reviewName}>{rev.user?.full_name}</Text>
+                      <Text style={styles.reviewName}>{resolveDisplayName(rev.user)}</Text>
                       <View style={styles.reviewStars}>
                         {[1, 2, 3, 4, 5].map(s => (
                           <Ionicons

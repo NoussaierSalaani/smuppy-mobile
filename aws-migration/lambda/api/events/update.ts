@@ -160,7 +160,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Ownership check: verify event exists and belongs to the user
-    const ownerCheck = await client.query(
+    const ownerCheck = await pool.query(
       `SELECT id, status FROM events WHERE id = $1 AND creator_id = $2`,
       [eventId, profileId]
     );

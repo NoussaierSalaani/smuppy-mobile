@@ -112,7 +112,7 @@ function SharedProfileBubble({ profileId, isFromMe }: SharedProfileBubbleProps) 
               accountType={profile.account_type}
             />
           </View>
-          {profile.username && (
+          {profile.username && profile.account_type !== 'pro_business' && (
             <Text style={[styles.username, isFromMe && styles.usernameFromMe]} numberOfLines={1}>
               @{profile.username}
             </Text>

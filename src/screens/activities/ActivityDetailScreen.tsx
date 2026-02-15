@@ -35,6 +35,7 @@ import { formatLongDateTime } from '../../utils/dateFormatters';
 import SharePostModal from '../../components/SharePostModal';
 import type { ShareContentData } from '../../hooks/useModalState';
 
+import { resolveDisplayName } from '../../types/profile';
 import { ENV } from '../../config/env';
 
 Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
@@ -574,7 +575,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
               <View style={styles.organizerInfo}>
                 <View style={styles.organizerNameRow}>
                   <Text style={[styles.organizerName, { color: colors.dark }]}>
-                    {normalizedActivity.organizer.full_name}
+                    {resolveDisplayName(normalizedActivity.organizer)}
                   </Text>
                   {normalizedActivity.organizer.is_verified && (
                     <Ionicons name="checkmark-circle" size={14} color="#00BFFF" />

@@ -55,7 +55,7 @@ const profileToUser = (
 ): User => ({
   id: profile.id,
   name: resolveDisplayName(profile),
-  username: `@${profile.username || 'user'}`,
+  username: profile.account_type === 'pro_business' && profile.business_name ? profile.business_name : `@${profile.username || 'user'}`,
   avatar: profile.avatar_url || null,
   isVerified: profile.is_verified || false,
   accountType: profile.account_type || 'personal',

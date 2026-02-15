@@ -1250,7 +1250,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               allMedia: allMedia.length > 1 ? allMedia : undefined,
               user: {
                 id: author?.id ?? '',
-                name: author?.full_name ?? author?.username ?? '',
+                name: (author?.account_type === 'pro_business' && author?.business_name) ? author.business_name : (author?.full_name ?? author?.username ?? ''),
                 avatar: author?.avatar_url ?? '',
               },
             };

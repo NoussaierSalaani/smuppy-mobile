@@ -157,7 +157,7 @@ export const useUserStore = create<UserState>()(
       storage: createJSONStorage(() => AsyncStorage),
       // SECURITY: Only persist non-sensitive fields to unencrypted AsyncStorage.
       // Sensitive data (email, phone, location) is re-fetched on session restore.
-      partialize: (state) => ({
+      partialize: (state: UserState) => ({
         user: state.user ? {
           id: state.user.id,
           username: state.user.username,

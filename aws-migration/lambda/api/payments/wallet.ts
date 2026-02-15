@@ -15,6 +15,7 @@ import { getStripeKey } from '../../shared/secrets';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments-wallet');
 
@@ -191,16 +192,17 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
     let stripeBalance = null;
     if (profile.stripe_account_id) {
       try {
-        const balance = await stripe.balance.retrieve({
-          stripeAccount: profile.stripe_account_id,
-        });
+        const balance = await safeStripeCall(
+          () => stripe.balance.retrieve({ stripeAccount: profile.stripe_account_id }),
+          'balance.retrieve', log, { timeoutMs: 5000 }
+        );
         stripeBalance = {
           available: balance.available.reduce((sum, b) => sum + b.amount, 0),
           pending: balance.pending.reduce((sum, b) => sum + b.amount, 0),
           currency: balance.available[0]?.currency || 'usd',
         };
       } catch {
-        // Stripe account may not be fully set up
+        // Stripe account may not be fully set up or Stripe is unavailable
         stripeBalance = null;
       }
     }
@@ -471,9 +473,10 @@ async function getBalance(userId: string, headers: Record<string, string>): Prom
       };
     }
 
-    const balance = await stripe.balance.retrieve({
-      stripeAccount: result.rows[0].stripe_account_id,
-    });
+    const balance = await safeStripeCall(
+      () => stripe.balance.retrieve({ stripeAccount: result.rows[0].stripe_account_id }),
+      'balance.retrieve', log
+    );
 
     return {
       statusCode: 200,
@@ -522,9 +525,12 @@ async function getPayouts(userId: string, limit: number, headers: Record<string,
       };
     }
 
-    const payouts = await stripe.payouts.list(
-      { limit: Math.min(limit, 50) },
-      { stripeAccount: result.rows[0].stripe_account_id }
+    const payouts = await safeStripeCall(
+      () => stripe.payouts.list(
+        { limit: Math.min(limit, 50) },
+        { stripeAccount: result.rows[0].stripe_account_id }
+      ),
+      'payouts.list', log
     );
 
     return {
@@ -573,9 +579,10 @@ async function createPayout(userId: string, headers: Record<string, string>): Pr
     const stripeAccountId = result.rows[0].stripe_account_id;
 
     // Get available balance
-    const balance = await stripe.balance.retrieve({
-      stripeAccount: stripeAccountId,
-    });
+    const balance = await safeStripeCall(
+      () => stripe.balance.retrieve({ stripeAccount: stripeAccountId }),
+      'balance.retrieve', log
+    );
 
     const availableAmount = balance.available.find(b => b.currency === 'usd')?.amount || 0;
 
@@ -588,12 +595,12 @@ async function createPayout(userId: string, headers: Record<string, string>): Pr
     }
 
     // Create payout
-    const payout = await stripe.payouts.create(
-      {
-        amount: availableAmount,
-        currency: 'usd',
-      },
-      { stripeAccount: stripeAccountId }
+    const payout = await safeStripeCall(
+      () => stripe.payouts.create(
+        { amount: availableAmount, currency: 'usd' },
+        { stripeAccount: stripeAccountId }
+      ),
+      'payouts.create', log
     );
 
     return {
@@ -637,7 +644,10 @@ async function getStripeDashboardLink(userId: string, headers: Record<string, st
       };
     }
 
-    const loginLink = await stripe.accounts.createLoginLink(result.rows[0].stripe_account_id);
+    const loginLink = await safeStripeCall(
+      () => stripe.accounts.createLoginLink(result.rows[0].stripe_account_id),
+      'accounts.createLoginLink', log
+    );
 
     return {
       statusCode: 200,

@@ -19,6 +19,7 @@ import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
 import { checkRateLimit } from '../utils/rate-limit';
+import { safeStripeCall, stripeUserMessage } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments/web-checkout');
 
@@ -148,14 +149,14 @@ async function createCheckoutSession(
   // Get or create Stripe customer
   let customerId = userProfile.stripe_customer_id;
   if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: userProfile.email,
-      name: userProfile.full_name || userProfile.username,
-      metadata: {
-        userId: user.sub,
-        platform: 'smuppy',
-      },
-    });
+    const customer = await safeStripeCall(
+      () => stripe.customers.create({
+        email: userProfile.email,
+        name: userProfile.full_name || userProfile.username,
+        metadata: { userId: user.sub, platform: 'smuppy' },
+      }),
+      'customers.create', log
+    );
     customerId = customer.id;
 
     await db.query(
@@ -358,17 +359,23 @@ async function createCheckoutSession(
         stripePriceId = existingPrice.rows[0].stripe_price_id;
       } else {
         // Create Stripe Product and Price
-        const product = await stripe.products.create({
-          name: `${creator.full_name || creator.username}'s Channel`,
-          metadata: { creatorId, type: 'channel_subscription' },
-        });
+        const product = await safeStripeCall(
+          () => stripe.products.create({
+            name: `${creator.full_name || creator.username}'s Channel`,
+            metadata: { creatorId, type: 'channel_subscription' },
+          }),
+          'products.create', log
+        );
 
-        const price = await stripe.prices.create({
-          product: product.id,
-          unit_amount: priceInCents,
-          currency: DEFAULT_CURRENCY,
-          recurring: { interval: 'month' },
-        });
+        const price = await safeStripeCall(
+          () => stripe.prices.create({
+            product: product.id,
+            unit_amount: priceInCents,
+            currency: DEFAULT_CURRENCY,
+            recurring: { interval: 'month' },
+          }),
+          'prices.create', log
+        );
 
         stripePriceId = price.id;
 
@@ -441,18 +448,24 @@ async function createCheckoutSession(
 
       if (!priceId) {
         // Create price dynamically if not configured
-        const product = await stripe.products.create({
-          name: `Smuppy ${plan.name}`,
-          description: plan.features,
-          metadata: { planType, type: 'platform_subscription' },
-        });
+        const product = await safeStripeCall(
+          () => stripe.products.create({
+            name: `Smuppy ${plan.name}`,
+            description: plan.features,
+            metadata: { planType, type: 'platform_subscription' },
+          }),
+          'products.create', log
+        );
 
-        const price = await stripe.prices.create({
-          product: product.id,
-          unit_amount: plan.amount,
-          currency: DEFAULT_CURRENCY,
-          recurring: { interval: 'month' },
-        });
+        const price = await safeStripeCall(
+          () => stripe.prices.create({
+            product: product.id,
+            unit_amount: plan.amount,
+            currency: DEFAULT_CURRENCY,
+            recurring: { interval: 'month' },
+          }),
+          'prices.create', log
+        );
 
         sessionConfig = {
           mode: 'subscription',
@@ -584,7 +597,10 @@ async function createCheckoutSession(
   sessionConfig.expires_at = Math.floor(Date.now() / 1000) + (30 * 60); // 30 minutes
 
   // Create the checkout session
-  const checkoutSession = await stripe.checkout.sessions.create(sessionConfig);
+  const checkoutSession = await safeStripeCall(
+    () => stripe.checkout.sessions.create(sessionConfig),
+    'checkout.sessions.create', log
+  );
 
   log.info('Created checkout session', {
     sessionId: checkoutSession.id,
@@ -610,9 +626,12 @@ async function createCheckoutSession(
 async function checkSessionStatus(sessionId: string, headers: Record<string, string>) {
   const stripe = await getStripe();
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['payment_intent', 'subscription'],
-    });
+    const session = await safeStripeCall(
+      () => stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['payment_intent', 'subscription'],
+      }),
+      'checkout.sessions.retrieve', log
+    );
 
     // SECURITY: Only return metadata to the session owner
     const sanitizedMetadata = session.metadata ? { productType: session.metadata.productType } : {};

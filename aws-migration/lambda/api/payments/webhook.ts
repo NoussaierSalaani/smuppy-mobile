@@ -16,6 +16,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
@@ -340,7 +341,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
             // Get subscription details
             const subscription = session.subscription
-              ? await stripe.subscriptions.retrieve(session.subscription as string)
+              ? await safeStripeCall(
+                  () => stripe.subscriptions.retrieve(session.subscription as string),
+                  'subscriptions.retrieve', log
+                )
               : null;
 
             const period = session.metadata?.period || 'monthly';
@@ -421,7 +425,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           }
 
           // Get current period from subscription
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+          const subscription = await safeStripeCall(
+            () => stripe.subscriptions.retrieve(session.subscription as string),
+            'subscriptions.retrieve', log
+          );
 
           await client.query(
             `INSERT INTO channel_subscriptions (
@@ -682,18 +689,50 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const failedSubDetails = (invoice as unknown as { subscription_details?: { metadata?: Record<string, string> } }).subscription_details;
         const subMeta = failedSubDetails?.metadata;
         const invoiceType = subMeta?.type || subMeta?.subscriptionType;
+        const failedUserId = subMeta?.userId;
 
-        if (invoiceType === 'identity_verification') {
-          const userId = subMeta?.userId;
-          if (userId && isValidUUID(userId)) {
+        if (failedUserId && isValidUUID(failedUserId)) {
+          if (invoiceType === 'identity_verification') {
             await client.query(
               `INSERT INTO notifications (user_id, type, title, body, data)
                VALUES ($1, 'verification_payment_failed', 'Verification Payment Failed',
                        'Your verified account payment failed. Please update your payment method to keep your verified badge.', $2)`,
-              [userId, JSON.stringify({ invoiceId: invoice.id })]
+              [failedUserId, JSON.stringify({ invoiceId: invoice.id })]
             );
-            log.warn('Verification invoice payment failed', { userId: userId.substring(0, 8) + '***', invoiceId: invoice.id });
+          } else if (invoiceType === 'platform') {
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'subscription_payment_failed', 'Pro Subscription Payment Failed',
+                       'Your Pro subscription payment failed. Please update your payment method to keep your Pro features.', $2)`,
+              [failedUserId, JSON.stringify({ invoiceId: invoice.id })]
+            );
+            // Mark subscription as past_due
+            await client.query(
+              `UPDATE platform_subscriptions SET status = 'past_due', updated_at = NOW()
+               WHERE user_id = $1 AND status = 'active'`,
+              [failedUserId]
+            );
+          } else if (invoiceType === 'channel') {
+            const creatorId = subMeta?.creatorId;
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'subscription_payment_failed', 'Channel Subscription Payment Failed',
+                       'Your channel subscription payment failed. Please update your payment method.', $2)`,
+              [failedUserId, JSON.stringify({ invoiceId: invoice.id, creatorId })]
+            );
+          } else if (invoiceType === 'business') {
+            await client.query(
+              `INSERT INTO notifications (user_id, type, title, body, data)
+               VALUES ($1, 'subscription_payment_failed', 'Membership Payment Failed',
+                       'Your membership payment failed. Please update your payment method.', $2)`,
+              [failedUserId, JSON.stringify({ invoiceId: invoice.id })]
+            );
           }
+          log.warn('Invoice payment failed notification sent', {
+            userId: failedUserId.substring(0, 8) + '***',
+            invoiceId: invoice.id,
+            subscriptionType: invoiceType,
+          });
         }
         break;
       }

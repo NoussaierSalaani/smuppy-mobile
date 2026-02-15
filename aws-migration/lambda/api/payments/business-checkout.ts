@@ -14,6 +14,7 @@ import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { safeStripeCall, stripeUserMessage } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments/business-checkout');
 
@@ -190,14 +191,14 @@ async function createBusinessCheckout(
   // Get or create Stripe customer
   let customerId = userProfile.stripe_customer_id;
   if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: userProfile.email,
-      name: userProfile.full_name || userProfile.username,
-      metadata: {
-        userId: user.id,
-        platform: 'smuppy',
-      },
-    });
+    const customer = await safeStripeCall(
+      () => stripe.customers.create({
+        email: userProfile.email,
+        name: userProfile.full_name || userProfile.username,
+        metadata: { userId: user.id, platform: 'smuppy' },
+      }),
+      'customers.create', log
+    );
     customerId = customer.id;
 
     await db.query(
@@ -219,18 +220,24 @@ async function createBusinessCheckout(
     const period = service.subscription_period || 'monthly';
     const interval = period === 'weekly' ? 'week' : period === 'yearly' ? 'year' : 'month';
 
-    const product = await stripe.products.create({
-      name: service.name,
-      description: service.description || `${service.business_name} - ${period} subscription`,
-      metadata: { businessId, serviceId, type: 'business_subscription' },
-    });
+    const product = await safeStripeCall(
+      () => stripe.products.create({
+        name: service.name,
+        description: service.description || `${service.business_name} - ${period} subscription`,
+        metadata: { businessId, serviceId, type: 'business_subscription' },
+      }),
+      'products.create', log
+    );
 
-    const price = await stripe.prices.create({
-      product: product.id,
-      unit_amount: priceInCents,
-      currency: 'eur',
-      recurring: { interval },
-    });
+    const price = await safeStripeCall(
+      () => stripe.prices.create({
+        product: product.id,
+        unit_amount: priceInCents,
+        currency: 'eur',
+        recurring: { interval },
+      }),
+      'prices.create', log
+    );
 
     sessionConfig = {
       mode: 'subscription',
@@ -315,7 +322,10 @@ async function createBusinessCheckout(
   sessionConfig.billing_address_collection = 'auto';
   sessionConfig.expires_at = Math.floor(Date.now() / 1000) + (30 * 60); // 30 minutes
 
-  const checkoutSession = await stripe.checkout.sessions.create(sessionConfig);
+  const checkoutSession = await safeStripeCall(
+    () => stripe.checkout.sessions.create(sessionConfig),
+    'checkout.sessions.create', log
+  );
 
   log.info('Created business checkout session', {
     sessionId: checkoutSession.id,

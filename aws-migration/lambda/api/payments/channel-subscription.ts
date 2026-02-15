@@ -18,6 +18,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { safeStripeCall, stripeUserMessage } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments-channel-subscription');
 
@@ -235,11 +236,15 @@ async function subscribeToChannel(
     // Create or get Stripe customer
     let customerId = fan.stripe_customer_id;
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: fan.email,
-        name: fan.full_name,
-        metadata: { userId: fanUserId, platform: 'smuppy' },
-      });
+      const customer = await safeStripeCall(
+        () => stripe.customers.create({
+          email: fan.email,
+          name: fan.full_name,
+          metadata: { userId: fanUserId, platform: 'smuppy' },
+        }),
+        'customers.create',
+        log
+      );
       customerId = customer.id;
       await client.query(
         'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
@@ -259,38 +264,42 @@ async function subscribeToChannel(
     );
 
     // Create checkout session with Connect
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `smuppy://channel-subscription-success?creator=${creatorId}`,
-      cancel_url: 'smuppy://channel-subscription-cancel',
-      subscription_data: {
-        application_fee_percent: platformFeePercent,
-        transfer_data: {
-          destination: creator.stripe_account_id,
+    const session = await safeStripeCall(
+      () => stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        success_url: `smuppy://channel-subscription-success?creator=${creatorId}`,
+        cancel_url: 'smuppy://channel-subscription-cancel',
+        subscription_data: {
+          application_fee_percent: platformFeePercent,
+          transfer_data: {
+            destination: creator.stripe_account_id,
+          },
+          metadata: {
+            fanId: fanUserId,
+            creatorId,
+            subscriptionType: 'channel',
+            platformFeePercent: platformFeePercent.toString(),
+            creatorFanCount: fanCount.toString(),
+            tier: getTierName(fanCount),
+          },
         },
         metadata: {
           fanId: fanUserId,
           creatorId,
           subscriptionType: 'channel',
-          platformFeePercent: platformFeePercent.toString(),
-          creatorFanCount: fanCount.toString(),
-          tier: getTierName(fanCount),
         },
-      },
-      metadata: {
-        fanId: fanUserId,
-        creatorId,
-        subscriptionType: 'channel',
-      },
-    });
+      }),
+      'checkout.sessions.create',
+      log
+    );
 
     return {
       statusCode: 200,
@@ -319,9 +328,13 @@ async function getOrCreateChannelPrice(
   const productName = `${creatorName}'s Channel`;
 
   // Search for existing product for this creator
-  const products = await stripe.products.search({
-    query: `metadata['creatorId']:'${creatorId}' AND active:'true'`,
-  });
+  const products = await safeStripeCall(
+    () => stripe.products.search({
+      query: `metadata['creatorId']:'${creatorId}' AND active:'true'`,
+    }),
+    'products.search',
+    log
+  );
 
   let productId: string;
 
@@ -329,20 +342,28 @@ async function getOrCreateChannelPrice(
     productId = products.data[0].id;
   } else {
     // Create product
-    const product = await stripe.products.create({
-      name: productName,
-      description: `Monthly subscription to ${creatorName}'s streaming channel on Smuppy`,
-      metadata: { creatorId, type: 'channel_subscription' },
-    });
+    const product = await safeStripeCall(
+      () => stripe.products.create({
+        name: productName,
+        description: `Monthly subscription to ${creatorName}'s streaming channel on Smuppy`,
+        metadata: { creatorId, type: 'channel_subscription' },
+      }),
+      'products.create',
+      log
+    );
     productId = product.id;
   }
 
   // Search for existing price with this amount
-  const prices = await stripe.prices.list({
-    product: productId,
-    active: true,
-    type: 'recurring',
-  });
+  const prices = await safeStripeCall(
+    () => stripe.prices.list({
+      product: productId,
+      active: true,
+      type: 'recurring',
+    }),
+    'prices.list',
+    log
+  );
 
   const existingPrice = prices.data.find(p => p.unit_amount === priceCents);
   if (existingPrice) {
@@ -352,18 +373,24 @@ async function getOrCreateChannelPrice(
   // Deactivate old prices if amount changed (parallel for performance)
   if (prices.data.length > 0) {
     await Promise.all(
-      prices.data.map(oldPrice => stripe.prices.update(oldPrice.id, { active: false }))
+      prices.data.map(oldPrice =>
+        safeStripeCall(() => stripe.prices.update(oldPrice.id, { active: false }), 'prices.update', log)
+      )
     );
   }
 
   // Create new price
-  const price = await stripe.prices.create({
-    product: productId,
-    unit_amount: priceCents,
-    currency: 'usd',
-    recurring: { interval: 'month' },
-    metadata: { creatorId },
-  });
+  const price = await safeStripeCall(
+    () => stripe.prices.create({
+      product: productId,
+      unit_amount: priceCents,
+      currency: 'usd',
+      recurring: { interval: 'month' },
+      metadata: { creatorId },
+    }),
+    'prices.create',
+    log
+  );
 
   return price.id;
 }
@@ -395,9 +422,13 @@ async function cancelChannelSubscription(
     const stripeSubId = result.rows[0].stripe_subscription_id;
 
     // Cancel at period end
-    const subscription = await stripe.subscriptions.update(stripeSubId, {
-      cancel_at_period_end: true,
-    });
+    const subscription = await safeStripeCall(
+      () => stripe.subscriptions.update(stripeSubId, {
+        cancel_at_period_end: true,
+      }),
+      'subscriptions.update',
+      log
+    );
 
     await client.query(
       `UPDATE channel_subscriptions

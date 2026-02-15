@@ -78,14 +78,39 @@ export class SmuppyStackV2 extends cdk.Stack {
     const mediaBucket = new s3.Bucket(this, 'MediaBucket', {
       bucketName: `smuppy-media-${environment}-${this.account}`,
       cors: [{
-        allowedHeaders: ['*'],
+        allowedHeaders: [
+          'Content-Type',
+          'Content-Length',
+          'Content-MD5',
+          'Authorization',
+          'X-Amz-Date',
+          'X-Amz-Content-Sha256',
+          'X-Amz-Security-Token',
+          'X-Amz-User-Agent',
+        ],
         allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
         allowedOrigins: CORS_ALLOWED_ORIGINS,
-        maxAge: 3000,
+        maxAge: 3600,
       }],
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
       versioned: false,
+      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: !isProduction,
+    });
+
+    // CloudFront access logs bucket
+    const cdnLogsBucket = new s3.Bucket(this, 'CDNLogsBucket', {
+      bucketName: `smuppy-cdn-logs-v2-${environment}-${this.account}`,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
+      lifecycleRules: [{
+        id: 'DeleteOldLogs',
+        expiration: cdk.Duration.days(isProduction ? 90 : 30),
+      }],
       removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: !isProduction,
     });
@@ -97,8 +122,13 @@ export class SmuppyStackV2 extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
       },
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      enableLogging: true,
+      logBucket: cdnLogsBucket,
+      logFilePrefix: 'cdn-logs/',
+      logIncludesCookies: false,
     });
 
     // ========================================

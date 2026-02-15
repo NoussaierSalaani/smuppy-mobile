@@ -34,8 +34,8 @@ export class ApiGatewayDisputesStack extends cdk.NestedStack {
       cloudWatchRole: false,
       deployOptions: {
         stageName: environment,
-        throttlingRateLimit: isProduction ? 50000 : 500,
-        throttlingBurstLimit: isProduction ? 25000 : 250,
+        throttlingRateLimit: isProduction ? 2000 : 500,
+        throttlingBurstLimit: isProduction ? 1000 : 250,
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: !isProduction,
         metricsEnabled: true,

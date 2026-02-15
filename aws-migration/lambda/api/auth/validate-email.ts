@@ -6,46 +6,12 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import * as dns from 'dns';
 import { promisify } from 'util';
-import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('auth-validate-email');
-const dynamoClient = new DynamoDBClient({});
-const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE || 'smuppy-rate-limit-staging';
-
-const RATE_LIMIT_WINDOW_S = 60; // 1 minute
-const MAX_REQUESTS = 10; // 10 validations per minute per IP
-
-const checkRateLimit = async (ip: string): Promise<{ allowed: boolean; retryAfter?: number }> => {
-  const now = Math.floor(Date.now() / 1000);
-  const windowKey = `validate-email#${ip}#${Math.floor(now / RATE_LIMIT_WINDOW_S)}`;
-  const windowEnd = (Math.floor(now / RATE_LIMIT_WINDOW_S) + 1) * RATE_LIMIT_WINDOW_S;
-
-  try {
-    const result = await dynamoClient.send(new UpdateItemCommand({
-      TableName: RATE_LIMIT_TABLE,
-      Key: { pk: { S: windowKey } },
-      UpdateExpression: 'SET #count = if_not_exists(#count, :zero) + :one, #ttl = :ttl',
-      ExpressionAttributeNames: { '#count': 'count', '#ttl': 'ttl' },
-      ExpressionAttributeValues: {
-        ':zero': { N: '0' },
-        ':one': { N: '1' },
-        ':ttl': { N: String(windowEnd + 60) },
-      },
-      ReturnValues: 'ALL_NEW',
-    }));
-
-    const count = parseInt(result.Attributes?.count?.N || '1', 10);
-    if (count > MAX_REQUESTS) {
-      return { allowed: false, retryAfter: windowEnd - now };
-    }
-    return { allowed: true };
-  } catch (error) {
-    log.error('Rate limit check failed, blocking request', error);
-    return { allowed: false, retryAfter: 60 }; // Fail-closed to prevent abuse
-  }
-};
 
 const resolveMx = promisify(dns.resolveMx);
 
@@ -164,11 +130,11 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
 
-  // Rate limit check
+  // Rate limit check (distributed via DynamoDB): 10 per IP per minute
   const clientIp = event.requestContext.identity?.sourceIp ||
                    event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
                    'unknown';
-  const rateLimit = await checkRateLimit(clientIp);
+  const rateLimit = await checkRateLimit({ prefix: 'validate-email', identifier: clientIp, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 10 });
   if (!rateLimit.allowed) {
     return {
       statusCode: 429,

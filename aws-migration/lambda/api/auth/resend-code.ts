@@ -14,13 +14,13 @@ import {
   LimitExceededException,
   InvalidParameterException,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('auth-resend-code');
 const cognitoClient = new CognitoIdentityProviderClient({});
-const dynamoClient = new DynamoDBClient({});
 
 // Validate required environment variables at module load
 if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is required');
@@ -28,15 +28,6 @@ if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variabl
 
 const CLIENT_ID = process.env.CLIENT_ID;
 const USER_POOL_ID = process.env.USER_POOL_ID;
-const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE || 'smuppy-rate-limit-staging';
-
-/**
- * Distributed Rate Limiting via DynamoDB
- * 3 attempts per IP per 1-minute window, shared across all Lambda instances.
- * Uses DynamoDB atomic counters with TTL for automatic cleanup.
- */
-const RATE_LIMIT_WINDOW_S = 60; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 3;
 
 // Generate username from email - fallback if lookup fails
 // Example: john@gmail.com -> johngmailcom (no special chars)
@@ -62,39 +53,6 @@ const getUsernameByEmail = async (email: string): Promise<string | null> => {
   } catch (error) {
     log.error('Error looking up user by email', error);
     return null;
-  }
-};
-
-const checkRateLimit = async (ip: string): Promise<{ allowed: boolean; retryAfter?: number }> => {
-  const now = Math.floor(Date.now() / 1000);
-  const windowKey = `resend-code#${ip}#${Math.floor(now / RATE_LIMIT_WINDOW_S)}`;
-  const windowEnd = (Math.floor(now / RATE_LIMIT_WINDOW_S) + 1) * RATE_LIMIT_WINDOW_S;
-
-  try {
-    const result = await dynamoClient.send(new UpdateItemCommand({
-      TableName: RATE_LIMIT_TABLE,
-      Key: { pk: { S: windowKey } },
-      UpdateExpression: 'SET #count = if_not_exists(#count, :zero) + :one, #ttl = :ttl',
-      ExpressionAttributeNames: { '#count': 'count', '#ttl': 'ttl' },
-      ExpressionAttributeValues: {
-        ':zero': { N: '0' },
-        ':one': { N: '1' },
-        ':ttl': { N: String(windowEnd + 60) },
-      },
-      ReturnValues: 'ALL_NEW',
-    }));
-
-    const count = parseInt(result.Attributes?.count?.N || '1', 10);
-
-    if (count > MAX_REQUESTS_PER_WINDOW) {
-      const retryAfter = windowEnd - now;
-      return { allowed: false, retryAfter };
-    }
-
-    return { allowed: true };
-  } catch (error) {
-    log.error('Rate limit check failed, blocking request', error);
-    return { allowed: false, retryAfter: 60 };
   }
 };
 
@@ -128,11 +86,11 @@ export const handler = async (
       };
     }
 
-    // Check rate limit (distributed via DynamoDB, keyed by IP)
+    // Check rate limit (distributed via DynamoDB): 3 attempts per IP per minute
     const clientIp = event.requestContext.identity?.sourceIp ||
                      event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
                      'unknown';
-    const rateLimit = await checkRateLimit(clientIp);
+    const rateLimit = await checkRateLimit({ prefix: 'resend-code', identifier: clientIp, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 3 });
     if (!rateLimit.allowed) {
       return {
         statusCode: 429,

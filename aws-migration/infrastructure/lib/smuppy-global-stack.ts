@@ -263,6 +263,21 @@ export class SmuppyGlobalStack extends cdk.Stack {
     });
 
     // ========================================
+    // WAF Logging — request-level data for forensic analysis
+    // Log group name MUST start with "aws-waf-logs-" (AWS requirement)
+    // ========================================
+    const wafLogGroup = new logs.LogGroup(this, 'WafLogGroup', {
+      logGroupName: `aws-waf-logs-smuppy-${environment}`,
+      retention: isProduction ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.ONE_MONTH,
+      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    new wafv2.CfnLoggingConfiguration(this, 'WafLogging', {
+      resourceArn: globalWaf.attrArn,
+      logDestinationConfigs: [wafLogGroup.logGroupArn],
+    });
+
+    // ========================================
     // CloudFront Distribution - Global CDN
     // 450+ Edge Locations worldwide
     // ========================================
@@ -397,6 +412,7 @@ export class SmuppyGlobalStack extends cdk.Stack {
         cachePolicy: mediaCachePolicy,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         compress: true,
+        responseHeadersPolicy: secureResponseHeadersPolicy,
       },
     };
 
@@ -411,6 +427,7 @@ export class SmuppyGlobalStack extends cdk.Stack {
         originRequestPolicy: apiOriginRequestPolicy,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         compress: true,
+        responseHeadersPolicy: secureResponseHeadersPolicy,
       };
     }
 
@@ -424,6 +441,7 @@ export class SmuppyGlobalStack extends cdk.Stack {
         originRequestPolicy: apiOriginRequestPolicy,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         compress: true,
+        responseHeadersPolicy: secureResponseHeadersPolicy,
       };
     }
 

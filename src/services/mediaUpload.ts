@@ -312,32 +312,6 @@ export const s3ToCloudFront = (s3Url: string): string => {
   return s3Url;
 };
 
-/**
- * Get optimized CloudFront URL with image transformations
- * Note: Requires CloudFront with Lambda@Edge or CloudFront Functions
- */
-export const getOptimizedImageUrl = (
-  key: string,
-  options: {
-    width?: number;
-    height?: number;
-    quality?: number;
-    format?: 'webp' | 'jpeg' | 'png';
-  } = {}
-): string => {
-  const baseUrl = getCloudFrontUrl(key);
-
-  // If you have image optimization set up, add query params
-  const params = new URLSearchParams();
-  if (options.width) params.append('w', options.width.toString());
-  if (options.height) params.append('h', options.height.toString());
-  if (options.quality) params.append('q', options.quality.toString());
-  if (options.format) params.append('f', options.format);
-
-  const queryString = params.toString();
-  return queryString ? `${baseUrl}?${queryString}` : baseUrl;
-};
-
 // ============================================
 // UPLOAD FUNCTIONS
 // ============================================
@@ -719,6 +693,5 @@ export default {
   deleteFromS3,
   getCloudFrontUrl,
   s3ToCloudFront,
-  getOptimizedImageUrl,
   getPresignedUrl,
 };

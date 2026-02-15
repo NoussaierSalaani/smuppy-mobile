@@ -16,59 +16,18 @@ import {
   ListUsersCommand,
   UserNotFoundException,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_5_MIN } from '../utils/constants';
 
 const log = createLogger('auth-check-user');
 const cognitoClient = new CognitoIdentityProviderClient({});
-const dynamoClient = new DynamoDBClient({});
 
 // Validate required environment variables at module load
 if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variable is required');
 
 const USER_POOL_ID = process.env.USER_POOL_ID;
-const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE || 'smuppy-rate-limit-staging';
-
-/**
- * Distributed Rate Limiting via DynamoDB
- * 5 attempts per IP per 5-minute window, shared across all Lambda instances.
- */
-const RATE_LIMIT_WINDOW_S = 5 * 60;
-const MAX_ATTEMPTS = 5;
-
-const checkRateLimit = async (ip: string): Promise<{ allowed: boolean; retryAfter?: number }> => {
-  const now = Math.floor(Date.now() / 1000);
-  const windowKey = `check-user#${ip}#${Math.floor(now / RATE_LIMIT_WINDOW_S)}`;
-  const windowEnd = (Math.floor(now / RATE_LIMIT_WINDOW_S) + 1) * RATE_LIMIT_WINDOW_S;
-
-  try {
-    const result = await dynamoClient.send(new UpdateItemCommand({
-      TableName: RATE_LIMIT_TABLE,
-      Key: { pk: { S: windowKey } },
-      UpdateExpression: 'SET #count = if_not_exists(#count, :zero) + :one, #ttl = :ttl',
-      ExpressionAttributeNames: { '#count': 'count', '#ttl': 'ttl' },
-      ExpressionAttributeValues: {
-        ':zero': { N: '0' },
-        ':one': { N: '1' },
-        ':ttl': { N: String(windowEnd + 60) },
-      },
-      ReturnValues: 'ALL_NEW',
-    }));
-
-    const count = parseInt(result.Attributes?.count?.N || '1', 10);
-
-    if (count > MAX_ATTEMPTS) {
-      const retryAfter = windowEnd - now;
-      return { allowed: false, retryAfter };
-    }
-
-    return { allowed: true };
-  } catch (error) {
-    log.error('Rate limit check failed, blocking request', error);
-    return { allowed: false, retryAfter: 60 };
-  }
-};
 
 // Generate unique username from email
 // SECURITY: Uses full email hash to prevent collisions
@@ -119,8 +78,8 @@ export const handler = async (
                    event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
                    'unknown';
 
-  // Check rate limit (distributed via DynamoDB)
-  const rateLimit = await checkRateLimit(clientIp);
+  // Check rate limit (distributed via DynamoDB): 5 attempts per IP per 5 minutes
+  const rateLimit = await checkRateLimit({ prefix: 'check-user', identifier: clientIp, windowSeconds: RATE_WINDOW_5_MIN, maxRequests: 5 });
   if (!rateLimit.allowed) {
     log.info('Rate limited', { ip: clientIp, retryAfter: rateLimit.retryAfter });
     return {

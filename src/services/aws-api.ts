@@ -313,7 +313,19 @@ class AWSAPIService {
     if (params?.userId) queryParams.set('userId', params.userId);
 
     const query = queryParams.toString();
-    const response = await this.request<{ posts?: Post[]; data?: Post[]; nextCursor?: string | null; hasMore?: boolean; total?: number }>(`/posts${query ? `?${query}` : ''}`);
+
+    // Route 'following' type to /feed/following (API Gateway 3 with Cognito authorizer)
+    // /posts endpoint is public (no authorizer) — JWT claims aren't passed to the Lambda
+    let endpoint = `/posts${query ? `?${query}` : ''}`;
+    if (params?.type === 'following') {
+      const feedParams = new URLSearchParams();
+      if (params.limit) feedParams.set('limit', params.limit.toString());
+      if (params.cursor) feedParams.set('cursor', params.cursor);
+      const feedQuery = feedParams.toString();
+      endpoint = `/feed/following${feedQuery ? `?${feedQuery}` : ''}`;
+    }
+
+    const response = await this.request<{ posts?: Post[]; data?: Post[]; nextCursor?: string | null; hasMore?: boolean; total?: number }>(endpoint);
 
     // Map API response (posts) to expected format (data)
     const posts = Array.isArray(response.posts) ? response.posts : Array.isArray(response.data) ? response.data : [];

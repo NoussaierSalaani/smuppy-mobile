@@ -96,5 +96,8 @@ smuppy-mobile/
 
 # Security: prevent accidental commits of secrets/infra
 .claude/settings.local.json
-aws-migration/infrastructure/cdk.out.new/
+
+# CDK output directories (all variants)
+aws-migration/infrastructure/cdk.out.*/
+aws-migration/infrastructure/cdk.out.*/**
 

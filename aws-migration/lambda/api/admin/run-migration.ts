@@ -598,8 +598,8 @@ async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number
       const daysAgo = Math.floor(Math.random() * 30);
       await db.query(
         `INSERT INTO posts (author_id, content, media_urls, media_type, visibility, likes_count, comments_count, created_at)
-         VALUES ($1, $2, $3, 'image', $4, $5, $6, NOW() - interval '${daysAgo} days')`,
-        [id, POST_CAPTIONS[i % POST_CAPTIONS.length], [POST_IMAGES[i % POST_IMAGES.length]], i === 0 && accountType === 'pro_creator' ? 'fans' : 'public', Math.floor(Math.random() * 300) + 50, Math.floor(Math.random() * 30) + 5]
+         VALUES ($1, $2, $3, 'image', $4, $5, $6, NOW() - make_interval(days => $7))`,
+        [id, POST_CAPTIONS[i % POST_CAPTIONS.length], [POST_IMAGES[i % POST_IMAGES.length]], i === 0 && accountType === 'pro_creator' ? 'fans' : 'public', Math.floor(Math.random() * 300) + 50, Math.floor(Math.random() * 30) + 5, daysAgo]
       );
       totalPosts++;
     }
@@ -610,10 +610,11 @@ async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number
   for (const { id, accountType } of profileIds) {
     if (accountType !== 'pro_creator') continue;
     for (let i = 0; i < 2; i++) {
+      const peakDaysAgo = Math.floor(Math.random() * 7);
       await db.query(
         `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, views_count, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW() - interval '${Math.floor(Math.random() * 7)} days')`,
-        [id, 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4', POST_IMAGES[i], ['Quick tip!', 'Behind the scenes'][i], 15, Math.floor(Math.random() * 500) + 100]
+         VALUES ($1, $2, $3, $4, $5, $6, NOW() - make_interval(days => $7))`,
+        [id, 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4', POST_IMAGES[i], ['Quick tip!', 'Behind the scenes'][i], 15, Math.floor(Math.random() * 500) + 100, peakDaysAgo]
       );
       totalPeaks++;
     }

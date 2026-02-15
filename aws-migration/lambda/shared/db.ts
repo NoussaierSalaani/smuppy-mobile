@@ -148,9 +148,12 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   // SECURITY: Set statement timeout to prevent slow query DoS
   // Reader pool gets shorter timeout (reads should be fast)
   // Writer pool gets longer timeout (transactions may take longer)
+  // Note: RDS Proxy may not fully support SET commands, but this is a defense-in-depth measure
   const timeoutMs = options?.maxConnections === 10 ? 15000 : 30000;
   pool.on('connect', (client: any) => {
-    client.query(`SET statement_timeout = '${timeoutMs}'`);
+    client.query('SET statement_timeout = $1', [timeoutMs]).catch(() => {
+      // Silently ignore if RDS Proxy rejects SET — Lambda timeout is the primary guard
+    });
   });
 
   // Handle pool errors gracefully — nullify pool reference so next query creates a fresh pool

@@ -147,8 +147,8 @@ export async function handler(): Promise<{ statusCode: number; body: string }> {
 
         await client.query(
           `INSERT INTO peaks (id, author_id, video_url, thumbnail_url, caption, duration, views_count, visibility, media_type, expires_at, created_at, updated_at)
-           VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, 'public', 'video', NOW() + interval '48 hours', NOW() - interval '${hoursAgo} hours', NOW())`,
-          [creator.id, videoUrl, thumbnailUrl, caption, duration, viewsCount]
+           VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, 'public', 'video', NOW() + interval '48 hours', NOW() - make_interval(hours => $7), NOW())`,
+          [creator.id, videoUrl, thumbnailUrl, caption, duration, viewsCount, hoursAgo]
         );
         totalPeaks++;
       }

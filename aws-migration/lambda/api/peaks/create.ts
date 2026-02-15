@@ -126,12 +126,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       account_type: accountCheck.accountType,
     };
 
-    // Business accounts cannot create peaks — view/like/share only
-    if (profile.account_type === 'pro_business') {
+    // Only pro_creator accounts can create peaks
+    if (profile.account_type !== 'pro_creator') {
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ message: 'Peak creation is not available for business accounts' }),
+        body: JSON.stringify({ message: 'Pro Creator account required to create peaks' }),
       };
     }
 

@@ -40,7 +40,7 @@ export class AuthStack extends cdk.NestedStack {
         'profile_id': new cognito.StringAttribute({ mutable: true }),
       },
       passwordPolicy: {
-        minLength: 8,
+        minLength: 10,
         requireLowercase: true,
         requireUppercase: true,
         requireDigits: true,

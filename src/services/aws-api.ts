@@ -51,6 +51,12 @@ const API3_PREFIXES = [
   '/spots',
   '/businesses/subscriptions/',
   '/reports',
+  '/feed/',
+  '/posts/search',
+  '/posts/likes/batch',
+  '/posts/saves/batch',
+  '/posts/saved',
+  '/peaks/search',
 ] as const;
 
 // Prefix-based routing to Disputes API (dedicated API Gateway)

@@ -49,6 +49,14 @@ describe('AWS API Utils', () => {
       { endpoint: '/payments/intent', expectedBase: 'api2' },
       { endpoint: '/businesses/validate-access', expectedBase: 'api3' },
       { endpoint: '/businesses/log-entry', expectedBase: 'api3' },
+      { endpoint: '/feed/optimized', expectedBase: 'api3' },
+      { endpoint: '/feed/following', expectedBase: 'api3' },
+      { endpoint: '/feed/discover', expectedBase: 'api3' },
+      { endpoint: '/posts/search', expectedBase: 'api3' },
+      { endpoint: '/posts/likes/batch', expectedBase: 'api3' },
+      { endpoint: '/posts/saves/batch', expectedBase: 'api3' },
+      { endpoint: '/posts/saved', expectedBase: 'api3' },
+      { endpoint: '/peaks/search', expectedBase: 'api3' },
     ];
 
     testCases.forEach(({ endpoint, expectedBase }) => {

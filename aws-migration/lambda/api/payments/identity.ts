@@ -317,7 +317,7 @@ async function confirmSubscriptionAndStartVerification(
       return {
         statusCode: 402,
         headers,
-        body: JSON.stringify({ error: 'Subscription not active', status: sub.status }),
+        body: JSON.stringify({ success: false, message: 'Subscription not active', status: sub.status }),
       };
     }
 

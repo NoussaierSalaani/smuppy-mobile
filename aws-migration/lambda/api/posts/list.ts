@@ -5,7 +5,7 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import Redis from 'ioredis';
-import { getReaderPool, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
@@ -83,7 +83,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Use reader pool for read-heavy list operations (distributed across read replicas)
-    const pool = await getReaderPool();
+    const pool = await getPool();
 
     // Resolve the user's profile ID from cognito_sub if authenticated
     let requesterId: string | null = null;

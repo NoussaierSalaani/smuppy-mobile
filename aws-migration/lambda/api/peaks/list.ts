@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
@@ -24,7 +24,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const authorIdParam = event.queryStringParameters?.authorId || event.queryStringParameters?.author_id;
     const usernameParam = event.queryStringParameters?.username;
 
-    const db = await getReaderPool();
+    const db = await getPool();
 
     // Get current user's profile ID if authenticated (check both id and cognito_sub for consistency)
     let currentProfileId: string | null = null;

@@ -74,13 +74,16 @@ interface PostItemProps {
   onShare: (post: UIPost) => void;
   onDetail: (post: UIPost) => void;
   onLikersPress: (postId: string) => void;
+  initialCarouselIndex?: number;
+  onCarouselIndexChange?: (postId: string, index: number) => void;
 }
 
 const PostItem = memo<PostItemProps>(({
   post, isLast, colors, styles,
   onUserPress, onLike, onSave, onMenu, onShare, onDetail, onLikersPress,
+  initialCarouselIndex = 0, onCarouselIndexChange,
 }) => {
-  const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselIndex = initialCarouselIndex;
 
   return (
     <View style={styles.postContainer}>
@@ -130,7 +133,8 @@ const PostItem = memo<PostItemProps>(({
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={(e) => {
-                  setCarouselIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+                  const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                  onCarouselIndexChange?.(post.id, newIndex);
                 }}
               >
                 {post.allMedia.map((mediaUrl, mediaIndex) => (
@@ -145,7 +149,7 @@ const PostItem = memo<PostItemProps>(({
               <View style={styles.carouselPagination}>
                 {post.allMedia.map((_, dotIndex) => (
                   <View
-                    key={`dot-${dotIndex}`}
+                    key={`${post.id}-dot-${dotIndex}`}
                     style={[
                       styles.carouselDot,
                       carouselIndex === dotIndex && styles.carouselDotActive,
@@ -274,7 +278,11 @@ const PostItem = memo<PostItemProps>(({
   prev.post.isLiked === next.post.isLiked &&
   prev.post.isSaved === next.post.isSaved &&
   prev.post.likes === next.post.likes &&
+  prev.post.caption === next.post.caption &&
+  prev.post.user?.id === next.post.user?.id &&
+  prev.post.media === next.post.media &&
   prev.isLast === next.isLast &&
+  prev.initialCarouselIndex === next.initialCarouselIndex &&
   prev.styles === next.styles
 );
 
@@ -328,6 +336,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const [trackingUserIds, setTrackingUserIds] = useState<Set<string>>(new Set());
   const trackingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  // Track carousel indexes at parent level to survive PostItem re-renders (H5)
+  const carouselIndexesRef = useRef<Record<string, number>>({});
+
   // Cleanup tracking timeouts on unmount to prevent memory leaks
   useEffect(() => {
     const timeouts = trackingTimeoutsRef.current;
@@ -374,7 +385,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           setHasMore(false);
           setLoadError(error);
         } else {
-          // Load-more error: stop retrying after 3 consecutive failures
+          // Load-more error: set error state so stale data is accompanied by an indicator
+          setLoadError(error);
           loadMoreErrorCount.current += 1;
           if (loadMoreErrorCount.current >= 3) {
             hasMoreRef.current = false;
@@ -469,7 +481,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           hasMoreSuggestionsRef.current = false;
           setSuggestionsExhausted(true);
         }
-        loadingSuggestionsRef.current = false;
+        // loadingSuggestionsRef reset handled by finally block
         return;
       }
 
@@ -641,6 +653,14 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         // Remove from timeout map after it fires
         trackingTimeoutsRef.current.delete(userId);
       }, 500);
+      // Limit map size to prevent unbounded growth (M17)
+      if (trackingTimeoutsRef.current.size > 50) {
+        const firstKey = trackingTimeoutsRef.current.keys().next().value;
+        if (firstKey !== undefined) {
+          clearTimeout(trackingTimeoutsRef.current.get(firstKey));
+          trackingTimeoutsRef.current.delete(firstKey);
+        }
+      }
       trackingTimeoutsRef.current.set(userId, timeoutId);
     }
   }, [trackingUserIds, posts.length, fetchPosts, fetchSuggestions]);
@@ -928,6 +948,11 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     navigation.navigate('PostLikers', { postId });
   }, [navigation]);
 
+  // Handle carousel index changes from PostItem (persisted in parent ref)
+  const handleCarouselIndexChange = useCallback((postId: string, index: number) => {
+    carouselIndexesRef.current[postId] = index;
+  }, []);
+
   // Render post item for FlashList — delegates to memoized PostItem
   const renderPost = useCallback(({ item: post, index }: { item: UIPost; index: number }) => (
     <PostItem
@@ -942,8 +967,10 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       onShare={handleSharePost}
       onDetail={handleOpenPostDetail}
       onLikersPress={handleLikersPress}
+      initialCarouselIndex={carouselIndexesRef.current[post.id] ?? 0}
+      onCarouselIndexChange={handleCarouselIndexChange}
     />
-  ), [visiblePosts.length, colors, styles, goToUserProfile, toggleLike, toggleSave, handlePostMenu, handleSharePost, handleOpenPostDetail, handleLikersPress]);
+  ), [visiblePosts.length, colors, styles, goToUserProfile, toggleLike, toggleSave, handlePostMenu, handleSharePost, handleOpenPostDetail, handleLikersPress, handleCarouselIndexChange]);
 
   // Invite friends using native share
   const inviteFriends = useCallback(async () => {

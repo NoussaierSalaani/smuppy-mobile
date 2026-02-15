@@ -12,6 +12,16 @@ export const COVER_HEIGHT = 282;
 export const AVATAR_SIZE = 96;
 
 export const createProfileStyles = (colors: ThemeColors, isDark = false) => StyleSheet.create({
+  loadMoreBtn: {
+    alignItems: 'center' as const,
+    paddingVertical: 16,
+    marginTop: 8,
+  },
+  loadMoreBtnText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: colors.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1189,4 +1199,5 @@ export const createProfileStyles = (colors: ThemeColors, isDark = false) => Styl
     color: colors.gray400,
     marginTop: 2,
   },
+
 });

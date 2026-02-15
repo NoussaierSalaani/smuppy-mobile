@@ -240,14 +240,14 @@ const convertPost = (p: AWSPost): Post => {
     author_id: p.authorId,
     content: p.content,
     media_urls: mediaArray,
-    media_type: p.mediaType || pRec?.media_type as Post['media_type'] || (mediaArray.length > 1 ? 'multiple' : undefined),
-    is_peak: pRec?.is_peak as boolean ?? p.isPeak ?? false,
+    media_type: (p.mediaType || pRec?.media_type || (mediaArray.length > 1 ? 'multiple' : undefined)) as Post['media_type'],
+    is_peak: (pRec?.is_peak as boolean) ?? p.isPeak ?? false,
     visibility: (p.visibility || pRec?.visibility || 'public') as Post['visibility'],
-    location: p.location || pRec?.location as string || null,
-    tagged_users: p.taggedUsers || pRec?.tagged_users as Post['tagged_users'] || [],
+    location: (p.location || pRec?.location || null) as string | null,
+    tagged_users: (p.taggedUsers || pRec?.tagged_users || []) as Post['tagged_users'],
     likes_count: p.likesCount,
     comments_count: p.commentsCount,
-    views_count: p.viewsCount || pRec?.views_count as number || 0,
+    views_count: (p.viewsCount || pRec?.views_count || 0) as number,
     tags: p.tags || [],
     created_at: p.createdAt,
     author: p.author
@@ -561,19 +561,22 @@ export const getOptimizedFeed = async (page = 0, limit = 20): Promise<DbResponse
     }));
     return { data: posts, error: null };
   } catch {
-    // Fallback to regular feed
+    // Fallback to regular feed — has_liked/has_saved default to false (batch check handles sync later)
     const fallback = await getFeedPosts(page, limit);
-    return { data: fallback.data as PostWithStatus[] | null, error: fallback.error };
+    const postsWithStatus: PostWithStatus[] | null = fallback.data
+      ? fallback.data.map(p => ({ ...p, has_liked: false, has_saved: false }))
+      : null;
+    return { data: postsWithStatus, error: fallback.error };
   }
 };
 
 /**
- * Get posts by user ID
+ * Get posts by user ID (supports cursor-based pagination)
  */
-export const getPostsByUser = async (userId: string, _page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
+export const getPostsByUser = async (userId: string, _page = 0, limit = 10, cursor?: string): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   try {
-    const result = await awsAPI.getPosts({ userId, limit });
-    return { data: result.data.map(convertPost), error: null };
+    const result = await awsAPI.getPosts({ userId, limit, cursor });
+    return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }
@@ -780,8 +783,15 @@ export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string,
       method: 'POST',
       body: { postIds },
     });
-    postIds.forEach(id => resultMap.set(id, result.likes[id] || false));
-  } catch {
+    if (result.likes && typeof result.likes === 'object') {
+      postIds.forEach(id => resultMap.set(id, result.likes[id] || false));
+    } else {
+      // Unexpected response shape — default to false
+      if (__DEV__) console.warn('[hasLikedPostsBatch] Unexpected response:', result);
+      postIds.forEach(id => resultMap.set(id, false));
+    }
+  } catch (err: unknown) {
+    if (__DEV__) console.warn('[hasLikedPostsBatch] Error:', err);
     postIds.forEach(id => resultMap.set(id, false));
   }
 
@@ -854,8 +864,14 @@ export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string,
       method: 'POST',
       body: { postIds },
     });
-    postIds.forEach(id => resultMap.set(id, result.saves[id] || false));
-  } catch {
+    if (result.saves && typeof result.saves === 'object') {
+      postIds.forEach(id => resultMap.set(id, result.saves[id] || false));
+    } else {
+      if (__DEV__) console.warn('[hasSavedPostsBatch] Unexpected response:', result);
+      postIds.forEach(id => resultMap.set(id, false));
+    }
+  } catch (err: unknown) {
+    if (__DEV__) console.warn('[hasSavedPostsBatch] Error:', err);
     postIds.forEach(id => resultMap.set(id, false));
   }
 
@@ -889,10 +905,9 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
   const user = await awsAuth.getCurrentUser();
 
   clearFollowCache();
-  // Invalidate feed cache so new follow's posts appear on next load
-  // Lazy import to avoid circular dependency (database → stores → contentStore → database)
+  // Mark feed cache as stale so next load fetches fresh data (without wiping optimistic state)
   const { useFeedStore } = require('../stores');
-  useFeedStore.getState().clearFeed();
+  useFeedStore.getState().setFeedCache([]);
 
   try {
     const result = await awsAPI.followUser(userIdToFollow);
@@ -935,9 +950,9 @@ export const unfollowUser = async (userIdToUnfollow: string): Promise<{
   cooldown?: { blocked: boolean; until: string; message: string };
 }> => {
   clearFollowCache();
-  // Invalidate feed cache so unfollowed user's posts are removed on next load
+  // Mark feed cache as stale so next load fetches fresh data (without wiping optimistic state)
   const { useFeedStore } = require('../stores');
-  useFeedStore.getState().clearFeed();
+  useFeedStore.getState().setFeedCache([]);
 
   try {
     const result = await awsAPI.unfollowUser(userIdToUnfollow);

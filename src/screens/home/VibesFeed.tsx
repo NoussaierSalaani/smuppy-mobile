@@ -628,12 +628,15 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           console.log('[VibesFeed] Mapped peaks:', mappedPeaks.length);
         }
 
+        // Always update state, even when empty — clears stale peaks
         setPeaksData(mappedPeaks);
       })
       .catch((err) => {
         if (__DEV__) {
           console.warn('[VibesFeed] Error loading peaks:', err);
         }
+        // Clear stale peaks on error so UI doesn't show outdated data
+        if (mounted) setPeaksData([]);
       });
 
     return () => { mounted = false; };
@@ -867,7 +870,14 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   useEffect(() => {
     if (selectedPost && modalVisible) {
       const updatedPost = allPosts.find(p => p.id === selectedPost.id);
-      if (updatedPost && (updatedPost.isLiked !== selectedPost.isLiked || updatedPost.likes !== selectedPost.likes || updatedPost.isSaved !== selectedPost.isSaved)) {
+      if (!updatedPost) {
+        // Post was deleted or no longer in feed — close modal
+        setModalVisible(false);
+        setSelectedPost(null);
+        setIsFollowingUser(false);
+        return;
+      }
+      if (updatedPost.isLiked !== selectedPost.isLiked || updatedPost.likes !== selectedPost.likes || updatedPost.isSaved !== selectedPost.isSaved) {
         setSelectedPost(updatedPost);
       }
     }
@@ -1227,7 +1237,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                         const activeIndex = carouselIndexes[selectedPost.id] ?? 0;
                         return (
                           <View
-                            key={`dot-${dotIndex}`}
+                            key={`${selectedPost.id}-dot-${dotIndex}`}
                             style={[
                               styles.modalCarouselDot,
                               activeIndex === dotIndex && styles.modalCarouselDotActive,

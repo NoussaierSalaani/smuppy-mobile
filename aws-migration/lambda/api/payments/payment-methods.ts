@@ -106,12 +106,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 /**
  * Get or create Stripe customer for user
  */
-async function getOrCreateStripeCustomer(db: Pool, userId: string): Promise<string> {
+async function getOrCreateStripeCustomer(db: Pool, cognitoSub: string): Promise<string> {
   const stripe = await getStripe();
-  // Check if user has a Stripe customer ID
+  // SECURITY: Query by cognito_sub (getUserFromEvent returns cognito_sub, not profiles.id)
   const result = await db.query(
-    'SELECT stripe_customer_id, email, full_name, username FROM profiles WHERE id = $1',
-    [userId]
+    'SELECT id, stripe_customer_id, email, full_name, username FROM profiles WHERE cognito_sub = $1',
+    [cognitoSub]
   );
 
   if (result.rows.length === 0) {
@@ -129,7 +129,7 @@ async function getOrCreateStripeCustomer(db: Pool, userId: string): Promise<stri
     email: profile.email,
     name: profile.full_name || profile.username,
     metadata: {
-      userId,
+      userId: profile.id,
       platform: 'smuppy',
     },
   });
@@ -137,10 +137,10 @@ async function getOrCreateStripeCustomer(db: Pool, userId: string): Promise<stri
   // Save customer ID
   await db.query(
     'UPDATE profiles SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
-    [customer.id, userId]
+    [customer.id, profile.id]
   );
 
-  log.info('Created Stripe customer', { userId: userId.substring(0, 8) + '***', customerId: customer.id });
+  log.info('Created Stripe customer', { userId: String(profile.id).substring(0, 8) + '***', customerId: customer.id });
 
   return customer.id;
 }

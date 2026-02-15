@@ -130,9 +130,9 @@ async function createCheckoutSession(
     };
   }
 
-  // Get user profile
+  // SECURITY: Query by cognito_sub (user.sub is cognito_sub, not profiles.id)
   const userResult = await db.query(
-    'SELECT id, email, full_name, username, stripe_customer_id FROM profiles WHERE id = $1',
+    'SELECT id, email, full_name, username, stripe_customer_id FROM profiles WHERE cognito_sub = $1',
     [user.sub]
   );
 
@@ -161,7 +161,7 @@ async function createCheckoutSession(
 
     await db.query(
       'UPDATE profiles SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
-      [customerId, user.sub]
+      [customerId, userProfile.id]
     );
   }
 

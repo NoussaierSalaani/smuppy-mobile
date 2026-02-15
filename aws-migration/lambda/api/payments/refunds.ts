@@ -74,12 +74,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const db = await getPool();
+
+    // Resolve cognito_sub → profile ID (SECURITY: user.id is cognito_sub, not profiles.id)
+    const profileLookup = await db.query(
+      'SELECT id FROM profiles WHERE cognito_sub = $1',
+      [user.id]
+    );
+    if (profileLookup.rows.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+    }
+    const resolvedUser = { id: profileLookup.rows[0].id };
+
     const pathParts = event.path.split('/').filter(Boolean);
     const refundId = pathParts.length > 2 ? pathParts[2] : null;
 
     // GET /payments/refunds - List refunds
     if (event.httpMethod === 'GET' && !refundId) {
-      return await listRefunds(db, user, event, headers);
+      return await listRefunds(db, resolvedUser, event, headers);
     }
 
     // GET /payments/refunds/{refundId} - Get refund details
@@ -87,12 +98,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (!isValidUUID(refundId)) {
         return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid refund ID format' }) };
       }
-      return await getRefund(db, user, refundId, headers);
+      return await getRefund(db, resolvedUser, refundId, headers);
     }
 
     // POST /payments/refunds - Create a refund
     if (event.httpMethod === 'POST') {
-      return await createRefund(db, user, event, headers);
+      return await createRefund(db, resolvedUser, event, headers);
     }
 
     return {

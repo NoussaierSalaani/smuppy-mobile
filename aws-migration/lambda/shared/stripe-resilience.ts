@@ -8,6 +8,7 @@
  */
 
 import Stripe from 'stripe';
+import { CircuitBreaker, CircuitOpenError } from './circuit-breaker';
 
 /** Logger interface matching createLogger output */
 interface Logger {
@@ -34,6 +35,17 @@ export class StripeApiError extends Error {
 }
 
 const STRIPE_CALL_TIMEOUT_MS = 10_000; // 10 seconds — fail fast
+
+// Singleton circuit breaker for Stripe API calls
+const stripeCircuit = new CircuitBreaker({
+  service: 'stripe',
+  failureThreshold: 5,
+  windowMs: 60_000,
+  cooldownMs: 30_000,
+  successThreshold: 3,
+});
+
+export { CircuitOpenError };
 
 /**
  * Classify a Stripe error as retryable, permanent, or timeout
@@ -91,10 +103,23 @@ export async function safeStripeCall<T>(
   fn: () => Promise<T>,
   operation: string,
   log: Logger,
-  options?: { timeoutMs?: number; retries?: number }
+  options?: { timeoutMs?: number; retries?: number; skipCircuitBreaker?: boolean }
 ): Promise<T> {
   const timeoutMs = options?.timeoutMs ?? STRIPE_CALL_TIMEOUT_MS;
   const maxRetries = options?.retries ?? 1;
+
+  // Check circuit breaker (skip for webhook handlers that must always attempt)
+  if (!options?.skipCircuitBreaker) {
+    const canExecute = await stripeCircuit.canExecute();
+    if (!canExecute) {
+      log.warn(`Stripe circuit breaker OPEN, rejecting ${operation}`);
+      throw new StripeApiError(
+        `Stripe service unavailable (circuit open)`,
+        'retryable',
+        503,
+      );
+    }
+  }
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -108,6 +133,12 @@ export async function safeStripeCall<T>(
           }, timeoutMs);
         }),
       ]);
+
+      // Record success (resets failure counter / advances HALF_OPEN → CLOSED)
+      if (!options?.skipCircuitBreaker) {
+        await stripeCircuit.recordSuccess();
+      }
+
       return result;
     } catch (error: unknown) {
       const kind = classifyStripeError(error);
@@ -131,6 +162,11 @@ export async function safeStripeCall<T>(
         stripeCode,
         error: message,
       });
+
+      // Record failure (may transition CLOSED → OPEN or HALF_OPEN → OPEN)
+      if (!options?.skipCircuitBreaker && kind !== 'permanent') {
+        await stripeCircuit.recordFailure();
+      }
 
       throw new StripeApiError(message, kind, statusCode, stripeCode);
     }

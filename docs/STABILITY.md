@@ -245,10 +245,10 @@ Stability sprint is DONE when:
 
 ### Immediate (Day 1)
 
-- [ ] Create `.nvmrc` with `22` (match CI)
-- [ ] Add `"packageManager": "npm@10.x.x"` to `package.json`
-- [ ] Install Sentry: `npx expo install @sentry/react-native`
-- [ ] Initialize Sentry in `App.tsx` with DSN from environment
+- [x] Create `.nvmrc` with `22` (match CI)
+- [x] Add `"packageManager": "npm@10.9.2"` to `package.json`
+- [x] Install Sentry: `npx expo install @sentry/react-native`
+- [x] Initialize Sentry in `App.tsx` with DSN from environment
 
 ### This Week
 
@@ -259,7 +259,7 @@ Stability sprint is DONE when:
   - `feedStore` (pagination, optimistic updates)
   - `userStore` (profile load, update)
   - `usePreventDoubleNavigation` hook
-- [ ] Add `npm run clean` script to `package.json`
+- [x] Add `npm run clean` script to `package.json`
 - [ ] Run existing Maestro flows, fix any that fail
 
 ### This Month

@@ -2,10 +2,12 @@
   "name": "smuppy",
   "version": "1.0.0",
   "main": "index.js",
+  "packageManager": "npm@10.9.2",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "22"
   },
   "scripts": {
+    "clean": "rm -rf node_modules .expo dist metro-cache && watchman watch-del-all 2>/dev/null; npm ci --legacy-peer-deps && npx expo-doctor",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

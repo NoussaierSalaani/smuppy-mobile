@@ -68,7 +68,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: 'Invalid request body' }),
       };
     }
-    const { content, mediaUrl, mediaType, replyToMessageId, voiceDuration } = body;
+    const { content, mediaUrl, mediaType, replyToMessageId, voiceDuration, clientMessageId } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return {
@@ -126,6 +126,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const validVoiceDuration = validMediaUrl && (validMediaType === 'audio' || validMediaType === 'voice')
       && typeof voiceDuration === 'number' && Number.isInteger(voiceDuration) && voiceDuration >= 1 && voiceDuration <= 300
       ? voiceDuration
+      : null;
+
+    // Validate clientMessageId for idempotent retries (optional, max 64 chars, alphanumeric + dashes)
+    const validClientMessageId = typeof clientMessageId === 'string'
+      && clientMessageId.length > 0 && clientMessageId.length <= 64
+      && /^[a-zA-Z0-9_-]+$/.test(clientMessageId)
+      ? clientMessageId
       : null;
 
     // Sanitize content: strip HTML tags and control characters (preserve tab, LF, CR)
@@ -265,11 +272,34 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       const messageResult = await client.query(
-        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, voice_duration_seconds, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, NOW())
+        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, voice_duration_seconds, reply_to_message_id, shared_post_id, shared_peak_id, client_message_id, read, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, NOW())
+         ON CONFLICT (conversation_id, sender_id, client_message_id) WHERE client_message_id IS NOT NULL DO NOTHING
          RETURNING id, content, media_url, media_type, voice_duration_seconds, sender_id, recipient_id, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at`,
-        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validVoiceDuration, validReplyToMessageId, sharedPostId, sharedPeakId]
+        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validVoiceDuration, validReplyToMessageId, sharedPostId, sharedPeakId, validClientMessageId]
       );
+
+      // Handle duplicate message (idempotent retry via client_message_id)
+      if (messageResult.rows.length === 0 && validClientMessageId) {
+        const existing = await client.query(
+          `SELECT id, content, media_url, media_type, voice_duration_seconds, sender_id, recipient_id,
+                  reply_to_message_id, shared_post_id, shared_peak_id, read, created_at
+           FROM messages WHERE conversation_id = $1 AND sender_id = $2 AND client_message_id = $3`,
+          [conversationId, profile.id, validClientMessageId]
+        );
+        await client.query('COMMIT');
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            message: {
+              ...(existing.rows[0] || {}),
+              sender: { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url },
+            },
+          }),
+        };
+      }
 
       await client.query(
         'UPDATE conversations SET last_message_at = NOW() WHERE id = $1',

@@ -115,24 +115,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [peakId]
       );
 
-      // Create notification for peak author (if not self-like)
-      // Dedup: 24h window to prevent like/unlike cycling notification spam
+      // Idempotent notification: ON CONFLICT prevents duplicates from retries or toggle cycling
       if (peak.author_id !== profile.id) {
         const notifData = JSON.stringify({ peakId, likerId: profile.id });
-        const existingNotif = await client.query(
-          `SELECT 1 FROM notifications
-           WHERE user_id = $1 AND type = 'peak_like' AND data = $2::jsonb
-             AND created_at > NOW() - INTERVAL '24 hours'
-           LIMIT 1`,
-          [peak.author_id, notifData]
+        const dailyBucket = Math.floor(Date.now() / 86400000);
+        const idempotencyKey = `peak_like:${profile.id}:${peakId}:${dailyBucket}`;
+        await client.query(
+          `INSERT INTO notifications (user_id, type, title, body, data, idempotency_key)
+           VALUES ($1, 'peak_like', 'New Like', $2, $3, $4)
+           ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
+          [peak.author_id, `${profile.full_name || 'Someone'} liked your peak`, notifData, idempotencyKey]
         );
-        if (existingNotif.rows.length === 0) {
-          await client.query(
-            `INSERT INTO notifications (user_id, type, title, body, data)
-             VALUES ($1, 'peak_like', 'New Like', $2, $3)`,
-            [peak.author_id, `${profile.full_name || 'Someone'} liked your peak`, notifData]
-          );
-        }
       }
 
       await client.query('COMMIT');

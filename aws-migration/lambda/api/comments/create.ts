@@ -178,14 +178,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const comment = commentResult.rows[0];
 
       // Create notification for post author (if not self-comment)
+      // Idempotent: ON CONFLICT prevents duplicates from Lambda retries
       if (post.author_id !== profile.id) {
+        const idempotencyKey = `comment:${profile.id}:${comment.id}`;
         await client.query(
-          `INSERT INTO notifications (user_id, type, title, body, data)
-           VALUES ($1, 'comment', 'New Comment', $2, $3)`,
+          `INSERT INTO notifications (user_id, type, title, body, data, idempotency_key)
+           VALUES ($1, 'comment', 'New Comment', $2, $3, $4)
+           ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
           [
             post.author_id,
             `${profile.full_name || 'Someone'} commented on your post`,
             JSON.stringify({ postId, commentId: comment.id, commenterId: profile.id }),
+            idempotencyKey,
           ]
         );
       }

@@ -150,22 +150,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const accepterRow = accepterResult.rows[0];
       const accepterName = accepterRow?.display_name || 'Someone';
 
-      // Create notification for the requester (dedup: 24h window)
+      // Idempotent notification: ON CONFLICT prevents duplicates from retries
       const notifData = JSON.stringify({ senderId: profileId });
-      const existingNotif = await client.query(
-        `SELECT 1 FROM notifications
-         WHERE user_id = $1 AND type = 'follow_accepted' AND data = $2::jsonb
-           AND created_at > NOW() - INTERVAL '24 hours'
-         LIMIT 1`,
-        [request.requester_id, notifData]
+      const dailyBucket = Math.floor(Date.now() / 86400000);
+      const idempotencyKey = `follow_accepted:${profileId}:${request.requester_id}:${dailyBucket}`;
+      await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, data, idempotency_key, created_at)
+         VALUES ($1, 'follow_accepted', 'Follow Request Accepted', $2, $3, $4, NOW())
+         ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
+        [request.requester_id, `${accepterName} accepted your follow request`, notifData, idempotencyKey]
       );
-      if (existingNotif.rows.length === 0) {
-        await client.query(
-          `INSERT INTO notifications (user_id, type, title, body, data, created_at)
-           VALUES ($1, 'follow_accepted', 'Follow Request Accepted', $2, $3, NOW())`,
-          [request.requester_id, `${accepterName} accepted your follow request`, notifData]
-        );
-      }
 
       await client.query('COMMIT');
 

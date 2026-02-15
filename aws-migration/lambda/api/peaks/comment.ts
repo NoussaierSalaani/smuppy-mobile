@@ -277,13 +277,16 @@ async function handleCreateComment(
     );
 
     if (peak.author_id !== profile.id) {
+      const idempotencyKey = `peak_comment:${profile.id}:${comment.id}`;
       await client.query(
-        `INSERT INTO notifications (user_id, type, title, body, data)
-         VALUES ($1, 'peak_comment', 'New Comment', $2, $3)`,
+        `INSERT INTO notifications (user_id, type, title, body, data, idempotency_key)
+         VALUES ($1, 'peak_comment', 'New Comment', $2, $3, $4)
+         ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
         [
           peak.author_id,
           `${profile.full_name || 'Someone'} commented on your peak`,
           JSON.stringify({ peakId, commentId: comment.id, commenterId: profile.id }),
+          idempotencyKey,
         ]
       );
     }

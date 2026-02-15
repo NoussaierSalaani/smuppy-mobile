@@ -260,22 +260,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Send notification to followers (fire and forget, capped at 500)
-    // Uses a transaction to ensure atomicity: snapshot of followers + insert are consistent
-    // INSERT...SELECT is atomic within a single statement, wrapped in explicit transaction for safety
+    // Idempotent: ON CONFLICT prevents duplicates per follower per peak from Lambda retries
     const notifClient = await db.connect();
     try {
       await notifClient.query('BEGIN');
       await notifClient.query(
-        `INSERT INTO notifications (user_id, type, title, body, data)
-         SELECT f.follower_id, 'new_peak', 'New Peak', $1, $2
+        `INSERT INTO notifications (user_id, type, title, body, data, idempotency_key)
+         SELECT f.follower_id, 'new_peak', 'New Peak', $1, $2,
+                'new_peak:' || $3 || ':' || $4 || ':' || f.follower_id
          FROM follows f
          JOIN profiles p ON p.id = f.follower_id
          WHERE f.following_id = $3 AND f.status = 'accepted'
-         LIMIT 500`,
+         LIMIT 500
+         ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
         [
           `${profile.full_name || 'Someone'} posted a new Peak`,
           JSON.stringify({ peakId: peak.id, authorId: profile.id }),
           profile.id,
+          peak.id,
         ]
       );
       await notifClient.query('COMMIT');

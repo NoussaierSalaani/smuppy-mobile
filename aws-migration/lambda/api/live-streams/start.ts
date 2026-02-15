@@ -101,7 +101,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const stream = insertResult.rows[0];
 
     // Notify fans (followers with status = 'accepted') — fire and forget
-    notifyFans(db, profile).catch(err => log.error('Failed to notify fans', err));
+    notifyFans(db, profile, stream.id).catch(err => log.error('Failed to notify fans', err));
 
     return {
       statusCode: 201,
@@ -131,7 +131,8 @@ function sleep(ms: number): Promise<void> {
 
 async function notifyFans(
   db: import('pg').Pool,
-  host: { id: string; username: string; display_name: string; avatar_url: string }
+  host: { id: string; username: string; display_name: string; avatar_url: string },
+  streamId: string
 ): Promise<void> {
   // Get all fans who follow this creator AND have live notifications enabled
   // Per CLAUDE.md: respect notification preferences
@@ -165,14 +166,15 @@ async function notifyFans(
     const params: string[] = [];
 
     for (let j = 0; j < batch.length; j++) {
-      const base = j * 5 + 1;
-      placeholders.push(`($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`);
-      params.push(batch[j], 'live', notifTitle, notifBody, notifData);
+      const base = j * 6 + 1;
+      placeholders.push(`($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`);
+      params.push(batch[j], 'live', notifTitle, notifBody, notifData, `live:${host.id}:${streamId}:${batch[j]}`);
     }
 
     await db.query(
-      `INSERT INTO notifications (user_id, type, title, body, data)
-       VALUES ${placeholders.join(', ')}`,
+      `INSERT INTO notifications (user_id, type, title, body, data, idempotency_key)
+       VALUES ${placeholders.join(', ')}
+       ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
       params
     );
   }

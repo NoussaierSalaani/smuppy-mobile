@@ -256,39 +256,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
       const followerDisplayName = followerProfileResult.rows[0]?.full_name || 'Someone';
 
-      // Dedup: 24h window to prevent follow/unfollow cycling notification spam
+      // Idempotent notification: ON CONFLICT prevents duplicates from retries or toggle cycling
+      const dailyBucket = Math.floor(Date.now() / 86400000);
       if (status === 'accepted') {
         const notifData = JSON.stringify({ followerId });
-        const existingNotif = await client.query(
-          `SELECT 1 FROM notifications
-           WHERE user_id = $1 AND type = 'new_follower' AND data = $2::jsonb
-             AND created_at > NOW() - INTERVAL '24 hours'
-           LIMIT 1`,
-          [followingId, notifData]
+        const idempotencyKey = `new_follower:${followerId}:${followingId}:${dailyBucket}`;
+        await client.query(
+          `INSERT INTO notifications (id, user_id, type, title, body, data, idempotency_key, created_at)
+           VALUES ($1, $2, 'new_follower', 'New Follower', $3, $4, $5, NOW())
+           ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
+          [uuidv4(), followingId, `${followerDisplayName} started following you`, notifData, idempotencyKey]
         );
-        if (existingNotif.rows.length === 0) {
-          await client.query(
-            `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
-             VALUES ($1, $2, 'new_follower', 'New Follower', $3, $4, NOW())`,
-            [uuidv4(), followingId, `${followerDisplayName} started following you`, notifData]
-          );
-        }
       } else {
         const notifData = JSON.stringify({ requesterId: followerId });
-        const existingNotif = await client.query(
-          `SELECT 1 FROM notifications
-           WHERE user_id = $1 AND type = 'follow_request' AND data = $2::jsonb
-             AND created_at > NOW() - INTERVAL '24 hours'
-           LIMIT 1`,
-          [followingId, notifData]
+        const idempotencyKey = `follow_request:${followerId}:${followingId}:${dailyBucket}`;
+        await client.query(
+          `INSERT INTO notifications (id, user_id, type, title, body, data, idempotency_key, created_at)
+           VALUES ($1, $2, 'follow_request', 'Follow Request', $3, $4, $5, NOW())
+           ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
+          [uuidv4(), followingId, `${followerDisplayName} wants to follow you`, notifData, idempotencyKey]
         );
-        if (existingNotif.rows.length === 0) {
-          await client.query(
-            `INSERT INTO notifications (id, user_id, type, title, body, data, created_at)
-             VALUES ($1, $2, 'follow_request', 'Follow Request', $3, $4, NOW())`,
-            [uuidv4(), followingId, `${followerDisplayName} wants to follow you`, notifData]
-          );
-        }
       }
 
       await client.query('COMMIT');

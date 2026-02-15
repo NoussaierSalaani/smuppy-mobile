@@ -35,6 +35,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Daily like limit: 500/day to prevent mass-like automation
+    const dailyLimit = await checkRateLimit({
+      prefix: 'like-daily',
+      identifier: userId,
+      windowSeconds: 86400,
+      maxRequests: 500,
+    });
+    if (!dailyLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Daily like limit reached. Please try again tomorrow.' }),
+      };
+    }
+
     // Get post ID from path
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;

@@ -44,6 +44,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Daily follow limit: 200/day to prevent mass-follow automation
+    const dailyLimit = await checkRateLimit({
+      prefix: 'follow-daily',
+      identifier: cognitoSub,
+      windowSeconds: 86400,
+      maxRequests: 200,
+    });
+    if (!dailyLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Daily follow limit reached. Please try again tomorrow.' }),
+      };
+    }
+
     const body = JSON.parse(event.body || '{}');
     const followingId = body.followingId;
 

@@ -169,6 +169,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
+    // Duplicate content detection: same author, same content hash, within 1 hour
+    if (sanitizedContent) {
+      const dupCheck = await db.query(
+        `SELECT id FROM posts
+         WHERE author_id = $1 AND md5(content) = md5($2)
+           AND created_at > NOW() - INTERVAL '1 hour'
+         LIMIT 1`,
+        [userId, sanitizedContent]
+      );
+      if (dupCheck.rows.length > 0) {
+        return {
+          statusCode: 409,
+          headers,
+          body: JSON.stringify({ success: false, message: 'Duplicate content detected. This post was already published.' }),
+        };
+      }
+    }
+
     // Get account_type for visibility check
     const userResult = await db.query(
       'SELECT account_type FROM profiles WHERE id = $1',

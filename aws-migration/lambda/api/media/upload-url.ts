@@ -67,7 +67,7 @@ const CONTENT_TYPE_TO_EXT: Record<string, string> = {
 
 interface UploadRequest {
   contentType: string;
-  fileSize?: number;
+  fileSize: number;
   uploadType?: 'avatar' | 'cover' | 'post' | 'peak' | 'message';
   filename?: string;
 }
@@ -141,6 +141,15 @@ export async function handler(
 
     const request: UploadRequest = JSON.parse(event.body);
     const { contentType, fileSize, filename } = request;
+
+    // SECURITY: fileSize is required — never trust client-only size validation
+    if (!fileSize || typeof fileSize !== 'number' || fileSize <= 0) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'fileSize is required and must be a positive number' }),
+      };
+    }
     // Default uploadType to 'post', also infer from filename prefix
     let uploadType = request.uploadType || 'post';
     if (!request.uploadType && filename) {
@@ -163,9 +172,9 @@ export async function handler(
       };
     }
 
-    // Validate file size (skip if not provided — size enforced by S3 presigned URL)
+    // Validate file size — server-side enforcement, never trust client alone
     const maxSize = MAX_FILE_SIZES[mediaType];
-    if (fileSize && fileSize > maxSize) {
+    if (fileSize > maxSize) {
       return {
         statusCode: 400,
         headers,
@@ -194,25 +203,18 @@ export async function handler(
     const secureFilename = generateSecureFilename(contentType);
     const key = getUploadPath(userId, uploadType, secureFilename);
 
-    // Create presigned URL
-    const putObjectParams: {
-      Bucket: string;
-      Key: string;
-      ContentType: string;
-      Metadata: Record<string, string>;
-    } = {
+    // Create presigned URL with ContentLength to enforce server-side size limits
+    const command = new PutObjectCommand({
       Bucket: MEDIA_BUCKET,
       Key: key,
       ContentType: contentType,
+      ContentLength: fileSize,
       Metadata: {
         'uploaded-by': userId,
         'upload-type': uploadType,
         'original-filename': (request.filename || 'unknown').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255),
       },
-    };
-    // Don't set ContentLength — mobile clients estimate may differ from actual upload size
-    // S3 will accept the upload regardless of size (within bucket limits)
-    const command = new PutObjectCommand(putObjectParams);
+    });
 
     // SECURITY: Short-lived presigned URL (5 minutes)
     // unhoistableHeaders: prevent SDK from embedding checksum headers in the signed URL

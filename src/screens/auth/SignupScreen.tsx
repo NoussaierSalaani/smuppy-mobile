@@ -170,7 +170,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
       }
 
       if (userCheckResult.status === 'fulfilled') {
-        if (userCheckResult.value.exists && userCheckResult.value.confirmed) {
+        if (!userCheckResult.value.canSignup) {
           setErrorModal({
             visible: true,
             title: 'Unable to Continue',

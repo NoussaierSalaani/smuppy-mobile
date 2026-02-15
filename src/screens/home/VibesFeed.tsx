@@ -537,7 +537,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         vibesFeedCache = { posts: transformedPosts, timestamp: Date.now(), page: 0 };
       } else {
         setAllPosts(prev => {
-          const updated = [...prev, ...transformedPosts];
+          // Dedup: prevent duplicate posts from offset-based pagination
+          const existingIds = new Set(prev.map(p => p.id));
+          const uniquePosts = transformedPosts.filter(p => !existingIds.has(p.id));
+          const updated = [...prev, ...uniquePosts];
           vibesFeedCache = { posts: updated, timestamp: Date.now(), page: pageNum };
           return updated;
         });
@@ -1468,10 +1471,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               <Text style={styles.emptyTitle}>Couldn't load feed</Text>
               <Text style={styles.emptySubtitle}>Check your connection and try again</Text>
               <TouchableOpacity
-                style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 20 }}
+                style={styles.retryButton}
                 onPress={() => { setLoadError(false); setIsLoading(true); fetchPosts(0, true).finally(() => setIsLoading(false)); }}
               >
-                <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 15 }}>Retry</Text>
+                <Text style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -1973,6 +1976,18 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     fontSize: 14,
     color: colors.gray,
     marginTop: SPACING.sm,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontWeight: '600',
+    fontSize: 15,
   },
 
   // ===== MODAL (Full screen post) =====

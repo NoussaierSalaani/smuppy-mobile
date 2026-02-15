@@ -195,20 +195,19 @@ export default function AppNavigator(): React.JSX.Element {
       return { state: 'auth', email: '' };
     }
 
-    const isVerified = await awsAuth.isEmailVerified();
-    if (__DEV__) console.log('[Session] isEmailVerified →', isVerified);
+    // Parallelize email verification + profile fetch to reduce cold start
+    const [isVerified, profileResult] = await Promise.all([
+      awsAuth.isEmailVerified(),
+      getCurrentProfile(false).catch(() => ({ data: null })),
+    ]);
+    if (__DEV__) console.log('[Session] isEmailVerified →', isVerified, 'hasProfile →', !!profileResult.data);
+
     if (!isVerified) {
       return { state: 'emailPending', email: currentUser.email };
     }
 
-    try {
-      const { data } = await getCurrentProfile(false);
-      if (__DEV__) console.log('[Session] getCurrentProfile →', data ? 'has profile' : 'no profile');
-      if (data) {
-        return { state: 'main', email: currentUser.email };
-      }
-    } catch (err) {
-      if (__DEV__) console.log('[Session] getCurrentProfile error:', err);
+    if (profileResult.data) {
+      return { state: 'main', email: currentUser.email };
     }
 
     return { state: 'auth', email: currentUser.email };

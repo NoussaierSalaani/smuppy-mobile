@@ -1112,8 +1112,7 @@ class AWSAPIService {
    */
   async checkUserExists(email: string): Promise<{
     success: boolean;
-    exists: boolean;
-    confirmed: boolean;
+    canSignup: boolean;
     message?: string;
   }> {
     return this.request('/auth/check-user', {

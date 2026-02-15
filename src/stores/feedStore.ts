@@ -34,9 +34,11 @@ export interface FeedState {
   isCacheStale: () => boolean;
 }
 
+const MAX_FEED_CACHE = 100;
+
 export const useFeedStore = create<FeedState>()(
   immer((set, get) => ({
-    // Cached feed data for instant display
+    // Cached feed data for instant display (capped at MAX_FEED_CACHE)
     feedCache: [] as Post[],
     lastFetchTime: null as number | null,
 
@@ -51,16 +53,19 @@ export const useFeedStore = create<FeedState>()(
     // Actions
     setFeedCache: (posts: Post[]) =>
       set((state) => {
-        state.feedCache = posts;
+        state.feedCache = posts.slice(0, MAX_FEED_CACHE);
         state.lastFetchTime = Date.now();
       }),
 
     appendToFeed: (newPosts: Post[]) =>
       set((state) => {
-        // Avoid duplicates
+        // Avoid duplicates and cap at MAX_FEED_CACHE to prevent memory growth
         const existingIds = new Set(state.feedCache.map((p) => p.id));
         const uniquePosts = newPosts.filter((p) => !existingIds.has(p.id));
-        state.feedCache = [...state.feedCache, ...uniquePosts];
+        const combined = [...state.feedCache, ...uniquePosts];
+        state.feedCache = combined.length > MAX_FEED_CACHE
+          ? combined.slice(combined.length - MAX_FEED_CACHE)
+          : combined;
       }),
 
     prependToFeed: (newPost: Post) =>

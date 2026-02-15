@@ -18,7 +18,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
-import { safeStripeCall, stripeUserMessage } from '../../shared/stripe-resilience';
+import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments-channel-subscription');
 

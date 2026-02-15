@@ -186,7 +186,7 @@ export default function EventListScreen() {
     }
   };
 
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     try {
       const params: Record<string, unknown> = {
         limit: 20,
@@ -218,12 +218,12 @@ export default function EventListScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [selectedCategory, userLocation]);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadEvents();
-  }, [selectedCategory, userLocation]);
+  }, [loadEvents]);
 
   const handleMarkerPress = useCallback((event: Event) => {
     setSelectedEvent(event);

@@ -14,7 +14,7 @@ import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
-import { safeStripeCall, stripeUserMessage } from '../../shared/stripe-resilience';
+import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments/business-checkout');
 

@@ -16,7 +16,6 @@ import { userSafetyStore } from './userSafetyStore';
 import { filterStore } from './filterStore';
 import { tabBarStore } from './tabBarStore';
 import { vibeStore } from './vibeStore';
-import { themeStore } from './themeStore';
 import { useModerationStore } from './moderationStore';
 
 // Re-export extracted stores

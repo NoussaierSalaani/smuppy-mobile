@@ -49,40 +49,13 @@ yarn-error.*
 supabase/.temp/
 supabase/.branches/
 
-# CDK output
+# CDK output (all variants)
 aws-migration/cdk.out/
-aws-migration/cdk.out/**
 aws-migration/cdk.context.json
 aws-migration/infrastructure/cdk.out/
-aws-migration/infrastructure/cdk.out/**
+aws-migration/infrastructure/cdk.out.*/
+aws-migration/infrastructure/cdk-out-*/
 aws-migration/infrastructure/cdk-diff-out/
-aws-migration/infrastructure/cdk-diff-out/**
-aws-migration/infrastructure/cdk.out.2/
-aws-migration/infrastructure/cdk.out.2/**
-aws-migration/infrastructure/cdk.out.notif/
-aws-migration/infrastructure/cdk.out.notif/**
-aws-migration/infrastructure/cdk-out-deploy/
-aws-migration/infrastructure/cdk-out-deploy/**
-aws-migration/infrastructure/cdk-out-diff/
-aws-migration/infrastructure/cdk-out-diff/**
-aws-migration/infrastructure/cdk-out-temp/
-aws-migration/infrastructure/cdk-out-temp/**
-aws-migration/infrastructure/cdk-out-temp2/
-aws-migration/infrastructure/cdk-out-temp2/**
-aws-migration/infrastructure/cdk-out-store/
-aws-migration/infrastructure/cdk-out-store/**
-aws-migration/infrastructure/cdk-out-store2/
-aws-migration/infrastructure/cdk-out-store2/**
-aws-migration/infrastructure/cdk-out-store3/
-aws-migration/infrastructure/cdk-out-store3/**
-aws-migration/infrastructure/cdk-out-store4/
-aws-migration/infrastructure/cdk-out-store4/**
-aws-migration/infrastructure/cdk-out-deploy2/
-aws-migration/infrastructure/cdk-out-deploy2/**
-aws-migration/infrastructure/cdk.out.deploy*/
-aws-migration/infrastructure/cdk.out.deploy*/**
-aws-migration/infrastructure/cdk.out.fix/
-aws-migration/infrastructure/cdk.out.fix/**
 aws-migration/infrastructure/cdk-outputs.json
 aws-migration/infrastructure/app.json
 aws-migration/lambda/shared/node_modules
@@ -97,10 +70,4 @@ smuppy-mobile/
 
 # Security: prevent accidental commits of secrets/infra
 .claude/settings.local.json
-
-# CDK output directories (all variants)
-aws-migration/infrastructure/cdk.out.*/
-aws-migration/infrastructure/cdk.out.*/**
-aws-migration/infrastructure/cdk-out-deploy*/
-aws-migration/infrastructure/cdk-out-deploy*/**
 

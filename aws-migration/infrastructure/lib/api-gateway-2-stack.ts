@@ -263,22 +263,39 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     settingsCurrency.addMethod('PUT', new apigateway.LambdaIntegration(lambdaStack.settingsCurrencyFn), authMethodOptions);
 
     // ========================================
-    // Admin Endpoints (no Cognito auth, uses admin key)
+    // Admin Endpoints (API key required + internal admin key check in Lambda)
     // ========================================
+    const adminApiKey = this.api.addApiKey('AdminApiKey', {
+      apiKeyName: `smuppy-admin-key-${environment}`,
+      description: 'API key for admin endpoints',
+    });
+
+    const adminUsagePlan = this.api.addUsagePlan('AdminUsagePlan', {
+      name: `smuppy-admin-plan-${environment}`,
+      throttle: { rateLimit: 10, burstLimit: 5 },
+      quota: { limit: 1000, period: apigateway.Period.DAY },
+    });
+    adminUsagePlan.addApiKey(adminApiKey);
+    adminUsagePlan.addApiStage({ stage: this.api.deploymentStage });
+
+    const adminMethodOptions: apigateway.MethodOptions = {
+      apiKeyRequired: true,
+    };
+
     const admin = this.api.root.addResource('admin');
     const migrate = admin.addResource('migrate');
-    migrate.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.adminMigrationFn));
+    migrate.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.adminMigrationFn), adminMethodOptions);
 
     const migrateData = admin.addResource('migrate-data');
     migrateData.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.dataMigrationFn, {
       timeout: cdk.Duration.seconds(29),
-    }));
+    }), adminMethodOptions);
 
     const checkProfiles = admin.addResource('check-profiles');
-    checkProfiles.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.checkProfilesFn));
+    checkProfiles.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.checkProfilesFn), adminMethodOptions);
 
     const migrateUsers = admin.addResource('migrate-users');
-    migrateUsers.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.userMigrationFn));
+    migrateUsers.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.userMigrationFn), adminMethodOptions);
 
     // Auth + body validation for POST/PATCH mutations
     const bodyValidator = new apigateway.RequestValidator(this, 'BodyValidator2', {

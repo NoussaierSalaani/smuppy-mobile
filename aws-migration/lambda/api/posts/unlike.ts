@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 
 const log = createLogger('posts-unlike');
@@ -17,6 +18,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
+
+    const { allowed } = await checkRateLimit({ prefix: 'posts-unlike', identifier: userId, maxRequests: 30 });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests' }) };
+    }
 
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;

@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
@@ -25,6 +26,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
+    }
+
+    const { allowed } = await checkRateLimit({ prefix: 'comments-update', identifier: userId, maxRequests: 20 });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests' }) };
     }
 
     // Account status check

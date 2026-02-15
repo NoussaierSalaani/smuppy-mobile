@@ -87,6 +87,7 @@ aws-migration/infrastructure/cdk-outputs.json
 aws-migration/infrastructure/app.json
 aws-migration/lambda/shared/node_modules
 aws-migration/lambda/node_modules
+aws-migration/.lambda-build/
 
 # Infrastructure env files
 aws-migration/infrastructure/.env

@@ -294,7 +294,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         type: isPrivate ? 'follow_request' : 'new_follower',
         userId: followerId,
       },
-    }).catch(err => log.error('Push notification failed', err));
+    }, followerId).catch(err => log.error('Push notification failed', err));
 
     return {
       statusCode: 201,

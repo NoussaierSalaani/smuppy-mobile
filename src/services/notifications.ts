@@ -182,6 +182,16 @@ const LAST_TOKEN_KEY = 'smuppy_last_push_token';
 
 export const registerPushToken = async (_userId: string): Promise<boolean> => {
   try {
+    // BUG-2026-02-15: Check cache + deviceId BEFORE calling getNativePushToken()
+    // to avoid unnecessary permission checks and native token fetches when token hasn't changed.
+    const deviceId = await getDeviceId();
+
+    // Read cached fingerprint first (cheap SecureStore read)
+    let cachedFingerprint: string | null = null;
+    try {
+      cachedFingerprint = await SecureStore.getItemAsync(LAST_TOKEN_KEY);
+    } catch { /* SecureStore read failed — continue with registration */ }
+
     const native = await getNativePushToken();
     if (!native) {
       if (__DEV__) console.warn('[Push] No push token available (permissions denied or not a device)');
@@ -190,17 +200,13 @@ export const registerPushToken = async (_userId: string): Promise<boolean> => {
 
     if (__DEV__) console.log(`[Push] Got token (${native.platform}): ${native.token.substring(0, 20)}...`);
 
-    const deviceId = await getDeviceId();
     const tokenFingerprint = `${native.token}:${deviceId}`;
 
     // Skip API call if same token+device already registered
-    try {
-      const lastToken = await SecureStore.getItemAsync(LAST_TOKEN_KEY);
-      if (lastToken === tokenFingerprint) {
-        if (__DEV__) console.log('[Push] Token already registered, skipping');
-        return true;
-      }
-    } catch { /* SecureStore read failed — continue with registration */ }
+    if (cachedFingerprint === tokenFingerprint) {
+      if (__DEV__) console.log('[Push] Token already registered, skipping');
+      return true;
+    }
 
     await awsAPI.registerPushToken({
       token: native.token,

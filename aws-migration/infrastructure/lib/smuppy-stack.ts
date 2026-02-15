@@ -1676,6 +1676,8 @@ export class SmuppyStack extends cdk.Stack {
     lambdaStack.peaksCommentFn.addToRolePolicy(pushSendPolicy);
     lambdaStack.followRequestsAcceptFn.addToRolePolicy(pushSendPolicy);
     lambdaStack.liveStreamsStartFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.conversationsSendMessageFn.addToRolePolicy(pushSendPolicy);
+    lambdaStack.peaksCreateFn.addToRolePolicy(pushSendPolicy);
 
     // ========================================
     // CloudWatch Alarms - Monitoring & Alerting

@@ -298,7 +298,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       title: displayName,
       body: pushBody,
       data: { type: 'message', conversationId, senderId: profile.id },
-    }).catch(err => log.error('Push notification failed', err));
+    }, profile.id).catch(err => log.error('Push notification failed', err));
 
     return {
       statusCode: 201,

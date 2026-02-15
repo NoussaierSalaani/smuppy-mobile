@@ -169,7 +169,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           title: 'New Like',
           body: `${likerName} liked your post`,
           data: { type: 'like', postId },
-        }).catch(err => log.error('Push notification failed', err));
+        }, profileId).catch(err => log.error('Push notification failed', err));
       }
 
       return {

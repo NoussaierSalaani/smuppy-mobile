@@ -193,7 +193,7 @@ async function notifyFans(
             channelName: `live_${host.id}`,
             hostId: host.id,
           },
-        }).catch(() => {})
+        }, host.id).catch(() => {})
       )
     );
 

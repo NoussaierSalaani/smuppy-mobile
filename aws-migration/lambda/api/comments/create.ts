@@ -201,7 +201,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           title: 'New Comment',
           body: `${profile.full_name || 'Someone'} commented on your post`,
           data: { type: 'comment', postId },
-        }).catch(err => log.error('Push notification failed', err));
+        }, profile.id).catch(err => log.error('Push notification failed', err));
       }
 
       return {

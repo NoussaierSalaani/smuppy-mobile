@@ -3,7 +3,7 @@
  * Provides easy access to push notification functionality
  */
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import {
@@ -18,6 +18,7 @@ import {
   NotificationData,
 } from '../services/notifications';
 import { useUserStore } from '../stores/userStore';
+import { captureMessage } from '../lib/sentry';
 import type { MainStackParamList } from '../types';
 
 // ============================================
@@ -41,7 +42,6 @@ interface UseNotificationsReturn {
   sendLocalNotification: (title: string, body: string, data?: NotificationData) => Promise<string>;
   clearBadgeCount: () => Promise<void>;
   setBadgeNumber: (count: number) => Promise<void>;
-  hasPermission: boolean;
 }
 
 // ============================================
@@ -54,7 +54,6 @@ export const useNotifications = (
   const { onNotificationReceived, onNotificationTapped } = options;
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const user = useUserStore((state) => state.user);
-  const [hasPermission, setHasPermission] = useState(false);
 
   // Refs for listeners
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
@@ -128,7 +127,6 @@ export const useNotifications = (
     }
 
     const success = await registerPushToken(user.id);
-    setHasPermission(success);
     return success;
   }, [user?.id]);
 
@@ -138,7 +136,6 @@ export const useNotifications = (
   const unregisterFromPushNotifications = useCallback(async (): Promise<void> => {
     if (!user?.id) return;
     await unregisterPushToken(user.id);
-    setHasPermission(false);
   }, [user?.id]);
 
   /**
@@ -206,7 +203,6 @@ export const useNotifications = (
     sendLocalNotification,
     clearBadgeCount,
     setBadgeNumber,
-    hasPermission,
   };
 };
 
@@ -250,7 +246,6 @@ export const useAutoRegisterPushNotifications = (): void => {
       } else if (!cancelled) {
         if (__DEV__) console.warn('[Push] All registration attempts exhausted');
         try {
-          const { captureMessage } = require('../lib/sentry');
           captureMessage('Push registration failed after all attempts', 'warning', {
             userId: user.id,
             attempts: RETRY_DELAYS.length,

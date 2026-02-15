@@ -294,7 +294,7 @@ async function handleCreateComment(
         title: 'New Comment',
         body: `${profile.full_name || 'Someone'} commented on your peak`,
         data: { type: 'peak_comment', peakId },
-      }).catch(err => log.error('Push notification failed', err));
+      }, profile.id).catch(err => log.error('Push notification failed', err));
     }
 
     return {

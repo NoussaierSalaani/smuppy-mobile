@@ -172,7 +172,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         title: 'Follow Request Accepted',
         body: `${accepterName} accepted your follow request`,
         data: { type: 'follow_accepted', userId: profileId },
-      }).catch(err => log.error('Push notification failed', err));
+      }, profileId).catch(err => log.error('Push notification failed', err));
 
       return {
         statusCode: 200,

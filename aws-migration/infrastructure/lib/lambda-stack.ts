@@ -54,6 +54,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly profilesSuggestedFn: NodejsFunction;
   public readonly profilesIsFollowingFn: NodejsFunction;
   public readonly profilesExportDataFn: NodejsFunction;
+  public readonly profilesConsentFn: NodejsFunction;
 
   // Phase 2: Posts & Comments
   public readonly postsLikersFn: NodejsFunction;
@@ -389,6 +390,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.profilesSuggestedFn = createLambda('ProfilesSuggestedFunction', 'profiles/suggested');
     this.profilesIsFollowingFn = createLambda('ProfilesIsFollowingFunction', 'profiles/is-following');
     this.profilesExportDataFn = createLambda('ProfilesExportDataFunction', 'profiles/export-data', { timeout: 30 });
+    this.profilesConsentFn = createLambda('ProfilesConsentFunction', 'profiles/consent');
 
     // ========================================
     // Phase 2: Posts & Comments Lambda Functions
@@ -1162,6 +1164,39 @@ export class LambdaStack extends cdk.NestedStack {
         retryAttempts: 2,
       })],
       description: 'Clean up expired peaks S3 media and DB records daily',
+    });
+
+    // ========================================
+    // Scheduled: Hard-delete accounts past 30-day grace period (GDPR Art. 17)
+    // ========================================
+    const accountsCleanupFn = new NodejsFunction(this, 'AccountsCleanupFunction', {
+      entry: path.join(__dirname, '../../lambda/api/profiles/cleanup-deleted.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(120),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: lambdaEnvironment,
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(accountsCleanupFn);
+    mediaBucket.grantDelete(accountsCleanupFn);
+    mediaBucket.grantRead(accountsCleanupFn);
+    userPool.grant(accountsCleanupFn, 'cognito-idp:AdminDeleteUser');
+
+    // Run daily at 4:00 AM UTC (off-peak, after peaks cleanup at 3:00 AM)
+    new events.Rule(this, 'AccountsCleanupSchedule', {
+      schedule: events.Schedule.cron({ hour: '4', minute: '0' }),
+      targets: [new targets.LambdaFunction(accountsCleanupFn, {
+        retryAttempts: 2,
+      })],
+      description: 'Hard-delete accounts past 30-day grace period (GDPR Art. 17)',
     });
 
     // ========================================

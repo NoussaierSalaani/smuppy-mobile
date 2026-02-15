@@ -13,6 +13,7 @@ import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
+import { sendPushToUser } from '../services/push-notification';
 
 const log = createLogger('peaks-create');
 
@@ -225,6 +226,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             JSON.stringify({ peakId: peak.id, replyToPeakId, authorId: profile.id, thumbnailUrl: thumbnailUrl || null }),
           ]
         );
+        // BUG-2026-02-15: Send push notification for peak replies (was missing)
+        sendPushToUser(db, replyParentAuthorId, {
+          title: 'New Peak Reply',
+          body: `${profile.full_name || 'Someone'} replied to your Peak`,
+          data: { type: 'peak_reply', peakId: peak.id },
+        }, profile.id).catch(err => log.error('Push peak_reply failed', err));
       } catch (notifErr) {
         log.error('Failed to send reply notification', notifErr);
       }

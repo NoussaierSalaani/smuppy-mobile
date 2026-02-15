@@ -427,8 +427,24 @@ function getPreferenceColumn(notificationType: string | undefined): string | nul
 export async function sendPushToUser(
   db: Pool,
   userId: string,
-  payload: PushNotificationPayload
+  payload: PushNotificationPayload,
+  actorId?: string
 ): Promise<{ success: number; failed: number }> {
+  // BUG-2026-02-15: Skip push if recipient has blocked/muted the actor
+  if (actorId) {
+    const blockCheck = await db.query(
+      `SELECT 1 FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2
+       UNION ALL
+       SELECT 1 FROM muted_users WHERE user_id = $1 AND muted_user_id = $2
+       LIMIT 1`,
+      [userId, actorId]
+    );
+    if (blockCheck.rows.length > 0) {
+      log.info('Push skipped — recipient blocked/muted actor', { userId, actorId });
+      return { success: 0, failed: 0 };
+    }
+  }
+
   // Check user's notification preferences before sending push
   const notificationType = payload.data?.type;
   const prefColumn = getPreferenceColumn(notificationType);

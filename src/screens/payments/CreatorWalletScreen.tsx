@@ -3,7 +3,7 @@
  * Inspired by Revolut, Cash App, and modern fintech apps
  * Features: Earnings overview, transactions, analytics, payouts
  */
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
   RefreshControl,
   Dimensions,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -91,7 +90,6 @@ export default function CreatorWalletScreen() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analytics'>('overview');
-  const scrollY = useRef(new Animated.Value(0)).current;
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -398,7 +396,6 @@ export default function CreatorWalletScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
         scrollEventThrottle={16}
       >
         {renderHeader()}

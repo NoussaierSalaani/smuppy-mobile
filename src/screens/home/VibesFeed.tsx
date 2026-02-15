@@ -64,6 +64,7 @@ const PEAK_CARD_HEIGHT = 140;
 
 // Module-level cache — survives navigation but not app restart
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_POSTS = 500; // Prevent unbounded memory growth
 let vibesFeedCache: { posts: UIVibePost[]; timestamp: number; page: number } = {
   posts: [],
   timestamp: 0,
@@ -540,7 +541,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           // Dedup: prevent duplicate posts from offset-based pagination
           const existingIds = new Set(prev.map(p => p.id));
           const uniquePosts = transformedPosts.filter(p => !existingIds.has(p.id));
-          const updated = [...prev, ...uniquePosts];
+          // Cap cache size to prevent unbounded memory growth on long scroll sessions
+          const updated = [...prev, ...uniquePosts].slice(0, MAX_CACHE_POSTS);
           vibesFeedCache = { posts: updated, timestamp: Date.now(), page: pageNum };
           return updated;
         });

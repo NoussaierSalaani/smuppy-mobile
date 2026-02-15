@@ -880,6 +880,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     nextCursorRef.current = null;
     loadMoreErrorCount.current = 0;
     carouselIndexesRef.current = {};
+    prefetchedUrlsRef.current.clear();
     await fetchPosts(undefined, true);
     setRefreshing(false);
   }, [fetchPosts]);

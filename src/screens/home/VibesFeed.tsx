@@ -1152,6 +1152,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     setRefreshing(true);
     cursorRef.current = null;
     setCursor(null);
+    prefetchedUrlsRef.current.clear();
     await fetchPosts(undefined, true);
     setRefreshing(false);
   }, [fetchPosts]);

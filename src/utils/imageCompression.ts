@@ -15,6 +15,8 @@ export interface CompressionOptions {
   maxHeight?: number;
   quality?: number; // 0-1
   format?: 'jpeg' | 'png' | 'webp';
+  sourceWidth?: number;  // Skip dimension-reading call when picker provides these
+  sourceHeight?: number;
 }
 
 export interface CompressedImage {
@@ -156,29 +158,35 @@ export const compressImage = async (
     maxHeight = 1350,
     quality = 0.85,
     format = 'jpeg',
+    sourceWidth,
+    sourceHeight,
   } = options;
 
   try {
-    // First, get the original image dimensions
-    const originalInfo = await ImageManipulator.manipulateAsync(
-      imageUri,
-      [],
-      { format: ImageManipulator.SaveFormat.JPEG }
-    );
+    // Use provided dimensions (from ImagePicker) or read them via manipulateAsync
+    let origWidth: number;
+    let origHeight: number;
+    if (sourceWidth && sourceHeight) {
+      origWidth = sourceWidth;
+      origHeight = sourceHeight;
+    } else {
+      const originalInfo = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [],
+        { format: ImageManipulator.SaveFormat.JPEG }
+      );
+      origWidth = originalInfo.width;
+      origHeight = originalInfo.height;
+    }
 
     // Calculate new dimensions
-    const { width, height } = calculateDimensions(
-      originalInfo.width,
-      originalInfo.height,
-      maxWidth,
-      maxHeight
-    );
+    const { width, height } = calculateDimensions(origWidth, origHeight, maxWidth, maxHeight);
 
     // Apply compression and resize
     const actions: ImageManipulator.Action[] = [];
 
     // Only resize if needed
-    if (width !== originalInfo.width || height !== originalInfo.height) {
+    if (width !== origWidth || height !== origHeight) {
       actions.push({ resize: { width, height } });
     }
 
@@ -212,12 +220,18 @@ export const compressImage = async (
 
 /**
  * Compress image using a preset
+ * Pass sourceDimensions from ImagePicker to skip the dimension-reading call
  */
 export const compressWithPreset = async (
   imageUri: string,
-  preset: keyof typeof COMPRESSION_PRESETS
+  preset: keyof typeof COMPRESSION_PRESETS,
+  sourceDimensions?: { width: number; height: number }
 ): Promise<CompressedImage> => {
-  const options = COMPRESSION_PRESETS[preset];
+  const options: CompressionOptions = { ...COMPRESSION_PRESETS[preset] };
+  if (sourceDimensions) {
+    options.sourceWidth = sourceDimensions.width;
+    options.sourceHeight = sourceDimensions.height;
+  }
   return compressImage(imageUri, options);
 };
 
@@ -237,36 +251,36 @@ export const compressImages = async (
 /**
  * Compress for avatar upload
  */
-export const compressAvatar = (imageUri: string): Promise<CompressedImage> => {
-  return compressWithPreset(imageUri, 'avatar');
+export const compressAvatar = (imageUri: string, dimensions?: { width: number; height: number }): Promise<CompressedImage> => {
+  return compressWithPreset(imageUri, 'avatar', dimensions);
 };
 
 /**
  * Compress for cover image upload
  */
-export const compressCover = (imageUri: string): Promise<CompressedImage> => {
-  return compressWithPreset(imageUri, 'cover');
+export const compressCover = (imageUri: string, dimensions?: { width: number; height: number }): Promise<CompressedImage> => {
+  return compressWithPreset(imageUri, 'cover', dimensions);
 };
 
 /**
  * Compress for post upload
  */
-export const compressPost = (imageUri: string): Promise<CompressedImage> => {
-  return compressWithPreset(imageUri, 'post');
+export const compressPost = (imageUri: string, dimensions?: { width: number; height: number }): Promise<CompressedImage> => {
+  return compressWithPreset(imageUri, 'post', dimensions);
 };
 
 /**
  * Compress for thumbnail
  */
-export const compressThumbnail = (imageUri: string): Promise<CompressedImage> => {
-  return compressWithPreset(imageUri, 'thumbnail');
+export const compressThumbnail = (imageUri: string, dimensions?: { width: number; height: number }): Promise<CompressedImage> => {
+  return compressWithPreset(imageUri, 'thumbnail', dimensions);
 };
 
 /**
  * Compress for message/chat image
  */
-export const compressMessage = (imageUri: string): Promise<CompressedImage> => {
-  return compressWithPreset(imageUri, 'message');
+export const compressMessage = (imageUri: string, dimensions?: { width: number; height: number }): Promise<CompressedImage> => {
+  return compressWithPreset(imageUri, 'message', dimensions);
 };
 
 /**

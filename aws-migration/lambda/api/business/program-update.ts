@@ -37,8 +37,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
     }
 
-    // Rate limit write operations
-    if (event.httpMethod === 'POST') {
+    // Rate limit write operations (POST, PUT, DELETE)
+    if (['POST', 'PUT', 'DELETE'].includes(event.httpMethod)) {
       const rateCheck = await checkRateLimit({ prefix: 'biz-program', identifier: user.id, maxRequests: 20 });
       if (!rateCheck.allowed) {
         return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests' }) };

@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 
 const log = createLogger('notifications-delete');
@@ -22,6 +23,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
+    }
+
+    const { allowed } = await checkRateLimit({ prefix: 'notif-delete', identifier: userId, maxRequests: 30 });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests' }) };
     }
 
     const notificationId = event.pathParameters?.id;

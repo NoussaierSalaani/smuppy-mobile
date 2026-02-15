@@ -1069,7 +1069,6 @@ export class SmuppyStack extends cdk.Stack {
       userPool,
       lambdaStack,
       lambdaStack2,
-      lambdaStack3,
       environment,
       isProduction,
     });
@@ -1105,6 +1104,7 @@ export class SmuppyStack extends cdk.Stack {
       userPool,
       lambdaStack,
       lambdaStack2,
+      lambdaStack3,
       lambdaStackDisputes,
       environment,
       isProduction,

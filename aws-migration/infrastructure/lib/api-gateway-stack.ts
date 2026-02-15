@@ -5,13 +5,10 @@ import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { LambdaStack } from './lambda-stack';
 import { LambdaStack2 } from './lambda-stack-2';
-import { LambdaStack3 } from './lambda-stack-3';
-
 export interface ApiGatewayStackProps extends cdk.NestedStackProps {
   userPool: cognito.IUserPool;
   lambdaStack: LambdaStack;
   lambdaStack2: LambdaStack2;
-  lambdaStack3: LambdaStack3;
   environment: string;
   isProduction: boolean;
 }
@@ -27,7 +24,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiGatewayStackProps) {
     super(scope, id, props);
 
-    const { userPool, lambdaStack, lambdaStack2, lambdaStack3, environment, isProduction } = props;
+    const { userPool, lambdaStack, lambdaStack2, environment, isProduction } = props;
 
     // ========================================
     // API Gateway - REST API with Throttling
@@ -81,13 +78,13 @@ export class ApiGatewayStack extends cdk.NestedStack {
     });
 
     // Create all API routes
-    this.createRoutes(lambdaStack, lambdaStack2, lambdaStack3, isProduction, bodyValidator);
+    this.createRoutes(lambdaStack, lambdaStack2, isProduction, bodyValidator);
 
     // Create WAF
     this.createWaf(environment, isProduction);
   }
 
-  private createRoutes(lambdaStack: LambdaStack, lambdaStack2: LambdaStack2, lambdaStack3: LambdaStack3, isProduction: boolean, bodyValidator: apigateway.RequestValidator) {
+  private createRoutes(lambdaStack: LambdaStack, lambdaStack2: LambdaStack2, isProduction: boolean, bodyValidator: apigateway.RequestValidator) {
     const authMethodOptions: apigateway.MethodOptions = {
       authorizer: this.authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
@@ -365,39 +362,9 @@ export class ApiGatewayStack extends cdk.NestedStack {
     mediaUploadVoice.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.mediaUploadVoiceFn), authWithBodyValidation);
 
     // ========================================
-    // Search (nested under existing posts/peaks) - FROM LambdaStack3
+    // NOTE: Search, Feed Variants, Posts Batch & Saved routes have been
+    // moved to ApiGateway3Stack to stay under CloudFormation 500 resource limit.
     // ========================================
-    const postsSearch = posts.addResource('search');
-    postsSearch.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.postsSearchFn), authMethodOptions);
-
-    const peaksSearch = peaks.addResource('search');
-    peaksSearch.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.peaksSearchFn), authMethodOptions);
-
-    // ========================================
-    // Feed Variants (nested under existing /feed) - FROM LambdaStack3
-    // ========================================
-    const feedOptimized = feed.addResource('optimized');
-    feedOptimized.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.feedOptimizedFn), authMethodOptions);
-
-    const feedFollowing = feed.addResource('following');
-    feedFollowing.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.feedFollowingFn), authMethodOptions);
-
-    const feedDiscover = feed.addResource('discover');
-    feedDiscover.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack3.feedDiscoverFn), authMethodOptions);
-
-    // ========================================
-    // Posts Batch & Saved (nested under existing /posts) - PARTIALLY FROM LambdaStack3
-    // ========================================
-    const postsLikes = posts.addResource('likes');
-    const postsLikesBatch = postsLikes.addResource('batch');
-    postsLikesBatch.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.postsLikesBatchFn), authMethodOptions);
-
-    const postsSaves = posts.addResource('saves');
-    const postsSavesBatch = postsSaves.addResource('batch');
-    postsSavesBatch.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack3.postsSavesBatchFn), authMethodOptions);
-
-    const postsSaved = posts.addResource('saved');
-    postsSaved.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.postsSavedListFn), authMethodOptions);
 
     // ========================================
     // Follow Requests Extended (nested under existing /follow-requests)

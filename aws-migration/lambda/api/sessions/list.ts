@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getReaderPool, getPool, corsHeaders, SqlParam } from '../../shared/db';
+import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('sessions-list');
@@ -32,7 +32,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
     const profileId = profileLookup.rows[0].id as string;
 
-    const pool = await getReaderPool();
+    const pool = await getPool();
     const status = event.queryStringParameters?.status; // 'upcoming', 'past', 'pending'
     const role = event.queryStringParameters?.role; // 'fan', 'creator'
 

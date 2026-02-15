@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -33,7 +33,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
     const offset = (page - 1) * limit;
 
-    const db = await getReaderPool();
+    const db = await getPool();
 
     const userResult = await db.query(
       'SELECT id FROM profiles WHERE cognito_sub = $1',

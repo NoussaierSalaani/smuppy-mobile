@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { headers as corsHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -36,7 +36,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);
 
-    const pool = await getReaderPool();
+    const pool = await getPool();
 
     const result = await pool.query(
       `SELECT tag, SUM(cnt)::int as count

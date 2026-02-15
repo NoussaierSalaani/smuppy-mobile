@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -14,7 +14,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const headers = createHeaders(event);
 
   try {
-    const db = await getReaderPool();
+    const db = await getPool();
 
     const result = await db.query(
       'SELECT id, name, icon, category FROM expertise ORDER BY category, name LIMIT 500'

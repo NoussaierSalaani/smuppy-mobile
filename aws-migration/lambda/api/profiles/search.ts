@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -47,7 +47,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const cognitoSub = extractCognitoSub(event);
 
     // Use reader pool for read-heavy search operations
-    const db = await getReaderPool();
+    const db = await getPool();
 
     // Resolve current user ID to exclude from results
     let currentUserId: string | null = null;

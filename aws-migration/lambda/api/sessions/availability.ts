@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getReaderPool, corsHeaders } from '../../shared/db';
+import { getPool, corsHeaders } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('sessions-availability');
@@ -37,7 +37,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const daysAhead = parseInt(event.queryStringParameters?.days || '7');
 
   try {
-    const pool = await getReaderPool();
+    const pool = await getPool();
 
     // Get creator's session settings
     const creatorResult = await pool.query(

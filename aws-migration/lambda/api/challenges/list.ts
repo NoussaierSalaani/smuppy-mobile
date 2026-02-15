@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, getReaderPool, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
@@ -25,7 +25,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     log.error('Auto-expire failed (non-fatal)', expireErr);
   }
 
-  const pool = await getReaderPool();
+  const pool = await getPool();
   const client = await pool.connect();
 
   try {

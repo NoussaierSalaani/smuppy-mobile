@@ -5,7 +5,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -45,7 +45,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? interestsParam.split(',').map(i => i.trim().toLowerCase()).filter(Boolean).slice(0, MAX_INTERESTS)
       : [];
 
-    const db = await getReaderPool();
+    const db = await getPool();
 
     let userId: string | null = null;
 

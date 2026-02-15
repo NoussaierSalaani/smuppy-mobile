@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -42,7 +42,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Get limit from query params
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '10'), 50);
 
-    const db = await getReaderPool();
+    const db = await getPool();
 
     // Get suggested profiles:
     // 1. Users that the current user is NOT following

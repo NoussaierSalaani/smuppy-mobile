@@ -6,7 +6,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
-import { getReaderPool, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
@@ -50,7 +50,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Use reader pool for read-heavy feed operations (distributed across read replicas)
-    const db = await getReaderPool();
+    const db = await getPool();
 
     // Resolve the user's profile ID from cognito_sub
     const userResult = await db.query(

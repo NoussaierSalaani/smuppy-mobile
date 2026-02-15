@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { headers as corsHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -59,7 +59,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);
 
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    const pool = await getReaderPool();
+    const pool = await getPool();
 
     // Resolve requester profile if authenticated
     let requesterId: string | null = null;

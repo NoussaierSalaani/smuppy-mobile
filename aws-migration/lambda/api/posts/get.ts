@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { validateUUIDParam, isErrorResponse } from '../utils/validators';
@@ -21,7 +21,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const currentUserId = extractCognitoSub(event);
 
     // Use reader pool for read operations
-    const db = await getReaderPool();
+    const db = await getPool();
 
     // SECURITY: Include author's privacy + moderation setting in query
     const result = await db.query(

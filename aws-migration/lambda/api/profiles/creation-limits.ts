@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -30,7 +30,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    const pool = await getReaderPool();
+    const pool = await getPool();
 
     // Get profile and account type
     const profileResult = await pool.query(

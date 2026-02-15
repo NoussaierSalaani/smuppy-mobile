@@ -5,7 +5,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
@@ -65,7 +65,7 @@ async function handleListComments(
   const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
   const cursor = event.queryStringParameters?.cursor;
 
-  const pool = await getReaderPool();
+  const pool = await getPool();
 
   // Resolve requester for shadow-ban self-view
   const cognitoSub = extractCognitoSub(event);

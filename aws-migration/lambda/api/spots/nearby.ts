@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -60,7 +60,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const latDelta = (radius / EARTH_RADIUS_METERS) * (180 / Math.PI);
     const lngDelta = latDelta / Math.cos(lat * Math.PI / 180);
 
-    const db = await getReaderPool();
+    const db = await getPool();
 
     // Haversine distance formula in SQL
     const result = await db.query(

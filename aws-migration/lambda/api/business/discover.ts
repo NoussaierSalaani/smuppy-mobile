@@ -5,7 +5,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getReaderPool } from '../../shared/db';
+import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
@@ -32,7 +32,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const limit = Math.min(parseInt(q.limit || String(DEFAULT_LIMIT)), MAX_LIMIT);
     const offset = Math.max(parseInt(q.offset || '0'), 0);
 
-    const db = await getReaderPool();
+    const db = await getPool();
 
     // Resolve profile ID for block filtering (if authenticated)
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;

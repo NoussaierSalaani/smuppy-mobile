@@ -13,6 +13,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
 import { getStripeKey } from '../../shared/secrets';
 import Stripe from 'stripe';
 
@@ -254,6 +255,12 @@ async function handleCancel(event: APIGatewayProxyEvent, headers: Record<string,
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
     }
 
+    // Rate limit: 5 cancel operations per minute
+    const rateCheck = await checkRateLimit({ prefix: 'biz-sub-cancel', identifier: user.sub, maxRequests: 5, windowSeconds: 60 });
+    if (!rateCheck.allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
+    }
+
     const subscriptionId = event.pathParameters?.subscriptionId;
     if (!subscriptionId) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing subscription ID' }) };
@@ -343,6 +350,12 @@ async function handleReactivate(event: APIGatewayProxyEvent, headers: Record<str
     const user = getUserFromEvent(event);
     if (!user) {
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
+    }
+
+    // Rate limit: 5 reactivate operations per minute
+    const rateCheck = await checkRateLimit({ prefix: 'biz-sub-reactivate', identifier: user.sub, maxRequests: 5, windowSeconds: 60 });
+    if (!rateCheck.allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
     }
 
     const subscriptionId = event.pathParameters?.subscriptionId;

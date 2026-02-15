@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('posts-save');
 
@@ -17,6 +18,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
+
+    // Rate limit: 30 save operations per minute
+    const rateCheck = await checkRateLimit({ prefix: 'post-save', identifier: userId as string, maxRequests: 30, windowSeconds: 60 });
+    if (!rateCheck.allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
+    }
 
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;

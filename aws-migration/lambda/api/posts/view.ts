@@ -10,6 +10,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('posts-view');
 
@@ -20,6 +21,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Auth required
     const cognitoSub = requireAuth(event, headers);
     if (isErrorResponse(cognitoSub)) return cognitoSub;
+
+    // Rate limit: 60 view recordings per minute
+    const rateCheck = await checkRateLimit({ prefix: 'post-view', identifier: cognitoSub as string, maxRequests: 60, windowSeconds: 60 });
+    if (!rateCheck.allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
+    }
 
     // Get post ID from path
     const postId = validateUUIDParam(event, headers, 'id', 'Post');

@@ -1132,6 +1132,37 @@ export class LambdaStack extends cdk.NestedStack {
     });
 
     // ========================================
+    // Scheduled: Cleanup expired peaks (S3 + DB)
+    // ========================================
+    const peaksCleanupFn = new NodejsFunction(this, 'PeaksCleanupFunction', {
+      entry: path.join(__dirname, '../../lambda/api/peaks/cleanup-expired.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(120),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: lambdaEnvironment,
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(peaksCleanupFn);
+    mediaBucket.grantDelete(peaksCleanupFn);
+
+    // Run daily at 3:00 AM UTC (off-peak)
+    new events.Rule(this, 'PeaksCleanupSchedule', {
+      schedule: events.Schedule.cron({ hour: '3', minute: '0' }),
+      targets: [new targets.LambdaFunction(peaksCleanupFn, {
+        retryAttempts: 2,
+      })],
+      description: 'Clean up expired peaks S3 media and DB records daily',
+    });
+
+    // ========================================
     // Auth Lambda Functions
     // ========================================
     this.appleAuthFn = new NodejsFunction(this, 'AppleAuthFunction', {

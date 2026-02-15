@@ -221,8 +221,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Moderation: check text fields (bio, fullName, displayName, username) for violations
-    const textFieldsToCheck = ['bio', 'fullName', 'displayName', 'username'].filter(f => body[f] && typeof body[f] === 'string');
+    // Moderation: check text fields for violations (includes businessName for pro accounts)
+    const textFieldsToCheck = ['bio', 'fullName', 'displayName', 'username', 'businessName'].filter(f => body[f] && typeof body[f] === 'string');
     for (const field of textFieldsToCheck) {
       const textValue = body[field] as string;
       const filterResult = await filterText(textValue);

@@ -10,6 +10,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('posts-delete');
 
@@ -41,7 +42,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
 
-    const { allowed } = await checkRateLimit({ prefix: 'post-delete', identifier: userId, windowSeconds: 60, maxRequests: 10 });
+    const { allowed } = await checkRateLimit({ prefix: 'post-delete', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 10 });
     if (!allowed) {
       return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
     }

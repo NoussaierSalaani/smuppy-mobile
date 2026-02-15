@@ -10,6 +10,7 @@ import { cors, handleOptions } from '../utils/cors';
 import { isValidUUID, sanitizeInput } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
+import { DEFAULT_BATTLE_DURATION_MINUTES, MIN_BATTLE_DURATION_MINUTES, MAX_BATTLE_DURATION_MINUTES } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
@@ -71,7 +72,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       description,
       battleType = 'tips',
       maxParticipants = 2,
-      durationMinutes = 10,
+      durationMinutes = DEFAULT_BATTLE_DURATION_MINUTES,
       scheduledAt,
       invitedUserIds,
     } = body;
@@ -92,7 +93,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         body: JSON.stringify({ success: false, message: 'maxParticipants must be between 2 and 10' }),
       });
     }
-    if (durationMinutes < 1 || durationMinutes > 120) {
+    if (durationMinutes < MIN_BATTLE_DURATION_MINUTES || durationMinutes > MAX_BATTLE_DURATION_MINUTES) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({ success: false, message: 'durationMinutes must be between 1 and 120' }),

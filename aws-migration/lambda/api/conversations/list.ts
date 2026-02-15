@@ -8,6 +8,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('conversations-list');
 
@@ -29,7 +30,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const { allowed } = await checkRateLimit({
       prefix: 'conversations-list',
       identifier: userId,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
     });
     if (!allowed) {

@@ -320,6 +320,16 @@ async function createRefund(
     };
   }
 
+  // Validate reason is a known value
+  const validReasons: RefundReason[] = ['duplicate', 'fraudulent', 'requested_by_customer', 'session_cancelled', 'technical_issue', 'creator_unavailable', 'other'];
+  if (!validReasons.includes(reason)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Invalid refund reason' }),
+    };
+  }
+
   if (!isValidUUID(paymentId)) {
     return {
       statusCode: 400,
@@ -427,7 +437,8 @@ async function createRefund(
     try {
       // Create Stripe refund
       // SECURITY: Idempotency key prevents duplicate refunds from double-clicks/retries
-      const refundIdempotencyKey = `refund_${paymentId}_${refundAmountCents}_${user.id}`;
+      // Includes reason to prevent same-amount refunds with different reasons from colliding
+      const refundIdempotencyKey = `refund_${paymentId}_${refundAmountCents}_${user.id}_${reason}`;
       const stripeRefund = await stripe.refunds.create({
         payment_intent: payment.stripe_payment_intent_id,
         amount: refundAmountCents,

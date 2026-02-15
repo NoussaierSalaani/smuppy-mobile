@@ -13,6 +13,7 @@ import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { checkRateLimit } from '../../api/utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../../api/utils/constants';
 
 const log = createLogger('disputes/list');
 
@@ -46,7 +47,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       prefix: 'dispute-read',
       identifier: user.id,
       maxRequests: 30,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
     });
 
     if (!rateCheck.allowed) {

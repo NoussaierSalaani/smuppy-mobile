@@ -10,6 +10,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { RATE_WINDOW_1_MIN, MAX_POST_CONTENT_LENGTH, MAX_MEDIA_URL_LENGTH } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
@@ -17,9 +18,7 @@ import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 
 const log = createLogger('posts-create');
 
-const MAX_CONTENT_LENGTH = 5000;
 const MAX_MEDIA_URLS = 10;
-const MAX_MEDIA_URL_LENGTH = 2048;
 const MAX_TAGGED_USERS = 20;
 const ALLOWED_VISIBILITIES = new Set(['public', 'fans', 'private', 'subscribers']);
 const ALLOWED_MEDIA_TYPES = new Set(['image', 'video', 'multiple']);
@@ -50,7 +49,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const rateLimit = await checkRateLimit({
       prefix: 'post-create',
       identifier: cognitoSub,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
     });
     if (!rateLimit.allowed) {
@@ -147,7 +146,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       .replace(/<[^>]*>/g, '')
       .replace(CONTROL_CHARS, '')
       .trim()
-      .slice(0, MAX_CONTENT_LENGTH);
+      .slice(0, MAX_POST_CONTENT_LENGTH);
 
     const sanitizedLocation = body.location
       ? body.location.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().slice(0, 200)

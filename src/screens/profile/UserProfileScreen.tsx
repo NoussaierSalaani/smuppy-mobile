@@ -20,7 +20,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, NavigationProp } from '@react-navigation/native';
-import type { MainStackParamList } from '../../types';
+import type { MainStackParamList, Peak } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { HIT_SLOP } from '../../config/theme';
 import { resolveDisplayName } from '../../types/profile';
@@ -1031,8 +1031,7 @@ const UserProfileScreen = () => {
                   isOwnPeak: false,
                   createdAt: p.created_at,
                 }));
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                navigation.navigate('PeakView', { peaks: transformed as any[], initialIndex: 0 });
+                navigation.navigate('PeakView', { peaks: transformed as unknown as Peak[], initialIndex: 0 });
               }}
             >
               {group.latestThumbnail ? (

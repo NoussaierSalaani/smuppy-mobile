@@ -16,10 +16,9 @@ import { randomBytes } from 'crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS } from '../utils/constants';
 
 const log = createLogger('media-upload-url');
-
-const PRESIGNED_URL_EXPIRY_SECONDS = 300;
 
 const s3Client = new S3Client({
   requestChecksumCalculation: 'WHEN_REQUIRED',
@@ -122,7 +121,7 @@ export async function handler(
     }
 
     // Rate limit: 30 uploads per minute
-    const { allowed } = await checkRateLimit({ prefix: 'media-upload', identifier: userId, windowSeconds: 60, maxRequests: 30 });
+    const { allowed } = await checkRateLimit({ prefix: 'media-upload', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 });
     if (!allowed) {
       return {
         statusCode: 429,

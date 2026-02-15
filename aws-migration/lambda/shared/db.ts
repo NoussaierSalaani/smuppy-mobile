@@ -9,7 +9,7 @@
  * - Caches connections across Lambda invocations
  */
 
-import { Pool, PoolConfig } from 'pg';
+import { Pool, PoolConfig, PoolClient } from 'pg';
 
 /** Type-safe SQL query parameter value */
 export type SqlParam = string | number | boolean | null | Date | string[] | number[];
@@ -153,7 +153,7 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   // Writer pool gets longer timeout (transactions may take longer)
   // Note: RDS Proxy may not fully support SET commands, but this is a defense-in-depth measure
   const timeoutMs = options?.maxConnections === 10 ? 15000 : 30000;
-  pool.on('connect', (client: any) => {
+  pool.on('connect', (client: PoolClient) => {
     client.query('SET statement_timeout = $1', [timeoutMs]).catch(() => {
       // Silently ignore if RDS Proxy rejects SET — Lambda timeout is the primary guard
     });

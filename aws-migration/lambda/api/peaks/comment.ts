@@ -9,6 +9,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID, extractCognitoSub } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -177,7 +178,7 @@ async function handleCreateComment(
   const rateLimit = await checkRateLimit({
     prefix: 'peak-comment',
     identifier: userId,
-    windowSeconds: 60,
+    windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 20,
   });
   if (!rateLimit.allowed) {

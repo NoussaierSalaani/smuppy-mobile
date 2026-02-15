@@ -8,15 +8,14 @@ import { getPool } from '../../shared/db';
 import { headers as corsHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('peaks-search');
-
-const MAX_QUERY_LENGTH = 100;
 const MAX_LIMIT = 50;
 
 function sanitizeQuery(raw: string): string {
   const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
-  const sanitized = raw.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().substring(0, MAX_QUERY_LENGTH);
+  const sanitized = raw.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().substring(0, MAX_SEARCH_QUERY_LENGTH);
   // SECURITY: Escape ILIKE special characters to prevent wildcard injection
   return sanitized.replace(/[%_\\]/g, '\\$&');
 }
@@ -38,7 +37,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const { allowed } = await checkRateLimit({
       prefix: 'peaks-search',
       identifier: userId || event.requestContext.identity?.sourceIp || 'anonymous',
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
     });
     if (!allowed) {

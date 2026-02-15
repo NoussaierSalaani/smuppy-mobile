@@ -6,6 +6,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 import { createLogger } from '../utils/logger';
+import { MIN_SESSION_DURATION_MINUTES, MAX_SESSION_DURATION_MINUTES, MAX_SESSION_PRICE_CENTS } from '../utils/constants';
 
 const log = createLogger('sessions-settings');
 
@@ -64,7 +65,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (body.sessionPrice !== undefined) {
       const price = Number(body.sessionPrice);
-      if (isNaN(price) || price < 0 || price > 10000) {
+      if (isNaN(price) || price < 0 || price > MAX_SESSION_PRICE_CENTS) {
         return {
           statusCode: 400,
           headers: corsHeaders,
@@ -77,7 +78,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (body.sessionDuration !== undefined) {
       const duration = Math.round(Number(body.sessionDuration));
-      if (isNaN(duration) || duration < 15 || duration > 480) {
+      if (isNaN(duration) || duration < MIN_SESSION_DURATION_MINUTES || duration > MAX_SESSION_DURATION_MINUTES) {
         return {
           statusCode: 400,
           headers: corsHeaders,

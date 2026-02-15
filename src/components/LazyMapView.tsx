@@ -100,7 +100,7 @@ export const LazyMarker = memo(({ children, coordinate, coordinateArray }: LazyM
       if (mounted) {
         setMarkerViewComponent(() => maps.default.MarkerView);
       }
-    });
+    }).catch(() => { /* map module unavailable */ });
     return () => { mounted = false; };
   }, []);
 

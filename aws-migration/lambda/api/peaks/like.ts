@@ -10,6 +10,7 @@ import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { sendPushToUser } from '../services/push-notification';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('peaks-like');
 
@@ -23,7 +24,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const rateLimit = await checkRateLimit({
       prefix: 'peak-like',
       identifier: userId,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
     });
     if (!rateLimit.allowed) {

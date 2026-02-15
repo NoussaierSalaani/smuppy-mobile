@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN, MAX_EVENT_TITLE_LENGTH, MIN_EVENT_PARTICIPANTS, MAX_EVENT_PARTICIPANTS } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
@@ -58,7 +59,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'event-create', identifier: userId, windowSeconds: 60, maxRequests: 5 });
+    const { allowed } = await checkRateLimit({ prefix: 'event-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 });
     if (!allowed) {
       return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
     }
@@ -141,7 +142,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Validate title length
-    if (title.length > 200) {
+    if (title.length > MAX_EVENT_TITLE_LENGTH) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({ success: false, message: 'Title too long (max 200 characters)' }),
@@ -159,7 +160,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Validate participants bounds
-    if (maxParticipants !== undefined && (maxParticipants < 2 || maxParticipants > 10000)) {
+    if (maxParticipants !== undefined && (maxParticipants < MIN_EVENT_PARTICIPANTS || maxParticipants > MAX_EVENT_PARTICIPANTS)) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),

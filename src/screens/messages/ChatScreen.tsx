@@ -1041,7 +1041,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         } else if (data) {
           setConversationId(data);
         }
-      });
+      }).catch(() => { setInitError('Connection failed'); setLoading(false); });
     }
   }, [userId]);
 

@@ -14,6 +14,7 @@ import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { PLATFORM_FEE_PERCENT, APPLE_FEE_PERCENT, GOOGLE_FEE_PERCENT, MIN_PAYMENT_CENTS, MAX_PAYMENT_CENTS } from '../utils/constants';
 
 const log = createLogger('payments/create-intent');
 
@@ -26,11 +27,6 @@ async function getStripe(): Promise<Stripe> {
   }
   return stripeInstance;
 }
-
-// Revenue split constants
-const PLATFORM_FEE_PERCENT = 20; // Smuppy takes 20%, Creator gets 80%
-const APPLE_FEE_PERCENT = 30; // Apple's in-app purchase fee
-const GOOGLE_FEE_PERCENT = 30; // Google's in-app purchase fee (15% for < $1M, but we use 30% to be safe)
 
 // SECURITY: Whitelist of allowed currencies
 const ALLOWED_CURRENCIES = ['eur', 'usd'];
@@ -147,7 +143,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate verified amount (minimum $1.00 = 100 cents, maximum $50,000)
-    if (!verifiedAmount || verifiedAmount < 100 || verifiedAmount > 5000000) {
+    if (!verifiedAmount || verifiedAmount < MIN_PAYMENT_CENTS || verifiedAmount > MAX_PAYMENT_CENTS) {
       return {
         statusCode: 400,
         headers,

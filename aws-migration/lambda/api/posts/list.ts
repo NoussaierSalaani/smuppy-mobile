@@ -121,14 +121,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName",
-               EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as "isLiked"
+               EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as "isLiked",
+               EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $1) as "isSaved"
         FROM posts p
         JOIN my_connections mc ON p.author_id = mc.author_id
         JOIN profiles u ON p.author_id = u.id
         WHERE p.author_id != $1
         AND u.account_type != 'pro_business'
         AND u.moderation_status NOT IN ('banned', 'shadow_banned')
-        AND p.visibility != 'hidden'
+        AND p.visibility NOT IN ('hidden', 'private')
+        AND (
+          p.visibility IN ('public', 'fans')
+          OR (p.visibility = 'subscribers' AND EXISTS(
+            SELECT 1 FROM channel_subscriptions
+            WHERE fan_id = $1 AND creator_id = p.author_id AND status = 'active'
+          ))
+        )
         ${cursor ? 'AND p.created_at < $3' : ''}
         ORDER BY p.created_at DESC LIMIT $2
       `;
@@ -156,19 +164,54 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
 
       // User profile: show own posts normally, filter moderation for other users
+      // Check if viewer follows this user (for 'fans' visibility posts)
       const isOwnProfile = requesterId === userId;
-      const moderationFilter = isOwnProfile
-        ? ''
-        : `AND u.moderation_status NOT IN ('banned', 'shadow_banned') AND p.visibility != 'hidden' AND p.visibility != 'fans'`;
-      query = `
-        SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
-               p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
-               u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
-        FROM posts p JOIN profiles u ON p.author_id = u.id
-        WHERE p.author_id = $1 ${moderationFilter} ${cursor ? 'AND p.created_at < $3' : ''}
-        ORDER BY p.created_at DESC LIMIT $2
-      `;
-      params = cursor ? [userId, parsedLimit + 1, new Date(parseInt(cursor))] : [userId, parsedLimit + 1];
+      let isFollowing = false;
+      if (!isOwnProfile && requesterId) {
+        const followResult = await pool.query(
+          `SELECT id FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
+          [requesterId, userId]
+        );
+        isFollowing = followResult.rows.length > 0;
+      }
+      // Build parameterized visibility filter
+      // $1 = userId (profile), $2 = limit, $3 = cursor (optional), next = requesterId
+      if (isOwnProfile) {
+        query = `
+          SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
+                 p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+                 u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
+          FROM posts p JOIN profiles u ON p.author_id = u.id
+          WHERE p.author_id = $1 ${cursor ? 'AND p.created_at < $3' : ''}
+          ORDER BY p.created_at DESC LIMIT $2
+        `;
+        params = cursor ? [userId, parsedLimit + 1, new Date(parseInt(cursor))] : [userId, parsedLimit + 1];
+      } else {
+        // Non-own profile: parameterize requesterId for subscriber check
+        const requesterParamIdx = cursor ? 4 : 3;
+        query = `
+          SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
+                 p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+                 u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
+          FROM posts p JOIN profiles u ON p.author_id = u.id
+          WHERE p.author_id = $1
+            AND u.moderation_status NOT IN ('banned', 'shadow_banned')
+            AND p.visibility NOT IN ('hidden', 'private')
+            AND (
+              p.visibility = 'public'
+              ${isFollowing ? "OR p.visibility = 'fans'" : ''}
+              ${requesterId ? `OR (p.visibility = 'subscribers' AND EXISTS(
+                SELECT 1 FROM channel_subscriptions
+                WHERE fan_id = $${requesterParamIdx} AND creator_id = p.author_id AND status = 'active'
+              ))` : ''}
+            )
+            ${cursor ? 'AND p.created_at < $3' : ''}
+          ORDER BY p.created_at DESC LIMIT $2
+        `;
+        params = cursor
+          ? [userId, parsedLimit + 1, new Date(parseInt(cursor)), ...(requesterId ? [requesterId] : [])]
+          : [userId, parsedLimit + 1, ...(requesterId ? [requesterId] : [])];
+      }
     } else {
       // Explore/public feed: exclude banned/shadow_banned users and hidden posts
       // BUG-2026-02-15: Limit scan window to 30 days and use simpler scoring to reduce full-table sort
@@ -215,7 +258,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       tags: post.tags || [],
       taggedUsers: tagsByPost[post.id as string] || [],
       likesCount: parseInt(post.likesCount as string) || 0, commentsCount: parseInt(post.commentsCount as string) || 0,
-      createdAt: post.createdAt, isLiked: post.isLiked || false,
+      createdAt: post.createdAt, isLiked: post.isLiked || false, isSaved: post.isSaved || false,
       author: { id: post.authorId, username: post.username, fullName: post.fullName, avatarUrl: post.avatarUrl, isVerified: post.isVerified, accountType: post.accountType, businessName: post.businessName },
     }));
 

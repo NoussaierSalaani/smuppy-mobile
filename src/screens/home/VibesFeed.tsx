@@ -384,8 +384,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const [loadError, setLoadError] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
+  const pageRef = useRef(vibesFeedCache.page);
   const [peaksData, setPeaksData] = useState<PeakCardData[]>([]);
   const [hasMore, setHasMore] = useState(true);
+  const hasMoreRef = useRef(true);
 
   // Share modal state (using shared hook)
   const shareModal = useShareModal();
@@ -453,7 +455,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               useFeedStore.getState().clearOptimisticLikes(applied);
             }
           }
-        });
+        }).catch(() => { /* batch sync failed — optimistic state preserved */ });
       } else if (overrideIds.length > 0) {
         // No posts to re-sync, clear overrides immediately
         useFeedStore.getState().clearOptimisticLikes(overrideIds);
@@ -509,6 +511,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       if (!data || data.length === 0) {
         if (refresh || pageNum === 0) {
+          hasMoreRef.current = false;
           setHasMore(false);
         }
         return;
@@ -549,6 +552,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         setLikedPostIds(prev => new Set([...prev, ...likedIds]));
       }
 
+      hasMoreRef.current = data.length >= 40;
       setHasMore(data.length >= 40);
     } catch (err) {
       if (__DEV__) console.warn('[VibesFeed] Error:', err);
@@ -564,6 +568,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       return;
     }
     setIsLoading(true);
+    pageRef.current = 0;
     setPage(0);
     fetchPosts(0, true).finally(() => setIsLoading(false));
   }, [fetchPosts]);
@@ -1103,10 +1108,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Memoized inline styles
   const modalBottomStyle = useMemo(() => ({ height: insets.bottom + 20 }), [insets.bottom]);
+  const modalHeaderTopStyle = useMemo(() => ({ top: insets.top + 12 }), [insets.top]);
+  const gridContentStyle = useMemo(() => (
+    headerHeight > 0
+      ? { paddingTop: headerHeight, paddingHorizontal: GRID_PADDING - GRID_GAP / 2 }
+      : { paddingHorizontal: GRID_PADDING - GRID_GAP / 2 }
+  ), [headerHeight]);
 
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    pageRef.current = 0;
     setPage(0);
     await fetchPosts(0, true);
     setRefreshing(false);
@@ -1114,18 +1126,19 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Load more vibes — uses refs for guards to avoid stale closures
   const onLoadMore = useCallback(async () => {
-    if (loadingMoreRef.current || !hasMore) return;
+    if (loadingMoreRef.current || !hasMoreRef.current) return;
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const nextPage = page + 1;
+      const nextPage = pageRef.current + 1;
+      pageRef.current = nextPage;
       setPage(nextPage);
       await fetchPosts(nextPage);
     } finally {
       loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [hasMore, page, fetchPosts]);
+  }, [fetchPosts]);
 
   // FlashList renderItem for virtualized grid
   const renderGridItem = useCallback(({ item }: { item: UIVibePost }) => (
@@ -1233,7 +1246,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 )}
 
                 {/* Header buttons on image */}
-                <View style={[styles.modalHeaderButtons, { top: insets.top + 12 }]}>
+                <View style={[styles.modalHeaderButtons, modalHeaderTopStyle]}>
                   <TouchableOpacity
                     onPress={closePostModal}
                     activeOpacity={0.8}
@@ -1356,7 +1369,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         numColumns={2}
         {...({ masonry: true, optimizeItemArrangement: true, estimatedItemSize: 230 } as { masonry: boolean; optimizeItemArrangement: boolean; estimatedItemSize: number })}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={headerHeight > 0 ? { paddingTop: headerHeight, paddingHorizontal: GRID_PADDING - GRID_GAP / 2 } : { paddingHorizontal: GRID_PADDING - GRID_GAP / 2 }}
+        contentContainerStyle={gridContentStyle}
         onScroll={handleCombinedScroll}
         scrollEventThrottle={16}
         onEndReached={onLoadMore}

@@ -92,7 +92,26 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (!body.targetProfileId || !body.stripeAccountId) {
           return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Missing targetProfileId or stripeAccountId' }) };
         }
+        // Verify the Stripe account exists and is an Express account
+        const stripeForAdmin = await getStripe();
+        let adminAccount: Stripe.Account;
+        try {
+          adminAccount = await stripeForAdmin.accounts.retrieve(body.stripeAccountId);
+        } catch {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Stripe account not found' }) };
+        }
+        if (adminAccount.type !== 'express') {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Only Express accounts are supported' }) };
+        }
+        // Verify account is not already assigned to another user
         const adminPool = await getPool();
+        const existingAssignment = await adminPool.query(
+          'SELECT id FROM profiles WHERE stripe_account_id = $1 AND id != $2',
+          [body.stripeAccountId, body.targetProfileId]
+        );
+        if (existingAssignment.rows.length > 0) {
+          return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Stripe account already assigned to another user' }) };
+        }
         await adminPool.query('UPDATE profiles SET stripe_account_id = $1, channel_price_cents = COALESCE(channel_price_cents, 999), updated_at = NOW() WHERE id = $2', [body.stripeAccountId, body.targetProfileId]);
         return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, targetProfileId: body.targetProfileId, stripeAccountId: body.stripeAccountId }) };
       }

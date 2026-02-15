@@ -20,6 +20,7 @@ import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { getStripeKey } from '../../shared/secrets';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN, MAX_TIP_AMOUNT_CENTS, PLATFORM_FEE_PERCENT, MIN_PAYMENT_CENTS } from '../utils/constants';
 
 const log = createLogger('tips-send');
 
@@ -44,11 +45,6 @@ interface SendTipRequest {
 
 // SECURITY: Whitelist of allowed currencies
 const ALLOWED_CURRENCIES = ['eur', 'usd'];
-// Max single tip amount in cents (500 EUR)
-const MAX_TIP_AMOUNT = 50000;
-// Platform fee percentage (Smuppy takes 20%, Creator gets 80%)
-const PLATFORM_FEE_PERCENT = 20;
-
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
@@ -90,7 +86,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const { allowed: rateLimitAllowed } = await checkRateLimit({
       prefix: 'tips-send',
       identifier: userId,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
     });
     if (!rateLimitAllowed) {
@@ -120,12 +116,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Validation
-    if (!receiverId || !amount || amount < 100 || amount > MAX_TIP_AMOUNT) {
+    if (!receiverId || !amount || amount < MIN_PAYMENT_CENTS || amount > MAX_TIP_AMOUNT_CENTS) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({
           success: false,
-          message: `Invalid tip amount. Min 1.00, max ${MAX_TIP_AMOUNT / 100}.00`,
+          message: `Invalid tip amount. Min 1.00, max ${MAX_TIP_AMOUNT_CENTS / 100}.00`,
         }),
       });
     }

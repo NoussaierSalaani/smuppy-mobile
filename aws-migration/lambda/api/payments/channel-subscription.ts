@@ -220,16 +220,20 @@ async function subscribeToChannel(
 
     // If email missing in profiles, fetch from Cognito and sync
     if (!fan.email && fan.cognito_sub) {
-      const cognitoClient = new CognitoIdentityProviderClient({});
-      const sanitizedSub = fan.cognito_sub.replace(/["\\]/g, '');
-      const cognitoResult = await cognitoClient.send(new ListUsersCommand({
-        UserPoolId: process.env.USER_POOL_ID,
-        Filter: `sub = "${sanitizedSub}"`,
-        Limit: 1,
-      }));
-      fan.email = cognitoResult.Users?.[0]?.Attributes?.find(a => a.Name === 'email')?.Value || null;
-      if (fan.email) {
-        await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [fan.email, fanUserId]);
+      try {
+        const cognitoClient = new CognitoIdentityProviderClient({});
+        const sanitizedSub = fan.cognito_sub.replace(/["\\]/g, '');
+        const cognitoResult = await cognitoClient.send(new ListUsersCommand({
+          UserPoolId: process.env.USER_POOL_ID,
+          Filter: `sub = "${sanitizedSub}"`,
+          Limit: 1,
+        }));
+        fan.email = cognitoResult.Users?.[0]?.Attributes?.find(a => a.Name === 'email')?.Value || null;
+        if (fan.email) {
+          await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [fan.email, fanUserId]);
+        }
+      } catch (cognitoErr) {
+        log.warn('Failed to fetch email from Cognito, continuing with null email', { error: String(cognitoErr) });
       }
     }
 
@@ -328,9 +332,11 @@ async function getOrCreateChannelPrice(
   const productName = `${creatorName}'s Channel`;
 
   // Search for existing product for this creator
+  // SECURITY: Sanitize creatorId to prevent Stripe search query injection
+  const sanitizedCreatorId = creatorId.replace(/['\\]/g, '');
   const products = await safeStripeCall(
     () => stripe.products.search({
-      query: `metadata['creatorId']:'${creatorId}' AND active:'true'`,
+      query: `metadata['creatorId']:'${sanitizedCreatorId}' AND active:'true'`,
     }),
     'products.search',
     log

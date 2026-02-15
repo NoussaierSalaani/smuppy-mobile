@@ -220,6 +220,9 @@ class AWSAPIService {
             }
             const retryRaw = await retryResponse.text();
             if (!retryRaw) {
+              if (method === 'GET' && __DEV__) {
+                console.warn(`[AWS API] Empty response body for GET ${endpoint} (retry)`);
+              }
               return {} as T;
             }
             try {
@@ -233,10 +236,11 @@ class AWSAPIService {
             if (retryErr instanceof Error && retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
             throw retryErr;
           }
-        } else if (!newToken) {
+        } else if (!newToken && !this.signingOut) {
           // getIdToken returned null = refresh failed = session dead
+          this.signingOut = true;
           if (__DEV__) console.warn('[AWS API] 401 and no valid token — forcing sign out');
-          awsAuth.signOut().catch(() => {});
+          awsAuth.signOut().catch(() => {}).finally(() => { this.signingOut = false; });
         }
       }
 
@@ -267,6 +271,11 @@ class AWSAPIService {
 
       const raw = await response.text();
       if (!raw) {
+        // 204 No Content is expected for DELETE/POST mutations — return empty object
+        // For GET requests, empty body is unexpected — log warning
+        if (method === 'GET' && __DEV__) {
+          console.warn(`[AWS API] Empty response body for GET ${endpoint}`);
+        }
         return {} as T;
       }
 

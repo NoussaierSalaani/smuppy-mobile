@@ -9,6 +9,7 @@ import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('sessions-token');
 
@@ -38,7 +39,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
-  const { allowed } = await checkRateLimit({ prefix: 'session-token', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 });
+  const { allowed } = await checkRateLimit({ prefix: 'session-token', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 10 });
   if (!allowed) {
     return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
   }

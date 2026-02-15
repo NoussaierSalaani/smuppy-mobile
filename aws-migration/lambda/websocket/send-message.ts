@@ -42,7 +42,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const domainName = event.requestContext.domainName;
   const stage = event.requestContext.stage;
 
-  if (connectionId && !checkWsRateLimit(connectionId)) {
+  if (!connectionId) {
+    return { statusCode: 400, body: JSON.stringify({ message: 'No connection ID' }) };
+  }
+  if (!checkWsRateLimit(connectionId)) {
     return { statusCode: 429, body: 'Rate limit exceeded' };
   }
 
@@ -109,53 +112,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Check if user is participant and get other participant
-    const conversationResult = await db.query(
-      `SELECT id, participant_1_id, participant_2_id FROM conversations
-       WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
-      [conversationId, senderId]
-    );
-
-    if (conversationResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: 'Conversation not found' }),
-      };
-    }
-
-    const conversation = conversationResult.rows[0];
-    const recipientId = conversation.participant_1_id === senderId
-      ? conversation.participant_2_id
-      : conversation.participant_1_id;
-
-    // SECURITY: Check if either user has blocked the other
-    const blockCheck = await db.query(
-      `SELECT 1 FROM blocked_users
-       WHERE (blocker_id = $1 AND blocked_id = $2)
-          OR (blocker_id = $2 AND blocked_id = $1)
-       LIMIT 1`,
-      [senderId, recipientId]
-    );
-    if (blockCheck.rows.length > 0) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ message: 'Cannot send message to this user' }),
-      };
-    }
-
-    // SECURITY: Check recipient account status (suspended/banned users cannot receive messages)
-    const recipientCheck = await db.query(
-      'SELECT moderation_status FROM profiles WHERE id = $1',
-      [recipientId]
-    );
-    if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].moderation_status === 'suspended' || recipientCheck.rows[0].moderation_status === 'banned') {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ message: 'Cannot send message to this user' }),
-      };
-    }
-
-    // Get sender profile
+    // Get sender profile (needed for response, can be outside transaction)
     const senderResult = await db.query(
       'SELECT id, username, display_name, avatar_url FROM profiles WHERE id = $1',
       [senderId]
@@ -216,11 +173,65 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Insert message + update conversation in a transaction
+    // SECURITY: Participant check, block check, and message insert in a single transaction
+    // to prevent TOCTOU race conditions (e.g., block happening between check and insert)
     const client = await db.connect();
     let message;
+    let recipientId: string;
     try {
       await client.query('BEGIN');
+
+      // Check if user is participant and get other participant
+      const conversationResult = await client.query(
+        `SELECT id, participant_1_id, participant_2_id FROM conversations
+         WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
+        [conversationId, senderId]
+      );
+
+      if (conversationResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        return {
+          statusCode: 404,
+          body: JSON.stringify({ message: 'Conversation not found' }),
+        };
+      }
+
+      const conversation = conversationResult.rows[0];
+      recipientId = conversation.participant_1_id === senderId
+        ? conversation.participant_2_id
+        : conversation.participant_1_id;
+
+      // SECURITY: Check recipient account status (suspended/banned users cannot receive messages)
+      const recipientCheck = await client.query(
+        'SELECT moderation_status FROM profiles WHERE id = $1',
+        [recipientId]
+      );
+      if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].moderation_status === 'suspended' || recipientCheck.rows[0].moderation_status === 'banned') {
+        await client.query('ROLLBACK');
+        client.release();
+        return {
+          statusCode: 403,
+          body: JSON.stringify({ message: 'Cannot send message to this user' }),
+        };
+      }
+
+      // SECURITY: Check if either user has blocked the other
+      const blockCheck = await client.query(
+        `SELECT 1 FROM blocked_users
+         WHERE (blocker_id = $1 AND blocked_id = $2)
+            OR (blocker_id = $2 AND blocked_id = $1)
+         LIMIT 1`,
+        [senderId, recipientId]
+      );
+      if (blockCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        return {
+          statusCode: 403,
+          body: JSON.stringify({ message: 'Cannot send message to this user' }),
+        };
+      }
 
       const messageResult = await client.query(
         `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, read, created_at, shared_post_id, shared_peak_id)

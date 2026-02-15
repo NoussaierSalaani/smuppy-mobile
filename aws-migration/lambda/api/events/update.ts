@@ -7,6 +7,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { MAX_EVENT_TITLE_LENGTH, MIN_EVENT_PARTICIPANTS, MAX_EVENT_PARTICIPANTS } from '../utils/constants';
 import { isValidUUID, sanitizeText } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -97,7 +98,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           body: JSON.stringify({ success: false, message: 'Title cannot be empty' }),
         });
       }
-      if (body.title.length > 200) {
+      if (body.title.length > MAX_EVENT_TITLE_LENGTH) {
         return cors({
           statusCode: 400,
           body: JSON.stringify({ success: false, message: 'Title too long (max 200 characters)' }),
@@ -105,7 +106,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
-    if (body.maxParticipants !== undefined && (body.maxParticipants < 2 || body.maxParticipants > 10000)) {
+    if (body.maxParticipants !== undefined && (body.maxParticipants < MIN_EVENT_PARTICIPANTS || body.maxParticipants > MAX_EVENT_PARTICIPANTS)) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),

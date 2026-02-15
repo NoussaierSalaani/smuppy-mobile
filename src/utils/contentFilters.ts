@@ -136,8 +136,47 @@ function buildWordRegex(word: string): RegExp {
   return new RegExp(`\\b${pattern}\\b`, 'i');
 }
 
+/**
+ * Normalize text by removing Unicode obfuscation tricks:
+ * - Zero-width characters (U+200B-U+200F, U+FEFF, soft hyphen)
+ * - Combining diacritical marks (accents added to bypass filters)
+ * - Bidirectional override characters
+ * - Common Cyrillic/Greek homoglyphs mapped to Latin equivalents
+ */
+function normalizeUnicode(text: string): string {
+  let normalized = text
+    // Remove zero-width characters and soft hyphens
+    .replace(/[\u200B-\u200F\u2028-\u202F\uFEFF\u00AD]/g, '')
+    // Remove bidirectional control characters
+    .replace(/[\u202A-\u202E\u2066-\u2069]/g, '');
+  // NFD normalize then strip combining diacritical marks
+  normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // Map common Cyrillic/Greek homoglyphs to Latin
+  const homoglyphs: Record<string, string> = {
+    '\u0410': 'A', '\u0430': 'a', // Cyrillic А/а
+    '\u0412': 'B', '\u0432': 'b', // Cyrillic В/в (visually B)
+    '\u0421': 'C', '\u0441': 'c', // Cyrillic С/с
+    '\u0415': 'E', '\u0435': 'e', // Cyrillic Е/е
+    '\u041D': 'H', '\u043D': 'h', // Cyrillic Н/н (visually H)
+    '\u0406': 'I', '\u0456': 'i', // Cyrillic І/і
+    '\u041A': 'K', '\u043A': 'k', // Cyrillic К/к
+    '\u041C': 'M', '\u043C': 'm', // Cyrillic М/м
+    '\u041E': 'O', '\u043E': 'o', // Cyrillic О/о
+    '\u0420': 'P', '\u0440': 'p', // Cyrillic Р/р
+    '\u0422': 'T', '\u0442': 't', // Cyrillic Т/т
+    '\u0425': 'X', '\u0445': 'x', // Cyrillic Х/х
+    '\u0423': 'Y', '\u0443': 'y', // Cyrillic У/у
+  };
+  normalized = normalized.replace(/[\u0410\u0430\u0412\u0432\u0421\u0441\u0415\u0435\u041D\u043D\u0406\u0456\u041A\u043A\u041C\u043C\u041E\u043E\u0420\u0440\u0422\u0442\u0425\u0445\u0423\u0443]/g,
+    ch => homoglyphs[ch] || ch
+  );
+  return normalized;
+}
+
 function checkWordlist(text: string, wordlist: string[]): boolean {
-  const normalized = text
+  // Apply Unicode normalization first to defeat obfuscation
+  const unicodeNormalized = normalizeUnicode(text);
+  const normalized = unicodeNormalized
     .toLowerCase()
     .replace(/[@]/g, 'a')
     .replace(/[0]/g, 'o')
@@ -146,11 +185,14 @@ function checkWordlist(text: string, wordlist: string[]): boolean {
     .replace(/[4]/g, 'a')
     .replace(/[5$]/g, 's')
     .replace(/[7]/g, 't')
-    .replace(/[8]/g, 'b');
+    .replace(/[8]/g, 'b')
+    .replace(/[9]/g, 'g')
+    .replace(/[6]/g, 'g')
+    .replace(/[2]/g, 'z');
 
   for (const word of wordlist) {
     const regex = buildWordRegex(word);
-    if (regex.test(text) || regex.test(normalized)) {
+    if (regex.test(unicodeNormalized) || regex.test(normalized)) {
       return true;
     }
   }

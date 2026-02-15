@@ -7,12 +7,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { EARTH_RADIUS_METERS, MAX_SEARCH_RADIUS_METERS, DEFAULT_SEARCH_RADIUS_METERS } from '../utils/constants';
 
 const log = createLogger('spots-nearby');
-
-const EARTH_RADIUS_METERS = 6371000;
-const MAX_RADIUS_METERS = 50000;
-const DEFAULT_RADIUS_METERS = 5000;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -51,8 +48,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const radius = Math.min(
-      Math.max(parseInt(radiusParam || String(DEFAULT_RADIUS_METERS), 10) || DEFAULT_RADIUS_METERS, 100),
-      MAX_RADIUS_METERS
+      Math.max(parseInt(radiusParam || String(DEFAULT_SEARCH_RADIUS_METERS), 10) || DEFAULT_SEARCH_RADIUS_METERS, 100),
+      MAX_SEARCH_RADIUS_METERS
     );
     const limit = Math.min(parseInt(limitParam || '20', 10) || 20, 50);
 

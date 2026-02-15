@@ -121,8 +121,7 @@ fi
 # TypeScript Type Check (optional but recommended)
 # ========================================
 
-# Uncomment to enable TypeScript checking on staged files
-# echo "🔷 Running TypeScript check..."
-# npx tsc --noEmit
+echo "🔷 Running TypeScript check..."
+npx tsc --noEmit
 
 echo "✅ Pre-commit checks passed."

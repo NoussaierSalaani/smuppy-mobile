@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_HOUR, NOTIFICATION_BATCH_SIZE, NOTIFICATION_BATCH_DELAY_MS } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
@@ -29,7 +30,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const { allowed } = await checkRateLimit({
       prefix: 'live-stream-start',
       identifier: cognitoSub,
-      windowSeconds: 3600,
+      windowSeconds: RATE_WINDOW_1_HOUR,
       maxRequests: 5,
     });
     if (!allowed) {
@@ -152,14 +153,14 @@ async function notifyFans(
   // Insert in-app notification for each fan
   const fanIds: string[] = fansResult.rows.map((r: { follower_id: string }) => r.follower_id);
 
-  // Batch insert notifications (500 per batch)
-  const BATCH_SIZE = 500;
+  // Batch insert notifications
+
   const notifTitle = 'Live Stream';
   const notifBody = `${displayName} is live now!`;
   const notifData = JSON.stringify({ type: 'live', channelName: `live_${host.id}`, senderId: host.id });
 
-  for (let i = 0; i < fanIds.length; i += BATCH_SIZE) {
-    const batch = fanIds.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < fanIds.length; i += NOTIFICATION_BATCH_SIZE) {
+    const batch = fanIds.slice(i, i + NOTIFICATION_BATCH_SIZE);
     const placeholders: string[] = [];
     const params: string[] = [];
 
@@ -176,10 +177,9 @@ async function notifyFans(
     );
   }
 
-  // Send push notifications with rate limiting (max 50 at a time, 100ms delay between batches)
+  // Send push notifications with rate limiting (max 50 at a time, delay between batches)
   // Per CLAUDE.md: rate limit operations that cost money (push notifications)
   const pushBatchSize = 50;
-  const PUSH_BATCH_DELAY_MS = 100; // Rate limit: ~500 notifications/second max
 
   for (let i = 0; i < fanIds.length; i += pushBatchSize) {
     const batch = fanIds.slice(i, i + pushBatchSize);
@@ -199,7 +199,7 @@ async function notifyFans(
 
     // Rate limit between batches to prevent notification service exhaustion
     if (i + pushBatchSize < fanIds.length) {
-      await sleep(PUSH_BATCH_DELAY_MS);
+      await sleep(NOTIFICATION_BATCH_DELAY_MS);
     }
   }
 }

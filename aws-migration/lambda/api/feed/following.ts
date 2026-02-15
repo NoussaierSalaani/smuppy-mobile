@@ -73,9 +73,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as is_liked,
               EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $1) as is_saved
        FROM posts p
-       JOIN profiles pr ON p.author_id = pr.id
-       WHERE p.author_id IN (SELECT following_id FROM follows WHERE follower_id = $1 AND status = 'accepted')
+       LEFT JOIN profiles pr ON p.author_id = pr.id
+       WHERE pr.id IS NOT NULL
+         AND p.author_id IN (SELECT following_id FROM follows WHERE follower_id = $1 AND status = 'accepted')
          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+         AND p.visibility NOT IN ('private', 'hidden')
+         AND (
+           p.visibility IN ('public', 'fans')
+           OR (p.visibility = 'subscribers' AND EXISTS(
+             SELECT 1 FROM channel_subscriptions
+             WHERE fan_id = $1 AND creator_id = p.author_id AND status = 'active'
+           ))
+         )
          ${cursorCondition}
        ORDER BY p.created_at DESC, p.id DESC
        LIMIT $${queryParams.length}`,

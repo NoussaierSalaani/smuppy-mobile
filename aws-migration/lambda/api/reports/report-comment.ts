@@ -11,10 +11,9 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { checkUserEscalation } from '../../shared/moderation/autoEscalation';
+import { RATE_WINDOW_5_MIN, MAX_REPORT_REASON_LENGTH, MAX_REPORT_DETAILS_LENGTH } from '../utils/constants';
 
 const log = createLogger('reports-comment');
-const MAX_REASON_LENGTH = 100;
-const MAX_DETAILS_LENGTH = 1000;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -28,7 +27,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const rateLimit = await checkRateLimit({
       prefix: 'report-comment',
       identifier: cognitoSub,
-      windowSeconds: 300,
+      windowSeconds: RATE_WINDOW_5_MIN,
       maxRequests: 5,
     });
     if (!rateLimit.allowed) {
@@ -47,9 +46,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Sanitize inputs
-    const sanitizedReason = reason.replace(/<[^>]*>/g, '').trim().slice(0, MAX_REASON_LENGTH);
+    const sanitizedReason = reason.replace(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_REASON_LENGTH);
     const sanitizedDetails = details
-      ? String(details).replace(/<[^>]*>/g, '').trim().slice(0, MAX_DETAILS_LENGTH)
+      ? String(details).replace(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_DETAILS_LENGTH)
       : null;
 
     const db = await getPool();

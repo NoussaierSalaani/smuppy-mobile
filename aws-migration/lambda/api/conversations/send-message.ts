@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN, MAX_MESSAGE_LENGTH } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -15,8 +16,6 @@ import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('conversations-send-message');
-
-const MAX_MESSAGE_LENGTH = 5000;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -32,7 +31,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 60 messages per minute
-    const { allowed } = await checkRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: 60, maxRequests: 60 });
+    const { allowed } = await checkRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 });
     if (!allowed) {
       return {
         statusCode: 429,
@@ -91,7 +90,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const { allowed: convAllowed } = await checkRateLimit({
       prefix: 'send-message-conv',
       identifier: `${userId}:${conversationId}`,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
     });
     if (!convAllowed) {

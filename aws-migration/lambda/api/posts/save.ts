@@ -53,27 +53,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Check if already saved
-    const existingSave = await db.query(
-      'SELECT id FROM saved_posts WHERE user_id = $1 AND post_id = $2',
-      [profileId, postId]
-    );
-
-    if (existingSave.rows.length > 0) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: 'Post already saved',
-          saved: true,
-        }),
-      };
-    }
-
-    // Save the post
-    await db.query(
-      'INSERT INTO saved_posts (user_id, post_id) VALUES ($1, $2)',
+    // Idempotent save — ON CONFLICT prevents race condition on double-tap
+    const saveResult = await db.query(
+      `INSERT INTO saved_posts (user_id, post_id) VALUES ($1, $2)
+       ON CONFLICT (user_id, post_id) DO NOTHING
+       RETURNING id`,
       [profileId, postId]
     );
 
@@ -82,7 +66,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({
         success: true,
-        message: 'Post saved successfully',
+        message: saveResult.rows.length > 0 ? 'Post saved successfully' : 'Post already saved',
         saved: true,
       }),
     };

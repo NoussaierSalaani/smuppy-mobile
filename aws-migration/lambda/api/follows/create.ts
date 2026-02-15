@@ -13,6 +13,7 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
+import { RATE_WINDOW_1_MIN, RATE_WINDOW_1_DAY } from '../utils/constants';
 
 const log = createLogger('follows-create');
 
@@ -33,7 +34,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const rateLimit = await checkRateLimit({
       prefix: 'follow-create',
       identifier: cognitoSub,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
     });
     if (!rateLimit.allowed) {
@@ -48,7 +49,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const dailyLimit = await checkRateLimit({
       prefix: 'follow-daily',
       identifier: cognitoSub,
-      windowSeconds: 86400,
+      windowSeconds: RATE_WINDOW_1_DAY,
       maxRequests: 200,
     });
     if (!dailyLimit.allowed) {

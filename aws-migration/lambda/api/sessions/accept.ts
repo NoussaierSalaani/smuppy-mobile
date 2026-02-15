@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('sessions-accept');
 
@@ -35,7 +36,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
-  const { allowed } = await checkRateLimit({ prefix: 'session-accept', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 });
+  const { allowed } = await checkRateLimit({ prefix: 'session-accept', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 10 });
   if (!allowed) {
     return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
   }

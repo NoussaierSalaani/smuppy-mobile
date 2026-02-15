@@ -8,6 +8,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('activity-list');
 
@@ -26,7 +27,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'activity-list', identifier: userId, windowSeconds: 60, maxRequests: 60 });
+    const { allowed } = await checkRateLimit({ prefix: 'activity-list', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 });
     if (!allowed) {
       return {
         statusCode: 429,

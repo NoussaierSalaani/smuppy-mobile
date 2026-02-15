@@ -8,9 +8,9 @@ import { immer } from 'zustand/middleware/immer';
 import {
   blockUser as dbBlockUser,
   unblockUser as dbUnblockUser,
-  getBlockedUsers,
   muteUser as dbMuteUser,
   unmuteUser as dbUnmuteUser,
+  getBlockedUsers,
   getMutedUsers,
   BlockedUser,
   MutedUser,
@@ -81,14 +81,18 @@ export const useUserSafetyStore = create<UserSafetyState>()(
     // Mute a user
     mute: async (userId) => {
       if (!userId) return { error: 'Invalid user ID' };
-      if (get().mutedUserIds.includes(userId)) return { error: null };
 
-      // Optimistic update
+      // Atomic check-and-optimistic-update to prevent TOCTOU race
+      let alreadyMuted = false;
       set((state) => {
-        if (!state.mutedUserIds.includes(userId)) {
-          state.mutedUserIds.push(userId);
+        if (state.mutedUserIds.includes(userId)) {
+          alreadyMuted = true;
+          return;
         }
+        state.mutedUserIds.push(userId);
       });
+
+      if (alreadyMuted) return { error: null };
 
       const { data, error } = await dbMuteUser(userId);
 
@@ -113,24 +117,37 @@ export const useUserSafetyStore = create<UserSafetyState>()(
     // Unmute a user
     unmute: async (userId) => {
       if (!userId) return { error: 'Invalid user ID' };
-      if (!get().mutedUserIds.includes(userId)) return { error: null };
 
-      // Optimistic update
+      // Atomic check-and-optimistic-update — save removed item for rollback
+      let wasNotMuted = false;
+      let removedUser: MutedUser | undefined;
       set((state) => {
+        if (!state.mutedUserIds.includes(userId)) {
+          wasNotMuted = true;
+          return;
+        }
         const muteIdx = state.mutedUserIds.indexOf(userId);
         if (muteIdx !== -1) state.mutedUserIds.splice(muteIdx, 1);
         const userIdx = state.mutedUsers.findIndex((m) => m.muted_user_id === userId);
-        if (userIdx !== -1) state.mutedUsers.splice(userIdx, 1);
+        if (userIdx !== -1) {
+          removedUser = { ...state.mutedUsers[userIdx] } as MutedUser;
+          state.mutedUsers.splice(userIdx, 1);
+        }
       });
+
+      if (wasNotMuted) return { error: null };
 
       const { error } = await dbUnmuteUser(userId);
 
       if (error) {
-        // Rollback: re-fetch fresh state from DB to avoid stale reference race
-        const { data: freshMuted } = await getMutedUsers();
+        // Rollback: restore the removed items (consistent with mute rollback)
         set((state) => {
-          state.mutedUsers = freshMuted || [];
-          state.mutedUserIds = (freshMuted || []).map((m) => m.muted_user_id);
+          if (!state.mutedUserIds.includes(userId)) {
+            state.mutedUserIds.push(userId);
+          }
+          if (removedUser && !state.mutedUsers.some((m) => m.muted_user_id === userId)) {
+            state.mutedUsers.push(removedUser);
+          }
         });
         return { error };
       }
@@ -141,20 +158,23 @@ export const useUserSafetyStore = create<UserSafetyState>()(
     // Block a user
     block: async (userId) => {
       if (!userId) return { error: 'Invalid user ID' };
-      if (get().blockedUserIds.includes(userId)) return { error: null };
 
-      // Capture pre-block mute state for rollback
-      const wasMuted = get().mutedUserIds.includes(userId);
-
-      // Optimistic update
+      // Atomic check-and-optimistic-update to prevent TOCTOU race
+      let alreadyBlocked = false;
+      let wasMuted = false;
       set((state) => {
-        if (!state.blockedUserIds.includes(userId)) {
-          state.blockedUserIds.push(userId);
+        if (state.blockedUserIds.includes(userId)) {
+          alreadyBlocked = true;
+          return;
         }
-        if (!state.mutedUserIds.includes(userId)) {
+        wasMuted = state.mutedUserIds.includes(userId);
+        state.blockedUserIds.push(userId);
+        if (!wasMuted) {
           state.mutedUserIds.push(userId);
         }
       });
+
+      if (alreadyBlocked) return { error: null };
 
       const { data, error } = await dbBlockUser(userId);
 
@@ -190,24 +210,37 @@ export const useUserSafetyStore = create<UserSafetyState>()(
     // Unblock a user
     unblock: async (userId) => {
       if (!userId) return { error: 'Invalid user ID' };
-      if (!get().blockedUserIds.includes(userId)) return { error: null };
 
-      // Optimistic update
+      // Atomic check-and-optimistic-update — save removed item for rollback
+      let wasNotBlocked = false;
+      let removedUser: BlockedUser | undefined;
       set((state) => {
+        if (!state.blockedUserIds.includes(userId)) {
+          wasNotBlocked = true;
+          return;
+        }
         const blockIdx = state.blockedUserIds.indexOf(userId);
         if (blockIdx !== -1) state.blockedUserIds.splice(blockIdx, 1);
         const userIdx = state.blockedUsers.findIndex((b) => b.blocked_user_id === userId);
-        if (userIdx !== -1) state.blockedUsers.splice(userIdx, 1);
+        if (userIdx !== -1) {
+          removedUser = { ...state.blockedUsers[userIdx] } as BlockedUser;
+          state.blockedUsers.splice(userIdx, 1);
+        }
       });
+
+      if (wasNotBlocked) return { error: null };
 
       const { error } = await dbUnblockUser(userId);
 
       if (error) {
-        // Rollback: re-fetch fresh state from DB to avoid stale reference race
-        const { data: freshBlocked } = await getBlockedUsers();
+        // Rollback: restore the removed items (consistent with block rollback)
         set((state) => {
-          state.blockedUsers = freshBlocked || [];
-          state.blockedUserIds = (freshBlocked || []).map((b) => b.blocked_user_id);
+          if (!state.blockedUserIds.includes(userId)) {
+            state.blockedUserIds.push(userId);
+          }
+          if (removedUser && !state.blockedUsers.some((b) => b.blocked_user_id === userId)) {
+            state.blockedUsers.push(removedUser);
+          }
         });
         return { error };
       }

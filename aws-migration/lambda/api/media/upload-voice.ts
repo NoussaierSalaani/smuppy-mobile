@@ -20,6 +20,7 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { randomUUID } from 'crypto';
+import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS, MAX_VOICE_MESSAGE_SECONDS } from '../utils/constants';
 
 const log = createLogger('media-upload-voice');
 
@@ -54,8 +55,6 @@ function getValidatedCdnDomain(): string | null {
 
 const CDN_DOMAIN = getValidatedCdnDomain();
 
-const PRESIGNED_URL_EXPIRY_SECONDS = 300;
-
 interface VoiceUploadRequest {
   conversationId: string;
   duration?: number;
@@ -78,7 +77,7 @@ export async function handler(
     }
 
     // Rate limit
-    const { allowed } = await checkRateLimit({ prefix: 'voice-upload', identifier: cognitoSub, windowSeconds: 60, maxRequests: 30 });
+    const { allowed } = await checkRateLimit({ prefix: 'voice-upload', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 });
     if (!allowed) {
       return {
         statusCode: 429,
@@ -116,12 +115,12 @@ export async function handler(
     }
 
     // BUG-2026-02-14: Align max duration with frontend (300s) and send-message.ts validation
-    if (duration !== undefined && (typeof duration !== 'number' || duration < 0 || duration > 300)) {
+    if (duration !== undefined && (typeof duration !== 'number' || duration < 0 || duration > MAX_VOICE_MESSAGE_SECONDS)) {
       return {
         statusCode: 400,
         headers,
         // BUG-2026-02-14: Align with frontend MAX_DURATION_SECONDS=300 and send-message.ts validation
-        body: JSON.stringify({ success: false, message: 'Invalid duration: must be between 0 and 300 seconds' }),
+        body: JSON.stringify({ success: false, message: `Invalid duration: must be between 0 and ${MAX_VOICE_MESSAGE_SECONDS} seconds` }),
       };
     }
 

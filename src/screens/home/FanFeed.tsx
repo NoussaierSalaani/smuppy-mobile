@@ -313,6 +313,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
+  const loadMoreErrorCount = useRef(0);
   const [hasMore, setHasMore] = useState(true);
   const hasMoreRef = useRef(true);
 
@@ -372,9 +373,19 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           hasMoreRef.current = false;
           setHasMore(false);
           setLoadError(error);
+        } else {
+          // Load-more error: stop retrying after 3 consecutive failures
+          loadMoreErrorCount.current += 1;
+          if (loadMoreErrorCount.current >= 3) {
+            hasMoreRef.current = false;
+            setHasMore(false);
+          }
         }
         return;
       }
+
+      // Reset error count on successful fetch
+      loadMoreErrorCount.current = 0;
 
       // Handle null or undefined data
       if (!data || data.length === 0) {
@@ -835,6 +846,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     nextCursorRef.current = null;
+    loadMoreErrorCount.current = 0;
     await fetchPosts(undefined, true);
     setRefreshing(false);
   }, [fetchPosts]);

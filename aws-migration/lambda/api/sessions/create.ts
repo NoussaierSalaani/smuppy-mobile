@@ -8,6 +8,7 @@ import { getPool, corsHeaders } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN, MIN_SESSION_DURATION_MINUTES, MAX_SESSION_DURATION_MINUTES } from '../utils/constants';
 
 const log = createLogger('sessions-create');
 
@@ -33,7 +34,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
-  const { allowed } = await checkRateLimit({ prefix: 'session-create', identifier: userId, windowSeconds: 60, maxRequests: 5 });
+  const { allowed } = await checkRateLimit({ prefix: 'session-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 });
   if (!allowed) {
     return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
   }
@@ -83,7 +84,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // SECURITY: Validate duration is a safe integer (prevent SQL injection)
-    const safeDuration = Math.min(Math.max(Math.round(Number(duration)), 15), 480);
+    const safeDuration = Math.min(Math.max(Math.round(Number(duration)), MIN_SESSION_DURATION_MINUTES), MAX_SESSION_DURATION_MINUTES);
     if (isNaN(safeDuration)) {
       return {
         statusCode: 400,

@@ -51,7 +51,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const domainName = event.requestContext.domainName;
   const stage = event.requestContext.stage;
 
-  if (connectionId && !checkWsRateLimit(connectionId)) {
+  if (!connectionId) {
+    return { statusCode: 400, body: JSON.stringify({ message: 'No connection ID' }) };
+  }
+  if (!checkWsRateLimit(connectionId)) {
     return { statusCode: 429, body: 'Rate limit exceeded' };
   }
 
@@ -316,9 +319,9 @@ async function broadcastToChannel(
   channelName: string,
   payload: object
 ): Promise<void> {
-  // Get all connections for this channel
+  // Get all connections for this channel (cap at 5000 to prevent OOM on large channels)
   const viewersResult = await db.query(
-    'SELECT connection_id FROM live_stream_viewers WHERE channel_name = $1',
+    'SELECT connection_id FROM live_stream_viewers WHERE channel_name = $1 LIMIT 5000',
     [channelName]
   );
 

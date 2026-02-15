@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN, MAX_PEAK_DURATION_SECONDS } from '../utils/constants';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
@@ -43,7 +44,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const rateLimit = await checkRateLimit({
       prefix: 'peak-create',
       identifier: userId,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 5,
     });
     if (!rateLimit.allowed) {
@@ -93,7 +94,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate duration (max 60 seconds for peaks)
-    const videoDuration = typeof duration === 'number' ? Math.min(duration, 60) : null;
+    const videoDuration = typeof duration === 'number' ? Math.min(duration, MAX_PEAK_DURATION_SECONDS) : null;
 
     // Validate filter metadata
     const validFilterId = typeof filterId === 'string' && filterId.length <= 50 ? filterId : null;

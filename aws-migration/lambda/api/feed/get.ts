@@ -10,6 +10,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { CACHE_TTL_SHORT } from '../utils/constants';
 
 const log = createLogger('feed-get');
 
@@ -155,9 +156,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Get feed posts with visibility filtering
     // - public: anyone can see
-    // - fans/followers: only followers can see (covered by following list)
+    // - fans: only followers can see (covered by following list)
     // - subscribers: only paid channel subscribers can see
     // - private: only author can see
+    // - hidden: never shown (admin moderation)
+    // Compute explicit parameter indices for clarity
+    const userIdIndex = queryParams.length + 1;
+    const subscribedIdsIndex = queryParams.length + 2;
+    const finalParams = [...queryParams, userId, subscribedCreatorIds.length > 0 ? subscribedCreatorIds : []];
+
     const result = await db.query(
       `SELECT
         p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
@@ -172,22 +179,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           'account_type', pr.account_type,
           'business_name', pr.business_name
         ) as author,
-        EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${queryParams.length + 1}) as is_liked,
-        EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $${queryParams.length + 1}) as is_saved
+        EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${userIdIndex}) as is_liked,
+        EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $${userIdIndex}) as is_saved
       FROM posts p
       LEFT JOIN profiles pr ON p.author_id = pr.id
       WHERE p.author_id = ANY($1)
+        AND p.visibility != 'hidden'
         AND (
           p.visibility = 'public'
-          OR p.author_id = $${queryParams.length + 1}
-          OR (p.visibility IN ('fans', 'followers') AND p.author_id = ANY($1))
-          OR (p.visibility = 'subscribers' AND p.author_id = ANY($${queryParams.length + 2}::uuid[]))
+          OR p.author_id = $${userIdIndex}
+          OR (p.visibility = 'fans' AND p.author_id = ANY($1))
+          OR (p.visibility = 'subscribers' AND p.author_id = ANY($${subscribedIdsIndex}::uuid[]))
         )
-        AND (pr.moderation_status NOT IN ('banned', 'shadow_banned') OR p.author_id = $${queryParams.length + 1})
+        AND (pr.moderation_status NOT IN ('banned', 'shadow_banned') OR p.author_id = $${userIdIndex})
         ${cursorCondition}
       ORDER BY p.created_at DESC, p.id DESC
       LIMIT $${queryParams.length}`,
-      [...queryParams, userId, subscribedCreatorIds.length > 0 ? subscribedCreatorIds : []]
+      finalParams
     );
 
     const hasMore = result.rows.length > limit;
@@ -216,7 +224,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Cache the response in Redis
     if (redisClient) {
       try {
-        await redisClient.setex(cacheKey, 15, JSON.stringify(response)); // 15s TTL — short to reflect like/save changes
+        await redisClient.setex(cacheKey, CACHE_TTL_SHORT, JSON.stringify(response)); // short TTL to reflect like/save changes
       } catch {
         // Redis write failure is non-critical
         log.warn('Redis cache write error');

@@ -96,156 +96,117 @@ export const useContentStore = create<ContentState>()(
 
     // Submit post report (async)
     submitPostReport: async (postId, reason, details) => {
-      const { reportedPosts } = get();
+      // Atomic check-and-optimistic-update to prevent TOCTOU race
+      let alreadyReported = false;
+      set((state) => {
+        if (state.reportedPosts.includes(postId)) {
+          alreadyReported = true;
+          return;
+        }
+        state.reportedPosts.push(postId);
+        trimToMax(state.reportedPosts);
+      });
 
-      if (reportedPosts.includes(postId)) {
-        return {
-          success: false,
-          message: 'You have already reported this content',
-          alreadyReported: true,
-        };
+      if (alreadyReported) {
+        return { success: false, message: 'You have already reported this content', alreadyReported: true };
       }
 
       const { error } = await dbReportPost(postId, reason, details);
 
       if (error === 'already_reported') {
-        set((state) => {
-          if (!state.reportedPosts.includes(postId)) {
-            state.reportedPosts.push(postId);
-            trimToMax(state.reportedPosts);
-          }
-        });
-        return {
-          success: false,
-          message: 'You have already reported this content',
-          alreadyReported: true,
-        };
+        return { success: false, message: 'You have already reported this content', alreadyReported: true };
       }
 
       if (error) {
-        return {
-          success: false,
-          message: error,
-          alreadyReported: false,
-        };
+        // Rollback optimistic update
+        set((state) => {
+          const idx = state.reportedPosts.indexOf(postId);
+          if (idx !== -1) state.reportedPosts.splice(idx, 1);
+        });
+        return { success: false, message: error, alreadyReported: false };
       }
 
       set((state) => {
-        if (!state.reportedPosts.includes(postId)) {
-          state.reportedPosts.push(postId);
-          trimToMax(state.reportedPosts);
-        }
         state.contentStatus[postId] = 'under_review';
         trimRecordToMax(state.contentStatus);
       });
 
-      return {
-        success: true,
-        message: 'Reported — under review',
-        alreadyReported: false,
-      };
+      return { success: true, message: 'Reported — under review', alreadyReported: false };
     },
 
     // Submit peak report (async)
     submitPeakReport: async (peakId, reason, details) => {
-      const { reportedPeaks } = get();
+      // Atomic check-and-optimistic-update to prevent TOCTOU race
+      let alreadyReported = false;
+      set((state) => {
+        if (state.reportedPeaks.includes(peakId)) {
+          alreadyReported = true;
+          return;
+        }
+        state.reportedPeaks.push(peakId);
+        trimToMax(state.reportedPeaks);
+      });
 
-      if (reportedPeaks.includes(peakId)) {
-        return {
-          success: false,
-          message: 'You have already reported this peak',
-          alreadyReported: true,
-        };
+      if (alreadyReported) {
+        return { success: false, message: 'You have already reported this peak', alreadyReported: true };
       }
 
       const { error } = await dbReportPeak(peakId, reason, details);
 
       if (error === 'already_reported') {
-        set((state) => {
-          if (!state.reportedPeaks.includes(peakId)) {
-            state.reportedPeaks.push(peakId);
-            trimToMax(state.reportedPeaks);
-          }
-        });
-        return {
-          success: false,
-          message: 'You have already reported this peak',
-          alreadyReported: true,
-        };
+        return { success: false, message: 'You have already reported this peak', alreadyReported: true };
       }
 
       if (error) {
-        return {
-          success: false,
-          message: error,
-          alreadyReported: false,
-        };
+        // Rollback optimistic update
+        set((state) => {
+          const idx = state.reportedPeaks.indexOf(peakId);
+          if (idx !== -1) state.reportedPeaks.splice(idx, 1);
+        });
+        return { success: false, message: error, alreadyReported: false };
       }
 
       set((state) => {
-        if (!state.reportedPeaks.includes(peakId)) {
-          state.reportedPeaks.push(peakId);
-          trimToMax(state.reportedPeaks);
-        }
         state.contentStatus[peakId] = 'under_review';
         trimRecordToMax(state.contentStatus);
       });
 
-      return {
-        success: true,
-        message: 'Reported — under review',
-        alreadyReported: false,
-      };
+      return { success: true, message: 'Reported — under review', alreadyReported: false };
     },
 
     // Submit user report (async)
     submitUserReport: async (userId, reason, details) => {
-      const { reportedUsers } = get();
+      // Atomic check-and-optimistic-update to prevent TOCTOU race
+      let alreadyReported = false;
+      set((state) => {
+        if (state.reportedUsers.includes(userId)) {
+          alreadyReported = true;
+          return;
+        }
+        state.reportedUsers.push(userId);
+        trimToMax(state.reportedUsers);
+      });
 
-      if (reportedUsers.includes(userId)) {
-        return {
-          success: false,
-          message: 'You have already reported this user',
-          alreadyReported: true,
-        };
+      if (alreadyReported) {
+        return { success: false, message: 'You have already reported this user', alreadyReported: true };
       }
 
       const { error } = await dbReportUser(userId, reason, details);
 
       if (error === 'already_reported') {
-        set((state) => {
-          if (!state.reportedUsers.includes(userId)) {
-            state.reportedUsers.push(userId);
-            trimToMax(state.reportedUsers);
-          }
-        });
-        return {
-          success: false,
-          message: 'You have already reported this user',
-          alreadyReported: true,
-        };
+        return { success: false, message: 'You have already reported this user', alreadyReported: true };
       }
 
       if (error) {
-        return {
-          success: false,
-          message: error,
-          alreadyReported: false,
-        };
+        // Rollback optimistic update
+        set((state) => {
+          const idx = state.reportedUsers.indexOf(userId);
+          if (idx !== -1) state.reportedUsers.splice(idx, 1);
+        });
+        return { success: false, message: error, alreadyReported: false };
       }
 
-      set((state) => {
-        if (!state.reportedUsers.includes(userId)) {
-          state.reportedUsers.push(userId);
-          trimToMax(state.reportedUsers);
-        }
-      });
-
-      return {
-        success: true,
-        message: 'User reported — under review',
-        alreadyReported: false,
-      };
+      return { success: true, message: 'User reported — under review', alreadyReported: false };
     },
 
     // Legacy sync method

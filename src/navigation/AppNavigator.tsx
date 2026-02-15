@@ -43,9 +43,10 @@ const buildMainScreens = () => {
   const screens: Record<string, any> = {
     Tabs: {
       screens: {
-        HomeTab: { screens: { Feed: 'home' } },
-        MessagesTab: { screens: { Messages: 'messages' } },
-        ProfileTab: { screens: { Profile: 'my-profile' } },
+        Home: 'home',
+        Peaks: 'peaks',
+        Messages: 'messages',
+        Profile: 'my-profile',
       },
     },
     UserProfile: {
@@ -303,7 +304,7 @@ export default function AppNavigator(): React.JSX.Element {
       }
     });
 
-    Linking.getInitialURL().then(handleDeepLink);
+    Linking.getInitialURL().then(handleDeepLink).catch(() => { /* deep link unavailable */ });
     const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
       handleDeepLink(url);
     });

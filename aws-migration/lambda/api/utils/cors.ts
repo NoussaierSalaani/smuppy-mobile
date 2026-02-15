@@ -8,6 +8,8 @@
  * In staging/dev, localhost origins are also permitted for development
  */
 
+import { HSTS_MAX_AGE_PRELOAD } from './constants';
+
 // Allowed origins for CORS - must match API Gateway configuration in smuppy-stack.ts
 const ALLOWED_ORIGINS = [
   'https://smuppy.com',
@@ -77,7 +79,7 @@ export function getSecureHeaders(requestOrigin?: string): Record<string, string>
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '1; mode=block',
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+    'Strict-Transport-Security': `max-age=${HSTS_MAX_AGE_PRELOAD}; includeSubDomains; preload`,
     'Content-Security-Policy': "default-src 'none'",
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Cache-Control': 'no-store, no-cache, must-revalidate',

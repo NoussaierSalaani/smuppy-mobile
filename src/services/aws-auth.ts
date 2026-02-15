@@ -765,10 +765,12 @@ class AWSAuthService {
         secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
       ]);
 
-      // BUG-2026-02-14: Verify critical token was persisted (same pattern as signIn)
-      const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
-      if (!storedToken) {
-        if (__DEV__) console.warn('[AWS Auth] CRITICAL: Failed to persist Apple access token to SecureStore');
+      // Verify critical token was persisted with exponential backoff (3 retries, same as signIn)
+      for (let retryAttempt = 0; retryAttempt < 3; retryAttempt++) {
+        const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
+        if (storedToken) break;
+        if (__DEV__) console.warn(`[AWS Auth] CRITICAL: Failed to persist Apple access token (attempt ${retryAttempt + 1}/3)`);
+        await new Promise(r => setTimeout(r, Math.pow(2, retryAttempt) * 200));
         await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken);
       }
 
@@ -810,10 +812,12 @@ class AWSAuthService {
         secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
       ]);
 
-      // BUG-2026-02-14: Verify critical token was persisted (same pattern as signIn)
-      const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
-      if (!storedToken) {
-        if (__DEV__) console.warn('[AWS Auth] CRITICAL: Failed to persist Google access token to SecureStore');
+      // Verify critical token was persisted with exponential backoff (3 retries, same as signIn)
+      for (let retryAttempt = 0; retryAttempt < 3; retryAttempt++) {
+        const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
+        if (storedToken) break;
+        if (__DEV__) console.warn(`[AWS Auth] CRITICAL: Failed to persist Google access token (attempt ${retryAttempt + 1}/3)`);
+        await new Promise(r => setTimeout(r, Math.pow(2, retryAttempt) * 200));
         await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken);
       }
 

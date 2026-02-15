@@ -10,6 +10,7 @@ import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { sendPushToUser } from '../services/push-notification';
+import { RATE_WINDOW_1_MIN, RATE_WINDOW_1_DAY } from '../utils/constants';
 
 const log = createLogger('posts-like');
 
@@ -24,7 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const rateLimit = await checkRateLimit({
       prefix: 'post-like',
       identifier: userId,
-      windowSeconds: 60,
+      windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
     });
     if (!rateLimit.allowed) {
@@ -39,7 +40,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const dailyLimit = await checkRateLimit({
       prefix: 'like-daily',
       identifier: userId,
-      windowSeconds: 86400,
+      windowSeconds: RATE_WINDOW_1_DAY,
       maxRequests: 500,
     });
     if (!dailyLimit.allowed) {

@@ -10,6 +10,7 @@ import { createCorsResponse } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('peaks-react');
 
@@ -27,7 +28,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const rateLimit = await checkRateLimit({
     prefix: 'peak-react',
     identifier: userId,
-    windowSeconds: 60,
+    windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 30,
   });
   if (!rateLimit.allowed) {

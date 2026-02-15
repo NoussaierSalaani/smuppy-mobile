@@ -13,6 +13,7 @@ import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { VERIFICATION_FEE_CENTS } from '../utils/constants';
 
 const log = createLogger('payments-identity');
 
@@ -24,9 +25,6 @@ async function getStripe(): Promise<Stripe> {
   }
   return stripeInstance;
 }
-
-// Verification subscription: $14.90/month (1490 cents) - 100% goes to Smuppy
-const VERIFICATION_FEE_CENTS = 1490;
 
 // Stripe Price ID — resolved lazily by getOrCreateVerificationPrice()
 let cachedVerificationPriceId: string | null = null;

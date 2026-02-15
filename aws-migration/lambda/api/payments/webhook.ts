@@ -15,6 +15,7 @@ import { getStripeKey, getStripeWebhookSecret } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { MAX_WEBHOOK_EVENT_AGE_SECONDS } from '../utils/constants';
 import { isValidUUID } from '../utils/security';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 
@@ -35,12 +36,11 @@ async function getStripe(): Promise<Stripe> {
 let webhookSecret: string | null = null;
 
 // Event deduplication: reject replayed events
-const MAX_EVENT_AGE_SECONDS = 300; // 5 minutes
 const processedEvents = new Map<string, number>();
 
 // Cleanup old entries every 60s
 setInterval(() => {
-  const cutoff = Date.now() - MAX_EVENT_AGE_SECONDS * 2 * 1000;
+  const cutoff = Date.now() - MAX_WEBHOOK_EVENT_AGE_SECONDS * 2 * 1000;
   for (const [id, ts] of processedEvents.entries()) {
     if (ts < cutoff) processedEvents.delete(id);
   }
@@ -93,7 +93,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Replay protection: reject old or duplicate events
     const eventAge = Math.floor(Date.now() / 1000) - stripeEvent.created;
-    if (eventAge > MAX_EVENT_AGE_SECONDS) {
+    if (eventAge > MAX_WEBHOOK_EVENT_AGE_SECONDS) {
       log.warn('Rejected stale webhook event', { eventId: stripeEvent.id, ageSeconds: eventAge });
       return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'stale' }) };
     }
@@ -117,17 +117,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         processedEvents.set(stripeEvent.id, Date.now());
         return { statusCode: 200, headers, body: JSON.stringify({ received: true, skipped: 'duplicate' }) };
       }
-      // TRADE-OFF: We continue processing even if dedup fails, because blocking
-      // webhook processing on infra issues (missing table, DB outage) would cause
-      // Stripe to retry and potentially miss time-sensitive events (subscriptions,
-      // payouts). The in-memory dedup Map above provides a fast-path fallback for
-      // the same Lambda instance. This means cross-instance duplicates are possible
-      // when the table is missing — monitor and fix the table urgently.
+      // CRITICAL: If the dedup table is missing, we MUST reject the webhook and let
+      // Stripe retry once the table is created. Processing without dedup risks
+      // duplicate payments, double account upgrades/downgrades, and data corruption.
       if (errCode === '42P01') {
-        log.error('CRITICAL: processed_webhook_events table not found — DB dedup disabled, only in-memory dedup active. Create the table immediately.');
-      } else {
-        log.error('Webhook dedup insert failed', dedupErr);
+        log.error('CRITICAL: processed_webhook_events table not found — rejecting webhook. Create the table immediately.');
+        return { statusCode: 500, headers, body: JSON.stringify({ message: 'Webhook handler failed' }) };
       }
+      // For transient DB errors (connection issues, timeouts), allow in-memory dedup
+      // as fallback. Cross-instance duplicates are possible but the handlers below
+      // use idempotent operations (ON CONFLICT, status checks) to mitigate.
+      log.error('Webhook dedup insert failed (using in-memory fallback)', dedupErr);
     }
 
     // Mark in-memory after successful DB insert
@@ -608,7 +608,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
           // Downgrade account type
           const userId = subscription.metadata?.userId;
-          if (userId) {
+          if (userId && isValidUUID(userId)) {
             await client.query(
               "UPDATE profiles SET account_type = 'personal', updated_at = NOW() WHERE id = $1",
               [userId]

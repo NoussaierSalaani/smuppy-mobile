@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { headers as corsHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
+import { CACHE_TTL_TRENDING } from '../utils/constants';
 
 const log = createLogger('hashtags-trending');
 
@@ -18,7 +19,7 @@ function response(statusCode: number, body: Record<string, unknown>): APIGateway
     statusCode,
     headers: {
       ...corsHeaders,
-      'Cache-Control': statusCode === 200 ? 'public, max-age=300' : 'no-cache',
+      'Cache-Control': statusCode === 200 ? `public, max-age=${CACHE_TTL_TRENDING}` : 'no-cache',
     },
     body: JSON.stringify(body),
   };

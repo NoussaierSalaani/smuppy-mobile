@@ -111,21 +111,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // FanFeed: posts from people I follow OR people who follow me (mutual fan relationship)
       // Exclude business account posts — they belong in Xplorer, not FanFeed
       // Exclude banned/shadow_banned users and hidden posts
+      // BUG-2026-02-15: Use CTE to pre-compute connections instead of double EXISTS per post row
       query = `
-        SELECT DISTINCT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
+        WITH my_connections AS (
+          SELECT following_id AS author_id FROM follows WHERE follower_id = $1 AND status = 'accepted'
+          UNION
+          SELECT follower_id AS author_id FROM follows WHERE following_id = $1 AND status = 'accepted'
+        )
+        SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName",
                EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) as "isLiked"
         FROM posts p
+        JOIN my_connections mc ON p.author_id = mc.author_id
         JOIN profiles u ON p.author_id = u.id
-        WHERE (
-          -- Posts from people I follow
-          EXISTS(SELECT 1 FROM follows f WHERE f.following_id = p.author_id AND f.follower_id = $1 AND f.status = 'accepted')
-          OR
-          -- Posts from people who follow me
-          EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = p.author_id AND f.following_id = $1 AND f.status = 'accepted')
-        )
-        AND p.author_id != $1
+        WHERE p.author_id != $1
         AND u.account_type != 'pro_business'
         AND u.moderation_status NOT IN ('banned', 'shadow_banned')
         AND p.visibility != 'hidden'
@@ -171,6 +171,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       params = cursor ? [userId, parsedLimit + 1, new Date(parseInt(cursor))] : [userId, parsedLimit + 1];
     } else {
       // Explore/public feed: exclude banned/shadow_banned users and hidden posts
+      // BUG-2026-02-15: Limit scan window to 30 days and use simpler scoring to reduce full-table sort
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
@@ -178,8 +179,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         FROM posts p JOIN profiles u ON p.author_id = u.id
         WHERE u.moderation_status NOT IN ('banned', 'shadow_banned')
         AND p.visibility != 'hidden'
+        AND p.created_at > NOW() - INTERVAL '30 days'
         ${cursor ? 'AND p.created_at < $2' : ''}
-        ORDER BY CASE WHEN p.created_at > NOW() - INTERVAL '24 hours' THEN p.likes_count * 2 + p.comments_count ELSE p.likes_count + p.comments_count END DESC, p.created_at DESC
+        ORDER BY (p.likes_count + p.comments_count) DESC, p.created_at DESC
         LIMIT $1
       `;
       params = cursor ? [parsedLimit + 1, new Date(parseInt(cursor))] : [parsedLimit + 1];

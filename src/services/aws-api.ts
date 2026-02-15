@@ -50,6 +50,7 @@ const API3_ENDPOINTS = [
 const API3_PREFIXES = [
   '/spots',
   '/businesses/subscriptions/',
+  '/reports',
 ] as const;
 
 // Prefix-based routing to Disputes API (dedicated API Gateway)

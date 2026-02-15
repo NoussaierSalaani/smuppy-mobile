@@ -91,7 +91,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (event.httpMethod === 'GET') {
       const pathParts = event.path.split('/').filter(Boolean);
       const sessionId = pathParts[pathParts.length - 1];
-      return await checkSessionStatus(sessionId, headers);
+      return await checkSessionStatus(sessionId, user.sub, headers);
     }
 
     return {
@@ -623,7 +623,7 @@ async function createCheckoutSession(
 /**
  * Check the status of a checkout session
  */
-async function checkSessionStatus(sessionId: string, headers: Record<string, string>) {
+async function checkSessionStatus(sessionId: string, userSub: string, headers: Record<string, string>) {
   const stripe = await getStripe();
   try {
     const session = await safeStripeCall(
@@ -633,7 +633,15 @@ async function checkSessionStatus(sessionId: string, headers: Record<string, str
       'checkout.sessions.retrieve', log
     );
 
-    // SECURITY: Only return metadata to the session owner
+    // SECURITY: Verify the requesting user owns this checkout session
+    if (session.metadata?.userId && session.metadata.userId !== userSub) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Access denied' }),
+      };
+    }
+
     const sanitizedMetadata = session.metadata ? { productType: session.metadata.productType } : {};
 
     return {

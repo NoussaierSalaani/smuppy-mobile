@@ -98,8 +98,14 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await getBalance(profileId, headers);
       case 'get-payouts':
         return await getPayouts(profileId, body.limit || 10, headers);
-      case 'create-payout':
+      case 'create-payout': {
+        // Stricter rate limit for payouts — failClosed to prevent abuse during DynamoDB outage
+        const payoutCheck = await checkRateLimit({ prefix: 'wallet-payout', identifier: userId, windowSeconds: 60, maxRequests: 3, failOpen: false });
+        if (!payoutCheck.allowed) {
+          return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many payout requests. Please try again later.' }) };
+        }
         return await createPayout(profileId, headers);
+      }
       case 'get-stripe-dashboard-link':
         return await getStripeDashboardLink(profileId, headers);
       default:

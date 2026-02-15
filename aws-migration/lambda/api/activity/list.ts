@@ -70,6 +70,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Build UNION ALL query for the user's own activity
     const subqueries: string[] = [];
 
+    // BUG-2026-02-15: Add inner LIMIT to each subquery to prevent full-table materialization
+    const innerLimit = limit + 1;
+
     if (!typeFilter || typeFilter === 'post_like') {
       subqueries.push(`
         SELECT 'post_like' AS activity_type, l.created_at,
@@ -79,6 +82,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         JOIN posts p ON l.post_id = p.id
         JOIN profiles pr ON p.author_id = pr.id
         WHERE l.user_id = $1
+        ORDER BY l.created_at DESC LIMIT ${innerLimit}
       `);
     }
 
@@ -91,6 +95,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         JOIN peaks pk ON pl.peak_id = pk.id
         JOIN profiles pr ON pk.author_id = pr.id
         WHERE pl.user_id = $1
+        ORDER BY pl.created_at DESC LIMIT ${innerLimit}
       `);
     }
 
@@ -102,6 +107,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         FROM follows f
         JOIN profiles pr ON f.following_id = pr.id
         WHERE f.follower_id = $1 AND f.status = 'accepted'
+        ORDER BY f.created_at DESC LIMIT ${innerLimit}
       `);
     }
 
@@ -114,6 +120,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         JOIN posts p ON c.post_id = p.id
         JOIN profiles pr ON p.author_id = pr.id
         WHERE c.user_id = $1
+        ORDER BY c.created_at DESC LIMIT ${innerLimit}
       `);
     }
 
@@ -126,6 +133,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         JOIN peaks pk ON pc.peak_id = pk.id
         JOIN profiles pr ON pk.author_id = pr.id
         WHERE pc.user_id = $1
+        ORDER BY pc.created_at DESC LIMIT ${innerLimit}
       `);
     }
 

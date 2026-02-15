@@ -7,7 +7,9 @@ import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
+import { createHeaders } from '../utils/cors';
 import { checkRateLimit } from '../utils/rate-limit';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('payments-subscriptions');
 
@@ -20,13 +22,6 @@ async function getStripe(): Promise<Stripe> {
   return stripeInstance;
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET,DELETE',
-  'Content-Type': 'application/json',
-};
-
 interface SubscriptionBody {
   action: 'create' | 'cancel' | 'list' | 'get-prices';
   creatorId?: string;
@@ -35,8 +30,10 @@ interface SubscriptionBody {
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const headers = createHeaders(event);
+
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   try {
@@ -45,7 +42,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!userId) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
@@ -60,7 +57,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!allowed) {
       return {
         statusCode: 429,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       };
     }
@@ -74,23 +71,33 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
     switch (body.action) {
-      case 'create':
-        return await createSubscription(profileId, body.creatorId!, body.priceId!);
+      case 'create': {
+        if (!body.creatorId || !body.priceId || !isValidUUID(body.creatorId)) {
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'creatorId and priceId are required' }) };
+        }
+        return await createSubscription(profileId, body.creatorId, body.priceId);
+      }
       case 'cancel':
-        return await cancelSubscription(profileId, body.subscriptionId!);
+        if (!body.subscriptionId) {
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'subscriptionId is required' }) };
+        }
+        return await cancelSubscription(profileId, body.subscriptionId);
       case 'list':
         return await listSubscriptions(profileId);
       case 'get-prices':
-        return await getCreatorPrices(body.creatorId!);
+        if (!body.creatorId || !isValidUUID(body.creatorId)) {
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Valid creatorId is required' }) };
+        }
+        return await getCreatorPrices(body.creatorId);
       default:
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
@@ -98,7 +105,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     log.error('Subscription error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
       body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
@@ -122,7 +129,7 @@ async function createSubscription(
     if (subscriberResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
         body: JSON.stringify({ success: false, message: 'Subscriber not found' }),
       };
     }
@@ -152,7 +159,7 @@ async function createSubscription(
     if (!creatorResult.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
         body: JSON.stringify({ success: false, message: 'Creator has not set up payments' }),
       };
     }
@@ -163,10 +170,10 @@ async function createSubscription(
     try {
       const price = await stripe.prices.retrieve(priceId);
       if (!price || !price.active) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid or inactive price' }) };
+        return { statusCode: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }, body: JSON.stringify({ success: false, message: 'Invalid or inactive price' }) };
       }
     } catch {
-      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid price ID' }) };
+      return { statusCode: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }, body: JSON.stringify({ success: false, message: 'Invalid price ID' }) };
     }
 
     // Create subscription with revenue share (platform takes 15% of subscriptions)
@@ -201,7 +208,7 @@ async function createSubscription(
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
       body: JSON.stringify({
         success: true,
         subscription: {
@@ -233,7 +240,7 @@ async function cancelSubscription(
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
         body: JSON.stringify({ success: false, message: 'Subscription not found' }),
       };
     }
@@ -252,7 +259,7 @@ async function cancelSubscription(
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
       body: JSON.stringify({
         success: true,
         message: 'Subscription will be canceled at end of billing period',
@@ -282,7 +289,7 @@ async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult>
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
       body: JSON.stringify({
         success: true,
         subscriptions: result.rows.map((row: Record<string, unknown>) => ({
@@ -319,7 +326,7 @@ async function getCreatorPrices(creatorId: string): Promise<APIGatewayProxyResul
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://smuppy.com', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' },
       body: JSON.stringify({
         success: true,
         tiers: result.rows,

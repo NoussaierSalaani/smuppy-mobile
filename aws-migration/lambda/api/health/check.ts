@@ -7,8 +7,11 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
+const ALLOWED_ORIGINS = ['https://smuppy.com', 'https://www.smuppy.com', 'https://app.smuppy.com'];
+
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  const origin = event.headers?.origin || event.headers?.Origin || '*';
+  const requestOrigin = event.headers?.origin || event.headers?.Origin || '';
+  const origin = ALLOWED_ORIGINS.includes(requestOrigin) ? requestOrigin : ALLOWED_ORIGINS[0];
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -16,6 +19,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Request-Id',
     'Access-Control-Allow-Methods': 'GET,OPTIONS',
     'Cache-Control': 'no-store',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'X-Content-Type-Options': 'nosniff',
   };
 
   return {

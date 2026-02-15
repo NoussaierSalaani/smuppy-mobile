@@ -9,6 +9,7 @@ import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { checkRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
+import { createHeaders } from '../utils/cors';
 
 const log = createLogger('payments-platform-subscription');
 
@@ -21,11 +22,14 @@ async function getStripe(): Promise<Stripe> {
   return stripeInstance;
 }
 
-const corsHeaders = {
+// Fallback headers for inner functions that don't receive the event
+const fallbackCorsHeaders = {
   'Access-Control-Allow-Origin': 'https://smuppy.com',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
   'Content-Type': 'application/json',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-Content-Type-Options': 'nosniff',
 };
 
 // Platform subscription prices (in cents)
@@ -40,8 +44,10 @@ interface SubscriptionBody {
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const headers = createHeaders(event);
+
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   try {
@@ -50,7 +56,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!userId) {
       return {
         statusCode: 401,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
     }
@@ -60,7 +66,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!rateCheck.allowed) {
       return {
         statusCode: 429,
-        headers: corsHeaders,
+        headers: fallbackCorsHeaders,
         body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
       };
     }
@@ -74,14 +80,14 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
     if (profileLookup.rows.length === 0) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+      return { statusCode: 404, headers: fallbackCorsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
     const profileId = profileLookup.rows[0].id as string;
 
     switch (body.action) {
       case 'subscribe':
         if (!body.planType || !['pro_creator', 'pro_business'].includes(body.planType)) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid plan type' }) };
+          return { statusCode: 400, headers: fallbackCorsHeaders, body: JSON.stringify({ success: false, message: 'Invalid plan type' }) };
         }
         return await createPlatformSubscription(profileId, body.planType);
       case 'cancel':
@@ -93,7 +99,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       default:
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers: fallbackCorsHeaders,
           body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
@@ -101,7 +107,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     log.error('Platform subscription error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: fallbackCorsHeaders,
       body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
@@ -124,7 +130,7 @@ async function createPlatformSubscription(
     if (userResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: fallbackCorsHeaders,
         body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
@@ -135,7 +141,7 @@ async function createPlatformSubscription(
     if (account_type === 'pro_creator' || account_type === 'pro_business') {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: fallbackCorsHeaders,
         body: JSON.stringify({ success: false, message: 'Already subscribed to a Pro plan' }),
       };
     }
@@ -187,7 +193,7 @@ async function createPlatformSubscription(
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: fallbackCorsHeaders,
       body: JSON.stringify({
         success: true,
         checkoutUrl: session.url,
@@ -262,7 +268,7 @@ async function cancelPlatformSubscription(userId: string): Promise<APIGatewayPro
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: fallbackCorsHeaders,
         body: JSON.stringify({ success: false, message: 'No active subscription found' }),
       };
     }
@@ -283,7 +289,7 @@ async function cancelPlatformSubscription(userId: string): Promise<APIGatewayPro
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: fallbackCorsHeaders,
       body: JSON.stringify({
         success: true,
         message: 'Subscription will be canceled at end of billing period',
@@ -310,7 +316,7 @@ async function getSubscriptionStatus(userId: string): Promise<APIGatewayProxyRes
     if (result.rows.length === 0) {
       return {
         statusCode: 200,
-        headers: corsHeaders,
+        headers: fallbackCorsHeaders,
         body: JSON.stringify({
           success: true,
           hasSubscription: false,
@@ -323,7 +329,7 @@ async function getSubscriptionStatus(userId: string): Promise<APIGatewayProxyRes
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: fallbackCorsHeaders,
       body: JSON.stringify({
         success: true,
         hasSubscription: true,
@@ -355,7 +361,7 @@ async function getCustomerPortalLink(userId: string): Promise<APIGatewayProxyRes
     if (!result.rows[0]?.stripe_customer_id) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: fallbackCorsHeaders,
         body: JSON.stringify({ success: false, message: 'No Stripe customer found' }),
       };
     }
@@ -367,7 +373,7 @@ async function getCustomerPortalLink(userId: string): Promise<APIGatewayProxyRes
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: fallbackCorsHeaders,
       body: JSON.stringify({
         success: true,
         url: session.url,

@@ -17,6 +17,7 @@ import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { checkRateLimit } from '../../api/utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../../api/utils/account-status';
+import { isValidUUID } from '../../api/utils/security';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
@@ -112,6 +113,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           success: false,
           message: 'sessionId, type, and description are required',
         }),
+      };
+    }
+
+    if (!isValidUUID(sessionId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Invalid sessionId format' }),
+      };
+    }
+
+    const VALID_DISPUTE_TYPES = ['no_show', 'incomplete', 'quality', 'technical', 'other'];
+    if (!VALID_DISPUTE_TYPES.includes(type)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Invalid dispute type' }),
       };
     }
 

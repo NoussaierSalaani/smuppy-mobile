@@ -15,6 +15,7 @@ import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
 import { checkRateLimit } from '../utils/rate-limit';
+import { isValidUUID } from '../utils/security';
 
 const log = createLogger('payments/refunds');
 
@@ -83,6 +84,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // GET /payments/refunds/{refundId} - Get refund details
     if (event.httpMethod === 'GET' && refundId) {
+      if (!isValidUUID(refundId)) {
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid refund ID format' }) };
+      }
       return await getRefund(db, user, refundId, headers);
     }
 
@@ -313,6 +317,14 @@ async function createRefund(
         success: false,
         message: 'paymentId and reason are required',
       }),
+    };
+  }
+
+  if (!isValidUUID(paymentId)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Invalid paymentId format' }),
     };
   }
 

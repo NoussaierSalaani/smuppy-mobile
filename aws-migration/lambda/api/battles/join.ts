@@ -9,11 +9,17 @@ import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
+import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
 const log = createLogger('battles-join');
 
-const AGORA_APP_ID = process.env.AGORA_APP_ID!;
-const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE!;
+const AGORA_APP_ID = process.env.AGORA_APP_ID ?? '';
+const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE ?? '';
+
+if (!AGORA_APP_ID || !AGORA_APP_CERTIFICATE) {
+  log.error('Missing AGORA_APP_ID or AGORA_APP_CERTIFICATE environment variables');
+}
 
 interface JoinBattleRequest {
   action: 'accept' | 'decline' | 'start' | 'leave';
@@ -32,6 +38,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         statusCode: 401,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       });
+    }
+
+    // Rate limit: 20 battle actions per minute
+    const { allowed } = await checkRateLimit({ prefix: 'battle-join', identifier: userId, windowSeconds: 60, maxRequests: 20 });
+    if (!allowed) {
+      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
+    }
+
+    // Account status check (suspended/banned users cannot join battles)
+    const accountCheck = await requireActiveAccount(userId, {});
+    if (isAccountError(accountCheck)) {
+      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
     }
 
     const battleId = event.pathParameters?.battleId;
@@ -86,7 +104,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       `SELECT id, status
        FROM battle_participants
        WHERE battle_id = $1 AND user_id = $2`,
-      [battleId, userId]
+      [battleId, profileId]
     );
 
     if (participantResult.rows.length === 0) {
@@ -208,7 +226,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         );
 
         // If host starts, update battle status to live
-        if (battle.host_id === userId && battle.status !== 'live') {
+        if (battle.host_id === profileId && battle.status !== 'live') {
           await client.query(
             `UPDATE live_battles
              SET status = 'live', started_at = NOW()

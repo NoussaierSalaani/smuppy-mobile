@@ -4,7 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, SqlParam } from '../../shared/db';
+import { getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
@@ -24,7 +24,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const authorIdParam = event.queryStringParameters?.authorId || event.queryStringParameters?.author_id;
     const usernameParam = event.queryStringParameters?.username;
 
-    const db = await getPool();
+    const db = await getReaderPool();
 
     // Get current user's profile ID if authenticated (check both id and cognito_sub for consistency)
     let currentProfileId: string | null = null;
@@ -125,7 +125,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       `;
       // Exclude peaks the user has hidden ("not interested")
       if (currentProfileId) {
-        query += ` AND pk.id NOT IN (SELECT peak_id FROM peak_hidden WHERE user_id = $1)`;
+        query += ` AND NOT EXISTS (SELECT 1 FROM peak_hidden ph WHERE ph.peak_id = pk.id AND ph.user_id = $1)`;
       }
     } else {
       query += ` AND (pk.saved_to_profile IS DISTINCT FROM false)`;

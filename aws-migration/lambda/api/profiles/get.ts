@@ -184,7 +184,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         isPrivate,
         accountType: profile.account_type || 'personal',
         gender: profile.gender,
-        dateOfBirth: profile.date_of_birth,
+        dateOfBirth: isOwner ? profile.date_of_birth : undefined,
         interests: profile.interests,
         expertise: profile.expertise,
         socialLinks: profile.social_links,

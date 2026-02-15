@@ -76,6 +76,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       invitedUserIds,
     } = body;
 
+    // Validate battleType at runtime (TypeScript types are erased)
+    const VALID_BATTLE_TYPES = ['tips', 'votes', 'challenge'] as const;
+    if (!VALID_BATTLE_TYPES.includes(battleType as typeof VALID_BATTLE_TYPES[number])) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'Invalid battle type' }),
+      });
+    }
+
+    // Validate bounds
+    if (maxParticipants < 2 || maxParticipants > 10) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'maxParticipants must be between 2 and 10' }),
+      });
+    }
+    if (durationMinutes < 1 || durationMinutes > 120) {
+      return cors({
+        statusCode: 400,
+        body: JSON.stringify({ success: false, message: 'durationMinutes must be between 1 and 120' }),
+      });
+    }
+
     // Sanitize text fields
     const sanitizedTitle = title ? sanitizeInput(title, 200) : undefined;
     const sanitizedDescription = description ? sanitizeInput(description, 2000) : undefined;

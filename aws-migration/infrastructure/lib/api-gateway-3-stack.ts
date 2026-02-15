@@ -6,12 +6,14 @@ import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as path from 'path';
+import { LambdaStack } from './lambda-stack';
 import { LambdaStack2 } from './lambda-stack-2';
 import { LambdaStackDisputes } from './lambda-stack-disputes';
 
 
 export interface ApiGateway3StackProps extends cdk.NestedStackProps {
   userPool: cognito.IUserPool;
+  lambdaStack: LambdaStack;
   lambdaStack2: LambdaStack2;
   lambdaStackDisputes: LambdaStackDisputes;
   environment: string;
@@ -28,7 +30,7 @@ export class ApiGateway3Stack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiGateway3StackProps) {
     super(scope, id, props);
 
-    const { userPool, lambdaStack2, lambdaStackDisputes, environment, isProduction } = props;
+    const { userPool, lambdaStack, lambdaStack2, lambdaStackDisputes, environment, isProduction } = props;
 
     // ========================================
     // API Gateway - REST API
@@ -152,6 +154,28 @@ export class ApiGateway3Stack extends cdk.NestedStack {
 
     const spotReviewById = spotReviews.addResource('{reviewId}');
     spotReviewById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStackDisputes.spotsReviewsDeleteFn), authMethodOptions);
+
+    // ========================================
+    // Reports Endpoints (moved from ApiGatewayStack — CloudFormation 500 resource limit)
+    // ========================================
+    const reports = this.api.root.addResource('reports');
+    const reportPost = reports.addResource('post');
+    reportPost.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsPostFn), authWithBodyValidation);
+
+    const reportPeak = reports.addResource('peak');
+    reportPeak.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.reportsPeakFn), authWithBodyValidation);
+
+    const reportComment = reports.addResource('comment');
+    reportComment.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsCommentFn), authWithBodyValidation);
+
+    const reportLivestream = reports.addResource('livestream');
+    reportLivestream.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsLivestreamFn), authWithBodyValidation);
+
+    const reportMessage = reports.addResource('message');
+    reportMessage.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsMessageFn), authWithBodyValidation);
+
+    const reportUser = reports.addResource('user');
+    reportUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsUserFn), authWithBodyValidation);
 
     // ========================================
     // Health Check (public — no auth, no VPC)

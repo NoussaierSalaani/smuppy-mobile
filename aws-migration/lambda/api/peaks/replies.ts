@@ -157,6 +157,41 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return createCorsResponse(400, { success: false, message: 'Video URL is required' });
       }
 
+      // SECURITY: Validate video URL is HTTPS and from allowed CDN domains
+      try {
+        const parsedUrl = new URL(videoUrl);
+        if (parsedUrl.protocol !== 'https:') {
+          return createCorsResponse(400, { success: false, message: 'Video URL must use HTTPS' });
+        }
+        const allowedDomains = ['.s3.amazonaws.com', '.s3.us-east-1.amazonaws.com', '.cloudfront.net'];
+        if (!allowedDomains.some(d => parsedUrl.hostname.endsWith(d))) {
+          return createCorsResponse(400, { success: false, message: 'Video URL must be from an allowed CDN domain' });
+        }
+      } catch {
+        return createCorsResponse(400, { success: false, message: 'Invalid video URL format' });
+      }
+
+      // SECURITY: Validate thumbnailUrl if provided
+      if (thumbnailUrl) {
+        try {
+          const parsedThumb = new URL(thumbnailUrl);
+          if (parsedThumb.protocol !== 'https:') {
+            return createCorsResponse(400, { success: false, message: 'Thumbnail URL must use HTTPS' });
+          }
+          const allowedDomains = ['.s3.amazonaws.com', '.s3.us-east-1.amazonaws.com', '.cloudfront.net'];
+          if (!allowedDomains.some(d => parsedThumb.hostname.endsWith(d))) {
+            return createCorsResponse(400, { success: false, message: 'Thumbnail URL must be from an allowed CDN domain' });
+          }
+        } catch {
+          return createCorsResponse(400, { success: false, message: 'Invalid thumbnail URL format' });
+        }
+      }
+
+      // SECURITY: Sanitize caption (strip HTML + control chars)
+      const sanitizedCaption = caption
+        ? caption.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 500)
+        : null;
+
       if (!duration || typeof duration !== 'number' || duration <= 0) {
         return createCorsResponse(400, { success: false, message: 'Valid duration is required' });
       }
@@ -179,7 +214,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
           RETURNING id, created_at`,
-          [profileId, videoUrl, thumbnailUrl || null, caption || null, duration, peakId, replyVisibility]
+          [profileId, videoUrl, thumbnailUrl || null, sanitizedCaption, duration, peakId, replyVisibility]
         );
 
         newReply = result.rows[0];

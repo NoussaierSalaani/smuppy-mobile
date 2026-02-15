@@ -54,6 +54,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // SECURITY: Validate UUID format
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_REGEX.test(followingId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid ID format' }),
+      };
+    }
+
     const db = await getPool();
 
     // Resolve the follower's profile ID from cognito_sub

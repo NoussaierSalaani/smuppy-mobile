@@ -1,13 +1,19 @@
 /**
  * Authentication utilities for Lambda handlers
+ *
+ * IMPORTANT: `getUserFromEvent()` returns `cognito_sub` as both `id` and `sub`.
+ * When querying the `profiles` table, always use `WHERE cognito_sub = $1` (not `WHERE id = $1`)
+ * since `profiles.id` is a separate UUID. Use `resolveProfileId()` to get the DB profile ID.
  */
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { headers as corsHeaders } from './cors';
+import { getSecureHeaders } from './cors';
 
-export { corsHeaders };
+/** @deprecated Use createHeaders(event) from cors.ts instead */
+export const corsHeaders = getSecureHeaders();
 
 interface AuthUser {
+  /** Cognito sub (NOT profile.id — use resolveProfileId() for DB queries on profiles.id) */
   id: string;
   sub: string;
   email?: string;
@@ -17,6 +23,9 @@ interface AuthUser {
 /**
  * Extract authenticated user from API Gateway event
  * Works with Cognito authorizer
+ *
+ * WARNING: `user.id` is the Cognito `sub`, NOT `profiles.id`.
+ * To query by `profiles.id`, use: `SELECT id FROM profiles WHERE cognito_sub = $1`
  */
 export function getUserFromEvent(event: APIGatewayProxyEvent): AuthUser | null {
   const claims = event.requestContext.authorizer?.claims;

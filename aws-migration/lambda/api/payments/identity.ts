@@ -13,6 +13,7 @@ import { getStripeKey, getStripePublishableKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 import { VERIFICATION_FEE_CENTS } from '../utils/constants';
 
 const log = createLogger('payments-identity');
@@ -113,6 +114,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
+    }
+
+    // Rate limit: 10 identity actions per minute
+    const { allowed } = await checkRateLimit({ prefix: 'payment-identity', identifier: userId, windowSeconds: 60, maxRequests: 10 });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
     }
 
     const body: IdentityBody = JSON.parse(event.body || '{}');

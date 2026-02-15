@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserStore } from '../../stores/userStore';
@@ -228,9 +230,12 @@ const UserProfileScreen = () => {
   // Grade system — decorative frame for 1M+ fans
   const gradeInfo = useMemo(() => getGrade(profile.fanCount), [profile.fanCount]);
 
-  // User's posts
+  // User's posts (with cursor-based pagination)
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const postsNextCursorRef = useRef<string | null>(null);
 
   // Separate posts and peaks, filtering out deleted items
   const deletedPostIds = useFeedStore((s) => s.deletedPostIds);
@@ -356,17 +361,34 @@ const UserProfileScreen = () => {
   // button flash when navigating to a profile you already follow.
   const effectiveIsFan = profileData?.is_following ?? isFan;
 
-  // Load user's posts
+  // Load user's posts (initial load)
+  const POST_PAGE_SIZE = 50;
   const loadUserPosts = useCallback(async () => {
     if (!userId) return;
 
     setIsLoadingPosts(true);
-    const { data, error } = await getPostsByUser(userId, 0, 50);
+    const { data, error, nextCursor, hasMore } = await getPostsByUser(userId, 0, POST_PAGE_SIZE);
     if (!error && data) {
       setUserPosts(data);
+      postsNextCursorRef.current = nextCursor ?? null;
+      setHasMorePosts(hasMore ?? data.length >= POST_PAGE_SIZE);
     }
     setIsLoadingPosts(false);
   }, [userId]);
+
+  // Load more posts (pagination)
+  const loadMorePosts = useCallback(async () => {
+    if (!userId || isLoadingMorePosts || !hasMorePosts || !postsNextCursorRef.current) return;
+
+    setIsLoadingMorePosts(true);
+    const { data, error, nextCursor, hasMore } = await getPostsByUser(userId, 0, POST_PAGE_SIZE, postsNextCursorRef.current);
+    if (!error && data) {
+      setUserPosts(prev => [...prev, ...data]);
+      postsNextCursorRef.current = nextCursor ?? null;
+      setHasMorePosts(hasMore ?? data.length >= POST_PAGE_SIZE);
+    }
+    setIsLoadingMorePosts(false);
+  }, [userId, isLoadingMorePosts, hasMorePosts]);
 
   useEffect(() => {
     loadUserPosts();
@@ -382,8 +404,12 @@ const UserProfileScreen = () => {
         return; // Skip first focus — initial load handled by useEffect above
       }
       if (!userId) return;
-      getPostsByUser(userId, 0, 50).then(({ data, error }) => {
-        if (!error && data) setUserPosts(data);
+      getPostsByUser(userId, 0, POST_PAGE_SIZE).then(({ data, error, nextCursor, hasMore }) => {
+        if (!error && data) {
+          setUserPosts(data);
+          postsNextCursorRef.current = nextCursor ?? null;
+          setHasMorePosts(hasMore ?? data.length >= POST_PAGE_SIZE);
+        }
       }).catch(() => { /* silent refetch failure — stale data remains */ });
     }, [userId])
   );
@@ -397,6 +423,15 @@ const UserProfileScreen = () => {
     ]);
     setRefreshing(false);
   }, [loadUserPosts, loadBusinessSchedule, profile.accountType]);
+
+  // Infinite scroll — load more posts when near bottom
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    if (distanceFromBottom < 400 && hasMorePosts && !isLoadingMorePosts) {
+      loadMorePosts();
+    }
+  }, [hasMorePosts, isLoadingMorePosts, loadMorePosts]);
 
   // Share profile — opens in-app send modal
   const handleShareProfile = useCallback(() => {
@@ -1426,6 +1461,8 @@ const UserProfileScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
         stickyHeaderIndices={[1]}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
       >
         {/* Scrollable Header */}
         {renderHeader()}
@@ -1435,6 +1472,11 @@ const UserProfileScreen = () => {
 
         {/* Tab Content */}
         {renderTabContent()}
+        {isLoadingMorePosts && (
+          <View style={styles.loadMoreContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
@@ -1635,6 +1677,10 @@ const UserProfileScreen = () => {
 };
 
 const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
+  loadMoreContainer: {
+    paddingVertical: 16,
+    alignItems: 'center' as const,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

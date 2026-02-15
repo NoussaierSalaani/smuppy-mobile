@@ -27,8 +27,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  if (!cognitoSub) {
     return {
       statusCode: 401,
       headers: corsHeaders,
@@ -39,11 +39,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const pool = await getPool();
 
-    // Verify user is a pro_creator
-    const userResult = await pool.query(
-      `SELECT account_type FROM profiles WHERE id = $1`,
-      [userId]
+    // Resolve cognito_sub → profile ID (SECURITY: cognito_sub != profiles.id)
+    const profileLookup = await pool.query(
+      'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
+      [cognitoSub]
     );
+    if (profileLookup.rows.length === 0) {
+      return {
+        statusCode: 404,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: 'Profile not found' }),
+      };
+    }
+    const userId = profileLookup.rows[0].id;
+
+    // Verify user is a pro_creator
+    const userResult = { rows: [profileLookup.rows[0]] };
 
     if (userResult.rows.length === 0 || userResult.rows[0].account_type !== 'pro_creator') {
       return {

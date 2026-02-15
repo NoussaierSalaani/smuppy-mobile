@@ -55,6 +55,18 @@ export const getMediaUrl = (post: Post, fallback: string | null = null): string 
 };
 
 /**
+ * Format duration in seconds to MM:SS display string
+ */
+export const formatDuration = (seconds: number | string | undefined): string | undefined => {
+  if (seconds === undefined || seconds === null) return undefined;
+  const s = typeof seconds === 'string' ? parseInt(seconds, 10) : seconds;
+  if (isNaN(s) || s <= 0) return undefined;
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+/**
  * Get content text from a post
  * Supports both 'content' (new) and 'caption' (legacy) fields
  */
@@ -150,6 +162,7 @@ export const transformToFanPost = (
     media: getMediaUrl(post, null),
     allMedia: allMedia.length > 0 ? allMedia : undefined,
     slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
+    duration: formatDuration(post.peak_duration),
     user: {
       id: post.author?.id || post.author_id,
       name: resolveDisplayName(post.author),
@@ -201,7 +214,7 @@ export const transformToVibePost = (
     likes: post.likes_count || 0,
     isLiked: likedPostIds.has(post.id),
     isSaved: savedPostIds?.has(post.id) ?? false,
-    category: post.tags?.[0] || 'Fitness',
+    category: post.tags?.[0] || '',
     tags: post.tags || [],
     taggedUsers: normalizeTaggedUsers(post.tagged_users),
   };

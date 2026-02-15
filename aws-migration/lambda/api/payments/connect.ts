@@ -7,7 +7,9 @@ import Stripe from 'stripe';
 import { getStripeKey } from '../../shared/secrets';
 import { getPool } from '../../shared/db';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('payments/connect');
 
@@ -20,12 +22,8 @@ async function getStripe(): Promise<Stripe> {
   return stripeInstance;
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-  'Content-Type': 'application/json',
-};
+// SECURITY: Allowed URL patterns for Stripe redirects
+const ALLOWED_URL_PATTERN = /^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/;
 
 interface ConnectBody {
   action: 'create-account' | 'create-link' | 'get-status' | 'get-dashboard-link' | 'get-balance' | 'admin-set-account';
@@ -36,6 +34,8 @@ interface ConnectBody {
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const corsHeaders = createHeaders(event);
+
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
@@ -49,6 +49,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers: corsHeaders,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
       };
+    }
+
+    // Rate limit: 10 connect actions per minute
+    const { allowed } = await checkRateLimit({ prefix: 'payment-connect', identifier: userId, windowSeconds: 60, maxRequests: 10 });
+    if (!allowed) {
+      return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
     }
 
     const body: ConnectBody = JSON.parse(event.body || '{}');
@@ -68,7 +74,14 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       case 'create-account':
         return await createConnectAccount(profileId);
       case 'create-link':
-        return await createAccountLink(profileId, body.returnUrl!, body.refreshUrl!);
+        // SECURITY: Validate returnUrl and refreshUrl against allowlist
+        if (!body.returnUrl || !ALLOWED_URL_PATTERN.test(body.returnUrl)) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid return URL' }) };
+        }
+        if (!body.refreshUrl || !ALLOWED_URL_PATTERN.test(body.refreshUrl)) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid refresh URL' }) };
+        }
+        return await createAccountLink(profileId, body.returnUrl, body.refreshUrl);
       case 'get-status':
         return await getAccountStatus(profileId);
       case 'get-dashboard-link':

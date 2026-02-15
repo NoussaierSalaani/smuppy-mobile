@@ -500,6 +500,21 @@ class AWSAuthService {
     }
 
     await this.clearSession();
+
+    // Clear all cached feed/post state to prevent cross-account data leaks
+    try {
+      const { useFeedStore } = require('../stores/feedStore');
+      useFeedStore.getState().clearFeed();
+    } catch {
+      // Store may not be initialized yet
+    }
+    try {
+      const { clearVibesFeedCache } = require('../screens/home/VibesFeed');
+      clearVibesFeedCache();
+    } catch {
+      // Module may not be loaded yet
+    }
+
     this.notifyAuthStateChange(null);
   }
 

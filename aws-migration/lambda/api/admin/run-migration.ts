@@ -703,9 +703,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ message: 'SQL query required' }),
         };
       }
-      // SECURITY: Block destructive keywords (defense-in-depth)
+      // SECURITY: Block destructive and DML keywords (defense-in-depth)
       const normalizedDdl = sql.toUpperCase().replace(/\s+/g, ' ').trim();
-      const blockedDdl = ['DROP', 'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE'];
+      const blockedDdl = ['DROP', 'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE', 'INSERT', 'UPDATE', 'COPY', 'SELECT INTO'];
       if (blockedDdl.some(kw => normalizedDdl.includes(kw))) {
         return { statusCode: 400, headers, body: JSON.stringify({ message: `Blocked: DDL contains restricted keyword` }) };
       }
@@ -748,8 +748,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ message: 'Only SELECT queries are allowed via run-sql' }),
         };
       }
-      // Block dangerous keywords even in SELECT
-      const blocked = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'INTO', 'COPY', 'SET', 'DO', 'EXECUTE'];
+      // Block dangerous keywords even in SELECT (including system catalog/function access)
+      const blocked = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'INTO', 'COPY', 'SET', 'DO', 'EXECUTE',
+        'PG_READ_FILE', 'PG_WRITE_FILE', 'PG_SHADOW', 'PG_AUTHID', 'PG_ROLES', 'PG_USER', 'CURRENT_SETTING', 'PG_SLEEP', 'PG_STAT_ACTIVITY',
+        'PG_CATALOG', 'INFORMATION_SCHEMA', 'PG_TERMINATE_BACKEND', 'PG_CANCEL_BACKEND', 'LO_IMPORT', 'LO_EXPORT'];
       if (blocked.some(kw => normalizedSql.includes(kw))) {
         return {
           statusCode: 400,

@@ -327,7 +327,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
-    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+    // SECURITY: Idempotency key prevents duplicate PaymentIntents from double-clicks/retries
+    const idempotencyKey = `tip_${profileId}_${receiverId}_${amountInCents}_${tipId}`;
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams, { idempotencyKey });
 
     // Update tip with payment intent
     await client.query(

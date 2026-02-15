@@ -114,8 +114,7 @@ export function createHeaders(event?: { headers?: Record<string, string | undefi
   const origin = event?.headers?.origin || event?.headers?.Origin;
   const requestId = event?.headers?.['x-request-id'] || event?.headers?.['X-Request-Id'];
   const responseHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...getCorsHeaders(origin),
+    ...getSecureHeaders(origin),
   };
   if (requestId) {
     responseHeaders['X-Request-Id'] = requestId;

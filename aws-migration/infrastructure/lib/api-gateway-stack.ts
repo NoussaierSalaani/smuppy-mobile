@@ -171,13 +171,8 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const profileMeDelete = profileMe.addResource('delete');
     profileMeDelete.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesDeleteFn), authMethodOptions);
 
-    // GDPR Article 15 — data export
-    const profileExportData = profiles.addResource('export-data');
-    profileExportData.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesExportDataFn), authMethodOptions);
-
-    // GDPR — consent tracking
-    const profileConsent = profiles.addResource('consent');
-    profileConsent.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesConsentFn), authMethodOptions);
+    // NOTE: GDPR endpoints (export-data, consent) are in api-gateway-2-stack.ts
+    // to stay under CloudFormation's 500 resource limit
 
     const profilesCreationLimits = profiles.addResource('creation-limits');
     profilesCreationLimits.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesCreationLimitsFn), authMethodOptions);
@@ -323,27 +318,7 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const messageById = messages.addResource('{id}');
     messageById.addMethod('DELETE', new apigateway.LambdaIntegration(lambdaStack.messagesDeleteFn), authMethodOptions);
 
-    // ========================================
-    // Reports Endpoints
-    // ========================================
-    const reports = this.api.root.addResource('reports');
-    const reportPost = reports.addResource('post');
-    reportPost.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsPostFn), authWithBodyValidation);
-
-    const reportPeak = reports.addResource('peak');
-    reportPeak.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.reportsPeakFn), authWithBodyValidation);
-
-    const reportComment = reports.addResource('comment');
-    reportComment.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsCommentFn), authWithBodyValidation);
-
-    const reportLivestream = reports.addResource('livestream');
-    reportLivestream.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsLivestreamFn), authWithBodyValidation);
-
-    const reportMessage = reports.addResource('message');
-    reportMessage.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsMessageFn), authWithBodyValidation);
-
-    const reportUser = reports.addResource('user');
-    reportUser.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.reportsUserFn), authWithBodyValidation);
+    // Reports Endpoints → moved to ApiGateway3Stack (CloudFormation 500 resource limit)
 
     // ========================================
     // Auth Endpoints (no Cognito auth)

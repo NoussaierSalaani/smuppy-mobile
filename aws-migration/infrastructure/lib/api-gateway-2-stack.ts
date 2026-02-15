@@ -408,6 +408,19 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     activity.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack2.activityListFn), authMethodOptions);
 
     // ========================================
+    // GDPR Endpoints (moved from ApiGatewayStack — resource limit)
+    // ========================================
+    const profiles = this.api.root.addResource('profiles');
+
+    // GDPR Article 15 — data export
+    const profileExportData = profiles.addResource('export-data');
+    profileExportData.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.profilesExportDataFn), authMethodOptions);
+
+    // GDPR — consent tracking
+    const profileConsent = profiles.addResource('consent');
+    profileConsent.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.profilesConsentFn), authMethodOptions);
+
+    // ========================================
     // WAF for Secondary API
     // ========================================
     const webAcl = new wafv2.CfnWebACL(this, 'SmuppyWAF2', {

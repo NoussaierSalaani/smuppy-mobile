@@ -1103,6 +1103,7 @@ export class SmuppyStack extends cdk.Stack {
     // ========================================
     const apiGateway3Stack = new ApiGateway3Stack(this, 'ApiGateway3Stack', {
       userPool,
+      lambdaStack,
       lambdaStack2,
       lambdaStackDisputes,
       environment,

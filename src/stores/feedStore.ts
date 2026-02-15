@@ -30,6 +30,7 @@ export interface FeedState {
   setPeakLikeOverride: (peakId: string, liked: boolean) => void;
   clearOptimisticLikes: (postIds: string[]) => void;
   clearOptimisticPeakLikes: (peakIds: string[]) => void;
+  cleanOrphanedOptimistic: () => void;
   clearFeed: () => void;
   isCacheStale: () => boolean;
 }
@@ -137,6 +138,18 @@ export const useFeedStore = create<FeedState>()(
         state.deletedPeakIds = {};
       }),
 
+    // Clean orphaned optimistic likes not present in feed cache
+    cleanOrphanedOptimistic: () =>
+      set((state) => {
+        const cacheIds = new Set(state.feedCache.map((p) => p.id));
+        for (const id of Object.keys(state.optimisticLikes)) {
+          if (!cacheIds.has(id)) delete state.optimisticLikes[id];
+        }
+        for (const id of Object.keys(state.optimisticPeakLikes)) {
+          if (!cacheIds.has(id)) delete state.optimisticPeakLikes[id];
+        }
+      }),
+
     // Check if cache is stale (older than 5 minutes)
     isCacheStale: () => {
       const { lastFetchTime } = get();
@@ -145,3 +158,13 @@ export const useFeedStore = create<FeedState>()(
     },
   }))
 );
+
+// ============================================================================
+// ATOMIC SELECTORS — use these to avoid unnecessary re-renders
+// ============================================================================
+
+export const selectFeedCache = (state: FeedState) => state.feedCache;
+export const selectOptimisticLikes = (state: FeedState) => state.optimisticLikes;
+export const selectOptimisticPeakLikes = (state: FeedState) => state.optimisticPeakLikes;
+export const selectDeletedPostIds = (state: FeedState) => state.deletedPostIds;
+export const selectDeletedPeakIds = (state: FeedState) => state.deletedPeakIds;

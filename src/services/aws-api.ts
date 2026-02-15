@@ -342,6 +342,8 @@ interface BusinessTagData {
 
 class AWSAPIService {
   private defaultTimeout = 30000;
+  // Prevent concurrent signOut calls from racing (double 401 scenario)
+  private signingOut = false;
 
   /**
    * Make authenticated API request
@@ -358,7 +360,17 @@ class AWSAPIService {
         lastError = error as Error;
         const apiErr = error as { statusCode?: number; status?: number; data?: { retryAfter?: number } };
         const status = apiErr.statusCode || apiErr.status;
-        const isRetryable = status ? RETRYABLE_STATUSES.includes(status) : false;
+        // Retry on retryable HTTP statuses OR transient network errors (no status)
+        const isNetworkError = !status && error instanceof Error && (
+          error.message.includes('Network') ||
+          error.message.includes('network') ||
+          error.message.includes('fetch') ||
+          error.message.includes('ECONNREFUSED') ||
+          error.message.includes('timeout') ||
+          error.name === 'TypeError' ||
+          error.name === 'AbortError'
+        );
+        const isRetryable = isNetworkError || (status ? RETRYABLE_STATUSES.includes(status) : false);
 
         if (!isRetryable || attempt === MAX_RETRIES) {
           if (attempt > 0 && error instanceof Error) {
@@ -442,8 +454,11 @@ class AWSAPIService {
       if (response.status === 401 && authenticated) {
         // Token may have expired between getIdToken() and server receipt.
         // getIdToken() auto-refreshes, so calling it again forces a new token.
+        const oldToken = requestHeaders['Authorization']?.startsWith('Bearer ')
+          ? requestHeaders['Authorization'].slice(7)
+          : requestHeaders['Authorization'];
         const newToken = await awsAuth.getIdToken();
-        if (newToken && newToken !== requestHeaders['Authorization']?.replace('Bearer ', '')) {
+        if (newToken && newToken !== oldToken) {
           requestHeaders['Authorization'] = `Bearer ${newToken}`;
           const retryController = new AbortController();
           const retryTimeoutId = setTimeout(() => retryController.abort(), timeout);
@@ -456,10 +471,11 @@ class AWSAPIService {
             });
             clearTimeout(retryTimeoutId);
             if (!retryResponse.ok) {
-              // Double 401 = session is truly dead. Force sign out.
-              if (retryResponse.status === 401) {
+              // Double 401 = session is truly dead. Force sign out (deduplicated).
+              if (retryResponse.status === 401 && !this.signingOut) {
+                this.signingOut = true;
                 if (__DEV__) console.warn('[AWS API] Double 401 — forcing sign out');
-                awsAuth.signOut().catch(() => {});
+                awsAuth.signOut().catch(() => {}).finally(() => { this.signingOut = false; });
               }
               const retryError = await retryResponse.json().catch(() => ({}));
               throw new APIError(

@@ -142,7 +142,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
     if (err.message?.includes('429') || err.status === 429) {
       return { success: false, error: 'Too many attempts. Please wait a few minutes and try again.' };
     }
-    if (__DEV__) console.warn('[AppleAuth] Error:', error);
+    if (__DEV__) console.warn('[AppleAuth] Error:', err.code || 'unknown');
     return { success: false, error: 'Apple Sign-In failed. Please try again.' };
   }
 };
@@ -205,7 +205,10 @@ export const handleGoogleSignIn = async (
       },
     };
   } catch (error: unknown) {
-    if (__DEV__) console.warn('[GoogleAuth] Error:', error);
+    if (__DEV__) {
+      const errCode = error instanceof Error ? error.message.slice(0, 50) : 'unknown';
+      console.warn('[GoogleAuth] Error:', errCode);
+    }
     return { success: false, error: 'Google Sign-In failed. Please try again.' };
   }
 };

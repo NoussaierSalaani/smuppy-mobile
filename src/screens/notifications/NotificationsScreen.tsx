@@ -476,11 +476,15 @@ export default function NotificationsScreen(): React.JSX.Element {
     let mounted = true;
     const loadInitial = async () => {
       if (mounted) setLoading(true);
-      await fetchNotifications(true);
-      if (mounted) setLoading(false);
+      try {
+        await fetchNotifications(true);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
     loadInitial().catch(err => {
       if (mounted && __DEV__) console.warn('[NotificationsScreen] Load error:', err);
+      if (mounted) setLoading(false);
     });
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

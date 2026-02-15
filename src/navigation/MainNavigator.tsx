@@ -249,24 +249,26 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
   }, [navigation]);
 
   return (
-    <>
-      <Tab.Navigator id="MainTabs" tabBar={(props) => <BottomNav {...props} onCreatePress={() => setShowCreatePopup(true)} />} screenOptions={{ headerShown: false }}>
-        <Tab.Screen name="Home" component={FeedScreen} />
-        <Tab.Screen name="Peaks" component={PeaksFeedScreen} />
-        <Tab.Screen name="CreateTab" component={asScreen(CreatePostScreen)} />
-        <Tab.Screen name="Messages" component={MessagesScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-      </Tab.Navigator>
+    <ErrorBoundary name="TabNavigator" minimal>
+      <>
+        <Tab.Navigator id="MainTabs" tabBar={(props) => <BottomNav {...props} onCreatePress={() => setShowCreatePopup(true)} />} screenOptions={{ headerShown: false }}>
+          <Tab.Screen name="Home" component={FeedScreen} />
+          <Tab.Screen name="Peaks" component={PeaksFeedScreen} />
+          <Tab.Screen name="CreateTab" component={asScreen(CreatePostScreen)} />
+          <Tab.Screen name="Messages" component={MessagesScreen} />
+          <Tab.Screen name="Profile" component={ProfileScreen} />
+        </Tab.Navigator>
 
-      <CreateOptionsPopup
-        visible={showCreatePopup}
-        onClose={() => setShowCreatePopup(false)}
-        onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
-        onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
-        onSelectChallenge={FEATURES.CHALLENGES && user?.accountType === 'pro_creator' ? () => { setShowCreatePopup(false); navigation.navigate('Challenges'); } : undefined}
-        onSelectEvent={FEATURES.CREATE_ACTIVITY && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateActivity'); } : undefined}
-      />
-    </>
+        <CreateOptionsPopup
+          visible={showCreatePopup}
+          onClose={() => setShowCreatePopup(false)}
+          onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
+          onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
+          onSelectChallenge={FEATURES.CHALLENGES && user?.accountType === 'pro_creator' ? () => { setShowCreatePopup(false); navigation.navigate('Challenges'); } : undefined}
+          onSelectEvent={FEATURES.CREATE_ACTIVITY && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateActivity'); } : undefined}
+        />
+      </>
+    </ErrorBoundary>
   );
 }
 

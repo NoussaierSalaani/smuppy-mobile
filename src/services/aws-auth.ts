@@ -444,11 +444,12 @@ class AWSAuthService {
       secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
     ]);
 
-    // Verify critical token was persisted
-    const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
-    if (!storedToken) {
-      if (__DEV__) console.warn('[AWS Auth] CRITICAL: Failed to persist access token to SecureStore');
-      // Retry once
+    // Verify critical token was persisted with exponential backoff (3 retries)
+    for (let retryAttempt = 0; retryAttempt < 3; retryAttempt++) {
+      const storedToken = await secureStore.getItem(TOKEN_KEYS.ACCESS_TOKEN);
+      if (storedToken) break;
+      if (__DEV__) console.warn(`[AWS Auth] CRITICAL: Failed to persist access token (attempt ${retryAttempt + 1}/3)`);
+      await new Promise(r => setTimeout(r, Math.pow(2, retryAttempt) * 200)); // 200ms, 400ms, 800ms
       await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, AccessToken);
     }
 
@@ -883,8 +884,29 @@ class AWSAuthService {
       );
 
       if (isNetworkError) {
-        // Network error — keep session alive so Remember Me works on cold start
-        if (__DEV__) console.warn('[AWS Auth] Token refresh failed due to network, keeping session');
+        // Network error — retry once after 2s, then keep session alive
+        if (__DEV__) console.warn('[AWS Auth] Token refresh failed due to network, retrying once...');
+        try {
+          await new Promise(r => setTimeout(r, 2000));
+          const retryClient = await getCognitoClient();
+          const { InitiateAuthCommand: RetryAuthCommand } = await getCognitoCommands();
+          const retryResponse = await retryClient.send(new RetryAuthCommand({
+            ClientId: CLIENT_ID,
+            AuthFlow: 'REFRESH_TOKEN_AUTH',
+            AuthParameters: { REFRESH_TOKEN: this.refreshToken! },
+          }));
+          if (retryResponse.AuthenticationResult?.AccessToken) {
+            this.accessToken = retryResponse.AuthenticationResult.AccessToken;
+            this.idToken = retryResponse.AuthenticationResult.IdToken || this.idToken;
+            await Promise.all([
+              this.accessToken && secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, this.accessToken),
+              this.idToken && secureStore.setItem(TOKEN_KEYS.ID_TOKEN, this.idToken),
+            ]);
+            return true;
+          }
+        } catch {
+          if (__DEV__) console.warn('[AWS Auth] Network retry also failed, keeping session');
+        }
         return false;
       }
 

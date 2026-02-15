@@ -274,6 +274,13 @@ export default function AppNavigator(): React.JSX.Element {
         // Guard: skip if already resolving (prevents race from rapid auth events)
         if (resolvingRef.current) return;
         resolvingRef.current = true;
+        // Timeout: prevent hanging forever if resolveAppState is stuck
+        const timeoutId = setTimeout(() => {
+          if (resolvingRef.current) {
+            resolvingRef.current = false;
+            if (__DEV__) console.warn('[AppNavigator] resolveAppState timed out after 15s');
+          }
+        }, 15000);
         try {
           const { state, email } = await resolveAppState();
           setAppState(state);
@@ -282,6 +289,7 @@ export default function AppNavigator(): React.JSX.Element {
             if (__DEV__) console.warn('[AppNavigator] registerDeviceSession failed:', err);
           });
         } finally {
+          clearTimeout(timeoutId);
           resolvingRef.current = false;
         }
       } else {

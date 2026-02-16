@@ -1,14 +1,26 @@
 /**
- * Account status middleware for moderation enforcement.
- * Checks if the authenticated user's account is active, suspended, or banned.
+ * Account status middleware for moderation enforcement and deletion reactivation.
+ * Checks if the authenticated user's account is active, suspended, banned, or soft-deleted.
  *
  * - active / shadow_banned → allowed (shadow ban is invisible to the user)
- * - suspended → 403 with reason + suspended_until
+ * - suspended → 403 with reason + suspended_until (auto-reactivate if expired)
  * - banned → 403 permanent
+ * - is_deleted within 30-day grace → auto-reactivate (re-enable Cognito, clear is_deleted)
+ * - is_deleted past 30 days → 410 Gone (account permanently deleted)
  */
 
 import { APIGatewayProxyResult } from 'aws-lambda';
+import {
+  CognitoIdentityProviderClient,
+  AdminEnableUserCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
 import { getPool } from '../../shared/db';
+import { createLogger } from './logger';
+
+const log = createLogger('account-status');
+const cognitoClient = new CognitoIdentityProviderClient({});
+const USER_POOL_ID = process.env.USER_POOL_ID || '';
+const GRACE_PERIOD_DAYS = 30;
 
 interface AccountStatusResult {
   profileId: string;
@@ -36,7 +48,9 @@ export async function requireActiveAccount(
   const db = await getPool();
 
   const result = await db.query(
-    `SELECT id, username, full_name, avatar_url, is_verified, account_type, business_name, moderation_status, suspended_until, ban_reason
+    `SELECT id, username, full_name, avatar_url, is_verified, account_type, business_name,
+            moderation_status, suspended_until, ban_reason,
+            is_deleted, deleted_at, cognito_sub
      FROM profiles
      WHERE cognito_sub = $1`,
     [cognitoSub],
@@ -51,6 +65,50 @@ export async function requireActiveAccount(
   }
 
   const profile = result.rows[0];
+
+  // Soft-deleted: check if within 30-day grace period for reactivation
+  if (profile.is_deleted) {
+    const deletedAt = profile.deleted_at ? new Date(profile.deleted_at) : null;
+    const graceCutoff = new Date();
+    graceCutoff.setDate(graceCutoff.getDate() - GRACE_PERIOD_DAYS);
+
+    if (deletedAt && deletedAt > graceCutoff) {
+      // Within grace period — reactivate the account
+      await db.query(
+        `UPDATE profiles
+         SET is_deleted = FALSE, deleted_at = NULL, updated_at = NOW()
+         WHERE id = $1`,
+        [profile.id],
+      );
+
+      // Re-enable Cognito user (was disabled during soft-delete)
+      if (USER_POOL_ID && profile.cognito_sub) {
+        try {
+          await cognitoClient.send(new AdminEnableUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: profile.cognito_sub,
+          }));
+        } catch (cognitoErr: unknown) {
+          log.error('Failed to re-enable Cognito user during reactivation', cognitoErr);
+        }
+      }
+
+      log.warn('Account reactivated within grace period', {
+        profileId: profile.id.substring(0, 8) + '***',
+      });
+      // Continue — account is now active
+    } else {
+      // Past grace period — account is permanently deleted (or will be by cleanup job)
+      return {
+        statusCode: 410,
+        headers,
+        body: JSON.stringify({
+          message: 'This account has been permanently deleted.',
+        }),
+      };
+    }
+  }
+
   const status: string = profile.moderation_status || 'active';
 
   // Suspended: check if suspension has expired

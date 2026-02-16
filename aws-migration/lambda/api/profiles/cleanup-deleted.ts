@@ -3,9 +3,11 @@
  *
  * Runs daily via EventBridge to hard-delete accounts past the 30-day grace period:
  * 1. Find profiles with is_deleted = TRUE AND deleted_at <= NOW() - 30 days
- * 2. Delete their S3 media (avatars, posts, peaks)
- * 3. Hard-delete the profile (CASCADE handles posts, comments, likes, follows, etc.)
- * 4. Delete Cognito user permanently
+ * 2. Anonymize payment records (SET creator_id = NULL) to unblock RESTRICT FK
+ * 3. Delete Stripe customer (remove PII from Stripe)
+ * 4. Delete S3 media (avatars, posts, peaks, generic media)
+ * 5. Hard-delete the profile (CASCADE handles posts, comments, likes, follows, etc.)
+ * 6. Delete Cognito user permanently
  *
  * Required by: GDPR Art. 17 (Right to Erasure), Apple App Store 5.1.1(v)
  */
@@ -15,7 +17,9 @@ import {
   CognitoIdentityProviderClient,
   AdminDeleteUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { SNSClient, DeleteEndpointCommand } from '@aws-sdk/client-sns';
 import { getPool } from '../../shared/db';
+import { getStripeClient } from '../../shared/stripe-client';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('profiles-cleanup-deleted');
@@ -25,6 +29,7 @@ const s3Client = new S3Client({
   responseChecksumValidation: 'WHEN_REQUIRED',
 });
 const cognitoClient = new CognitoIdentityProviderClient({});
+const snsClient = new SNSClient({});
 
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
 const USER_POOL_ID = process.env.USER_POOL_ID || '';
@@ -40,7 +45,7 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
 
     // Find accounts past the grace period
     const result = await db.query(
-      `SELECT id, cognito_sub
+      `SELECT id, cognito_sub, stripe_customer_id
        FROM profiles
        WHERE is_deleted = TRUE
          AND deleted_at <= NOW() - make_interval(days => $1)
@@ -58,9 +63,50 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
     for (const profile of result.rows) {
       const profileId = profile.id;
       const cognitoSub = profile.cognito_sub;
+      const maskedId = profileId.substring(0, 8) + '***';
 
       try {
-        // Step 1: Delete S3 media (all files under user's prefix)
+        // Step 1: Anonymize payment records (unblock RESTRICT FK on payments.creator_id)
+        try {
+          await db.query(
+            'UPDATE payments SET creator_id = NULL WHERE creator_id = $1',
+            [profileId]
+          );
+        } catch (payErr: unknown) {
+          log.error('Payment anonymization failed', payErr, { profileId: maskedId });
+        }
+
+        // Step 2: Delete Stripe customer (remove PII from Stripe)
+        if (profile.stripe_customer_id) {
+          try {
+            const stripe = await getStripeClient();
+            await stripe.customers.del(profile.stripe_customer_id);
+          } catch (stripeErr: unknown) {
+            // Customer may already be deleted — log and continue
+            log.error('Stripe customer deletion failed', stripeErr, { profileId: maskedId });
+          }
+        }
+
+        // Step 3: Clean up SNS endpoints (push notification ARNs)
+        try {
+          const snsResult = await db.query(
+            'SELECT sns_endpoint_arn FROM push_tokens WHERE user_id = $1 AND sns_endpoint_arn IS NOT NULL',
+            [profileId]
+          );
+          for (const row of snsResult.rows) {
+            try {
+              await snsClient.send(new DeleteEndpointCommand({
+                EndpointArn: row.sns_endpoint_arn,
+              }));
+            } catch {
+              // Endpoint may already be deleted — continue
+            }
+          }
+        } catch (snsErr: unknown) {
+          log.error('SNS cleanup failed', snsErr, { profileId: maskedId });
+        }
+
+        // Step 4: Delete S3 media (all files under user's prefix)
         if (MEDIA_BUCKET) {
           try {
             const prefixes = [
@@ -91,16 +137,14 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
               }
             }
           } catch (s3Err: unknown) {
-            log.error('S3 cleanup failed for account', s3Err, {
-              profileId: profileId.substring(0, 8) + '***',
-            });
+            log.error('S3 cleanup failed for account', s3Err, { profileId: maskedId });
           }
         }
 
-        // Step 2: Hard-delete profile (CASCADE handles related data)
+        // Step 5: Hard-delete profile (CASCADE handles related data)
         await db.query('DELETE FROM profiles WHERE id = $1', [profileId]);
 
-        // Step 3: Permanently delete Cognito user
+        // Step 6: Permanently delete Cognito user
         if (USER_POOL_ID && cognitoSub) {
           try {
             await cognitoClient.send(new AdminDeleteUserCommand({
@@ -108,20 +152,16 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
               Username: cognitoSub,
             }));
           } catch (cognitoErr: unknown) {
-            log.error('Cognito user deletion failed', cognitoErr, {
-              profileId: profileId.substring(0, 8) + '***',
-            });
+            log.error('Cognito user deletion failed', cognitoErr, { profileId: maskedId });
           }
         }
 
         totalDeleted++;
-        log.info('Account hard-deleted', {
-          profileId: profileId.substring(0, 8) + '***',
-        });
+        log.info('Account hard-deleted', { profileId: maskedId });
       } catch (accountErr: unknown) {
         totalErrors++;
         log.error('Failed to hard-delete account', accountErr, {
-          profileId: profileId.substring(0, 8) + '***',
+          profileId: maskedId,
         });
       }
     }

@@ -4,6 +4,17 @@
  *
  * GDPR Article 15 / App Store 5.1.1(vi) compliance:
  * Returns all personal data associated with the authenticated user as JSON.
+ *
+ * Exported categories:
+ * - Profile, posts, comments, likes, saved posts
+ * - Followers, following, blocks, mutes
+ * - Messages, conversations
+ * - Peaks
+ * - Notifications
+ * - Tips (sent/received), payments
+ * - Events (created/participated)
+ * - Consent history
+ * - Business subscriptions
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -48,7 +59,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const profileResult = await db.query(
       `SELECT id, username, full_name, display_name, email, bio, avatar_url,
               account_type, is_verified, created_at, updated_at,
-              business_name, business_category, location, website
+              business_name, business_category, location, website, phone_number
        FROM profiles WHERE cognito_sub = $1`,
       [cognitoSub]
     );
@@ -64,7 +75,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const profile = profileResult.rows[0];
     const profileId = profile.id;
 
-    // Fetch all user data in parallel
+    // Fetch all user data in parallel (read-only queries, no transaction needed)
     const [
       postsResult,
       commentsResult,
@@ -72,11 +83,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       savedPostsResult,
       followersResult,
       followingResult,
+      blocksResult,
+      mutesResult,
+      conversationsResult,
+      messagesResult,
       peaksResult,
       notificationsResult,
       tipsReceivedResult,
       tipsSentResult,
       paymentsResult,
+      eventsCreatedResult,
+      eventsParticipatedResult,
+      consentsResult,
+      subscriptionsResult,
     ] = await Promise.all([
       db.query(
         `SELECT id, content, media_urls, media_type, tags, likes_count, comments_count, visibility, created_at
@@ -113,6 +132,42 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         [profileId]
       ),
       db.query(
+        `SELECT p.username, b.created_at
+         FROM blocked_users b JOIN profiles p ON b.blocked_id = p.id
+         WHERE b.blocker_id = $1
+         ORDER BY b.created_at DESC`,
+        [profileId]
+      ),
+      db.query(
+        `SELECT p.username, m.created_at
+         FROM muted_users m JOIN profiles p ON m.muted_id = p.id
+         WHERE m.muter_id = $1
+         ORDER BY m.created_at DESC`,
+        [profileId]
+      ),
+      db.query(
+        `SELECT c.id, p.username AS other_user,
+                c.created_at, c.updated_at
+         FROM conversations c
+         JOIN profiles p ON p.id = CASE
+           WHEN c.participant_1_id = $1 THEN c.participant_2_id
+           ELSE c.participant_1_id
+         END
+         WHERE c.participant_1_id = $1 OR c.participant_2_id = $1
+         ORDER BY c.updated_at DESC
+         LIMIT 200`,
+        [profileId]
+      ),
+      db.query(
+        `SELECT m.id, m.conversation_id, m.content, m.media_url, m.media_type,
+                m.message_type, m.created_at
+         FROM messages m
+         WHERE m.sender_id = $1 AND (m.is_deleted IS NULL OR m.is_deleted = false)
+         ORDER BY m.created_at DESC
+         LIMIT 5000`,
+        [profileId]
+      ),
+      db.query(
         `SELECT id, media_url, media_type, caption, created_at, expires_at
          FROM peaks WHERE user_id = $1 ORDER BY created_at DESC`,
         [profileId]
@@ -137,16 +192,45 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
          FROM payments WHERE buyer_id = $1 ORDER BY created_at DESC`,
         [profileId]
       ),
+      db.query(
+        `SELECT id, title, description, location_name, starts_at, ends_at,
+                max_participants, is_free, price, currency, status, created_at
+         FROM events WHERE creator_id = $1 ORDER BY created_at DESC`,
+        [profileId]
+      ),
+      db.query(
+        `SELECT e.title, ep.status, ep.joined_at
+         FROM event_participants ep
+         JOIN events e ON ep.event_id = e.id
+         WHERE ep.user_id = $1
+         ORDER BY ep.joined_at DESC`,
+        [profileId]
+      ),
+      db.query(
+        `SELECT consent_type, accepted, version, ip_address, user_agent, created_at
+         FROM user_consents WHERE user_id = $1 ORDER BY created_at DESC`,
+        [profileId]
+      ),
+      db.query(
+        `SELECT bs.id, bs.status, bs.current_period_start, bs.current_period_end,
+                bs.created_at, p.username AS business_username
+         FROM business_subscriptions bs
+         JOIN profiles p ON bs.business_id = p.id
+         WHERE bs.user_id = $1
+         ORDER BY bs.created_at DESC`,
+        [profileId]
+      ),
     ]);
 
     const exportData = {
       exportedAt: new Date().toISOString(),
-      gdprNotice: 'This export contains all personal data stored by Smuppy in compliance with GDPR Article 15.',
+      gdprNotice: 'This export contains all personal data stored by Smuppy in compliance with GDPR Article 15 (Right of Access). To request deletion, use the "Delete Account" option in Settings.',
       profile: {
         username: profile.username,
         fullName: profile.full_name,
         displayName: profile.display_name,
         email: profile.email,
+        phoneNumber: profile.phone_number,
         bio: profile.bio,
         avatarUrl: profile.avatar_url,
         accountType: profile.account_type,
@@ -191,6 +275,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         username: r.username,
         followedAt: r.created_at,
       })),
+      blockedUsers: blocksResult.rows.map((r: Record<string, unknown>) => ({
+        username: r.username,
+        blockedAt: r.created_at,
+      })),
+      mutedUsers: mutesResult.rows.map((r: Record<string, unknown>) => ({
+        username: r.username,
+        mutedAt: r.created_at,
+      })),
+      conversations: conversationsResult.rows.map((r: Record<string, unknown>) => ({
+        id: r.id,
+        otherUser: r.other_user,
+        createdAt: r.created_at,
+        lastActivity: r.updated_at,
+      })),
+      messagesSent: messagesResult.rows.map((r: Record<string, unknown>) => ({
+        id: r.id,
+        conversationId: r.conversation_id,
+        content: r.content,
+        mediaUrl: r.media_url,
+        mediaType: r.media_type,
+        messageType: r.message_type,
+        createdAt: r.created_at,
+      })),
       peaks: peaksResult.rows.map((r: Record<string, unknown>) => ({
         id: r.id,
         mediaUrl: r.media_url,
@@ -228,12 +335,46 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         status: r.status,
         createdAt: r.created_at,
       })),
+      eventsCreated: eventsCreatedResult.rows.map((r: Record<string, unknown>) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        locationName: r.location_name,
+        startsAt: r.starts_at,
+        endsAt: r.ends_at,
+        maxParticipants: r.max_participants,
+        isFree: r.is_free,
+        price: r.price,
+        currency: r.currency,
+        status: r.status,
+        createdAt: r.created_at,
+      })),
+      eventsParticipated: eventsParticipatedResult.rows.map((r: Record<string, unknown>) => ({
+        eventTitle: r.title,
+        status: r.status,
+        joinedAt: r.joined_at,
+      })),
+      consentHistory: consentsResult.rows.map((r: Record<string, unknown>) => ({
+        type: r.consent_type,
+        accepted: r.accepted,
+        version: r.version,
+        ipAddress: r.ip_address,
+        userAgent: r.user_agent,
+        recordedAt: r.created_at,
+      })),
+      businessSubscriptions: subscriptionsResult.rows.map((r: Record<string, unknown>) => ({
+        id: r.id,
+        businessUsername: r.business_username,
+        status: r.status,
+        periodStart: r.current_period_start,
+        periodEnd: r.current_period_end,
+        createdAt: r.created_at,
+      })),
     };
 
     log.info('Data export completed', {
       profileId: profileId.substring(0, 8) + '***',
-      postsCount: postsResult.rows.length,
-      commentsCount: commentsResult.rows.length,
+      categories: Object.keys(exportData).length - 2, // exclude exportedAt and gdprNotice
     });
 
     return {

@@ -547,6 +547,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         location: location || null,
         is_peak: postType === 'peaks',
         tagged_users: taggedPeople.map(p => p.id),
+        videoDuration: media[0]?.mediaType === 'video' ? media[0].duration : undefined,
       };
 
       const { data: newPost, error } = await createPost(postData);
@@ -585,7 +586,12 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       });
     } catch (error) {
       if (__DEV__) console.warn('Post creation error:', error);
-      showError('Error', error instanceof Error ? error.message : 'Failed to create post. Please try again.');
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('quota') || msg.includes('limit reached') || msg.includes('Daily')) {
+        showError('Daily Limit Reached', 'You have reached your daily upload limit. Upgrade to Pro for unlimited uploads.');
+      } else {
+        showError('Error', msg || 'Failed to create post. Please try again.');
+      }
       setIsPosting(false);
       setUploadProgress(0);
     }

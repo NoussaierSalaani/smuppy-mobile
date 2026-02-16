@@ -56,6 +56,7 @@ export interface Post {
   comments: number;
   shares: number;
   duration?: string;
+  videoDuration?: number;
   createdAt: string;
   updatedAt: string;
   user: PostUser;

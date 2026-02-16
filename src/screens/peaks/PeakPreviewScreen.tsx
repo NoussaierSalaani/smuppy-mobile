@@ -281,7 +281,12 @@ const PeakPreviewScreen = (): React.JSX.Element => {
       setShowSuccessModal(true);
     } catch (error) {
       if (__DEV__) console.warn('Peak publish error:', error);
-      alert.error('Publish Failed', (error as Error).message || 'Unable to publish Peak');
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('quota') || msg.includes('limit reached') || msg.includes('Daily')) {
+        alert.error('Daily Limit Reached', 'You have reached your daily limit. Upgrade to Pro for unlimited peaks.');
+      } else {
+        alert.error('Publish Failed', msg || 'Unable to publish Peak');
+      }
     } finally {
       setIsPublishing(false);
     }

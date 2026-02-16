@@ -983,7 +983,7 @@ class AWSAPIService {
   // Media Upload
   // ==========================================
 
-  async getUploadUrl(filename: string, contentType: string, fileSize?: number): Promise<{ uploadUrl: string; fileUrl: string }> {
+  async getUploadUrl(filename: string, contentType: string, fileSize?: number, duration?: number): Promise<{ uploadUrl: string; fileUrl: string }> {
     // Determine uploadType from the folder prefix in filename
     let uploadType = 'post';
     if (filename.startsWith('avatars/')) uploadType = 'avatar';
@@ -995,8 +995,12 @@ class AWSAPIService {
 
     return this.request('/media/upload-url', {
       method: 'POST',
-      body: { filename, contentType, uploadType, fileSize: fileSize || 0 },
+      body: { filename, contentType, uploadType, fileSize: fileSize || 0, ...(duration != null && { duration }) },
     });
+  }
+
+  async getUploadQuota(): Promise<{ success: boolean; accountType: string; quotas: Record<string, unknown>; resetsAt: string }> {
+    return this.request('/media/upload-quota');
   }
 
 

@@ -702,6 +702,7 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
       mediaType: postData.media_type,
       visibility: postData.visibility,
       location: postData.location || null,
+      ...(postData.videoDuration != null && { videoDuration: postData.videoDuration }),
     };
 
     // Handle peak-specific fields

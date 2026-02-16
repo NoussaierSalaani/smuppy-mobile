@@ -253,7 +253,8 @@ const validateFile = async (
 export const getPresignedUrl = async (
   fileName: string,
   folder: string,
-  contentType: string
+  contentType: string,
+  duration?: number,
 ): Promise<PresignedUrlResponse | null> => {
   try {
     if (__DEV__) console.log('[getPresignedUrl] Requesting URL for:', fileName.substring(0, 60), 'type:', contentType);
@@ -262,7 +263,7 @@ export const getPresignedUrl = async (
     const { awsAPI } = await import('./aws-api');
 
     // Use AWS API to get presigned URL
-    const result = await awsAPI.getUploadUrl(fileName, contentType);
+    const result = await awsAPI.getUploadUrl(fileName, contentType, undefined, duration);
 
     if (__DEV__) console.log('[getPresignedUrl] Got URL, key:', result.fileUrl?.substring(0, 60));
 

@@ -352,23 +352,63 @@ Every function that receives a userId, postId, peakId MUST validate with this re
 
 ## 11. Push Notifications
 
-**File**: `src/services/notifications.ts`
+**Files**: `src/services/notifications.ts`, `src/hooks/useNotifications.ts`, `aws-migration/lambda/api/services/push-notification.ts`
+
+### Architecture
+- **Frontend listener**: `useNotifications` hook in `MainNavigator.tsx` — SINGLE listener for foreground notifications + tap navigation
+- **Token registration**: `PushNotificationHandler` in `App.js` — registers token on login, clears badge
+- **Backend delivery**: `sendPushToUser()` in `push-notification.ts` — multi-channel: Expo Push API (primary), SNS/APNs (iOS native), Firebase/FCM (Android native)
 
 ### STRICT Rules
 - Only work on physical devices (simulators always fail)
 - Permission requested on first registration attempt
-- 4 retry attempts with exponential backoff (5s, 15s, 30s, 60s)
-- Token stored and sent to backend for push delivery
+- 3 retry attempts with delays (immediate, 10s, 30s) via `useAutoRegisterPushNotifications`
+- Token fingerprint cached in SecureStore to skip redundant API calls
+- Cache checked BEFORE calling `getNativePushToken()` to avoid unnecessary permission prompts
+- **ONE listener only** — `useNotifications` in MainNavigator handles both foreground display and tap navigation. App.js does NOT register listeners (prevents badge count x2).
 
 ### Notification Types
 ```
 like, comment, message, follow_request, new_follower,
-follow_accepted, peak_like, peak_comment, post_tag, live
+follow_accepted, peak_like, peak_comment, peak_reply,
+new_peak, peak_tag, post_tag, live
 ```
 
+### Notification Preferences
+Users can disable push per category via `notification_preferences` table:
+- `likes_enabled` — like, peak_like
+- `comments_enabled` — comment, peak_comment, peak_reply
+- `follows_enabled` — new_follower, follow_request, follow_accepted
+- `messages_enabled` — message
+- `mentions_enabled` — post_tag
+- `live_enabled` — live
+
 ### Foreground Handling
-- `setNotificationHandler()` configures: show alert, play sound, set badge
-- Tapping notification navigates to relevant screen
+- `setNotificationHandler()` configures: show alert, play sound, set badge, show banner, show list
+- Tapping notification navigates to relevant screen (UUID-validated before navigation)
+- Android channels: `default` (general), `messages` (high priority), `social` (likes/comments/follows)
+
+### Muted & Blocked User Filtering (MANDATORY)
+- `sendPushToUser(db, userId, payload, actorId?)` accepts an optional `actorId` parameter
+- Before sending any push, checks `blocked_users` and `muted_users` tables
+- If recipient has blocked OR muted the actor, push is silently skipped
+- ALL 9 push-sending handlers pass `actorId`: follows/create, follow-requests/accept, posts/like, comments/create, peaks/like, peaks/comment, peaks/create, conversations/send-message, live-streams/start
+
+### SNS IAM Policies
+All Lambdas that call `sendPushToUser()` MUST have `sns:Publish` on SNS endpoint ARNs. Currently granted:
+- `followsCreateFn`, `postsLikeFn`, `commentsCreateFn`, `peaksLikeFn`, `peaksCommentFn`
+- `followRequestsAcceptFn`, `liveStreamsStartFn`, `conversationsSendMessageFn`, `peaksCreateFn`
+
+### Token Registration Flow
+```
+1. App.js PushNotificationHandler → registerPushToken(userId)
+2. Read cached fingerprint from SecureStore (cheap)
+3. Get deviceId from SecureStore
+4. Call getNativePushToken() → APNs/FCM token + platform
+5. Compute fingerprint = token:deviceId
+6. If fingerprint === cached → skip API call (already registered)
+7. If different → POST /notifications/push-token → cache new fingerprint
+```
 
 ---
 

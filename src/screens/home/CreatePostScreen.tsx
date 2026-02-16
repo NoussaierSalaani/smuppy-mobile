@@ -21,6 +21,7 @@ import { GRADIENTS, SPACING, HIT_SLOP } from '../../config/theme';
 import { hapticButtonPress, hapticSubmit, hapticDestructive } from '../../utils/haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
+import { useUserStore } from '../../stores/userStore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
@@ -135,6 +136,9 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   const { colors, isDark } = useTheme();
   const fromProfile = _route?.params?.fromProfile ?? false;
   const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
+  const storeUser = useUserStore((state) => state.user);
+  const isPro = storeUser?.accountType === 'pro_creator' || storeUser?.accountType === 'pro_business';
+  const maxVideoDuration = isPro ? 300 : 60;
   const [mediaAssets, setMediaAssets] = useState<MediaLibrary.Asset[]>([]);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
   const [selectedPreview, setSelectedPreview] = useState<MediaItem | MediaLibrary.Asset | null>(null);
@@ -313,8 +317,8 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           warningAlert('Video Error', 'Could not determine video duration. Please try another video.');
           return;
         }
-        if (item.duration > 15) {
-          warningAlert('Video Too Long', 'Videos must be 15 seconds or less.');
+        if (item.duration > maxVideoDuration) {
+          warningAlert('Video Too Long', `Videos must be ${maxVideoDuration} seconds or less.${!isPro ? ' Upgrade to Pro for longer videos.' : ''}`);
           return;
         }
       }

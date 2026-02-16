@@ -409,8 +409,16 @@ class AWSAPIService {
     return this.request('/profiles/creation-limits', { method: 'GET' });
   }
 
-  async searchProfiles(query: string, limit = 20): Promise<Profile[]> {
-    return this.request(`/profiles?search=${encodeURIComponent(query)}&limit=${limit}`);
+  async searchProfiles(query: string, limit = 20, cursor?: string): Promise<PaginatedResponse<Profile>> {
+    const params = new URLSearchParams({ search: query, limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await this.request<{ data: Profile[]; nextCursor?: string | null; hasMore?: boolean }>(`/profiles?${params.toString()}`);
+    return {
+      data: result.data || [],
+      nextCursor: result.nextCursor ?? null,
+      hasMore: result.hasMore ?? false,
+      total: 0,
+    };
   }
 
   // ==========================================

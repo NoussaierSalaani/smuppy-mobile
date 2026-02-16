@@ -4,6 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
@@ -15,6 +16,9 @@ import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 import { sendPushToUser } from '../services/push-notification';
+
+const lambdaClient = new LambdaClient({});
+const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
 
 const log = createLogger('peaks-create');
 
@@ -203,9 +207,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await peakClient.query('BEGIN');
 
       const result = await peakClient.query(
-        `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, expires_at, saved_to_profile, content_status, toxicity_score, toxicity_category)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + $10 * INTERVAL '1 hour', $11, $12, $13, $14)
-         RETURNING id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, likes_count, comments_count, views_count, created_at, expires_at, saved_to_profile`,
+        `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, expires_at, saved_to_profile, content_status, toxicity_score, toxicity_category, video_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + $10 * INTERVAL '1 hour', $11, $12, $13, $14, 'uploaded')
+         RETURNING id, video_url, thumbnail_url, caption, duration, reply_to_peak_id, filter_id, filter_intensity, overlays, likes_count, comments_count, views_count, created_at, expires_at, saved_to_profile, video_status`,
         [profile.id, videoUrl, thumbnailUrl || null, sanitizedCaption, videoDuration, replyToPeakId || null, validFilterId, validFilterIntensity, validOverlays, validFeedDuration, validSaveToProfile, contentFlagged ? 'flagged' : 'clean', flagScore, flagCategory]
       );
 
@@ -288,6 +292,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       notifClient.release();
     }
 
+    // Trigger async video processing for HLS transcoding
+    if (START_VIDEO_PROCESSING_FN && videoUrl) {
+      try {
+        const parsed = new URL(videoUrl);
+        const sourceKey = parsed.pathname.replace(/^\//, '');
+        await lambdaClient.send(new InvokeCommand({
+          FunctionName: START_VIDEO_PROCESSING_FN,
+          InvocationType: 'Event',
+          Payload: Buffer.from(JSON.stringify({
+            body: JSON.stringify({ entityType: 'peak', entityId: peak.id, sourceKey }),
+          })),
+        }));
+        log.info('Video processing triggered for peak', { peakId: (peak.id as string).substring(0, 8) + '...' });
+      } catch (vpErr) {
+        log.error('Failed to trigger video processing (non-blocking)', vpErr);
+      }
+    }
+
     return {
       statusCode: 201,
       headers,
@@ -309,6 +331,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           createdAt: peak.created_at,
           expiresAt: peak.expires_at || null,
           savedToProfile: peak.saved_to_profile ?? null,
+          videoStatus: peak.video_status || null,
           hashtags: validHashtags,
           isLiked: false,
           author: {

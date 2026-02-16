@@ -110,7 +110,8 @@ export async function updateProfile(data: UpdateProfileInput): Promise<Profile> 
 }
 
 export async function searchProfiles(query: string): Promise<Profile[]> {
-  return awsAPI.searchProfiles(query);
+  const result = await awsAPI.searchProfiles(query);
+  return result.data || [];
 }
 
 // ==========================================

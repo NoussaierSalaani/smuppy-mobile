@@ -80,3 +80,10 @@ export const MAX_EVENT_TITLE_LENGTH = 200;
 
 // ── Session Price ─────────────────────────────────────────────────────
 export const MAX_SESSION_PRICE_CENTS = 10_000;  // $100
+
+// ── Video Pipeline ──────────────────────────────────────────────────
+export const VIDEO_STATUS_UPLOADED = 'uploaded';
+export const VIDEO_STATUS_PROCESSING = 'processing';
+export const VIDEO_STATUS_READY = 'ready';
+export const VIDEO_STATUS_FAILED = 'failed';
+export const VIDEO_PROCESSING_TIMEOUT_MS = 600_000;  // 10 minutes max

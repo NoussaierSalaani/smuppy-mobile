@@ -103,6 +103,9 @@ export class LambdaStack extends cdk.NestedStack {
 
   // Media Functions
   public readonly mediaUploadUrlFn: NodejsFunction;
+  public readonly videoStatusFn: NodejsFunction;
+  public readonly startVideoProcessingFn: NodejsFunction;
+  public readonly videoProcessingCompleteFn: NodejsFunction;
 
   // Payment Functions
   public readonly paymentCreateIntentFn: NodejsFunction;
@@ -684,6 +687,82 @@ export class LambdaStack extends cdk.NestedStack {
     this.mediaUploadVoiceFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
       resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
+
+    // ========================================
+    // Video Pipeline Lambda Functions
+    // ========================================
+
+    // Video Status API — frontend polls this to check HLS readiness
+    this.videoStatusFn = createLambda('VideoStatusFunction', 'media/video-status');
+
+    // Start Video Processing — invoked asynchronously after post/peak creation
+    this.startVideoProcessingFn = new NodejsFunction(this, 'StartVideoProcessingFunction', {
+      entry: path.join(__dirname, '../../lambda/api/media/start-video-processing.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(60),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        MEDIA_BUCKET: mediaBucket.bucketName,
+        MEDIA_CONVERT_ENDPOINT: `https://mediaconvert.${cdk.Aws.REGION}.amazonaws.com`,
+        MEDIA_CONVERT_ROLE_ARN: `arn:aws:iam::${cdk.Aws.ACCOUNT_ID}:role/smuppy-mediaconvert-${environment}`,
+        MEDIA_CONVERT_QUEUE_ARN: '',  // Will be set by main stack after queue creation
+      },
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.startVideoProcessingFn);
+    // Grant MediaConvert CreateJob + PassRole
+    this.startVideoProcessingFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['mediaconvert:CreateJob', 'mediaconvert:GetJob', 'mediaconvert:DescribeEndpoints'],
+      resources: ['*'],
+    }));
+    this.startVideoProcessingFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['iam:PassRole'],
+      resources: [`arn:aws:iam::${cdk.Aws.ACCOUNT_ID}:role/smuppy-mediaconvert-${environment}`],
+    }));
+    // Grant S3 read for source video
+    mediaBucket.grantRead(this.startVideoProcessingFn);
+
+    // Video Processing Complete — EventBridge handler for MediaConvert completion
+    this.videoProcessingCompleteFn = new NodejsFunction(this, 'VideoProcessingCompleteFunction', {
+      entry: path.join(__dirname, '../../lambda/api/media/video-processing-complete.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        MEDIA_BUCKET: mediaBucket.bucketName,
+        CDN_DOMAIN: '',  // Set by main stack after CDN creation
+      },
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.videoProcessingCompleteFn);
+
+    // Grant Lambda invoke for post/peak create to trigger processing
+    this.postsCreateFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['lambda:InvokeFunction'],
+      resources: [this.startVideoProcessingFn.functionArn],
+    }));
+    this.peaksCreateFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['lambda:InvokeFunction'],
+      resources: [this.startVideoProcessingFn.functionArn],
     }));
 
     // ========================================

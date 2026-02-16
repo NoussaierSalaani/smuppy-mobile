@@ -391,16 +391,16 @@ export const useIsFollowing = (userId: string | null | undefined) => {
 export const useFollowers = (userId: string | null | undefined) => {
   return useInfiniteQuery({
     queryKey: queryKeys.follows.followers(userId || '', 0),
-    queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await database.getFollowers(userId!, pageParam, 20);
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, nextCursor, hasMore } = await database.getFollowers(userId!, pageParam, 20);
       if (error) throw new Error(error);
-      return { users: data || [], nextPage: pageParam + 1 };
+      return { users: data || [], nextCursor, hasMore };
     },
     getNextPageParam: (lastPage) => {
-      if (lastPage.users.length < 20) return undefined;
-      return lastPage.nextPage;
+      if (!lastPage.hasMore || !lastPage.nextCursor) return undefined;
+      return lastPage.nextCursor;
     },
-    initialPageParam: 0,
+    initialPageParam: undefined as string | undefined,
     enabled: !!userId,
   });
 };
@@ -411,16 +411,16 @@ export const useFollowers = (userId: string | null | undefined) => {
 export const useFollowing = (userId: string | null | undefined) => {
   return useInfiniteQuery({
     queryKey: queryKeys.follows.following(userId || '', 0),
-    queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await database.getFollowing(userId!, pageParam, 20);
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, nextCursor, hasMore } = await database.getFollowing(userId!, pageParam, 20);
       if (error) throw new Error(error);
-      return { users: data || [], nextPage: pageParam + 1 };
+      return { users: data || [], nextCursor, hasMore };
     },
     getNextPageParam: (lastPage) => {
-      if (lastPage.users.length < 20) return undefined;
-      return lastPage.nextPage;
+      if (!lastPage.hasMore || !lastPage.nextCursor) return undefined;
+      return lastPage.nextCursor;
     },
-    initialPageParam: 0,
+    initialPageParam: undefined as string | undefined,
     enabled: !!userId,
   });
 };
@@ -494,16 +494,16 @@ export const useToggleFollow = () => {
 export const usePostComments = (postId: string | null | undefined) => {
   return useInfiniteQuery({
     queryKey: queryKeys.comments.byPost(postId || '', 0),
-    queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await database.getPostComments(postId!, pageParam, 20);
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, nextCursor, hasMore } = await database.getPostComments(postId!, pageParam, 20);
       if (error) throw new Error(error);
-      return { comments: data || [], nextPage: pageParam + 1 };
+      return { comments: data || [], nextCursor, hasMore };
     },
     getNextPageParam: (lastPage) => {
-      if (lastPage.comments.length < 20) return undefined;
-      return lastPage.nextPage;
+      if (!lastPage.hasMore || !lastPage.nextCursor) return undefined;
+      return lastPage.nextCursor;
     },
-    initialPageParam: 0,
+    initialPageParam: undefined as string | undefined,
     enabled: !!postId,
   });
 };

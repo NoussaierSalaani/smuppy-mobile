@@ -361,6 +361,9 @@ export class ApiGatewayStack extends cdk.NestedStack {
     const mediaUploadVoice = media.addResource('upload-voice');
     mediaUploadVoice.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.mediaUploadVoiceFn), authWithBodyValidation);
 
+    const mediaVideoStatus = media.addResource('video-status');
+    mediaVideoStatus.addMethod('GET', new apigateway.LambdaIntegration(lambdaStack.videoStatusFn), authMethodOptions);
+
     // ========================================
     // NOTE: Search, Feed Variants, Posts Batch & Saved routes have been
     // moved to ApiGateway3Stack to stay under CloudFormation 500 resource limit.

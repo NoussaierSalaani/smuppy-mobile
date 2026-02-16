@@ -387,15 +387,20 @@ export interface ProfileWithFollowStatus extends Profile {
 export const searchProfiles = async (
   query: string,
   limit = 20,
-  _offset = 0
-): Promise<DbResponse<Profile[]>> => {
+  cursor?: string
+): Promise<DbResponse<Profile[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   if (!query || query.trim().length === 0) {
     return { data: [], error: null };
   }
 
   try {
-    const profiles = await awsAPI.searchProfiles(query, limit);
-    return { data: profiles.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+    const result = await awsAPI.searchProfiles(query, limit, cursor);
+    return {
+      data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
+      error: null,
+      nextCursor: result.nextCursor || null,
+      hasMore: result.hasMore || false,
+    };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };
   }
@@ -429,15 +434,17 @@ export const searchPosts = async (
 export const searchPeaks = async (
   query: string,
   limit = 20,
-  offset = 0
-): Promise<DbResponse<Post[]>> => {
+  cursor?: string
+): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   if (!query || query.trim().length === 0) {
     return { data: [], error: null };
   }
 
   try {
-    const result = await awsAPI.request<{ data: AWSPost[] }>(`/peaks/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
-    return { data: result.data.map(convertPost), error: null };
+    const params = new URLSearchParams({ q: query, limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/peaks/search?${params.toString()}`);
+    return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };
   }
@@ -494,8 +501,8 @@ export const getSuggestedProfiles = async (limit = 10, cursor?: string): Promise
   } catch {
     // Fallback: use search for popular profiles
     try {
-      const profiles = await awsAPI.searchProfiles('', limit);
-      return { data: profiles.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+      const result = await awsAPI.searchProfiles('', limit);
+      return { data: result.data.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
     } catch (innerError: unknown) {
       return { data: [], error: getErrorMessage(innerError) };
     }
@@ -618,24 +625,6 @@ export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: n
     };
   } catch (error: unknown) {
     return { data: null, nextCursor: null, hasMore: false, error: getErrorMessage(error) };
-  }
-};
-
-/**
- * Get optimized FanFeed with likes/saves status included
- */
-export const getOptimizedFanFeed = async (page = 0, limit = 20): Promise<DbResponse<PostWithStatus[]>> => {
-  try {
-    const result = await awsAPI.request<{ data: (AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean })[] }>(`/feed/following?limit=${limit}&page=${page}`);
-    const posts: PostWithStatus[] = result.data.map((p: AWSPost & { isLiked?: boolean; has_liked?: boolean; isSaved?: boolean; has_saved?: boolean }) => ({
-      ...convertPost(p),
-      has_liked: p.isLiked || p.has_liked,
-      has_saved: p.isSaved || p.has_saved,
-    }));
-    return { data: posts, error: null };
-  } catch {
-    const fallback = await getFeedFromFollowed({ limit });
-    return { data: fallback.data as PostWithStatus[] | null, error: fallback.error };
   }
 };
 
@@ -996,24 +985,34 @@ export const isFollowing = async (targetUserId: string): Promise<{ isFollowing: 
 /**
  * Get followers of a user
  */
-export const getFollowers = async (userId: string, _page = 0, limit = 20): Promise<DbResponse<Profile[]>> => {
+export const getFollowers = async (userId: string, cursor?: string, limit = 20): Promise<DbResponse<Profile[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   try {
-    const result = await awsAPI.getFollowers(userId, { limit });
-    return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+    const result = await awsAPI.getFollowers(userId, { limit, cursor });
+    return {
+      data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
+      error: null,
+      nextCursor: result.nextCursor || null,
+      hasMore: result.hasMore || false,
+    };
   } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
   }
 };
 
 /**
  * Get users that a user is following
  */
-export const getFollowing = async (userId: string, _page = 0, limit = 20): Promise<DbResponse<Profile[]>> => {
+export const getFollowing = async (userId: string, cursor?: string, limit = 20): Promise<DbResponse<Profile[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   try {
-    const result = await awsAPI.getFollowing(userId, { limit });
-    return { data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[], error: null };
+    const result = await awsAPI.getFollowing(userId, { limit, cursor });
+    return {
+      data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
+      error: null,
+      nextCursor: result.nextCursor || null,
+      hasMore: result.hasMore || false,
+    };
   } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
   }
 };
 
@@ -1073,9 +1072,9 @@ export const getPostLikers = async (
 /**
  * Get comments for a post
  */
-export const getComments = async (postId: string, _page = 0, limit = 20): Promise<DbResponse<Comment[]>> => {
+export const getComments = async (postId: string, cursor?: string, limit = 20): Promise<DbResponse<Comment[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
   try {
-    const result = await awsAPI.getComments(postId, { limit });
+    const result = await awsAPI.getComments(postId, { limit, cursor });
     const comments: Comment[] = result.data.map((c: AWSComment & { parentId?: string }) => ({
       id: c.id,
       user_id: c.authorId,
@@ -1085,9 +1084,14 @@ export const getComments = async (postId: string, _page = 0, limit = 20): Promis
       created_at: c.createdAt,
       user: c.author ? convertProfile(c.author) || undefined : undefined,
     }));
-    return { data: comments, error: null };
+    return {
+      data: comments,
+      error: null,
+      nextCursor: result.nextCursor || null,
+      hasMore: result.hasMore || false,
+    };
   } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
   }
 };
 

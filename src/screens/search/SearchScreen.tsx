@@ -115,6 +115,8 @@ const SearchScreen = (): React.JSX.Element => {
   // Cursor refs for search endpoints that use cursor-based pagination
   const postsCursorRef = useRef<string | null>(null);
   const tagsCursorRef = useRef<string | null>(null);
+  const peaksCursorRef = useRef<string | null>(null);
+  const usersCursorRef = useRef<string | null>(null);
 
   // Load current user on mount
   useEffect(() => {
@@ -265,24 +267,27 @@ const SearchScreen = (): React.JSX.Element => {
     setSearchError(null);
 
     try {
-      const offset = pageNum * PAGE_SIZE;
       // Reset cursors on fresh search
       if (!append) {
         postsCursorRef.current = null;
         tagsCursorRef.current = null;
+        peaksCursorRef.current = null;
+        usersCursorRef.current = null;
       }
 
       // For "All" tab, search everything in parallel
       if (tabType === 'all') {
         const [usersRes, postsRes, peaksRes, tagsRes] = await Promise.all([
-          searchProfiles(query, PAGE_SIZE, offset),
+          searchProfiles(query, PAGE_SIZE, usersCursorRef.current ?? undefined),
           searchPosts(query, PAGE_SIZE, postsCursorRef.current ?? undefined),
-          searchPeaks(query, PAGE_SIZE, offset),
+          searchPeaks(query, PAGE_SIZE, peaksCursorRef.current ?? undefined),
           searchByHashtag(query, PAGE_SIZE, tagsCursorRef.current ?? undefined),
         ]);
 
         // Store cursors for next page
+        usersCursorRef.current = usersRes.nextCursor ?? null;
         postsCursorRef.current = postsRes.nextCursor ?? null;
+        peaksCursorRef.current = peaksRes.nextCursor ?? null;
         tagsCursorRef.current = tagsRes.nextCursor ?? null;
 
         const users = (usersRes.data || []).filter(p => p.id !== currentUserId && !isHidden(p.id));
@@ -302,8 +307,12 @@ const SearchScreen = (): React.JSX.Element => {
           setHashtagResults(tags);
         }
 
-        // Has more if any category has more
-        setHasMore(users.length >= PAGE_SIZE || posts.length >= PAGE_SIZE || peaks.length >= PAGE_SIZE || tags.length >= PAGE_SIZE);
+        // Has more if any category has more (use cursor exhaustion)
+        const anyHasMore = (postsRes.hasMore ?? posts.length >= PAGE_SIZE)
+          || (tagsRes.hasMore ?? tags.length >= PAGE_SIZE)
+          || (peaksRes.hasMore ?? peaks.length >= PAGE_SIZE)
+          || (usersRes.hasMore ?? users.length >= PAGE_SIZE);
+        setHasMore(anyHasMore);
         return;
       }
 
@@ -311,8 +320,9 @@ const SearchScreen = (): React.JSX.Element => {
 
       switch (tabType) {
         case 'users': {
-          const { data } = await searchProfiles(query, PAGE_SIZE, offset);
-          const newUsers = (data || []).filter(p => p.id !== currentUserId && !isHidden(p.id));
+          const res = await searchProfiles(query, PAGE_SIZE, usersCursorRef.current ?? undefined);
+          usersCursorRef.current = res.nextCursor ?? null;
+          const newUsers = (res.data || []).filter(p => p.id !== currentUserId && !isHidden(p.id));
           newDataLength = newUsers.length;
           if (append) {
             setUserResults(prev => [...prev, ...newUsers]);
@@ -334,8 +344,9 @@ const SearchScreen = (): React.JSX.Element => {
           break;
         }
         case 'peaks': {
-          const { data } = await searchPeaks(query, PAGE_SIZE, offset);
-          const newPeaks = (data || []).filter(p => !isHidden(p.author_id));
+          const res = await searchPeaks(query, PAGE_SIZE, peaksCursorRef.current ?? undefined);
+          peaksCursorRef.current = res.nextCursor ?? null;
+          const newPeaks = (res.data || []).filter(p => !isHidden(p.author_id));
           newDataLength = newPeaks.length;
           if (append) {
             setPeakResults(prev => [...prev, ...newPeaks]);
@@ -425,6 +436,7 @@ const SearchScreen = (): React.JSX.Element => {
     const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('smuppy.com') || (__DEV__ && searchQuery.includes('localhost'));
     if (isLink) return;
 
+    setPage(0);
     performSearch(searchQuery, activeTab, 0, false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]); // Only trigger on tab change
@@ -432,10 +444,9 @@ const SearchScreen = (): React.JSX.Element => {
   // Load more
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || searchQuery.length < 2) return;
-    const nextPage = page + 1;
-    setPage(nextPage);
-    performSearch(searchQuery, activeTab, nextPage, true);
-  }, [loadingMore, hasMore, searchQuery, activeTab, page, performSearch]);
+    setPage(prev => prev + 1);
+    performSearch(searchQuery, activeTab, 1, true);
+  }, [loadingMore, hasMore, searchQuery, activeTab, performSearch]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const containerStyle = useMemo(() => [styles.container, { paddingTop: insets.top, backgroundColor: colors.background }], [styles.container, insets.top, colors.background]);

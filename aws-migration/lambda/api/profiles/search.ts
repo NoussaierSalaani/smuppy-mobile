@@ -15,6 +15,7 @@ const log = createLogger('profiles-search');
 // Rate limit: 60 requests per minute per IP (generous for search)
 const RATE_LIMIT = 60;
 const RATE_WINDOW_SECONDS = 60;
+const MAX_OFFSET = 500;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
@@ -39,6 +40,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
     const rawQuery = event.queryStringParameters?.search || event.queryStringParameters?.q || '';
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+
+    // Cursor-based pagination (offset-encoded)
+    const cursorParam = event.queryStringParameters?.cursor;
+    let offset = 0;
+    if (cursorParam) {
+      const parsed = parseInt(cursorParam, 10);
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= MAX_OFFSET) {
+        offset = parsed;
+      }
+    }
 
     // SECURITY: Escape ILIKE special characters to prevent pattern matching bypass
     const query = rawQuery.replace(/[%_\\]/g, '\\$&');
@@ -80,8 +91,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  ELSE 2 END,
             fan_count DESC NULLS LAST,
             created_at DESC
-          LIMIT $2`,
-          [currentUserId, limit]
+          LIMIT $2 OFFSET $3`,
+          [currentUserId, limit + 1, offset]
         );
       } else {
         result = await db.query(
@@ -99,8 +110,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  ELSE 2 END,
             fan_count DESC NULLS LAST,
             created_at DESC
-          LIMIT $1`,
-          [limit]
+          LIMIT $1 OFFSET $2`,
+          [limit + 1, offset]
         );
       }
     } else {
@@ -123,8 +134,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  ELSE 2
             END,
             fan_count DESC NULLS LAST
-          LIMIT $4`,
-          [`%${query}%`, query, `${query}%`, limit, currentUserId]
+          LIMIT $4 OFFSET $6`,
+          [`%${query}%`, query, `${query}%`, limit + 1, currentUserId, offset]
         );
       } else {
         result = await db.query(
@@ -142,13 +153,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                  ELSE 2
             END,
             fan_count DESC NULLS LAST
-          LIMIT $4`,
-          [`%${query}%`, query, `${query}%`, limit]
+          LIMIT $4 OFFSET $5`,
+          [`%${query}%`, query, `${query}%`, limit + 1, offset]
         );
       }
     }
 
-    const profiles = result.rows.map((profile: Record<string, unknown>) => ({
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const nextOffset = offset + rows.length;
+    const nextCursor = hasMore && nextOffset <= MAX_OFFSET ? String(nextOffset) : null;
+
+    const profiles = rows.map((profile: Record<string, unknown>) => ({
       id: profile.id,
       username: profile.username,
       fullName: profile.full_name,
@@ -167,7 +183,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(profiles),
+      body: JSON.stringify({ data: profiles, nextCursor, hasMore }),
     };
   } catch (error: unknown) {
     log.error('Error searching profiles', error);

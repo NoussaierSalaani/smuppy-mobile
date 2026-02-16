@@ -4,6 +4,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
@@ -15,6 +16,9 @@ import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
+
+const lambdaClient = new LambdaClient({});
+const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
 
 const log = createLogger('posts-create');
 
@@ -232,6 +236,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       .filter((tid): tid is string => typeof tid === 'string' && isValidUUID(tid) && tid !== userId)
       .slice(0, MAX_TAGGED_USERS);
 
+    // Set video_status for video posts so the pipeline can track them
+    const isVideoPost = body.mediaType === 'video';
+
     const client = await db.connect();
     let post: Record<string, unknown>;
     let existingTaggedIds = new Set<string>();
@@ -240,9 +247,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await client.query('BEGIN');
 
       const result = await client.query(
-        `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, location, content_status, toxicity_score, toxicity_category, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-         RETURNING id, author_id, content, media_urls, media_type, visibility, location, likes_count, comments_count, created_at`,
+        `INSERT INTO posts (id, author_id, content, media_urls, media_type, visibility, location, content_status, toxicity_score, toxicity_category, video_status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+         RETURNING id, author_id, content, media_urls, media_type, visibility, location, likes_count, comments_count, video_status, created_at`,
         [
           postId,
           userId,
@@ -254,6 +261,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           contentFlagged ? 'flagged' : 'clean',
           flagScore,
           flagCategory,
+          isVideoPost ? 'uploaded' : null,
         ]
       );
 
@@ -311,6 +319,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    // Trigger async video processing if this is a video post
+    if (isVideoPost && START_VIDEO_PROCESSING_FN && hasMedia) {
+      // Extract the S3 key from the first video URL
+      const videoUrl = body.mediaUrls![0];
+      try {
+        const parsed = new URL(videoUrl);
+        const sourceKey = parsed.pathname.replace(/^\//, '');
+        await lambdaClient.send(new InvokeCommand({
+          FunctionName: START_VIDEO_PROCESSING_FN,
+          InvocationType: 'Event', // async — fire and forget
+          Payload: Buffer.from(JSON.stringify({
+            body: JSON.stringify({ entityType: 'post', entityId: postId, sourceKey }),
+          })),
+        }));
+        log.info('Video processing triggered', { postId: postId.substring(0, 8) + '...' });
+      } catch (vpErr) {
+        log.error('Failed to trigger video processing (non-blocking)', vpErr);
+      }
+    }
+
     const authorResult = await db.query(
       `SELECT id, username, full_name, avatar_url, is_verified, account_type, business_name
        FROM profiles WHERE id = $1`,
@@ -347,6 +375,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         taggedUsers: taggedUserIds,
         likesCount: 0,
         commentsCount: 0,
+        videoStatus: post.video_status || null,
         createdAt: post.created_at,
         author,
       }),

@@ -32,6 +32,8 @@ import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 
 export interface SmuppyStackProps extends cdk.StackProps {
   alertEmail?: string;
@@ -1061,6 +1063,47 @@ export class SmuppyStack extends cdk.Stack {
         ProxyId: cdk.Fn.select(6, cdk.Fn.split(':', rdsProxy.dbProxyArn)),
       }),
     });
+
+    // ========================================
+    // Video Pipeline — MediaConvert + EventBridge
+    // ========================================
+
+    // IAM Role for MediaConvert to read/write S3
+    const mediaConvertRole = new iam.Role(this, 'MediaConvertRole', {
+      roleName: `smuppy-mediaconvert-${environment}`,
+      assumedBy: new iam.ServicePrincipal('mediaconvert.amazonaws.com'),
+      description: 'MediaConvert role for HLS transcoding',
+    });
+    mediaBucket.grantRead(mediaConvertRole);
+    mediaBucket.grantWrite(mediaConvertRole, 'video-processed/*');
+
+    // Pass the MediaConvert role ARN to the processing Lambda
+    lambdaStack.startVideoProcessingFn.addEnvironment('MEDIA_CONVERT_ROLE_ARN', mediaConvertRole.roleArn);
+    // Fix the PassRole permission to use the actual role ARN
+    lambdaStack.startVideoProcessingFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['iam:PassRole'],
+      resources: [mediaConvertRole.roleArn],
+    }));
+
+    // EventBridge rule: MediaConvert job status change → completion handler
+    const mcCompleteRule = new events.Rule(this, 'MediaConvertCompleteRule', {
+      ruleName: `smuppy-video-processing-complete-${environment}`,
+      description: 'Trigger video processing complete handler on MediaConvert job completion',
+      eventPattern: {
+        source: ['aws.mediaconvert'],
+        detailType: ['MediaConvert Job State Change'],
+        detail: {
+          status: ['COMPLETE', 'ERROR', 'CANCELED'],
+        },
+      },
+    });
+    mcCompleteRule.addTarget(new targets.LambdaFunction(lambdaStack.videoProcessingCompleteFn, {
+      retryAttempts: 2,
+    }));
+
+    // Pass env var for start-processing Lambda ARN so post/peak creation can invoke it
+    lambdaStack.postsCreateFn.addEnvironment('START_VIDEO_PROCESSING_FN', lambdaStack.startVideoProcessingFn.functionArn);
+    lambdaStack.peaksCreateFn.addEnvironment('START_VIDEO_PROCESSING_FN', lambdaStack.startVideoProcessingFn.functionArn);
 
     // ========================================
     // API Gateway - Nested Stack (to stay under 500 resource limit)

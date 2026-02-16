@@ -54,6 +54,7 @@ export class SmuppyStack extends cdk.Stack {
 
     const environment = this.node.tryGetContext('environment') || 'staging';
     const isProduction = environment === 'production';
+    const mediaBucketName = isProduction ? 'smuppy-media-prod' : `smuppy-media-${environment}-${this.account}`;
 
     // ========================================
     // VPC - High Availability Network
@@ -162,7 +163,7 @@ export class SmuppyStack extends cdk.Stack {
 
     // Track S3 data events for media bucket
     trail.addS3EventSelector([{
-      bucket: s3.Bucket.fromBucketName(this, 'MediaBucketForTrail', isProduction ? 'smuppy-media-prod' : `smuppy-media-${environment}-${this.account}`),
+      bucket: s3.Bucket.fromBucketName(this, 'MediaBucketForTrail', mediaBucketName),
     }], {
       readWriteType: cloudtrail.ReadWriteType.WRITE_ONLY,
       includeManagementEvents: false,
@@ -455,8 +456,8 @@ export class SmuppyStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
         resources: [
-          `arn:aws:s3:::smuppy-media/users/\${cognito-identity.amazonaws.com:sub}/*`,
-          `arn:aws:s3:::smuppy-media/private/\${cognito-identity.amazonaws.com:sub}/*`,
+          `arn:aws:s3:::${mediaBucketName}/users/\${cognito-identity.amazonaws.com:sub}/*`,
+          `arn:aws:s3:::${mediaBucketName}/private/\${cognito-identity.amazonaws.com:sub}/*`,
         ],
       })
     );
@@ -466,7 +467,7 @@ export class SmuppyStack extends cdk.Stack {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['s3:ListBucket'],
-        resources: ['arn:aws:s3:::smuppy-media'],
+        resources: [`arn:aws:s3:::${mediaBucketName}`],
         conditions: {
           StringLike: {
             's3:prefix': [
@@ -484,8 +485,8 @@ export class SmuppyStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['s3:GetObject'],
         resources: [
-          'arn:aws:s3:::smuppy-media/posts/*',
-          'arn:aws:s3:::smuppy-media/public/*',
+          `arn:aws:s3:::${mediaBucketName}/posts/*`,
+          `arn:aws:s3:::${mediaBucketName}/public/*`,
         ],
       })
     );
@@ -513,7 +514,7 @@ export class SmuppyStack extends cdk.Stack {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['s3:GetObject'],
-        resources: ['arn:aws:s3:::smuppy-media/public/*'],
+        resources: [`arn:aws:s3:::${mediaBucketName}/public/*`],
       })
     );
 
@@ -887,7 +888,6 @@ export class SmuppyStack extends cdk.Stack {
     // ========================================
     // Reference existing S3 bucket
     // ========================================
-    const mediaBucketName = isProduction ? 'smuppy-media-prod' : `smuppy-media-${environment}-${this.account}`;
     const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', mediaBucketName);
 
     // ========================================

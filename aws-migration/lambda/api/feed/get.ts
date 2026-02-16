@@ -190,6 +190,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           OR (p.visibility = 'subscribers' AND p.author_id = ANY($${subscribedIdsIndex}::uuid[]))
         )
         AND (pr.moderation_status NOT IN ('banned', 'shadow_banned') OR p.author_id = $${userIdIndex})
+        AND NOT EXISTS (
+          SELECT 1 FROM blocked_users
+          WHERE (blocker_id = $${userIdIndex} AND blocked_id = p.author_id)
+             OR (blocker_id = p.author_id AND blocked_id = $${userIdIndex})
+        )
         ${cursorCondition}
       ORDER BY p.created_at DESC, p.id DESC
       LIMIT $${queryParams.length}`,

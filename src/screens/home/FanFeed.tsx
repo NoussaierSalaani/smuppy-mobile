@@ -317,6 +317,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }));
   const { isUnderReview, submitPostReport, hasUserReported } = useContentStore();
   const { isHidden, mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
+  // Extract arrays (not stable function refs) so useMemo recomputes on block/mute
+  const blockedUserIds = useUserSafetyStore((s) => s.blockedUserIds);
+  const mutedUserIds = useUserSafetyStore((s) => s.mutedUserIds);
   const currentUser = useUserStore((state) => state.user);
 
   // State for real posts from API
@@ -701,7 +704,8 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       if (authorId && isHidden(authorId)) return false;
       return true;
     }),
-    [posts, isUnderReview, isHidden]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [posts, isUnderReview, isHidden, blockedUserIds, mutedUserIds]
   );
 
   // Prefetch profile data before navigation
@@ -826,6 +830,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           showError('Error', 'Could not mute user. Please try again.');
         } else {
           showSuccess('Muted', `You won't see posts from ${menuPost.user.name} anymore.`);
+          setPosts(prev => prev.filter(p => p.user.id !== userId));
         }
       }
     );
@@ -850,6 +855,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           showError('Error', 'Could not block user. Please try again.');
         } else {
           showSuccess('Blocked', `${menuPost.user.name} has been blocked.`);
+          setPosts(prev => prev.filter(p => p.user.id !== userId));
         }
       }
     );

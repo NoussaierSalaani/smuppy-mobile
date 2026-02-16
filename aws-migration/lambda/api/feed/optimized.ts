@@ -85,6 +85,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
        WHERE pr.id IS NOT NULL
          AND p.visibility = 'public'
          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+         AND NOT EXISTS (
+           SELECT 1 FROM blocked_users
+           WHERE (blocker_id = $1 AND blocked_id = p.author_id)
+              OR (blocker_id = p.author_id AND blocked_id = $1)
+         )
          ${cursorCondition}
        ORDER BY p.created_at DESC, p.id DESC
        LIMIT $${limitIdx}`,

@@ -101,7 +101,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
        FROM posts p
        JOIN profiles pr ON p.author_id = pr.id
        ${whereClause}
-       ORDER BY (p.likes_count * 2 + p.comments_count) DESC, p.created_at DESC
+       ORDER BY (p.likes_count * 2 + p.comments_count) DESC, p.created_at DESC, p.id DESC
        LIMIT $${limitParam} OFFSET $${offsetParam}`,
       params
     );

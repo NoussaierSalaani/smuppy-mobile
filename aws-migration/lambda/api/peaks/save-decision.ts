@@ -75,9 +75,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const profileId = userResult.rows[0].id;
 
-      // Check peak exists and verify ownership (same transaction to prevent race)
+      // Check peak exists and verify ownership with row lock to prevent concurrent race
       const peakResult = await client.query(
-        'SELECT id, author_id FROM peaks WHERE id = $1',
+        'SELECT id, author_id FROM peaks WHERE id = $1 FOR UPDATE',
         [peakId]
       );
 

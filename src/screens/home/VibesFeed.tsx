@@ -324,6 +324,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   }));
   const { isUnderReview, submitPostReport, hasUserReported } = useContentStore();
   const { isHidden, mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
+  // Extract arrays (not stable function refs) so useMemo recomputes on block/mute
+  const blockedUserIds = useUserSafetyStore((s) => s.blockedUserIds);
+  const mutedUserIds = useUserSafetyStore((s) => s.mutedUserIds);
 
   // Account type and user ID (needed before useMoodAI to gate it)
   const accountType = useUserStore((state) => state.user?.accountType);
@@ -506,7 +509,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
       if (error) {
         if (__DEV__) console.warn('[VibesFeed] Error fetching posts:', error);
-        if (allPosts.length === 0) setLoadError(true);
+        if (allPostsRef.current.length === 0) setLoadError(true);
         return;
       }
       setLoadError(false);
@@ -562,9 +565,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       setHasMore(apiHasMore ?? data.length >= 40);
     } catch (err) {
       if (__DEV__) console.warn('[VibesFeed] Error:', err);
-      if (allPosts.length === 0) setLoadError(true);
+      if (allPostsRef.current.length === 0) setLoadError(true);
     }
-  }, [activeInterests, userInterests, allPosts.length]);
+  }, [activeInterests, userInterests]);
 
   // Reload when interests change — skip if cache is fresh
   useEffect(() => {
@@ -772,7 +775,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
     });
 
     return scored.sort((a, b) => b.score - a.score).map(s => s.post);
-  }, [allPosts, activeInterests, userInterests, isUnderReview, isHidden]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPosts, activeInterests, userInterests, isUnderReview, isHidden, blockedUserIds, mutedUserIds]);
 
   // Chip animation scales
   const chipAnimations = useRef<Record<string, Animated.Value>>({}).current;
@@ -1084,10 +1088,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           showError('Error', 'Could not mute user. Please try again.');
         } else {
           showSuccess('Muted', `You won't see posts from ${selectedPost.user.name} anymore.`);
+          setAllPosts(prev => prev.filter(p => p.user.id !== userId));
+          closePostModal();
         }
       }
     );
-  }, [selectedPost, isUserMuted, mute, showDestructiveConfirm, showSuccess, showError]);
+  }, [selectedPost, isUserMuted, mute, showDestructiveConfirm, showSuccess, showError, closePostModal]);
 
   // Block user from modal
   const handleBlockUser = useCallback(() => {
@@ -1108,10 +1114,12 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           showError('Error', 'Could not block user. Please try again.');
         } else {
           showSuccess('Blocked', `${selectedPost.user.name} has been blocked.`);
+          setAllPosts(prev => prev.filter(p => p.user.id !== userId));
+          closePostModal();
         }
       }
     );
-  }, [selectedPost, isBlocked, block, showDestructiveConfirm, showSuccess, showError]);
+  }, [selectedPost, isBlocked, block, showDestructiveConfirm, showSuccess, showError, closePostModal]);
 
   // Delete own post from modal
   const handleDeletePost = useCallback(() => {

@@ -110,13 +110,42 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (type === 'following' && requesterId) {
       // FanFeed: posts from people I follow OR people who follow me (mutual fan relationship)
       // Exclude business account posts — they belong in Xplorer, not FanFeed
-      // Exclude banned/shadow_banned users and hidden posts
-      // BUG-2026-02-15: Use CTE to pre-compute connections instead of double EXISTS per post row
+      // Exclude banned/shadow_banned users and hidden/private posts
+      // Defense-in-depth: CTE excludes blocked users (bidirectional) even if follow removal races
+
+      // Parse cursor: compound (ISO|UUID) or legacy (ms timestamp)
+      let followCursorCond = '';
+      const followCursorParams: SqlParam[] = [];
+      if (cursor) {
+        const pipeIdx = cursor.indexOf('|');
+        if (pipeIdx !== -1) {
+          const cursorDate = cursor.substring(0, pipeIdx);
+          const cursorId = cursor.substring(pipeIdx + 1);
+          if (!isValidUUID(cursorId) || isNaN(new Date(cursorDate).getTime())) {
+            return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
+          }
+          followCursorCond = 'AND (p.created_at, p.id) < ($3::timestamptz, $4::uuid)';
+          followCursorParams.push(new Date(cursorDate), cursorId);
+        } else {
+          const ts = parseInt(cursor, 10);
+          if (isNaN(ts)) {
+            return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
+          }
+          followCursorCond = 'AND p.created_at < $3::timestamptz';
+          followCursorParams.push(new Date(ts));
+        }
+      }
+
       query = `
         WITH my_connections AS (
           SELECT following_id AS author_id FROM follows WHERE follower_id = $1 AND status = 'accepted'
           UNION
           SELECT follower_id AS author_id FROM follows WHERE following_id = $1 AND status = 'accepted'
+        ),
+        excluded_users AS (
+          SELECT blocked_id AS user_id FROM blocked_users WHERE blocker_id = $1
+          UNION
+          SELECT blocker_id AS user_id FROM blocked_users WHERE blocked_id = $1
         )
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
@@ -125,6 +154,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         JOIN my_connections mc ON p.author_id = mc.author_id
         JOIN profiles u ON p.author_id = u.id
         WHERE p.author_id != $1
+        AND p.author_id NOT IN (SELECT user_id FROM excluded_users)
         AND u.account_type != 'pro_business'
         AND u.moderation_status NOT IN ('banned', 'shadow_banned')
         AND p.visibility NOT IN ('hidden', 'private')
@@ -135,10 +165,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             WHERE fan_id = $1 AND creator_id = p.author_id AND status = 'active'
           ))
         )
-        ${cursor ? 'AND p.created_at < $3' : ''}
-        ORDER BY p.created_at DESC LIMIT $2
+        ${followCursorCond}
+        ORDER BY p.created_at DESC, p.id DESC LIMIT $2
       `;
-      params = cursor ? [requesterId, parsedLimit + 1, new Date(parseInt(cursor))] : [requesterId, parsedLimit + 1];
+      params = [requesterId, parsedLimit + 1, ...followCursorParams];
     } else if (userId) {
       // SECURITY: Check profile privacy + follow status in parallel (single follow query serves both checks)
       const isOwnProfile = requesterId === userId;
@@ -183,7 +213,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
                  u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
           FROM posts p JOIN profiles u ON p.author_id = u.id
           WHERE p.author_id = $1 ${cursor ? 'AND p.created_at < $3' : ''}
-          ORDER BY p.created_at DESC LIMIT $2
+          ORDER BY p.created_at DESC, p.id DESC LIMIT $2
         `;
         params = cursor ? [userId, parsedLimit + 1, new Date(parseInt(cursor))] : [userId, parsedLimit + 1];
       } else {
@@ -206,7 +236,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
               ))` : ''}
             )
             ${cursor ? 'AND p.created_at < $3' : ''}
-          ORDER BY p.created_at DESC LIMIT $2
+          ORDER BY p.created_at DESC, p.id DESC LIMIT $2
         `;
         params = cursor
           ? [userId, parsedLimit + 1, new Date(parseInt(cursor)), ...(requesterId ? [requesterId] : [])]
@@ -224,7 +254,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         AND p.visibility != 'hidden'
         AND p.created_at > NOW() - INTERVAL '30 days'
         ${cursor ? 'AND p.created_at < $2' : ''}
-        ORDER BY (p.likes_count + p.comments_count) DESC, p.created_at DESC
+        ORDER BY (p.likes_count + p.comments_count) DESC, p.created_at DESC, p.id DESC
         LIMIT $1
       `;
       params = cursor ? [parsedLimit + 1, new Date(parseInt(cursor))] : [parsedLimit + 1];
@@ -274,7 +304,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       author: { id: post.authorId, username: post.username, fullName: post.fullName, avatarUrl: post.avatarUrl, isVerified: post.isVerified, accountType: post.accountType, businessName: post.businessName },
     }));
 
-    const responseData = { success: true, posts: formattedPosts, nextCursor: hasMore ? posts[posts.length - 1].createdAt.getTime().toString() : null, hasMore, total: formattedPosts.length };
+    // Compound cursor for following feed (deterministic); ms timestamp for other types
+    let nextCursor: string | null = null;
+    if (hasMore && posts.length > 0) {
+      const lastPost = posts[posts.length - 1] as Record<string, unknown>;
+      if (type === 'following') {
+        nextCursor = `${new Date(lastPost.createdAt as string | number).toISOString()}|${lastPost.id}`;
+      } else {
+        nextCursor = new Date(lastPost.createdAt as string | number).getTime().toString();
+      }
+    }
+
+    const responseData = { success: true, posts: formattedPosts, nextCursor, hasMore, total: formattedPosts.length };
 
     if (type !== 'following' && redisClient) {
       try { await redisClient.setex(cacheKey, CACHE_TTL.POSTS_LIST, JSON.stringify(responseData)); } catch { /* Ignore */ }

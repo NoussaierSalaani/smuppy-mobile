@@ -13,12 +13,21 @@ export interface TaggedUser {
   avatarUrl: string | null;
 }
 
+export interface MediaMeta {
+  width?: number;
+  height?: number;
+  blurhash?: string;
+  variants?: { large?: string; medium?: string; thumb?: string };
+  optimizedAt?: string;
+}
+
 export interface Post {
   id: string;
   authorId: string;
   content: string;
   mediaUrls: string[];
   mediaType: 'image' | 'video' | 'multiple' | null;
+  mediaMeta?: MediaMeta;
   visibility?: 'public' | 'fans' | 'private' | 'subscribers';
   isPeak?: boolean;
   location?: string | null;
@@ -29,6 +38,8 @@ export interface Post {
   viewsCount?: number;
   createdAt: string;
   isLiked?: boolean;
+  isSaved?: boolean;
+  videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
   author: Profile;
 }
 
@@ -135,6 +146,11 @@ export interface CreatePostInput {
   mediaUrls?: string[];
   mediaType?: 'image' | 'video' | 'multiple';
   visibility?: 'public' | 'fans' | 'private' | 'subscribers';
+  location?: string | null;
+  taggedUsers?: string[];
+  videoDuration?: number;
+  isPeak?: boolean;
+  tags?: string[];
 }
 
 export interface CreatePeakInput {

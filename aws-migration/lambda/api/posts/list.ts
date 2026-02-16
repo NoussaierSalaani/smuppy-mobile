@@ -312,7 +312,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const formattedPosts = posts.map((post: Record<string, unknown>) => ({
       id: post.id, authorId: post.authorId, content: post.content, mediaUrls: post.mediaUrls || [],
-      mediaType: post.mediaType, isPeak: post.isPeak || false, location: post.location || null,
+      mediaType: post.mediaType, mediaMeta: post.mediaMeta || {}, isPeak: post.isPeak || false, location: post.location || null,
       tags: post.tags || [],
       taggedUsers: tagsByPost[post.id as string] || [],
       likesCount: parseInt(post.likesCount as string) || 0, commentsCount: parseInt(post.commentsCount as string) || 0,

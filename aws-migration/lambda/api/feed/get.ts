@@ -237,6 +237,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         content: post.content,
         mediaUrls: post.media_urls || [],
         mediaType: post.media_type,
+        mediaMeta: post.media_meta || {},
         tags: post.tags || [],
         likesCount: post.likes_count || 0,
         commentsCount: post.comments_count || 0,

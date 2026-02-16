@@ -120,6 +120,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       content: row.content,
       mediaUrls: row.media_urls || [],
       mediaType: row.media_type,
+      mediaMeta: row.media_meta || {},
       tags: row.tags || [],
       likesCount: row.likes_count || 0,
       commentsCount: row.comments_count || 0,

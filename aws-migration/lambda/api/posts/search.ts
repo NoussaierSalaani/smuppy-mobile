@@ -157,6 +157,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       content: post.content,
       mediaUrls: (post.mediaUrls as string[]) || [],
       mediaType: post.mediaType,
+      mediaMeta: post.mediaMeta || {},
       likesCount: parseInt(String(post.likesCount)) || 0,
       commentsCount: parseInt(String(post.commentsCount)) || 0,
       createdAt: post.createdAt,

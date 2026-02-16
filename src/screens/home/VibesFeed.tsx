@@ -40,6 +40,7 @@ import { useMoodAI, getMoodDisplay } from '../../hooks/useMoodAI';
 import { useShareModal } from '../../hooks/useModalState';
 import { usePostInteractions } from '../../hooks/usePostInteractions';
 import { transformToVibePost, UIVibePost } from '../../utils/postTransformers';
+import { getMediaVariant } from '../../utils/cdnUrl';
 import { ALL_INTERESTS } from '../../config/interests';
 import { ALL_EXPERTISE } from '../../config/expertise';
 import { ALL_BUSINESS_CATEGORIES } from '../../config/businessCategories';
@@ -263,7 +264,12 @@ const VibeCard = memo<VibeCardProps>(({ post, styles, onLike, onTap, onUserPress
     showAnimation={!post.isLiked}
     style={[styles.vibeCard, { height: post.height }]}
   >
-    <OptimizedImage source={post.media} style={styles.vibeImage} recyclingKey={post.id} />
+    <OptimizedImage
+      source={getMediaVariant(post.media, 'thumb', post.mediaMeta)}
+      style={styles.vibeImage}
+      recyclingKey={post.id}
+      placeholder={post.mediaMeta?.blurhash}
+    />
 
     {post.type === 'video' && (
       <View style={styles.videoIndicator}>

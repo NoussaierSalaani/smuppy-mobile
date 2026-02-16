@@ -70,6 +70,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.content,
         p.media_urls,
         p.media_type,
+        p.media_meta,
         p.likes_count,
         p.comments_count,
         p.is_peak,

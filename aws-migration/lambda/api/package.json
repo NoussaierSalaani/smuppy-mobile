@@ -11,6 +11,7 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "3.990.0",
     "@aws-sdk/client-cognito-identity-provider": "3.990.0",
     "@aws-sdk/client-comprehend": "3.990.0",
     "@aws-sdk/client-dynamodb": "3.990.0",
@@ -29,6 +30,8 @@
     "jsonwebtoken": "9.0.2",
     "jwks-rsa": "3.1.0",
     "pg": "8.14.1",
+    "blurhash": "2.0.5",
+    "sharp": "0.33.5",
     "stripe": "20.2.0",
     "uuid": "9.0.0"
   },

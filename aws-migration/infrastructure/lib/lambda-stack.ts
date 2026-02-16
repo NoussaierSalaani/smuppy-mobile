@@ -106,6 +106,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly videoStatusFn: NodejsFunction;
   public readonly startVideoProcessingFn: NodejsFunction;
   public readonly videoProcessingCompleteFn: NodejsFunction;
+  public readonly imageOptimizerFn: NodejsFunction;
 
   // Payment Functions
   public readonly paymentCreateIntentFn: NodejsFunction;
@@ -763,6 +764,70 @@ export class LambdaStack extends cdk.NestedStack {
     this.peaksCreateFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['lambda:InvokeFunction'],
       resources: [this.startVideoProcessingFn.functionArn],
+    }));
+
+    // ========================================
+    // Image Optimizer Lambda (Sharp + Blurhash)
+    // ========================================
+    this.imageOptimizerFn = new NodejsFunction(this, 'ImageOptimizerFunction', {
+      entry: path.join(__dirname, '../../lambda/api/media/image-optimizer.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 2048, // Sharp needs RAM for large images
+      timeout: cdk.Duration.seconds(60),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        MEDIA_BUCKET: mediaBucket.bucketName,
+      },
+      bundling: {
+        minify: true,
+        sourceMap: !isProduction,
+        externalModules: [],
+        nodeModules: ['sharp'], // npm install instead of esbuild bundle (native binaries)
+        forceDockerBundling: true, // Ensure Linux Sharp binaries
+      },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.imageOptimizerFn);
+    mediaBucket.grantReadWrite(this.imageOptimizerFn);
+
+    // EventBridge rule: trigger image optimizer on image uploads
+    const imageOptimizerDlq = new sqs.Queue(this, 'ImageOptimizerDLQ', {
+      queueName: `smuppy-image-optimizer-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
+
+    const imageOptimizerRule = new events.Rule(this, 'ImageOptimizerRule', {
+      ruleName: `smuppy-image-optimizer-trigger-${environment}`,
+      description: 'Trigger image optimization (resize, blurhash, EXIF strip) on media uploads',
+      eventPattern: {
+        source: ['aws.s3'],
+        detailType: ['Object Created'],
+        detail: {
+          bucket: {
+            name: [mediaBucket.bucketName],
+          },
+          object: {
+            key: [
+              { prefix: 'posts/' },
+              { prefix: 'peaks/' },
+              { prefix: 'users/' },
+            ],
+          },
+        },
+      },
+    });
+
+    imageOptimizerRule.addTarget(new targets.LambdaFunction(this.imageOptimizerFn, {
+      retryAttempts: 2,
+      deadLetterQueue: imageOptimizerDlq,
     }));
 
     // ========================================

@@ -5,6 +5,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, DeleteObjectsCommand } from '@aws-sdk/client-s3';
+import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
@@ -18,7 +19,12 @@ const s3Client = new S3Client({
   responseChecksumValidation: 'WHEN_REQUIRED',
 });
 
+const cfClient = new CloudFrontClient({});
+
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
+const CLOUDFRONT_DISTRIBUTION_ID = process.env.CLOUDFRONT_DISTRIBUTION_ID || '';
+
+const VARIANT_NAMES = ['large', 'medium', 'thumb'];
 
 /**
  * Extract S3 key from a full S3/CloudFront URL.
@@ -122,7 +128,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       for (const url of urls) {
         const key = extractS3Key(url);
-        if (key) s3Keys.push({ Key: key });
+        if (key) {
+          s3Keys.push({ Key: key });
+          // Also delete optimized variants (large/, medium/, thumb/)
+          for (const variant of VARIANT_NAMES) {
+            const parts = key.split('/');
+            const filename = parts[parts.length - 1];
+            const baseName = filename.substring(0, filename.lastIndexOf('.'));
+            const prefix = parts.slice(0, parts.length - 1).join('/');
+            s3Keys.push({ Key: `${prefix}/${variant}/${baseName}.jpg` });
+            s3Keys.push({ Key: `${prefix}/${variant}/${baseName}.webp` });
+          }
+        }
       }
 
       if (s3Keys.length > 0) {
@@ -134,6 +151,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         } catch (s3Error: unknown) {
           // Log but don't fail — DB deletion already committed
           log.error('Failed to clean up S3 media for peak', s3Error);
+        }
+
+        // CloudFront invalidation (best-effort)
+        if (CLOUDFRONT_DISTRIBUTION_ID) {
+          try {
+            const paths = s3Keys.map(k => `/${k.Key}`);
+            await cfClient.send(new CreateInvalidationCommand({
+              DistributionId: CLOUDFRONT_DISTRIBUTION_ID,
+              InvalidationBatch: {
+                CallerReference: `peak-delete-${peakId}-${Date.now()}`,
+                Paths: { Quantity: paths.length, Items: paths },
+              },
+            }));
+          } catch (cfError: unknown) {
+            log.error('Failed to invalidate CloudFront cache for peak', cfError);
+          }
         }
       }
     }

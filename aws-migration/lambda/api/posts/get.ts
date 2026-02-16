@@ -27,7 +27,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const result = await db.query(
       `SELECT
         p.id, p.author_id, p.content, p.caption, p.media_urls, p.media_url,
-        p.media_type, p.visibility, p.likes_count, p.comments_count,
+        p.media_type, p.media_meta, p.visibility, p.likes_count, p.comments_count,
         p.is_peak, p.peak_duration, p.peak_expires_at, p.save_to_profile,
         p.location, p.tags, p.created_at, p.updated_at,
         p.video_status, p.hls_url, p.thumbnail_url, p.video_variants, p.video_duration,

@@ -111,11 +111,19 @@ const normalizeTaggedUsers = (
     .filter(t => t.id);
 };
 
+export interface MediaMeta {
+  width?: number;
+  height?: number;
+  blurhash?: string;
+  variants?: { large?: string; medium?: string; thumb?: string };
+}
+
 export interface UIPostBase {
   id: string;
   type: 'image' | 'video' | 'carousel';
   media: string | null;
   allMedia?: string[]; // All media URLs for carousel posts
+  mediaMeta?: MediaMeta;
   slideCount?: number;
   duration?: string;
   user: UIPostUser;
@@ -161,6 +169,7 @@ export const transformToFanPost = (
     type: normalizeMediaType(post.media_type),
     media: getMediaUrl(post, null),
     allMedia: allMedia.length > 0 ? allMedia : undefined,
+    mediaMeta: post.media_meta || undefined,
     slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     duration: formatDuration(post.peak_duration),
     user: {
@@ -202,6 +211,7 @@ export const transformToVibePost = (
     type: normalizeMediaType(post.media_type),
     media: getMediaUrl(post),
     allMedia: allMedia.length > 0 ? allMedia : undefined,
+    mediaMeta: post.media_meta || undefined,
     height: randomHeight,
     slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     user: {

@@ -36,3 +36,29 @@ export const normalizeCdnUrl = (url: string | undefined | null): string | undefi
   }
   return url;
 };
+
+/**
+ * Get an optimized media variant URL.
+ * If the post has media_meta with variant keys, builds a CDN URL for the requested variant.
+ * Falls back to the original URL when no variant is available (graceful degradation for old posts).
+ *
+ * @param originalUrl - The original media URL
+ * @param variant - 'large' | 'medium' | 'thumb'
+ * @param mediaMeta - media_meta from the post (may be undefined for old posts)
+ */
+export const getMediaVariant = (
+  originalUrl: string | null | undefined,
+  variant: 'large' | 'medium' | 'thumb',
+  mediaMeta?: { variants?: { large?: string; medium?: string; thumb?: string } },
+): string | undefined => {
+  if (!originalUrl) return undefined;
+
+  // If variant key exists in media_meta, build CDN URL from it
+  const variantKey = mediaMeta?.variants?.[variant];
+  if (variantKey) {
+    return `https://${CURRENT_CDN}/${variantKey}`;
+  }
+
+  // Fallback to original URL (normalized)
+  return normalizeCdnUrl(originalUrl);
+};

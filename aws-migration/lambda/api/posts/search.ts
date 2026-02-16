@@ -88,7 +88,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const ftsQuery = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
-               p.media_type as "mediaType", p.likes_count as "likesCount",
+               p.media_type as "mediaType", p.media_meta as "mediaMeta", p.likes_count as "likesCount",
                p.comments_count as "commentsCount", p.created_at as "createdAt",
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType",
@@ -119,7 +119,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const ilikeQuery = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
-               p.media_type as "mediaType", p.likes_count as "likesCount",
+               p.media_type as "mediaType", p.media_meta as "mediaMeta", p.likes_count as "likesCount",
                p.comments_count as "commentsCount", p.created_at as "createdAt",
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType",

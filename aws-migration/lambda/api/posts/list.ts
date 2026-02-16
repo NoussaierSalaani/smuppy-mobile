@@ -147,7 +147,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           UNION
           SELECT blocker_id AS user_id FROM blocked_users WHERE blocked_id = $1
         )
-        SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
+        SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
         FROM posts p
@@ -208,7 +208,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // $1 = userId (profile), $2 = limit, $3 = cursor (optional), next = requesterId
       if (isOwnProfile) {
         query = `
-          SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
+          SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
                  p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
                  u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
           FROM posts p JOIN profiles u ON p.author_id = u.id
@@ -220,7 +220,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         // Non-own profile: parameterize requesterId for subscriber check
         const requesterParamIdx = cursor ? 4 : 3;
         query = `
-          SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
+          SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
                  p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
                  u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
           FROM posts p JOIN profiles u ON p.author_id = u.id
@@ -246,7 +246,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // Explore/public feed: exclude banned/shadow_banned users and hidden posts
       // BUG-2026-02-15: Limit scan window to 30 days and use simpler scoring to reduce full-table sort
       query = `
-        SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType",
+        SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
         FROM posts p JOIN profiles u ON p.author_id = u.id

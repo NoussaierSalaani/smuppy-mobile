@@ -167,7 +167,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const result = await db.query(
       `SELECT
-        p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
+        p.id, p.author_id, p.content, p.media_urls, p.media_type, p.media_meta, p.tags,
         p.likes_count, p.comments_count, p.created_at, p.visibility,
         json_build_object(
           'id', pr.id,

@@ -76,7 +76,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     queryParams.push(limit + 1); // Fetch one extra to check hasMore
 
     const result = await db.query(
-      `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.tags,
+      `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.media_meta, p.tags,
               p.likes_count, p.comments_count, p.created_at,
               pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name
        FROM posts p

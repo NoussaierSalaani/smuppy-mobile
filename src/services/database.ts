@@ -99,6 +99,13 @@ export interface Post {
   media_urls?: string[];
   media_url?: string;
   media_type?: 'image' | 'video' | 'multiple' | 'photo'; // 'photo' for legacy support
+  media_meta?: {
+    width?: number;
+    height?: number;
+    blurhash?: string;
+    variants?: { large?: string; medium?: string; thumb?: string };
+    optimizedAt?: string;
+  };
   visibility: 'public' | 'private' | 'fans' | 'subscribers';
   likes_count?: number;
   comments_count?: number;

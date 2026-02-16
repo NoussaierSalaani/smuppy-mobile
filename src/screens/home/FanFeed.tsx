@@ -31,6 +31,7 @@ import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { useShareModal } from '../../hooks/useModalState';
 import { usePostInteractions } from '../../hooks/usePostInteractions';
 import { transformToFanPost, UIFanPost } from '../../utils/postTransformers';
+import { getMediaVariant } from '../../utils/cdnUrl';
 import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch, deletePost } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
@@ -168,10 +169,11 @@ const PostItem = memo<PostItemProps>(({
           ) : (
             <>
               <OptimizedImage
-                source={post.media}
+                source={getMediaVariant(post.media, 'medium', post.mediaMeta)}
                 style={styles.postImage}
                 contentFit="cover"
                 recyclingKey={`post-${post.id}`}
+                placeholder={post.mediaMeta?.blurhash}
               />
               {post.type === 'video' && (
                 <View style={styles.videoOverlay}>

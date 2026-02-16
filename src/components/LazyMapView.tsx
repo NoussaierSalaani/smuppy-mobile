@@ -1,13 +1,12 @@
 // src/components/LazyMapView.tsx
 // Lazy-loaded MapView component to improve initial load performance
-import React, { useState, useEffect, forwardRef, memo } from 'react';
+import React, { useState, useEffect, memo, forwardRef } from 'react';
 import { View, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import type { Feature } from 'geojson';
-import { ENV } from '../config/env';
 import { useTheme } from '../hooks/useTheme';
 
-Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
+// Token set once in App.js at startup
 
 // Types for MapView props (Mapbox-compatible)
 interface LazyMapViewProps {
@@ -24,39 +23,15 @@ interface LazyMapViewProps {
 // Lazy-loaded MapView component
 const LazyMapView = memo(forwardRef<InstanceType<typeof Mapbox.MapView>, LazyMapViewProps>((props, ref) => {
   const { colors } = useTheme();
-  const [MapViewComponent, setMapViewComponent] = useState<typeof Mapbox.MapView | null>(null);
-  const [CameraComponent, setCameraComponent] = useState<typeof Mapbox.Camera | null>(null);
-  const [LocationPuckComponent, setLocationPuckComponent] = useState<typeof Mapbox.LocationPuck | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-
-    const loadMapView = async () => {
-      try {
-        const maps = await import('@rnmapbox/maps');
-        if (mounted) {
-          setMapViewComponent(() => maps.default.MapView);
-          setCameraComponent(() => maps.default.Camera);
-          setLocationPuckComponent(() => maps.default.LocationPuck);
-          setIsLoading(false);
-        }
-      } catch (error) {
-        if (__DEV__) console.warn('Failed to load MapView:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadMapView();
-
-    return () => {
-      mounted = false;
-    };
+    // Defer map rendering to next frame to avoid blocking initial mount
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
   }, []);
 
-  if (isLoading || !MapViewComponent) {
+  if (!ready) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.darkGray }, props.style]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -67,19 +42,19 @@ const LazyMapView = memo(forwardRef<InstanceType<typeof Mapbox.MapView>, LazyMap
   const { centerCoordinate, zoomLevel, showsUserLocation, scrollEnabled, zoomEnabled, onPress, style, children } = props;
 
   return (
-    <MapViewComponent
+    <Mapbox.MapView
       ref={ref}
       style={style}
       onPress={onPress}
       scrollEnabled={scrollEnabled}
       zoomEnabled={zoomEnabled}
     >
-      {CameraComponent && centerCoordinate && (
-        <CameraComponent centerCoordinate={centerCoordinate} zoomLevel={zoomLevel ?? 12} />
+      {centerCoordinate && (
+        <Mapbox.Camera centerCoordinate={centerCoordinate} zoomLevel={zoomLevel ?? 12} />
       )}
-      {showsUserLocation && LocationPuckComponent && <LocationPuckComponent />}
+      {showsUserLocation && <Mapbox.LocationPuck />}
       {children}
-    </MapViewComponent>
+    </Mapbox.MapView>
   );
 }));
 
@@ -92,29 +67,17 @@ interface LazyMarkerProps {
 
 // Export MarkerView separately for use in parent components
 export const LazyMarker = memo(({ children, coordinate, coordinateArray }: LazyMarkerProps) => {
-  const [MarkerViewComponent, setMarkerViewComponent] = useState<typeof Mapbox.MarkerView | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    import('@rnmapbox/maps').then((maps) => {
-      if (mounted) {
-        setMarkerViewComponent(() => maps.default.MarkerView);
-      }
-    }).catch(() => { /* map module unavailable */ });
-    return () => { mounted = false; };
-  }, []);
-
   // Convert coordinate from {latitude, longitude} to [lng, lat]
   const coord: [number, number] | undefined = coordinate
     ? [coordinate.longitude, coordinate.latitude]
     : coordinateArray;
 
-  if (!MarkerViewComponent || !coord) return null;
+  if (!coord) return null;
 
   return (
-    <MarkerViewComponent coordinate={coord}>
+    <Mapbox.MarkerView coordinate={coord}>
       {children}
-    </MarkerViewComponent>
+    </Mapbox.MarkerView>
   );
 });
 

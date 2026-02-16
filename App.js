@@ -27,8 +27,11 @@ import { initializeNotifications, registerPushToken, clearBadge } from './src/se
 // Backend Services
 import { initializeBackend } from './src/services/backend';
 
-// Map — lazy-loaded to reduce cold start time
+// Map
+import Mapbox from '@rnmapbox/maps';
 import { ENV } from './src/config/env';
+
+Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 // UI Components
 import { SmuppyAlertProvider } from './src/context/SmuppyAlertContext';
@@ -138,12 +141,7 @@ export default function App() {
         if (__DEV__) console.warn('[Sentry] init failed:', e);
       }
 
-      // Initialize Mapbox lazily — async dynamic import to avoid blocking JS thread
-      import('@rnmapbox/maps').then((module) => {
-        module.default.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
-      }).catch((e) => {
-        if (__DEV__) console.warn('[Mapbox] init failed:', e);
-      });
+      // Mapbox token set at module scope (static import above)
 
       try {
         // Run independent init tasks in parallel for faster startup

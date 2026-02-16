@@ -34,6 +34,7 @@ function response(statusCode: number, body: Record<string, unknown>): APIGateway
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  log.initFromEvent(event);
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
     const { allowed } = await checkRateLimit({

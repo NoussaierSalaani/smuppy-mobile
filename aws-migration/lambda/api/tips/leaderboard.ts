@@ -12,6 +12,7 @@ import { isValidUUID } from '../utils/security';
 const log = createLogger('tips-leaderboard');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   const pool = await getPool();

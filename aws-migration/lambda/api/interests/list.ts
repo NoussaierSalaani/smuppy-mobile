@@ -11,6 +11,7 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('interests-list');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  log.initFromEvent(event);
   const headers = createCacheableHeaders(event, 'public, max-age=86400');
 
   try {

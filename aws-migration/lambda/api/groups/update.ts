@@ -54,6 +54,7 @@ const ALLOWED_FIELDS: Record<string, UpdateGroupField> = {
 };
 
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   const pool = await getPool();

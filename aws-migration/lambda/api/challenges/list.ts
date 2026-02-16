@@ -12,6 +12,7 @@ import { isValidUUID } from '../utils/security';
 const log = createLogger('challenges-list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   // Auto-expire on writer pool (reader replicas are read-only)

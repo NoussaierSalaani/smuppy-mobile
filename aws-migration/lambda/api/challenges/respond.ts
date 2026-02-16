@@ -21,6 +21,7 @@ interface RespondChallengeRequest {
 }
 
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   const pool = await getPool();

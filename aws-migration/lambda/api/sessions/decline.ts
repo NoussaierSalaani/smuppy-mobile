@@ -16,6 +16,7 @@ interface DeclineBody {
 }
 
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }

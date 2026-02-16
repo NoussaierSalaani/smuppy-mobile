@@ -15,6 +15,7 @@ import { requireActiveAccount, isAccountError } from '../utils/account-status';
 const log = createLogger('events-delete');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   const pool = await getPool();

@@ -11,6 +11,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 const log = createLogger('sessions-list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }

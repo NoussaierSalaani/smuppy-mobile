@@ -28,6 +28,7 @@ function response(statusCode: number, body: Record<string, unknown>): APIGateway
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  log.initFromEvent(event);
   try {
     const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
     const { allowed } = await checkRateLimit({ prefix: 'hashtags-trending', identifier: clientIp, windowSeconds: 60, maxRequests: 30 });

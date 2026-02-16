@@ -38,6 +38,7 @@ interface SendTipRequest {
 // SECURITY: Whitelist of allowed currencies
 const ALLOWED_CURRENCIES = ['eur', 'usd'];
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   const db = await getPool();

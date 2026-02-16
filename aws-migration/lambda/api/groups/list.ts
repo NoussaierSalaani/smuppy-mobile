@@ -12,6 +12,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 const log = createLogger('groups-list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
+  log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') return handleOptions();
 
   // Rate limit: 30 requests per minute per IP (unauthenticated) or user

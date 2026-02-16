@@ -14,6 +14,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 const log = createLogger('peaks-replies');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  log.initFromEvent(event);
   const userId = event.requestContext.authorizer?.claims?.sub;
   const peakId = event.pathParameters?.id;
   const httpMethod = event.httpMethod;

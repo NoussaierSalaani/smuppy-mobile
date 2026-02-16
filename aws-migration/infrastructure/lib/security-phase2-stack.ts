@@ -366,6 +366,16 @@ def handler(event, context):
     is_pending = key.startswith(PENDING_PREFIX)
     file_ext = ('.' + key.rsplit('.', 1)[-1].lower()) if '.' in key else ''
 
+    # Skip already-scanned files (promoted files re-trigger EventBridge)
+    if not is_pending:
+        try:
+            tags = s3.get_object_tagging(Bucket=bucket, Key=key)
+            if any(t['Key'] == 'scan-status' for t in tags.get('TagSet', [])):
+                print(f"Already scanned, skipping: {key}")
+                return {'statusCode': 200, 'body': 'Already scanned'}
+        except Exception:
+            pass
+
     # Determine scan verdict
     verdict = scan_file(bucket, key, size, file_ext)
 
@@ -1022,8 +1032,8 @@ def promote_stuck(bucket, key, mod_result):
     final_key = key.replace(PENDING_PREFIX, '', 1)
     try:
         s3.copy_object(CopySource={'Bucket': bucket, 'Key': key}, Bucket=bucket, Key=final_key, MetadataDirective='COPY')
-        tag_val = 'under_review' if mod_result in ('review', 'under_review') else 'promoted_after_timeout'
-        s3.put_object_tagging(Bucket=bucket, Key=final_key, Tagging={'TagSet': [{'Key': 'scan-status', 'Value': tag_val}, {'Key': 'promoted-at', 'Value': datetime.utcnow().isoformat()}, {'Key': 'promotion-reason', 'Value': 'cleanup-timeout'}]})
+        mod_tag = 'under_review' if mod_result in ('review', 'under_review') else 'promoted_after_timeout'
+        s3.put_object_tagging(Bucket=bucket, Key=final_key, Tagging={'TagSet': [{'Key': 'scan-status', 'Value': 'clean'}, {'Key': 'moderation-status', 'Value': mod_tag}, {'Key': 'promoted-at', 'Value': datetime.utcnow().isoformat()}, {'Key': 'promotion-reason', 'Value': 'cleanup-timeout'}]})
         s3.delete_object(Bucket=bucket, Key=key)
         print(f"Promoted stuck file: {key} -> {final_key}")
     except Exception as e:

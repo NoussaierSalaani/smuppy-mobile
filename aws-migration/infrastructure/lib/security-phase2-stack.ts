@@ -11,6 +11,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as path from 'path';
@@ -286,6 +287,18 @@ export class SecurityPhase2Stack extends cdk.Stack {
       autoDeleteObjects: !isProduction,
     });
 
+    // DynamoDB table for quarantine-first scan coordination
+    // Two scanners (virus + moderation) run in parallel on pending-scan/ images.
+    // Each writes its result + atomic ADD counter. Last scanner promotes or quarantines.
+    const scanCoordinationTable = new dynamodb.Table(this, 'ScanCoordinationTable', {
+      tableName: `smuppy-scan-coordination-${environment}`,
+      partitionKey: { name: 'objectKey', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'expiresAt',
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // Ephemeral data — safe to destroy
+      pointInTimeRecovery: false, // Not needed for transient coordination data
+    });
+
     // Lambda function for virus scanning
     // Uses bucketAV or ClamAV layer
     this.virusScanFunction = new lambda.Function(this, 'VirusScanFunction', {
@@ -296,190 +309,193 @@ export class SecurityPhase2Stack extends cdk.Stack {
 import json
 import boto3
 import os
+import time
 from datetime import datetime
 
 s3 = boto3.client('s3')
 sns = boto3.client('sns')
+dynamodb = boto3.client('dynamodb')
 
 QUARANTINE_BUCKET = os.environ['QUARANTINE_BUCKET']
 ALERT_TOPIC_ARN = os.environ['ALERT_TOPIC_ARN']
-MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB max
+SCAN_TABLE = os.environ.get('SCAN_COORDINATION_TABLE', '')
+MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
+PENDING_PREFIX = 'pending-scan/'
+
+IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif'}
+
+MAGIC_BYTES = {
+    '.png': [b'\\x89PNG'],
+    '.jpg': [b'\\xff\\xd8\\xff'],
+    '.jpeg': [b'\\xff\\xd8\\xff'],
+    '.gif': [b'GIF87a', b'GIF89a'],
+    '.webp': [b'RIFF'],
+    '.heic': [b'ftyp'],
+    '.heif': [b'ftyp'],
+    '.mp4': [b'ftyp', b'\\x00\\x00\\x00'],
+    '.mov': [b'ftyp', b'moov', b'\\x00\\x00\\x00'],
+    '.m4v': [b'ftyp', b'\\x00\\x00\\x00'],
+    '.webm': [b'\\x1a\\x45\\xdf\\xa3'],
+    '.mp3': [b'ID3', b'\\xff\\xfb', b'\\xff\\xf3'],
+    '.m4a': [b'ftyp'],
+    '.wav': [b'RIFF'],
+    '.aac': [b'\\xff\\xf1', b'\\xff\\xf9'],
+}
+
+SAFE_EXTS = set(MAGIC_BYTES.keys())
 
 def handler(event, context):
-    """
-    Virus scan Lambda handler - EventBridge triggered.
-
-    For production, this should use:
-    - ClamAV Lambda Layer (e.g., clamav-lambda-layer)
-    - Or bucketAV (https://github.com/widdix/aws-s3-virusscan)
-    - Or AWS GuardDuty Malware Protection for S3
-
-    This is a placeholder that demonstrates the pattern.
-    Replace with actual ClamAV integration for production.
-    """
-    print(f"Event received: {json.dumps(event)}")
-
-    # Handle EventBridge event format
     if 'detail' in event:
-        # EventBridge S3 event
         bucket = event['detail']['bucket']['name']
         key = event['detail']['object']['key']
         size = event['detail']['object'].get('size', 0)
     elif 'Records' in event:
-        # Direct S3 notification (fallback)
-        record = event['Records'][0]
-        bucket = record['s3']['bucket']['name']
-        key = record['s3']['object']['key']
-        size = record['s3']['object'].get('size', 0)
+        r = event['Records'][0]
+        bucket = r['s3']['bucket']['name']
+        key = r['s3']['object']['key']
+        size = r['s3']['object'].get('size', 0)
     else:
-        print("Unknown event format")
         return {'statusCode': 400, 'body': 'Unknown event format'}
 
     print(f"Scanning: s3://{bucket}/{key} ({size} bytes)")
 
-    # Skip files that are too large
     if size > MAX_FILE_SIZE:
-        print(f"File too large to scan: {size} bytes")
-        return {'statusCode': 200, 'body': 'File too large - skipped'}
+        print(f"File too large: {size}")
+        return {'statusCode': 200, 'body': 'Skipped - too large'}
 
-    # File magic bytes validation — verify file headers match claimed extension
-    MAGIC_BYTES = {
-        '.png': [b'\\x89PNG'],
-        '.jpg': [b'\\xff\\xd8\\xff'],
-        '.jpeg': [b'\\xff\\xd8\\xff'],
-        '.gif': [b'GIF87a', b'GIF89a'],
-        '.webp': [b'RIFF'],
-        '.heic': [b'ftyp'],
-        '.heif': [b'ftyp'],
-        '.mp4': [b'ftyp', b'\\x00\\x00\\x00'],
-        '.mov': [b'ftyp', b'moov', b'\\x00\\x00\\x00'],
-        '.m4v': [b'ftyp', b'\\x00\\x00\\x00'],
-        '.webm': [b'\\x1a\\x45\\xdf\\xa3'],
-        '.mp3': [b'ID3', b'\\xff\\xfb', b'\\xff\\xf3'],
-        '.m4a': [b'ftyp'],
-        '.wav': [b'RIFF'],
-        '.aac': [b'\\xff\\xf1', b'\\xff\\xf9'],
-    }
+    is_pending = key.startswith(PENDING_PREFIX)
+    file_ext = ('.' + key.rsplit('.', 1)[-1].lower()) if '.' in key else ''
 
-    safe_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif',
-                       '.mp4', '.mov', '.webm', '.m4v', '.mp3', '.m4a', '.wav', '.aac']
-    file_ext = '.' + key.rsplit('.', 1)[-1].lower() if '.' in key else ''
+    # Determine scan verdict
+    verdict = scan_file(bucket, key, size, file_ext)
 
-    if file_ext in safe_extensions:
-        # Validate magic bytes for known extensions
-        header_valid = True
-        if file_ext in MAGIC_BYTES and size > 0:
-            try:
-                head_resp = s3.get_object(Bucket=bucket, Key=key, Range='bytes=0-11')
-                header = head_resp['Body'].read(12)
-                expected = MAGIC_BYTES[file_ext]
-                header_valid = any(
-                    header[:len(magic)] == magic or magic in header[:12]
-                    for magic in expected
-                )
-            except Exception as e:
-                print(f"Magic bytes check failed: {e}")
-                header_valid = False
+    if is_pending:
+        # Quarantine-first flow: coordinate via DynamoDB
+        # For pending-scan images, expectedScanCount=2 (virus + moderation)
+        is_image = file_ext in IMAGE_EXTS
+        expected = 2 if is_image else 1
+        coordinate_and_finalize(bucket, key, verdict, expected)
+    else:
+        # Direct-path flow: tag or quarantine immediately
+        handle_direct(bucket, key, verdict, file_ext)
 
-        if not header_valid:
-            # Extension mismatch — quarantine as suspicious
-            print(f"SUSPICIOUS: File header does not match extension {file_ext}: {key}")
-            quarantine_key = f"suspicious/{bucket}/{key}"
-            try:
-                s3.copy_object(
-                    CopySource={'Bucket': bucket, 'Key': key},
-                    Bucket=QUARANTINE_BUCKET,
-                    Key=quarantine_key,
-                    MetadataDirective='COPY'
-                )
-                s3.delete_object(Bucket=bucket, Key=key)
-                sns.publish(
-                    TopicArn=ALERT_TOPIC_ARN,
-                    Subject="[SECURITY ALERT] Suspicious file - header mismatch",
-                    Message=json.dumps({
-                        'type': 'HEADER_MISMATCH',
-                        'bucket': bucket,
-                        'key': key,
-                        'claimed_extension': file_ext,
-                        'quarantine_location': f"s3://{QUARANTINE_BUCKET}/{quarantine_key}",
-                        'timestamp': datetime.utcnow().isoformat()
-                    }, indent=2)
-                )
-            except Exception as e:
-                print(f"Failed to quarantine suspicious file: {e}")
-                raise
-            return {'statusCode': 200, 'body': 'Suspicious file quarantined - header mismatch'}
+    return {'statusCode': 200, 'body': f'Scan complete: {verdict}'}
 
-        # Valid media file — tag as scanned (extension + header verified)
-        # Enhancement: ClamAV layer for deep content scanning
+def scan_file(bucket, key, size, file_ext):
+    if file_ext not in SAFE_EXTS:
+        print(f"Non-media file, default-deny: {key}")
+        return 'quarantine'
+
+    if file_ext not in MAGIC_BYTES or size <= 0:
+        return 'passed'
+
+    try:
+        resp = s3.get_object(Bucket=bucket, Key=key, Range='bytes=0-11')
+        header = resp['Body'].read(12)
+        expected = MAGIC_BYTES[file_ext]
+        valid = any(header[:len(m)] == m or m in header[:12] for m in expected)
+        if not valid:
+            print(f"HEADER MISMATCH: {file_ext} for {key}")
+            return 'quarantine'
+    except Exception as e:
+        print(f"Magic bytes check failed: {e}")
+        return 'error'
+
+    return 'passed'
+
+def coordinate_and_finalize(bucket, key, verdict, expected_count):
+    if not SCAN_TABLE:
+        print("No SCAN_TABLE configured, falling back to direct action")
+        if verdict == 'quarantine':
+            quarantine_direct(bucket, key)
+        return
+
+    now = datetime.utcnow().isoformat()
+    ttl = int(time.time()) + 3600
+
+    resp = dynamodb.update_item(
+        TableName=SCAN_TABLE,
+        Key={'objectKey': {'S': key}},
+        UpdateExpression='SET virusScanResult = :r, virusScanAt = :ts, bucketName = :b, expiresAt = :ttl, uploadedAt = if_not_exists(uploadedAt, :ts), expectedScanCount = if_not_exists(expectedScanCount, :exp) ADD scanCount :one',
+        ExpressionAttributeValues={
+            ':r': {'S': verdict},
+            ':ts': {'S': now},
+            ':b': {'S': bucket},
+            ':ttl': {'N': str(ttl)},
+            ':exp': {'N': str(expected_count)},
+            ':one': {'N': '1'},
+        },
+        ReturnValues='ALL_NEW',
+    )
+
+    attrs = resp['Attributes']
+    scan_count = int(attrs['scanCount']['N'])
+    exp = int(attrs['expectedScanCount']['N'])
+    virus_r = attrs.get('virusScanResult', {}).get('S', 'pending')
+    mod_r = attrs.get('moderationResult', {}).get('S', 'passed')
+
+    print(f"DynamoDB: scanCount={scan_count}/{exp}, virus={virus_r}, mod={mod_r}")
+
+    if scan_count < exp:
+        print("Not last scanner, waiting")
+        return
+
+    # Last scanner — promote or quarantine
+    should_quarantine = virus_r == 'quarantine' or mod_r == 'quarantine'
+
+    if should_quarantine:
+        final_key = key.replace(PENDING_PREFIX, '', 1)
+        q_key = f"quarantine/{final_key}"
+        print(f"QUARANTINE from pending: {key} -> {q_key}")
         try:
-            s3.put_object_tagging(
-                Bucket=bucket, Key=key,
-                Tagging={'TagSet': [
-                    {'Key': 'virus-scan', 'Value': 'header-verified'},
-                    {'Key': 'scan-date', 'Value': datetime.utcnow().isoformat()}
-                ]}
-            )
+            s3.copy_object(CopySource={'Bucket': bucket, 'Key': key}, Bucket=QUARANTINE_BUCKET, Key=q_key, MetadataDirective='COPY')
+            s3.delete_object(Bucket=bucket, Key=key)
+            sns.publish(TopicArn=ALERT_TOPIC_ARN, Subject=f"[QUARANTINE] {key.split('/')[-1]}", Message=json.dumps({'type': 'QUARANTINE_FROM_PENDING', 'bucket': bucket, 'key': key, 'reason': f"virus={virus_r}, mod={mod_r}", 'timestamp': now}, indent=2))
+        except Exception as e:
+            print(f"Quarantine failed: {e}")
+    else:
+        final_key = key.replace(PENDING_PREFIX, '', 1)
+        print(f"PROMOTE: {key} -> {final_key}")
+        try:
+            s3.copy_object(CopySource={'Bucket': bucket, 'Key': key}, Bucket=bucket, Key=final_key, MetadataDirective='COPY')
+            tag_val = mod_r if mod_r in ('review', 'under_review') else 'clean'
+            s3.put_object_tagging(Bucket=bucket, Key=final_key, Tagging={'TagSet': [{'Key': 'scan-status', 'Value': 'clean'}, {'Key': 'moderation-status', 'Value': tag_val}, {'Key': 'promoted-at', 'Value': now}]})
+            s3.delete_object(Bucket=bucket, Key=key)
+        except Exception as e:
+            print(f"Promote failed: {e}")
+
+    # Cleanup DynamoDB
+    try:
+        dynamodb.delete_item(TableName=SCAN_TABLE, Key={'objectKey': {'S': key}})
+    except Exception:
+        pass
+
+def handle_direct(bucket, key, verdict, file_ext):
+    if verdict == 'quarantine':
+        quarantine_direct(bucket, key)
+    else:
+        tag_val = 'header-verified' if file_ext in SAFE_EXTS else 'clean'
+        try:
+            s3.put_object_tagging(Bucket=bucket, Key=key, Tagging={'TagSet': [{'Key': 'virus-scan', 'Value': tag_val}, {'Key': 'scan-date', 'Value': datetime.utcnow().isoformat()}]})
         except Exception as e:
             print(f"Failed to tag: {e}")
-        return {'statusCode': 200, 'body': 'Media file header verified'}
 
-    # Non-media files: quarantine by default (defense-in-depth)
-    # Enhancement: ClamAV Lambda Layer for deep scanning of non-media uploads
-    print(f"Non-media file detected, quarantining: {key}")
-    scan_result = 'INFECTED'  # Default-deny: quarantine unknown files
-
-    if scan_result == 'INFECTED':
-        # Move to quarantine
-        quarantine_key = f"infected/{bucket}/{key}"
-        try:
-            s3.copy_object(
-                CopySource={'Bucket': bucket, 'Key': key},
-                Bucket=QUARANTINE_BUCKET,
-                Key=quarantine_key,
-                MetadataDirective='COPY'
-            )
-            s3.delete_object(Bucket=bucket, Key=key)
-
-            # Send alert
-            sns.publish(
-                TopicArn=ALERT_TOPIC_ARN,
-                Subject="[SECURITY ALERT] Infected file detected",
-                Message=json.dumps({
-                    'type': 'MALWARE_DETECTED',
-                    'bucket': bucket,
-                    'key': key,
-                    'quarantine_location': f"s3://{QUARANTINE_BUCKET}/{quarantine_key}",
-                    'action': 'File quarantined and deleted from source',
-                    'timestamp': datetime.utcnow().isoformat()
-                }, indent=2)
-            )
-            print(f"INFECTED file quarantined: {key}")
-        except Exception as e:
-            print(f"Failed to quarantine: {e}")
-            raise
-
-        return {'statusCode': 200, 'body': 'Infected file quarantined'}
-    else:
-        # Tag as scanned
-        try:
-            s3.put_object_tagging(
-                Bucket=bucket, Key=key,
-                Tagging={'TagSet': [
-                    {'Key': 'virus-scan', 'Value': 'clean'},
-                    {'Key': 'scan-date', 'Value': datetime.utcnow().isoformat()}
-                ]}
-            )
-        except Exception as e:
-            print(f"Failed to tag object: {e}")
-
-        return {'statusCode': 200, 'body': 'File scanned - clean'}
+def quarantine_direct(bucket, key):
+    q_key = f"suspicious/{key}"
+    try:
+        s3.copy_object(CopySource={'Bucket': bucket, 'Key': key}, Bucket=QUARANTINE_BUCKET, Key=q_key, MetadataDirective='COPY')
+        s3.delete_object(Bucket=bucket, Key=key)
+        sns.publish(TopicArn=ALERT_TOPIC_ARN, Subject=f"[SECURITY] Quarantined: {key.split('/')[-1]}", Message=json.dumps({'type': 'VIRUS_SCAN_QUARANTINE', 'bucket': bucket, 'key': key, 'quarantine': f"s3://{QUARANTINE_BUCKET}/{q_key}", 'timestamp': datetime.utcnow().isoformat()}, indent=2))
+    except Exception as e:
+        print(f"Quarantine failed: {e}")
+        raise
 `),
       timeout: cdk.Duration.minutes(5),
       memorySize: 1024,
       environment: {
         QUARANTINE_BUCKET: quarantineBucket.bucketName,
         ALERT_TOPIC_ARN: this.securityAlertsTopic.topicArn,
+        SCAN_COORDINATION_TABLE: scanCoordinationTable.tableName,
       },
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
@@ -496,6 +512,9 @@ def handler(event, context):
       actions: ['s3:PutObjectTagging', 's3:GetObjectTagging'],
       resources: [`${mediaBucket.bucketArn}/*`],
     }));
+
+    // Grant DynamoDB access for quarantine-first coordination
+    scanCoordinationTable.grantReadWriteData(this.virusScanFunction);
 
     // Dead Letter Queue for failed scan events — prevents silent loss of unscanned files
     const scanDlq = new sqs.Queue(this, 'ScanDeadLetterQueue', {
@@ -539,6 +558,7 @@ def handler(event, context):
               { prefix: 'users/' },
               { prefix: 'private/' },
               { prefix: 'voice-messages/' },
+              { prefix: 'pending-scan/' }, // Quarantine-first images
             ],
           },
         },
@@ -564,6 +584,7 @@ def handler(event, context):
       environment: {
         QUARANTINE_BUCKET: quarantineBucket.bucketName,
         SECURITY_ALERTS_TOPIC_ARN: this.securityAlertsTopic.topicArn,
+        SCAN_COORDINATION_TABLE: scanCoordinationTable.tableName,
         AWS_REGION_OVERRIDE: cdk.Aws.REGION,
       },
       bundling: {
@@ -577,14 +598,18 @@ def handler(event, context):
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
 
-    // Grant S3 permissions (read source, delete source, tag source, write quarantine)
+    // Grant S3 permissions (read, write/copy, delete source, tag, quarantine)
     mediaBucket.grantRead(this.imageModerationFunction);
+    mediaBucket.grantPut(this.imageModerationFunction); // CopyObject for promotion from pending-scan/
     mediaBucket.grantDelete(this.imageModerationFunction);
     quarantineBucket.grantPut(this.imageModerationFunction);
     this.imageModerationFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ['s3:PutObjectTagging', 's3:GetObjectTagging'],
       resources: [`${mediaBucket.bucketArn}/*`],
     }));
+
+    // Grant DynamoDB access for quarantine-first coordination
+    scanCoordinationTable.grantReadWriteData(this.imageModerationFunction);
 
     // Grant Rekognition DetectModerationLabels
     // Rekognition is a stateless API — resource-level ARNs are not supported by AWS
@@ -617,6 +642,7 @@ def handler(event, context):
               { prefix: 'peaks/' },
               { prefix: 'users/' },
               { prefix: 'private/' },
+              { prefix: 'pending-scan/' }, // Quarantine-first images
             ],
           },
         },
@@ -772,7 +798,7 @@ def handler(event, context):
       protectedResource: {
         s3Bucket: {
           bucketName: mediaBucket.bucketName,
-          objectPrefixes: ['uploads/', 'posts/', 'peaks/', 'users/', 'private/', 'voice-messages/'],
+          objectPrefixes: ['uploads/', 'posts/', 'peaks/', 'users/', 'private/', 'voice-messages/', 'pending-scan/'],
         },
       },
       role: guardDutyMalwareRole.roleArn,
@@ -911,6 +937,151 @@ def handler(event, context):
     }));
 
     // ========================================
+    // 6. SCAN COORDINATION CLEANUP
+    // ========================================
+    // Sweeps DynamoDB for stuck entries where one scanner never finished
+    // (e.g., Lambda timeout, Rekognition error). Promotes or quarantines
+    // based on whichever results are available after 10 minutes.
+
+    const scanCleanupFunction = new lambda.Function(this, 'ScanCleanupFunction', {
+      functionName: `smuppy-scan-cleanup-${environment}`,
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'index.handler',
+      code: lambda.Code.fromInline(`
+import json
+import boto3
+import os
+import time
+from datetime import datetime
+
+dynamodb = boto3.client('dynamodb')
+s3 = boto3.client('s3')
+sns = boto3.client('sns')
+
+SCAN_TABLE = os.environ['SCAN_COORDINATION_TABLE']
+QUARANTINE_BUCKET = os.environ['QUARANTINE_BUCKET']
+ALERT_TOPIC_ARN = os.environ['ALERT_TOPIC_ARN']
+PENDING_PREFIX = 'pending-scan/'
+STUCK_THRESHOLD_SECONDS = 600  # 10 minutes
+
+def handler(event, context):
+    """Sweep for stuck scan coordination entries and finalize them."""
+    now = time.time()
+    count = 0
+    stuck = 0
+
+    # Scan for entries that have been pending too long
+    paginator = dynamodb.get_paginator('scan')
+    for page in paginator.paginate(TableName=SCAN_TABLE):
+        for item in page.get('Items', []):
+            count += 1
+            obj_key = item['objectKey']['S']
+            uploaded_at = item.get('uploadedAt', {}).get('S', '')
+            scan_count = int(item.get('scanCount', {}).get('N', '0'))
+            expected = int(item.get('expectedScanCount', {}).get('N', '2'))
+            bucket = item.get('bucketName', {}).get('S', '')
+
+            if scan_count >= expected:
+                # Already finalized but not cleaned up — just delete
+                cleanup(obj_key)
+                continue
+
+            if not uploaded_at:
+                continue
+
+            try:
+                upload_time = datetime.fromisoformat(uploaded_at.replace('Z', '+00:00'))
+                age_seconds = now - upload_time.timestamp()
+            except Exception:
+                age_seconds = 0
+
+            if age_seconds < STUCK_THRESHOLD_SECONDS:
+                continue
+
+            stuck += 1
+            virus_r = item.get('virusScanResult', {}).get('S', 'missing')
+            mod_r = item.get('moderationResult', {}).get('S', 'missing')
+
+            print(f"STUCK entry: {obj_key} age={int(age_seconds)}s virus={virus_r} mod={mod_r}")
+
+            should_quarantine = virus_r == 'quarantine' or mod_r == 'quarantine'
+
+            if should_quarantine:
+                quarantine_stuck(bucket, obj_key, virus_r, mod_r)
+            else:
+                promote_stuck(bucket, obj_key, mod_r)
+
+            cleanup(obj_key)
+
+    print(f"Cleanup done: scanned={count}, stuck={stuck}")
+    return {'statusCode': 200, 'body': f'Scanned {count}, resolved {stuck} stuck entries'}
+
+def promote_stuck(bucket, key, mod_result):
+    if not key.startswith(PENDING_PREFIX):
+        return
+    final_key = key.replace(PENDING_PREFIX, '', 1)
+    try:
+        s3.copy_object(CopySource={'Bucket': bucket, 'Key': key}, Bucket=bucket, Key=final_key, MetadataDirective='COPY')
+        tag_val = 'under_review' if mod_result in ('review', 'under_review') else 'promoted_after_timeout'
+        s3.put_object_tagging(Bucket=bucket, Key=final_key, Tagging={'TagSet': [{'Key': 'scan-status', 'Value': tag_val}, {'Key': 'promoted-at', 'Value': datetime.utcnow().isoformat()}, {'Key': 'promotion-reason', 'Value': 'cleanup-timeout'}]})
+        s3.delete_object(Bucket=bucket, Key=key)
+        print(f"Promoted stuck file: {key} -> {final_key}")
+    except Exception as e:
+        print(f"Failed to promote stuck file: {e}")
+
+def quarantine_stuck(bucket, key, virus_r, mod_r):
+    if not key.startswith(PENDING_PREFIX):
+        return
+    final_key = key.replace(PENDING_PREFIX, '', 1)
+    q_key = f"quarantine/{final_key}"
+    try:
+        s3.copy_object(CopySource={'Bucket': bucket, 'Key': key}, Bucket=QUARANTINE_BUCKET, Key=q_key, MetadataDirective='COPY')
+        s3.delete_object(Bucket=bucket, Key=key)
+        sns.publish(TopicArn=ALERT_TOPIC_ARN, Subject=f"[QUARANTINE-CLEANUP] {key.split('/')[-1]}", Message=json.dumps({'type': 'QUARANTINE_FROM_CLEANUP', 'bucket': bucket, 'key': key, 'reason': f"stuck: virus={virus_r}, mod={mod_r}", 'timestamp': datetime.utcnow().isoformat()}, indent=2))
+        print(f"Quarantined stuck file: {key} -> {q_key}")
+    except Exception as e:
+        print(f"Failed to quarantine stuck file: {e}")
+
+def cleanup(obj_key):
+    try:
+        dynamodb.delete_item(TableName=SCAN_TABLE, Key={'objectKey': {'S': obj_key}})
+    except Exception:
+        pass
+`),
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 256,
+      environment: {
+        SCAN_COORDINATION_TABLE: scanCoordinationTable.tableName,
+        QUARANTINE_BUCKET: quarantineBucket.bucketName,
+        ALERT_TOPIC_ARN: this.securityAlertsTopic.topicArn,
+      },
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    // Grant permissions
+    scanCoordinationTable.grantReadWriteData(scanCleanupFunction);
+    mediaBucket.grantRead(scanCleanupFunction);
+    mediaBucket.grantPut(scanCleanupFunction);
+    mediaBucket.grantDelete(scanCleanupFunction);
+    quarantineBucket.grantPut(scanCleanupFunction);
+    this.securityAlertsTopic.grantPublish(scanCleanupFunction);
+
+    scanCleanupFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['s3:PutObjectTagging'],
+      resources: [`${mediaBucket.bucketArn}/*`],
+    }));
+
+    // Run every 15 minutes
+    new events.Rule(this, 'ScanCleanupSchedule', {
+      ruleName: `smuppy-scan-cleanup-${environment}`,
+      description: 'Sweep stuck scan coordination entries every 15 minutes',
+      schedule: events.Schedule.rate(cdk.Duration.minutes(15)),
+      targets: [new targets.LambdaFunction(scanCleanupFunction, {
+        retryAttempts: 1,
+      })],
+    });
+
+    // ========================================
     // CloudWatch Alarms for Backup Monitoring
     // ========================================
 
@@ -961,6 +1132,12 @@ def handler(event, context):
       value: this.securityAlertsTopic.topicArn,
       description: 'SNS Topic for security alerts',
       exportName: `smuppy-security-alerts-arn-${environment}`,
+    });
+
+    new cdk.CfnOutput(this, 'ScanCoordinationTableName', {
+      value: scanCoordinationTable.tableName,
+      description: 'DynamoDB table for quarantine-first scan coordination',
+      exportName: `smuppy-scan-coordination-table-${environment}`,
     });
 
     new cdk.CfnOutput(this, 'MalwareProtectionPlanId', {

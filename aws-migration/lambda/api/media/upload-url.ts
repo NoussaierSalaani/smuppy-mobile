@@ -202,10 +202,17 @@ export async function handler(
     const secureFilename = generateSecureFilename(contentType);
     const key = getUploadPath(userId, uploadType, secureFilename);
 
+    // QUARANTINE-FIRST: images upload to pending-scan/<path> and are promoted
+    // to <path> only after both virus scan and moderation pass.
+    // Videos/audio skip quarantine-first because async Rekognition needs the
+    // file to persist at a stable path for the duration of analysis.
+    const isImage = mediaType === 'image';
+    const uploadKey = isImage ? `pending-scan/${key}` : key;
+
     // Create presigned URL with ContentLength to enforce server-side size limits
     const command = new PutObjectCommand({
       Bucket: MEDIA_BUCKET,
-      Key: key,
+      Key: uploadKey,
       ContentType: contentType,
       ContentLength: fileSize,
       Metadata: {

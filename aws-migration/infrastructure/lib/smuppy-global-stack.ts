@@ -445,6 +445,32 @@ export class SmuppyGlobalStack extends cdk.Stack {
       };
     }
 
+    // SECURITY: Block pending-scan/ paths from being served via CDN.
+    // Files in pending-scan/ are quarantine-first uploads awaiting virus + moderation scans.
+    // They must never be publicly accessible until promoted to their final path.
+    const blockPendingScanFunction = new cloudfront.Function(this, 'BlockPendingScanFunction', {
+      functionName: `smuppy-block-pending-scan-${environment}`,
+      comment: 'Block access to pending-scan/ files awaiting virus + moderation scans',
+      code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var uri = event.request.uri;
+  if (uri.indexOf('/pending-scan/') === 0 || uri === '/pending-scan') {
+    return {
+      statusCode: 403,
+      statusDescription: 'Forbidden',
+      headers: {
+        'content-type': { value: 'application/json' },
+        'cache-control': { value: 'no-store' }
+      },
+      body: { encoding: 'text', data: '{"error":"Access denied"}' }
+    };
+  }
+  return event.request;
+}
+      `),
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+    });
+
     this.distribution = new cloudfront.Distribution(this, 'CDN', {
       // SECURITY: Enable access logging
       enableLogging: true,
@@ -467,6 +493,11 @@ export class SmuppyGlobalStack extends cdk.Stack {
         compress: true,
         // SECURITY: Custom headers policy with restrictive CORS
         responseHeadersPolicy: secureResponseHeadersPolicy,
+        // SECURITY: Block pending-scan/ files from being served
+        functionAssociations: [{
+          function: blockPendingScanFunction,
+          eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+        }],
       },
 
       additionalBehaviors,

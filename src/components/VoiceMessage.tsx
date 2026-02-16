@@ -27,7 +27,6 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
   const [loadError, setLoadError] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
   const retryCountRef = useRef(0);
-  const MAX_RETRIES = 3;
 
   // Refs to track values without triggering re-renders
   const lastProgressRef = useRef(0);

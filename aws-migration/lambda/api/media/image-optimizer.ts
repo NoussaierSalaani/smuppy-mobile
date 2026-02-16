@@ -23,8 +23,6 @@ const s3Client = new S3Client({
   responseChecksumValidation: 'WHEN_REQUIRED',
 });
 
-const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
-
 // Image extensions we process
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic']);
 

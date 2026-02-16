@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode, AVPlaybackStatus, AVPlaybackStatusSuccess } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
-import { normalizeCdnUrl } from '../../utils/cdnUrl';
+import { normalizeCdnUrl, getVideoPlaybackUrl } from '../../utils/cdnUrl';
 import * as MediaLibrary from 'expo-media-library';
 import OptimizedImage from '../../components/OptimizedImage';
 import { resolveDisplayName } from '../../types/profile';
@@ -42,7 +42,7 @@ import { savePost, unsavePost } from '../../services/database';
 import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
-import { awsAPI } from '../../services/aws-api';
+import { awsAPI, APIError } from '../../services/aws-api';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
 const { width, height: screenHeight } = Dimensions.get('window');
@@ -230,6 +230,7 @@ interface Peak {
   id: string;
   thumbnail: string;
   videoUrl?: string;
+  hlsUrl?: string;
   duration: number;
   user: PeakUser;
   views: number;
@@ -239,6 +240,7 @@ interface Peak {
   tags?: PeakTag[];
   textOverlay?: string;
   createdAt: string; // ISO string for React Navigation serialization
+  expiresAt?: string; // ISO string — used for expiration detection
   isLiked?: boolean;
   isSaved?: boolean;
   isOwnPeak?: boolean; // To show tag count only to creator
@@ -266,7 +268,7 @@ const NOOP = () => {};
 
 const PeakViewScreen = (): React.JSX.Element => {
   const { colors, isDark } = useTheme();
-  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
+  const { showError, showSuccess, showWarning, showDestructiveConfirm } = useSmuppyAlert();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PeakView'>>();
@@ -294,6 +296,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       const fetched: Peak = {
         id: p.id,
         videoUrl: p.videoUrl ? toCdn(p.videoUrl) : undefined,
+        hlsUrl: p.hlsUrl ? toCdn(p.hlsUrl) : undefined,
         thumbnail: toCdn(p.thumbnailUrl) || '',
         duration: p.duration || 15,
         user: {
@@ -304,6 +307,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         views: p.viewsCount || 0,
         likes: p.likesCount || 0,
         createdAt: p.createdAt || new Date().toISOString(),
+        expiresAt: p.expiresAt || undefined,
         isLiked: p.isLiked || false,
         isOwnPeak: currentUser?.id != null && (p.authorId === currentUser.id || p.author?.id === currentUser.id),
       };
@@ -410,6 +414,22 @@ const PeakViewScreen = (): React.JSX.Element => {
       return () => clearTimeout(timer);
     }
   }, [showOnboarding]);
+
+  // Expiration detection: check every 30s if current peak has expired mid-view
+  useEffect(() => {
+    if (!currentPeak.expiresAt || currentPeak.isOwnPeak) return;
+    const checkExpiration = () => {
+      const expiresMs = new Date(currentPeak.expiresAt!).getTime();
+      if (!isNaN(expiresMs) && Date.now() > expiresMs) {
+        showWarning('Peak Expired', 'This peak has expired and is no longer available.');
+        navigation.goBack();
+      }
+    };
+    // Check immediately then every 30s
+    checkExpiration();
+    const interval = setInterval(checkExpiration, 30000);
+    return () => clearInterval(interval);
+  }, [currentPeak.expiresAt, currentPeak.isOwnPeak, navigation, showWarning]);
 
   // Keep refs in sync for panResponder closure
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
@@ -559,6 +579,12 @@ const PeakViewScreen = (): React.JSX.Element => {
       } : p));
     } catch (error) {
       if (__DEV__) console.warn('[Peak] Failed to toggle like:', error);
+      // Detect expired peak (404)
+      if (error instanceof APIError && error.statusCode === 404) {
+        showWarning('Peak Expired', 'This peak has expired and is no longer available.');
+        navigation.goBack();
+        return;
+      }
       // Rollback on error
       setLikedPeaks(prev => {
         const newSet = new Set(prev);
@@ -647,6 +673,12 @@ const PeakViewScreen = (): React.JSX.Element => {
       if (__DEV__) console.log(`[Peak] Tagged ${friend.name} on peak ${currentPeak.id}`);
     } catch (error) {
       if (__DEV__) console.warn('[Peak] Failed to tag friend:', error);
+      // Detect expired peak (404)
+      if (error instanceof APIError && error.statusCode === 404) {
+        showWarning('Peak Expired', 'This peak has expired and is no longer available.');
+        navigation.goBack();
+        return;
+      }
       // Rollback on error
       setPeakTags(prev => {
         const newMap = new Map(prev);
@@ -687,6 +719,12 @@ const PeakViewScreen = (): React.JSX.Element => {
       if (__DEV__) console.log(`[Peak] ${isRemovingReaction ? 'Removed' : 'Added'} reaction ${reactionType} on peak ${currentPeak.id}`);
     } catch (error) {
       if (__DEV__) console.warn('[Peak] Failed to update reaction:', error);
+      // Detect expired peak (404)
+      if (error instanceof APIError && error.statusCode === 404) {
+        showWarning('Peak Expired', 'This peak has expired and is no longer available.');
+        navigation.goBack();
+        return;
+      }
       // Rollback on error
       setPeakReactions(prev => {
         const newMap = new Map(prev);
@@ -1222,10 +1260,10 @@ const PeakViewScreen = (): React.JSX.Element => {
         delayLongPress={300}
       >
         <View style={styles.mediaContainer} {...panResponder.panHandlers}>
-          {currentPeak.videoUrl ? (
+          {(currentPeak.hlsUrl || currentPeak.videoUrl) ? (
             <Video
               ref={(r) => { videoRef.current = r; }}
-              source={{ uri: normalizeCdnUrl(currentPeak.videoUrl) || '' }}
+              source={{ uri: getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl) || '' }}
               style={styles.media}
               resizeMode={ResizeMode.COVER}
               shouldPlay

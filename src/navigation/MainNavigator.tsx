@@ -126,6 +126,7 @@ const TermsPoliciesScreen = lazyScreen(() => import('../screens/settings/TermsPo
 const BlockedUsersScreen = lazyScreen(() => import('../screens/settings/BlockedUsersScreen'));
 const MutedUsersScreen = lazyScreen(() => import('../screens/settings/MutedUsersScreen'));
 const UpgradeToProScreen = lazyScreen(() => import('../screens/settings/UpgradeToProScreen'));
+const DataExportScreen = lazyScreen(() => import('../screens/settings/DataExportScreen'));
 
 // PEAKS (create/preview)
 const CreatePeakScreen = lazyScreen(() => import('../screens/peaks/CreatePeakScreen'));
@@ -423,6 +424,7 @@ export default function MainNavigator() {
       <Stack.Screen name="TermsPolicies" component={TermsPoliciesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="MutedUsers" component={MutedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="DataExport" component={DataExportScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       {FEATURES.UPGRADE_TO_PRO && (
       <Stack.Screen name="UpgradeToPro" component={UpgradeToProScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

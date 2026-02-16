@@ -118,6 +118,11 @@ export interface Post {
   peak_expires_at?: string;
   save_to_profile?: boolean;
   tagged_users?: Array<string | { id: string; username: string; fullName?: string | null; avatarUrl?: string | null }>;
+  video_status?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
+  hls_url?: string | null;
+  thumbnail_url?: string | null;
+  video_variants?: Record<string, string> | null;
+  video_duration?: number | null;
   created_at: string;
   author?: Profile;
   [key: string]: unknown; // Allow additional properties for store compatibility

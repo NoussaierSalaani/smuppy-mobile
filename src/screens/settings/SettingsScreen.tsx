@@ -165,6 +165,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     { id: 'blocked', icon: 'ban-outline' as const, label: 'Blocked Users', screen: 'BlockedUsers' },
     { id: 'muted', icon: 'volume-mute-outline' as const, label: 'Muted Users', screen: 'MutedUsers' },
     { id: 'report', icon: 'alert-circle-outline' as const, label: 'Report a Problem', screen: 'ReportProblem' },
+    { id: 'exportData', icon: 'download-outline' as const, label: 'Export My Data', screen: 'DataExport' },
     { id: 'terms', icon: 'document-text-outline' as const, label: 'Terms of Service', screen: 'TermsPolicies' },
   ];
 

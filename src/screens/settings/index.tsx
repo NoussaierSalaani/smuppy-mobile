@@ -12,3 +12,4 @@ export { default as MutedUsersScreen } from './MutedUsersScreen';
 export { default as PrescriptionPreferencesScreen } from './PrescriptionPreferencesScreen';
 export { default as UpgradeToProScreen } from './UpgradeToProScreen';
 export { default as ActivityHistoryScreen } from './ActivityHistoryScreen';
+export { default as DataExportScreen } from './DataExportScreen';

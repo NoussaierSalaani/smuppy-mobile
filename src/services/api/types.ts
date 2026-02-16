@@ -40,6 +40,10 @@ export interface Post {
   isLiked?: boolean;
   isSaved?: boolean;
   videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
+  hlsUrl?: string | null;
+  thumbnailUrl?: string | null;
+  videoVariants?: Record<string, string> | null;
+  videoDuration?: number | null;
   author: Profile;
 }
 
@@ -104,6 +108,10 @@ export interface Peak {
   overlays: Array<{ id: string; type: string; position: { x: number; y: number; scale: number; rotation: number }; params: Record<string, unknown> }> | null;
   expiresAt: string | null;
   savedToProfile: boolean | null;
+  hlsUrl?: string | null;
+  videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
+  videoVariants?: Record<string, string> | null;
+  videoDuration?: number | null;
   isLiked?: boolean;
   isViewed?: boolean;
   author: Profile;

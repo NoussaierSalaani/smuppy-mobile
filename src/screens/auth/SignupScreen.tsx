@@ -198,6 +198,15 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         return;
       }
 
+      // Record GDPR consent (fire-and-forget — user already checked the terms box)
+      awsAPI.recordConsent([
+        { type: 'terms_of_service', version: '1.0' },
+        { type: 'privacy_policy', version: '1.0' },
+      ]).catch(() => {
+        // Best-effort: consent will be recorded on next login if this fails
+        if (__DEV__) console.warn('[Signup] Failed to record consent');
+      });
+
       navigation.navigate('VerifyCode', {
         email: normalizedEmail,
         password,

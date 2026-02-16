@@ -708,6 +708,7 @@ export type MainStackParamList = {
   NotificationSettings: undefined;
   ReportProblem: undefined;
   TermsPolicies: undefined;
+  DataExport: undefined;
   BlockedUsers: undefined;
   MutedUsers: undefined;
   FollowRequests: undefined;

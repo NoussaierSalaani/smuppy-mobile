@@ -11,8 +11,19 @@ import {
   useGoogleAuth,
   handleGoogleSignIn,
 } from '../services/socialAuth';
+import { awsAPI } from '../services/aws-api';
 
 const SOCIAL_AUTH_COOLDOWN_MS = 3000;
+
+/** Fire-and-forget GDPR consent recording after social auth */
+const recordSocialConsent = () => {
+  awsAPI.recordConsent([
+    { type: 'terms_of_service', version: '1.0' },
+    { type: 'privacy_policy', version: '1.0' },
+  ]).catch(() => {
+    if (__DEV__) console.warn('[SocialAuth] Failed to record consent');
+  });
+};
 
 interface UseSocialAuthOptions {
   /** Prefix for error modal titles ('Sign-In' or 'Sign-Up') */
@@ -67,7 +78,9 @@ export function useSocialAuth({ errorPrefix, onError }: UseSocialAuthOptions): U
         const result = await handleGoogleSignIn(googleResponse);
         if (!isMountedRef.current || cancelled) return;
 
-        if (!result.success && result.error && result.error !== 'cancelled') {
+        if (result.success) {
+          recordSocialConsent();
+        } else if (result.error && result.error !== 'cancelled') {
           onError(`Google ${errorPrefix} Failed`, result.error);
         }
       } finally {
@@ -95,7 +108,9 @@ export function useSocialAuth({ errorPrefix, onError }: UseSocialAuthOptions): U
       const result = await signInWithApple();
       if (!isMountedRef.current) return;
 
-      if (!result.success && result.error && result.error !== 'cancelled') {
+      if (result.success) {
+        recordSocialConsent();
+      } else if (result.error && result.error !== 'cancelled') {
         onError(`Apple ${errorPrefix} Failed`, result.error);
       }
     } finally {

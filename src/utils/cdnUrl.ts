@@ -46,6 +46,18 @@ export const normalizeCdnUrl = (url: string | undefined | null): string | undefi
  * @param variant - 'large' | 'medium' | 'thumb'
  * @param mediaMeta - media_meta from the post (may be undefined for old posts)
  */
+/**
+ * Get the best video playback URL: prefer HLS (adaptive bitrate) when available,
+ * fall back to raw MP4. Both are normalized through the CDN.
+ */
+export const getVideoPlaybackUrl = (
+  hlsUrl: string | null | undefined,
+  videoUrl: string | null | undefined,
+): string | undefined => {
+  const preferred = hlsUrl || videoUrl;
+  return normalizeCdnUrl(preferred) || undefined;
+};
+
 export const getMediaVariant = (
   originalUrl: string | null | undefined,
   variant: 'large' | 'medium' | 'thumb',

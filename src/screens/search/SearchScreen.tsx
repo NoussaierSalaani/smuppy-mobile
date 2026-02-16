@@ -109,7 +109,6 @@ const SearchScreen = (): React.JSX.Element => {
   const [trendingHashtags, setTrendingHashtags] = useState<{ tag: string; count: number }[]>([]);
 
   // Pagination
-  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   // Cursor refs for search endpoints that use cursor-based pagination
@@ -252,7 +251,6 @@ const SearchScreen = (): React.JSX.Element => {
       setPeakResults([]);
       setHashtagResults([]);
       setHasSearched(false);
-      setPage(0);
       setHasMore(true);
       setSearchError(null);
       return;
@@ -390,7 +388,6 @@ const SearchScreen = (): React.JSX.Element => {
       return;
     }
 
-    setPage(0);
     setHasMore(true);
 
     if (searchQuery.length > 0) {
@@ -436,7 +433,6 @@ const SearchScreen = (): React.JSX.Element => {
     const isLink = searchQuery.includes('smuppy.app') || searchQuery.includes('smuppy.com') || (__DEV__ && searchQuery.includes('localhost'));
     if (isLink) return;
 
-    setPage(0);
     performSearch(searchQuery, activeTab, 0, false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]); // Only trigger on tab change
@@ -444,7 +440,6 @@ const SearchScreen = (): React.JSX.Element => {
   // Load more
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || searchQuery.length < 2) return;
-    setPage(prev => prev + 1);
     performSearch(searchQuery, activeTab, 1, true);
   }, [loadingMore, hasMore, searchQuery, activeTab, performSearch]);
 

@@ -326,7 +326,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       setSelectedMedia([...current, mediaItem]);
       setSelectedPreview(item);
     }
-  }, [warningAlert]);
+  }, [warningAlert, isPro, maxVideoDuration]);
 
   // Handle next - MEDIA IS REQUIRED
   const handleNext = () => {

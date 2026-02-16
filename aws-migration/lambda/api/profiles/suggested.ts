@@ -103,9 +103,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           WITH excluded_ids AS (
             SELECT following_id AS id FROM follows WHERE follower_id = $1 AND status = 'accepted'
             UNION
-            SELECT follower_id AS id FROM follows WHERE following_id = $1 AND status = 'accepted'
-            UNION
             SELECT blocked_id AS id FROM blocked_users WHERE blocker_id = $1
+            UNION
+            SELECT blocker_id AS id FROM blocked_users WHERE blocked_id = $1
+          ),
+          my_fans AS (
+            SELECT follower_id AS id FROM follows WHERE following_id = $1 AND status = 'accepted'
           )
           SELECT
             p.id,
@@ -121,14 +124,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             p.business_name,
             p.fan_count,
             p.following_count,
-            p.post_count
+            p.post_count,
+            CASE WHEN mf.id IS NOT NULL THEN true ELSE false END AS is_followed_by
           FROM profiles p
+          LEFT JOIN my_fans mf ON mf.id = p.id
           WHERE p.id != $1
             AND p.is_private = false
             AND p.onboarding_completed = true
             AND p.id NOT IN (SELECT id FROM excluded_ids)
             AND p.moderation_status NOT IN ('banned', 'shadow_banned')
           ORDER BY
+            CASE WHEN mf.id IS NOT NULL THEN 0 ELSE 1 END,
             CASE WHEN p.is_verified THEN 0 ELSE 1 END,
             CASE WHEN p.account_type = 'pro_creator' THEN 0
                  WHEN p.account_type = 'pro_business' THEN 1
@@ -190,6 +196,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       followersCount: profile.fan_count || 0,
       followingCount: profile.following_count || 0,
       postsCount: profile.post_count || 0,
+      isFollowing: false,
+      isFollowedBy: profile.is_followed_by || false,
     }));
 
     return {

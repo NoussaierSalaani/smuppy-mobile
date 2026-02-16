@@ -116,6 +116,9 @@ const SearchScreen = (): React.JSX.Element => {
   const tagsCursorRef = useRef<string | null>(null);
   const peaksCursorRef = useRef<string | null>(null);
   const usersCursorRef = useRef<string | null>(null);
+  const suggestionsCursorRef = useRef<string | null>(null);
+  const hasMoreSuggestionsRef = useRef(true);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   // Load current user on mount
   useEffect(() => {
@@ -213,6 +216,8 @@ const SearchScreen = (): React.JSX.Element => {
   // Load suggested content
   const loadSuggestedContent = useCallback(async (signal?: { aborted: boolean }) => {
     setIsLoading(true);
+    suggestionsCursorRef.current = null;
+    hasMoreSuggestionsRef.current = true;
 
     try {
       const [profilesRes, hashtagsRes] = await Promise.all([
@@ -225,6 +230,8 @@ const SearchScreen = (): React.JSX.Element => {
       if (profilesRes.data) {
         setSuggestedProfiles(profilesRes.data.filter(p => p.id !== currentUserId && !isHidden(p.id)));
       }
+      suggestionsCursorRef.current = profilesRes.nextCursor || null;
+      hasMoreSuggestionsRef.current = profilesRes.hasMore || false;
       if (hashtagsRes.data) {
         setTrendingHashtags(hashtagsRes.data);
       }
@@ -234,6 +241,28 @@ const SearchScreen = (): React.JSX.Element => {
       if (!signal?.aborted) setIsLoading(false);
     }
   }, [currentUserId, isHidden]);
+
+  const loadMoreSuggestions = useCallback(async () => {
+    if (!hasMoreSuggestionsRef.current || loadingSuggestions || !suggestionsCursorRef.current) return;
+    setLoadingSuggestions(true);
+    try {
+      const res = await getSuggestedProfiles(PAGE_SIZE, suggestionsCursorRef.current);
+      if (res.data && res.data.length > 0) {
+        const filtered = res.data.filter(p => p.id !== currentUserId && !isHidden(p.id));
+        setSuggestedProfiles(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newProfiles = filtered.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newProfiles];
+        });
+      }
+      suggestionsCursorRef.current = res.nextCursor || null;
+      hasMoreSuggestionsRef.current = res.hasMore || false;
+    } catch (error) {
+      if (__DEV__) console.warn('[SearchScreen] Failed to load more suggestions:', error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, [currentUserId, isHidden, loadingSuggestions]);
 
   useEffect(() => {
     const signal = { aborted: false };
@@ -712,12 +741,24 @@ const SearchScreen = (): React.JSX.Element => {
                   accountType={profile.account_type}
                 />
               </View>
-              {profile.fan_count !== undefined && profile.fan_count > 0 && (
-                <Text style={[styles.resultMutual, { color: colors.primary }]}>{profile.fan_count} fans</Text>
+              {profile.is_followed_by && (
+                <Text style={[styles.resultMutual, { color: colors.primary }]}>Follows you</Text>
+              )}
+              {!profile.is_followed_by && profile.fan_count !== undefined && profile.fan_count > 0 && (
+                <Text style={[styles.resultMutual, { color: colors.grayMuted }]}>{profile.fan_count} fans</Text>
               )}
             </View>
           </TouchableOpacity>
         ))}
+        {hasMoreSuggestionsRef.current && (
+          <TouchableOpacity style={styles.loadMoreButton} onPress={loadMoreSuggestions} disabled={loadingSuggestions}>
+            {loadingSuggestions ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={[styles.loadMoreText, { color: colors.primary }]}>See more suggestions</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
@@ -1156,6 +1197,14 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     fontSize: 12,
     color: colors.primary,
     marginTop: 2,
+  },
+  loadMoreButton: {
+    paddingVertical: 14,
+    alignItems: 'center' as const,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
   },
 
   // All tab sections

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -85,6 +85,8 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
   const initialTab = route?.params?.initialTab || 'fans';
   const userId = route?.params?.userId; // Optional: view another user's fans
 
+  const PAGE_SIZE = 30;
+
   // State
   const [activeTab, setActiveTab] = useState<'fans' | 'tracking'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,10 +94,20 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
   const [tracking, setTracking] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showUnfollowPopup, setShowUnfollowPopup] = useState(false);
   const [showWarningPopup, setShowWarningPopup] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Pagination refs
+  const fansCursorRef = useRef<string | null>(null);
+  const trackingCursorRef = useRef<string | null>(null);
+  const hasMoreFansRef = useRef(true);
+  const hasMoreTrackingRef = useRef(true);
+  const targetUserIdRef = useRef<string | null>(null);
+  const allFanIdsRef = useRef<Set<string>>(new Set());
+  const allTrackingIdsRef = useRef<Set<string>>(new Set());
 
   // Load data on mount
   useEffect(() => {
@@ -106,6 +118,14 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
   const loadData = async () => {
     try {
       setIsLoading(true);
+
+      // Reset pagination
+      fansCursorRef.current = null;
+      trackingCursorRef.current = null;
+      hasMoreFansRef.current = true;
+      hasMoreTrackingRef.current = true;
+      allFanIdsRef.current = new Set();
+      allTrackingIdsRef.current = new Set();
 
       // Get current user ID
       const { data: currentProfile, error: profileError } = await getCurrentProfile();
@@ -118,23 +138,32 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
         return;
       }
 
-      const targetUserId = userId || currentProfile.id;
+      const targetId = userId || currentProfile.id;
+      targetUserIdRef.current = targetId;
 
       // Load followers (fans) and following (tracking) in parallel
       const [fansResult, trackingResult] = await Promise.all([
-        getFollowers(targetUserId, undefined, 100),
-        getFollowing(targetUserId, undefined, 100),
+        getFollowers(targetId, undefined, PAGE_SIZE),
+        getFollowing(targetId, undefined, PAGE_SIZE),
       ]);
+
+      // Store cursors
+      fansCursorRef.current = fansResult.nextCursor || null;
+      trackingCursorRef.current = trackingResult.nextCursor || null;
+      hasMoreFansRef.current = fansResult.hasMore ?? (fansResult.data?.length === PAGE_SIZE);
+      hasMoreTrackingRef.current = trackingResult.hasMore ?? (trackingResult.data?.length === PAGE_SIZE);
 
       // Get IDs of people I follow for mutual check
       const myFollowingIds = new Set(
         trackingResult.data?.map((p) => p.id) || []
       );
+      allTrackingIdsRef.current = myFollowingIds;
 
       // Get IDs of people who follow me for mutual check
       const myFansIds = new Set(
         fansResult.data?.map((p) => p.id) || []
       );
+      allFanIdsRef.current = myFansIds;
 
       // Transform fans
       const transformedFans: User[] = (fansResult.data || []).map((profile) =>
@@ -156,6 +185,56 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
       setIsRefreshing(false);
     }
   };
+
+  const loadMoreFans = useCallback(async () => {
+    if (!hasMoreFansRef.current || isLoadingMore || !fansCursorRef.current || !targetUserIdRef.current) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await getFollowers(targetUserIdRef.current, fansCursorRef.current, PAGE_SIZE);
+      fansCursorRef.current = result.nextCursor || null;
+      hasMoreFansRef.current = result.hasMore ?? (result.data?.length === PAGE_SIZE);
+      if (result.data && result.data.length > 0) {
+        const newFans = result.data.map((profile) => {
+          allFanIdsRef.current.add(profile.id);
+          return profileToUser(profile, true, allTrackingIdsRef.current.has(profile.id));
+        });
+        setFans((prev) => [...prev, ...newFans]);
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('[FansListScreen] Load more fans error:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore]);
+
+  const loadMoreTracking = useCallback(async () => {
+    if (!hasMoreTrackingRef.current || isLoadingMore || !trackingCursorRef.current || !targetUserIdRef.current) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await getFollowing(targetUserIdRef.current, trackingCursorRef.current, PAGE_SIZE);
+      trackingCursorRef.current = result.nextCursor || null;
+      hasMoreTrackingRef.current = result.hasMore ?? (result.data?.length === PAGE_SIZE);
+      if (result.data && result.data.length > 0) {
+        const newTracking = result.data.map((profile) => {
+          allTrackingIdsRef.current.add(profile.id);
+          return profileToUser(profile, allFanIdsRef.current.has(profile.id), true);
+        });
+        setTracking((prev) => [...prev, ...newTracking]);
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('[FansListScreen] Load more tracking error:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore]);
+
+  const handleEndReached = useCallback(() => {
+    if (activeTab === 'fans') {
+      loadMoreFans();
+    } else {
+      loadMoreTracking();
+    }
+  }, [activeTab, loadMoreFans, loadMoreTracking]);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -511,6 +590,15 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
         ListEmptyComponent={renderEmpty}
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : null
+        }
       />
 
       {/* Unfollow Popup */}
@@ -718,6 +806,10 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   listContainer: {
     paddingHorizontal: 16,
     paddingBottom: 100,
+  },
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center' as const,
   },
 
   // User Item

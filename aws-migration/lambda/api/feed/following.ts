@@ -7,6 +7,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('feed-following');
 
@@ -21,6 +23,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 401,
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
+      };
+    }
+
+    // Per-user rate limit: 60 req/min, fail-open (WAF baseline protects)
+    const { allowed } = await checkRateLimit({
+      prefix: 'feed-following',
+      identifier: cognitoSub,
+      windowSeconds: RATE_WINDOW_1_MIN,
+      maxRequests: 60,
+      failOpen: true,
+    });
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
       };
     }
 

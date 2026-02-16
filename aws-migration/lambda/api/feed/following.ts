@@ -103,6 +103,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
          AND p.author_id IN (SELECT following_id FROM follows WHERE follower_id = $1 AND status = 'accepted')
          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
          AND p.visibility NOT IN ('private', 'hidden')
+         AND NOT EXISTS (
+           SELECT 1 FROM blocked_users
+           WHERE (blocker_id = $1 AND blocked_id = p.author_id)
+              OR (blocker_id = p.author_id AND blocked_id = $1)
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM muted_users WHERE muter_id = $1 AND muted_id = p.author_id
+         )
          AND (
            p.visibility IN ('public', 'fans')
            OR (p.visibility = 'subscribers' AND EXISTS(

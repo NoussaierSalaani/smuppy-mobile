@@ -69,9 +69,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `p.author_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $${paramIndex} AND status = 'accepted')`
       );
       whereClauses.push(`p.author_id != $${paramIndex}`);
-      // Exclude posts from users the current user has blocked
+      // Exclude posts from users the current user has blocked (bidirectional) or muted
       whereClauses.push(
-        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${paramIndex} AND blocked_id = p.author_id)`
+        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${paramIndex} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${paramIndex}))`
+      );
+      whereClauses.push(
+        `NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $${paramIndex} AND muted_id = p.author_id)`
       );
       paramIndex++;
     }

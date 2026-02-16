@@ -96,6 +96,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       )
       LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = p.id AND f.status = 'accepted'
       WHERE n.user_id = $1
+        -- Exclude notifications from blocked users (bidirectional) or muted users
+        AND (
+          p.id IS NULL
+          OR (
+            NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = p.id) OR (blocker_id = p.id AND blocked_id = $1))
+            AND NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $1 AND muted_id = p.id)
+          )
+        )
         -- Exclude orphaned notifications whose referenced post/peak no longer exists
         AND (
           n.data->>'postId' IS NULL

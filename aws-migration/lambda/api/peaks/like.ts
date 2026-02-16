@@ -68,6 +68,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const peak = peakResult.rows[0];
 
+    // Bidirectional block check: prevent liking peaks from blocked/blocking users
+    const blockCheck = await db.query(
+      `SELECT 1 FROM blocked_users
+       WHERE (blocker_id = $1 AND blocked_id = $2)
+          OR (blocker_id = $2 AND blocked_id = $1)
+       LIMIT 1`,
+      [profile.id, peak.author_id]
+    );
+    if (blockCheck.rows.length > 0) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Action not allowed' }),
+      };
+    }
+
     // Toggle like in transaction
     // CRITICAL: Use dedicated client for transaction isolation with connection pooling
     const client = await db.connect();

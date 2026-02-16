@@ -46,7 +46,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
            JOIN profiles p ON p.id = ls.host_id
            WHERE ls.status = 'live'
              AND p.moderation_status NOT IN ('banned', 'shadow_banned')
-             AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $1 AND blocked_id = p.id)
+             AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = p.id) OR (blocker_id = p.id AND blocked_id = $1))
            ORDER BY ls.started_at DESC
            LIMIT 50`,
           [currentProfileId]

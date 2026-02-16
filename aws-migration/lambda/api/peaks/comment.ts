@@ -106,6 +106,7 @@ async function handleListComments(
       WHERE pc.peak_id = $1
         AND pc.created_at < (SELECT created_at FROM peak_comments WHERE id = $2)
         AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pc.user_id = $4)
+        AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $4 AND blocked_id = pc.user_id) OR (blocker_id = pc.user_id AND blocked_id = $4))
       ORDER BY pc.created_at DESC
       LIMIT $3
     `;
@@ -119,6 +120,7 @@ async function handleListComments(
       JOIN profiles p ON pc.user_id = p.id
       WHERE pc.peak_id = $1
         AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pc.user_id = $3)
+        AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $3 AND blocked_id = pc.user_id) OR (blocker_id = pc.user_id AND blocked_id = $3))
       ORDER BY pc.created_at DESC
       LIMIT $2
     `;
@@ -258,6 +260,22 @@ async function handleCreateComment(
     };
   }
   const peak = peakResult.rows[0];
+
+  // Bidirectional block check: prevent commenting on peaks from blocked/blocking users
+  const blockCheck = await db.query(
+    `SELECT 1 FROM blocked_users
+     WHERE (blocker_id = $1 AND blocked_id = $2)
+        OR (blocker_id = $2 AND blocked_id = $1)
+     LIMIT 1`,
+    [profile.id, peak.author_id]
+  );
+  if (blockCheck.rows.length > 0) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ message: 'Action not allowed' }),
+    };
+  }
 
   const client = await db.connect();
   try {

@@ -233,8 +233,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         `;
         params = cursor ? [userId, parsedLimit + 1, new Date(parseInt(cursor))] : [userId, parsedLimit + 1];
       } else {
-        // Non-own profile: parameterize requesterId for subscriber check
+        // Non-own profile: parameterize requesterId for subscriber check + block filter
         const requesterParamIdx = cursor ? 4 : 3;
+        // Block filter uses the same requesterId param
+        const blockFilter = requesterId
+          ? `AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${requesterParamIdx} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${requesterParamIdx}))`
+          : '';
         query = `
           SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
                  p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
@@ -243,6 +247,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           WHERE p.author_id = $1
             AND u.moderation_status NOT IN ('banned', 'shadow_banned')
             AND p.visibility NOT IN ('hidden', 'private')
+            ${blockFilter}
             AND (
               p.visibility = 'public'
               ${isFollowing ? "OR p.visibility = 'fans'" : ''}
@@ -261,6 +266,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } else {
       // Explore/public feed: exclude banned/shadow_banned users and hidden posts
       // BUG-2026-02-15: Limit scan window to 30 days and use simpler scoring to reduce full-table sort
+      const exploreParams: SqlParam[] = [parsedLimit + 1];
+      let exploreCursorCond = '';
+      if (cursor) {
+        exploreParams.push(new Date(parseInt(cursor)));
+        exploreCursorCond = `AND p.created_at < $${exploreParams.length}`;
+      }
+      // Block + mute filter for authenticated users
+      let exploreBlockFilter = '';
+      if (requesterId) {
+        exploreParams.push(requesterId);
+        const rIdx = exploreParams.length;
+        exploreBlockFilter = `
+          AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${rIdx} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${rIdx}))
+          AND NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $${rIdx} AND muted_id = p.author_id)`;
+      }
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
@@ -269,11 +289,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         WHERE u.moderation_status NOT IN ('banned', 'shadow_banned')
         AND p.visibility != 'hidden'
         AND p.created_at > NOW() - INTERVAL '30 days'
-        ${cursor ? 'AND p.created_at < $2' : ''}
+        ${exploreCursorCond}
+        ${exploreBlockFilter}
         ORDER BY (p.likes_count + p.comments_count) DESC, p.created_at DESC, p.id DESC
         LIMIT $1
       `;
-      params = cursor ? [parsedLimit + 1, new Date(parseInt(cursor))] : [parsedLimit + 1];
+      params = exploreParams;
     }
 
     const result = await pool.query(query, params);
@@ -284,13 +305,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const postIds = posts.map((p: { id: string }) => p.id);
     let tagsByPost: Record<string, Array<{ id: string; username: string; fullName: string; avatarUrl: string }>> = {};
     if (postIds.length > 0) {
-      const tagResult = await pool.query(
-        `SELECT pt.post_id, pt.tagged_user_id AS id, pr.username, pr.full_name, pr.avatar_url
-         FROM post_tags pt
-         JOIN profiles pr ON pt.tagged_user_id = pr.id
-         WHERE pt.post_id = ANY($1)`,
-        [postIds]
-      );
+      // Filter out blocked users from tagged users list
+      const tagQuery = requesterId
+        ? `SELECT pt.post_id, pt.tagged_user_id AS id, pr.username, pr.full_name, pr.avatar_url
+           FROM post_tags pt
+           JOIN profiles pr ON pt.tagged_user_id = pr.id
+           WHERE pt.post_id = ANY($1)
+             AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $2 AND blocked_id = pt.tagged_user_id) OR (blocker_id = pt.tagged_user_id AND blocked_id = $2))`
+        : `SELECT pt.post_id, pt.tagged_user_id AS id, pr.username, pr.full_name, pr.avatar_url
+           FROM post_tags pt
+           JOIN profiles pr ON pt.tagged_user_id = pr.id
+           WHERE pt.post_id = ANY($1)`;
+      const tagParams = requesterId ? [postIds, requesterId] : [postIds];
+      const tagResult = await pool.query(tagQuery, tagParams);
       for (const row of tagResult.rows) {
         const pid = row.post_id as string;
         if (!tagsByPost[pid]) tagsByPost[pid] = [];

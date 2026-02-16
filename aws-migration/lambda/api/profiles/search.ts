@@ -83,7 +83,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           FROM profiles
           WHERE is_private = false AND onboarding_completed = true AND id != $1
             AND moderation_status NOT IN ('banned', 'shadow_banned')
-            AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $1 AND blocked_id = profiles.id)
+            AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = profiles.id) OR (blocker_id = profiles.id AND blocked_id = $1))
           ORDER BY
             CASE WHEN is_verified THEN 0 ELSE 1 END,
             CASE WHEN account_type = 'pro_creator' THEN 0
@@ -127,7 +127,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             AND is_private = false AND onboarding_completed = true
             AND moderation_status NOT IN ('banned', 'shadow_banned')
             AND id != $5
-            AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $5 AND blocked_id = profiles.id)
+            AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $5 AND blocked_id = profiles.id) OR (blocker_id = profiles.id AND blocked_id = $5))
           ORDER BY
             CASE WHEN username = $2 THEN 0
                  WHEN username ILIKE $3 THEN 1

@@ -84,6 +84,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       params.push(parsedLimit + 1);
       const limitIdx = params.length;
 
+      // Build block/mute filter if authenticated
+      let blockFilter = '';
+      if (requesterId) {
+        params.push(requesterId);
+        const rIdx = params.length;
+        blockFilter = `
+          AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${rIdx} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${rIdx}))
+          AND NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $${rIdx} AND muted_id = p.author_id)`;
+      }
+
       const ftsQuery = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
                p.media_type as "mediaType", p.media_meta as "mediaMeta", p.likes_count as "likesCount",
@@ -96,6 +106,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         WHERE to_tsvector('english', p.content) @@ plainto_tsquery('english', $1)
           AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
           AND p.visibility = 'public'
+          ${blockFilter}
           ${cursorIdx}
         ORDER BY p.created_at DESC, p.id DESC
         LIMIT $${limitIdx}
@@ -115,6 +126,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       params.push(parsedLimit + 1);
       const limitIdx = params.length;
 
+      // Build block/mute filter if authenticated
+      let blockFilter = '';
+      if (requesterId) {
+        params.push(requesterId);
+        const rIdx = params.length;
+        blockFilter = `
+          AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${rIdx} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${rIdx}))
+          AND NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $${rIdx} AND muted_id = p.author_id)`;
+      }
+
       const ilikeQuery = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
                p.media_type as "mediaType", p.media_meta as "mediaMeta", p.likes_count as "likesCount",
@@ -127,6 +148,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         WHERE p.content ILIKE $1
           AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
           AND p.visibility = 'public'
+          ${blockFilter}
           ${cursorIdx}
         ORDER BY p.created_at DESC, p.id DESC
         LIMIT $${limitIdx}

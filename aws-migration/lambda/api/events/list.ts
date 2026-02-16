@@ -159,11 +159,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       whereConditions.push(`e.creator_id = $${params.length}`);
     }
 
-    // Exclude events from users the current user has blocked
+    // Exclude events from users the current user has blocked (bidirectional)
     if (profileId) {
       params.push(profileId);
       whereConditions.push(
-        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${params.length} AND blocked_id = creator.id)`
+        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${params.length} AND blocked_id = creator.id) OR (blocker_id = creator.id AND blocked_id = $${params.length}))`
       );
     }
 

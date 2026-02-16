@@ -52,9 +52,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const params: unknown[] = [];
     let paramIdx = 1;
 
-    // Exclude businesses from users the current user has blocked
+    // Exclude businesses from users the current user has blocked (bidirectional)
     if (currentProfileId) {
-      conditions.push(`NOT EXISTS (SELECT 1 FROM blocked_users WHERE blocker_id = $${paramIdx} AND blocked_id = p.id)`);
+      conditions.push(`NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${paramIdx} AND blocked_id = p.id) OR (blocker_id = p.id AND blocked_id = $${paramIdx}))`);
       params.push(currentProfileId);
       paramIdx++;
     }

@@ -138,13 +138,6 @@ plugins: [
 'expo-contacts',
 // V2+ DISABLED — expo-calendar (re-enable when PRIVATE_SESSIONS/BUSINESS_BOOKING go live)
 // 'expo-calendar',
-[
-  '@stripe/stripe-react-native',
-  {
-    merchantIdentifier: [],
-    enableGooglePay: false,
-  },
-],
 '@rnmapbox/maps',
 ],
 extra: {

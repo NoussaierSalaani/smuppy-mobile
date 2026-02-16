@@ -30,10 +30,20 @@ interface SecurityPhase2StackProps extends cdk.StackProps {
  *    - Daily backups with 35-day retention (production)
  *    - Automatic cross-region copy for disaster recovery
  *
- * 2. S3 Virus Scanning (ClamAV Lambda)
- *    - Scans all uploaded files
- *    - Quarantines infected files
+ * 2. S3 Virus Scanning (Lambda)
+ *    - Magic bytes validation for all media types
+ *    - Default-deny for non-media files (quarantine)
  *    - SNS alerts for security team
+ *
+ * 3. Image/Video Moderation (AWS Rekognition)
+ *    - DetectModerationLabels for images (sync)
+ *    - StartContentModeration for videos (async via SNS)
+ *    - Tiered thresholds: >90% quarantine, 70-90% review, <70% pass
+ *
+ * 4. GuardDuty Malware Protection for S3
+ *    - AWS-managed malware scanning on every upload
+ *    - Auto-tags objects with GuardDutyMalwareScanStatus
+ *    - EventBridge → quarantine Lambda on THREATS_FOUND
  */
 export class SecurityPhase2Stack extends cdk.Stack {
   public readonly backupVault: backup.BackupVault;
@@ -705,6 +715,202 @@ def handler(event, context):
     this.imageModerationFunction.addEnvironment('REKOGNITION_ROLE_ARN', rekognitionRole.roleArn);
 
     // ========================================
+    // 5. GUARDDUTY MALWARE PROTECTION FOR S3
+    // ========================================
+    // Replaces placeholder ClamAV with AWS-managed malware scanning.
+    // GuardDuty scans every new S3 object, tags it, and emits EventBridge events.
+    // Cost: ~$0.50/GB scanned (first 1,000 GB/month in Free Tier for 12 months).
+
+    // IAM role for GuardDuty Malware Protection to read & tag S3 objects
+    const guardDutyMalwareRole = new iam.Role(this, 'GuardDutyMalwareRole', {
+      roleName: `smuppy-guardduty-malware-${environment}`,
+      assumedBy: new iam.ServicePrincipal('malware-protection-plan.guardduty.amazonaws.com'),
+      description: 'Allows GuardDuty Malware Protection to scan S3 objects',
+    });
+
+    guardDutyMalwareRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ReadMediaBucket',
+      actions: [
+        's3:GetObject',
+        's3:GetObjectVersion',
+        's3:GetBucketLocation',
+        's3:ListBucket',
+      ],
+      resources: [
+        mediaBucket.bucketArn,
+        `${mediaBucket.bucketArn}/*`,
+      ],
+    }));
+
+    guardDutyMalwareRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'TagScannedObjects',
+      actions: [
+        's3:PutObjectTagging',
+        's3:GetObjectTagging',
+        's3:DeleteObjectTagging',
+      ],
+      resources: [`${mediaBucket.bucketArn}/*`],
+    }));
+
+    // Allow GuardDuty to decrypt S3 objects if bucket uses KMS
+    guardDutyMalwareRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'DecryptObjects',
+      actions: [
+        'kms:GenerateDataKey',
+        'kms:Decrypt',
+      ],
+      resources: ['*'],
+      conditions: {
+        StringLike: {
+          'kms:ViaService': `s3.${cdk.Aws.REGION}.amazonaws.com`,
+        },
+      },
+    }));
+
+    // Malware Protection Plan — scans all uploads across all prefixes
+    const malwareProtectionPlan = new cdk.aws_guardduty.CfnMalwareProtectionPlan(this, 'MalwareProtectionPlan', {
+      protectedResource: {
+        s3Bucket: {
+          bucketName: mediaBucket.bucketName,
+          objectPrefixes: ['uploads/', 'posts/', 'peaks/', 'users/', 'private/', 'voice-messages/'],
+        },
+      },
+      role: guardDutyMalwareRole.roleArn,
+      actions: {
+        tagging: {
+          status: 'ENABLED',
+        },
+      },
+    });
+
+    // Lambda to quarantine files when GuardDuty finds malware
+    const malwareQuarantineFunction = new lambda.Function(this, 'MalwareQuarantineFunction', {
+      functionName: `smuppy-malware-quarantine-${environment}`,
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'index.handler',
+      code: lambda.Code.fromInline(`
+import json
+import boto3
+import os
+from datetime import datetime
+
+s3 = boto3.client('s3')
+sns = boto3.client('sns')
+
+QUARANTINE_BUCKET = os.environ['QUARANTINE_BUCKET']
+ALERT_TOPIC_ARN = os.environ['ALERT_TOPIC_ARN']
+
+def handler(event, context):
+    """
+    Quarantine files when GuardDuty Malware Protection detects threats.
+    Triggered by EventBridge on 'GuardDuty Malware Protection Object Scan Result'.
+    """
+    print(f"GuardDuty event: {json.dumps(event)}")
+
+    detail = event.get('detail', {})
+    scan_status = detail.get('scanStatus')
+
+    if scan_status != 'THREATS_FOUND':
+        print(f"Ignoring non-threat scan result: {scan_status}")
+        return {'statusCode': 200, 'body': 'No threats'}
+
+    s3_details = detail.get('s3ObjectDetails', {})
+    bucket = s3_details.get('bucketName', '')
+    key = s3_details.get('objectKey', '')
+
+    if not bucket or not key:
+        print("Missing bucket or key in event")
+        return {'statusCode': 400, 'body': 'Missing S3 details'}
+
+    threats = detail.get('scanResultDetails', {}).get('threats', [])
+    threat_names = [t.get('name', 'unknown') for t in threats]
+
+    print(f"MALWARE DETECTED: s3://{bucket}/{key} — threats: {threat_names}")
+
+    # Move to quarantine bucket
+    quarantine_key = f"malware/{key}"
+    try:
+        s3.copy_object(
+            CopySource={'Bucket': bucket, 'Key': key},
+            Bucket=QUARANTINE_BUCKET,
+            Key=quarantine_key,
+            MetadataDirective='COPY'
+        )
+        s3.delete_object(Bucket=bucket, Key=key)
+
+        sns.publish(
+            TopicArn=ALERT_TOPIC_ARN,
+            Subject=f"[CRITICAL] Malware detected: {key.split('/')[-1]}",
+            Message=json.dumps({
+                'type': 'MALWARE_DETECTED',
+                'source': 'guardduty',
+                'bucket': bucket,
+                'key': key,
+                'threats': threat_names,
+                'quarantine': f"s3://{QUARANTINE_BUCKET}/{quarantine_key}",
+                'timestamp': datetime.utcnow().isoformat()
+            }, indent=2)
+        )
+        print(f"File quarantined: {quarantine_key}")
+    except Exception as e:
+        print(f"CRITICAL: Failed to quarantine malware: {e}")
+        # Alert even on quarantine failure
+        try:
+            sns.publish(
+                TopicArn=ALERT_TOPIC_ARN,
+                Subject=f"[CRITICAL] Malware quarantine FAILED: {key.split('/')[-1]}",
+                Message=json.dumps({
+                    'type': 'QUARANTINE_FAILURE',
+                    'bucket': bucket,
+                    'key': key,
+                    'threats': threat_names,
+                    'error': str(e),
+                    'timestamp': datetime.utcnow().isoformat()
+                }, indent=2)
+            )
+        except Exception:
+            pass
+        raise
+
+    return {'statusCode': 200, 'body': 'Malware quarantined'}
+`),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        QUARANTINE_BUCKET: quarantineBucket.bucketName,
+        ALERT_TOPIC_ARN: this.securityAlertsTopic.topicArn,
+      },
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    // Grant permissions to quarantine Lambda
+    mediaBucket.grantRead(malwareQuarantineFunction);
+    mediaBucket.grantDelete(malwareQuarantineFunction);
+    quarantineBucket.grantPut(malwareQuarantineFunction);
+    this.securityAlertsTopic.grantPublish(malwareQuarantineFunction);
+
+    // EventBridge rule: trigger quarantine when GuardDuty detects threats
+    const malwareThreatRule = new events.Rule(this, 'MalwareThreatRule', {
+      ruleName: `smuppy-malware-threat-${environment}`,
+      description: 'Quarantine files when GuardDuty detects malware in S3',
+      eventPattern: {
+        source: ['aws.guardduty'],
+        detailType: ['GuardDuty Malware Protection Object Scan Result'],
+        detail: {
+          scanStatus: ['THREATS_FOUND'],
+          s3ObjectDetails: {
+            bucketName: [mediaBucket.bucketName],
+          },
+        },
+      },
+    });
+
+    malwareThreatRule.addTarget(new targets.LambdaFunction(malwareQuarantineFunction, {
+      retryAttempts: 2,
+      deadLetterQueue: scanDlq,
+    }));
+
+    // ========================================
     // CloudWatch Alarms for Backup Monitoring
     // ========================================
 
@@ -755,6 +961,12 @@ def handler(event, context):
       value: this.securityAlertsTopic.topicArn,
       description: 'SNS Topic for security alerts',
       exportName: `smuppy-security-alerts-arn-${environment}`,
+    });
+
+    new cdk.CfnOutput(this, 'MalwareProtectionPlanId', {
+      value: malwareProtectionPlan.attrMalwareProtectionPlanId,
+      description: 'GuardDuty Malware Protection Plan ID',
+      exportName: `smuppy-malware-protection-plan-${environment}`,
     });
   }
 }

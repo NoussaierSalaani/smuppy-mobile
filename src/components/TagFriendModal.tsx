@@ -84,8 +84,8 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
 
       // Load people I'm following and people who follow me in parallel
       const [followingResult, followersResult] = await Promise.all([
-        getFollowing(currentProfile.id, 0, 100),
-        getFollowers(currentProfile.id, 0, 100),
+        getFollowing(currentProfile.id, undefined, 100),
+        getFollowers(currentProfile.id, undefined, 100),
       ]);
 
       // Create set of follower IDs for mutual check

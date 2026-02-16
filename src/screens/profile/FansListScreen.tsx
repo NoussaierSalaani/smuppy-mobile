@@ -122,8 +122,8 @@ export default function FansListScreen({ navigation, route }: FansListScreenProp
 
       // Load followers (fans) and following (tracking) in parallel
       const [fansResult, trackingResult] = await Promise.all([
-        getFollowers(targetUserId, 0, 100),
-        getFollowing(targetUserId, 0, 100),
+        getFollowers(targetUserId, undefined, 100),
+        getFollowing(targetUserId, undefined, 100),
       ]);
 
       // Get IDs of people I follow for mutual check

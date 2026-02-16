@@ -19,6 +19,7 @@ const log = createLogger('conversations-send-message');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;

@@ -13,6 +13,7 @@ const log = createLogger('spots-nearby');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const latParam = event.queryStringParameters?.lat;

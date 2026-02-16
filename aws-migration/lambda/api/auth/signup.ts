@@ -161,6 +161,7 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   // Get client IP for rate limiting
   const clientIp = event.requestContext.identity?.sourceIp ||

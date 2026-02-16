@@ -193,6 +193,7 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     // SECURITY: Verify admin key from Secrets Manager

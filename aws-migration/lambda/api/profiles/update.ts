@@ -147,6 +147,7 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     // Get user ID from Cognito authorizer

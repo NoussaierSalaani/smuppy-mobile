@@ -48,6 +48,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     ...createHeaders(event),
     'Cache-Control': 'no-cache',
   };
+  log.initFromEvent(event);
 
   try {
     const {

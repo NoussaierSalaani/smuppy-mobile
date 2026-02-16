@@ -13,6 +13,7 @@ const log = createLogger('peaks-list');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     // Get current user if authenticated (for isLiked status)
@@ -57,6 +58,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         pk.overlays,
         pk.expires_at,
         pk.saved_to_profile,
+        pk.video_status,
+        pk.hls_url,
+        pk.video_variants,
         p.username as author_username,
         p.full_name as author_full_name,
         p.avatar_url as author_avatar_url,
@@ -185,6 +189,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       overlays: peak.overlays || null,
       expiresAt: peak.expires_at || null,
       savedToProfile: peak.saved_to_profile ?? null,
+      videoStatus: peak.video_status || null,
+      hlsUrl: peak.hls_url || null,
+      videoVariants: peak.video_variants || null,
       isLiked: currentProfileId ? peak.is_liked : false,
       isViewed: currentProfileId ? peak.is_viewed : false,
       author: {

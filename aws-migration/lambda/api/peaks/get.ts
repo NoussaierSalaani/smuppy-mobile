@@ -13,6 +13,7 @@ const log = createLogger('peaks-get');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const peakId = event.pathParameters?.id;
@@ -191,6 +192,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           videoStatus: peak.video_status || null,
           hlsUrl: peak.hls_url || null,
           videoVariants: peak.video_variants || null,
+          videoDuration: peak.duration || null,
           isLiked: currentProfileId ? peak.is_liked : false,
           isViewed: currentProfileId ? peak.is_viewed : false,
           author: {

@@ -92,6 +92,7 @@ interface IdentityBody {
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };

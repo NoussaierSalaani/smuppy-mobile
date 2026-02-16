@@ -10,6 +10,7 @@ import { createHeaders } from '../utils/cors';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   // SECURITY: Verify admin API key from Secrets Manager
   const adminKey = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];

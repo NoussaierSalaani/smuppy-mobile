@@ -14,6 +14,7 @@ const log = createLogger('profiles-block');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;

@@ -17,6 +17,7 @@ const RATE_WINDOW_SECONDS = 60;
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     // Rate limiting by IP address

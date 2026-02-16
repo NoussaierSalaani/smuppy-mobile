@@ -33,6 +33,7 @@ const USER_POOL_ID = process.env.USER_POOL_ID || '';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;

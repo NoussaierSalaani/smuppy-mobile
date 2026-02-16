@@ -13,6 +13,7 @@ const log = createLogger('spots-get');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const spotId = event.pathParameters?.id;

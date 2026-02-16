@@ -60,6 +60,7 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     if (!event.body) {

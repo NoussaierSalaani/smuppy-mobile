@@ -13,6 +13,7 @@ const log = createLogger('spots-list');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10) || 20, 50);

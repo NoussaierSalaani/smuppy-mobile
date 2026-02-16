@@ -641,6 +641,7 @@ async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     // SECURITY: Verify admin key from Secrets Manager

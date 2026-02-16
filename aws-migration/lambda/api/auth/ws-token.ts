@@ -12,6 +12,7 @@ const WS_TOKENS_TABLE = process.env.WS_TOKENS_TABLE || 'smuppy-ws-tokens';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;

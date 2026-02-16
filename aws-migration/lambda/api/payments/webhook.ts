@@ -51,6 +51,7 @@ function calculatePlatformFeePercent(fanCount: number): number {
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   cleanupProcessedEvents();
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const stripe = await getStripeClient();

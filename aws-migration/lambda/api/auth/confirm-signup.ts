@@ -60,6 +60,7 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   // Rate limit check (distributed via DynamoDB): 10 attempts per IP per 5 minutes
   const clientIp = event.requestContext.identity?.sourceIp ||

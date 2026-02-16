@@ -36,6 +36,7 @@ const ALLOWED_FIELDS: Record<string, { column: string; maxLength?: number; type:
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;

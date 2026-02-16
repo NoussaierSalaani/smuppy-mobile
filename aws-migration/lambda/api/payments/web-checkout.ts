@@ -42,6 +42,7 @@ interface CheckoutRequest {
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   // Handle preflight
   if (event.httpMethod === 'OPTIONS') {

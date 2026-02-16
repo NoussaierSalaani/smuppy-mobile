@@ -187,6 +187,7 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
   const requestId = getRequestId(event);
   log.setRequestId(requestId);
 

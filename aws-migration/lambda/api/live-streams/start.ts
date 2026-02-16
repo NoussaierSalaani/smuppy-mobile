@@ -19,6 +19,7 @@ const log = createLogger('live-streams-start');
 export const handler: APIGatewayProxyHandler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;

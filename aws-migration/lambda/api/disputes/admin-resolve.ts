@@ -29,6 +29,7 @@ interface ResolveBody {
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const headers = createHeaders(event);
+  log.initFromEvent(event);
 
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers, body: '' };

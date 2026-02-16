@@ -785,20 +785,14 @@ export class LambdaStack extends cdk.NestedStack {
       bundling: {
         minify: true,
         sourceMap: !isProduction,
-        externalModules: ['sharp'],
-        nodeModules: ['sharp'], // npm install in outputDir for Linux native binaries
-        commandHooks: {
-          beforeBundling: () => [],
-          afterBundling: (_inputDir: string, outputDir: string) => [
-            `cd ${outputDir} && npm install --cpu=x64 --os=linux sharp@0.33.5`,
-          ],
-          beforeInstall: () => [],
-        },
+        externalModules: [],
+        nodeModules: ['sharp'], // npm install instead of esbuild bundle (native binaries)
+        forceDockerBundling: true, // Ensure Linux Sharp binaries
       },
       tracing: lambda.Tracing.ACTIVE,
       logGroup: apiLogGroup,
       depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
-      projectRoot: path.join(__dirname, '../../lambda/api')
+      projectRoot: path.join(__dirname, '../../lambda'),  // Wider root: Docker mount includes shared/ for ../../shared/db import
     });
     dbCredentials.grantRead(this.imageOptimizerFn);
     mediaBucket.grantReadWrite(this.imageOptimizerFn);

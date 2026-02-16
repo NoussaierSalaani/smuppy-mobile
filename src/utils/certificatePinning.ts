@@ -24,13 +24,13 @@ import AWS_CONFIG from '../config/aws-config';
  * Only hosts in this set (or dynamically added from AWS_CONFIG) are reachable.
  */
 const ALLOWED_HOSTS: string[] = [
-  // AWS API Gateway (Smuppy API)
+  // AWS API Gateway (Smuppy API) — staging fallbacks; runtime endpoints added dynamically below
   'bmkd8zayee.execute-api.us-east-1.amazonaws.com',
   '90pg0i63ff.execute-api.us-east-1.amazonaws.com',
   'lhvm623909.execute-api.us-east-1.amazonaws.com',
   '1e2fsip7a4.execute-api.us-east-1.amazonaws.com',
-  // CloudFront CDN
-  'dc8kq67t0asis.cloudfront.net',
+  // CloudFront CDN — legacy CDK staging distribution (backend may return URLs with this domain)
+  // Current CDN domain is added dynamically from AWS_CONFIG.storage.cdnDomain below
   'd3gy4x1feicix3.cloudfront.net',
   'api.smuppy.com',
   // Expo Push Service

@@ -705,7 +705,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
       // SECURITY: Block destructive and DML keywords (defense-in-depth)
       const normalizedDdl = sql.toUpperCase().replace(/\s+/g, ' ').trim();
-      const blockedDdl = ['DROP', 'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE', 'INSERT', 'UPDATE', 'COPY', 'SELECT INTO'];
+      const blockedDdl = ['DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP FUNCTION', 'DROP TRIGGER',
+        'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE', 'INSERT', 'UPDATE', 'COPY', 'SELECT INTO'];
       if (blockedDdl.some(kw => normalizedDdl.includes(kw))) {
         return { statusCode: 400, headers, body: JSON.stringify({ message: `Blocked: DDL contains restricted keyword` }) };
       }

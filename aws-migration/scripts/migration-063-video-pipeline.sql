@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration 061: Video Pipeline
+-- Migration 063: Video Pipeline
 -- Adds video processing status, HLS URLs, and video variants to posts & peaks
 -- ============================================================================
 -- Idempotent: all statements use IF NOT EXISTS / IF EXISTS guards

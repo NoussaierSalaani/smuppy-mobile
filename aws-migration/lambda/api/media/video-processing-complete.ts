@@ -192,7 +192,7 @@ export async function handler(event: MediaConvertEvent): Promise<void> {
       // Update job tracking
       await db.query(
         `UPDATE video_processing_jobs
-         SET status = 'complete', output_variants = $2, completed_at = NOW(), updated_at = NOW()
+         SET status = 'complete', output_variants = $2, completed_at = NOW()
          WHERE media_convert_job_id = $1`,
         [jobId, JSON.stringify(variants)]
       );
@@ -216,7 +216,7 @@ export async function handler(event: MediaConvertEvent): Promise<void> {
       // Update job tracking
       await db.query(
         `UPDATE video_processing_jobs
-         SET status = $2, error_message = $3, completed_at = NOW(), updated_at = NOW()
+         SET status = $2, error_message = $3, completed_at = NOW()
          WHERE media_convert_job_id = $1`,
         [jobId, status === 'ERROR' ? 'error' : 'canceled', errorMessage || null]
       );

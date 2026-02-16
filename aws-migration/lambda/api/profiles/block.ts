@@ -112,13 +112,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const row = blockedInfo.rows[0];
     const response = row ? {
       id: row.id,
-      blocked_user_id: row.blocked_user_id,
-      blocked_at: row.blocked_at,
-      blocked_user: {
+      blockedUserId: row.blocked_user_id,
+      blockedAt: row.blocked_at,
+      blockedUser: {
         id: row['blocked_user.id'],
         username: row['blocked_user.username'],
-        display_name: row['blocked_user.display_name'],
-        avatar_url: row['blocked_user.avatar_url'],
+        displayName: row['blocked_user.display_name'],
+        avatarUrl: row['blocked_user.avatar_url'],
       },
     } : { success: true };
 

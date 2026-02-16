@@ -434,13 +434,16 @@ export const useToggleFollow = () => {
   return useMutation({
     mutationFn: async ({ userId, isFollowing }: { userId: string; isFollowing: boolean }) => {
       if (isFollowing) {
-        const { error } = await database.unfollowUser(userId);
-        if (error) throw new Error(error);
-        return { userId, following: false };
+        const result = await database.unfollowUser(userId);
+        if (result.error) throw new Error(result.error);
+        return { userId, following: false, cooldown: result.cooldown };
       } else {
-        const { error } = await database.followUser(userId);
-        if (error) throw new Error(error);
-        return { userId, following: true };
+        const result = await database.followUser(userId);
+        if (result.cooldown?.blocked) {
+          throw new Error(`Please wait ${result.cooldown.daysRemaining} more day${result.cooldown.daysRemaining > 1 ? 's' : ''} before becoming a fan again.`);
+        }
+        if (result.error) throw new Error(result.error);
+        return { userId, following: true, requestCreated: result.requestCreated };
       }
     },
     onMutate: async ({ userId, isFollowing }: { userId: string; isFollowing: boolean }) => {

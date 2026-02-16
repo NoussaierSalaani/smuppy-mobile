@@ -14,6 +14,7 @@ import type {
   SpotReview as SpotReviewType,
 } from '../types';
 import { filterContent } from '../utils/contentFilters';
+import { normalizeCdnUrl } from '../utils/cdnUrl';
 
 /** Extract message from an unknown error */
 const getErrorMessage = (error: unknown): string => {
@@ -205,8 +206,8 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
     username: p.username,
     full_name: businessDisplayName || effectiveFullName,
     display_name: businessDisplayName || p.displayName || undefined,
-    avatar_url: p.avatarUrl || (p as unknown as Record<string, unknown>)?.avatar_url as string | undefined,
-    cover_url: p.coverUrl || (p as unknown as Record<string, unknown>)?.cover_url as string | undefined || undefined,
+    avatar_url: normalizeCdnUrl(p.avatarUrl || (p as unknown as Record<string, unknown>)?.avatar_url as string | undefined),
+    cover_url: normalizeCdnUrl(p.coverUrl || (p as unknown as Record<string, unknown>)?.cover_url as string | undefined),
     bio: p.bio || undefined,
     website: p.website || undefined,
     is_verified: p.isVerified,
@@ -396,10 +397,6 @@ export const searchProfiles = async (
   limit = 20,
   cursor?: string
 ): Promise<DbResponse<Profile[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
-  if (!query || query.trim().length === 0) {
-    return { data: [], error: null };
-  }
-
   try {
     const result = await awsAPI.searchProfiles(query, limit, cursor);
     return {
@@ -1767,8 +1764,16 @@ export const blockUser = async (userId: string): Promise<{ data: BlockedUser | n
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<BlockedUser>(`/profiles/${userId}/block`, { method: 'POST' });
-    return { data: result, error: null };
+    const raw = await awsAPI.request<Record<string, unknown>>(`/profiles/${userId}/block`, { method: 'POST' });
+    const data: BlockedUser = {
+      id: raw.id as string,
+      blocked_user_id: (raw.blockedUserId || raw.blocked_user_id) as string,
+      blocked_at: (raw.blockedAt || raw.blocked_at) as string,
+      blocked_user: raw.blockedUser
+        ? convertProfile(raw.blockedUser as AWSProfile) as Profile
+        : raw.blocked_user as Profile,
+    };
+    return { data, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }
@@ -1797,8 +1802,16 @@ export const getBlockedUsers = async (): Promise<DbResponse<BlockedUser[]>> => {
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: BlockedUser[] }>('/profiles/blocked');
-    return { data: result.data, error: null };
+    const result = await awsAPI.request<{ data: Record<string, unknown>[] }>('/profiles/blocked');
+    const data: BlockedUser[] = (result.data || []).map((raw) => ({
+      id: raw.id as string,
+      blocked_user_id: (raw.blockedUserId || raw.blocked_user_id) as string,
+      blocked_at: (raw.blockedAt || raw.blocked_at) as string,
+      blocked_user: raw.blockedUser
+        ? convertProfile(raw.blockedUser as AWSProfile) as Profile
+        : raw.blocked_user as Profile,
+    }));
+    return { data, error: null };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };
   }
@@ -1886,8 +1899,16 @@ export const muteUser = async (userId: string): Promise<{ data: MutedUser | null
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<MutedUser>(`/profiles/${userId}/mute`, { method: 'POST' });
-    return { data: result, error: null };
+    const raw = await awsAPI.request<Record<string, unknown>>(`/profiles/${userId}/mute`, { method: 'POST' });
+    const data: MutedUser = {
+      id: raw.id as string,
+      muted_user_id: (raw.mutedUserId || raw.muted_user_id) as string,
+      muted_at: (raw.mutedAt || raw.muted_at) as string,
+      muted_user: raw.mutedUser
+        ? convertProfile(raw.mutedUser as AWSProfile) as Profile
+        : raw.muted_user as Profile,
+    };
+    return { data, error: null };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
   }
@@ -1916,8 +1937,16 @@ export const getMutedUsers = async (): Promise<DbResponse<MutedUser[]>> => {
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
-    const result = await awsAPI.request<{ data: MutedUser[] }>('/profiles/muted');
-    return { data: result.data, error: null };
+    const result = await awsAPI.request<{ data: Record<string, unknown>[] }>('/profiles/muted');
+    const data: MutedUser[] = (result.data || []).map((raw) => ({
+      id: raw.id as string,
+      muted_user_id: (raw.mutedUserId || raw.muted_user_id) as string,
+      muted_at: (raw.mutedAt || raw.muted_at) as string,
+      muted_user: raw.mutedUser
+        ? convertProfile(raw.mutedUser as AWSProfile) as Profile
+        : raw.muted_user as Profile,
+    }));
+    return { data, error: null };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };
   }
@@ -2595,5 +2624,43 @@ export const forwardMessage = async (
     };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error) };
+  }
+};
+
+// ============================================
+// DISCOVER & RECENT PEAKS
+// ============================================
+
+/**
+ * Get discover posts for the search default view
+ */
+export const getDiscoverPosts = async (
+  limit = 20,
+  cursor?: string
+): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
+  try {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/feed/discover?${params.toString()}`);
+    return { data: (result.data || []).map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
+  }
+};
+
+/**
+ * Get recent peaks for the search default view
+ */
+export const getRecentPeaks = async (
+  limit = 20,
+  cursor?: string
+): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
+  try {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/peaks?${params.toString()}`);
+    return { data: (result.data || []).map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
+  } catch (error: unknown) {
+    return { data: [], error: getErrorMessage(error) };
   }
 };

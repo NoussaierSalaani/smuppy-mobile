@@ -99,6 +99,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         p.is_verified,
         p.account_type,
         p.business_name,
+        p.display_name,
+        p.cover_url,
+        p.is_private,
+        p.fan_count,
+        p.following_count,
+        p.post_count,
         f.created_at as followed_at,
         COUNT(*) OVER() as total_count
       FROM follows f
@@ -136,6 +142,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       isVerified: follower.is_verified || false,
       accountType: follower.account_type,
       businessName: follower.business_name,
+      displayName: follower.display_name || null,
+      coverUrl: follower.cover_url,
+      isPrivate: follower.is_private || false,
+      followersCount: follower.fan_count || 0,
+      followingCount: follower.following_count || 0,
+      postsCount: follower.post_count || 0,
       followedAt: follower.followed_at,
     }));
 

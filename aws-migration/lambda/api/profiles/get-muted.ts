@@ -40,13 +40,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const data = result.rows.map((row: Record<string, unknown>) => ({
       id: row.id,
-      muted_user_id: row.muted_user_id,
-      muted_at: row.muted_at,
-      muted_user: {
+      mutedUserId: row.muted_user_id,
+      mutedAt: row.muted_at,
+      mutedUser: {
         id: row['muted_user.id'],
         username: row['muted_user.username'],
-        display_name: row['muted_user.display_name'],
-        avatar_url: row['muted_user.avatar_url'],
+        displayName: row['muted_user.display_name'],
+        avatarUrl: row['muted_user.avatar_url'],
       },
     }));
 

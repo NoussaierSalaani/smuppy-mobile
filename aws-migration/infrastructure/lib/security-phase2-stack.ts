@@ -21,6 +21,7 @@ interface SecurityPhase2StackProps extends cdk.StackProps {
   mediaBucket: s3.IBucket;
   secondaryRegion?: string;
   alertEmail?: string;
+  enableGuardDutyMalware?: boolean; // Requires manual GuardDuty activation; default false
 }
 
 /**
@@ -55,24 +56,27 @@ export class SecurityPhase2Stack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: SecurityPhase2StackProps) {
     super(scope, id, props);
 
-    const { environment, mediaBucket, secondaryRegion = 'eu-west-1', alertEmail } = props;
+    const { environment, mediaBucket, secondaryRegion = 'eu-west-1', alertEmail, enableGuardDutyMalware = false } = props;
     const isProduction = environment === 'production';
 
     // ========================================
     // GuardDuty — Runtime Threat Detection (#22 / #37)
+    // Requires manual activation: set enableGuardDutyMalware=true after enabling GuardDuty in the account
     // ========================================
-    new cdk.aws_guardduty.CfnDetector(this, 'GuardDutyDetector', {
-      enable: true,
-      findingPublishingFrequency: 'FIFTEEN_MINUTES',
-      dataSources: {
-        s3Logs: { enable: true },
-        malwareProtection: {
-          scanEc2InstanceWithFindings: {
-            ebsVolumes: true,
+    if (enableGuardDutyMalware) {
+      new cdk.aws_guardduty.CfnDetector(this, 'GuardDutyDetector', {
+        enable: true,
+        findingPublishingFrequency: 'FIFTEEN_MINUTES',
+        dataSources: {
+          s3Logs: { enable: true },
+          malwareProtection: {
+            scanEc2InstanceWithFindings: {
+              ebsVolumes: true,
+            },
           },
         },
-      },
-    });
+      });
+    }
 
     // ========================================
     // SNS Topic for Security Alerts
@@ -756,6 +760,8 @@ def quarantine_direct(bucket, key):
     // Replaces placeholder ClamAV with AWS-managed malware scanning.
     // GuardDuty scans every new S3 object, tags it, and emits EventBridge events.
     // Cost: ~$0.50/GB scanned (first 1,000 GB/month in Free Tier for 12 months).
+    // Gated behind enableGuardDutyMalware — requires manual GuardDuty activation.
+    if (enableGuardDutyMalware) {
 
     // IAM role for GuardDuty Malware Protection to read & tag S3 objects
     const guardDutyMalwareRole = new iam.Role(this, 'GuardDutyMalwareRole', {
@@ -945,6 +951,7 @@ def handler(event, context):
       retryAttempts: 2,
       deadLetterQueue: scanDlq,
     }));
+    } // end enableGuardDutyMalware
 
     // ========================================
     // 6. SCAN COORDINATION CLEANUP
@@ -1150,10 +1157,7 @@ def cleanup(obj_key):
       exportName: `smuppy-scan-coordination-table-${environment}`,
     });
 
-    new cdk.CfnOutput(this, 'MalwareProtectionPlanId', {
-      value: malwareProtectionPlan.attrMalwareProtectionPlanId,
-      description: 'GuardDuty Malware Protection Plan ID',
-      exportName: `smuppy-malware-protection-plan-${environment}`,
-    });
+    // MalwareProtectionPlanId output only when GuardDuty is enabled
+    // (malwareProtectionPlan is defined inside the enableGuardDutyMalware block)
   }
 }

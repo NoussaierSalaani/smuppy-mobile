@@ -403,6 +403,12 @@ export class LambdaStack extends cdk.NestedStack {
     this.postsLikeFn = createLambda('PostsLikeFunction', 'posts/like');
     this.postsUnlikeFn = createLambda('PostsUnlikeFunction', 'posts/unlike');
     this.postsDeleteFn = createLambda('PostsDeleteFunction', 'posts/delete');
+    mediaBucket.grantDelete(this.postsDeleteFn);
+    mediaBucket.grantRead(this.postsDeleteFn);
+    this.postsDeleteFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront:CreateInvalidation'],
+      resources: ['*'],
+    }));
     this.postsViewFn = createLambda('PostsViewFunction', 'posts/view');
     this.postsSaveFn = createLambda('PostsSaveFunction', 'posts/save');
     this.postsUnsaveFn = createLambda('PostsUnsaveFunction', 'posts/unsave');
@@ -428,6 +434,12 @@ export class LambdaStack extends cdk.NestedStack {
     this.peaksGetFn = createLambda('PeaksGetFunction', 'peaks/get');
     this.peaksCreateFn = createLambda('PeaksCreateFunction', 'peaks/create');
     this.peaksDeleteFn = createLambda('PeaksDeleteFunction', 'peaks/delete');
+    mediaBucket.grantDelete(this.peaksDeleteFn);
+    mediaBucket.grantRead(this.peaksDeleteFn);
+    this.peaksDeleteFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront:CreateInvalidation'],
+      resources: ['*'],
+    }));
     this.peaksLikeFn = createLambda('PeaksLikeFunction', 'peaks/like');
     this.peaksUnlikeFn = createLambda('PeaksUnlikeFunction', 'peaks/unlike');
     this.peaksCommentFn = createLambda('PeaksCommentFunction', 'peaks/comment');

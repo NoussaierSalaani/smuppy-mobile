@@ -924,6 +924,8 @@ export class SmuppyStack extends cdk.Stack {
       EXPO_ACCESS_TOKEN_SECRET_ARN: `smuppy/${environment}/expo-access-token`,
       // Moderation wordlist bucket for text filtering
       MODERATION_WORDLIST_BUCKET: mediaBucket.bucketName,
+      // CloudFront Distribution ID for cache invalidation on media delete
+      CLOUDFRONT_DISTRIBUTION_ID: cdk.Fn.importValue(`smuppy-cdn-id-${environment}`),
     };
 
     // Pass Redis configuration endpoint to Lambdas

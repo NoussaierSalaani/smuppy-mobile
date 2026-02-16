@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { LambdaStack } from './lambda-stack';
@@ -29,6 +30,12 @@ export class ApiGatewayStack extends cdk.NestedStack {
     // ========================================
     // API Gateway - REST API with Throttling
     // ========================================
+    const accessLogGroup = new logs.LogGroup(this, 'ApiAccessLogs', {
+      logGroupName: `/aws/apigateway/smuppy-api-${environment}/access`,
+      retention: isProduction ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.ONE_MONTH,
+      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
     this.api = new apigateway.RestApi(this, 'SmuppyAPI', {
       restApiName: `smuppy-api-${environment}`,
       description: 'Smuppy REST API - Core Endpoints',
@@ -40,6 +47,18 @@ export class ApiGatewayStack extends cdk.NestedStack {
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: !isProduction,
         metricsEnabled: true,
+        accessLogDestination: new apigateway.LogGroupLogDestination(accessLogGroup),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields({
+          caller: true,
+          httpMethod: true,
+          ip: true,
+          protocol: true,
+          requestTime: true,
+          resourcePath: true,
+          responseLength: true,
+          status: true,
+          user: true,
+        }),
         cachingEnabled: isProduction,
         cacheClusterEnabled: isProduction,
         cacheClusterSize: isProduction ? '0.5' : undefined,

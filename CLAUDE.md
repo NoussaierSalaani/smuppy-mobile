@@ -112,6 +112,28 @@
 - Any command that affects more than 5 files: **list the files and ask for confirmation**
 - If unsure whether an action is destructive: **ask the user first, don't guess**
 
+### Audit Consistency Protocol
+Before running ANY audit (security, performance, architecture, code review):
+
+1. **Verify clean repository state**
+```bash
+git branch --show-current    # Confirm correct branch
+git status                   # MUST be "working tree clean"
+git rev-parse HEAD           # Record commit SHA
+```
+2. **If working tree is dirty**: commit or stash before starting the audit
+```bash
+git add . && git commit -m "pre-audit snapshot"
+# OR
+git stash
+```
+3. **Tag the audit point** for traceability
+```bash
+git tag audit-$(date +%Y%m%d-%H%M)
+```
+4. **Record the commit SHA** in every audit report — all findings reference the exact code analyzed
+5. **Multi-terminal consistency**: if multiple terminals are open, verify they are on the **same branch and same commit** (`git rev-parse HEAD` must match across all terminals)
+
 ## Work Scope Definition
 
 A "lot" of work is **one feature or one fix, with all its layers together**. This means:

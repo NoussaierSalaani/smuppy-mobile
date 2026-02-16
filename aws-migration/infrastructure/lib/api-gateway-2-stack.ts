@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { LambdaStack } from './lambda-stack';
@@ -33,6 +34,12 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     // ========================================
     // API Gateway - REST API with Throttling (Secondary API)
     // ========================================
+    const accessLogGroup = new logs.LogGroup(this, 'ApiAccessLogs', {
+      logGroupName: `/aws/apigateway/smuppy-api-2-${environment}/access`,
+      retention: isProduction ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.ONE_MONTH,
+      removalPolicy: isProduction ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
     this.api = new apigateway.RestApi(this, 'SmuppyAPI2', {
       restApiName: `smuppy-api-2-${environment}`,
       description: 'Smuppy REST API - Secondary Endpoints (sessions, payments, etc.)',
@@ -44,6 +51,18 @@ export class ApiGateway2Stack extends cdk.NestedStack {
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: !isProduction,
         metricsEnabled: true,
+        accessLogDestination: new apigateway.LogGroupLogDestination(accessLogGroup),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields({
+          caller: true,
+          httpMethod: true,
+          ip: true,
+          protocol: true,
+          requestTime: true,
+          resourcePath: true,
+          responseLength: true,
+          status: true,
+          user: true,
+        }),
       },
       defaultCorsPreflightOptions: {
         allowOrigins: isProduction

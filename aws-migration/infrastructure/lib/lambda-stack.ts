@@ -1296,10 +1296,17 @@ export class LambdaStack extends cdk.NestedStack {
     dbCredentials.grantRead(refreshBotPeaksFn);
 
     // Trigger every 24h at 5:00 AM UTC
+    const refreshBotPeaksDlq = new sqs.Queue(this, 'RefreshBotPeaksDLQ', {
+      queueName: `smuppy-refresh-bot-peaks-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
+
     new events.Rule(this, 'RefreshBotPeaksSchedule', {
       schedule: events.Schedule.cron({ hour: '5', minute: '0' }),
       targets: [new targets.LambdaFunction(refreshBotPeaksFn, {
         retryAttempts: 2,
+        deadLetterQueue: refreshBotPeaksDlq,
       })],
       description: 'Refresh bot peaks every 24h to keep feeds populated',
     });
@@ -1327,10 +1334,17 @@ export class LambdaStack extends cdk.NestedStack {
     mediaBucket.grantDelete(peaksCleanupFn);
 
     // Run daily at 3:00 AM UTC (off-peak)
+    const peaksCleanupDlq = new sqs.Queue(this, 'PeaksCleanupDLQ', {
+      queueName: `smuppy-peaks-cleanup-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
+
     new events.Rule(this, 'PeaksCleanupSchedule', {
       schedule: events.Schedule.cron({ hour: '3', minute: '0' }),
       targets: [new targets.LambdaFunction(peaksCleanupFn, {
         retryAttempts: 2,
+        deadLetterQueue: peaksCleanupDlq,
       })],
       description: 'Clean up expired peaks S3 media and DB records daily',
     });
@@ -1360,10 +1374,17 @@ export class LambdaStack extends cdk.NestedStack {
     userPool.grant(accountsCleanupFn, 'cognito-idp:AdminDeleteUser');
 
     // Run daily at 4:00 AM UTC (off-peak, after peaks cleanup at 3:00 AM)
+    const accountsCleanupDlq = new sqs.Queue(this, 'AccountsCleanupDLQ', {
+      queueName: `smuppy-accounts-cleanup-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
+
     new events.Rule(this, 'AccountsCleanupSchedule', {
       schedule: events.Schedule.cron({ hour: '4', minute: '0' }),
       targets: [new targets.LambdaFunction(accountsCleanupFn, {
         retryAttempts: 2,
+        deadLetterQueue: accountsCleanupDlq,
       })],
       description: 'Hard-delete accounts past 30-day grace period (GDPR Art. 17)',
     });
@@ -1893,6 +1914,37 @@ export class LambdaStack extends cdk.NestedStack {
     });
     if (props.alertsTopic) {
       messagingErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
+
+    // Image Optimizer DLQ alarm
+    const imageOptimizerDlqAlarm = new cloudwatch.Alarm(this, 'ImageOptimizerDLQAlarm', {
+      metric: imageOptimizerDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'Messages in image optimizer DLQ — image processing failures',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    if (props.alertsTopic) {
+      imageOptimizerDlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
+    }
+
+    // Scheduled tasks DLQ alarm (combined — any scheduled task failure)
+    const scheduledTasksDlqAlarm = new cloudwatch.Alarm(this, 'ScheduledTasksDLQAlarm', {
+      metric: new cloudwatch.MathExpression({
+        expression: 'botDlq + peaksDlq + accountsDlq',
+        usingMetrics: {
+          botDlq: refreshBotPeaksDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) }),
+          peaksDlq: peaksCleanupDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) }),
+          accountsDlq: accountsCleanupDlq.metricApproximateNumberOfMessagesVisible({ period: cdk.Duration.minutes(5) }),
+        },
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'Messages in scheduled tasks DLQ — cleanup job failures',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    if (props.alertsTopic) {
+      scheduledTasksDlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(props.alertsTopic));
     }
 
     // ========================================

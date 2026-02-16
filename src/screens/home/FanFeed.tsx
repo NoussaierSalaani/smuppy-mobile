@@ -953,7 +953,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         />
       </View>
     );
-  }, [goToUserProfile, handleTrackUser, trackingUserIds, styles, colors, isDark]);
+  }, [goToUserProfile, handleTrackUser, trackingUserIds, styles]);
 
   const handleCloseMenu = useCallback(() => setMenuVisible(false), []);
 

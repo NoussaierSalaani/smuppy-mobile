@@ -86,7 +86,7 @@ const PostDetailVibesFeedScreen = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
-  const [gridPosts, setGridPosts] = useState<GridPost[]>([]);
+  const [gridPosts] = useState<GridPost[]>([]);
 
   // Like count override for optimistic UI
   const [localLikeCount, setLocalLikeCount] = useState<number | null>(null);

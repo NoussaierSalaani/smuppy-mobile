@@ -62,8 +62,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       requesterId = userResult.rows[0]?.id || null;
     }
 
-    // Build cursor condition
-    let cursorCondition = '';
     const cursorParams: string[] = [];
     if (cursor) {
       const parsedDate = new Date(cursor);

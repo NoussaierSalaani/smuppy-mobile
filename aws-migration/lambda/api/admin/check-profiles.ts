@@ -7,10 +7,12 @@ import { timingSafeEqual } from 'crypto';
 import { getPool } from '../../shared/db';
 import { getAdminKey } from '../../shared/secrets';
 import { createHeaders } from '../utils/cors';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('admin-check-profiles');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
-  log.initFromEvent(event);
 
   // SECURITY: Verify admin API key from Secrets Manager
   const adminKey = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
@@ -56,7 +58,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         samples: sampleResult.rows,
       }),
     };
-  } catch (_error: unknown) {
+  } catch (error: unknown) {
+    log.error('Check profiles error', error);
     return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
   }
 }

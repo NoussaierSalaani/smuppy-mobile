@@ -281,6 +281,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Business accounts can only post publicly (per ACCOUNT_TYPES.md)
+    if (accountType === 'pro_business' && body.visibility && body.visibility !== 'public') {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Business accounts can only create public posts' }),
+      };
+    }
+
     const postId = uuidv4();
 
     const validTaggedIds = (Array.isArray(body.taggedUsers) ? body.taggedUsers : [])
@@ -435,11 +444,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         content: post.content,
         mediaUrls: post.media_urls || [],
         mediaType: post.media_type,
+        mediaMeta: null,
         visibility: post.visibility,
         location: post.location || null,
         taggedUsers: taggedUserIds,
         likesCount: 0,
         commentsCount: 0,
+        isSaved: false,
         videoStatus: post.video_status || null,
         createdAt: post.created_at,
         author,

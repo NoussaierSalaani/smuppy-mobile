@@ -724,6 +724,9 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 
   // Filter out markers from blocked/muted users (live streams from hidden users)
   const isHidden = useUserSafetyStore((s) => s.isHidden);
+  // Extract arrays (not stable function refs) so useMemo recomputes on block/mute
+  const blockedUserIds = useUserSafetyStore((s) => s.blockedUserIds);
+  const mutedUserIds = useUserSafetyStore((s) => s.mutedUserIds);
   const allMarkers = useMemo(() => {
     const markers = [...liveMarkers, ...eventGroupMarkers, ...spotMarkers];
     return markers.filter((m) => {
@@ -734,7 +737,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       }
       return true;
     });
-  }, [liveMarkers, eventGroupMarkers, spotMarkers, isHidden]);
+  }, [liveMarkers, eventGroupMarkers, spotMarkers, isHidden, blockedUserIds, mutedUserIds]);
 
   const filteredMarkers = useMemo(() => {
     let markers = allMarkers;

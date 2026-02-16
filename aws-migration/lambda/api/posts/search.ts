@@ -76,7 +76,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Try full-text search first, fallback to ILIKE
     let result;
     try {
-      // Build params: $1=query, $2=limit+1, ($3=cursor if present), ($N=requesterId if present)
+      // Build params: $1=query, ($2=cursor if present), $N=limit+1
       const params: (string | number)[] = [sanitized];
       let cursorIdx = '';
       if (cursorParams.length > 0) {
@@ -85,7 +85,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
       params.push(parsedLimit + 1);
       const limitIdx = params.length;
-      if (requesterId) params.push(requesterId);
 
       const ftsQuery = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
@@ -94,7 +93,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType",
                pr.business_name as "businessName"
-               ${requesterId ? `, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${params.length}) as "isLiked"` : ''}
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
         WHERE to_tsvector('english', p.content) @@ plainto_tsquery('english', $1)
@@ -118,7 +116,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
       params.push(parsedLimit + 1);
       const limitIdx = params.length;
-      if (requesterId) params.push(requesterId);
 
       const ilikeQuery = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls",
@@ -127,7 +124,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
                pr.is_verified as "isVerified", pr.account_type as "accountType",
                pr.business_name as "businessName"
-               ${requesterId ? `, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $${params.length}) as "isLiked"` : ''}
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
         WHERE p.content ILIKE $1
@@ -144,6 +140,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const hasMore = result.rows.length > parsedLimit;
     const rows = result.rows.slice(0, parsedLimit);
 
+    // Batch fetch is_liked (1 query instead of per-row EXISTS subquery)
+    const postIds = rows.map((r: Record<string, unknown>) => r.id);
+    let likedSet = new Set<string>();
+    if (requesterId && postIds.length > 0) {
+      const likedRes = await pool.query(
+        'SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])',
+        [requesterId, postIds]
+      );
+      likedSet = new Set(likedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
+    }
+
     const posts = rows.map((post: Record<string, unknown>) => ({
       id: post.id,
       authorId: post.authorId,
@@ -153,7 +160,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       likesCount: parseInt(String(post.likesCount)) || 0,
       commentsCount: parseInt(String(post.commentsCount)) || 0,
       createdAt: post.createdAt,
-      isLiked: (post.isLiked as boolean) || false,
+      isLiked: likedSet.has(post.id as string),
       author: {
         id: post.authorId,
         username: post.username,

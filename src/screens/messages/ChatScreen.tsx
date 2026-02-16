@@ -883,7 +883,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     if (voicePreview) handleVoiceSend(voicePreview.uri, voicePreview.duration);
   }, [voicePreview, handleVoiceSend]);
 
-  const handleSendImage = useCallback(async (imageUri: string) => {
+  const handleSendImage = useCallback(async (imageUri: string, dimensions?: { width: number; height: number }) => {
     if (!conversationId) {
       showError('Error', 'Conversation not initialized');
       return;
@@ -935,7 +935,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
       // Compress image before upload (800x800, q0.75 — saves ~80% bandwidth)
       const { compressMessage } = await import('../../utils/imageCompression');
-      const compressed = await compressMessage(imageUri);
+      const compressed = await compressMessage(imageUri, dimensions);
 
       // Upload compressed image
       const { uploadWithFileSystem } = await import('../../services/mediaUpload');
@@ -1012,7 +1012,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
     if (!result.canceled && result.assets && result.assets[0]) {
       const asset = result.assets[0];
-      await handleSendImage(asset.uri);
+      const dimensions = asset.width && asset.height ? { width: asset.width, height: asset.height } : undefined;
+      await handleSendImage(asset.uri, dimensions);
     }
   }, [showError, handleSendImage]);
 

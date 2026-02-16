@@ -78,11 +78,34 @@ class AWSAPIService {
   private defaultTimeout = 30000;
   // Prevent concurrent signOut calls from racing (double 401 scenario)
   private signingOut = false;
+  // Prevent N simultaneous token refreshes — one refresh, others wait
+  private refreshPromise: Promise<string | null> | null = null;
+  // Deduplicate identical in-flight GET requests
+  private inFlightGets = new Map<string, Promise<unknown>>();
 
   /**
-   * Make authenticated API request
+   * Make authenticated API request.
+   * GET requests are deduplicated — identical in-flight GETs share one promise.
    */
   async request<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
+    const method = options.method || 'GET';
+
+    // Deduplicate identical in-flight GET requests
+    if (method === 'GET') {
+      const existing = this.inFlightGets.get(endpoint);
+      if (existing) return existing as Promise<T>;
+
+      const promise = this._requestWithRetry<T>(endpoint, options).finally(() => {
+        this.inFlightGets.delete(endpoint);
+      });
+      this.inFlightGets.set(endpoint, promise);
+      return promise;
+    }
+
+    return this._requestWithRetry<T>(endpoint, options);
+  }
+
+  private async _requestWithRetry<T>(endpoint: string, options: RequestOptions): Promise<T> {
     const MAX_RETRIES = 2;
     const RETRYABLE_STATUSES = [408, 429, 500, 502, 503, 504];
     let lastError: unknown = null;
@@ -187,11 +210,11 @@ class AWSAPIService {
 
       if (response.status === 401 && authenticated) {
         // Token may have expired between getIdToken() and server receipt.
-        // getIdToken() auto-refreshes, so calling it again forces a new token.
+        // Use a shared refresh promise so concurrent 401s don't trigger N refreshes.
         const oldToken = requestHeaders['Authorization']?.startsWith('Bearer ')
           ? requestHeaders['Authorization'].slice(7)
           : requestHeaders['Authorization'];
-        const newToken = await awsAuth.getIdToken();
+        const newToken = await this._refreshToken();
         if (newToken && newToken !== oldToken) {
           requestHeaders['Authorization'] = `Bearer ${newToken}`;
           const retryController = new AbortController();
@@ -294,6 +317,18 @@ class AWSAPIService {
 
       throw error;
     }
+  }
+
+  /**
+   * Queued token refresh — concurrent 401s share one refresh call.
+   */
+  private _refreshToken(): Promise<string | null> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = awsAuth.getIdToken().finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+    return this.refreshPromise;
   }
 
   // ==========================================

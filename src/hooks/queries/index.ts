@@ -169,7 +169,7 @@ export const useFeedPosts = () => {
  */
 export const useUserPosts = (userId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.posts.byUser(userId || '', 0),
+    queryKey: queryKeys.posts.byUser(userId || ''),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getPostsByUser(userId!, pageParam, 10);
       if (error) throw new Error(error);
@@ -314,7 +314,7 @@ export const useHasSavedPost = (postId: string | null | undefined) => {
  */
 export const useSavedPosts = () => {
   return useInfiniteQuery({
-    queryKey: queryKeys.collections.saved(0),
+    queryKey: queryKeys.collections.saved(),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
       const { data, error, nextCursor, hasMore } = await database.getSavedPosts(pageParam, 20);
       if (error) throw new Error(error);
@@ -361,7 +361,7 @@ export const useToggleSavePost = () => {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.collections.saved(0) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.collections.saved() });
     },
   });
 };
@@ -390,7 +390,7 @@ export const useIsFollowing = (userId: string | null | undefined) => {
  */
 export const useFollowers = (userId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.follows.followers(userId || '', 0),
+    queryKey: queryKeys.follows.followers(userId || ''),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
       const { data, error, nextCursor, hasMore } = await database.getFollowers(userId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -410,7 +410,7 @@ export const useFollowers = (userId: string | null | undefined) => {
  */
 export const useFollowing = (userId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.follows.following(userId || '', 0),
+    queryKey: queryKeys.follows.following(userId || ''),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
       const { data, error, nextCursor, hasMore } = await database.getFollowing(userId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -493,7 +493,7 @@ export const useToggleFollow = () => {
  */
 export const usePostComments = (postId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.comments.byPost(postId || '', 0),
+    queryKey: queryKeys.comments.byPost(postId || ''),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
       const { data, error, nextCursor, hasMore } = await database.getPostComments(postId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -522,7 +522,7 @@ export const useAddComment = () => {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.comments.byPost(variables.postId, 0),
+        queryKey: queryKeys.comments.byPost(variables.postId),
       });
     },
   });
@@ -656,7 +656,7 @@ export const useSpot = (spotId: string | null | undefined) => {
  */
 export const useSpotsByCreator = (creatorId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.byCreator(creatorId || '', 0),
+    queryKey: queryKeys.spots.byCreator(creatorId || ''),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSpotsByCreator(creatorId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -676,7 +676,7 @@ export const useSpotsByCreator = (creatorId: string | null | undefined) => {
  */
 export const useSpotsByCategory = (category: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.byCategory(category || '', 0),
+    queryKey: queryKeys.spots.byCategory(category || ''),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSpotsByCategory(category!, pageParam, 20);
       if (error) throw new Error(error);
@@ -696,7 +696,7 @@ export const useSpotsByCategory = (category: string | null | undefined) => {
  */
 export const useSpotsBySportType = (sportType: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.bySportType(sportType || '', 0),
+    queryKey: queryKeys.spots.bySportType(sportType || ''),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSpotsBySportType(sportType!, pageParam, 20);
       if (error) throw new Error(error);
@@ -812,7 +812,7 @@ export const useHasSavedSpot = (spotId: string | null | undefined) => {
  */
 export const useSavedSpots = () => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.saved(0),
+    queryKey: queryKeys.spots.saved(),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSavedSpots(pageParam, 20);
       if (error) throw new Error(error);
@@ -859,7 +859,7 @@ export const useToggleSaveSpot = () => {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.spots.saved(0) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.spots.saved() });
     },
   });
 };
@@ -873,7 +873,7 @@ export const useToggleSaveSpot = () => {
  */
 export const useSpotReviews = (spotId: string | null | undefined) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.spots.reviews(spotId || '', 0),
+    queryKey: queryKeys.spots.reviews(spotId || ''),
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await database.getSpotReviews(spotId!, pageParam, 20);
       if (error) throw new Error(error);
@@ -912,7 +912,7 @@ export const useAddSpotReview = () => {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.spots.reviews(variables.spotId, 0),
+        queryKey: queryKeys.spots.reviews(variables.spotId),
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.spots.single(variables.spotId),
@@ -935,7 +935,7 @@ export const useDeleteSpotReview = () => {
     },
     onSuccess: (spotId) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.spots.reviews(spotId, 0),
+        queryKey: queryKeys.spots.reviews(spotId),
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.spots.single(spotId),

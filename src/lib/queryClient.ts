@@ -170,14 +170,14 @@ export const queryKeys = {
   // Posts
   posts: {
     all: ['posts'] as const,
-    feed: (page: number) => ['posts', 'feed', page] as const,
-    byUser: (userId: string, page: number) => ['posts', 'user', userId, page] as const,
+    feed: () => ['posts', 'feed'] as const,
+    byUser: (userId: string) => ['posts', 'user', userId] as const,
     single: (id: string) => ['posts', 'detail', id] as const,
   },
   // Follows
   follows: {
-    followers: (userId: string, page: number) => ['follows', 'followers', userId, page] as const,
-    following: (userId: string, page: number) => ['follows', 'following', userId, page] as const,
+    followers: (userId: string) => ['follows', 'followers', userId] as const,
+    following: (userId: string) => ['follows', 'following', userId] as const,
     isFollowing: (userId: string) => ['follows', 'check', userId] as const,
   },
   // Likes
@@ -187,12 +187,12 @@ export const queryKeys = {
   // Collections (Saved Posts)
   collections: {
     all: ['collections'] as const,
-    saved: (page: number) => ['collections', 'saved', page] as const,
+    saved: () => ['collections', 'saved'] as const,
     hasSaved: (postId: string) => ['collections', 'saved', 'check', postId] as const,
   },
   // Comments
   comments: {
-    byPost: (postId: string, page: number) => ['comments', postId, page] as const,
+    byPost: (postId: string) => ['comments', postId] as const,
   },
   // Interests & Expertise
   interests: {
@@ -204,15 +204,15 @@ export const queryKeys = {
   // Spots
   spots: {
     all: ['spots'] as const,
-    feed: (page: number) => ['spots', 'feed', page] as const,
+    feed: () => ['spots', 'feed'] as const,
     single: (id: string) => ['spots', 'detail', id] as const,
-    byCreator: (creatorId: string, page: number) => ['spots', 'creator', creatorId, page] as const,
-    byCategory: (category: string, page: number) => ['spots', 'category', category, page] as const,
-    bySportType: (sportType: string, page: number) => ['spots', 'sport', sportType, page] as const,
+    byCreator: (creatorId: string) => ['spots', 'creator', creatorId] as const,
+    byCategory: (category: string) => ['spots', 'category', category] as const,
+    bySportType: (sportType: string) => ['spots', 'sport', sportType] as const,
     nearby: (lat: number, lon: number, radius: number) => ['spots', 'nearby', lat, lon, radius] as const,
-    saved: (page: number) => ['spots', 'saved', page] as const,
+    saved: () => ['spots', 'saved'] as const,
     hasSaved: (spotId: string) => ['spots', 'saved', 'check', spotId] as const,
-    reviews: (spotId: string, page: number) => ['spots', 'reviews', spotId, page] as const,
+    reviews: (spotId: string) => ['spots', 'reviews', spotId] as const,
   },
 };
 

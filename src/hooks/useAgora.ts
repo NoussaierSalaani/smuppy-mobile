@@ -242,6 +242,7 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
     return () => {
       mountedRef.current = false;
       agoraService.leaveChannel();
+      agoraService.destroy().catch(() => {});
     };
   }, []);
 

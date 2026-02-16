@@ -334,7 +334,7 @@ export default function MainNavigator() {
 
   // Refresh badges when app returns from background + periodic polling
   useEffect(() => {
-    const BADGE_POLL_MS = 30000; // 30s
+    const BADGE_POLL_MS = 60000; // 60s (push notifications handle real-time updates)
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startBadgePolling = () => {

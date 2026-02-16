@@ -428,6 +428,19 @@ export class LambdaStack extends cdk.NestedStack {
     this.peaksGetFn = createLambda('PeaksGetFunction', 'peaks/get');
     this.peaksCreateFn = createLambda('PeaksCreateFunction', 'peaks/create');
     this.peaksDeleteFn = createLambda('PeaksDeleteFunction', 'peaks/delete');
+
+    // Grant S3 delete and CloudFront invalidation to delete Lambdas (variant cleanup)
+    mediaBucket.grantDelete(this.postsDeleteFn);
+    mediaBucket.grantRead(this.postsDeleteFn);
+    mediaBucket.grantDelete(this.peaksDeleteFn);
+    mediaBucket.grantRead(this.peaksDeleteFn);
+    const cfInvalidationPolicy = new iam.PolicyStatement({
+      actions: ['cloudfront:CreateInvalidation'],
+      resources: [`arn:aws:cloudfront::${cdk.Aws.ACCOUNT_ID}:distribution/*`],
+    });
+    this.postsDeleteFn.addToRolePolicy(cfInvalidationPolicy);
+    this.peaksDeleteFn.addToRolePolicy(cfInvalidationPolicy);
+
     this.peaksLikeFn = createLambda('PeaksLikeFunction', 'peaks/like');
     this.peaksUnlikeFn = createLambda('PeaksUnlikeFunction', 'peaks/unlike');
     this.peaksCommentFn = createLambda('PeaksCommentFunction', 'peaks/comment');
@@ -746,7 +759,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         MEDIA_BUCKET: mediaBucket.bucketName,
-        CDN_DOMAIN: '',  // Set by main stack after CDN creation
+        CDN_DOMAIN: cdk.Fn.importValue(`smuppy-cdn-domain-${environment}`),
       },
       bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,

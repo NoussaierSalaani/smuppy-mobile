@@ -82,13 +82,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR c.user_id = $2)
     `;
 
-    // SECURITY: Hide comments from blocked users (bidirectional)
+    // SECURITY: Hide comments from blocked (bidirectional) and muted users
     if (requesterId) {
       query += `
         AND NOT EXISTS (
           SELECT 1 FROM blocked_users bu
           WHERE (bu.blocker_id = $2 AND bu.blocked_id = c.user_id)
              OR (bu.blocker_id = c.user_id AND bu.blocked_id = $2)
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM muted_users WHERE muter_id = $2 AND muted_id = c.user_id
         )
       `;
     }
@@ -103,7 +106,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       paramIndex++;
     }
 
-    query += ` ORDER BY c.created_at DESC LIMIT $${paramIndex}`;
+    query += ` ORDER BY c.created_at DESC, c.id DESC LIMIT $${paramIndex}`;
     params.push(limit + 1);
 
     const result = await db.query(query, params);

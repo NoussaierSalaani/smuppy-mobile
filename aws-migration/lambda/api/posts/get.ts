@@ -104,13 +104,23 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
             [currentUserId, post.author_id]
           )
         : Promise.resolve(noRows),
-      db.query(
-        `SELECT pt.tagged_user_id as id, pr.username, pr.full_name, pr.avatar_url
-         FROM post_tags pt
-         JOIN profiles pr ON pt.tagged_user_id = pr.id
-         WHERE pt.post_id = $1`,
-        [postId]
-      ),
+      needsBlockCheck
+        ? db.query(
+            `SELECT pt.tagged_user_id as id, pr.username, pr.full_name, pr.avatar_url
+             FROM post_tags pt
+             JOIN profiles pr ON pt.tagged_user_id = pr.id
+             JOIN profiles req ON req.cognito_sub = $2
+             WHERE pt.post_id = $1
+               AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = req.id AND blocked_id = pt.tagged_user_id) OR (blocker_id = pt.tagged_user_id AND blocked_id = req.id))`,
+            [postId, currentUserId]
+          )
+        : db.query(
+            `SELECT pt.tagged_user_id as id, pr.username, pr.full_name, pr.avatar_url
+             FROM post_tags pt
+             JOIN profiles pr ON pt.tagged_user_id = pr.id
+             WHERE pt.post_id = $1`,
+            [postId]
+          ),
     ]);
 
     // SECURITY: Check block result

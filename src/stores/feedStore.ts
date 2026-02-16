@@ -31,6 +31,7 @@ export interface FeedState {
   clearOptimisticLikes: (postIds: string[]) => void;
   clearOptimisticPeakLikes: (peakIds: string[]) => void;
   cleanOrphanedOptimistic: () => void;
+  purgeUserContent: (userId: string) => void;
   clearFeed: () => void;
   isCacheStale: () => boolean;
 }
@@ -147,6 +148,14 @@ export const useFeedStore = create<FeedState>()(
         for (const id of peakIds) {
           delete state.optimisticPeakLikes[id];
         }
+      }),
+
+    // Remove all posts by a specific user (after block/mute)
+    purgeUserContent: (userId: string) =>
+      set((state) => {
+        state.feedCache = state.feedCache.filter(
+          (p) => (p as Record<string, unknown>).authorId !== userId && (p as Record<string, unknown>).author_id !== userId
+        );
       }),
 
     // Clear feed cache

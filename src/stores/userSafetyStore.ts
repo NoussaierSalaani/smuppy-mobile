@@ -15,6 +15,7 @@ import {
   BlockedUser,
   MutedUser,
 } from '../services/database';
+import { useFeedStore } from './feedStore';
 
 interface UserSafetyState {
   // State
@@ -111,6 +112,9 @@ export const useUserSafetyStore = create<UserSafetyState>()(
         });
       }
 
+      // Purge muted user's content from feed cache
+      useFeedStore.getState().purgeUserContent(userId);
+
       return { error: null };
     },
 
@@ -203,6 +207,13 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       } catch (muteErr) {
         if (__DEV__) console.warn('[UserSafetyStore] Mute after block failed (non-critical):', muteErr);
       }
+
+      // Purge blocked user's content from feed cache + VibesFeed module cache
+      useFeedStore.getState().purgeUserContent(userId);
+      try {
+        const { clearVibesFeedCache } = require('../screens/home/VibesFeed');
+        clearVibesFeedCache();
+      } catch { /* VibesFeed not loaded yet, nothing to clear */ }
 
       return { error: null };
     },

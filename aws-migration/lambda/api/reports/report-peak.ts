@@ -34,7 +34,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const rateLimit = await checkRateLimit({
-      prefix: 'report-peak',
+      prefix: 'report-all',
       identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_5_MIN,
       maxRequests: 5,

@@ -15,6 +15,7 @@ import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID } from '../utils/security';
+import { RATE_WINDOW_1_DAY } from '../utils/constants';
 
 const log = createLogger('comments-create');
 
@@ -36,6 +37,21 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 429,
         headers,
         body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
+      };
+    }
+
+    // Daily cap: 200 comments/day (consistent with likes/follows daily limits)
+    const dailyLimit = await checkRateLimit({
+      prefix: 'comment-daily',
+      identifier: userId,
+      windowSeconds: RATE_WINDOW_1_DAY,
+      maxRequests: 200,
+    });
+    if (!dailyLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Daily comment limit reached. Please try again tomorrow.' }),
       };
     }
 

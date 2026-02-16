@@ -10,7 +10,8 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders, createCacheableHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { CACHE_TTL_SHORT } from '../utils/constants';
+import { checkRateLimit } from '../utils/rate-limit';
+import { CACHE_TTL_SHORT, RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('feed-get');
 
@@ -48,6 +49,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: JSON.stringify({ message: 'Unauthorized' }),
       };
+    }
+
+    // Per-user rate limit (fail-open: WAF provides baseline protection for read endpoints)
+    const { allowed } = await checkRateLimit({
+      prefix: 'feed-get',
+      identifier: cognitoSub,
+      windowSeconds: RATE_WINDOW_1_MIN,
+      maxRequests: 60,
+      failOpen: true,
+    });
+    if (!allowed) {
+      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
     }
 
     // Use reader pool for read-heavy feed operations (distributed across read replicas)

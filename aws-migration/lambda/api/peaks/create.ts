@@ -12,6 +12,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_PEAK_DURATION_SECONDS } from '../utils/constants';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { checkQuota, deductQuota, getQuotaLimits, isPremiumAccount } from '../utils/upload-quota';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
@@ -136,13 +137,50 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       account_type: accountCheck.accountType,
     };
 
-    // Only pro_creator accounts can create peaks
-    if (profile.account_type !== 'pro_creator') {
+    // Business accounts cannot create peaks
+    if (profile.account_type === 'pro_business') {
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ message: 'Pro Creator account required to create peaks' }),
+        body: JSON.stringify({ message: 'Business accounts cannot create peaks' }),
       };
+    }
+
+    // Quota enforcement for non-premium accounts
+    const quotaLimits = getQuotaLimits(profile.account_type);
+    if (!isPremiumAccount(profile.account_type)) {
+      if (quotaLimits.dailyPeakCount !== null) {
+        const peakQuota = await checkQuota(profile.id, profile.account_type, 'peak', 1);
+        if (!peakQuota.allowed) {
+          return {
+            statusCode: 429,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              message: 'Daily peak limit reached. Upgrade to Pro for unlimited peaks.',
+              quotaType: 'peak_count',
+              remaining: peakQuota.remaining,
+              limit: peakQuota.limit,
+            }),
+          };
+        }
+      }
+      if (quotaLimits.dailyVideoSeconds !== null && videoDuration && videoDuration > 0) {
+        const videoQuota = await checkQuota(profile.id, profile.account_type, 'video', Math.ceil(videoDuration));
+        if (!videoQuota.allowed) {
+          return {
+            statusCode: 429,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              message: 'Daily video upload limit reached. Upgrade to Pro for unlimited uploads.',
+              quotaType: 'video_seconds',
+              remaining: videoQuota.remaining,
+              limit: videoQuota.limit,
+            }),
+          };
+        }
+      }
     }
 
     const db = await getPool();
@@ -239,6 +277,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw txErr;
     } finally {
       peakClient.release();
+    }
+
+    // Deduct quotas after successful insert (non-blocking, personal accounts only)
+    if (!isPremiumAccount(profile.account_type)) {
+      try {
+        await deductQuota(profile.id, 'peak', 1);
+        if (videoDuration && videoDuration > 0) {
+          await deductQuota(profile.id, 'video', Math.ceil(videoDuration));
+        }
+      } catch (quotaErr) {
+        log.error('Failed to deduct quota (non-blocking)', quotaErr);
+      }
     }
 
     // Send notification to parent peak author if this is a reply (non-blocking, best-effort)

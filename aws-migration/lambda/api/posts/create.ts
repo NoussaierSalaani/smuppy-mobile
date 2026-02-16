@@ -13,6 +13,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { RATE_WINDOW_1_MIN, MAX_POST_CONTENT_LENGTH, MAX_MEDIA_URL_LENGTH } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { checkQuota, deductQuota, getQuotaLimits, isPremiumAccount } from '../utils/upload-quota';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
@@ -34,6 +35,7 @@ interface CreatePostInput {
   visibility?: 'public' | 'fans' | 'private' | 'subscribers';
   location?: string;
   taggedUsers?: string[];
+  videoDuration?: number;
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -219,7 +221,56 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       'SELECT account_type FROM profiles WHERE id = $1',
       [userId]
     );
-    const accountType = userResult.rows[0]?.account_type;
+    const accountType = userResult.rows[0]?.account_type || 'personal';
+
+    // Quota enforcement for non-premium accounts
+    if (!isPremiumAccount(accountType)) {
+      const limits = getQuotaLimits(accountType);
+      const isVideoPost = body.mediaType === 'video';
+      const mediaCount = Array.isArray(body.mediaUrls) ? body.mediaUrls.length : 0;
+
+      if (isVideoPost) {
+        const videoDuration = typeof body.videoDuration === 'number' ? Math.ceil(body.videoDuration) : 0;
+        if (videoDuration > limits.maxVideoSeconds) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ success: false, message: `Video must be ${limits.maxVideoSeconds} seconds or less` }),
+          };
+        }
+        if (videoDuration > 0) {
+          const videoQuota = await checkQuota(userId, accountType, 'video', videoDuration);
+          if (!videoQuota.allowed) {
+            return {
+              statusCode: 429,
+              headers,
+              body: JSON.stringify({
+                success: false,
+                message: 'Daily video upload limit reached. Upgrade to Pro for unlimited uploads.',
+                quotaType: 'video_seconds',
+                remaining: videoQuota.remaining,
+                limit: videoQuota.limit,
+              }),
+            };
+          }
+        }
+      } else if (mediaCount > 0 && (body.mediaType === 'image' || body.mediaType === 'multiple')) {
+        const photoQuota = await checkQuota(userId, accountType, 'photo', mediaCount);
+        if (!photoQuota.allowed) {
+          return {
+            statusCode: 429,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              message: 'Daily photo upload limit reached. Upgrade to Pro for unlimited uploads.',
+              quotaType: 'photo_count',
+              remaining: photoQuota.remaining,
+              limit: photoQuota.limit,
+            }),
+          };
+        }
+      }
+    }
 
     // Only pro_creator accounts can use 'subscribers' visibility
     if (body.visibility === 'subscribers' && accountType !== 'pro_creator') {
@@ -304,6 +355,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw txErr;
     } finally {
       client.release();
+    }
+
+    // Deduct quota after successful insert (non-blocking, personal accounts only)
+    if (!isPremiumAccount(accountType)) {
+      try {
+        const isVideoPost = body.mediaType === 'video';
+        if (isVideoPost && typeof body.videoDuration === 'number' && body.videoDuration > 0) {
+          await deductQuota(userId, 'video', Math.ceil(body.videoDuration));
+        } else if (hasMedia && (body.mediaType === 'image' || body.mediaType === 'multiple')) {
+          await deductQuota(userId, 'photo', body.mediaUrls!.length);
+        }
+      } catch (quotaErr) {
+        log.error('Failed to deduct quota (non-blocking)', quotaErr);
+      }
     }
 
     // Log flagged content for moderator review (non-blocking)

@@ -87,3 +87,14 @@ export const VIDEO_STATUS_PROCESSING = 'processing';
 export const VIDEO_STATUS_READY = 'ready';
 export const VIDEO_STATUS_FAILED = 'failed';
 export const VIDEO_PROCESSING_TIMEOUT_MS = 600_000;  // 10 minutes max
+
+// ── Upload Quota Limits ─────────────────────────────────────────────
+export const PERSONAL_DAILY_VIDEO_SECONDS = 60;
+export const PERSONAL_MAX_VIDEO_SECONDS = 60;
+export const PERSONAL_MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;  // 50 MB
+export const PERSONAL_DAILY_PHOTO_COUNT = 10;
+export const PERSONAL_DAILY_PEAK_COUNT = 10;
+export const PERSONAL_VIDEO_RENDITIONS = 1;
+export const PRO_MAX_VIDEO_SECONDS = 300;                        // 5 minutes
+export const PRO_MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024;      // 100 MB
+export const PRO_VIDEO_RENDITIONS = 3;

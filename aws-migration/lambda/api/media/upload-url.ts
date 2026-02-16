@@ -17,6 +17,8 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS } from '../utils/constants';
+import { getPool } from '../../shared/db';
+import { checkQuota, getQuotaLimits } from '../utils/upload-quota';
 
 const log = createLogger('media-upload-url');
 
@@ -69,6 +71,7 @@ interface UploadRequest {
   fileSize: number;
   uploadType?: 'avatar' | 'cover' | 'post' | 'peak' | 'message';
   filename?: string;
+  duration?: number;
 }
 
 function getMediaType(contentType: string): string | null {
@@ -171,8 +174,37 @@ export async function handler(
       };
     }
 
-    // Validate file size — server-side enforcement, never trust client alone
-    const maxSize = MAX_FILE_SIZES[mediaType];
+    // Validate upload type
+    const validUploadTypes = ['avatar', 'cover', 'post', 'peak', 'message'];
+    if (!validUploadTypes.includes(uploadType)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          error: 'Invalid upload type',
+          message: `Valid types: ${validUploadTypes.join(', ')}`,
+        }),
+      };
+    }
+
+    // Resolve account type for quota-aware limits
+    const isQuotaUpload = uploadType === 'post' || uploadType === 'peak';
+    let accountType = 'personal';
+    let profileId: string | null = null;
+    if (isQuotaUpload) {
+      const db = await getPool();
+      const profileResult = await db.query(
+        'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
+        [userId]
+      );
+      accountType = profileResult.rows[0]?.account_type || 'personal';
+      profileId = profileResult.rows[0]?.id || null;
+    }
+    const limits = getQuotaLimits(accountType);
+
+    // Validate file size — account-aware for video, fixed for image/audio
+    const isVideo = mediaType === 'video';
+    const maxSize = isVideo && isQuotaUpload ? limits.maxVideoSizeBytes : MAX_FILE_SIZES[mediaType];
     if (fileSize > maxSize) {
       return {
         statusCode: 400,
@@ -185,17 +217,56 @@ export async function handler(
       };
     }
 
-    // Validate upload type
-    const validUploadTypes = ['avatar', 'cover', 'post', 'peak', 'message'];
-    if (!validUploadTypes.includes(uploadType)) {
+    // Per-video duration check
+    const { duration } = request;
+    if (isVideo && isQuotaUpload && typeof duration === 'number' && duration > limits.maxVideoSeconds) {
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({
-          error: 'Invalid upload type',
-          message: `Valid types: ${validUploadTypes.join(', ')}`,
+          success: false,
+          message: `Video must be ${limits.maxVideoSeconds} seconds or less`,
+          maxVideoSeconds: limits.maxVideoSeconds,
         }),
       };
+    }
+
+    // Advisory quota check for post/peak uploads (authoritative check is in create handlers)
+    let quotaInfo: Record<string, unknown> | undefined;
+    if (isQuotaUpload && profileId) {
+      if (isVideo && typeof duration === 'number') {
+        const videoQuota = await checkQuota(profileId, accountType, 'video', Math.ceil(duration));
+        if (!videoQuota.allowed) {
+          return {
+            statusCode: 429,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              message: 'Daily video upload limit reached. Upgrade to Pro for unlimited uploads.',
+              quotaType: 'video_seconds',
+              remaining: videoQuota.remaining,
+              limit: videoQuota.limit,
+            }),
+          };
+        }
+        quotaInfo = { videoSecondsRemaining: videoQuota.remaining, maxVideoDuration: limits.maxVideoSeconds };
+      } else if (!isVideo && mediaType === 'image') {
+        const photoQuota = await checkQuota(profileId, accountType, 'photo', 1);
+        if (!photoQuota.allowed) {
+          return {
+            statusCode: 429,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              message: 'Daily photo upload limit reached. Upgrade to Pro for unlimited uploads.',
+              quotaType: 'photo_count',
+              remaining: photoQuota.remaining,
+              limit: photoQuota.limit,
+            }),
+          };
+        }
+        quotaInfo = { photoCountRemaining: photoQuota.remaining };
+      }
     }
 
     // Generate secure filename and path
@@ -247,6 +318,7 @@ export async function handler(
         key,
         expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
         maxSize,
+        ...(quotaInfo && { quotaInfo }),
       }),
     };
   } catch (error: unknown) {

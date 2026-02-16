@@ -245,6 +245,8 @@ export class LambdaStack extends cdk.NestedStack {
 
   // Media - Voice Upload
   public readonly mediaUploadVoiceFn: NodejsFunction;
+  // Media - Upload Quota
+  public readonly mediaUploadQuotaFn: NodejsFunction;
 
   // Spots handlers moved to LambdaStackDisputes to stay under CloudFormation limits
 
@@ -672,7 +674,17 @@ export class LambdaStack extends cdk.NestedStack {
     mediaBucket.grantPut(this.mediaUploadUrlFn);
     // Grant DynamoDB rate limit table access
     this.mediaUploadUrlFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:UpdateItem'],
+      actions: ['dynamodb:UpdateItem', 'dynamodb:GetItem'],
+      resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
+    }));
+    // Grant DB access for account_type lookup (quota enforcement)
+    dbCredentials.grantRead(this.mediaUploadUrlFn);
+
+    // Upload Quota Lambda - returns daily quota status
+    this.mediaUploadQuotaFn = createLambda('MediaUploadQuotaFunction', 'media/upload-quota');
+    // Grant DynamoDB GetItem for reading quota counters (createLambda only grants UpdateItem)
+    this.mediaUploadQuotaFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:GetItem'],
       resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
     }));
 

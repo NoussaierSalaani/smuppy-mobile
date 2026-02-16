@@ -544,7 +544,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         postIds.filter(id => savedMap.get(id))
       );
 
-      const transformedPosts = data.map(post => transformToVibePost(post, likedIds, savedIds));
+      const transformedPosts = data.map(post => transformToVibePost(post, likedIds, savedIds, COLUMN_WIDTH));
 
       // Save cursor for next page
       cursorRef.current = nextCursor ?? null;
@@ -993,9 +993,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
     if (!viewableItems.length) return;
     const maxIndex = Math.max(...viewableItems.map(v => v.index ?? 0));
-    const upcoming = filteredPosts.slice(maxIndex + 1, maxIndex + 6);
+    const upcoming = filteredPosts.slice(maxIndex + 1, maxIndex + 10);
     const urls = upcoming
-      .map(p => p.media)
+      .map(p => getMediaVariant(p.media, 'thumb', p.mediaMeta))
       .filter((url): url is string => typeof url === 'string' && !prefetchedUrlsRef.current.has(url));
     if (urls.length > 0) {
       urls.forEach(url => prefetchedUrlsRef.current.add(url));

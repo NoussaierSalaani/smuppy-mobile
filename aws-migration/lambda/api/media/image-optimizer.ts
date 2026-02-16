@@ -4,10 +4,10 @@
  * Generates optimized image variants (large/medium/thumb), strips EXIF,
  * computes blurhash, and updates posts.media_meta or profiles avatar/cover blurhash.
  *
- * Variants:
- * - large/  — 1080px wide, q85, JPEG, EXIF stripped
- * - medium/ — 540px wide, q80, JPEG, EXIF stripped
- * - thumb/  — 270px wide, q75, WebP, EXIF stripped
+ * Variants (all WebP for ~25-30% savings over JPEG):
+ * - large/  — 1080px wide, q82, WebP, EXIF stripped
+ * - medium/ — 540px wide, q78, WebP, EXIF stripped
+ * - thumb/  — 270px wide, q72, WebP, EXIF stripped
  */
 
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -29,11 +29,11 @@ const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.he
 // Variant prefixes to skip (prevent recursion)
 const VARIANT_PREFIXES = ['large/', 'medium/', 'thumb/'];
 
-// Variant configurations
+// Variant configurations — all WebP for ~25-30% savings over JPEG
 const VARIANTS = [
-  { name: 'large', width: 1080, quality: 85, format: 'jpeg' as const },
-  { name: 'medium', width: 540, quality: 80, format: 'jpeg' as const },
-  { name: 'thumb', width: 270, quality: 75, format: 'webp' as const },
+  { name: 'large', width: 1080, quality: 82, format: 'webp' as const },
+  { name: 'medium', width: 540, quality: 78, format: 'webp' as const },
+  { name: 'thumb', width: 270, quality: 72, format: 'webp' as const },
 ] as const;
 
 // Blurhash computation dimensions

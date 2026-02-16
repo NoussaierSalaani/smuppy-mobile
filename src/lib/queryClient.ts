@@ -3,7 +3,8 @@
  * Optimized for 2M+ users with caching, offline support, and retry logic
  */
 
-import { QueryClient, onlineManager, focusManager } from '@tanstack/react-query';
+import { QueryClient, QueryCache, MutationCache, onlineManager, focusManager } from '@tanstack/react-query';
+import { captureException } from './sentry';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { AppState, Platform } from 'react-native';
@@ -77,6 +78,20 @@ export const queryClient = new QueryClient({
       networkMode: 'offlineFirst',
     },
   },
+  queryCache: new QueryCache({
+    onError: (error: Error, query) => {
+      // Report query failures to Sentry (after retries exhausted)
+      captureException(error, {
+        queryKey: JSON.stringify(query.queryKey).substring(0, 200),
+        type: 'query_cache_error',
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: Error) => {
+      captureException(error, { type: 'mutation_cache_error' });
+    },
+  }),
 });
 
 /**

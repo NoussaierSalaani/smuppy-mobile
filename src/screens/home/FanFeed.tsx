@@ -974,9 +974,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
     if (!viewableItems.length) return;
     const maxIndex = Math.max(...viewableItems.map(v => v.index ?? 0));
-    const upcoming = visiblePosts.slice(maxIndex + 1, maxIndex + 6);
+    const upcoming = visiblePosts.slice(maxIndex + 1, maxIndex + 8);
     const urls = upcoming
-      .flatMap(p => p.allMedia?.length ? p.allMedia : [p.media])
+      .map(p => getMediaVariant(p.media, 'medium', p.mediaMeta))
       .filter((url): url is string => typeof url === 'string' && !prefetchedUrlsRef.current.has(url));
     if (urls.length > 0) {
       urls.forEach(url => prefetchedUrlsRef.current.add(url));

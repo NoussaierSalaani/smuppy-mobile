@@ -57,7 +57,7 @@ export const getMediaUrl = (post: Post, fallback: string | null = null): string 
 /**
  * Format duration in seconds to MM:SS display string
  */
-export const formatDuration = (seconds: number | string | undefined): string | undefined => {
+export const formatDuration = (seconds: number | string | null | undefined): string | undefined => {
   if (seconds === undefined || seconds === null) return undefined;
   const s = typeof seconds === 'string' ? parseInt(seconds, 10) : seconds;
   if (isNaN(s) || s <= 0) return undefined;
@@ -132,6 +132,10 @@ export interface UIPostBase {
   isSaved: boolean;
   tags?: string[];
   taggedUsers?: UITaggedUser[];
+  videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
+  hlsUrl?: string | null;
+  thumbnailUrl?: string | null;
+  videoDuration?: string;
 }
 
 // FanFeed post format
@@ -192,6 +196,10 @@ export const transformToFanPost = (
     location: post.location || null,
     tags: post.tags,
     taggedUsers: normalizeTaggedUsers(post.tagged_users),
+    videoStatus: post.video_status || null,
+    hlsUrl: post.hls_url || null,
+    thumbnailUrl: post.thumbnail_url || null,
+    videoDuration: formatDuration(post.video_duration),
   };
 };
 
@@ -201,9 +209,11 @@ export const transformToFanPost = (
 export const transformToVibePost = (
   post: Post,
   likedPostIds: Set<string>,
-  savedPostIds?: Set<string>
+  savedPostIds?: Set<string>,
+  columnWidth?: number,
 ): UIVibePost => {
-  const randomHeight = getMasonryHeight(post.id);
+  const meta = post.media_meta || undefined;
+  const height = getMasonryHeight(post.id, meta, columnWidth);
   const allMedia = post.media_urls?.filter(Boolean) || [];
 
   return {
@@ -211,8 +221,8 @@ export const transformToVibePost = (
     type: normalizeMediaType(post.media_type),
     media: getMediaUrl(post),
     allMedia: allMedia.length > 0 ? allMedia : undefined,
-    mediaMeta: post.media_meta || undefined,
-    height: randomHeight,
+    mediaMeta: meta,
+    height,
     slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
     user: {
       id: post.author?.id || post.author_id,
@@ -227,20 +237,42 @@ export const transformToVibePost = (
     category: post.tags?.[0] || '',
     tags: post.tags || [],
     taggedUsers: normalizeTaggedUsers(post.tagged_users),
+    videoStatus: post.video_status || null,
+    hlsUrl: post.hls_url || null,
+    thumbnailUrl: post.thumbnail_url || null,
+    videoDuration: formatDuration(post.video_duration),
   };
 };
 
 /**
- * Deterministic masonry height based on post ID.
- * Uses first + last char code for consistent results across renders.
+ * Masonry height for a post.
+ * Uses actual image aspect ratio from media_meta when available.
+ * Falls back to deterministic pseudo-random height based on post ID.
+ *
+ * @param columnWidth — the width of a single masonry column (pixels)
  */
-export const getMasonryHeight = (postId: string): number => {
-  const heights = [160, 200, 240, 280, 220, 180, 260];
+const MASONRY_MIN_HEIGHT = 140;
+const MASONRY_MAX_HEIGHT = 320;
+const FALLBACK_HEIGHTS = [160, 200, 240, 280, 220, 180, 260];
+
+export const getMasonryHeight = (
+  postId: string,
+  mediaMeta?: { width?: number; height?: number },
+  columnWidth?: number,
+): number => {
+  // Use real aspect ratio when dimensions are known
+  if (mediaMeta?.width && mediaMeta.height && columnWidth) {
+    const aspectRatio = mediaMeta.width / mediaMeta.height;
+    const computed = Math.round(columnWidth / aspectRatio);
+    return Math.max(MASONRY_MIN_HEIGHT, Math.min(MASONRY_MAX_HEIGHT, computed));
+  }
+
+  // Fallback: deterministic hash from post ID
   const mid = Math.floor(postId.length / 2);
   const charSum = Math.abs(
     postId.charCodeAt(0) + postId.charCodeAt(mid) + postId.charCodeAt(postId.length - 1)
   );
-  return heights[charSum % heights.length];
+  return FALLBACK_HEIGHTS[charSum % FALLBACK_HEIGHTS.length];
 };
 
 /**

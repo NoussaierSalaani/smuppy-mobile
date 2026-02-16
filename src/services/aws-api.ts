@@ -17,6 +17,7 @@ import type {
   CreatePostInput, CreatePeakInput, UpdateProfileInput,
 } from './api/types';
 import { APIError } from './api/error';
+import { addBreadcrumb, captureException } from '../lib/sentry';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -133,6 +134,10 @@ class AWSAPIService {
           if (attempt > 0 && error instanceof Error) {
             error.message = `${error.message} (after ${attempt + 1} attempts)`;
           }
+          // Report non-retryable or exhausted-retry errors to Sentry
+          if (error instanceof Error) {
+            captureException(error, { endpoint, method: options.method, attempts: attempt + 1, status });
+          }
           throw error;
         }
 
@@ -151,6 +156,8 @@ class AWSAPIService {
 
   private async _requestOnce<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
     const { method, body, headers = {}, authenticated = true, timeout = this.defaultTimeout } = options;
+
+    addBreadcrumb(`${method} ${endpoint}`, 'api', { method, endpoint, authenticated });
 
     // Determine which API to use (checked in priority order):
     // 1. API 3: exact endpoint matches OR prefix matches (spots, business subscriptions)
@@ -830,6 +837,19 @@ class AWSAPIService {
   async deleteAccount(): Promise<void> {
     return this.request('/account', {
       method: 'DELETE',
+    });
+  }
+
+  /** GDPR Art. 15 — Export all user data (rate limited: 3/hour) */
+  async exportData(): Promise<Record<string, unknown>> {
+    return this.request('/profiles/export-data', { method: 'GET' });
+  }
+
+  /** GDPR Art. 7 — Record user consent for terms/privacy */
+  async recordConsent(consents: Array<{ type: string; version?: string }>): Promise<{ success: boolean }> {
+    return this.request('/profiles/consent', {
+      method: 'POST',
+      body: { consents },
     });
   }
 

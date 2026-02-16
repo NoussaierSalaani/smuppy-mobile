@@ -174,6 +174,16 @@ export const initSentry = (): void => {
 
   // Flush any messages/exceptions that were captured before init
   flushPendingCaptures();
+
+  // Global handler for unhandled promise rejections
+  // React Native doesn't always surface these through ErrorBoundary
+  const g = globalThis as unknown as Record<string, unknown>;
+  const originalHandler = g.__previousUnhandledRejection;
+  g.onunhandledrejection = (event: { reason: unknown }) => {
+    const error = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+    Sentry.captureException(error, { extra: { type: 'unhandled_rejection' } });
+    if (typeof originalHandler === 'function') originalHandler(event);
+  };
 };
 
 // =============================================

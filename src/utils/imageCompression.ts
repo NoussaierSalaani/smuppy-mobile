@@ -44,7 +44,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 400,
     maxHeight: 400,
     quality: 0.8,
-    format: 'jpeg' as const,
+    format: 'webp' as const,
   },
 
   // For cover images (wide)
@@ -52,15 +52,15 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 1200,
     maxHeight: 600,
     quality: 0.8,
-    format: 'jpeg' as const,
+    format: 'webp' as const,
   },
 
-  // For post images (balanced quality/size)
+  // For post images (balanced quality/size — WebP ~30% smaller than JPEG)
   post: {
     maxWidth: 1080,
     maxHeight: 1350,
     quality: 0.85,
-    format: 'jpeg' as const,
+    format: 'webp' as const,
   },
 
   // For thumbnails (very small)
@@ -68,7 +68,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 300,
     maxHeight: 300,
     quality: 0.7,
-    format: 'jpeg' as const,
+    format: 'webp' as const,
   },
 
   // For high quality (minimal compression)
@@ -76,7 +76,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 2048,
     maxHeight: 2048,
     quality: 0.95,
-    format: 'jpeg' as const,
+    format: 'webp' as const,
   },
 
   // For messages (medium quality)
@@ -84,7 +84,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 800,
     maxHeight: 800,
     quality: 0.75,
-    format: 'jpeg' as const,
+    format: 'webp' as const,
   },
 };
 
@@ -191,15 +191,16 @@ export const compressImage = async (
     }
 
     // Process the image
+    const saveFormat = format === 'png'
+      ? ImageManipulator.SaveFormat.PNG
+      : format === 'webp'
+        ? ImageManipulator.SaveFormat.WEBP
+        : ImageManipulator.SaveFormat.JPEG;
+
     const result = await ImageManipulator.manipulateAsync(
       imageUri,
       actions,
-      {
-        compress: quality,
-        format: format === 'png'
-          ? ImageManipulator.SaveFormat.PNG
-          : ImageManipulator.SaveFormat.JPEG,
-      }
+      { compress: quality, format: saveFormat },
     );
 
     // Get final file size

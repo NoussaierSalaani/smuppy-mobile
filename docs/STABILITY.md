@@ -173,8 +173,8 @@ Before accepting any AI-generated change:
 
 | Layer | Tool | Status |
 |-------|------|--------|
-| **Mobile crashes** | Sentry or Firebase Crashlytics | **TODO** |
-| **JS errors** | Sentry React Native SDK | **TODO** |
+| **Mobile crashes** | Sentry (`initSentry()` in App.js) | Implemented |
+| **JS errors** | Sentry React Native SDK (`captureException`, `captureMessage`) | Implemented |
 | **API errors** | CloudWatch Logs (already via `createLogger`) | Exists |
 | **Network failures** | Client-side error boundary + retry logic | Partial |
 | **Navigation** | Screen tracking analytics | **TODO** |

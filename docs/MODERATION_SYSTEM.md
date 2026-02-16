@@ -528,6 +528,7 @@ Actions: setModeration(), clearModeration()
 - Les posts du bloque sont masques du feed
 - Le bloque ne peut plus envoyer de messages
 - Le bloque ne sait pas qu'il est bloque (pas de notification)
+- **Push silences** : si le recipient a bloque OU mute l'actor, `sendPushToUser()` skip le push (check `blocked_users` + `muted_users` avant envoi). Couvre : likes, comments, follows, DMs, peaks, live streams.
 
 ### Store client
 `src/stores/userSafetyStore.ts` (Zustand + Immer)

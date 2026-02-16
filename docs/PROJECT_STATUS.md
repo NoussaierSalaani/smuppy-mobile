@@ -221,10 +221,12 @@
    ├── Admin review queue
    └── Toxicity detection (AWS Comprehend)
 
-🟢 Notifications (3 endpoints)
+🟢 Notifications (5 endpoints)
    ├── GET    /notifications            ✅ list
-   ├── PUT    /notifications/:id/read   ✅ mark read
-   └── GET    /notifications/unread     ✅ count
+   ├── POST   /notifications/:id/read   ✅ mark read
+   ├── POST   /notifications/read-all   ✅ mark all read
+   ├── GET    /notifications/unread-count ✅ unread count
+   └── POST   /notifications/push-token ✅ register push token
 
 🟢 Upload (3 endpoints)
    ├── POST   /media/upload-url         ✅ presigned URL

@@ -544,7 +544,44 @@ Overlays are interactive widgets stored as JSONB metadata:
 
 ---
 
-## 11. Non-Conformance Checklist
+## 11. Notifications
+
+### Peak Reply Push Notification
+When a user replies to a peak (`POST /peaks` with `replyToPeakId`), the parent peak author receives:
+1. **DB notification** — `INSERT INTO notifications` with type `peak_reply`
+2. **Push notification** — `sendPushToUser()` with `actorId` (replier's profile ID) for muted/blocked filtering
+
+```
+Title: "New Peak Reply"
+Body: "{display_name} replied to your Peak"
+Data: { type: 'peak_reply', peakId: newPeakId }
+Navigation: PeakView → reply peak
+```
+
+**Rules:**
+- Push only sent if `replyParentAuthorId !== profile.id` (no self-notification)
+- Push is fire-and-forget (`.catch()`) — failure does not block response
+- Requires `sns:Publish` IAM policy on `peaksCreateFn` (granted in smuppy-stack.ts)
+- Subject to muted/blocked check via `actorId` parameter
+
+### Peak Comment Push Notification
+When a user comments on a peak, the peak author receives:
+- Type: `peak_comment`
+- Handled in `peaks/comment.ts` (lines 278-298)
+- Also passes `actorId` for muted/blocked filtering
+
+### Peak Like Push Notification
+When a user likes a peak, the peak author receives:
+- Type: `peak_like`
+- Handled in `peaks/like.ts`
+- Also passes `actorId` for muted/blocked filtering
+
+### Follower Broadcast (new_peak)
+When a peak is created, up to 500 followers receive a DB notification (type `new_peak`). Push delivery for this broadcast is NOT implemented (requires async SQS pipeline for scale).
+
+---
+
+## 12. Non-Conformance Checklist
 
 When auditing, verify these rules are NOT violated:
 

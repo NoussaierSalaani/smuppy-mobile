@@ -22,6 +22,7 @@ function sanitizeQuery(raw: string): string {
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const headers = createHeaders(event);
+    log.initFromEvent(event);
 
   // Rate limiting - use cognito_sub (authenticated user) or IP (anonymous)
   const userId = event.requestContext.authorizer?.claims?.sub;

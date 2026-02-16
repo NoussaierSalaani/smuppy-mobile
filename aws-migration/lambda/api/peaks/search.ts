@@ -89,14 +89,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       paramIdx++;
     }
 
-    // isLiked subquery
-    let likedSelect = '';
-    if (requesterId) {
-      likedSelect = `, EXISTS(SELECT 1 FROM peak_likes l WHERE l.peak_id = p.id AND l.user_id = $${paramIdx}) as "isLiked"`;
-      params.push(requesterId);
-      paramIdx++;
-    }
-
     // Limit (fetch +1 for hasMore detection)
     params.push(parsedLimit + 1);
     const limitParam = `$${paramIdx}`;
@@ -109,8 +101,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       p.filter_id as "filterId", p.filter_intensity as "filterIntensity", p.overlays,
       pr.username, pr.full_name as "fullName", pr.avatar_url as "avatarUrl",
       pr.is_verified as "isVerified", pr.account_type as "accountType",
-      pr.business_name as "businessName"
-      ${likedSelect}`;
+      pr.business_name as "businessName"`;
 
     let result;
 
@@ -163,7 +154,18 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Cursor-based pagination: detect hasMore and compute nextCursor
     const hasMore = result.rows.length > parsedLimit;
-    const rows = hasMore ? result.rows.slice(0, -1) : result.rows;
+    const rows = result.rows.slice(0, parsedLimit);
+
+    // Batch fetch isLiked (single query instead of per-row EXISTS subquery)
+    const peakIds = rows.map((r: Record<string, unknown>) => r.id);
+    let likedSet = new Set<string>();
+    if (requesterId && peakIds.length > 0) {
+      const likedRes = await pool.query(
+        'SELECT peak_id FROM peak_likes WHERE user_id = $1 AND peak_id = ANY($2::uuid[])',
+        [requesterId, peakIds]
+      );
+      likedSet = new Set(likedRes.rows.map((r: { peak_id: string }) => r.peak_id));
+    }
 
     const peaks = rows.map((peak: Record<string, unknown>) => ({
       id: peak.id,
@@ -179,7 +181,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       filterId: (peak.filterId as string) || null,
       filterIntensity: (peak.filterIntensity as number) ?? null,
       overlays: peak.overlays || null,
-      isLiked: (peak.isLiked as boolean) || false,
+      isLiked: likedSet.has(peak.id as string),
       author: {
         id: peak.authorId,
         username: peak.username,

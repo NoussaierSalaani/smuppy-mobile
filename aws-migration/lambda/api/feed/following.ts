@@ -14,6 +14,7 @@ const log = createLogger('feed-following');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const headers = createHeaders(event);
+    log.initFromEvent(event);
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
@@ -96,6 +97,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const result = await db.query(
       `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.media_meta, p.tags,
               p.likes_count, p.comments_count, p.created_at,
+              p.video_status, p.hls_url, p.thumbnail_url, p.video_variants, p.video_duration,
               pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name
        FROM posts p
        LEFT JOIN profiles pr ON p.author_id = pr.id
@@ -151,6 +153,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       likesCount: row.likes_count || 0,
       commentsCount: row.comments_count || 0,
       createdAt: row.created_at,
+      videoStatus: row.video_status || null,
+      hlsUrl: row.hls_url || null,
+      thumbnailUrl: row.thumbnail_url || null,
+      videoVariants: row.video_variants || null,
+      videoDuration: row.video_duration || null,
       isLiked: likedSet.has(row.id as string),
       isSaved: savedSet.has(row.id as string),
       author: {

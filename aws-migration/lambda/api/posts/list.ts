@@ -165,6 +165,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         )
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+               p.video_status as "videoStatus", p.hls_url as "hlsUrl", p.thumbnail_url as "thumbnailUrl", p.video_variants as "videoVariants", p.video_duration as "videoDuration",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
         FROM posts p
         JOIN my_connections mc ON p.author_id = mc.author_id
@@ -284,6 +285,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
                p.is_peak as "isPeak", p.location, p.tags, p.likes_count as "likesCount", p.comments_count as "commentsCount", p.created_at as "createdAt",
+               p.video_status as "videoStatus", p.hls_url as "hlsUrl", p.thumbnail_url as "thumbnailUrl", p.video_variants as "videoVariants", p.video_duration as "videoDuration",
                u.username, u.full_name as "fullName", u.avatar_url as "avatarUrl", u.is_verified as "isVerified", u.account_type as "accountType", u.business_name as "businessName"
         FROM posts p JOIN profiles u ON p.author_id = u.id
         WHERE u.moderation_status NOT IN ('banned', 'shadow_banned')
@@ -344,6 +346,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       taggedUsers: tagsByPost[post.id as string] || [],
       likesCount: parseInt(post.likesCount as string) || 0, commentsCount: parseInt(post.commentsCount as string) || 0,
       createdAt: post.createdAt, isLiked: likedSet.has(post.id as string), isSaved: savedSet.has(post.id as string),
+      videoStatus: post.videoStatus || null,
+      hlsUrl: post.hlsUrl || null,
+      thumbnailUrl: post.thumbnailUrl || null,
+      videoVariants: post.videoVariants || null,
+      videoDuration: post.videoDuration || null,
       author: { id: post.authorId, username: post.username, fullName: post.fullName, avatarUrl: post.avatarUrl, isVerified: post.isVerified, accountType: post.accountType, businessName: post.businessName },
     }));
 

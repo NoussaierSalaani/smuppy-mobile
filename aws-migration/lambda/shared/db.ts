@@ -169,6 +169,48 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   return pool;
 }
 
+// Slow query threshold — queries exceeding this are logged as warnings
+const SLOW_QUERY_THRESHOLD_MS = 1000;
+
+/**
+ * Wrapper that adds query timing to a Pool.
+ * Logs slow queries (>1s) via the structured logger.
+ */
+function wrapPoolWithTiming(pool: Pool): Pool {
+  const originalQuery = pool.query.bind(pool);
+
+  // Override pool.query to measure duration
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (pool as any).query = async function timedQuery(...args: any[]) {
+    const start = Date.now();
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (originalQuery as any)(...args);
+      const duration = Date.now() - start;
+      if (duration >= SLOW_QUERY_THRESHOLD_MS) {
+        const queryText = typeof args[0] === 'string' ? args[0] : args[0]?.text || '';
+        log.warn('Slow query detected', {
+          type: 'DB_SLOW_QUERY',
+          query: queryText.length > 200 ? queryText.substring(0, 200) + '...' : queryText,
+          duration,
+        });
+      }
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      const queryText = typeof args[0] === 'string' ? args[0] : args[0]?.text || '';
+      log.error('Query failed', error, {
+        type: 'DB_QUERY_ERROR',
+        query: queryText.length > 200 ? queryText.substring(0, 200) + '...' : queryText,
+        duration,
+      });
+      throw error;
+    }
+  };
+
+  return pool;
+}
+
 /**
  * Gets or creates the writer database connection pool
  * Uses RDS Proxy endpoint for connection pooling
@@ -181,7 +223,7 @@ export async function getPool(): Promise<Pool> {
     if (!host) {
       throw new Error('DB_HOST or DB_WRITER_HOST environment variable is required');
     }
-    writerPool = await createPool(host);
+    writerPool = wrapPoolWithTiming(await createPool(host));
   }
 
   return writerPool;
@@ -211,7 +253,7 @@ export async function getReaderPool(): Promise<Pool> {
       log.warn('DB_READER_HOST not configured, falling back to writer pool');
       return getPool();
     }
-    readerPool = await createPool(readerHost, { maxConnections: 10 }); // More connections for reads
+    readerPool = wrapPoolWithTiming(await createPool(readerHost, { maxConnections: 10 })); // More connections for reads
   }
 
   return readerPool;

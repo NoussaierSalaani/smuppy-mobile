@@ -10,14 +10,21 @@
  * - Request IDs are tracked for correlation
  */
 
+import { APIGatewayProxyEvent } from 'aws-lambda';
+
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
 interface LogContext {
   requestId?: string;
   userId?: string;
+  sourceIp?: string;
   handler?: string;
+  isColdStart?: boolean;
   [key: string]: unknown;
 }
+
+// Cold start detection — true only on the first invocation after container init
+let _isColdStart = true;
 
 interface LogEntry {
   timestamp: string;
@@ -179,6 +186,20 @@ class Logger {
     this.context.userId = userId;
   }
 
+  /**
+   * Initialize logger context from an API Gateway event in a single call.
+   * Extracts requestId, userId (from Cognito JWT), sourceIp, and cold start flag.
+   * Call this once at the top of every handler.
+   */
+  initFromEvent(event: APIGatewayProxyEvent): void {
+    this.context.requestId = event.requestContext?.requestId || `local-${Date.now()}`;
+    const sub = event.requestContext?.authorizer?.claims?.sub;
+    if (sub) this.context.userId = sub;
+    this.context.sourceIp = event.requestContext?.identity?.sourceIp || undefined;
+    this.context.isColdStart = _isColdStart;
+    if (_isColdStart) _isColdStart = false;
+  }
+
   private log(level: LogLevel, message: string, data?: Record<string, unknown>): void {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
@@ -266,6 +287,8 @@ class Logger {
 export function createLogger(handler: string): Logger {
   return new Logger({ handler });
 }
+
+export type { Logger };
 
 /**
  * Extract request ID from API Gateway event

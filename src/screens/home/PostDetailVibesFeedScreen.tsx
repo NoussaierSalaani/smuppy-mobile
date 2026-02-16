@@ -10,6 +10,7 @@ import {
   Modal,
   Animated,
   ScrollView,
+  FlatList,
   ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -305,8 +306,6 @@ const PostDetailVibesFeedScreen = () => {
       setViewState(VIEW_STATES.CONDENSED);
     } else if (viewState === VIEW_STATES.CONDENSED) {
       setViewState(VIEW_STATES.GRID_ONLY);
-      // Shuffle grid posts for variety
-      setGridPosts(prev => [...prev].sort(() => Math.random() - 0.5));
     }
   }, [viewState]);
 
@@ -627,9 +626,9 @@ const PostDetailVibesFeedScreen = () => {
     );
   }, [getCardScale, styles, colors, navigation]);
 
-  // Split grid posts into columns for masonry layout
-  const leftColumn = gridPosts.filter((_, i) => i % 2 === 0);
-  const rightColumn = gridPosts.filter((_, i) => i % 2 === 1);
+  // Split grid posts into columns for masonry layout (memoized to avoid recomputation on every render)
+  const leftColumn = useMemo(() => gridPosts.filter((_, i) => i % 2 === 0), [gridPosts]);
+  const rightColumn = useMemo(() => gridPosts.filter((_, i) => i % 2 === 1), [gridPosts]);
 
   // Guard: if no post data was passed, bail out
   if (!currentPost) return null;
@@ -664,20 +663,18 @@ const PostDetailVibesFeedScreen = () => {
                 />
               ) : currentPost.allMedia && currentPost.allMedia.length > 1 ? (
                 <View style={styles.scrollView}>
-                  <ScrollView
+                  <FlatList
                     horizontal
                     pagingEnabled
+                    data={currentPost.allMedia}
+                    keyExtractor={(_, mediaIndex) => `${currentPost.id}-media-${mediaIndex}`}
+                    renderItem={({ item: mediaUrl }) => (
+                      <OptimizedImage source={mediaUrl} style={styles.carouselImage} />
+                    )}
                     showsHorizontalScrollIndicator={false}
+                    getItemLayout={(_, layoutIndex) => ({ length: width, offset: width * layoutIndex, index: layoutIndex })}
                     onMomentumScrollEnd={handleCarouselScroll}
-                  >
-                    {currentPost.allMedia.map((mediaUrl, mediaIndex) => (
-                      <OptimizedImage
-                        key={`${currentPost.id}-media-${mediaIndex}`}
-                        source={mediaUrl}
-                        style={styles.carouselImage}
-                      />
-                    ))}
-                  </ScrollView>
+                  />
                   <View style={styles.carouselPagination}>
                     {currentPost.allMedia.map((_, dotIndex) => (
                       <View

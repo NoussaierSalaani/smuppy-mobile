@@ -10,10 +10,10 @@ import {
   Modal,
   Animated,
   ActivityIndicator,
+  FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
   ViewToken,
-  ScrollView,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -346,13 +346,18 @@ const PostDetailFanFeedScreen = () => {
     }
   }, [minIndex]);
 
-  // Handle swipe to next/prev post
+  // Track minIndex in a ref so the stable onViewableItemsChanged callback
+  // always reads the latest value without recreating the function reference
+  const minIndexRef = useRef(minIndex);
+  minIndexRef.current = minIndex;
+
+  // Handle swipe to next/prev post (stable ref — FlashList requires unchanging reference)
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems.length > 0) {
       const newIndex = viewableItems[0].index;
 
       // Do not go above minIndex
-      if (newIndex !== null && newIndex !== undefined && newIndex >= minIndex) {
+      if (newIndex !== null && newIndex !== undefined && newIndex >= minIndexRef.current) {
         setCurrentIndex(newIndex);
         setIsPaused(false);
         setExpandedDescription(false);
@@ -587,25 +592,23 @@ const PostDetailFanFeedScreen = () => {
               usePoster
             />
           ) : item.allMedia && item.allMedia.length > 1 ? (
-            // Carousel with multiple images
+            // Carousel with FlatList (lazy rendering, better perf than ScrollView)
             <View style={styles.carouselContainer}>
-              <ScrollView
+              <FlatList
                 horizontal
                 pagingEnabled
+                data={item.allMedia}
+                keyExtractor={(mediaUrl, mediaIndex) => `${item.id}-media-${mediaIndex}`}
+                renderItem={({ item: mediaUrl }) => (
+                  <OptimizedImage source={mediaUrl} style={styles.carouselImage} />
+                )}
                 showsHorizontalScrollIndicator={false}
+                getItemLayout={(_, layoutIndex) => ({ length: width, offset: width * layoutIndex, index: layoutIndex })}
                 onMomentumScrollEnd={(e) => {
                   const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
                   setCarouselIndexes(prev => ({ ...prev, [item.id]: slideIndex }));
                 }}
-              >
-                {item.allMedia.map((mediaUrl, mediaIndex) => (
-                  <OptimizedImage
-                    key={`${item.id}-media-${mediaIndex}`}
-                    source={mediaUrl}
-                    style={styles.carouselImage}
-                  />
-                ))}
-              </ScrollView>
+              />
               {/* Carousel pagination dots */}
               <View style={styles.carouselPagination}>
                 {item.allMedia.map((_, dotIndex) => (

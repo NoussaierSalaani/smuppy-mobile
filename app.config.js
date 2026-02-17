@@ -58,6 +58,14 @@ infoPlist: {
         NSExceptionRequiresForwardSecrecy: true,
         NSExceptionMinimumTLSVersion: 'TLSv1.2',
       },
+      // Dev only: Expo tunnel/dev client loads over exp.direct (HTTP).
+      // Keep scope narrow to avoid widening ATS.
+      'exp.direct': {
+        NSIncludesSubdomains: true,
+        NSExceptionAllowsInsecureHTTPLoads: true,
+        NSExceptionRequiresForwardSecrecy: false,
+        NSExceptionMinimumTLSVersion: 'TLSv1.0',
+      },
     },
   },
   // Camera & Microphone for content creation

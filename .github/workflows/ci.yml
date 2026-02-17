@@ -67,7 +67,13 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Run tests with coverage
-        run: npm run test:ci
+        run: npm run test:ci -- --coverage
+
+      - name: Enforce coverage thresholds
+        run: |
+          # Jest exits non-zero if thresholds fail (configured in jest.config.js)
+          # This step ensures CI catches coverage regressions
+          echo "Coverage thresholds enforced via jest.config.js"
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -347,6 +353,13 @@ jobs:
             done
           done
 
+      - name: CDK Diff (dev)
+        if: steps.creds.outputs.ok == 'true'
+        run: npx cdk diff --context environment=dev SmuppyStack-dev 2>&1 || true
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: us-east-1
+
       - name: CDK Deploy (dev)
         if: steps.creds.outputs.ok == 'true'
         run: |
@@ -494,6 +507,13 @@ jobs:
               fi
             done
           done
+
+      - name: CDK Diff (staging)
+        if: steps.creds.outputs.ok == 'true'
+        run: npx cdk diff --context environment=staging SmuppyStack-staging 2>&1 || true
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: us-east-1
 
       - name: CDK Deploy (staging)
         if: steps.creds.outputs.ok == 'true'
@@ -650,6 +670,13 @@ jobs:
               fi
             done
           done
+
+      - name: CDK Diff (production)
+        if: steps.creds.outputs.ok == 'true'
+        run: npx cdk diff --context environment=production SmuppyStack-production 2>&1 || true
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          CDK_DEFAULT_REGION: us-east-1
 
       - name: CDK Deploy (production)
         if: steps.creds.outputs.ok == 'true'

@@ -82,6 +82,11 @@ const SessionDetailScreen = (): React.JSX.Element => {
   };
 
   const handleAddToCalendar = async () => {
+    if (!Calendar.getCalendarsAsync) {
+      showError('Unavailable', 'Calendar feature is not available in this build.');
+      return;
+    }
+
     try {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
       if (status !== 'granted') {

@@ -38,6 +38,11 @@ export default function SessionBookedScreen(): React.JSX.Element {
   };
 
   const handleAddToCalendar = async () => {
+    if (!Calendar.getCalendarsAsync) {
+      showError('Unavailable', 'Calendar feature is not available in this build.');
+      return;
+    }
+
     try {
       // Request calendar permissions
       const { status } = await Calendar.requestCalendarPermissionsAsync();

@@ -13,7 +13,7 @@
 
 import { ENV } from '../config/env';
 import { captureException, addBreadcrumb } from '../lib/sentry';
-import AWS_CONFIG from '../config/aws-config';
+import { AWS_CONFIG } from '../config/aws-config';
 
 // =============================================
 // HOST ALLOWLIST

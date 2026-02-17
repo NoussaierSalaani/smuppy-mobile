@@ -115,42 +115,13 @@ describe('Security Utils - Extended', () => {
       expect(extractCognitoSub(event)).toBeUndefined();
     });
 
-    it('should fallback to JWT from Authorization header', () => {
-      const payload = Buffer.from(JSON.stringify({ sub: SUB })).toString('base64url');
-      const fakeJwt = `eyJhbGciOiJSUzI1NiJ9.${payload}.fakesignature`;
+    it('should return undefined when no Authorization header and no authorizer', () => {
       const event = createMockEvent({
         claims: null,
-        headers: { Authorization: `Bearer ${fakeJwt}` },
+        headers: { Authorization: 'Bearer some-token' },
       });
-      expect(extractCognitoSub(event)).toBe(SUB);
-    });
-
-    it('should handle lowercase authorization header', () => {
-      const payload = Buffer.from(JSON.stringify({ sub: SUB })).toString('base64url');
-      const fakeJwt = `eyJhbGciOiJSUzI1NiJ9.${payload}.fakesignature`;
-      const event = createMockEvent({
-        claims: null,
-        headers: { authorization: `Bearer ${fakeJwt}` },
-      });
-      expect(extractCognitoSub(event)).toBe(SUB);
-    });
-
-    it('should return undefined for malformed JWT', () => {
-      const event = createMockEvent({
-        claims: null,
-        headers: { Authorization: 'Bearer not-a-jwt' },
-      });
+      // SECURITY: extractCognitoSub never decodes JWT manually — only trusts authorizer claims
       expect(extractCognitoSub(event)).toBeUndefined();
-    });
-
-    it('should prefer authorizer claims over JWT header', () => {
-      const payload = Buffer.from(JSON.stringify({ sub: 'other-sub' })).toString('base64url');
-      const fakeJwt = `eyJhbGciOiJSUzI1NiJ9.${payload}.fakesignature`;
-      const event = createMockEvent({
-        claims: { sub: SUB },
-        headers: { Authorization: `Bearer ${fakeJwt}` },
-      });
-      expect(extractCognitoSub(event)).toBe(SUB);
     });
   });
 });

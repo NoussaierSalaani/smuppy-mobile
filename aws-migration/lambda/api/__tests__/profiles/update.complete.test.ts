@@ -15,6 +15,59 @@ jest.mock('../../../shared/db', () => ({
 // Mock rate limiter to always allow in tests
 jest.mock('../../utils/rate-limit', () => ({
   checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
+  requireRateLimit: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../../utils/logger', () => ({
+  createLogger: jest.fn(() => ({
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    initFromEvent: jest.fn(),
+    setRequestId: jest.fn(),
+    setUserId: jest.fn(),
+    logRequest: jest.fn(),
+    logResponse: jest.fn(),
+    logQuery: jest.fn(),
+    logSecurity: jest.fn(),
+    child: jest.fn().mockReturnThis(),
+  })),
+}));
+
+jest.mock('../../utils/cors', () => ({
+  createHeaders: jest.fn(() => ({
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Credentials': 'true',
+  })),
+}));
+
+jest.mock('../../utils/account-status', () => ({
+  requireActiveAccount: jest.fn().mockResolvedValue({
+    profileId: 'test-user-id',
+    username: 'testuser',
+    fullName: 'Test User',
+    avatarUrl: null,
+    isVerified: false,
+    accountType: 'personal',
+    businessName: null,
+    moderationStatus: 'active',
+  }),
+  isAccountError: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock('../../../shared/moderation/textModeration', () => ({
+  analyzeTextToxicity: jest.fn().mockResolvedValue({
+    action: 'pass',
+    maxScore: 0,
+    topCategory: null,
+    categories: [],
+  }),
+}));
+
+jest.mock('../../../shared/moderation/textFilter', () => ({
+  filterText: jest.fn().mockResolvedValue({ clean: true, filtered: '', violations: [] }),
 }));
 
 // Helper to create mock event
@@ -114,7 +167,7 @@ describe('Profile Update Handler - Complete Coverage', () => {
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).errors).toContain("Invalid account type 'invalid'.");
+      expect(JSON.parse(response.body).errors).toContain('Account type can only be set to personal. Pro upgrades require a subscription.');
     });
 
     it('should reject non-boolean isPrivate', async () => {
@@ -233,24 +286,32 @@ describe('Profile Update Handler - Complete Coverage', () => {
       expect(response.statusCode).toBe(200);
     });
 
-    it('should accept valid accountType values', async () => {
-      for (const accountType of ['personal', 'pro_creator', 'pro_business']) {
-        jest.clearAllMocks();
-        // Query 1: check profile exists
-        mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
-        // Query 2: get current account_type (same value = no change = allowed)
-        mockQuery.mockResolvedValueOnce({
-          rows: [{ id: 'test-user-id', account_type: accountType }],
-        });
-        // Query 3: UPDATE returning profile
-        mockQuery.mockResolvedValueOnce({
-          rows: [{ id: 'test-user-id', account_type: accountType }],
-        });
+    it('should accept personal accountType', async () => {
+      jest.clearAllMocks();
+      // Query 1: check profile exists
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'test-user-id' }] });
+      // Query 2: get current account_type (same value = no change = allowed)
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'test-user-id', account_type: 'personal' }],
+      });
+      // Query 3: UPDATE returning profile
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'test-user-id', account_type: 'personal' }],
+      });
 
+      const event = createMockEvent({ accountType: 'personal' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it('should reject pro account types via API', async () => {
+      // SECURITY: Pro upgrades can ONLY happen via Stripe webhook
+      for (const accountType of ['pro_creator', 'pro_business']) {
         const event = createMockEvent({ accountType });
         const response = await handler(event);
 
-        expect(response.statusCode).toBe(200);
+        expect(response.statusCode).toBe(400);
       }
     });
 

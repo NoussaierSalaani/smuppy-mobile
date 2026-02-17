@@ -23,6 +23,37 @@ jest.mock('google-auth-library', () => ({
   })),
 }));
 
+jest.mock('../../utils/rate-limit', () => ({
+  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
+  requireRateLimit: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../../utils/logger', () => ({
+  createLogger: jest.fn(() => ({
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    initFromEvent: jest.fn(),
+    setRequestId: jest.fn(),
+    setUserId: jest.fn(),
+    logRequest: jest.fn(),
+    logResponse: jest.fn(),
+    logQuery: jest.fn(),
+    logSecurity: jest.fn(),
+    child: jest.fn().mockReturnThis(),
+  })),
+  getRequestId: jest.fn().mockReturnValue('test-request-id'),
+}));
+
+jest.mock('../../utils/cors', () => ({
+  createHeaders: jest.fn(() => ({
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Credentials': 'true',
+  })),
+}));
+
 // Helper to create mock event
 const createMockEvent = (body: Record<string, unknown>): APIGatewayProxyEvent => ({
   body: JSON.stringify(body),
@@ -53,7 +84,7 @@ describe('Auth Security Tests', () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.error).toContain('Missing');
+      expect(body.message).toContain('Missing');
     });
 
     it('should reject missing ID token', async () => {
@@ -62,7 +93,7 @@ describe('Auth Security Tests', () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.error).toContain('Missing');
+      expect(body.message).toContain('Missing');
     });
 
     it('should not expose internal error details', async () => {
@@ -92,7 +123,7 @@ describe('Auth Security Tests', () => {
       const response = await handler(event);
 
       expect(response.headers).toBeDefined();
-      expect(response.headers['Content-Type']).toBe('application/json');
+      expect(response.headers!['Content-Type']).toBe('application/json');
       // Note: Security headers (X-Content-Type-Options, etc.) are added at CloudFront/API Gateway level
     });
 
@@ -100,22 +131,22 @@ describe('Auth Security Tests', () => {
       const event = createMockEvent({ idToken: 'test-token' });
       const response = await handler(event);
 
-      expect(response.headers['Access-Control-Allow-Origin']).toBeDefined();
-      expect(response.headers['Access-Control-Allow-Credentials']).toBe('true');
+      expect(response.headers!['Access-Control-Allow-Origin']).toBeDefined();
+      expect(response.headers!['Access-Control-Allow-Credentials']).toBe('true');
     });
 
     it('should return JSON content type', async () => {
       const event = createMockEvent({ idToken: 'test-token' });
       const response = await handler(event);
 
-      expect(response.headers['Content-Type']).toBe('application/json');
+      expect(response.headers!['Content-Type']).toBe('application/json');
     });
 
     it('should allow credentials in CORS', async () => {
       const event = createMockEvent({ idToken: 'test-token' });
       const response = await handler(event);
 
-      expect(response.headers['Access-Control-Allow-Credentials']).toBe('true');
+      expect(response.headers!['Access-Control-Allow-Credentials']).toBe('true');
     });
   });
 

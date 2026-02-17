@@ -35,6 +35,15 @@ jest.mock('../../utils/logger', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+    debug: jest.fn(),
+    initFromEvent: jest.fn(),
+    setRequestId: jest.fn(),
+    setUserId: jest.fn(),
+    logRequest: jest.fn(),
+    logResponse: jest.fn(),
+    logQuery: jest.fn(),
+    logSecurity: jest.fn(),
+    child: jest.fn().mockReturnThis(),
   })),
 }));
 

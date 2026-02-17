@@ -6,6 +6,7 @@ module.exports = {
   },
   testEnvironment: 'node',
   coverageProvider: 'v8',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testPathIgnorePatterns: [
     '/node_modules/',
     '/aws-migration/',
@@ -32,10 +33,10 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      branches: 2,
-      functions: 2,
-      lines: 2.3,
-      statements: 2.3,
+      branches: 10,
+      functions: 10,
+      lines: 10,
+      statements: 10,
     },
   },
   // Ignore module collisions in aws-migration

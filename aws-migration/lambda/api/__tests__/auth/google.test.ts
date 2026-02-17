@@ -31,6 +31,37 @@ jest.mock('google-auth-library', () => ({
   })),
 }));
 
+jest.mock('../../utils/rate-limit', () => ({
+  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
+  requireRateLimit: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../../utils/logger', () => ({
+  createLogger: jest.fn(() => ({
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    initFromEvent: jest.fn(),
+    setRequestId: jest.fn(),
+    setUserId: jest.fn(),
+    logRequest: jest.fn(),
+    logResponse: jest.fn(),
+    logQuery: jest.fn(),
+    logSecurity: jest.fn(),
+    child: jest.fn().mockReturnThis(),
+  })),
+  getRequestId: jest.fn().mockReturnValue('test-request-id'),
+}));
+
+jest.mock('../../utils/cors', () => ({
+  createHeaders: jest.fn(() => ({
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Credentials': 'true',
+  })),
+}));
+
 // Helper to create mock event
 const createMockEvent = (body: Record<string, unknown>): APIGatewayProxyEvent => ({
   body: JSON.stringify(body),
@@ -43,7 +74,7 @@ const createMockEvent = (body: Record<string, unknown>): APIGatewayProxyEvent =>
 
 describe('Google Auth Handler', () => {
   let handler: (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult>;
-  let UserNotFoundException: typeof Error;
+  let UserNotFoundException: new (...args: unknown[]) => Error;
 
   beforeAll(async () => {
     process.env.USER_POOL_ID = 'test-pool-id';
@@ -51,7 +82,7 @@ describe('Google Auth Handler', () => {
     process.env.GOOGLE_IOS_CLIENT_ID = 'test-ios-client';
 
     const cognitoModule = await import('@aws-sdk/client-cognito-identity-provider');
-    UserNotFoundException = cognitoModule.UserNotFoundException;
+    UserNotFoundException = cognitoModule.UserNotFoundException as new (...args: unknown[]) => Error;
 
     const module = await import('../../auth/google');
     handler = module.handler;
@@ -67,7 +98,7 @@ describe('Google Auth Handler', () => {
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).error).toContain('Missing');
+      expect(JSON.parse(response.body).message).toContain('Missing');
     });
 
     it('should reject empty body', async () => {
@@ -82,7 +113,7 @@ describe('Google Auth Handler', () => {
       const response = await handler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).error).toContain('Missing');
+      expect(JSON.parse(response.body).message).toContain('Missing');
     });
   });
 
@@ -236,8 +267,8 @@ describe('Google Auth Handler', () => {
       const response = await handler(event);
 
       expect(response.headers).toBeDefined();
-      expect(response.headers['Content-Type']).toBe('application/json');
-      expect(response.headers['Access-Control-Allow-Origin']).toBeDefined();
+      expect(response.headers!['Content-Type']).toBe('application/json');
+      expect(response.headers!['Access-Control-Allow-Origin']).toBeDefined();
     });
 
     it('should return proper user structure on success', async () => {

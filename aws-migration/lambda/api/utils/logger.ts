@@ -151,6 +151,9 @@ function writeLog(entry: LogEntry): void {
   // Mask PII in the entire entry
   const maskedEntry = maskPII(entry) as LogEntry;
 
+  // Restore system-generated timestamp (not user input, must not be masked)
+  maskedEntry.timestamp = entry.timestamp;
+
   // Output as JSON for CloudWatch Logs Insights
   console.log(JSON.stringify(maskedEntry));
 }

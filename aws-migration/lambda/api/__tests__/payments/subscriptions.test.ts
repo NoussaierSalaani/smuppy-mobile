@@ -3,17 +3,58 @@
  * Ensures subscriptions handler uses channel_subscriptions table (not subscriptions)
  */
 
-import { handler } from '../../payments/subscriptions';
 import { getPool } from '../../../shared/db';
-import { getStripeKey } from '../../../shared/secrets';
+import { handler } from '../../payments/subscriptions';
 
-// Mocks
-jest.mock('../../../shared/db');
-jest.mock('../../../shared/secrets');
-jest.mock('stripe', () => {
-  return jest.fn().mockImplementation(() => ({
+// Valid UUID for tests (handler validates with isValidUUID)
+const VALID_CREATOR_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+// Mocks — factory mock to avoid shared/db module-level side effects
+jest.mock('../../../shared/db', () => ({
+  getPool: jest.fn(),
+  getReaderPool: jest.fn(),
+}));
+
+jest.mock('../../utils/rate-limit', () => ({
+  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
+  requireRateLimit: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../../utils/logger', () => ({
+  createLogger: jest.fn(() => ({
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    initFromEvent: jest.fn(),
+    setRequestId: jest.fn(),
+    setUserId: jest.fn(),
+    logRequest: jest.fn(),
+    logResponse: jest.fn(),
+    logQuery: jest.fn(),
+    logSecurity: jest.fn(),
+    child: jest.fn().mockReturnThis(),
+  })),
+}));
+
+jest.mock('../../utils/cors', () => ({
+  createHeaders: jest.fn(() => ({
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Credentials': 'true',
+  })),
+  getSecureHeaders: jest.fn(() => ({
+    'Content-Type': 'application/json',
+  })),
+}));
+
+jest.mock('../../../shared/stripe-client', () => ({
+  getStripeClient: jest.fn().mockResolvedValue({
     customers: {
       create: jest.fn().mockResolvedValue({ id: 'cus_test123' }),
+    },
+    prices: {
+      retrieve: jest.fn().mockResolvedValue({ id: 'price_123', active: true, unit_amount: 999 }),
     },
     subscriptions: {
       create: jest.fn().mockResolvedValue({
@@ -27,8 +68,8 @@ jest.mock('stripe', () => {
         cancel_at: 1234567890,
       }),
     },
-  }));
-});
+  }),
+}));
 
 describe('subscriptions handler - critical bug fix', () => {
   let mockClient: { query: jest.Mock; release: jest.Mock };
@@ -44,16 +85,16 @@ describe('subscriptions handler - critical bug fix', () => {
 
     mockPool = {
       connect: jest.fn().mockResolvedValue(mockClient),
-      query: jest.fn(),
+      // Default: profile lookup returns a valid profile
+      query: jest.fn().mockResolvedValue({ rows: [{ id: 'profile_123' }] }),
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockPool);
-    (getStripeKey as jest.Mock).mockResolvedValue('sk_test_xxx');
   });
 
   describe('createSubscription', () => {
     it('should insert into channel_subscriptions (NOT subscriptions table)', async () => {
-      // Setup
+      // Setup: subscriber has existing stripe_customer_id
       mockClient.query
         .mockResolvedValueOnce({ rows: [{ id: 'profile_123', stripe_customer_id: 'cus_123', email: 'test@test.com' }] }) // subscriber lookup
         .mockResolvedValueOnce({ rows: [{ stripe_account_id: 'acct_123' }] }) // creator lookup
@@ -64,7 +105,7 @@ describe('subscriptions handler - critical bug fix', () => {
         headers: {},
         body: JSON.stringify({
           action: 'create',
-          creatorId: 'creator_123',
+          creatorId: VALID_CREATOR_ID,
           priceId: 'price_123',
         }),
         requestContext: {
@@ -97,17 +138,20 @@ describe('subscriptions handler - critical bug fix', () => {
     });
 
     it('should handle missing Stripe customer', async () => {
+      // When stripe_customer_id is null, handler creates a Stripe customer
+      // then runs UPDATE profiles SET stripe_customer_id (extra query)
       mockClient.query
-        .mockResolvedValueOnce({ rows: [{ id: 'profile_123', stripe_customer_id: null, email: 'test@test.com' }] })
-        .mockResolvedValueOnce({ rows: [{ stripe_account_id: 'acct_123' }] })
-        .mockResolvedValueOnce({ rows: [] });
+        .mockResolvedValueOnce({ rows: [{ id: 'profile_123', stripe_customer_id: null, email: 'test@test.com' }] }) // subscriber lookup
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE profiles SET stripe_customer_id
+        .mockResolvedValueOnce({ rows: [{ stripe_account_id: 'acct_123' }] }) // creator lookup
+        .mockResolvedValueOnce({ rows: [] }); // INSERT channel_subscriptions
 
       const event = {
         httpMethod: 'POST',
         headers: {},
         body: JSON.stringify({
           action: 'create',
-          creatorId: 'creator_123',
+          creatorId: VALID_CREATOR_ID,
           priceId: 'price_123',
         }),
         requestContext: {
@@ -131,7 +175,7 @@ describe('subscriptions handler - critical bug fix', () => {
         headers: {},
         body: JSON.stringify({
           action: 'create',
-          creatorId: 'creator_123',
+          creatorId: VALID_CREATOR_ID,
           priceId: 'price_123',
         }),
         requestContext: {
@@ -143,7 +187,7 @@ describe('subscriptions handler - critical bug fix', () => {
 
       const result = await handler(event);
       expect(result.statusCode).toBe(400);
-      expect(JSON.parse(result.body).error).toContain('not set up payments');
+      expect(JSON.parse(result.body).message).toContain('not set up payments');
     });
   });
 
@@ -255,7 +299,7 @@ describe('subscriptions handler - critical bug fix', () => {
         rows: [
           {
             id: 'tier_1',
-            creator_id: 'creator_123',
+            creator_id: VALID_CREATOR_ID,
             name: 'Basic',
             price_cents: 499,
             currency: 'usd',
@@ -270,7 +314,7 @@ describe('subscriptions handler - critical bug fix', () => {
         headers: {},
         body: JSON.stringify({
           action: 'get-prices',
-          creatorId: 'creator_123',
+          creatorId: VALID_CREATOR_ID,
         }),
         requestContext: {
           authorizer: {

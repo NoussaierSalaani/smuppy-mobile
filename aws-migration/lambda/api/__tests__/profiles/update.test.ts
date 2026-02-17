@@ -15,6 +15,59 @@ jest.mock('../../../shared/db', () => ({
 // Mock rate limiter to always allow in tests
 jest.mock('../../utils/rate-limit', () => ({
   checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
+  requireRateLimit: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../../utils/logger', () => ({
+  createLogger: jest.fn(() => ({
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    initFromEvent: jest.fn(),
+    setRequestId: jest.fn(),
+    setUserId: jest.fn(),
+    logRequest: jest.fn(),
+    logResponse: jest.fn(),
+    logQuery: jest.fn(),
+    logSecurity: jest.fn(),
+    child: jest.fn().mockReturnThis(),
+  })),
+}));
+
+jest.mock('../../utils/cors', () => ({
+  createHeaders: jest.fn(() => ({
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Credentials': 'true',
+  })),
+}));
+
+jest.mock('../../utils/account-status', () => ({
+  requireActiveAccount: jest.fn().mockResolvedValue({
+    profileId: 'test-user-id',
+    username: 'testuser',
+    fullName: 'Test User',
+    avatarUrl: null,
+    isVerified: false,
+    accountType: 'personal',
+    businessName: null,
+    moderationStatus: 'active',
+  }),
+  isAccountError: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock('../../../shared/moderation/textModeration', () => ({
+  analyzeTextToxicity: jest.fn().mockResolvedValue({
+    action: 'pass',
+    maxScore: 0,
+    topCategory: null,
+    categories: [],
+  }),
+}));
+
+jest.mock('../../../shared/moderation/textFilter', () => ({
+  filterText: jest.fn().mockResolvedValue({ clean: true, filtered: '', violations: [] }),
 }));
 
 import { handler } from '../../profiles/update';
@@ -148,12 +201,20 @@ describe('Profile Update Handler - Input Validation', () => {
   });
 
   describe('Account Type Validation', () => {
-    it('should accept valid account types', async () => {
-      for (const type of ['personal', 'pro_creator', 'pro_business']) {
+    it('should accept personal account type', async () => {
+      // SECURITY: Only 'personal' is allowed via API. Pro upgrades require Stripe subscription.
+      const event = createMockEvent({ accountType: 'personal' });
+      const response = await handler(event);
+
+      expect(response?.statusCode).not.toBe(400);
+    });
+
+    it('should reject pro account types via API', async () => {
+      for (const type of ['pro_creator', 'pro_business']) {
         const event = createMockEvent({ accountType: type });
         const response = await handler(event);
 
-        expect(response?.statusCode).not.toBe(400);
+        expect(response?.statusCode).toBe(400);
       }
     });
 

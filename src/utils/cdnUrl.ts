@@ -10,7 +10,7 @@
  * resolves to the correct CDN domain.
  */
 
-import AWS_CONFIG from '../config/aws-config';
+import { AWS_CONFIG } from '../config/aws-config';
 
 // CDK staging distribution — backend APIs return URLs using this domain
 const LEGACY_CDN = 'd3gy4x1feicix3.cloudfront.net';

@@ -736,7 +736,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         return newMap;
       });
     }
-  }, [currentPeak.id, peakReactions]);
+  }, [currentPeak.id, peakReactions, navigation, showWarning]);
 
   const formatCount = (num: number): string => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';

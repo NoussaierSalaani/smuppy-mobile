@@ -16,7 +16,7 @@ const log = createLogger('peaks-search');
 const MAX_LIMIT = 50;
 
 function sanitizeQuery(raw: string): string {
-  const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
+  const CONTROL_CHARS = /[\x00-\x1F\x7F]/g; // NOSONAR — intentional control char sanitization
   const sanitized = raw.replaceAll(/<[^>]*>/g, '').replaceAll(CONTROL_CHARS, '').trim().substring(0, MAX_SEARCH_QUERY_LENGTH);
   // SECURITY: Escape ILIKE special characters to prevent wildcard injection
   return sanitized.replaceAll(/[%_\\]/g, '\\$&');

@@ -6,6 +6,7 @@ module.exports = {
   },
   testEnvironment: 'node',
   coverageProvider: 'v8',
+  coverageReporters: ['text', 'text-summary', 'lcov', 'clover'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testPathIgnorePatterns: [
     '/node_modules/',

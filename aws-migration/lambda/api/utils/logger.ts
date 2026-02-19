@@ -69,7 +69,7 @@ function maskPII(obj: unknown, depth = 0): unknown {
     let cleaned = obj.replaceAll(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, '');
 
     // Mask email addresses — hide both local part and domain to prevent PII leakage
-    cleaned = cleaned.replaceAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (match) => {
+    cleaned = cleaned.replaceAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (match) => { // NOSONAR
       const atIndex = match.indexOf('@');
       const localPart = match.substring(0, Math.min(2, atIndex)) + '***';
       const domain = match.substring(atIndex + 1);

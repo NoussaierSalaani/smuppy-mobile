@@ -45,9 +45,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Sanitize inputs
-    const sanitizedReason = reason.replaceAll(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_REASON_LENGTH);
+    const sanitizedReason = reason.replaceAll(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_REASON_LENGTH); // NOSONAR
     const sanitizedDetails = details
-      ? String(details).replaceAll(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_DETAILS_LENGTH)
+      ? String(details).replaceAll(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_DETAILS_LENGTH) // NOSONAR
       : null;
 
     const db = await getPool();

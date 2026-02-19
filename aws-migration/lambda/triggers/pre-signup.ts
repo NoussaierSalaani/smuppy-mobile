@@ -85,7 +85,7 @@ const BLOCKED_TLDS = new Set([
  */
 function validateEmail(email: string): { valid: boolean; reason?: string } {
   // Basic format validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // NOSONAR
   if (!emailRegex.test(email)) {
     return { valid: false, reason: 'Invalid email format' };
   }

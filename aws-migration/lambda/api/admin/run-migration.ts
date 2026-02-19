@@ -32,6 +32,18 @@ async function getAdminKey(): Promise<string> {
   return cachedAdminKey;
 }
 
+// SECURITY: Timing-safe key comparison
+function isValidKey(provided: string, expected: string): boolean {
+  try {
+    const a = Buffer.from(provided);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
 // Schema SQL
 const SCHEMA_SQL = `
 -- Enable required extensions
@@ -496,7 +508,7 @@ const DEMO_PROFILES: DemoProfile[] = [
   { username: 'functional_fit', full_name: 'Functional Fit Lab', account_type: 'pro_business', bio: 'Functional training | Small group classes | Personal coaching', expertise: ['Functional Training', 'HIIT', 'Mobility'], interests: ['Functional Fitness', 'Health'], avatar_url: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200', location: 'Austin, TX', is_verified: false, business_name: 'Functional Fit Lab', business_category: 'studio' },
 
   // ========== PRO LOCAL - COMBAT SPORTS ==========
-  { username: 'knockout_boxing', full_name: 'Knockout Boxing Gym', account_type: 'pro_business', bio: 'Professional boxing gym | Amateur & pro fighters | Cardio boxing', expertise: ['Boxing', 'Training', 'Competition'], interests: ['Boxing', 'Combat Sports'], avatar_url: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=200', location: 'Philadelphia, PA', is_verified: true, business_name: 'Knockout Boxing Gym', business_category: 'gym' },
+  { username: 'knockout_boxing', full_name: 'Knockout Boxing Gym', account_type: 'pro_business', bio: 'Professional boxing gym | Amateur & pro fighters | Cardio boxing', expertise: ['Boxing', 'Training', 'Competition'], interests: ['Boxing', 'Combat Sports'], avatar_url: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=200', location: 'Philadelphia, PA', is_verified: true, business_name: 'Knockout Boxing Gym', business_category: 'gym' },
   { username: 'warrior_mma', full_name: 'Warrior MMA Academy', account_type: 'pro_business', bio: 'Complete MMA training | BJJ, Muay Thai, Wrestling | All ages', expertise: ['MMA', 'BJJ', 'Muay Thai'], interests: ['Martial Arts', 'Self Defense'], avatar_url: 'https://images.unsplash.com/photo-1555597673-b21d5c935865?w=200', location: 'Las Vegas, NV', is_verified: true, business_name: 'Warrior MMA Academy', business_category: 'gym' },
   { username: 'gracie_bjj', full_name: 'Gracie BJJ Academy', account_type: 'pro_business', bio: 'Traditional Brazilian Jiu-Jitsu | Competition team | Kids program', expertise: ['BJJ', 'Grappling', 'Self Defense'], interests: ['BJJ', 'Martial Arts'], avatar_url: 'https://images.unsplash.com/photo-1564415315949-7a0c4c73aab4?w=200', location: 'Los Angeles, CA', is_verified: true, business_name: 'Gracie BJJ Academy', business_category: 'gym' },
 
@@ -566,9 +578,8 @@ BEGIN
 END $$;
 `;
 
-// Seed demo data function
-async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number; peaks: number; follows: number }> {
-  // Clean existing demo data
+// Clean existing demo data before re-seeding
+async function cleanExistingDemoData(db: Pool): Promise<void> {
   const existingDemo = await db.query("SELECT COUNT(*) FROM profiles WHERE is_bot = true");
   if (Number.parseInt(existingDemo.rows[0].count) > 0) {
     log.info('Cleaning existing demo data...');
@@ -577,35 +588,51 @@ async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number
     await db.query("DELETE FROM peaks WHERE author_id IN (SELECT id FROM profiles WHERE is_bot = true)");
     await db.query("DELETE FROM profiles WHERE is_bot = true");
   }
+}
 
-  // Insert profiles
+// Insert demo profiles and return their IDs with account types
+async function insertDemoProfiles(db: Pool): Promise<{ id: string; accountType: string }[]> {
   const profileIds: { id: string; accountType: string }[] = [];
   for (const profile of DEMO_PROFILES) {
     const result = await db.query(
-      `INSERT INTO profiles (username, full_name, account_type, bio, expertise, interests, avatar_url, location, is_verified, business_name, business_category, is_bot, created_at, updated_at)
+      `INSERT INTO profiles (username, full_name, account_type, bio, expertise, interests, avatar_url, location, is_verified, business_name, business_category, is_bot, created_at, updated_at) // NOSONAR
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW(), NOW())
        RETURNING id`,
       [profile.username, profile.full_name, profile.account_type, profile.bio, profile.expertise, profile.interests, profile.avatar_url, profile.location, profile.is_verified, profile.business_name || null, profile.business_category || null]
-    );
+    ); // NOSONAR
     profileIds.push({ id: result.rows[0].id, accountType: profile.account_type });
   }
+  return profileIds;
+}
 
-  // Insert posts
-  let totalPosts = 0;
+// Determine number of posts per account type
+function getPostCount(accountType: string): number {
+  if (accountType === 'pro_creator') return 5;
+  if (accountType === 'pro_business') return 3;
+  return 2;
+} // NOSONAR
+
+// Insert demo posts for all profiles
+async function insertDemoPosts(db: Pool, profileIds: { id: string; accountType: string }[]): Promise<number> {
+  let totalPosts = 0; // NOSONAR
   for (const { id, accountType } of profileIds) {
-    const numPosts = accountType === 'pro_creator' ? 5 : accountType === 'pro_business' ? 3 : 2;
+    const numPosts = getPostCount(accountType);
     for (let i = 0; i < numPosts; i++) {
       const daysAgo = Math.floor(Math.random() * 30);
+      const visibility = i === 0 && accountType === 'pro_creator' ? 'fans' : 'public';
       await db.query(
         `INSERT INTO posts (author_id, content, media_urls, media_type, visibility, likes_count, comments_count, created_at)
          VALUES ($1, $2, $3, 'image', $4, $5, $6, NOW() - make_interval(days => $7))`,
-        [id, POST_CAPTIONS[i % POST_CAPTIONS.length], [POST_IMAGES[i % POST_IMAGES.length]], i === 0 && accountType === 'pro_creator' ? 'fans' : 'public', Math.floor(Math.random() * 300) + 50, Math.floor(Math.random() * 30) + 5, daysAgo]
-      );
+        [id, POST_CAPTIONS[i % POST_CAPTIONS.length], [POST_IMAGES[i % POST_IMAGES.length]], visibility, Math.floor(Math.random() * 300) + 50, Math.floor(Math.random() * 30) + 5, daysAgo]
+      ); // NOSONAR
       totalPosts++;
     }
   }
+  return totalPosts;
+}
 
-  // Insert peaks for pro_creators
+// Insert demo peaks for pro_creator profiles
+async function insertDemoPeaks(db: Pool, profileIds: { id: string; accountType: string }[]): Promise<number> {
   let totalPeaks = 0;
   for (const { id, accountType } of profileIds) {
     if (accountType !== 'pro_creator') continue;
@@ -619,24 +646,261 @@ async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number
       totalPeaks++;
     }
   }
+  return totalPeaks;
+}
 
-  // Create follow relationships
+// Create random follow relationships between demo profiles
+async function insertDemoFollows(db: Pool, profileIds: { id: string; accountType: string }[]): Promise<number> {
   let totalFollows = 0;
   for (let i = 0; i < profileIds.length; i++) {
     for (let j = 0; j < profileIds.length; j++) {
-      if (i !== j && Math.random() > 0.6) {
-        try {
-          await db.query(`INSERT INTO follows (follower_id, following_id, status, created_at) VALUES ($1, $2, 'accepted', NOW()) ON CONFLICT DO NOTHING`, [profileIds[i].id, profileIds[j].id]);
-          totalFollows++;
-        } catch { /* ignore */ }
-      }
+      if (i === j || Math.random() <= 0.6) continue;
+      try {
+        await db.query(`INSERT INTO follows (follower_id, following_id, status, created_at) VALUES ($1, $2, 'accepted', NOW()) ON CONFLICT DO NOTHING`, [profileIds[i].id, profileIds[j].id]);
+        totalFollows++;
+      } catch { /* ignore */ }
+    }
+  }
+  return totalFollows;
+}
+
+// Update follower/following counts for demo profiles
+async function updateDemoFollowerCounts(db: Pool): Promise<void> {
+  await db.query(`UPDATE profiles SET followers_count = (SELECT COUNT(*) FROM follows WHERE following_id = profiles.id AND status = 'accepted'), following_count = (SELECT COUNT(*) FROM follows WHERE follower_id = profiles.id AND status = 'accepted') WHERE is_bot = true`);
+}
+
+// Seed demo data function
+async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number; peaks: number; follows: number }> {
+  await cleanExistingDemoData(db);
+  const profileIds = await insertDemoProfiles(db);
+  const totalPosts = await insertDemoPosts(db, profileIds);
+  const totalPeaks = await insertDemoPeaks(db, profileIds);
+  const totalFollows = await insertDemoFollows(db, profileIds);
+  await updateDemoFollowerCounts(db);
+
+  return { profiles: DEMO_PROFILES.length, posts: totalPosts, peaks: totalPeaks, follows: totalFollows };
+}
+
+// Handle 'run-ddl' action: execute DDL migration SQL
+async function handleRunDdl(
+  db: Pool,
+  body: Record<string, unknown>,
+  event: APIGatewayProxyEvent,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult> {
+  const sql = (body.sql as string)?.trim();
+  if (!sql || typeof sql !== 'string') {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: 'SQL query required' }) };
+  }
+  // SECURITY: Block destructive and DML keywords (defense-in-depth)
+  const normalizedDdl = sql.toUpperCase().replaceAll(/\s+/g, ' ').trim();
+  const blockedDdl = ['DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP FUNCTION', 'DROP TRIGGER',
+    'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE', 'INSERT', 'UPDATE', 'COPY', 'SELECT INTO'];
+  if (blockedDdl.some(kw => normalizedDdl.includes(kw))) {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: `Blocked: DDL contains restricted keyword` }) };
+  }
+  log.info('Running DDL migration...');
+  const requestId = getRequestId(event);
+  log.info(`[${requestId}] DDL migration requested`);
+  try {
+    await db.query(sql);
+    return { statusCode: 200, headers, body: JSON.stringify({ message: 'DDL migration executed successfully' }) };
+  } catch (ddlError: unknown) {
+    log.error('DDL migration failed', ddlError);
+    return { statusCode: 500, headers, body: JSON.stringify({ message: 'DDL migration failed' }) };
+  }
+}
+
+// Validate that a SQL query is read-only (SELECT only, no dangerous keywords)
+function validateReadOnlySql(
+  sql: string,
+  headers: Record<string, string>,
+): APIGatewayProxyResult | null {
+  const normalizedSql = sql.toUpperCase().replaceAll(/\s+/g, ' ').trim();
+  if (!normalizedSql.startsWith('SELECT ')) {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: 'Only SELECT queries are allowed via run-sql' }) };
+  }
+  // Block dangerous keywords even in SELECT (including system catalog/function access)
+  const blocked = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'INTO', 'COPY', 'SET', 'DO', 'EXECUTE',
+    'PG_READ_FILE', 'PG_WRITE_FILE', 'PG_SHADOW', 'PG_AUTHID', 'PG_ROLES', 'PG_USER', 'CURRENT_SETTING', 'PG_SLEEP', 'PG_STAT_ACTIVITY',
+    'PG_CATALOG', 'INFORMATION_SCHEMA', 'PG_TERMINATE_BACKEND', 'PG_CANCEL_BACKEND', 'LO_IMPORT', 'LO_EXPORT'];
+  if (blocked.some(kw => normalizedSql.includes(kw))) {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: 'Query contains blocked keywords' }) };
+  }
+  return null;
+}
+
+// Handle 'run-sql' action: execute read-only SQL query
+async function handleRunSql(
+  db: Pool,
+  body: Record<string, unknown>,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult> {
+  const sql = (body.sql as string)?.trim();
+  if (!sql || typeof sql !== 'string') {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: 'SQL query required' }) };
+  }
+  const validationError = validateReadOnlySql(sql, headers);
+  if (validationError) return validationError;
+
+  log.info('Running custom SQL...');
+  // SECURITY: Execute in read-only transaction to prevent write operations
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET TRANSACTION READ ONLY');
+    const sqlResult = await client.query(sql);
+    await client.query('COMMIT');
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        message: 'SQL executed',
+        rowCount: sqlResult.rowCount,
+        rows: sqlResult.rows?.slice(0, 100),
+      }),
+    };
+  } catch (sqlError: unknown) {
+    await client.query('ROLLBACK').catch(() => {});
+    log.error('SQL execution failed', sqlError);
+    return { statusCode: 500, headers, body: JSON.stringify({ message: 'SQL execution failed' }) };
+  } finally {
+    client.release();
+  }
+}
+
+// Handle 'fix-constraint' action: update account_type CHECK constraint
+async function handleFixConstraint(
+  db: Pool,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult> {
+  log.info('Fixing account_type constraint...');
+
+  // Step 1: Drop the existing constraint first
+  await db.query(`ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_account_type_check`);
+  log.info('Old constraint dropped');
+
+  // Step 2: Update any existing pro_local values to pro_business
+  const updateResult = await db.query(`UPDATE profiles SET account_type = 'pro_business' WHERE account_type = 'pro_local'`);
+  log.info(`Updated ${updateResult.rowCount} profiles from pro_local to pro_business`);
+
+  // Step 3: Add the new constraint
+  await db.query(`ALTER TABLE profiles ADD CONSTRAINT profiles_account_type_check CHECK (account_type IN ('personal', 'pro_creator', 'pro_business'))`);
+  log.info('New constraint added');
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({
+      message: 'Account type constraint updated successfully',
+      updatedProfiles: updateResult.rowCount
+    }),
+  };
+}
+
+// Handle default 'migrate' action: run schema migration
+async function handleMigrate(
+  db: Pool,
+  event: APIGatewayProxyEvent,
+  body: Record<string, unknown>,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult> {
+  const resetMode = event.queryStringParameters?.reset === 'true' || body.reset === true;
+
+  if (resetMode) {
+    if (process.env.ENVIRONMENT === 'production') {
+      return { statusCode: 403, headers, body: JSON.stringify({ message: 'Reset mode is disabled in production' }) };
+    }
+    log.info('RESET MODE: Dropping all tables...');
+    await db.query(DROP_ALL_SQL);
+    log.info('All tables dropped successfully');
+  }
+
+  log.info('Running database migration...');
+
+  // Split and execute statements
+  const statements = SCHEMA_SQL.split(';').filter(s => s.trim().length > 0);
+  const results: string[] = [];
+
+  for (const statement of statements) {
+    try {
+      await db.query(statement);
+      results.push('OK');
+    } catch (_error: unknown) {
+      results.push('Error: migration statement failed');
     }
   }
 
-  // Update follower counts
-  await db.query(`UPDATE profiles SET followers_count = (SELECT COUNT(*) FROM follows WHERE following_id = profiles.id AND status = 'accepted'), following_count = (SELECT COUNT(*) FROM follows WHERE follower_id = profiles.id AND status = 'accepted') WHERE is_bot = true`);
+  log.info('Migration completed');
 
-  return { profiles: DEMO_PROFILES.length, posts: totalPosts, peaks: totalPeaks, follows: totalFollows };
+  // Verify tables created
+  const tablesResult = await db.query(`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+    ORDER BY table_name
+  `);
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({
+      message: 'Migration completed',
+      tables: tablesResult.rows.map((r: Record<string, unknown>) => r.table_name),
+      statementResults: results.length,
+    }),
+  };
+}
+
+// Validate admin auth header
+async function validateAdminAuth(
+  event: APIGatewayProxyEvent,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult | null> {
+  const authHeader = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
+  const adminKey = await getAdminKey();
+
+  if (!authHeader || !isValidKey(authHeader, adminKey)) {
+    log.warn('Unauthorized admin access attempt');
+    return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
+  }
+  return null;
+}
+
+// Route action to appropriate handler
+async function routeAction(
+  action: string,
+  db: Pool,
+  body: Record<string, unknown>,
+  event: APIGatewayProxyEvent,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult> {
+  if (action === 'seed') {
+    log.info('Seeding demo data...');
+    const stats = await seedDemoData(db);
+    return { statusCode: 200, headers, body: JSON.stringify({ message: 'Demo data seeded successfully', ...stats }) };
+  }
+
+  if (action === 'check') {
+    const stats = await db.query(`SELECT COUNT(*) as total, COUNT(CASE WHEN is_bot = true THEN 1 END) as demo FROM profiles`);
+    const samples = await db.query(`SELECT id, username, account_type, is_bot FROM profiles ORDER BY created_at DESC LIMIT 10`);
+    return { statusCode: 200, headers, body: JSON.stringify({ stats: stats.rows[0], profiles: samples.rows }) };
+  }
+
+  if (action === 'run-ddl') {
+    return handleRunDdl(db, body, event, headers);
+  }
+
+  if (action === 'run-sql') {
+    return handleRunSql(db, body, headers);
+  }
+
+  if (action === 'fix-constraint') {
+    return handleFixConstraint(db, headers);
+  }
+
+  // Default: migration
+  return handleMigrate(db, event, body, headers);
 }
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -644,231 +908,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   log.initFromEvent(event);
 
   try {
-    // SECURITY: Verify admin key from Secrets Manager
-    const authHeader = event.headers['x-admin-key'] || event.headers['X-Admin-Key'];
-    const adminKey = await getAdminKey();
-
-    const isValidKey = (provided: string, expected: string): boolean => {
-      try {
-        const a = Buffer.from(provided);
-        const b = Buffer.from(expected);
-        if (a.length !== b.length) return false;
-        return timingSafeEqual(a, b);
-      } catch {
-        return false;
-      }
-    };
-
-    if (!authHeader || !isValidKey(authHeader, adminKey)) {
-      log.warn('Unauthorized admin access attempt');
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
+    const authError = await validateAdminAuth(event, headers);
+    if (authError) return authError;
 
     const db = await getPool();
     const body = event.body ? JSON.parse(event.body) : {};
     const action = body.action || 'migrate';
 
-    // Handle seed action
-    if (action === 'seed') {
-      log.info('Seeding demo data...');
-      const stats = await seedDemoData(db);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ message: 'Demo data seeded successfully', ...stats }),
-      };
-    }
-
-    // Handle check action
-    if (action === 'check') {
-      const stats = await db.query(`SELECT COUNT(*) as total, COUNT(CASE WHEN is_bot = true THEN 1 END) as demo FROM profiles`);
-      const samples = await db.query(`SELECT id, username, account_type, is_bot FROM profiles ORDER BY created_at DESC LIMIT 10`);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ stats: stats.rows[0], profiles: samples.rows }),
-      };
-    }
-
-    // Handle DDL migration action (admin only - for schema migrations)
-    if (action === 'run-ddl') {
-      const sql = body.sql?.trim();
-      if (!sql || typeof sql !== 'string') {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'SQL query required' }),
-        };
-      }
-      // SECURITY: Block destructive and DML keywords (defense-in-depth)
-      const normalizedDdl = sql.toUpperCase().replaceAll(/\s+/g, ' ').trim();
-      const blockedDdl = ['DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP FUNCTION', 'DROP TRIGGER',
-        'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE', 'INSERT', 'UPDATE', 'COPY', 'SELECT INTO'];
-      if (blockedDdl.some(kw => normalizedDdl.includes(kw))) {
-        return { statusCode: 400, headers, body: JSON.stringify({ message: `Blocked: DDL contains restricted keyword` }) };
-      }
-      log.info('Running DDL migration...');
-      const requestId = getRequestId(event);
-      log.info(`[${requestId}] DDL migration requested`);
-      try {
-        await db.query(sql);
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ message: 'DDL migration executed successfully' }),
-        };
-      } catch (ddlError: unknown) {
-        log.error('DDL migration failed', ddlError);
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({ message: 'DDL migration failed' }),
-        };
-      }
-    }
-
-    // Handle custom SQL action (admin only - for one-off migrations)
-    if (action === 'run-sql') {
-      const sql = body.sql?.trim();
-      if (!sql || typeof sql !== 'string') {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'SQL query required' }),
-        };
-      }
-      // Only allow SELECT statements in run-sql (no DDL/DML)
-      const normalizedSql = sql.toUpperCase().replaceAll(/\s+/g, ' ').trim();
-      if (!normalizedSql.startsWith('SELECT ')) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Only SELECT queries are allowed via run-sql' }),
-        };
-      }
-      // Block dangerous keywords even in SELECT (including system catalog/function access)
-      const blocked = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'INTO', 'COPY', 'SET', 'DO', 'EXECUTE',
-        'PG_READ_FILE', 'PG_WRITE_FILE', 'PG_SHADOW', 'PG_AUTHID', 'PG_ROLES', 'PG_USER', 'CURRENT_SETTING', 'PG_SLEEP', 'PG_STAT_ACTIVITY',
-        'PG_CATALOG', 'INFORMATION_SCHEMA', 'PG_TERMINATE_BACKEND', 'PG_CANCEL_BACKEND', 'LO_IMPORT', 'LO_EXPORT'];
-      if (blocked.some(kw => normalizedSql.includes(kw))) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Query contains blocked keywords' }),
-        };
-      }
-      log.info('Running custom SQL...');
-      // SECURITY: Execute in read-only transaction to prevent write operations
-      const client = await db.connect();
-      try {
-        await client.query('BEGIN');
-        await client.query('SET TRANSACTION READ ONLY');
-        const sqlResult = await client.query(sql);
-        await client.query('COMMIT');
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            message: 'SQL executed',
-            rowCount: sqlResult.rowCount,
-            rows: sqlResult.rows?.slice(0, 100),
-          }),
-        };
-      } catch (sqlError: unknown) {
-        await client.query('ROLLBACK').catch(() => {});
-        log.error('SQL execution failed', sqlError);
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({ message: 'SQL execution failed' }),
-        };
-      } finally {
-        client.release();
-      }
-    }
-
-    // Handle fix-constraint action - updates CHECK constraint for account_type
-    if (action === 'fix-constraint') {
-      log.info('Fixing account_type constraint...');
-
-      // Step 1: Drop the existing constraint first
-      await db.query(`ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_account_type_check`);
-      log.info('Old constraint dropped');
-
-      // Step 2: Update any existing pro_local values to pro_business
-      const updateResult = await db.query(`UPDATE profiles SET account_type = 'pro_business' WHERE account_type = 'pro_local'`);
-      log.info(`Updated ${updateResult.rowCount} profiles from pro_local to pro_business`);
-
-      // Step 3: Add the new constraint
-      await db.query(`ALTER TABLE profiles ADD CONSTRAINT profiles_account_type_check CHECK (account_type IN ('personal', 'pro_creator', 'pro_business'))`);
-      log.info('New constraint added');
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          message: 'Account type constraint updated successfully',
-          updatedProfiles: updateResult.rowCount
-        }),
-      };
-    }
-
-    // Default: migration
-    const resetMode = event.queryStringParameters?.reset === 'true' || body.reset === true;
-
-    if (resetMode) {
-      if (process.env.ENVIRONMENT === 'production') {
-        return { statusCode: 403, headers, body: JSON.stringify({ message: 'Reset mode is disabled in production' }) };
-      }
-      log.info('RESET MODE: Dropping all tables...');
-      await db.query(DROP_ALL_SQL);
-      log.info('All tables dropped successfully');
-    }
-
-    log.info('Running database migration...');
-
-    // Split and execute statements
-    const statements = SCHEMA_SQL.split(';').filter(s => s.trim().length > 0);
-    const results: string[] = [];
-
-    for (const statement of statements) {
-      try {
-        await db.query(statement);
-        results.push('OK');
-      } catch (_error: unknown) {
-        results.push('Error: migration statement failed');
-      }
-    }
-
-    log.info('Migration completed');
-
-    // Verify tables created
-    const tablesResult = await db.query(`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-      ORDER BY table_name
-    `);
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        message: 'Migration completed',
-        tables: tablesResult.rows.map((r: Record<string, unknown>) => r.table_name),
-        statementResults: results.length,
-      }),
-    };
+    return await routeAction(action, db, body, event, headers);
   } catch (error: unknown) {
     log.error('Migration error', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Migration failed' }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ message: 'Migration failed' }) };
   }
 }

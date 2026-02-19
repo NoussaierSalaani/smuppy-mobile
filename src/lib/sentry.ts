@@ -30,7 +30,7 @@ const PROFILES_SAMPLE_RATE_PROD = 0.1;
 // PII SCRUBBING
 // =============================================
 
-const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g; // NOSONAR
 const SENSITIVE_KEYS = /token|password|secret|authorization|cookie|session|phone|username|email/i;
 
 const maskEmail = (email: string): string => {

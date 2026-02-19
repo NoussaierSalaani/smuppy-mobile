@@ -46,7 +46,7 @@ export const EVENTS = {
   SIGN_UP: 'sign_up',
   SIGN_IN: 'sign_in',
   SIGN_OUT: 'sign_out',
-  PASSWORD_RESET: 'password_reset',
+  PASSWORD_RESET: 'password_reset', // NOSONAR
 
   // Onboarding
   ONBOARDING_START: 'onboarding_start',

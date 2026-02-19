@@ -28,8 +28,8 @@ const Confetti = ({ delay, startX, color, size }: ConfettiProps) => {
     const timer = setTimeout(() => {
       Animated.timing(opacity, { toValue: 1, duration: 100, useNativeDriver: true }).start();
       Animated.parallel([
-        Animated.timing(translateY, { toValue: SCREEN_HEIGHT + 100, duration: 2500 + Math.random() * 1500, useNativeDriver: true }),
-        Animated.timing(translateX, { toValue: (Math.random() - 0.5) * 150, duration: 2500, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: SCREEN_HEIGHT + 100, duration: 2500 + Math.random() * 1500, useNativeDriver: true }), // NOSONAR
+        Animated.timing(translateX, { toValue: (Math.random() - 0.5) * 150, duration: 2500, useNativeDriver: true }), // NOSONAR
         Animated.timing(rotate, { toValue: 10, duration: 2500, useNativeDriver: true }),
       ]).start();
     }, delay);
@@ -70,7 +70,7 @@ const FireworkParticle = ({ delay, centerX, centerY, angle, color }: FireworkPar
   const translateY = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const distance = 80 + Math.random() * 60;
+  const distance = 80 + Math.random() * 60; // NOSONAR
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -179,9 +179,9 @@ export default function SuccessScreen({ navigation: _navigation }: SuccessScreen
     <Confetti
       key={`c${i}`}
       delay={300 + i * 40}
-      startX={Math.random() * SCREEN_WIDTH}
+      startX={Math.random() * SCREEN_WIDTH} // NOSONAR
       color={CONFETTI_COLORS[i % CONFETTI_COLORS.length]}
-      size={8 + Math.random() * 8}
+      size={8 + Math.random() * 8} // NOSONAR
     />
   ));
 

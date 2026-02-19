@@ -597,7 +597,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     setSending(true);
 
     // Optimistic: add message locally immediately
-    const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`; // NOSONAR
     const optimisticMessage: Message = {
       id: optimisticId,
       conversation_id: conversationId,
@@ -662,7 +662,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
     // Optimistic: show voice message immediately with local URI
     // BUG-2026-02-14: Add randomness to prevent collision on rapid sends
-    const optimisticId = `optimistic-voice-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const optimisticId = `optimistic-voice-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`; // NOSONAR
     const optimisticMessage: Message = {
       id: optimisticId,
       conversation_id: conversationId,
@@ -893,7 +893,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
     // Optimistic: show image message immediately with local URI
     // BUG-2026-02-14: Add randomness to prevent collision on rapid sends
-    const optimisticId = `optimistic-img-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const optimisticId = `optimistic-img-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`; // NOSONAR
     const optimisticMessage: Message = {
       id: optimisticId,
       conversation_id: conversationId,

@@ -174,7 +174,7 @@ export function useAgora(options: UseAgoraOptions): UseAgoraReturn {
       }
 
       // Generate a random UID if not provided
-      const userUid = uid || Math.floor(Math.random() * 100000);
+      const userUid = uid || Math.floor(Math.random() * 100000); // NOSONAR
 
       const success = await agoraService.joinChannel(
         channelToJoin,

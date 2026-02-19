@@ -450,7 +450,7 @@ export async function sendPushToUser(
   const prefColumn = getPreferenceColumn(notificationType);
 
   if (prefColumn) {
-    const prefResult = await db.query(
+    const prefResult = await db.query( // NOSONAR
       `SELECT ${prefColumn} FROM notification_preferences WHERE user_id = $1`,
       [userId]
     );

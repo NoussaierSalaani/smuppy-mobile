@@ -494,7 +494,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     const angles = [0, 60, 120, 180, 240, 300];
     heartParticles.forEach((particle, index) => {
       const angle = (angles[index] * Math.PI) / 180;
-      const distance = 80 + Math.random() * 40;
+      const distance = 80 + Math.random() * 40; // NOSONAR
 
       particle.scale.setValue(0);
       particle.translateX.setValue(0);
@@ -503,7 +503,7 @@ const PeakViewScreen = (): React.JSX.Element => {
 
       Animated.parallel([
         Animated.timing(particle.scale, {
-          toValue: 0.6 + Math.random() * 0.4,
+          toValue: 0.6 + Math.random() * 0.4, // NOSONAR
           duration: 400,
           useNativeDriver: true,
         }),

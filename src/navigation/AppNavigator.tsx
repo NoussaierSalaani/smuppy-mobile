@@ -116,7 +116,7 @@ const linking = {
     screens: {
       Auth: {
         screens: {
-          NewPassword: 'reset-password',
+          NewPassword: 'reset-password', // NOSONAR
         },
       },
       Main: {

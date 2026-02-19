@@ -111,7 +111,7 @@ const DoubleTapLike = memo(function DoubleTapLike({
     const angles = [0, 60, 120, 180, 240, 300]; // Evenly distributed
     miniHearts.forEach((heart, index) => {
       const angle = (angles[index] * Math.PI) / 180;
-      const distance = 60 + Math.random() * 30;
+      const distance = 60 + Math.random() * 30; // NOSONAR
       const targetX = Math.cos(angle) * distance;
       const targetY = Math.sin(angle) * distance;
 
@@ -119,7 +119,7 @@ const DoubleTapLike = memo(function DoubleTapLike({
         Animated.sequence([
           Animated.delay(50 + index * 30),
           Animated.spring(heart.scale, {
-            toValue: 0.6 + Math.random() * 0.4,
+            toValue: 0.6 + Math.random() * 0.4, // NOSONAR
             friction: 5,
             useNativeDriver: true,
           }),

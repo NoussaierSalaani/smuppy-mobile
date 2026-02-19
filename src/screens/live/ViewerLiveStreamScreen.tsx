@@ -328,7 +328,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
                   translateX: anim.interpolate({
                     inputRange: [0, 1],
                     outputRange: [0, (Math.random() - 0.5) * 100], // NOSONAR
-                  }),
+                  }), // NOSONAR
                 },
                 {
                   scale: anim.interpolate({

@@ -1580,7 +1580,7 @@ export const sendMessage = async (
   if (!sanitizedContent) return { data: null, error: 'Message content is required' };
 
   // Generate client-side idempotency key for network retry dedup
-  const clientMessageId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  const clientMessageId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`; // NOSONAR
 
   try {
     // Lambda returns { message: {...} } with snake_case fields

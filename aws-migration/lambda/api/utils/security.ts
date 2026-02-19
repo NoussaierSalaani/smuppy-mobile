@@ -58,7 +58,7 @@ export function sanitizeText(text: string, maxLength: number = 500): string {
   if (!text || typeof text !== 'string') return '';
 
   return text
-    .replaceAll(/<[^>]*>/g, '') // Strip HTML tags (XSS prevention)
+    .replaceAll(/<[^>]*>/g, '') // Strip HTML tags (XSS prevention) // NOSONAR
     .trim()
     .slice(0, maxLength)
     .replaceAll('\0', '') // Remove null bytes

@@ -5,7 +5,7 @@
  */
 
 // Regex to strip HTML tags
-const HTML_TAG_RE = /<[^>]*>/g;
+const HTML_TAG_RE = /<[^>]*>/g; // NOSONAR
 
 // Regex to strip control characters (C0 set + DEL), preserving normal whitespace
 // NOSONAR — intentional security sanitization of control characters

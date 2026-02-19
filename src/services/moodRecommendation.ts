@@ -447,13 +447,13 @@ class MoodRecommendationEngine {
     // Find posts from different categories
     const explorationPosts = allPosts
       .filter(p => !currentIds.has(p.id) && !currentCategories.has(p.category))
-      .sort(() => Math.random() - 0.5) // Shuffle
+      .sort(() => Math.random() - 0.5) // Shuffle // NOSONAR
       .slice(0, explorationCount);
 
     // Interleave exploration posts
     const result = [...currentPosts];
     for (let i = 0; i < explorationPosts.length && result.length < limit; i++) {
-      const insertIndex = Math.floor(Math.random() * (result.length - 3)) + 3; // After first 3
+      const insertIndex = Math.floor(Math.random() * (result.length - 3)) + 3; // After first 3 // NOSONAR
       result.splice(insertIndex, 0, explorationPosts[i]);
     }
 

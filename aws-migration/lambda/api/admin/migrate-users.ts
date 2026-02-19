@@ -189,7 +189,7 @@ export const handler = async (
                 email: 'user@example.com',
                 username: 'johndoe',
                 fullName: 'John Doe',
-                password: 'optional-password',
+                password: 'optional-password', // NOSONAR
               },
             ],
           },

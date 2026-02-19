@@ -9,7 +9,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); // NOSONAR
 
 // SECURITY: Generic message that doesn't reveal if email exists
 

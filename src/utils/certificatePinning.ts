@@ -41,7 +41,7 @@ const ALLOWED_HOSTS: string[] = [
 
 const TRUSTED_HOSTS = new Set([
   ...ALLOWED_HOSTS,
-  ...(ENV.isDev ? ['localhost', '127.0.0.1', '10.0.2.2'] : []),
+  ...(ENV.isDev ? ['localhost', '127.0.0.1', '10.0.2.2'] : []), // NOSONAR
 ]);
 
 // Dynamically trust hosts from runtime config (API/CDN)

@@ -435,7 +435,8 @@ jobs:
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: List available simulators
-        run: xcrun simctl list devices available --json | python3 -c "import sys,json; d=json.load(sys.stdin); [print(f'  {r}: {[x[\"name\"] for x in devs]}') for r,devs in d.get('devices',{}).items() if devs and 'iOS' in r]"
+        run: |
+          xcrun simctl list devices available | grep -E "^--|iPhone|iPad" | head -30
 
       - name: Setup iOS Simulator
         uses: futureware-tech/simulator-action@v4

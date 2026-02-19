@@ -4,20 +4,9 @@
  * Single source of truth — edit here, both screens update.
  */
 
-export interface InterestItem {
-  name: string;
-  icon: string;
-  color: string;
-}
+import type { CategoryConfig } from './category-types';
 
-export interface InterestCategory {
-  category: string;
-  icon: string;
-  color: string;
-  items: InterestItem[];
-}
-
-export const ALL_INTERESTS: InterestCategory[] = [
+export const ALL_INTERESTS: CategoryConfig[] = [
   // Initial 4 categories
   {
     category: 'Sports',

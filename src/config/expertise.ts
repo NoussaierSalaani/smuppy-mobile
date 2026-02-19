@@ -4,20 +4,9 @@
  * Single source of truth — edit here, both screens update.
  */
 
-export interface ExpertiseItem {
-  name: string;
-  icon: string;
-  color: string;
-}
+import type { CategoryConfig } from './category-types';
 
-export interface ExpertiseCategory {
-  category: string;
-  icon: string;
-  color: string;
-  items: ExpertiseItem[];
-}
-
-export const ALL_EXPERTISE: ExpertiseCategory[] = [
+export const ALL_EXPERTISE: CategoryConfig[] = [
   // Initial 4 categories
   {
     category: 'Personal Training',

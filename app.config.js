@@ -98,10 +98,9 @@ infoPlist: {
   NSPhotoLibraryAddUsageDescription: 'Smuppy needs to save photos and videos to your library.',
   NSLocationWhenInUseUsageDescription: 'Smuppy uses your location to show nearby events, groups, and creators.',
   NSContactsUsageDescription: 'Smuppy can help you find friends from your contacts.',
-  // V2+ DISABLED — Calendar (SessionDetail, SessionBooked, BusinessBookingSuccess — re-enable when PRIVATE_SESSIONS/BUSINESS_BOOKING go live)
-  // NSCalendarsUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
-  // NSCalendarsFullAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
-  // NSCalendarsWriteOnlyAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  NSCalendarsUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  NSCalendarsFullAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
+  NSCalendarsWriteOnlyAccessUsageDescription: 'Smuppy can add your booked sessions and events to your calendar.',
   // V4 DISABLED — Bluetooth (Agora live streaming/calls — re-enable when GO_LIVE/PRIVATE_SESSIONS go live)
   // NSBluetoothAlwaysUsageDescription: 'Smuppy uses Bluetooth to connect to audio devices during live streaming and video calls.',
 },
@@ -165,8 +164,7 @@ plugins: [
 'expo-location',
 'expo-image-picker',
 'expo-contacts',
-// V2+ DISABLED — expo-calendar (re-enable when PRIVATE_SESSIONS/BUSINESS_BOOKING go live)
-// 'expo-calendar',
+'expo-calendar',
 '@rnmapbox/maps',
 ],
 extra: {

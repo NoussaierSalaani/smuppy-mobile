@@ -30,10 +30,13 @@ Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const baseWidth = 390;
+const MAX_SCALE_WIDTH = 430; // Cap element scaling at iPhone 16 Pro Max width
+const MAX_SCALE_HEIGHT = 932; // Cap vertical scaling at iPhone 16 Pro Max height
 
 const wp = (percentage: number) => (percentage * SCREEN_WIDTH) / 100;
-const hp = (percentage: number) => (percentage * SCREEN_HEIGHT) / 100;
-const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / baseWidth));
+const sp = (percentage: number) => (percentage * Math.min(SCREEN_WIDTH, MAX_SCALE_WIDTH)) / 100; // Scaled percentage for element sizing (capped)
+const hp = (percentage: number) => (percentage * Math.min(SCREEN_HEIGHT, MAX_SCALE_HEIGHT)) / 100;
+const normalize = (size: number) => Math.round(size * (Math.min(SCREEN_WIDTH, MAX_SCALE_WIDTH) / baseWidth));
 
 // ============================================
 // PIN COLORS BY CATEGORY
@@ -1428,7 +1431,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     alignItems: 'center',
     backgroundColor: colors.background,
     borderRadius: normalize(14),
-    paddingHorizontal: wp(3.5),
+    paddingHorizontal: sp(3.5),
     height: normalize(44),
     shadowColor: isDark ? '#fff' : '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -1440,13 +1443,13 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   searchInput: {
     flex: 1,
-    marginLeft: wp(2.5),
+    marginLeft: sp(2.5),
     fontSize: normalize(15),
     color: colors.dark,
     paddingVertical: 0,
   },
   searchLoading: {
-    marginLeft: wp(2),
+    marginLeft: sp(2),
   },
 
   // Address Suggestions
@@ -1466,9 +1469,9 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   suggestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: wp(3.5),
+    paddingHorizontal: sp(3.5),
     paddingVertical: hp(1.5),
-    gap: wp(2.5),
+    gap: sp(2.5),
   },
   suggestionRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1492,15 +1495,15 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   chipsScroll: {
     paddingHorizontal: wp(4),
-    gap: wp(2),
+    gap: sp(2),
   },
   chipActive: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: wp(3.5),
+    paddingHorizontal: sp(3.5),
     paddingVertical: hp(1),
     borderRadius: normalize(20),
-    gap: wp(1.5),
+    gap: sp(1.5),
     backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.10)',
     borderWidth: 1.5,
     borderColor: colors.primary,
@@ -1508,10 +1511,10 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   chipInactive: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: wp(3.5),
+    paddingHorizontal: sp(3.5),
     paddingVertical: hp(1),
     borderRadius: normalize(20),
-    gap: wp(1.5),
+    gap: sp(1.5),
     backgroundColor: colors.background,
     shadowColor: isDark ? '#fff' : '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1576,7 +1579,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   fabPanelBlur: {
     paddingVertical: hp(0.5),
-    paddingHorizontal: wp(1),
+    paddingHorizontal: sp(1),
     overflow: 'hidden',
     borderRadius: normalize(20),
   },
@@ -1584,8 +1587,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: hp(1.6),
-    paddingHorizontal: wp(3.5),
-    gap: wp(3),
+    paddingHorizontal: sp(3.5),
+    gap: sp(3),
   },
   fabPanelRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1608,17 +1611,17 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
 
   // Marker
   markerContainer: { alignItems: 'center' },
-  markerShadow: { position: 'absolute', bottom: -2, width: wp(4), height: hp(0.5), backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)', borderRadius: wp(2) },
+  markerShadow: { position: 'absolute', bottom: -2, width: sp(4), height: hp(0.5), backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)', borderRadius: sp(2) },
   markerPin: {
-    width: wp(11), height: wp(11), borderRadius: wp(5.5),
+    width: sp(11), height: sp(11), borderRadius: sp(5.5),
     borderWidth: 3, borderColor: colors.background,
     justifyContent: 'center', alignItems: 'center',
     shadowColor: isDark ? '#fff' : '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4,
   },
-  markerAvatar: { width: wp(9), height: wp(9), borderRadius: wp(4.5) },
+  markerAvatar: { width: sp(9), height: sp(9), borderRadius: sp(4.5) },
   markerPointer: {
     width: 0, height: 0,
-    borderLeftWidth: wp(2), borderRightWidth: wp(2), borderTopWidth: hp(1.2),
+    borderLeftWidth: sp(2), borderRightWidth: sp(2), borderTopWidth: hp(1.2),
     borderLeftColor: 'transparent', borderRightColor: 'transparent',
     marginTop: -2,
   },
@@ -1627,25 +1630,25 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   popupContainer: {
     position: 'absolute', left: wp(4), right: wp(4),
     backgroundColor: colors.background, borderRadius: normalize(20),
-    padding: wp(4),
+    padding: sp(4),
     shadowColor: isDark ? '#fff' : '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 10,
     zIndex: 30,
   },
   popupClose: { position: 'absolute', top: hp(1.5), right: wp(3), zIndex: 10 },
   popupContent: { flexDirection: 'row' },
-  popupAvatar: { width: wp(15), height: wp(15), borderRadius: wp(7.5), marginRight: wp(3) },
+  popupAvatar: { width: sp(15), height: sp(15), borderRadius: sp(7.5), marginRight: sp(3) },
   popupInfo: { flex: 1 },
   popupName: { fontSize: normalize(17), fontWeight: '600', color: colors.dark, marginBottom: hp(0.5) },
   popupStats: { flexDirection: 'row', alignItems: 'center', marginBottom: hp(0.8) },
   popupStatText: { fontSize: normalize(13), color: colors.gray },
   popupStatNumber: { fontWeight: '600', color: colors.dark },
-  popupStatDot: { marginHorizontal: wp(1.5), color: colors.grayMuted },
+  popupStatDot: { marginHorizontal: sp(1.5), color: colors.grayMuted },
   popupBio: { fontSize: normalize(13), color: colors.gray, lineHeight: normalize(18) },
   popupButton: {
     marginTop: hp(1.8),
     alignSelf: 'stretch',
   },
-  popupButtonText: { fontSize: normalize(15), fontWeight: '600', color: colors.white, marginRight: wp(1.5) },
+  popupButtonText: { fontSize: normalize(15), fontWeight: '600', color: colors.white, marginRight: sp(1.5) },
 
   // Business Popup
   businessPopupContainer: {
@@ -1656,15 +1659,15 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   businessPopupClose: {
     position: 'absolute', top: hp(1.5), right: wp(3), zIndex: 10,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.3)', borderRadius: wp(4), padding: wp(1),
+    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.3)', borderRadius: sp(4), padding: sp(1),
   },
   businessCover: { width: '100%', height: hp(15) },
-  businessContent: { padding: wp(4) },
+  businessContent: { padding: sp(4) },
   businessName: { fontSize: normalize(18), fontWeight: '700', color: colors.dark, marginBottom: hp(1.2) },
   businessRow: { flexDirection: 'row', alignItems: 'center', marginBottom: hp(0.8) },
-  businessText: { fontSize: normalize(14), color: colors.gray, marginLeft: wp(2), flex: 1 },
+  businessText: { fontSize: normalize(14), color: colors.gray, marginLeft: sp(2), flex: 1 },
   expertiseTags: { flexDirection: 'row', flexWrap: 'wrap', marginTop: hp(1.2), marginBottom: hp(0.8) },
-  expertiseTag: { backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E7FCF6', paddingHorizontal: wp(3), paddingVertical: hp(0.8), borderRadius: normalize(16), marginRight: wp(2), marginBottom: hp(1) },
+  expertiseTag: { backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E7FCF6', paddingHorizontal: sp(3), paddingVertical: hp(0.8), borderRadius: normalize(16), marginRight: sp(2), marginBottom: hp(1) },
   expertiseTagText: { fontSize: normalize(12), color: colors.primary, fontWeight: '500' },
 
   // Sub-filter bottom sheet
@@ -1672,10 +1675,10 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   sheetContainer: {
     backgroundColor: colors.background,
     borderTopLeftRadius: normalize(28), borderTopRightRadius: normalize(28),
-    padding: wp(5),
+    padding: sp(5),
   },
   sheetHandle: {
-    width: wp(10), height: 4,
+    width: sp(10), height: 4,
     backgroundColor: colors.grayBorder, borderRadius: 2,
     alignSelf: 'center', marginBottom: hp(2),
   },
@@ -1690,20 +1693,20 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderRadius: normalize(18),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: wp(2.5),
+    marginRight: sp(2.5),
   },
   sheetTitle: { fontSize: normalize(22), fontWeight: '700', color: colors.dark },
   sheetSubtitle: { fontSize: normalize(14), color: colors.gray, marginBottom: hp(2) },
-  sheetChips: { flexDirection: 'row', flexWrap: 'wrap', gap: wp(2.5) },
+  sheetChips: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(2.5) },
   sheetChipActive: {
-    paddingHorizontal: wp(4), paddingVertical: hp(1.2),
+    paddingHorizontal: sp(4), paddingVertical: hp(1.2),
     borderRadius: normalize(14),
     backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.10)',
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
   sheetChipInactive: {
-    paddingHorizontal: wp(4), paddingVertical: hp(1.2),
+    paddingHorizontal: sp(4), paddingVertical: hp(1.2),
     borderRadius: normalize(14),
     backgroundColor: colors.backgroundSecondary,
   },
@@ -1733,8 +1736,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   teardropPointer: {
     width: 0,
     height: 0,
-    borderLeftWidth: wp(2),
-    borderRightWidth: wp(2),
+    borderLeftWidth: sp(2),
+    borderRightWidth: sp(2),
     borderTopWidth: hp(1),
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
@@ -1797,8 +1800,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     right: wp(3),
     zIndex: 10,
     backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.3)',
-    borderRadius: wp(4),
-    padding: wp(1),
+    borderRadius: sp(4),
+    padding: sp(1),
   },
   eventDetailCover: {
     width: '100%',
@@ -1810,13 +1813,13 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     alignItems: 'center' as const,
   },
   eventDetailContent: {
-    padding: wp(4),
+    padding: sp(4),
   },
   eventDetailTitleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: wp(3),
+    gap: sp(3),
     marginBottom: hp(1.2),
   },
   eventDetailTitle: {
@@ -1827,7 +1830,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   eventDetailLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: wp(1),
+    gap: sp(1),
     marginTop: hp(0.4),
   },
   eventDetailLocationText: {
@@ -1838,10 +1841,10 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   eventJoinBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: wp(4),
+    paddingHorizontal: sp(4),
     paddingVertical: hp(1),
     borderRadius: normalize(20),
-    gap: wp(1.5),
+    gap: sp(1.5),
   },
   eventJoinBtnText: {
     fontSize: normalize(14),
@@ -1849,7 +1852,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     color: colors.white,
   },
   eventLeaveBtn: {
-    paddingHorizontal: wp(4),
+    paddingHorizontal: sp(4),
     paddingVertical: hp(1),
     borderRadius: normalize(20),
     backgroundColor: isDark ? 'rgba(255, 68, 68, 0.2)' : '#FFE5E5',
@@ -1867,14 +1870,14 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   eventBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: wp(1),
-    paddingHorizontal: wp(2.5),
+    gap: sp(1),
+    paddingHorizontal: sp(2.5),
     paddingVertical: hp(0.6),
     borderRadius: normalize(14),
     borderWidth: 1,
     borderColor: colors.grayBorder,
     backgroundColor: colors.background,
-    marginRight: wp(2),
+    marginRight: sp(2),
   },
   eventBadgeText: {
     fontSize: normalize(12),
@@ -1888,14 +1891,14 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
 
   // Permission Modal
-  permissionOverlay: { flex: 1, backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', padding: wp(5) },
+  permissionOverlay: { flex: 1, backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', padding: sp(5) },
   permissionModal: {
-    backgroundColor: colors.background, borderRadius: normalize(24), padding: wp(6),
+    backgroundColor: colors.background, borderRadius: normalize(24), padding: sp(6),
     width: '85%', alignItems: 'center',
     shadowColor: isDark ? '#fff' : '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
   },
   permissionIcon: {
-    width: wp(18), height: wp(18), borderRadius: wp(9),
+    width: sp(18), height: sp(18), borderRadius: sp(9),
     justifyContent: 'center', alignItems: 'center', marginBottom: hp(2),
   },
   permissionTitle: { fontSize: normalize(20), fontWeight: '700', color: colors.dark, marginBottom: hp(1), textAlign: 'center' },

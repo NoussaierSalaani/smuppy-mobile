@@ -9,6 +9,8 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 import { isValidUUID } from '../utils/security';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('packs-manage');
 
@@ -38,6 +40,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 401,
       headers: corsHeaders,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
+    };
+  }
+
+  // Rate limit: pack management — fail-closed for write operations
+  const rateLimit = await checkRateLimit({
+    prefix: 'packs-manage',
+    identifier: userId,
+    windowSeconds: RATE_WINDOW_1_MIN,
+    maxRequests: 10,
+  });
+  if (!rateLimit.allowed) {
+    return {
+      statusCode: 429,
+      headers: corsHeaders,
+      body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
     };
   }
 

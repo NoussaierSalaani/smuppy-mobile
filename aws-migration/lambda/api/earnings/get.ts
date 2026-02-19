@@ -6,6 +6,8 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('earnings-get');
 
@@ -30,6 +32,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       statusCode: 401,
       headers: corsHeaders,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
+    };
+  }
+
+  // Rate limit: financial data — fail-closed
+  const rateLimit = await checkRateLimit({
+    prefix: 'earnings-get',
+    identifier: userId,
+    windowSeconds: RATE_WINDOW_1_MIN,
+    maxRequests: 20,
+  });
+  if (!rateLimit.allowed) {
+    return {
+      statusCode: 429,
+      headers: corsHeaders,
+      body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
     };
   }
 

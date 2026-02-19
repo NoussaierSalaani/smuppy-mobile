@@ -8,6 +8,8 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('profiles-following');
 
@@ -31,6 +33,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 400,
         headers,
         body: JSON.stringify({ message: 'Invalid profile ID format' }),
+      };
+    }
+
+    // Rate limit: anti-scraping — use IP for public endpoint
+    const rateLimitId = event.requestContext.authorizer?.claims?.sub
+      || event.requestContext.identity?.sourceIp || 'anonymous';
+    const rateLimit = await checkRateLimit({
+      prefix: 'profiles-following',
+      identifier: rateLimitId,
+      windowSeconds: RATE_WINDOW_1_MIN,
+      maxRequests: 30,
+      failOpen: true,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 

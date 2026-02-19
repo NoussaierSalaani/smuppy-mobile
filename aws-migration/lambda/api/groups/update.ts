@@ -10,6 +10,7 @@ import { createLogger } from '../utils/logger';
 import { sanitizeInput, isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { resolveProfileId } from '../utils/auth';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
@@ -94,17 +95,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Resolve profile
-    const profileResult = await client.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(client, cognitoSub);
+    if (!profileId) {
       return cors({
         statusCode: 404,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       });
     }
-    const profileId = profileResult.rows[0].id;
 
     const body = JSON.parse(event.body || '{}');
 

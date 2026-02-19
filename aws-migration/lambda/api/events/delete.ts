@@ -11,6 +11,7 @@ import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('events-delete');
 const corsHeaders = getSecureHeaders();
@@ -48,17 +49,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Resolve cognito_sub to profile ID (pre-transaction read via pool)
-    const profileResult = await pool.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(pool, userId);
+    if (!profileId) {
       return cors({
         statusCode: 404,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       });
     }
-    const profileId = profileResult.rows[0].id;
 
     // Ownership check: verify event exists and belongs to the user
     const ownerCheck = await pool.query(

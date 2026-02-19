@@ -9,6 +9,7 @@ import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('groups-leave');
 const corsHeaders = getSecureHeaders();
@@ -47,17 +48,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Resolve profile
-    const profileResult = await client.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(client, cognitoSub);
+    if (!profileId) {
       return cors({
         statusCode: 404,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       });
     }
-    const profileId = profileResult.rows[0].id;
 
     // Check group exists and user is not the creator
     const groupResult = await client.query(

@@ -70,3 +70,37 @@ export async function resolveProfileId(
   );
   return result.rows[0]?.id ?? null;
 }
+
+/**
+ * Check if a requester has access to a private profile's data.
+ * Returns true if the requester is the profile owner or an accepted follower.
+ * Returns false if not authenticated or not authorized.
+ *
+ * Usage:
+ * ```
+ * if (profile.is_private) {
+ *   const hasAccess = await checkPrivacyAccess(db, profileId, cognitoSub);
+ *   if (!hasAccess) return { statusCode: 403, ... };
+ * }
+ * ```
+ */
+export async function checkPrivacyAccess(
+  db: Pool | PoolClient,
+  profileId: string,
+  cognitoSub: string | undefined,
+): Promise<boolean> {
+  if (!cognitoSub) return false;
+
+  const requesterId = await resolveProfileId(db, cognitoSub);
+  if (!requesterId) return false;
+
+  // Owner always has access to their own profile data
+  if (requesterId === profileId) return true;
+
+  // Check if requester is an accepted follower
+  const followResult = await db.query(
+    `SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted') as is_follower`,
+    [requesterId, profileId]
+  );
+  return followResult.rows[0].is_follower;
+}

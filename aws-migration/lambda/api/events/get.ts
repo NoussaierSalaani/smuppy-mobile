@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('events-get');
 
@@ -31,13 +32,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     let profileId: string | null = null;
     if (cognitoSub) {
-      const profileResult = await client.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      if (profileResult.rows.length > 0) {
-        profileId = profileResult.rows[0].id;
-      }
+      profileId = await resolveProfileId(client, cognitoSub);
     }
 
     // Fetch event with creator info, excluding banned/shadow_banned creators

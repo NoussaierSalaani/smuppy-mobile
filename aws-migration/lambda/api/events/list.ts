@@ -8,6 +8,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('events-list');
 const corsHeaders = getSecureHeaders();
@@ -47,13 +48,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Resolve profile ID for authenticated user
     let profileId: string | null = null;
     if (cognitoSub) {
-      const profileResult = await client.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      if (profileResult.rows.length > 0) {
-        profileId = profileResult.rows[0].id;
-      }
+      profileId = await resolveProfileId(client, cognitoSub);
     }
 
     // All params are pushed in order — never use unshift

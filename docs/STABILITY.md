@@ -44,31 +44,56 @@ npm run clean
 
 ## 2. CI Gate — Nothing Merges If Red
 
-The CI pipeline (`.github/workflows/ci.yml`) already runs:
+The CI pipeline (`.github/workflows/ci.yml`) runs:
 
-| Check | Status | Action Needed |
-|-------|--------|---------------|
-| ESLint | Exists | Keep |
-| TypeScript (`tsc --noEmit`) | Exists | Keep |
-| Unit tests (Jest) | Exists but 2% threshold | **Raise thresholds progressively** |
-| Build test (iOS + Android) | Exists | Keep |
-| Security scan (gitleaks + npm audit) | Exists | Keep |
-| Lambda TypeScript check | Exists | Keep |
-| CDK synth test | Exists | Keep |
-| Maestro E2E smoke | **Missing from CI** | **Add** |
+| Check | Status | Blocks Merge |
+|-------|--------|--------------|
+| ESLint | Active | YES |
+| TypeScript (`tsc --noEmit`) | Active | YES |
+| Unit tests (Jest) + coverage thresholds | Active | YES |
+| Build test (iOS + Android) | Active | YES |
+| Security scan (gitleaks + npm audit + hardcoded secrets) | Active | YES |
+| Lambda tests (Jest + TypeScript + ESLint) | Active | YES |
+| CDK synth test | Active | YES |
+| SonarCloud Quality Gate | Active | YES (blocks if gate fails) |
+| Expo Doctor compatibility check | Active | YES (blocks deploy) |
+| Bundle size check | Active | YES (fails if > 15MB) |
+| Maestro E2E smoke tests | Active | Warning (non-blocking during rollout) |
 
 ### 2.1 Coverage Threshold Roadmap
 
-| Phase | Branch % | Function % | Line % | Timeline |
-|-------|----------|------------|--------|----------|
-| Current | 2% | 2% | 2% | Now |
-| Phase 1 | 10% | 10% | 10% | After writing critical path tests |
-| Phase 2 | 30% | 30% | 30% | After stability sprint |
-| Phase 3 | 50% | 50% | 50% | Before App Store V2 |
+| Phase | Branch % | Function % | Line % | Statement % | Status |
+|-------|----------|------------|--------|-------------|--------|
+| Phase 1 (current) | 51% | 24% | 2% | 2% | Active |
+| Phase 2 | 55% | 30% | 10% | 10% | After writing critical path tests |
+| Phase 3 | 60% | 50% | 30% | 30% | After stability sprint |
+| Phase 4 | 70% | 60% | 50% | 50% | Before App Store V2 |
 
 **Rule**: Coverage thresholds only go UP, never down. Ratchet pattern.
+**Actual coverage** (as of 2026-02-19): branches=51.42%, functions=24.76%, lines=2.47%, statements=2.47%
 
-### 2.2 CI Rule
+### 2.2 Local Quality Gates (Git Hooks)
+
+| Hook | When | What it checks | Blocks |
+|------|------|----------------|--------|
+| **pre-commit** | Before every `git commit` | lint-staged (ESLint + tsc-files), SAST security scan, TypeScript check | YES |
+| **pre-push** | Before every `git push` | Full TypeScript check, ESLint, Jest test suite with coverage | YES |
+
+### 2.3 SonarCloud Quality Gate
+
+SonarCloud runs after every PR and enforces quality gate conditions:
+- `sonar.qualitygate.wait=true` in `sonar-project.properties`
+- CI step `SonarSource/sonarqube-quality-gate-action@v1` blocks merge if gate fails
+- Coverage report from Jest is uploaded and analyzed
+
+### 2.4 Bundle Size Gate
+
+The CI checks JS bundle size on every PR:
+- **Warning threshold**: 10 MB
+- **Blocking threshold**: 15 MB
+- Prevents accidental inclusion of large dependencies
+
+### 2.5 CI Rule
 
 **If CI is red, no merge. No exceptions.**
 
@@ -241,32 +266,34 @@ Stability sprint is DONE when:
 
 ---
 
-## 8. Implementation Checklist (Do Today)
+## 8. Implementation Checklist
 
-### Immediate (Day 1)
+### Completed
 
 - [x] Create `.nvmrc` with `22` (match CI)
 - [x] Add `"packageManager": "npm@10.9.2"` to `package.json`
 - [x] Install Sentry: `npx expo install @sentry/react-native`
 - [x] Initialize Sentry in `App.tsx` with DSN from environment
+- [x] Add `npm run clean` script to `package.json`
+- [x] SonarCloud quality gate set to blocking (2026-02-19)
+- [x] Pre-push hook added — runs TypeScript + ESLint + Jest before push (2026-02-19)
+- [x] Expo-doctor check added to CI pipeline (2026-02-19)
+- [x] Bundle size check added to CI — warns >10MB, blocks >15MB (2026-02-19)
+- [x] Maestro E2E smoke test job added to CI (2026-02-19)
+- [x] Coverage thresholds ratcheted to match actual values (2026-02-19)
 
-### This Week
+### Next Steps
 
-- [ ] Raise Jest coverage thresholds to 10%
+- [ ] Raise Jest coverage thresholds to Phase 2 (55/30/10/10)
 - [ ] Write unit tests for 5 critical services:
   - `authService` (login, refresh, logout)
   - `awsAPI.getPeaks` / `awsAPI.createPost`
   - `feedStore` (pagination, optimistic updates)
   - `userStore` (profile load, update)
   - `usePreventDoubleNavigation` hook
-- [x] Add `npm run clean` script to `package.json`
 - [ ] Run existing Maestro flows, fix any that fail
-
-### This Month
-
-- [ ] Add Maestro E2E to CI pipeline (run on every PR)
 - [ ] Write regression tests for every bug fixed in the past 30 days
-- [ ] Raise coverage thresholds to 30%
+- [ ] Make Maestro E2E tests blocking in CI (after stabilization)
 - [ ] Set up Sentry alerts for new crash types
 
 ---
@@ -278,9 +305,13 @@ Stability sprint is DONE when:
 | `docs/STABILITY.md` | This document — stability strategy |
 | `CLAUDE.md` | Project rules — references this plan |
 | `CLAUDE-WORKFLOW.md` | Dev workflow — includes stability verification |
-| `.github/workflows/ci.yml` | CI pipeline |
-| `jest.config.js` | Jest configuration + coverage thresholds |
-| `.maestro/` | Maestro E2E test flows |
+| `.github/workflows/ci.yml` | CI pipeline (lint, test, SonarCloud, expo-doctor, bundle-size, E2E, security, Lambda, CDK, deploy) |
+| `jest.config.js` | Jest configuration + coverage thresholds (ratchet plan) |
+| `sonar-project.properties` | SonarCloud config — quality gate blocking enabled |
+| `.husky/pre-commit` | Pre-commit hook — lint-staged + SAST + TypeScript |
+| `.husky/pre-push` | Pre-push hook — TypeScript + ESLint + Jest full suite |
+| `.maestro/` | Maestro E2E test flows (9 scenarios) |
 | `e2e/` | E2E test code (Detox-based) |
-| `src/__tests__/` | Unit tests |
+| `src/__tests__/` | Unit tests (19 suites, 403 tests) |
 | `.nvmrc` | Node version lock |
+| `.gitleaks.toml` | Secret detection config |

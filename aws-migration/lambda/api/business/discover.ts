@@ -8,6 +8,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('business/discover');
 
@@ -24,6 +26,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
+    // Rate limit: anti-scraping — use user ID or IP
+    const rateLimitId = event.requestContext.authorizer?.claims?.sub
+      || event.requestContext.identity?.sourceIp || 'anonymous';
+    const rateLimit = await checkRateLimit({
+      prefix: 'business-discover',
+      identifier: rateLimitId,
+      windowSeconds: RATE_WINDOW_1_MIN,
+      maxRequests: 20,
+      failOpen: true,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+      };
+    }
+
     const q = event.queryStringParameters || {};
     const category = q.category?.replace(/<[^>]*>/g, '').substring(0, 50);
     const search = q.search?.replace(/<[^>]*>/g, '').substring(0, 100);

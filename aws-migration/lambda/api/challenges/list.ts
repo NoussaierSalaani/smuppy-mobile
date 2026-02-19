@@ -8,12 +8,31 @@ import { getPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('challenges-list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
   if (event.httpMethod === 'OPTIONS') return handleOptions();
+
+  // Rate limit: anti-scraping
+  const rateLimitId = event.requestContext.authorizer?.claims?.sub
+    || event.requestContext.identity?.sourceIp || 'anonymous';
+  const rateLimit = await checkRateLimit({
+    prefix: 'challenges-list',
+    identifier: rateLimitId,
+    windowSeconds: RATE_WINDOW_1_MIN,
+    maxRequests: 20,
+    failOpen: true,
+  });
+  if (!rateLimit.allowed) {
+    return cors({
+      statusCode: 429,
+      body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+    });
+  }
 
   // Auto-expire on writer pool (reader replicas are read-only)
   try {

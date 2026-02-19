@@ -1,3 +1,5 @@
+const isDevBuild = (process.env.APP_ENV || 'dev') === 'dev' || process.env.EAS_BUILD_PROFILE === 'development';
+
 export default {
 expo: {
 owner: 'nou09',
@@ -39,6 +41,11 @@ infoPlist: {
   // ATS: restrict to specific domains instead of allowing all
   NSAppTransportSecurity: {
     NSAllowsLocalNetworking: true,
+    // DEV ONLY: allow arbitrary loads for tunnel/Metro (stripped in production builds)
+    ...(isDevBuild && {
+      NSAllowsArbitraryLoads: true,
+      NSAllowsArbitraryLoadsInWebContent: true,
+    }),
     NSExceptionDomains: {
       'amazonaws.com': {
         NSIncludesSubdomains: true,
@@ -66,6 +73,21 @@ infoPlist: {
         NSExceptionRequiresForwardSecrecy: false,
         NSExceptionMinimumTLSVersion: 'TLSv1.0',
       },
+      // DEV ONLY: Local dev server (Metro) over HTTP for simulator/dev-client
+      ...(isDevBuild && {
+        localhost: {
+          NSIncludesSubdomains: true,
+          NSExceptionAllowsInsecureHTTPLoads: true,
+          NSExceptionRequiresForwardSecrecy: false,
+          NSExceptionMinimumTLSVersion: 'TLSv1.0',
+        },
+        '127.0.0.1': {
+          NSIncludesSubdomains: true,
+          NSExceptionAllowsInsecureHTTPLoads: true,
+          NSExceptionRequiresForwardSecrecy: false,
+          NSExceptionMinimumTLSVersion: 'TLSv1.0',
+        },
+      }),
     },
   },
   // Camera & Microphone for content creation

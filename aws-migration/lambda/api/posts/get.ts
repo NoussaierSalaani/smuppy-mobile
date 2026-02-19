@@ -9,6 +9,8 @@ import { createHeaders, createCacheableHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { extractCognitoSub } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('posts-get');
 
@@ -20,6 +22,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;
     const currentUserId = extractCognitoSub(event);
+
+    // Rate limit: anti-scraping
+    const rateLimitId = currentUserId
+      || event.requestContext.identity?.sourceIp || 'anonymous';
+    const rateLimit = await checkRateLimit({
+      prefix: 'posts-get',
+      identifier: rateLimitId,
+      windowSeconds: RATE_WINDOW_1_MIN,
+      maxRequests: 60,
+      failOpen: true,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
+      };
+    }
 
     // Use reader pool for read operations
     const db = await getPool();

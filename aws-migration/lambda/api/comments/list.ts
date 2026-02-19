@@ -8,6 +8,8 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('comments-list');
 
@@ -31,6 +33,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         statusCode: 400,
         headers,
         body: JSON.stringify({ message: 'Invalid post ID format' }),
+      };
+    }
+
+    // Rate limit: anti-scraping
+    const rateLimitId = extractCognitoSub(event)
+      || event.requestContext.identity?.sourceIp || 'anonymous';
+    const rateLimit = await checkRateLimit({
+      prefix: 'comments-list',
+      identifier: rateLimitId,
+      windowSeconds: RATE_WINDOW_1_MIN,
+      maxRequests: 30,
+      failOpen: true,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       };
     }
 

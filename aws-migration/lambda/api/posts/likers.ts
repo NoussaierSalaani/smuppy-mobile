@@ -8,6 +8,8 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { checkRateLimit } from '../utils/rate-limit';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('posts-likers');
 
@@ -19,6 +21,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Auth check
     const cognitoSub = requireAuth(event, headers);
     if (isErrorResponse(cognitoSub)) return cognitoSub;
+
+    // Rate limit: anti-scraping of social data
+    const rateLimit = await checkRateLimit({
+      prefix: 'posts-likers',
+      identifier: cognitoSub,
+      windowSeconds: RATE_WINDOW_1_MIN,
+      maxRequests: 30,
+      failOpen: true,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
+      };
+    }
 
     // Validate post ID
     const postId = validateUUIDParam(event, headers, 'id', 'Post');

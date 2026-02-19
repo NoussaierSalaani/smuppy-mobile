@@ -7,7 +7,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { EARTH_RADIUS_METERS, MAX_SEARCH_RADIUS_METERS, DEFAULT_SEARCH_RADIUS_METERS } from '../utils/constants';
+import { EARTH_RADIUS_METERS, MAX_SEARCH_RADIUS_METERS, DEFAULT_SEARCH_RADIUS_METERS, RATE_WINDOW_1_MIN } from '../utils/constants';
+import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('spots-nearby');
 
@@ -53,6 +54,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       MAX_SEARCH_RADIUS_METERS
     );
     const limit = Math.min(parseInt(limitParam || '20', 10) || 20, 50);
+
+    // Rate limit: anti-scraping — geo queries are expensive
+    const rateLimitId = event.requestContext.authorizer?.claims?.sub
+      || event.requestContext.identity?.sourceIp || 'anonymous';
+    const rateLimit = await checkRateLimit({
+      prefix: 'spots-nearby',
+      identifier: rateLimitId,
+      windowSeconds: RATE_WINDOW_1_MIN,
+      maxRequests: 20,
+      failOpen: true,
+    });
+    if (!rateLimit.allowed) {
+      return {
+        statusCode: 429,
+        headers,
+        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
+      };
+    }
 
     // Bounding box pre-filter for performance
     const latDelta = (radius / EARTH_RADIUS_METERS) * (180 / Math.PI);

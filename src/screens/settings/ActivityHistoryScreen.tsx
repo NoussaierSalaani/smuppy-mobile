@@ -86,14 +86,22 @@ function getThumbnail(item: ActivityItem): string | null {
 // SKELETON
 // ============================================
 
+const skeletonStyles = StyleSheet.create({
+  container: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  avatarMargin: { marginRight: 12 },
+  textCol: { flex: 1 },
+  textGap: { marginBottom: 6 },
+});
+
 const ActivitySkeleton = React.memo(function ActivitySkeleton() {
   return (
-    <View style={{ paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md }}>
+    <View style={skeletonStyles.container}>
       {Array.from({ length: 8 }).map((_, i) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-          <SkeletonBase width={44} height={44} borderRadius={22} style={{ marginRight: 12 }} />
-          <View style={{ flex: 1 }}>
-            <SkeletonLine width="75%" height={14} style={{ marginBottom: 6 }} />
+        <View key={i} style={skeletonStyles.row}>
+          <SkeletonBase width={44} height={44} borderRadius={22} style={skeletonStyles.avatarMargin} />
+          <View style={skeletonStyles.textCol}>
+            <SkeletonLine width="75%" height={14} style={skeletonStyles.textGap} />
             <SkeletonLine width="40%" height={12} />
           </View>
           <SkeletonBase width={40} height={40} borderRadius={8} />

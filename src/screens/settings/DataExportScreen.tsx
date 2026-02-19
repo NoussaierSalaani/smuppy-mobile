@@ -152,7 +152,7 @@ const DataExportScreen = ({ navigation }: DataExportScreenProps) => {
           <Text style={styles.contactLink}>legal@smuppy.com</Text>
         </Text>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
@@ -290,6 +290,9 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
   contactLink: {
     color: colors.primary,
     fontFamily: 'Poppins-Medium',
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });
 

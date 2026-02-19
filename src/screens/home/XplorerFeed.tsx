@@ -737,6 +737,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       }
       return true;
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- blockedUserIds/mutedUserIds force recompute when isHidden's underlying data changes
   }, [liveMarkers, eventGroupMarkers, spotMarkers, isHidden, blockedUserIds, mutedUserIds]);
 
   const filteredMarkers = useMemo(() => {

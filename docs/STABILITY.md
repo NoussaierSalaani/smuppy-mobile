@@ -65,12 +65,13 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 | Phase | Branch % | Function % | Line % | Statement % | Status |
 |-------|----------|------------|--------|-------------|--------|
 | Phase 1 (achieved) | 51% | 24% | 2% | 2% | Done |
-| Phase 2 (current) | 58% | 29% | 2% | 2% | Active (branches+functions exceeded target) |
-| Phase 3 | 60% | 50% | 30% | 30% | After stability sprint |
+| Phase 2 (achieved) | 57% | 29% | 2% | 2% | Done |
+| Phase 2.5 (current) | 65% | 32% | 3% | 3% | Active (regression+coverage tests) |
+| Phase 3 | 70% | 50% | 30% | 30% | After stability sprint |
 | Phase 4 | 70% | 60% | 50% | 50% | Before App Store V2 |
 
 **Rule**: Coverage thresholds only go UP, never down. Ratchet pattern.
-**Actual coverage** (as of 2026-02-19): branches=58.05%, functions=29.83%, lines=2.69%, statements=2.69%
+**Actual coverage** (as of 2026-02-19): branches=65.34%, functions=32.92%, lines=3.33%, statements=3.33%
 
 ### 2.2 Local Quality Gates (Git Hooks)
 
@@ -292,8 +293,18 @@ Stability sprint is DONE when:
   - `feedStore` — 89 tests (cache management, optimistic likes, deletion, pruning, selectors)
   - `userStore` — 72 tests (profile CRUD, getFullName fallback, isPro, isProfileComplete, partialize security)
   - `usePreventDoubleNavigation` — 21 tests (goBack, navigate, replace, reset, double-click prevention)
+- [x] Write regression tests for recent bug fixes (2026-02-19):
+  - `cdnUrl` — 14 tests (BUG-2026-01-25: CDN normalization, getMediaVariant, getVideoPlaybackUrl)
+  - `postTransformers.regression` — 15 tests (BUG-2026-02-05: formatDuration null, getMasonryHeight aspect ratio)
+  - `imageCompression` — 12 tests (BUG-2026-02-05: WebP presets, formatFileSize)
+- [x] Write coverage tests for uncovered critical code (2026-02-19):
+  - `contentFilters` — 58 tests (profanity, hate speech, harassment, spam, phishing, personal data, Unicode obfuscation)
+  - `sanitize` — 19 tests (HTML stripping, control chars, optional text)
+  - `profile` — 28 tests (isEmailDerivedName, resolveProfile, resolveDisplayName)
+  - `appStore` — 23 tests (UI state, badges, error modal)
+  - `moderationStore` — 11 tests (suspension, ban, clear)
+- [x] Ratchet coverage to Phase 2.5: branches=65%, functions=32%, lines=3%, statements=3% (2026-02-19)
 - [ ] Run existing Maestro flows, fix any that fail
-- [ ] Write regression tests for every bug fixed in the past 30 days
 - [ ] Make Maestro E2E tests blocking in CI (after stabilization)
 - [ ] Set up Sentry alerts for new crash types
 
@@ -313,6 +324,6 @@ Stability sprint is DONE when:
 | `.husky/pre-push` | Pre-push hook — TypeScript + ESLint + Jest full suite |
 | `.maestro/` | Maestro E2E test flows (9 scenarios) |
 | `e2e/` | E2E test code (Detox-based) |
-| `src/__tests__/` | Unit tests (24 suites, 864 tests) |
+| `src/__tests__/` | Unit tests (32 suites, 1044 tests) |
 | `.nvmrc` | Node version lock |
 | `.gitleaks.toml` | Secret detection config |

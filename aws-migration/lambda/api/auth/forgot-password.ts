@@ -7,9 +7,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
-  CognitoIdentityProviderClient,
   ForgotPasswordCommand,
-  ListUsersCommand,
   UserNotFoundException,
   LimitExceededException,
   InvalidParameterException,
@@ -18,43 +16,9 @@ import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_5_MIN } from '../utils/constants';
+import { cognitoClient, CLIENT_ID, resolveUsername } from '../utils/cognito-helpers';
 
 const log = createLogger('auth-forgot-password');
-const cognitoClient = new CognitoIdentityProviderClient({});
-
-// Validate required environment variables at module load
-if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is required');
-if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variable is required');
-
-const CLIENT_ID = process.env.CLIENT_ID;
-const USER_POOL_ID = process.env.USER_POOL_ID;
-
-// Generate username from email - fallback if lookup fails
-// Example: john@gmail.com -> johngmailcom (no special chars)
-const generateUsername = (email: string): string => {
-  return email.toLowerCase().replaceAll(/[^a-z0-9]/g, '');
-};
-
-// Look up actual username by email (handles any username format)
-const getUsernameByEmail = async (email: string): Promise<string | null> => {
-  try {
-    const response = await cognitoClient.send(
-      new ListUsersCommand({
-        UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase().replaceAll(/["\\]/g, '').replaceAll(/[^a-z0-9@.+_-]/g, '')}"`,
-        Limit: 1,
-      })
-    );
-
-    if (response.Users && response.Users.length > 0) {
-      return response.Users[0].Username || null;
-    }
-    return null;
-  } catch (error) {
-    log.error('Error looking up user by email', error);
-    return null;
-  }
-};
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -64,27 +28,13 @@ export const handler = async (
 
   try {
     if (!event.body) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: 'Missing request body'
-        }),
-      };
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing request body' }) };
     }
 
     const { email, username } = JSON.parse(event.body);
 
     if (!email) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: 'Email is required'
-        }),
-      };
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Email is required' }) };
     }
 
     // Check rate limit (distributed via DynamoDB): 3 attempts per IP per 5 minutes
@@ -97,10 +47,7 @@ export const handler = async (
     log.setRequestId(getRequestId(event));
 
     // SECURITY: Always derive username from email lookup — never trust client-supplied username
-    const resolvedUsername: string | null = await getUsernameByEmail(email)
-      || username
-      || generateUsername(email)
-      || null;
+    const resolvedUsername = await resolveUsername(email, username);
     if (!resolvedUsername) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Unable to resolve username' }) };
     }

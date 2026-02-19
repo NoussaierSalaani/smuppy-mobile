@@ -5,69 +5,31 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent, resolveProfileId } from '../utils/auth';
-import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { getStripeClient } from '../../shared/stripe-client';
+import { authenticateAndResolveProfile, isErrorResponse, validateSubscriptionId, getOwnedSubscription } from './subscription-utils';
 
 const log = createLogger('business/subscription-reactivate');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
   log.initFromEvent(event);
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
+  const authResult = await authenticateAndResolveProfile(event);
+  if (isErrorResponse(authResult)) return authResult;
+  const { headers, profileId, db, userSub } = authResult;
 
   try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-sub-reactivate', identifier: user.sub, windowSeconds: 60, maxRequests: 5, failOpen: false }, headers);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-sub-reactivate', identifier: userSub, windowSeconds: 60, maxRequests: 5, failOpen: false }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const subscriptionId = event.pathParameters?.subscriptionId;
-    if (!subscriptionId) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing subscription ID' }) };
-    }
+    const subIdResult = validateSubscriptionId(event, headers);
+    if (typeof subIdResult !== 'string') return subIdResult;
+    const subscriptionId = subIdResult;
 
-    // Validate UUID format
-    if (!isValidUUID(subscriptionId)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid subscription ID format' }) };
-    }
-
-    const db = await getPool();
-
-    // First resolve cognito_sub to profile.id
-    const profileId = await resolveProfileId(db, user.sub);
-    if (!profileId) {
-      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
-    }
-
-    // Get subscription and verify ownership
-    const subscriptionResult = await db.query(
-      `SELECT id, user_id, stripe_subscription_id, status, cancel_at_period_end, current_period_end
-       FROM business_subscriptions
-       WHERE id = $1`,
-      [subscriptionId]
-    );
-
-    if (subscriptionResult.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Subscription not found' }) };
-    }
-
-    const subscription = subscriptionResult.rows[0];
-
-    // Verify ownership
-    if (subscription.user_id !== profileId) {
-      return { statusCode: 403, headers, body: JSON.stringify({ success: false, message: 'You do not own this subscription' }) };
-    }
+    const subResult = await getOwnedSubscription(db, subscriptionId, profileId, headers, 'current_period_end');
+    if ('statusCode' in subResult) return subResult as APIGatewayProxyResult;
+    const subscription = subResult;
 
     // Check if can be reactivated
     if (!subscription.cancel_at_period_end) {
@@ -76,7 +38,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Check if period has already ended
     const now = new Date();
-    const periodEnd = new Date(subscription.current_period_end);
+    const periodEnd = new Date(subscription.current_period_end as string);
     if (periodEnd < now) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Subscription period has ended. Please create a new subscription.' }) };
     }
@@ -85,7 +47,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (subscription.stripe_subscription_id) {
       try {
         const stripeClient = await getStripeClient();
-        await stripeClient.subscriptions.update(subscription.stripe_subscription_id, {
+        await stripeClient.subscriptions.update(subscription.stripe_subscription_id as string, {
           cancel_at_period_end: false,
         });
       } catch (stripeError) {
@@ -113,10 +75,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     };
   } catch (error) {
     log.error('Failed to reactivate subscription', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
   }
 }

@@ -5,59 +5,29 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent, resolveProfileId } from '../utils/auth';
+import { authenticateAndResolveProfile, isErrorResponse } from './subscription-utils';
 
 const log = createLogger('business/my-subscriptions');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
   log.initFromEvent(event);
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
+  const authResult = await authenticateAndResolveProfile(event);
+  if (isErrorResponse(authResult)) return authResult;
+  const { headers, profileId, db } = authResult;
 
   try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
-
-    const db = await getPool();
-
-    // First resolve cognito_sub to profile.id
-    const profileId = await resolveProfileId(db, user.sub);
-    if (!profileId) {
-      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
-    }
-
     // Get all subscriptions for this user with business and plan details
     const subscriptionsResult = await db.query(
       `SELECT
-        bs.id,
-        bs.status,
-        bs.current_period_start,
-        bs.current_period_end,
-        bs.trial_end,
-        bs.cancel_at_period_end,
-        bs.sessions_used,
-        bs.sessions_limit,
-        bs.created_at,
-        -- Business info
-        bp.id as business_id,
-        bp.full_name as business_name,
-        bp.avatar_url as business_logo,
+        bs.id, bs.status, bs.current_period_start, bs.current_period_end,
+        bs.trial_end, bs.cancel_at_period_end, bs.sessions_used, bs.sessions_limit, bs.created_at,
+        bp.id as business_id, bp.full_name as business_name, bp.avatar_url as business_logo,
         COALESCE(bc.name, 'General') as category_name,
         COALESCE(bc.icon, 'business') as category_icon,
         COALESCE(bc.color, '#0EBF8A') as category_color,
-        -- Plan info
-        sv.id as plan_id,
-        sv.name as plan_name,
-        sv.price_cents,
-        sv.billing_period as period
+        sv.id as plan_id, sv.name as plan_name, sv.price_cents, sv.billing_period as period
       FROM business_subscriptions bs
       JOIN profiles bp ON bs.business_id = bp.id
       LEFT JOIN business_services sv ON bs.service_id = sv.id
@@ -100,17 +70,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       sessions_limit: row.sessions_limit,
     }));
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ success: true, subscriptions }),
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({ success: true, subscriptions }) };
   } catch (error) {
     log.error('Failed to get subscriptions', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
   }
 }

@@ -5,60 +5,29 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent, resolveProfileId } from '../utils/auth';
-import { isValidUUID } from '../utils/security';
+import { authenticateAndResolveProfile, isErrorResponse, validateSubscriptionId } from './subscription-utils';
 
 const log = createLogger('business/access-pass');
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
   log.initFromEvent(event);
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
+  const authResult = await authenticateAndResolveProfile(event);
+  if (isErrorResponse(authResult)) return authResult;
+  const { headers, profileId, db } = authResult;
 
   try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
+    const subIdResult = validateSubscriptionId(event, headers);
+    if (typeof subIdResult !== 'string') return subIdResult;
+    const subscriptionId = subIdResult;
 
-    const subscriptionId = event.pathParameters?.subscriptionId;
-    if (!subscriptionId) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing subscription ID' }) };
-    }
-
-    // Validate UUID format
-    if (!isValidUUID(subscriptionId)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid subscription ID format' }) };
-    }
-
-    const db = await getPool();
-
-    // First resolve cognito_sub to profile.id
-    const profileId = await resolveProfileId(db, user.sub);
-    if (!profileId) {
-      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
-    }
-
-    // Get subscription with member and business info
     const subscriptionResult = await db.query(
       `SELECT
-        bs.id,
-        bs.user_id,
-        bs.business_id,
-        bs.service_id,
-        bs.status,
-        bs.current_period_end,
-        bs.sessions_used,
-        bs.sessions_limit,
+        bs.id, bs.user_id, bs.business_id, bs.service_id, bs.status,
+        bs.current_period_end, bs.sessions_used, bs.sessions_limit,
         p.full_name as member_name,
-        bp.full_name as business_name,
-        bp.avatar_url as business_logo,
+        bp.full_name as business_name, bp.avatar_url as business_logo,
         sv.name as membership_type
       FROM business_subscriptions bs
       JOIN profiles p ON bs.user_id = p.id
@@ -74,7 +43,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const subscription = subscriptionResult.rows[0];
 
-    // Generate QR code data (JSON string that will be encoded in QR code)
     const qrCodeData = JSON.stringify({
       type: 'smuppy_access',
       subscriptionId: subscription.id,
@@ -83,7 +51,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       timestamp: Date.now(),
     });
 
-    // Calculate remaining sessions if applicable
     let remainingSessions: number | undefined;
     if (subscription.sessions_limit !== null && subscription.sessions_limit !== undefined) {
       remainingSessions = subscription.sessions_limit - (subscription.sessions_used || 0);
@@ -101,17 +68,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       businessLogo: subscription.business_logo,
     };
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ success: true, accessPass }),
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({ success: true, accessPass }) };
   } catch (error) {
     log.error('Failed to get access pass', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
   }
 }

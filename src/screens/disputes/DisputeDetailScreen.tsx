@@ -475,17 +475,18 @@ export default function DisputeDetailScreen() {
       [
         {
           text: 'Photo / Capture',
-          onPress: async () => {
-            const result = await ImagePicker.launchImageLibraryAsync({
+          onPress: () => {
+            ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               quality: 0.8,
-            });
-            if (!result.canceled && result.assets[0]) {
-              handleSubmitEvidence('screenshot', {
-                url: result.assets[0].uri,
-                description: 'Capture d\'écran',
-              });
-            }
+            }).then((result) => {
+              if (!result.canceled && result.assets[0]) {
+                handleSubmitEvidence('screenshot', {
+                  url: result.assets[0].uri,
+                  description: 'Capture d\'écran',
+                });
+              }
+            }).catch(console.error);
           },
         },
         {
@@ -526,14 +527,13 @@ export default function DisputeDetailScreen() {
         {
           text: 'Accepter',
           style: 'default',
-          onPress: async () => {
-            try {
-              await awsAPI.request(`/disputes/${disputeId}/accept`, { method: 'POST' });
+          onPress: () => {
+            awsAPI.request(`/disputes/${disputeId}/accept`, { method: 'POST' }).then(() => {
               Alert.alert('Résolution acceptée', 'Le litige est maintenant clos.');
               fetchDispute();
-            } catch (_err) {
+            }).catch(() => {
               Alert.alert('Erreur', 'Impossible d\'accepter la résolution');
-            }
+            });
           },
         },
       ]

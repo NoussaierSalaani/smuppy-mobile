@@ -226,7 +226,7 @@ export default function IdentityVerificationScreen() {
           title: 'Subscription Active',
           message: 'Your subscription is active. Continue to verify your identity.',
           type: 'success',
-          buttons: [{ text: 'Continue', onPress: startVerification }],
+          buttons: [{ text: 'Continue', onPress: () => { void startVerification(); } }],
         });
       } else {
         showError('Error', 'Failed to initialize subscription. Please try again.');

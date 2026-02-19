@@ -784,7 +784,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             </LazyMapView>
 
             {/* Selected Location Info */}
-            {location && (
+            {!!location && (
               <View style={styles.mapLocationInfo}>
                 <Ionicons name="location" size={20} color={colors.primary} />
                 <Text style={styles.mapLocationText} numberOfLines={2}>{location}</Text>
@@ -869,7 +869,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
                   <Text style={styles.locationText}>
                     {prediction.main_text}
                   </Text>
-                  {prediction.secondary_text && (
+                  {!!prediction.secondary_text && (
                     <Text style={styles.locationSecondaryText}>
                       {prediction.secondary_text}
                     </Text>
@@ -989,7 +989,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           })}
 
           {/* No results for search */}
-          {!isLoadingFollowing && tagSearchQuery && filteredFollowing.length === 0 && followingUsers.length > 0 && (
+          {!isLoadingFollowing && !!tagSearchQuery && filteredFollowing.length === 0 && followingUsers.length > 0 && (
             <Text style={styles.noResultsText}>No people found matching "{tagSearchQuery}"</Text>
           )}
         </View>

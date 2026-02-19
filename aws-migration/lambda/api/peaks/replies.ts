@@ -191,7 +191,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // SECURITY: Sanitize caption (strip HTML + control chars)
       const sanitizedCaption = caption
-        ? caption.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 500)
+        ? caption.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 500) // NOSONAR — intentional control char sanitization
         : null;
 
       if (!duration || typeof duration !== 'number' || duration <= 0) {

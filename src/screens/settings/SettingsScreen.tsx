@@ -29,14 +29,9 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { HIT_SLOP } from '../../config/theme';
 import { hapticButtonPress, hapticDestructive } from '../../utils/haptics';
 import { resolveDisplayName } from '../../types/profile';
+import { sanitizeOptionalText } from '../../utils/sanitize';
 
 const COVER_HEIGHT = 160;
-
-/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
-const sanitizeText = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-};
 
 interface SettingsScreenProps {
   navigation: {
@@ -416,7 +411,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
                 </View>
               )}
             </View>
-            <Text style={styles.displayName}>{sanitizeText(displayName)}</Text>
+            <Text style={styles.displayName}>{sanitizeOptionalText(displayName)}</Text>
           </View>
         </View>
 

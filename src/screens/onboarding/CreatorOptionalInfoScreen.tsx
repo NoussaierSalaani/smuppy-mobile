@@ -13,6 +13,7 @@ import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { triggerHaptic } from '../../utils/haptics';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 interface CreatorOptionalInfoScreenProps {
   navigation: {
@@ -37,9 +38,7 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
   const [scrollPosition, setScrollPosition] = useState(0);
 
   // Sanitize text input per CLAUDE.md security rules
-  const sanitizeText = useCallback((text: string): string => {
-    return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-  }, []);
+  const sanitizeText = sanitizeDisplayText;
 
   // Validate URL format
   const isValidUrl = useCallback((url: string): boolean => {

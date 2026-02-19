@@ -103,7 +103,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // SECURITY: Sanitize user-provided reason — strip HTML, control chars, limit length
     const rawReason = typeof body.reason === 'string'
-      ? body.reason.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim().substring(0, 500)
+      ? body.reason.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim().substring(0, 500) // NOSONAR — intentional control char sanitization
       : null;
     const cancellationReason = rawReason || (isCreator ? 'Declined by creator' : 'Cancelled by fan');
 

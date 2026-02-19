@@ -12,14 +12,13 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDDMMYYYY } from '../../utils/dateFormatters';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 const MIN_AGE = 16;
 const NAME_MAX_LENGTH = 100;
 
 /** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
-const sanitizeText = (text: string): string => {
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '');
-};
+const sanitizeText = sanitizeDisplayText;
 const GENDERS = [
   { id: 'male', icon: 'male' as const, label: 'Male', color: '#007AFF' },
   { id: 'female', icon: 'female' as const, label: 'Female', color: '#FF2D92' },

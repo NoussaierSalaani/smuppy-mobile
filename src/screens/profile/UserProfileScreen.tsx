@@ -47,15 +47,11 @@ import { getMasonryHeight } from '../../utils/postTransformers';
 import { ProfileSkeleton } from '../../components/skeleton';
 import SharePostModal from '../../components/SharePostModal';
 import type { ShareContentData } from '../../hooks/useModalState';
+import { sanitizeContentText } from '../../utils/sanitize';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COVER_HEIGHT = 282;
 const AVATAR_SIZE = 96;
-
-const sanitizeText = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
-};
 
 // Type for profile data from API (uses Profile type from database.ts)
 interface ProfileApiData {
@@ -470,9 +466,9 @@ const UserProfileScreen = () => {
       message: 'Why are you reporting this user?',
       type: 'warning',
       buttons: [
-        { text: 'Spam', onPress: () => submitUserReport('spam') },
-        { text: 'Harassment', onPress: () => submitUserReport('harassment') },
-        { text: 'Inappropriate', onPress: () => submitUserReport('inappropriate') },
+        { text: 'Spam', onPress: () => { void submitUserReport('spam'); } },
+        { text: 'Harassment', onPress: () => { void submitUserReport('harassment'); } },
+        { text: 'Inappropriate', onPress: () => { void submitUserReport('inappropriate'); } },
         { text: 'Cancel', style: 'cancel' },
       ],
     });
@@ -1226,7 +1222,7 @@ const UserProfileScreen = () => {
       {/* Name & Action Icons */}
       <View style={styles.nameRow}>
         <View style={styles.nameWithBadges}>
-          <Text style={styles.displayName}>{sanitizeText(profile.displayName)}</Text>
+          <Text style={styles.displayName}>{sanitizeContentText(profile.displayName || '')}</Text>
           <AccountBadge
             size={18}
             style={styles.badge}
@@ -1273,7 +1269,7 @@ const UserProfileScreen = () => {
             style={styles.bioText}
             numberOfLines={bioExpanded ? 6 : 2}
           >
-            {sanitizeText(profile.bio)}
+            {sanitizeContentText(profile.bio || '')}
           </Text>
           {profile.bio.length > 80 && (
             <TouchableOpacity

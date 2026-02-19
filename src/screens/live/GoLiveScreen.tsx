@@ -22,6 +22,7 @@ import { resolveDisplayName } from '../../types/profile';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 export default function GoLiveScreen(): React.JSX.Element {
   const { showAlert } = useSmuppyAlert();
@@ -89,8 +90,7 @@ export default function GoLiveScreen(): React.JSX.Element {
       return () => clearTimeout(timer);
     } else if (isCountdown && countdownValue === 0) {
       // Sanitize inputs: strip HTML tags and control characters
-      const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-      const sanitizedTitle = sanitize(title) || 'Live Session';
+      const sanitizedTitle = sanitizeDisplayText(title) || 'Live Session';
 
       // Register the live stream on backend (notifies fans)
       awsAPI.startLiveStream(sanitizedTitle).catch((err) => {

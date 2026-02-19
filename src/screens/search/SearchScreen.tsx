@@ -404,7 +404,7 @@ const SearchScreen = (): React.JSX.Element => {
           <Text style={styles.resultUsername}>{resolveDisplayName(profile)}</Text>
           <AccountBadge size={16} style={styles.badgeMargin} isVerified={profile.is_verified} accountType={profile.account_type} />
         </View>
-        {profile.username && <Text style={styles.resultHandle}>@{profile.username}</Text>}
+        {!!profile.username && <Text style={styles.resultHandle}>@{profile.username}</Text>}
         {profile.fan_count !== undefined && profile.fan_count > 0 && (
           <Text style={styles.resultMutual}>{profile.fan_count} fans</Text>
         )}
@@ -531,7 +531,7 @@ const SearchScreen = (): React.JSX.Element => {
                   <Text style={[styles.resultUsername, { color: colors.dark }]}>{resolveDisplayName(profile)}</Text>
                   <AccountBadge size={16} style={styles.badgeMargin} isVerified={profile.is_verified} accountType={profile.account_type} />
                 </View>
-                {profile.username && <Text style={[styles.resultHandle, { color: colors.gray }]}>@{profile.username}</Text>}
+                {!!profile.username && <Text style={[styles.resultHandle, { color: colors.gray }]}>@{profile.username}</Text>}
               </View>
             </TouchableOpacity>
           ))}
@@ -646,7 +646,7 @@ const SearchScreen = (): React.JSX.Element => {
                   <Text style={[styles.resultUsername, { color: colors.dark }]}>{resolveDisplayName(profile)}</Text>
                   <AccountBadge size={16} style={styles.badgeMargin} isVerified={profile.is_verified} accountType={profile.account_type} />
                 </View>
-                {profile.username && <Text style={[styles.resultHandle, { color: colors.gray }]}>@{profile.username}</Text>}
+                {!!profile.username && <Text style={[styles.resultHandle, { color: colors.gray }]}>@{profile.username}</Text>}
               </View>
             </TouchableOpacity>
           ))}

@@ -32,6 +32,7 @@ import { RemoteVideoView } from '../../components/AgoraVideoView';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
 import { filterContent } from '../../utils/contentFilters';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 const { width, height: _height } = Dimensions.get('window');
 
@@ -194,7 +195,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
 
   const handleSendComment = useCallback(() => {
     // Sanitize: strip HTML tags and control characters
-    const sanitized = newComment.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+    const sanitized = sanitizeDisplayText(newComment);
     if (!sanitized) return;
     // Content moderation — block all severities in live chat
     const filterResult = filterContent(sanitized, { context: 'live_chat' });
@@ -409,7 +410,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
               returnKeyType="send"
               maxLength={500}
             />
-            {newComment.trim() && (
+            {!!newComment.trim() && (
               <TouchableOpacity onPress={handleSendComment} style={styles.sendButton}>
                 <Ionicons name="send" size={20} color={colors.primary} />
               </TouchableOpacity>

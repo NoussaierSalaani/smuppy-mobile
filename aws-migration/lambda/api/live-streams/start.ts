@@ -72,7 +72,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Parse optional title (sanitize: strip HTML + control chars)
     const body = event.body ? JSON.parse(event.body) : {};
     const title = body.title
-      ? String(body.title).replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().substring(0, 100)
+      ? String(body.title).replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().substring(0, 100) // NOSONAR — intentional control char sanitization
       : 'Live';
 
     // Moderation: check title for violations (skip default 'Live' title)

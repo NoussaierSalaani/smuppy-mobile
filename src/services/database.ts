@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import { filterContent } from '../utils/contentFilters';
 import { normalizeCdnUrl } from '../utils/cdnUrl';
+import { sanitizeDisplayText } from '../utils/sanitize';
 
 /** Extract message from an unknown error */
 const getErrorMessage = (error: unknown): string => {
@@ -1575,7 +1576,7 @@ export const sendMessage = async (
   if (!user) return { data: null, error: 'Not authenticated' };
 
   // Sanitize content: strip HTML and control characters
-  const sanitizedContent = content.trim().replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F]/g, '');
+  const sanitizedContent = sanitizeDisplayText(content);
   if (!sanitizedContent) return { data: null, error: 'Message content is required' };
 
   // Generate client-side idempotency key for network retry dedup

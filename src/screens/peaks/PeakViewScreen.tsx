@@ -44,6 +44,7 @@ import { useFeedStore } from '../../stores/feedStore';
 import { useContentStore } from '../../stores/contentStore';
 import { awsAPI, APIError } from '../../services/aws-api';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
@@ -109,7 +110,7 @@ const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, on
             style={styles.responseAvatar}
           />
           <Text style={styles.responseUserName} numberOfLines={1}>
-            {resolveDisplayName(item.user, 'Unknown').replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '')}
+            {sanitizeDisplayText(resolveDisplayName(item.user, 'Unknown'))}
           </Text>
           {item.user?.isVerified && (
             <Ionicons name="checkmark-circle" size={14} color={colors.primary} />

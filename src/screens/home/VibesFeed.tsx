@@ -57,6 +57,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing, deletePost } from '../../services/database';
 import type { Peak } from '../../types';
 import { resolveDisplayName } from '../../types/profile';
+import { sanitizeOptionalText } from '../../utils/sanitize';
 import { awsAPI } from '../../services/aws-api';
 import { usePrefetchProfile } from '../../hooks/queries';
 import { useExpiredPeaks } from '../../hooks/useExpiredPeaks';
@@ -89,12 +90,6 @@ const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak
 
 // UUID validation regex (CLAUDE.md compliance)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// Sanitize text for display: strip HTML tags and control characters
-const sanitizeText = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-};
 
 // Peak data type for carousel
 interface PeakCardData {
@@ -293,7 +288,7 @@ const VibeCard = memo<VibeCardProps>(({ post, styles, onLike, onTap, onUserPress
       activeOpacity={0.8}
     >
       <AvatarImage source={post.user.avatar} size={18} style={styles.vibeAvatar} />
-      <Text style={styles.vibeUserName} numberOfLines={1}>{sanitizeText(post.user.name)}</Text>
+      <Text style={styles.vibeUserName} numberOfLines={1}>{sanitizeOptionalText(post.user.name)}</Text>
     </TouchableOpacity>
   </DoubleTapLike>
 ), (prev, next) =>
@@ -1224,7 +1219,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           <AvatarImage source={group.user.avatar} size={36} style={styles.peakAvatar} />
         </View>
 
-        <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeText(group.user.name)}</Text>
+        <Text style={styles.peakUserName} numberOfLines={1}>{sanitizeOptionalText(group.user.name)}</Text>
       </TouchableOpacity>
     );
   }, [goToStoryGroup, styles]);
@@ -1319,8 +1314,8 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   >
                     <AvatarImage source={selectedPost.user.avatar} size={44} style={styles.modalAvatar} />
                     <View style={styles.modalUserInfo}>
-                      <Text style={styles.modalUserName}>{sanitizeText(selectedPost.user.name)}</Text>
-                      <Text style={styles.modalCategory}>{sanitizeText(selectedPost.category)}</Text>
+                      <Text style={styles.modalUserName}>{sanitizeOptionalText(selectedPost.user.name)}</Text>
+                      <Text style={styles.modalCategory}>{sanitizeOptionalText(selectedPost.category)}</Text>
                     </View>
                   </TouchableOpacity>
                   {!isFollowingUser && (
@@ -1336,7 +1331,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   )}
                 </View>
 
-                <Text style={styles.modalTitle}>{sanitizeText(selectedPost.title)}</Text>
+                <Text style={styles.modalTitle}>{sanitizeOptionalText(selectedPost.title)}</Text>
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity

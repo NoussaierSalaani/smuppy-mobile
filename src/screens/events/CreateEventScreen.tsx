@@ -50,6 +50,7 @@ import type { ShareContentData } from '../../hooks/useModalState';
 
 import { ENV } from '../../config/env';
 import { FEATURES } from '../../config/featureFlags';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
@@ -415,7 +416,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
   // ─── Submit ─────────────────────────────────────────────────
   // Sanitize inputs: strip HTML tags and control characters (CLAUDE.md compliance)
-  const sanitize = useCallback((str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim(), []);
+  const sanitize = sanitizeDisplayText;
 
   const handleCreate = async () => {
     if (!selectedCategory || !title || (!coordinates && !groupRouteData)) {

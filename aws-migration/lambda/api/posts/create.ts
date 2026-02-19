@@ -148,7 +148,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
+    const CONTROL_CHARS = /[\x00-\x1F\x7F]/g; // NOSONAR — intentional control char sanitization
     const sanitizedContent = (body.content || '')
       .replace(/<[^>]*>/g, '')
       .replace(CONTROL_CHARS, '')

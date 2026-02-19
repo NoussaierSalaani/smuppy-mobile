@@ -266,7 +266,7 @@ const PostDetailProfileScreen = () => {
       const { error } = await likePost(id);
       if (error) {
         // Revert
-        setIsLiked(isLiked);
+        setIsLiked(!newLiked);
         setLocalLikes(prev => ({ ...prev, [id]: currentLikes }));
       } else {
         useFeedStore.getState().toggleLikeOptimistic(id, newLiked);

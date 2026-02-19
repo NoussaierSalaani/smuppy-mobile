@@ -90,32 +90,50 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
+      - name: Check SonarCloud token
+        id: sonar-check
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::warning::SONAR_TOKEN secret not configured — skipping SonarCloud analysis"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: Checkout code
+        if: steps.sonar-check.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
+        if: steps.sonar-check.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.sonar-check.outputs.skip != 'true'
         run: npm ci --legacy-peer-deps
 
       - name: Download coverage report
+        if: steps.sonar-check.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           name: coverage-report
           path: coverage/
 
       - name: SonarCloud Scan
+        if: steps.sonar-check.outputs.skip != 'true'
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: SonarCloud Quality Gate
+        if: steps.sonar-check.outputs.skip != 'true'
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
@@ -387,8 +405,9 @@ jobs:
   # ============================================
   e2e-smoke:
     name: Maestro E2E Smoke Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: [lint, test]
+    continue-on-error: true  # Non-blocking during rollout (see STABILITY.md)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -415,11 +434,14 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
+      - name: List available simulators
+        run: xcrun simctl list devices available --json | python3 -c "import sys,json; d=json.load(sys.stdin); [print(f'  {r}: {[x[\"name\"] for x in devs]}') for r,devs in d.get('devices',{}).items() if devs and 'iOS' in r]"
+
       - name: Setup iOS Simulator
         uses: futureware-tech/simulator-action@v4
         with:
-          model: 'iPhone 15 Pro'
-          os_version: '>=17.0'
+          model: 'iPhone 16'
+          os_version: '>=18.0'
 
       - name: Build and run app on simulator
         run: |

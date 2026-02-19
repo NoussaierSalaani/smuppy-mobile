@@ -319,7 +319,7 @@ export const agoraService = new AgoraService();
  */
 export function generatePrivateChannelName(userId1: string, userId2: string): string {
   // Sort to ensure same channel regardless of who initiates
-  const sorted = [userId1, userId2].sort();
+  const sorted = [userId1, userId2].sort((a, b) => a.localeCompare(b));
   return `private_${sorted[0]}_${sorted[1]}`;
 }
 

@@ -57,13 +57,9 @@ import { formatTime } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 import { filterContent } from '../../utils/contentFilters';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 const { width } = Dimensions.get('window');
-
-/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
-const sanitizeText = (text: string): string => {
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-};
 
 interface MessageItemProps {
   item: Message;
@@ -246,7 +242,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
             {item.media_type === 'audio' && !item.media_url && item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
-            {!item.shared_post_id && !item.shared_peak_id && !sharedProfileId && item.media_type !== 'audio' && item.content && (
+            {!item.shared_post_id && !item.shared_peak_id && !sharedProfileId && item.media_type !== 'audio' && !!item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
             {item.media_url && item.media_type === 'image' && (
@@ -581,7 +577,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   }, [navigation]);
 
   const handleSendMessage = useCallback(async () => {
-    const messageText = sanitizeText(inputText);
+    const messageText = sanitizeDisplayText(inputText);
     if (!messageText) return;
 
     // Content moderation check (skip personal data for DMs)
@@ -827,13 +823,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            const { success, error } = await deleteMessage(message.id);
-            if (success) {
-              loadMessages();
-            } else {
-              showError('Error', error || 'Failed to delete message');
-            }
+          onPress: () => {
+            deleteMessage(message.id).then(({ success, error }) => {
+              if (success) {
+                loadMessages();
+              } else {
+                showError('Error', error || 'Failed to delete message');
+              }
+            }).catch(() => {
+              showError('Error', 'Failed to delete message');
+            });
           },
         },
       ]

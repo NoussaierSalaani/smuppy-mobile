@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import OptimizedImage from '../OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import type { Peak } from '../../services/aws-api';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 const { width } = Dimensions.get('window');
 
@@ -104,18 +105,17 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             setLoading('delete');
-            try {
-              await onDelete(currentPeak.id);
+            onDelete(currentPeak.id).then(() => {
               if (peaks.length <= 1) {
                 onClose();
               }
-            } catch {
+            }).catch(() => {
               Alert.alert('Error', 'Could not delete peak. Please try again.');
-            } finally {
+            }).finally(() => {
               setLoading(null);
-            }
+            });
           },
         },
       ],
@@ -169,7 +169,7 @@ const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
           <Text style={styles.title}>Your peak has expired!</Text>
           {currentPeak.caption && (
             <Text style={styles.caption} numberOfLines={2}>
-              {currentPeak.caption.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim()}
+              {sanitizeDisplayText(currentPeak.caption)}
             </Text>
           )}
 

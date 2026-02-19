@@ -26,12 +26,7 @@ import { usePrefetchProfile } from '../../hooks/queries';
 import { formatTimeAgo } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
-
-/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
-const sanitizeText = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-};
+import { sanitizeOptionalText } from '../../utils/sanitize';
 
 // ============================================
 // TYPES
@@ -184,17 +179,17 @@ function transformNotification(apiNotif: ApiNotification): Notification {
   const mappedType = mapNotificationType(apiNotif.type);
   const displayType: UserNotification['type'] = mappedType ?? 'like';
   const userDataAny = userData as Record<string, unknown>;
-  const userName = sanitizeText(resolveDisplayName({ fullName: userData.name, username: userData.username, accountType: (userDataAny.accountType || userDataAny.account_type) as string | undefined, businessName: (userDataAny.businessName || userDataAny.business_name) as string | undefined }, '')) || '';
+  const userName = sanitizeOptionalText(resolveDisplayName({ fullName: userData.name, username: userData.username, accountType: (userDataAny.accountType || userDataAny.account_type) as string | undefined, businessName: (userDataAny.businessName || userDataAny.business_name) as string | undefined }, '')) || '';
 
   // If type is unmapped (mappedType is null), use backend body text directly
   // Otherwise build message from backend type + display type for accurate wording
   let dynamicMessage: string;
   if (mappedType === null) {
-    dynamicMessage = sanitizeText(apiNotif.body) || 'interacted with your content';
+    dynamicMessage = sanitizeOptionalText(apiNotif.body) || 'interacted with your content';
   } else if (userName) {
     dynamicMessage = getMessageForType(apiNotif.type, displayType);
   } else {
-    dynamicMessage = sanitizeText(apiNotif.body) || getMessageForType(apiNotif.type, displayType);
+    dynamicMessage = sanitizeOptionalText(apiNotif.body) || getMessageForType(apiNotif.type, displayType);
   }
 
   return {

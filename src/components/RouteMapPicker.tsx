@@ -675,7 +675,7 @@ export default function RouteMapPicker({
                 maxLength={500}
               />
               {searchingDeparture && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
-              {departureAddress && !searchingDeparture && (
+              {!!departureAddress && !searchingDeparture && (
                 <TouchableOpacity
                   style={styles.fieldClear}
                   onPress={() => {
@@ -718,7 +718,7 @@ export default function RouteMapPicker({
                 maxLength={500}
               />
               {searchingArrival && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
-              {arrivalAddress && !searchingArrival && (
+              {!!arrivalAddress && !searchingArrival && (
                 <TouchableOpacity
                   style={styles.fieldClear}
                   onPress={() => {
@@ -759,7 +759,7 @@ export default function RouteMapPicker({
                 maxLength={500}
               />
               {searchingLocation && <ActivityIndicator size="small" color={colors.primary} style={styles.fieldSpinner} />}
-              {locationAddress && !searchingLocation && !lockedLocation && (
+              {!!locationAddress && !searchingLocation && !lockedLocation && (
                 <TouchableOpacity
                   style={styles.fieldClear}
                   onPress={() => {

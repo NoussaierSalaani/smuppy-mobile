@@ -42,6 +42,7 @@ import { useVibeStore } from '../../stores/vibeStore';
 import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
 import { useTheme } from '../../hooks/useTheme';
 import { getMasonryHeight } from '../../utils/postTransformers';
+import { sanitizeOptionalText } from '../../utils/sanitize';
 import { HIT_SLOP } from '../../config/theme';
 import { ProfileSkeleton } from '../../components/skeleton';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
@@ -127,11 +128,6 @@ const MemoizedEventGroupCard = React.memo(({
 });
 const BIO_MAX_LINES = 2;
 
-/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
-const sanitizeText = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-};
 const BIO_EXPANDED_MAX_LINES = 6;
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
 
@@ -761,7 +757,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       {/* Name & Actions */}
       <View style={styles.nameRow}>
         <View style={styles.nameWithBadges}>
-          <Text style={styles.displayName}>{sanitizeText(user.displayName)}</Text>
+          <Text style={styles.displayName}>{sanitizeOptionalText(user.displayName)}</Text>
           <AccountBadge
             size={18}
             style={styles.badge}
@@ -798,7 +794,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             style={styles.bioText}
             numberOfLines={bioExpanded ? BIO_EXPANDED_MAX_LINES : BIO_MAX_LINES}
           >
-            {sanitizeText(user.bio)}
+            {sanitizeOptionalText(user.bio)}
           </Text>
           {(user.bio.length > 80 || user.bio.split('\n').length > BIO_MAX_LINES) && (
             <TouchableOpacity
@@ -817,7 +813,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {user.location ? (
             <View style={styles.locationRow}>
               <Text style={styles.locationPin}>📍</Text>
-              <Text style={styles.locationText}>{sanitizeText(user.location)}</Text>
+              <Text style={styles.locationText}>{sanitizeOptionalText(user.location)}</Text>
             </View>
           ) : null}
         </View>
@@ -1561,7 +1557,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             </View>
           </View>
 
-          <Text style={styles.qrUsername}>{sanitizeText(user.displayName)}</Text>
+          <Text style={styles.qrUsername}>{sanitizeOptionalText(user.displayName)}</Text>
           <Text style={styles.qrHint}>Scan to be my fan!</Text>
 
           {/* Profile Link */}
@@ -1816,12 +1812,12 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           {
             label: 'Edit',
             icon: 'create-outline',
-            onPress: async () => handleEventGroupMenuAction('edit'),
+            onPress: () => { void handleEventGroupMenuAction('edit'); },
           },
           {
             label: 'Delete',
             icon: 'trash-outline',
-            onPress: async () => handleEventGroupMenuAction('delete'),
+            onPress: () => { void handleEventGroupMenuAction('delete'); },
             destructive: true,
           },
         ]}

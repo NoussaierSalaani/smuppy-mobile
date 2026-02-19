@@ -32,6 +32,7 @@ import type { RouteResult } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { filterContent } from '../../utils/contentFilters';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
@@ -110,7 +111,7 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
     setIsLoading(true);
 
     // Sanitize inputs: strip HTML tags and control characters
-    const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+    const sanitize = sanitizeDisplayText;
 
     // Content moderation check on user-generated text fields
     const textsToCheck = [name, description, review].filter(t => t.trim());

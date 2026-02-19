@@ -1084,7 +1084,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
             accessibilityRole="list"
             accessibilityLabel="Suggested users"
           >
-            {suggestions.map(renderSuggestion)}
+            {suggestions.map((item, index) => renderSuggestion(item, index))}
           </ScrollView>
         )}
       </View>

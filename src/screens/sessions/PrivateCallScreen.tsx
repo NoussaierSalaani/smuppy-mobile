@@ -252,7 +252,7 @@ export default function PrivateCallScreen(): React.JSX.Element {
   }, []);
 
   const remoteUid = remoteUsers[0];
-  const channelId = agoraChannelName || `private_${[myUserId, creator.id].sort().join('_')}`;
+  const channelId = agoraChannelName || `private_${[myUserId, creator.id].sort((a, b) => a.localeCompare(b)).join('_')}`;
 
   // Incoming call UI
   if (callState === 'ringing' && isIncoming) {

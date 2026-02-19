@@ -23,12 +23,7 @@ import { useFeedStore } from '../../stores/feedStore';
 import { awsAPI } from '../../services/aws-api';
 import { resolveDisplayName } from '../../types/profile';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
-
-/** Sanitize text: strip HTML tags and control characters per CLAUDE.md */
-const sanitizeText = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-};
+import { sanitizeOptionalText } from '../../utils/sanitize';
 
 interface PeakUser {
   id: string;
@@ -269,7 +264,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
           <View style={styles.reelAuthorRow}>
             <AvatarImage source={group.user.avatar} size={28} />
             <Text style={styles.reelAuthorName} numberOfLines={1}>
-              {sanitizeText(group.user.name)}
+              {sanitizeOptionalText(group.user.name)}
             </Text>
           </View>
         </LinearGradient>

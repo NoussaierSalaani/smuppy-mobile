@@ -13,6 +13,7 @@ import OptimizedImage from '../OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { GRADIENTS, DARK_GRADIENTS, SHADOWS } from '../../config/theme';
 import { resolveDisplayName } from '../../types/profile';
+import { sanitizeOptionalText } from '../../utils/sanitize';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 32;
@@ -53,12 +54,6 @@ interface ChallengeCardProps {
   onAccept: (challenge: Challenge) => void;
   compact?: boolean;
 }
-
-/** Sanitize text: strip HTML tags and control characters */
-const sanitize = (text: string | null | undefined): string => {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-};
 
 function getTimeRemaining(endsAt?: string): string {
   if (!endsAt) return '';
@@ -155,7 +150,7 @@ const ChallengeCard = memo(({ challenge, onPress, onAccept, compact }: Challenge
           {/* Info */}
           <View style={styles.info}>
             <Text style={styles.title} numberOfLines={compact ? 1 : 2}>
-              {sanitize(challenge.title)}
+              {sanitizeOptionalText(challenge.title)}
             </Text>
 
             <View style={styles.creatorRow}>
@@ -163,7 +158,7 @@ const ChallengeCard = memo(({ challenge, onPress, onAccept, compact }: Challenge
                 <AvatarImage source={challenge.creator.avatarUrl} size={compact ? 20 : 24} />
               </View>
               <Text style={styles.creatorName} numberOfLines={1}>
-                {sanitize(resolveDisplayName(challenge.creator))}
+                {sanitizeOptionalText(resolveDisplayName(challenge.creator))}
               </Text>
               {challenge.creator.isVerified && (
                 <Ionicons name="checkmark-circle" size={13} color={colors.primary} />
@@ -217,7 +212,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean, compact?: boolean) =
   return StyleSheet.create({
     outerWrapper: {
       width: cardWidth,
-      marginRight: compact ? 0 : 0,
+      marginRight: 0,
       ...(!isDark ? {
         shadowColor: '#0EBF8A',
         shadowOffset: { width: 0, height: 4 },

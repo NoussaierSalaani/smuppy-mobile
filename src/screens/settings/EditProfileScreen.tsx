@@ -398,7 +398,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         {/* Form Fields */}
         <View style={styles.formContainer}>
           {/* Email (Read-only) */}
-          {userEmail && (
+          {!!userEmail && (
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={styles.readOnlyInput}>

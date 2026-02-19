@@ -131,7 +131,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Sanitize message content: strip HTML tags and control characters
     const sanitizedContent = content
       .replace(/<[^>]*>/g, '')  // Strip HTML tags
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Strip control chars
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — Strip control chars
 
     // Detect shared content: [shared_post:UUID] or [shared_peak:UUID]
     const SHARED_CONTENT_PATTERN = /^\[shared_(post|peak):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;

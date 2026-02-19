@@ -169,7 +169,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Sanitize user-provided text fields
-    const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+    const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''); // NOSONAR — intentional control char sanitization
     const sanitizedTitle = sanitize(title);
     const sanitizedDescription = description ? sanitize(description) : description;
     const sanitizedLocationName = sanitize(locationName || '');

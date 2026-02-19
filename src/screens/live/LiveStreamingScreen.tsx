@@ -33,6 +33,7 @@ import { generateLiveChannelName } from '../../services/agora';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { filterContent } from '../../utils/contentFilters';
 import { awsAPI } from '../../services/aws-api';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -209,7 +210,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
 
   const sendComment = useCallback(() => {
     // Sanitize: strip HTML tags and control characters
-    const sanitized = newComment.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+    const sanitized = sanitizeDisplayText(newComment);
     if (!sanitized) return;
 
     // Content moderation check

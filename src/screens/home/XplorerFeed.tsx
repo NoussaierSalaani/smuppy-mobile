@@ -18,15 +18,12 @@ import { awsAPI } from '../../services/aws-api';
 import { useTheme } from '../../hooks/useTheme';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { resolveDisplayName } from '../../types/profile';
+import { sanitizeOptionalText } from '../../utils/sanitize';
 
 import { searchNominatim, NominatimSearchResult, isValidCoordinate } from '../../config/api';
 
 // UUID validation regex for API calls
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// Sanitize user-generated text: remove HTML tags and control characters
-const sanitizeText = (text: string | undefined | null): string =>
-  text?.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '') || '';
 
 // Initialize Mapbox with access token (ENV has fallback for builds missing the token)
 Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
@@ -860,13 +857,13 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         <View style={styles.popupContent}>
           <AvatarImage source={selectedMarker.avatar} size={wp(15)} style={styles.popupAvatar} />
           <View style={styles.popupInfo}>
-            <Text style={styles.popupName}>{sanitizeText(selectedMarker.name)}</Text>
+            <Text style={styles.popupName}>{sanitizeOptionalText(selectedMarker.name)}</Text>
             <View style={styles.popupStats}>
               <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.fans}</Text> fans</Text>
               <Text style={styles.popupStatDot}>·</Text>
               <Text style={styles.popupStatText}><Text style={styles.popupStatNumber}>{selectedMarker.posts}</Text> posts</Text>
             </View>
-            <Text style={styles.popupBio} numberOfLines={2}>{sanitizeText(selectedMarker.bio)}</Text>
+            <Text style={styles.popupBio} numberOfLines={2}>{sanitizeOptionalText(selectedMarker.bio)}</Text>
           </View>
         </View>
         <LiquidButton
@@ -889,19 +886,19 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         </TouchableOpacity>
         <OptimizedImage source={selectedMarker.coverImage} style={styles.businessCover} />
         <View style={styles.businessContent}>
-          <Text style={styles.businessName}>{sanitizeText(selectedMarker.name)}</Text>
+          <Text style={styles.businessName}>{sanitizeOptionalText(selectedMarker.name)}</Text>
           <View style={styles.businessRow}>
             <Ionicons name="location-outline" size={normalize(16)} color={colors.gray} />
-            <Text style={styles.businessText}>{sanitizeText(selectedMarker.address)}</Text>
+            <Text style={styles.businessText}>{sanitizeOptionalText(selectedMarker.address)}</Text>
           </View>
           <View style={styles.businessRow}>
             <Ionicons name="time-outline" size={normalize(16)} color={colors.gray} />
-            <Text style={styles.businessText}>{sanitizeText(selectedMarker.hours)}</Text>
+            <Text style={styles.businessText}>{sanitizeOptionalText(selectedMarker.hours)}</Text>
           </View>
           <View style={styles.expertiseTags}>
             {selectedMarker.expertise?.map((tag, index) => (
               <View key={index} style={styles.expertiseTag}>
-                <Text style={styles.expertiseTagText}>{sanitizeText(tag)}</Text>
+                <Text style={styles.expertiseTagText}>{sanitizeOptionalText(tag)}</Text>
               </View>
             ))}
           </View>
@@ -1049,14 +1046,14 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     const data = selectedEventData;
     const isJoined = data?.is_joined || data?.isJoined || false;
     const coverUrl = data?.cover_image_url || data?.coverImageUrl || selectedMarker.coverImage;
-    const eventTitle = sanitizeText(data?.title || data?.name || selectedMarker.name);
-    const location = sanitizeText(data?.location_name || data?.locationName || data?.address || selectedMarker.address || '');
+    const eventTitle = sanitizeOptionalText(data?.title || data?.name || selectedMarker.name);
+    const location = sanitizeOptionalText(data?.location_name || data?.locationName || data?.address || selectedMarker.address || '');
     const startsAt = data?.starts_at || data?.startsAt;
     const isPublic = data?.is_public !== false;
-    const category = sanitizeText(data?.category_slug || data?.categorySlug || data?.sport_type || data?.category || '');
+    const category = sanitizeOptionalText(data?.category_slug || data?.categorySlug || data?.sport_type || data?.category || '');
     const maxPart = data?.max_participants || data?.maxParticipants;
     const currentPart = data?.current_participants || data?.currentParticipants || 0;
-    const desc = sanitizeText(data?.description || selectedMarker.bio || '');
+    const desc = sanitizeOptionalText(data?.description || selectedMarker.bio || '');
 
     return (
       <View style={[styles.eventDetailContainer, { bottom: insets.bottom + hp(2) }]}>

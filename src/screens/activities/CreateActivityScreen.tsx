@@ -32,6 +32,7 @@ import type { RouteResult, Coordinate } from '../../services/mapbox-directions';
 import type { RouteProfile } from '../../types';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { FEATURES } from '../../config/featureFlags';
+import { sanitizeDisplayText } from '../../utils/sanitize';
 import SharePostModal from '../../components/SharePostModal';
 import type { ShareContentData } from '../../hooks/useModalState';
 
@@ -173,7 +174,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     // Sanitize inputs: strip HTML tags and control characters
-    const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+    const sanitize = sanitizeDisplayText;
 
     try {
       const sub = sanitize(selectedSubcategory || customSubcategory);

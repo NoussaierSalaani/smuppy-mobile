@@ -4,11 +4,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
-  Dimensions,
 } from 'react-native';
 import PeakProgressRing from './PeakProgressRing';
 
-const { width } = Dimensions.get('window');
+import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
 const ITEM_SIZE = 66;
 const ITEM_SPACING = 12;
 const ACTIVE_ITEM_SIZE = 76;
@@ -57,7 +56,7 @@ const PeakCarousel = ({
   // Auto-scroll to the active item
   useEffect(() => {
     if (scrollViewRef.current && peaks.length > 0) {
-      const scrollX = currentIndex * (ITEM_SIZE + ITEM_SPACING) - (width / 2) + (ACTIVE_ITEM_SIZE / 2);
+      const scrollX = currentIndex * (ITEM_SIZE + ITEM_SPACING) - (SCREEN_WIDTH / 2) + (ACTIVE_ITEM_SIZE / 2);
       scrollViewRef.current.scrollTo({
         x: Math.max(0, scrollX),
         animated: true,
@@ -129,7 +128,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   scrollContent: {
-    paddingHorizontal: (width - ACTIVE_ITEM_SIZE) / 2,
+    paddingHorizontal: (WIDTH_CAPPED - ACTIVE_ITEM_SIZE) / 2,
     alignItems: 'center',
   },
   itemContainer: {

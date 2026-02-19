@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import SkeletonBase from './SkeletonBase';
 import SkeletonLine from './SkeletonLine';
 import { useTheme } from '../../hooks/useTheme';
 import { SPACING } from '../../config/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - SPACING.base * 2;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+const CARD_WIDTH = WIDTH_CAPPED - SPACING.base * 2;
 
 const SessionCardSkeleton = () => (
   <View style={styles.card}>

@@ -10,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -26,8 +25,8 @@ import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateShort } from '../../utils/dateFormatters';
 
-const { width, height: _height } = Dimensions.get('window');
-const SCAN_AREA_SIZE = width * 0.7;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+const SCAN_AREA_SIZE = WIDTH_CAPPED * 0.7;
 
 interface Props {
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };

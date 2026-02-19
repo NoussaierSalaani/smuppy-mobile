@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,8 +23,8 @@ import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateShort } from '../../utils/dateFormatters';
 
-const { width } = Dimensions.get('window');
-const QR_SIZE = width * 0.55;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+const QR_SIZE = WIDTH_CAPPED * 0.55;
 
 interface Props {
   route: {

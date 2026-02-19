@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Animated,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -26,7 +25,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
 import { resolveDisplayName } from '../../types/profile';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 const MIN_TIP_AMOUNT_CENTS = 100;
 const MAX_TIP_AMOUNT_CENTS = 50000;
@@ -394,7 +393,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modal: {
-    width: SCREEN_WIDTH - 40,
+    width: WIDTH_CAPPED - 40,
     backgroundColor: colors.cardBg,
     borderRadius: 28,
     padding: 24,
@@ -442,7 +441,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     gap: 12,
   },
   amountButton: {
-    width: (SCREEN_WIDTH - 100) / 2,
+    width: (WIDTH_CAPPED - 100) / 2,
     height: 56,
     borderRadius: 16,
     backgroundColor: colors.backgroundSecondary,

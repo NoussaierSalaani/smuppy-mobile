@@ -4,14 +4,13 @@ import {
   Text,
   StyleSheet,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import OptimizedImage from '../../components/OptimizedImage';
 
-const { width } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 interface MediaItem {
   uri: string;
@@ -208,8 +207,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
 
   // Media Preview
   mediaPreview: {
-    width: width * 0.5,
-    height: width * 0.6,
+    width: WIDTH_CAPPED * 0.5,
+    height: WIDTH_CAPPED * 0.6,
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 30,

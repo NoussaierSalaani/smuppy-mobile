@@ -14,7 +14,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   ViewStyle,
   LayoutChangeEvent,
 } from 'react-native';
@@ -31,7 +30,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../hooks/useTheme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../utils/responsive';
 
 interface Tab {
   key: string;
@@ -92,7 +91,7 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = React.memo(({
   // For non-fullWidth: use smaller tabs for small size (compact header)
   const nonFullWidthTabSize = size === 'small' ? 66 : 90;
   // Full width = entire screen width (no margins)
-  const containerWidth = fullWidth ? (measuredWidth || SCREEN_WIDTH) : tabs.length * nonFullWidthTabSize;
+  const containerWidth = fullWidth ? (measuredWidth || WIDTH_CAPPED) : tabs.length * nonFullWidthTabSize;
   const tabWidth = (containerWidth - containerPadding * 2) / tabs.length;
   const indicatorWidth = tabWidth - 4;
 

@@ -6,14 +6,13 @@ import {
   Modal,
   TouchableOpacity,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ALERT_WIDTH = Math.min(SCREEN_WIDTH - 48, 340);
+import { WIDTH_CAPPED } from '../utils/responsive';
+const ALERT_WIDTH = Math.min(WIDTH_CAPPED - 48, 340);
 
 export type AlertType = 'success' | 'error' | 'warning' | 'info' | 'confirm';
 

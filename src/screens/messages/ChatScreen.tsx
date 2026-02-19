@@ -7,7 +7,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
   Modal,
   ActivityIndicator,
   Keyboard,
@@ -59,7 +58,7 @@ import { filterContent } from '../../utils/contentFilters';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sanitizeDisplayText } from '../../utils/sanitize';
 
-const { width } = Dimensions.get('window');
+import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
 
 interface MessageItemProps {
   item: Message;
@@ -1546,7 +1545,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   messageRowLeft: { justifyContent: 'flex-start' },
   messageRowRight: { justifyContent: 'flex-end' },
   avatarSpace: { width: 32, marginRight: 8 },
-  messageBubble: { maxWidth: width * 0.75, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
+  messageBubble: { maxWidth: WIDTH_CAPPED * 0.75, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
   messageBubbleLeft: { backgroundColor: colors.backgroundSecondary, borderBottomLeftRadius: 4 },
   messageBubbleRight: { backgroundColor: colors.primary, borderBottomRightRadius: 4 },
   messageBubbleNoPadding: { padding: 0, overflow: 'hidden' },
@@ -1568,7 +1567,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   emptyChatText: { fontSize: 14, color: colors.gray, marginTop: SPACING.sm, textAlign: 'center' },
   imageModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   closeImageBtn: { position: 'absolute', right: 20, zIndex: 10 },
-  fullImage: { width: width, height: width },
+  fullImage: { width: SCREEN_WIDTH, height: SCREEN_WIDTH },
   voicePreviewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: SPACING.lg },
   voicePreviewCard: { backgroundColor: '#fff', borderRadius: 18, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, alignItems: 'stretch' },
   voicePreviewTitle: { fontSize: 18, fontWeight: '700', color: '#111', marginBottom: SPACING.md, textAlign: 'center' },

@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import SkeletonBase from './SkeletonBase';
 import SkeletonLine from './SkeletonLine';
 import { SPACING } from '../../config/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 48;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+const CARD_WIDTH = WIDTH_CAPPED - 48;
 
 const MapListSkeleton = () => (
   <View style={styles.container}>

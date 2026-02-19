@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import SkeletonBase from './SkeletonBase';
 import { useTheme } from '../../hooks/useTheme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const COLUMN_WIDTH = (SCREEN_WIDTH - 48) / 2;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+const COLUMN_WIDTH = (WIDTH_CAPPED - 48) / 2;
 
 const CARD_HEIGHTS = [180, 220, 160, 200, 190, 170];
 

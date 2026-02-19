@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,9 +14,9 @@ import { GRADIENTS, DARK_GRADIENTS, SHADOWS } from '../../config/theme';
 import { resolveDisplayName } from '../../types/profile';
 import { sanitizeOptionalText } from '../../utils/sanitize';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 32;
-const COMPACT_CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+const CARD_WIDTH = WIDTH_CAPPED - 32;
+const COMPACT_CARD_WIDTH = (WIDTH_CAPPED - 48) / 2;
 
 interface ChallengeCreator {
   id: string;

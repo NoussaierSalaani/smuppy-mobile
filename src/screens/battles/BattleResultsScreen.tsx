@@ -10,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   ScrollView,
   Alert,
 } from 'react-native';
@@ -30,7 +29,7 @@ import { awsAPI } from '../../services/aws-api';
 import { GRADIENTS } from '../../config/theme';
 import { resolveDisplayName } from '../../types/profile';
 
-const { width } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 interface Participant {
   id: string;
@@ -578,7 +577,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) =>
       fontSize: 16,
       fontWeight: '600',
       color: isDark ? colors.white : colors.dark,
-      maxWidth: width * 0.35,
+      maxWidth: WIDTH_CAPPED * 0.35,
     },
     badge: {
       marginLeft: 4,

@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import SkeletonBase from './SkeletonBase';
 import SkeletonLine from './SkeletonLine';
 import { useTheme } from '../../hooks/useTheme';
 import { SPACING } from '../../config/theme';
 
-const { width } = Dimensions.get('window');
+import { SCREEN_WIDTH } from '../../utils/responsive';
 
 const FeedPostSkeleton = () => {
   const { colors } = useTheme();
@@ -22,7 +22,7 @@ const FeedPostSkeleton = () => {
       </View>
 
       {/* Image placeholder */}
-      <SkeletonBase width={width} height={width * 1.1} borderRadius={0} style={styles.image} />
+      <SkeletonBase width={SCREEN_WIDTH} height={SCREEN_WIDTH * 1.1} borderRadius={0} style={styles.image} />
 
       {/* Actions row */}
       <View style={styles.actions}>

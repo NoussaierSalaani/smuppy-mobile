@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -27,8 +26,8 @@ import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 48;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+const CARD_WIDTH = WIDTH_CAPPED - 48;
 
 interface PaymentMethod {
   id: string;

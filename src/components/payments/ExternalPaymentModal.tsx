@@ -11,7 +11,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,7 +18,7 @@ import { BlurView } from 'expo-blur';
 import { GRADIENTS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 interface ExternalPaymentModalProps {
   visible: boolean;
@@ -144,7 +143,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   container: {
-    width: SCREEN_WIDTH - 48,
+    width: WIDTH_CAPPED - 48,
     backgroundColor: colors.cardBg,
     borderRadius: 24,
     padding: 24,

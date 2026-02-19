@@ -11,7 +11,6 @@ import {
   Modal,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +21,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import type { Peak } from '../../services/aws-api';
 import { sanitizeDisplayText } from '../../utils/sanitize';
 
-const { width } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 interface ExpiredPeakModalProps {
   visible: boolean;
@@ -327,8 +326,8 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     marginBottom: 20,
   },
   thumbnailContainer: {
-    width: width * 0.55,
-    height: width * 0.55 * 1.5,
+    width: WIDTH_CAPPED * 0.55,
+    height: WIDTH_CAPPED * 0.55 * 1.5,
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,

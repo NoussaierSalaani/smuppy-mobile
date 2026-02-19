@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import SkeletonBase from './SkeletonBase';
 import SkeletonLine from './SkeletonLine';
 import { useTheme } from '../../hooks/useTheme';
 import { SPACING } from '../../config/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 const ScreenSkeleton = () => {
   const { colors } = useTheme();
@@ -24,7 +24,7 @@ const ScreenSkeleton = () => {
         <SkeletonLine width="70%" height={16} />
         <SkeletonLine width="90%" height={12} style={styles.line} />
         <SkeletonLine width="80%" height={12} style={styles.line} />
-        <SkeletonBase width={SCREEN_WIDTH - SPACING.base * 2} height={180} borderRadius={12} style={styles.block} />
+        <SkeletonBase width={WIDTH_CAPPED - SPACING.base * 2} height={180} borderRadius={12} style={styles.block} />
         <SkeletonLine width="60%" height={12} style={styles.line} />
         <SkeletonLine width="85%" height={12} style={styles.line} />
       </View>

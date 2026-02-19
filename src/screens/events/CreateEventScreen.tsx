@@ -16,7 +16,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Dimensions,
   Platform,
   KeyboardAvoidingView,
   Keyboard,
@@ -54,7 +53,7 @@ import { sanitizeDisplayText } from '../../utils/sanitize';
 
 Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 const SEGMENT_GAP = 6;
 
@@ -101,7 +100,7 @@ const TOTAL_STEPS = 4;
 
 // ─── Segmented progress bar (4 discrete segments with gaps) ──────
 const ProgressSegments: React.FC<{ current: number; total: number; colors: ThemeColors }> = ({ current, total, colors }) => {
-  const segmentWidth = (SCREEN_WIDTH - 32 - SEGMENT_GAP * (total - 1)) / total;
+  const segmentWidth = (WIDTH_CAPPED - 32 - SEGMENT_GAP * (total - 1)) / total;
   return (
     <View style={{ flexDirection: 'row', gap: SEGMENT_GAP, paddingHorizontal: 16, marginBottom: 8 }}>
       {Array.from({ length: total }).map((_, i) => (

@@ -1,15 +1,15 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import SkeletonBase from './SkeletonBase';
 import SkeletonLine from './SkeletonLine';
 import { useTheme } from '../../hooks/useTheme';
 import { SPACING } from '../../config/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
 const AVATAR_SIZE = 96;
 const GRID_COLS = 3;
 const GRID_GAP = 2;
-const GRID_ITEM_SIZE = (SCREEN_WIDTH - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
+const GRID_ITEM_SIZE = (WIDTH_CAPPED - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
 
 const ProfileSkeleton = () => {
   const { colors } = useTheme();

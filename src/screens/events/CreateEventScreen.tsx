@@ -266,7 +266,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
     setLocationName(formatted.fullAddress);
     setLocationSuggestions([]);
     if (result.lat && result.lon) {
-      setCoordinates({ lat: parseFloat(result.lat), lng: parseFloat(result.lon) });
+      setCoordinates({ lat: Number.parseFloat(result.lat), lng: Number.parseFloat(result.lon) });
     }
     Keyboard.dismiss();
   }, []);
@@ -464,7 +464,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
       endsAt: endDate?.toISOString(),
       maxParticipants: maxParticipants ? Number.parseInt(maxParticipants) : undefined,
       isFree,
-      price: !isFree && price ? parseFloat(price) : undefined,
+      price: !isFree && price ? Number.parseFloat(price) : undefined,
       currency: currency.code,
       isPublic,
       isFansOnly: isPublic ? isFansOnly : false,
@@ -522,7 +522,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       max_participants: maxParticipants ? Number.parseInt(maxParticipants) : undefined,
       is_free: isFree,
-      price: !isFree && price ? parseFloat(price) : undefined,
+      price: !isFree && price ? Number.parseFloat(price) : undefined,
       currency: currency.code,
       is_public: isPublic,
       is_fans_only: false,

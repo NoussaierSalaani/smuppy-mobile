@@ -115,7 +115,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Calculate amounts (80% to creator, 20% platform fee)
-    const totalAmount = Math.round(parseFloat(pack.price) * 100); // cents
+    const totalAmount = Math.round(Number.parseFloat(pack.price) * 100); // cents
     const platformFee = Math.round(totalAmount * (PLATFORM_FEE_PERCENT / 100));
 
     // Create payment intent with transfer to creator
@@ -166,7 +166,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           sessionsIncluded: pack.sessions_included,
           sessionDuration: pack.session_duration,
           validityDays: pack.validity_days,
-          price: parseFloat(pack.price),
+          price: Number.parseFloat(pack.price),
         },
       }),
     };

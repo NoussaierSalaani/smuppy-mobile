@@ -305,8 +305,8 @@ export const reverseGeocodeNominatim = async (
   }
 
   // Validate lat/lon in response are valid numbers
-  const responseLat = parseFloat(data.lat);
-  const responseLon = parseFloat(data.lon);
+  const responseLat = Number.parseFloat(data.lat);
+  const responseLon = Number.parseFloat(data.lon);
   if (!isValidCoordinate(responseLat, responseLon)) {
     return null;
   }

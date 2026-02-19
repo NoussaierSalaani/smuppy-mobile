@@ -117,7 +117,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (sessionResult.rows.length === 0) {
         return { statusCode: 404, headers, body: JSON.stringify({ message: 'Session not found' }) };
       }
-      verifiedAmount = Math.round(parseFloat(sessionResult.rows[0].price) * 100);
+      verifiedAmount = Math.round(Number.parseFloat(sessionResult.rows[0].price) * 100);
     } else if (type === 'pack' && packId) {
       const packResult = await db.query(
         'SELECT price FROM session_packs WHERE id = $1 AND creator_id = $2',
@@ -126,7 +126,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (packResult.rows.length === 0) {
         return { statusCode: 404, headers, body: JSON.stringify({ message: 'Pack not found' }) };
       }
-      verifiedAmount = Math.round(parseFloat(packResult.rows[0].price) * 100);
+      verifiedAmount = Math.round(Number.parseFloat(packResult.rows[0].price) * 100);
     } else {
       return {
         statusCode: 400,

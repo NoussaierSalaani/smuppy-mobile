@@ -41,7 +41,7 @@ const maskEmail = (email: string): string => {
 
 const scrubValue = (value: unknown): unknown => {
   if (typeof value === 'string') {
-    return value.replace(EMAIL_REGEX, (match) => maskEmail(match));
+    return value.replaceAll(EMAIL_REGEX, (match) => maskEmail(match));
   }
   return value;
 };

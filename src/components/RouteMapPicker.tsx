@@ -358,8 +358,8 @@ export default function RouteMapPicker({
   const selectSuggestion = useCallback((result: NominatimSearchResult, field: ActiveField) => {
     const formatted = formatNominatimResult(result);
     const address = formatted.mainText + (formatted.secondaryText ? ', ' + formatted.secondaryText : '');
-    const parsedLat = parseFloat(result.lat);
-    const parsedLng = parseFloat(result.lon);
+    const parsedLat = Number.parseFloat(result.lat);
+    const parsedLng = Number.parseFloat(result.lon);
 
     // Validate parsed coordinates before using them
     if (!isValidCoordinate(parsedLat, parsedLng)) {

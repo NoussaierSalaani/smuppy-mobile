@@ -47,9 +47,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const q = event.queryStringParameters || {};
     const category = q.category?.replaceAll(/<[^>]*>/g, '').substring(0, 50);
     const search = q.search?.replaceAll(/<[^>]*>/g, '').substring(0, 100);
-    const lat = q.lat ? parseFloat(q.lat) : undefined;
-    const lng = q.lng ? parseFloat(q.lng) : undefined;
-    const radius = q.radius ? Math.min(parseFloat(q.radius), 100) : DEFAULT_RADIUS_KM;
+    const lat = q.lat ? Number.parseFloat(q.lat) : undefined;
+    const lng = q.lng ? Number.parseFloat(q.lng) : undefined;
+    const radius = q.radius ? Math.min(Number.parseFloat(q.radius), 100) : DEFAULT_RADIUS_KM;
     const limit = Math.min(Number.parseInt(q.limit || String(DEFAULT_LIMIT)), MAX_LIMIT);
     const cursor = q.cursor || undefined;
 

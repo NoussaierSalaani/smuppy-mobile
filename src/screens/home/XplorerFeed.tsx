@@ -490,8 +490,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
         const results = await searchNominatim(query, { limit: 5 });
         // Filter to only valid coordinates
         const validResults = results.filter(r => {
-          const lat = parseFloat(r.lat);
-          const lon = parseFloat(r.lon);
+          const lat = Number.parseFloat(r.lat);
+          const lon = Number.parseFloat(r.lon);
           return isValidCoordinate(lat, lon);
         });
         setAddressSuggestions(validResults);
@@ -513,8 +513,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // ============================================
 
   const handleAddressSelect = useCallback((result: NominatimSearchResult) => {
-    const lat = parseFloat(result.lat);
-    const lon = parseFloat(result.lon);
+    const lat = Number.parseFloat(result.lat);
+    const lon = Number.parseFloat(result.lon);
 
     if (!isValidCoordinate(lat, lon) || !cameraRef.current) return;
 

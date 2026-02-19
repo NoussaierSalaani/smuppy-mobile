@@ -299,7 +299,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       hasPrize: row.has_prize,
       prizeDescription: row.prize_description,
       tipsEnabled: row.tips_enabled,
-      totalTips: row.total_tips ? parseFloat(row.total_tips as string) : 0,
+      totalTips: row.total_tips ? Number.parseFloat(row.total_tips as string) : 0,
       responseCount: row.response_count,
       viewCount: row.view_count,
       status: row.status,

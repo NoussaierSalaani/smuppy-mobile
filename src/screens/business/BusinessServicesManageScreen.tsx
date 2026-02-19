@@ -182,7 +182,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       return;
     }
 
-    if (!formPrice || Number.isNaN(parseFloat(formPrice))) {
+    if (!formPrice || Number.isNaN(Number.parseFloat(formPrice))) {
       showError('Error', 'Valid price is required');
       return;
     }
@@ -195,7 +195,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         name: formName.trim(),
         description: formDescription.trim() || undefined,
         category: formCategory,
-        price_cents: Math.round(parseFloat(formPrice) * 100),
+        price_cents: Math.round(Number.parseFloat(formPrice) * 100),
         duration_minutes: formDuration ? Number.parseInt(formDuration) : undefined,
         is_subscription: formIsSubscription,
         subscription_period: formIsSubscription ? formSubscriptionPeriod : undefined,

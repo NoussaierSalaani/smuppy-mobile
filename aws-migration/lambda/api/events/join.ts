@@ -161,7 +161,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             body: JSON.stringify({
               success: true,
               requiresPayment: true,
-              price: parseFloat(eventData.price),
+              price: Number.parseFloat(eventData.price),
               currency: eventData.currency,
               message: 'Payment required to register',
             }),

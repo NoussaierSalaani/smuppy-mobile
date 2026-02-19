@@ -191,7 +191,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           open: Number.parseInt(stats.open),
           underReview: Number.parseInt(stats.under_review),
           resolved: Number.parseInt(stats.resolved),
-          avgResolutionTime: Math.round(parseFloat(stats.avg_resolution_hours) || 0),
+          avgResolutionTime: Math.round(Number.parseFloat(stats.avg_resolution_hours) || 0),
         },
       }),
     };

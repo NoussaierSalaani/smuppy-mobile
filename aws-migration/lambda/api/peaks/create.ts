@@ -118,7 +118,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (Array.isArray(hashtags)) {
       for (const tag of hashtags.slice(0, 30)) {
         if (typeof tag === 'string' && tag.length > 0 && tag.length <= 100) {
-          const sanitized = tag.toLowerCase().replace(/[^\p{L}\p{N}_]/gu, '');
+          const sanitized = tag.toLowerCase().replaceAll(/[^\p{L}\p{N}_]/gu, '');
           if (sanitized.length > 0 && sanitized.length <= 100) {
             validHashtags.push(sanitized);
           }

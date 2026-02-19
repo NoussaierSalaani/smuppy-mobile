@@ -19,7 +19,7 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Calendar from 'expo-calendar';
+import type * as CalendarTypes from 'expo-calendar';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { isValidUUID } from '../../utils/formatters';
@@ -82,12 +82,9 @@ const SessionDetailScreen = (): React.JSX.Element => {
   };
 
   const handleAddToCalendar = async () => {
-    if (!Calendar.getCalendarsAsync) {
-      showError('Unavailable', 'Calendar feature is not available in this build.');
-      return;
-    }
-
     try {
+      const Calendar: typeof CalendarTypes = require('expo-calendar');
+
       const { status } = await Calendar.requestCalendarPermissionsAsync();
       if (status !== 'granted') {
         showError('Permission Denied', 'Calendar access is required.');
@@ -96,8 +93,8 @@ const SessionDetailScreen = (): React.JSX.Element => {
 
       const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
       const defaultCalendar = calendars.find(
-        (cal: Calendar.Calendar) => cal.allowsModifications && cal.source.name === 'Default'
-      ) || calendars.find((cal: Calendar.Calendar) => cal.allowsModifications);
+        (cal: CalendarTypes.Calendar) => cal.allowsModifications && cal.source.name === 'Default'
+      ) || calendars.find((cal: CalendarTypes.Calendar) => cal.allowsModifications);
 
       if (!defaultCalendar) {
         showError('Error', 'No calendar available.');
@@ -119,9 +116,14 @@ const SessionDetailScreen = (): React.JSX.Element => {
       });
 
       showSuccess('Added', 'Session added to your calendar.');
-    } catch (error) {
-      if (__DEV__) console.warn('Calendar error:', error);
-      showError('Error', 'Could not add to calendar.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('plist') || msg.includes('MissingCalendar') || msg.includes('NSCalendars')) {
+        showError('Unavailable', 'Calendar feature is not available in this build.');
+      } else {
+        if (__DEV__) console.warn('Calendar error:', error);
+        showError('Error', 'Could not add to calendar.');
+      }
     }
   };
 

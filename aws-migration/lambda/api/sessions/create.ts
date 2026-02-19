@@ -236,7 +236,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             status: session.status,
             scheduledAt: session.scheduled_at,
             duration: session.duration,
-            price: parseFloat(session.price),
+            price: Number.parseFloat(session.price),
             creatorId: session.creator_id,
             creatorName: creator.full_name,
           },

@@ -31,8 +31,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const lat = parseFloat(latParam);
-    const lng = parseFloat(lngParam);
+    const lat = Number.parseFloat(latParam);
+    const lng = Number.parseFloat(lngParam);
 
     if (Number.isNaN(lat) || lat < -90 || lat > 90) {
       return {

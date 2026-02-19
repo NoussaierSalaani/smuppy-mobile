@@ -337,8 +337,8 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             display_name: result.display_name,
             main_text: formatted.mainText,
             secondary_text: formatted.secondaryText,
-            lat: parseFloat(result.lat),
-            lon: parseFloat(result.lon),
+            lat: Number.parseFloat(result.lat),
+            lon: Number.parseFloat(result.lon),
           };
         });
 

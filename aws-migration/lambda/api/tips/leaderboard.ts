@@ -107,7 +107,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         displayName: row.display_name,
         avatarUrl: row.avatar_url,
       },
-      totalAmount: parseFloat(row.total_amount as string),
+      totalAmount: Number.parseFloat(row.total_amount as string),
       tipCount: Number.parseInt(row.tip_count as string),
     }));
 
@@ -119,8 +119,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         leaderboard,
         stats: {
           uniqueTippers: Number.parseInt(statsResult.rows[0].unique_tippers),
-          totalAmount: parseFloat(statsResult.rows[0].total_amount),
-          creatorTotal: parseFloat(statsResult.rows[0].creator_total),
+          totalAmount: Number.parseFloat(statsResult.rows[0].total_amount),
+          creatorTotal: Number.parseFloat(statsResult.rows[0].creator_total),
         },
       }),
     });

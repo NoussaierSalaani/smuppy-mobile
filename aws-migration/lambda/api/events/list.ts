@@ -65,9 +65,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     let lonIdx = 0;
 
     if (hasCoords) {
-      params.push(parseFloat(latitude));
+      params.push(Number.parseFloat(latitude));
       latIdx = params.length; // $1
-      params.push(parseFloat(longitude));
+      params.push(Number.parseFloat(longitude));
       lonIdx = params.length; // $2
     }
 
@@ -139,7 +139,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Filter: nearby (within radius)
     if (filter === 'nearby' && hasCoords) {
-      const radiusNum = Math.max(1, Math.min(500, parseFloat(radiusKm) || 50));
+      const radiusNum = Math.max(1, Math.min(500, Number.parseFloat(radiusKm) || 50));
       params.push(radiusNum);
       whereConditions.push(`
         (6371 * acos(cos(radians($${latIdx})) * cos(radians(e.latitude))
@@ -289,10 +289,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       location: {
         name: row.location_name,
         address: row.address,
-        latitude: parseFloat(row.latitude as string),
-        longitude: parseFloat(row.longitude as string),
+        latitude: Number.parseFloat(row.latitude as string),
+        longitude: Number.parseFloat(row.longitude as string),
       },
-      distance: row.distance_km ? parseFloat((row.distance_km as number).toFixed(1)) : null,
+      distance: row.distance_km ? Number.parseFloat((row.distance_km as number).toFixed(1)) : null,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
       timezone: row.timezone,
@@ -305,7 +305,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           : null,
       },
       isFree: row.is_free,
-      price: row.price ? parseFloat(row.price as string) : null,
+      price: row.price ? Number.parseFloat(row.price as string) : null,
       currency: row.currency,
       isPublic: row.is_public,
       isFansOnly: row.is_fans_only,
@@ -313,7 +313,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       route: row.has_route
         ? {
             distanceKm: row.route_distance_km
-              ? parseFloat(row.route_distance_km as string)
+              ? Number.parseFloat(row.route_distance_km as string)
               : null,
             elevationGainM: row.route_elevation_gain_m,
             difficulty: row.route_difficulty,

@@ -124,7 +124,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const priceInCents = editPrice ? Math.round(parseFloat(editPrice) * 100) : undefined;
+      const priceInCents = editPrice ? Math.round(Number.parseFloat(editPrice) * 100) : undefined;
 
       const response = await awsAPI.updateEvent(eventId, {
         title: editTitle.trim(),

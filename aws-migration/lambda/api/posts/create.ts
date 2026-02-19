@@ -151,12 +151,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const CONTROL_CHARS = /[\x00-\x1F\x7F]/g; // NOSONAR — intentional control char sanitization
     const sanitizedContent = (body.content || '')
       .replaceAll(/<[^>]*>/g, '')
-      .replace(CONTROL_CHARS, '')
+      .replaceAll(CONTROL_CHARS, '')
       .trim()
       .slice(0, MAX_POST_CONTENT_LENGTH);
 
     const sanitizedLocation = body.location
-      ? body.location.replaceAll(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().slice(0, 200)
+      ? body.location.replaceAll(/<[^>]*>/g, '').replaceAll(CONTROL_CHARS, '').trim().slice(0, 200)
       : null;
 
     // Comprehend flag tracking

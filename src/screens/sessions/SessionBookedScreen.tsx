@@ -13,7 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import * as Calendar from 'expo-calendar';
+import type * as CalendarTypes from 'expo-calendar';
 import { GRADIENTS } from '../../config/theme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
@@ -38,13 +38,9 @@ export default function SessionBookedScreen(): React.JSX.Element {
   };
 
   const handleAddToCalendar = async () => {
-    if (!Calendar.getCalendarsAsync) {
-      showError('Unavailable', 'Calendar feature is not available in this build.');
-      return;
-    }
-
     try {
-      // Request calendar permissions
+      const Calendar: typeof CalendarTypes = require('expo-calendar');
+
       const { status } = await Calendar.requestCalendarPermissionsAsync();
 
       if (status !== 'granted') {
@@ -52,22 +48,20 @@ export default function SessionBookedScreen(): React.JSX.Element {
         return;
       }
 
-      // Get default calendar
       const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
       const defaultCalendar = calendars.find(
-        (cal: Calendar.Calendar) =>
+        (cal: CalendarTypes.Calendar) =>
           cal.allowsModifications &&
           (Platform.OS === 'ios'
             ? cal.source.name === 'iCloud' || cal.source.name === 'Default'
             : cal.isPrimary)
-      ) || calendars.find((cal: Calendar.Calendar) => cal.allowsModifications);
+      ) || calendars.find((cal: CalendarTypes.Calendar) => cal.allowsModifications);
 
       if (!defaultCalendar) {
         showError('Error', 'No writable calendar found on this device.');
         return;
       }
 
-      // Create event date/time
       const sessionDate = date.fullDate || new Date();
       const [hours, minutes] = time.split(':').map(Number);
       const startDate = new Date(sessionDate);
@@ -76,7 +70,6 @@ export default function SessionBookedScreen(): React.JSX.Element {
       const endDate = new Date(startDate);
       endDate.setMinutes(endDate.getMinutes() + duration);
 
-      // Create the calendar event
       await Calendar.createEventAsync(defaultCalendar.id, {
         title: `Session with ${creator.name}`,
         notes: `Private 1-to-1 session on Smuppy\n\nDuration: ${duration} minutes`,
@@ -90,9 +83,14 @@ export default function SessionBookedScreen(): React.JSX.Element {
       });
 
       showSuccess('Added to Calendar', `Your session with ${creator.name} has been added to your calendar.`);
-    } catch (error) {
-      if (__DEV__) console.warn('[Calendar] Error adding event:', error);
-      showError('Error', 'Failed to add event to calendar. Please try again.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('plist') || msg.includes('MissingCalendar') || msg.includes('NSCalendars')) {
+        showError('Unavailable', 'Calendar feature is not available in this build.');
+      } else {
+        if (__DEV__) console.warn('[Calendar] Error adding event:', error);
+        showError('Error', 'Failed to add event to calendar. Please try again.');
+      }
     }
   };
 

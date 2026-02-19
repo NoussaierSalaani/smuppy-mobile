@@ -102,7 +102,7 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
 
   // Numeric coordinate fields
   if (field === 'businessLatitude' || field === 'businessLongitude') {
-    if (typeof value !== 'number' || !isFinite(value)) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
       return { valid: false, sanitized: null, error: `${field} must be a valid number` };
     }
     if (field === 'businessLatitude' && (value < -90 || value > 90)) {
@@ -424,8 +424,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         businessName: profile.business_name,
         businessCategory: profile.business_category,
         businessAddress: profile.business_address,
-        businessLatitude: profile.business_latitude && String(profile.business_latitude).trim() ? parseFloat(profile.business_latitude) : null,
-        businessLongitude: profile.business_longitude && String(profile.business_longitude).trim() ? parseFloat(profile.business_longitude) : null,
+        businessLatitude: profile.business_latitude && String(profile.business_latitude).trim() ? Number.parseFloat(profile.business_latitude) : null,
+        businessLongitude: profile.business_longitude && String(profile.business_longitude).trim() ? Number.parseFloat(profile.business_longitude) : null,
         businessPhone: profile.business_phone,
         locationsMode: profile.locations_mode,
         onboardingCompleted: profile.onboarding_completed,

@@ -136,7 +136,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         success: true,
         settings: {
           sessionsEnabled: settings.sessions_enabled,
-          sessionPrice: parseFloat(settings.session_price || 0),
+          sessionPrice: Number.parseFloat(settings.session_price || 0),
           sessionDuration: settings.session_duration,
           sessionAvailability: settings.session_availability,
           timezone: settings.timezone,

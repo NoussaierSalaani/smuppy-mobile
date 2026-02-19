@@ -186,9 +186,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }, {} as Record<string, { name: string; avatar: string }>);
     }
 
-    const sessionsTotal = parseFloat(sessionsEarnings.rows[0]?.sessions_total || 0);
-    const packsTotal = parseFloat(packsEarnings.rows[0]?.packs_total || 0);
-    const subscriptionsTotal = parseFloat(subscriptionsEarnings.rows[0]?.subscriptions_total || 0);
+    const sessionsTotal = Number.parseFloat(sessionsEarnings.rows[0]?.sessions_total || 0);
+    const packsTotal = Number.parseFloat(packsEarnings.rows[0]?.packs_total || 0);
+    const subscriptionsTotal = Number.parseFloat(subscriptionsEarnings.rows[0]?.subscriptions_total || 0);
     const totalEarnings = sessionsTotal + packsTotal + subscriptionsTotal;
 
     // Get pending balance (simulated - in real app, fetch from Stripe)
@@ -222,7 +222,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           transactions: transactions.rows.map((t: Record<string, unknown>) => ({
             id: t.id,
             type: t.type,
-            amount: parseFloat(t.amount as string),
+            amount: Number.parseFloat(t.amount as string),
             currency: t.currency,
             status: t.status,
             description: t.description,

@@ -20,7 +20,7 @@ const CONTROL_CHAR_RELAXED_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g; // NOSONAR
  * Use for display-only sanitization (profile names, post content, etc.)
  */
 export function sanitizeDisplayText(text: string): string {
-  return text.replace(HTML_TAG_RE, '').replace(CONTROL_CHAR_RE, '').trim();
+  return text.replaceAll(HTML_TAG_RE, '').replaceAll(CONTROL_CHAR_RE, '').trim();
 }
 
 /**
@@ -28,7 +28,7 @@ export function sanitizeDisplayText(text: string): string {
  * Use for multi-line content (bios, descriptions, messages).
  */
 export function sanitizeContentText(text: string): string {
-  return text.replace(HTML_TAG_RE, '').replace(CONTROL_CHAR_RELAXED_RE, '').trim();
+  return text.replaceAll(HTML_TAG_RE, '').replaceAll(CONTROL_CHAR_RELAXED_RE, '').trim();
 }
 
 /**

@@ -66,9 +66,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     let lonIdx = 0;
 
     if (hasCoords) {
-      params.push(parseFloat(latitude));
+      params.push(Number.parseFloat(latitude));
       latIdx = params.length;
-      params.push(parseFloat(longitude));
+      params.push(Number.parseFloat(longitude));
       lonIdx = params.length;
     }
 
@@ -137,7 +137,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     if (filter === 'nearby' && hasCoords) {
-      const radiusNum = Math.max(1, Math.min(500, parseFloat(radiusKm) || 50));
+      const radiusNum = Math.max(1, Math.min(500, Number.parseFloat(radiusKm) || 50));
       params.push(radiusNum);
       whereConditions.push(`
         (6371 * acos(cos(radians($${latIdx})) * cos(radians(g.latitude))
@@ -247,10 +247,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       category: row.category,
       subcategory: row.subcategory,
       sportType: row.sport_type,
-      latitude: parseFloat(row.latitude as string),
-      longitude: parseFloat(row.longitude as string),
+      latitude: Number.parseFloat(row.latitude as string),
+      longitude: Number.parseFloat(row.longitude as string),
       address: row.address,
-      distance: row.distance_km ? parseFloat((row.distance_km as number).toFixed(1)) : null,
+      distance: row.distance_km ? Number.parseFloat((row.distance_km as number).toFixed(1)) : null,
       startsAt: row.starts_at,
       timezone: row.timezone,
       maxParticipants: row.max_participants,
@@ -259,7 +259,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         ? (row.max_participants as number) - (row.current_participants as number)
         : null,
       isFree: row.is_free,
-      price: row.price ? parseFloat(row.price as string) : null,
+      price: row.price ? Number.parseFloat(row.price as string) : null,
       currency: row.currency,
       isPublic: row.is_public,
       isFansOnly: row.is_fans_only,
@@ -269,7 +269,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       routeWaypoints: row.route_waypoints,
       routeGeojson: row.route_geojson,
       routeProfile: row.route_profile,
-      routeDistanceKm: row.route_distance_km ? parseFloat(row.route_distance_km as string) : null,
+      routeDistanceKm: row.route_distance_km ? Number.parseFloat(row.route_distance_km as string) : null,
       routeDurationMin: row.route_duration_min,
       routeElevationGain: row.route_elevation_gain,
       difficulty: row.difficulty,

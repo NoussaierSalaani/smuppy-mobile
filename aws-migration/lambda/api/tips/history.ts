@@ -122,9 +122,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const tips = rows.map((row: Record<string, unknown>) => ({
       id: row.id,
-      amount: parseFloat(row.amount as string),
+      amount: Number.parseFloat(row.amount as string),
       currency: row.currency,
-      creatorAmount: row.creator_amount ? parseFloat(row.creator_amount as string) : undefined,
+      creatorAmount: row.creator_amount ? Number.parseFloat(row.creator_amount as string) : undefined,
       contextType: row.context_type,
       contextId: row.context_id,
       message: row.message,
@@ -163,8 +163,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         tips,
         totals: {
           count: Number.parseInt(totalsResult.rows[0].total_count),
-          totalAmount: parseFloat(totalsResult.rows[0].total_amount),
-          monthAmount: parseFloat(totalsResult.rows[0].month_amount),
+          totalAmount: Number.parseFloat(totalsResult.rows[0].total_amount),
+          monthAmount: Number.parseFloat(totalsResult.rows[0].month_amount),
         },
         nextCursor,
         hasMore,

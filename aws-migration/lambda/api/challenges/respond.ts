@@ -276,7 +276,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           challengeId: response.challenge_id,
           peakId: response.peak_id,
           score: response.score,
-          timeSeconds: response.time_seconds ? parseFloat(response.time_seconds) : null,
+          timeSeconds: response.time_seconds ? Number.parseFloat(response.time_seconds) : null,
           voteCount: 0,
           tipAmount: 0,
           status: response.status,

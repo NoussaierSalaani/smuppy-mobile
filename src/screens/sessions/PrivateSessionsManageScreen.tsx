@@ -312,7 +312,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
 
       const response = await awsAPI.updateSessionSettings({
         sessionsEnabled: true,
-        sessionPrice: parseFloat(sessionPrice) || 20,
+        sessionPrice: Number.parseFloat(sessionPrice) || 20,
         sessionDuration: sessionDuration,
         sessionAvailability: availability,
       });
@@ -343,7 +343,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         sessionsIncluded: Number.parseInt(packSessions) || 8,
         sessionDuration: packDuration,
         validityDays: Number.parseInt(packValidity) || 30,
-        price: parseFloat(packPrice) || 0,
+        price: Number.parseFloat(packPrice) || 0,
         savingsPercent: 0,
       });
 

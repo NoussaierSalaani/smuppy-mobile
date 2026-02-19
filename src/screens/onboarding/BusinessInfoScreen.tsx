@@ -81,8 +81,8 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
   }, [searchPlaces]);
 
   const selectAddress = useCallback((suggestion: NominatimSearchResult) => {
-    const parsedLat = parseFloat(suggestion.lat);
-    const parsedLng = parseFloat(suggestion.lon);
+    const parsedLat = Number.parseFloat(suggestion.lat);
+    const parsedLng = Number.parseFloat(suggestion.lon);
 
     // Validate parsed coordinates before setting state
     if (!isValidCoordinate(parsedLat, parsedLng)) {

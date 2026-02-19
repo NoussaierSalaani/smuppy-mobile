@@ -169,7 +169,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           name: creator.full_name,
           username: creator.username,
           avatar: creator.avatar_url,
-          sessionPrice: parseFloat(creator.session_price || 0),
+          sessionPrice: Number.parseFloat(creator.session_price || 0),
           sessionDuration: creator.session_duration || 30,
           timezone: creator.timezone || 'Europe/Paris',
         },

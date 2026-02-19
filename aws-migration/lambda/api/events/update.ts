@@ -282,8 +282,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           location: {
             name: updated.location_name,
             address: updated.address,
-            latitude: parseFloat(updated.latitude),
-            longitude: parseFloat(updated.longitude),
+            latitude: Number.parseFloat(updated.latitude),
+            longitude: Number.parseFloat(updated.longitude),
           },
           startsAt: updated.starts_at,
           endsAt: updated.ends_at,
@@ -291,7 +291,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           maxParticipants: updated.max_participants,
           currentParticipants: updated.current_participants,
           isFree: updated.is_free,
-          price: updated.price ? parseFloat(updated.price) : null,
+          price: updated.price ? Number.parseFloat(updated.price) : null,
           currency: updated.currency,
           isPublic: updated.is_public,
           isFansOnly: updated.is_fans_only,
@@ -300,7 +300,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           route: updated.has_route
             ? {
                 distanceKm: updated.route_distance_km
-                  ? parseFloat(updated.route_distance_km)
+                  ? Number.parseFloat(updated.route_distance_km)
                   : null,
                 difficulty: updated.route_difficulty,
                 polyline: updated.route_polyline,

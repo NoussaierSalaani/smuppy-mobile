@@ -94,7 +94,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         sessionsIncluded: row.sessions_included,
         sessionDuration: row.session_duration,
         validityDays: row.validity_days,
-        price: parseFloat(row.price as string),
+        price: Number.parseFloat(row.price as string),
         savings: row.savings_percent || 0,
         creator: {
           id: row.creator_id,

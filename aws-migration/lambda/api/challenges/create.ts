@@ -318,7 +318,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           maxParticipants: challenge.max_participants,
           hasPrize: challenge.has_prize,
           prizeDescription: challenge.prize_description,
-          prizeAmount: challenge.prize_amount ? parseFloat(challenge.prize_amount) : null,
+          prizeAmount: challenge.prize_amount ? Number.parseFloat(challenge.prize_amount) : null,
           tipsEnabled: challenge.tips_enabled,
           responseCount: 0,
           viewCount: 0,

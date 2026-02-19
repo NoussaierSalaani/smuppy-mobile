@@ -133,7 +133,7 @@ const TipModal: React.FC<TipModalProps> = ({
     setSelectedAmount(null);
 
     if (cleaned) {
-      const amountCents = Math.round(parseFloat(cleaned) * 100);
+      const amountCents = Math.round(Number.parseFloat(cleaned) * 100);
       if (amountCents < MIN_TIP_AMOUNT_CENTS) {
         setError('Minimum tip is ' + formatAmount(MIN_TIP_AMOUNT_CENTS));
       } else if (amountCents > MAX_TIP_AMOUNT_CENTS) {
@@ -148,7 +148,7 @@ const TipModal: React.FC<TipModalProps> = ({
 
   const getFinalAmount = (): number => {
     if (selectedAmount) return selectedAmount;
-    if (customAmount) return Math.round(parseFloat(customAmount) * 100);
+    if (customAmount) return Math.round(Number.parseFloat(customAmount) * 100);
     return 0;
   };
 

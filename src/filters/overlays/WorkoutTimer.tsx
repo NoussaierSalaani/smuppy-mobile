@@ -33,9 +33,7 @@ export function WorkoutTimer({
   const pulse = useSharedValue(1);
 
   // Calculate progress
-  const progressValue = mode === 'countdown'
-    ? currentSeconds / totalSeconds
-    : currentSeconds / totalSeconds;
+  const progressValue = currentSeconds / totalSeconds;
 
   useEffect(() => {
     progress.value = withTiming(progressValue, {

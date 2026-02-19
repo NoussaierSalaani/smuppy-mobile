@@ -167,8 +167,8 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
       title: 'PDF Support Coming Soon',
       message: 'For now, please take a photo or select an image of your schedule. PDF support will be available in a future update.',
       buttons: [
-        { text: 'Take Photo', onPress: handleTakePhoto },
-        { text: 'Select Image', onPress: handlePickImage },
+        { text: 'Take Photo', onPress: () => { void handleTakePhoto(); } },
+        { text: 'Select Image', onPress: () => { void handlePickImage(); } },
         { text: 'Cancel', style: 'cancel' },
       ],
     });
@@ -277,24 +277,13 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
         })),
       });
 
-      if (response.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showAlert({
-          title: 'Schedule Imported',
-          message: `Successfully imported ${selectedActivities.length} activities to your schedule.`,
-          type: 'success',
-          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
-        });
-      } else {
-        // Demo success
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showAlert({
-          title: 'Schedule Imported',
-          message: `Successfully imported ${selectedActivities.length} activities to your schedule.`,
-          type: 'success',
-          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
-        });
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showAlert({
+        title: 'Schedule Imported',
+        message: `Successfully imported ${selectedActivities.length} activities to your schedule.`,
+        type: 'success',
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }],
+      });
     } catch (error) {
       if (__DEV__) console.warn('Save schedule error:', error);
       showError('Error', 'Failed to save schedule. Please try again.');

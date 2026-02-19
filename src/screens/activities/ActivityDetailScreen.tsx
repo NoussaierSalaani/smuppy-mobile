@@ -306,7 +306,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
           title: 'Payment Processing',
           message: checkoutResult.message,
           type: 'info',
-          buttons: [{ text: 'OK', onPress: loadActivityDetails }],
+          buttons: [{ text: 'OK', onPress: () => { void loadActivityDetails(); } }],
         });
         return;
       }
@@ -315,7 +315,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
         title: 'Payment Successful!',
         message: `You're now registered for "${normalizedActivity.title}".\n\nSee you there!`,
         type: 'success',
-        buttons: [{ text: 'View Details', onPress: loadActivityDetails }],
+        buttons: [{ text: 'View Details', onPress: () => { void loadActivityDetails(); } }],
       });
       setHasJoined(true);
       await loadActivityDetails();

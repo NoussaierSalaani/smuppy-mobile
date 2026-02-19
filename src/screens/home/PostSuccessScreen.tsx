@@ -180,7 +180,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   content: {
     flex: 1,
@@ -251,7 +251,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   successSubtitle: {
     fontSize: 18,
-    color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
     marginBottom: 40,
   },
@@ -264,7 +264,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   progressBar: {
     width: 150,
     height: 4,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 2,
     overflow: 'hidden',
   },

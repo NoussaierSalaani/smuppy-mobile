@@ -61,7 +61,7 @@ const sanitizeSearchQuery = (query: string): string | null => {
   sanitized = sanitized.replace(/<[^>]*>/g, '');
 
   // Strip control characters (except normal whitespace)
-  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — intentional control char sanitization
 
   // Re-check if empty after sanitization
   if (sanitized.trim().length === 0) {

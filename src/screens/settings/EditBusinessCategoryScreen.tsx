@@ -27,7 +27,6 @@ export default function EditBusinessCategoryScreen({ navigation, route }: EditBu
 
   const initialCategory = route?.params?.currentCategory
     || profileData?.business_category
-    || profileData?.business_category
     || user?.businessCategory
     || '';
 
@@ -35,7 +34,7 @@ export default function EditBusinessCategoryScreen({ navigation, route }: EditBu
   const [isSaving, setIsSaving] = useState(false);
 
   const hasChanges = useMemo(() => {
-    const current = profileData?.business_category || profileData?.business_category || user?.businessCategory || '';
+    const current = profileData?.business_category || user?.businessCategory || '';
     return selected !== current;
   }, [selected, profileData?.business_category, user?.businessCategory]);
 

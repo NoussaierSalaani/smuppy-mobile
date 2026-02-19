@@ -239,7 +239,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
             {item.media_type === 'audio' && item.media_url && (
               <VoiceMessage uri={item.media_url} isFromMe={isFromMe} />
             )}
-            {item.media_type === 'audio' && !item.media_url && item.content && (
+            {item.media_type === 'audio' && !item.media_url && !!item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
             {!item.shared_post_id && !item.shared_peak_id && !sharedProfileId && item.media_type !== 'audio' && !!item.content && (

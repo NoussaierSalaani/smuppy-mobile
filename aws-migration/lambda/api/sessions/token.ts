@@ -112,7 +112,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Determine user role
     const isCreator = session.creator_id === profileId;
-    const role = isCreator ? RtcRole.PUBLISHER : RtcRole.PUBLISHER; // Both can publish in 1:1
+    const role = RtcRole.PUBLISHER; // Both can publish in 1:1
 
     // Generate UID from profile ID (deterministic hash)
     const uid = Math.abs(hashCode(profileId)) % 1000000000;

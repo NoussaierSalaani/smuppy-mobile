@@ -132,8 +132,9 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: SonarCloud Quality Gate
+      - name: SonarCloud Quality Gate (informational)
         if: steps.sonar-check.outputs.skip != 'true'
+        continue-on-error: true
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:

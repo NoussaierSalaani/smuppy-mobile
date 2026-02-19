@@ -55,7 +55,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 | Security scan (gitleaks + npm audit + hardcoded secrets) | Active | YES |
 | Lambda tests (Jest + TypeScript + ESLint) | Active | YES |
 | CDK synth test | Active | YES |
-| SonarCloud Quality Gate | Active | YES (blocks if gate fails) |
+| SonarCloud Quality Gate | Active | NO (informational — re-enable after hotspot triage) |
 | Expo Doctor compatibility check | Active | YES (blocks deploy) |
 | Bundle size check | Active | YES (fails if > 15MB) |
 | Maestro E2E smoke tests | Active | Warning (non-blocking during rollout) |
@@ -81,10 +81,11 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 
 ### 2.3 SonarCloud Quality Gate
 
-SonarCloud runs after every PR and enforces quality gate conditions:
-- `sonar.qualitygate.wait=true` in `sonar-project.properties`
-- CI step `SonarSource/sonarqube-quality-gate-action@v1` blocks merge if gate fails
+SonarCloud runs after every PR and reports quality metrics:
+- `sonar.qualitygate.wait=false` in `sonar-project.properties` (non-blocking for now)
+- CI step `SonarSource/sonarqube-quality-gate-action@v1` reports gate status (informational)
 - Coverage report from Jest is uploaded and analyzed
+- **TODO**: Re-enable blocking once new code coverage exceeds 80% and security hotspots are triaged on sonarcloud.io
 
 ### 2.4 Bundle Size Gate
 

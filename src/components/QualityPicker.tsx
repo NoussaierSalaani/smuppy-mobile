@@ -5,15 +5,14 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GRADIENTS } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { SPOT_QUALITIES } from '../types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
+import { normalize } from '../utils/responsive';
 
 interface QualityPickerProps {
   /** Sport type or category key to determine which qualities to show */

@@ -12,7 +12,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Dimensions,
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
@@ -36,7 +35,7 @@ import { sanitizeDisplayText } from '../../utils/sanitize';
 import SharePostModal from '../../components/SharePostModal';
 import type { ShareContentData } from '../../hooks/useModalState';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 const TOTAL_STEPS = 5;
 
@@ -979,7 +978,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     gap: 12,
   },
   categoryCard: {
-    width: (SCREEN_WIDTH - 56) / 3,
+    width: (WIDTH_CAPPED - 56) / 3,
     aspectRatio: 1,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: 16,

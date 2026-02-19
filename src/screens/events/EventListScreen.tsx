@@ -10,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   FlatList,
   RefreshControl,
   Modal,
@@ -36,8 +35,9 @@ import { ENV } from '../../config/env';
 
 Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
-const { width, height } = Dimensions.get('window');
-const CARD_WIDTH = width - 48;
+import { SCREEN_HEIGHT, WIDTH_CAPPED } from '../../utils/responsive';
+
+const CARD_WIDTH = WIDTH_CAPPED - 48;
 
 interface EventCategory {
   id: string;
@@ -857,7 +857,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
-    maxHeight: height * 0.6,
+    maxHeight: SCREEN_HEIGHT * 0.6,
   },
   filterDrawerBlur: {
     backgroundColor: 'rgba(20,20,35,0.95)',
@@ -894,7 +894,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     gap: 12,
   },
   filterDrawerItem: {
-    width: (width - 56) / 3,
+    width: (WIDTH_CAPPED - 56) / 3,
     aspectRatio: 1,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 16,

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   StyleProp,
   ImageStyle,
 } from 'react-native';
@@ -13,8 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import OptimizedImage from '../OptimizedImage';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 48) / 2;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+
+const CARD_WIDTH = (WIDTH_CAPPED - 48) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.6;
 
 interface PeakUser {

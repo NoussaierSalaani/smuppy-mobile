@@ -10,7 +10,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   FlatList,
   RefreshControl,
   TextInput,
@@ -38,8 +37,9 @@ import { ENV } from '../../config/env';
 
 Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
-const { width, height } = Dimensions.get('window');
-const CARD_WIDTH = width - 48;
+import { SCREEN_HEIGHT, WIDTH_CAPPED } from '../../utils/responsive';
+
+const CARD_WIDTH = WIDTH_CAPPED - 48;
 
 // Business categories aligned with app's sports/wellness categories
 interface BusinessCategory {
@@ -1160,7 +1160,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     flex: 1,
   },
   filtersSheet: {
-    maxHeight: height * 0.75,
+    maxHeight: SCREEN_HEIGHT * 0.75,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
@@ -1197,7 +1197,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   filtersContent: {
     padding: 20,
-    maxHeight: height * 0.5,
+    maxHeight: SCREEN_HEIGHT * 0.5,
   },
   filterSection: {
     marginBottom: 24,
@@ -1239,7 +1239,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     gap: 10,
   },
   categoryGridItem: {
-    width: (width - 60) / 3,
+    width: (WIDTH_CAPPED - 60) / 3,
     alignItems: 'center',
     padding: 12,
     backgroundColor: colors.cardBg,

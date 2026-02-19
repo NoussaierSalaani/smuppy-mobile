@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ViewStyle, StyleProp, ImageStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, StyleProp, ImageStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
@@ -7,7 +7,7 @@ import { GRADIENTS, SIZES, SHADOWS } from '../config/theme';
 import OptimizedImage, { AvatarImage } from './OptimizedImage';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
-const { width } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../utils/responsive';
 const AVATAR_MARGIN_RIGHT = { marginRight: 2 } as const;
 
 type CardVariant = 'post' | 'suggestion' | 'addFriend' | 'vibe';
@@ -362,7 +362,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
 
   // Vibe Card Styles
   vibeCard: {
-    width: (width - 45) / 2,
+    width: (WIDTH_CAPPED - 45) / 2,
     borderRadius: SIZES.radiusLg,
     overflow: 'hidden',
   },

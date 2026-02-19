@@ -11,7 +11,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,8 +30,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
+import { normalize } from '../../utils/responsive';
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   easy: COLORS.teal,

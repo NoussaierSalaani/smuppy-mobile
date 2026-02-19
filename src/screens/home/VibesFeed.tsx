@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   Modal,
   Animated,
   RefreshControl,
@@ -65,10 +64,11 @@ import { formatNumber } from '../../utils/formatters';
 import { preloadImages } from '../../hooks/useImagePreload';
 import ExpiredPeakModal from '../../components/peaks/ExpiredPeakModal';
 
-const { width } = Dimensions.get('window');
+import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
+
 const GRID_PADDING = 8; // SPACING.sm
 const GRID_GAP = 10;
-const COLUMN_WIDTH = (width - (GRID_PADDING * 2) - GRID_GAP) / 2;
+const COLUMN_WIDTH = (WIDTH_CAPPED - (GRID_PADDING * 2) - GRID_GAP) / 2;
 const PEAK_CARD_WIDTH = 100;
 const PEAK_CARD_HEIGHT = 140;
 
@@ -1248,7 +1248,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                       pagingEnabled
                       showsHorizontalScrollIndicator={false}
                       onMomentumScrollEnd={(e) => {
-                        const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                        const slideIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                         setCarouselIndexes(prev => ({ ...prev, [selectedPost.id]: slideIndex }));
                       }}
                     >
@@ -2053,11 +2053,11 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   modalImageContainer: {
     position: 'relative',
-    width: width,
-    height: width * 1.25,
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 1.25,
   },
   modalImage: {
-    width: width,
+    width: SCREEN_WIDTH,
     height: '100%',
   },
   modalCarouselPagination: {
@@ -2184,7 +2184,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     justifyContent: 'space-between',
   },
   relatedCard: {
-    width: (width - 48) / 3,
+    width: (WIDTH_CAPPED - 48) / 3,
     borderRadius: SIZES.radiusSm,
     overflow: 'hidden',
     marginBottom: SPACING.sm,

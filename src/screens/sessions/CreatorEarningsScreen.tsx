@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +23,7 @@ import { formatRelativeTime } from '../../utils/dateFormatters';
 import { useCurrency } from '../../hooks/useCurrency';
 import { triggerHaptic } from '../../utils/haptics';
 
-const { width } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 
 type PeriodType = 'week' | 'month' | 'year' | 'all';
 
@@ -492,7 +491,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     marginBottom: 24,
   },
   statCard: {
-    width: (width - 48) / 4,
+    width: (WIDTH_CAPPED - 48) / 4,
     alignItems: 'center',
     paddingVertical: 12,
   },

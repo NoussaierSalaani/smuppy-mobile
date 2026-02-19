@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   Modal,
   StatusBar,
   ActivityIndicator,
@@ -49,7 +48,7 @@ import SharePostModal from '../../components/SharePostModal';
 import type { ShareContentData } from '../../hooks/useModalState';
 import { sanitizeContentText } from '../../utils/sanitize';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { WIDTH_CAPPED } from '../../utils/responsive';
 const COVER_HEIGHT = 282;
 const AVATAR_SIZE = 96;
 
@@ -2280,7 +2279,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     gap: 8,
   },
   peakCard: {
-    width: (SCREEN_WIDTH - 48) / 3,
+    width: (WIDTH_CAPPED - 48) / 3,
     height: 180,
     borderRadius: 12,
     overflow: 'hidden',
@@ -2334,7 +2333,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     gap: 8,
   },
   peakGroupCard: {
-    width: (SCREEN_WIDTH - 48) / 2,
+    width: (WIDTH_CAPPED - 48) / 2,
     height: 200,
     borderRadius: 12,
     overflow: 'hidden',

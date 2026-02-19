@@ -6,7 +6,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   StatusBar,
   TextInput,
   KeyboardAvoidingView,
@@ -34,7 +33,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { filterContent } from '../../utils/contentFilters';
 import { sanitizeDisplayText } from '../../utils/sanitize';
 
-const { width, height: _height } = Dimensions.get('window');
+import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
 
 interface Comment {
   id: string;
@@ -328,7 +327,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
                 {
                   translateX: anim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, (Math.random() - 0.5) * 100],
+                    outputRange: [0, (Math.random() - 0.5) * 100], // NOSONAR
                   }),
                 },
                 {
@@ -697,7 +696,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    maxWidth: width * 0.7,
+    maxWidth: SCREEN_WIDTH * 0.7,
   },
   commentUser: {
     color: 'rgba(255,255,255,0.7)',
@@ -766,7 +765,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     backgroundColor: colors.background,
     borderRadius: 20,
     padding: 24,
-    width: width * 0.85,
+    width: SCREEN_WIDTH * 0.85,
     alignItems: 'center',
   },
   modalTitle: {
@@ -848,7 +847,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     justifyContent: 'space-between',
   },
   giftItem: {
-    width: (width - 60) / 3,
+    width: (WIDTH_CAPPED - 60) / 3,
     alignItems: 'center',
     padding: 16,
     backgroundColor: isDark ? 'rgba(14, 191, 138, 0.12)' : 'rgba(14, 191, 138, 0.08)',

@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -26,10 +25,7 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import QualityPicker from './QualityPicker';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
-const hp = (pct: number) => (pct * SCREEN_HEIGHT) / 100;
-const wp = (pct: number) => (pct * SCREEN_WIDTH) / 100;
+import { normalize, hp, wp, SCREEN_HEIGHT } from '../utils/responsive';
 
 // ============================================
 // TYPES

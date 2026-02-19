@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StatusBar,
   RefreshControl,
-  Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,8 +22,9 @@ import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import type { MainStackParamList } from '../../types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const COMPACT_CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+
+const COMPACT_CARD_WIDTH = (WIDTH_CAPPED - 48) / 2;
 
 type TabFilter = 'trending' | 'new';
 

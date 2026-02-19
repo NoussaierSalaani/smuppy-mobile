@@ -5,9 +5,8 @@
  */
 import { type ThemeColors } from '../../hooks/useTheme';
 
-import { StyleSheet, Dimensions } from 'react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { StyleSheet } from 'react-native';
+import { WIDTH_CAPPED, SCREEN_WIDTH } from '../../utils/responsive';
 export const COVER_HEIGHT = 282;
 export const AVATAR_SIZE = 96;
 
@@ -468,7 +467,7 @@ export const createProfileStyles = (colors: ThemeColors, isDark = false) => Styl
     gap: 8,
   },
   peakCard: {
-    width: (SCREEN_WIDTH - 48) / 3,
+    width: (WIDTH_CAPPED - 48) / 3,
     height: 180,
     borderRadius: 12,
     overflow: 'hidden',
@@ -522,7 +521,7 @@ export const createProfileStyles = (colors: ThemeColors, isDark = false) => Styl
     gap: 8,
   },
   peakGroupCard: {
-    width: (SCREEN_WIDTH - 48) / 2,
+    width: (WIDTH_CAPPED - 48) / 2,
     height: 200,
     borderRadius: 12,
     overflow: 'hidden',
@@ -583,7 +582,7 @@ export const createProfileStyles = (colors: ThemeColors, isDark = false) => Styl
     gap: 12,
   },
   collectionCard: {
-    width: (SCREEN_WIDTH - 48) / 2,
+    width: (WIDTH_CAPPED - 48) / 2,
     backgroundColor: colors.background,
     borderRadius: 14,
     overflow: 'hidden',
@@ -782,7 +781,7 @@ export const createProfileStyles = (colors: ThemeColors, isDark = false) => Styl
     gap: 12,
   },
   liveCard: {
-    width: (SCREEN_WIDTH - 48) / 2,
+    width: (WIDTH_CAPPED - 48) / 2,
     backgroundColor: colors.background,
     borderRadius: 14,
     overflow: 'hidden',
@@ -903,7 +902,7 @@ export const createProfileStyles = (colors: ThemeColors, isDark = false) => Styl
     gap: 12,
   },
   videoCard: {
-    width: (SCREEN_WIDTH - 48) / 2,
+    width: (WIDTH_CAPPED - 48) / 2,
     backgroundColor: colors.background,
     borderRadius: 14,
     overflow: 'hidden',

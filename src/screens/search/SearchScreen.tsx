@@ -10,12 +10,12 @@ import {
   StatusBar,
   ActivityIndicator,
   Keyboard,
-  Dimensions,
   ScrollView,
 } from 'react-native';
 
-const { width } = Dimensions.get('window');
-const GRID_SIZE = (width - 4) / 3;
+import { WIDTH_CAPPED } from '../../utils/responsive';
+
+const GRID_SIZE = (WIDTH_CAPPED - 4) / 3;
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
@@ -815,7 +815,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   allSectionTitle: { fontSize: 16, fontWeight: '600', color: colors.dark },
   seeAllText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
   allGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 1 },
-  allGridItem: { width: (width - 4) / 3, height: (width - 4) / 3, padding: 1 },
+  allGridItem: { width: (WIDTH_CAPPED - 4) / 3, height: (WIDTH_CAPPED - 4) / 3, padding: 1 },
   allGridImage: { width: '100%', height: '100%', backgroundColor: colors.gray100 },
   peakDurationSmall: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
   peakDurationTextSmall: { fontSize: 9, fontWeight: '600', color: '#FFF' },

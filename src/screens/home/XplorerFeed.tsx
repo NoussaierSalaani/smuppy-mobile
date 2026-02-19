@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions, ScrollView, TextInput, StatusBar, Pressable, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, TextInput, StatusBar, Pressable, Keyboard } from 'react-native';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
 import Mapbox, { MapView, Camera, PointAnnotation, LocationPuck } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
@@ -28,15 +28,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 // Initialize Mapbox with access token (ENV has fallback for builds missing the token)
 Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const baseWidth = 390;
-const MAX_SCALE_WIDTH = 430; // Cap element scaling at iPhone 16 Pro Max width
-const MAX_SCALE_HEIGHT = 932; // Cap vertical scaling at iPhone 16 Pro Max height
-
-const wp = (percentage: number) => (percentage * SCREEN_WIDTH) / 100;
-const sp = (percentage: number) => (percentage * Math.min(SCREEN_WIDTH, MAX_SCALE_WIDTH)) / 100; // Scaled percentage for element sizing (capped)
-const hp = (percentage: number) => (percentage * Math.min(SCREEN_HEIGHT, MAX_SCALE_HEIGHT)) / 100;
-const normalize = (size: number) => Math.round(size * (Math.min(SCREEN_WIDTH, MAX_SCALE_WIDTH) / baseWidth));
+import { wp, sp, hp, normalize } from '../../utils/responsive';
 
 // ============================================
 // PIN COLORS BY CATEGORY

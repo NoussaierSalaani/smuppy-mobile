@@ -14,7 +14,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Dimensions,
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
@@ -34,8 +33,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { filterContent } from '../../utils/contentFilters';
 import { sanitizeDisplayText } from '../../utils/sanitize';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
+import { normalize, WIDTH_CAPPED } from '../../utils/responsive';
 
 // ============================================
 // SPOT CATEGORIES (aligned with XplorerFeed 8 filters)
@@ -451,7 +449,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
 
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   categoryCard: {
-    width: (SCREEN_WIDTH - 40 - 24) / 3,
+    width: (WIDTH_CAPPED - 40 - 24) / 3,
     paddingVertical: 16,
     alignItems: 'center',
     backgroundColor: colors.gray50,

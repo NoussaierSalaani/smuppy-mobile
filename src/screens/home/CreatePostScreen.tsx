@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
   Modal,
   FlatList,
@@ -26,9 +25,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 
-const { width } = Dimensions.get('window');
+import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
+
 const GRID_GAP = 2;
-const ITEM_SIZE = Math.floor((width - GRID_GAP * 4) / 3);
+const ITEM_SIZE = Math.floor((WIDTH_CAPPED - GRID_GAP * 4) / 3);
 const MAX_SELECTION = 10;
 
 // Media item type
@@ -646,8 +646,8 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
 
   // Preview
   previewContainer: {
-    width: width,
-    height: width * 0.75,
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 0.75,
     backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',

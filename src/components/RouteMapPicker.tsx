@@ -17,7 +17,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
   TextInput,
   Keyboard,
@@ -48,8 +47,7 @@ import {
 import type { RouteProfile, DifficultyLevel } from '../types';
 import type { Feature, Geometry, Point, GeoJsonProperties, FeatureCollection } from 'geojson';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const normalize = (size: number) => Math.round(size * (SCREEN_WIDTH / 390));
+import { normalize } from '../utils/responsive';
 
 // ============================================
 // TYPES

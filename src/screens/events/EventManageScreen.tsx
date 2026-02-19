@@ -130,7 +130,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
         title: editTitle.trim(),
         description: editDescription.trim() || undefined,
         price_cents: priceInCents,
-        max_participants: editMaxParticipants ? parseInt(editMaxParticipants) : undefined,
+        max_participants: editMaxParticipants ? Number.parseInt(editMaxParticipants) : undefined,
       });
 
       if (response.success) {

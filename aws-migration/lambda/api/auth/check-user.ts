@@ -34,7 +34,7 @@ const USER_POOL_ID = process.env.USER_POOL_ID;
 // Example: john@gmail.com -> johngmailcom (no special chars)
 // This MUST match client-side logic in aws-auth.ts and signup.ts
 const generateUsername = (email: string): string => {
-  return email.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return email.toLowerCase().replaceAll(/[^a-z0-9]/g, '');
 };
 
 // Check if user exists by email attribute (catches legacy accounts with different username formats)
@@ -47,7 +47,7 @@ const checkUserByEmail = async (email: string): Promise<{
     const response = await cognitoClient.send(
       new ListUsersCommand({
         UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase().replace(/["\\]/g, '').replace(/[^a-z0-9@.+_-]/g, '')}"`,
+        Filter: `email = "${email.toLowerCase().replaceAll(/["\\]/g, '').replaceAll(/[^a-z0-9@.+_-]/g, '')}"`,
         Limit: 1,
       })
     );

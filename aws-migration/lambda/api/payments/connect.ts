@@ -174,7 +174,7 @@ async function createConnectAccount(userId: string, corsHeaders: Record<string, 
     // If email missing in profiles, fetch from Cognito and sync
     if (!email && cognito_sub) {
       const cognitoClient = new CognitoIdentityProviderClient({});
-      const sanitizedSub = cognito_sub.replace(/["\\]/g, '');
+      const sanitizedSub = cognito_sub.replaceAll(/["\\]/g, '');
       const cognitoResult = await cognitoClient.send(new ListUsersCommand({
         UserPoolId: process.env.USER_POOL_ID,
         Filter: `sub = "${sanitizedSub}"`,

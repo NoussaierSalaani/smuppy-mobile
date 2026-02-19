@@ -53,7 +53,7 @@ export const checkRateLimit = async (options: RateLimitOptions): Promise<RateLim
       ReturnValues: 'ALL_NEW',
     }));
 
-    const count = parseInt(result.Attributes?.count?.N || '1', 10);
+    const count = Number.parseInt(result.Attributes?.count?.N || '1', 10);
 
     if (count > maxRequests) {
       const retryAfter = windowEnd - now;

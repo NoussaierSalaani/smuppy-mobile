@@ -33,7 +33,7 @@ async function getRedis(): Promise<Redis | null> {
   if (!redis) {
     redis = new Redis({
       host: REDIS_HOST,
-      port: parseInt(REDIS_PORT),
+      port: Number.parseInt(REDIS_PORT),
       tls: {},
       maxRetriesPerRequest: 3,
       connectTimeout: 5000,
@@ -67,7 +67,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    const parsedLimit = Math.min(parseInt(limit), 50);
+    const parsedLimit = Math.min(Number.parseInt(limit), 50);
 
     const cognitoSub = extractCognitoSub(event);
 
@@ -138,14 +138,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         if (pipeIdx !== -1) {
           const cursorDate = cursor.substring(0, pipeIdx);
           const cursorId = cursor.substring(pipeIdx + 1);
-          if (!isValidUUID(cursorId) || isNaN(new Date(cursorDate).getTime())) {
+          if (!isValidUUID(cursorId) || Number.isNaN(new Date(cursorDate).getTime())) {
             return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
           }
           followCursorCond = 'AND (p.created_at, p.id) < ($3::timestamptz, $4::uuid)';
           followCursorParams.push(new Date(cursorDate), cursorId);
         } else {
-          const ts = parseInt(cursor, 10);
-          if (isNaN(ts)) {
+          const ts = Number.parseInt(cursor, 10);
+          if (Number.isNaN(ts)) {
             return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
           }
           followCursorCond = 'AND p.created_at < $3::timestamptz';
@@ -233,7 +233,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           WHERE p.author_id = $1 ${cursor ? 'AND p.created_at < $3' : ''}
           ORDER BY p.created_at DESC, p.id DESC LIMIT $2
         `;
-        params = cursor ? [userId, parsedLimit + 1, new Date(parseInt(cursor))] : [userId, parsedLimit + 1];
+        params = cursor ? [userId, parsedLimit + 1, new Date(Number.parseInt(cursor))] : [userId, parsedLimit + 1];
       } else {
         // Non-own profile: parameterize requesterId for subscriber check + block filter
         const requesterParamIdx = cursor ? 4 : 3;
@@ -262,7 +262,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           ORDER BY p.created_at DESC, p.id DESC LIMIT $2
         `;
         params = cursor
-          ? [userId, parsedLimit + 1, new Date(parseInt(cursor)), ...(requesterId ? [requesterId] : [])]
+          ? [userId, parsedLimit + 1, new Date(Number.parseInt(cursor)), ...(requesterId ? [requesterId] : [])]
           : [userId, parsedLimit + 1, ...(requesterId ? [requesterId] : [])];
       }
     } else {
@@ -271,7 +271,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const exploreParams: SqlParam[] = [parsedLimit + 1];
       let exploreCursorCond = '';
       if (cursor) {
-        exploreParams.push(new Date(parseInt(cursor)));
+        exploreParams.push(new Date(Number.parseInt(cursor)));
         exploreCursorCond = `AND p.created_at < $${exploreParams.length}`;
       }
       // Block + mute filter for authenticated users
@@ -345,7 +345,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       mediaType: post.mediaType, mediaMeta: post.mediaMeta || {}, isPeak: post.isPeak || false, location: post.location || null,
       tags: post.tags || [],
       taggedUsers: tagsByPost[post.id as string] || [],
-      likesCount: parseInt(post.likesCount as string) || 0, commentsCount: parseInt(post.commentsCount as string) || 0,
+      likesCount: Number.parseInt(post.likesCount as string) || 0, commentsCount: Number.parseInt(post.commentsCount as string) || 0,
       createdAt: post.createdAt, isLiked: likedSet.has(post.id as string), isSaved: savedSet.has(post.id as string),
       videoStatus: post.videoStatus || null,
       hlsUrl: post.hlsUrl || null,

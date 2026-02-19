@@ -144,8 +144,8 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
         name: activityName.trim(),
         description: activityDescription.trim() || undefined,
         category: activityCategory,
-        duration_minutes: parseInt(activityDuration) || 60,
-        max_participants: activityMaxParticipants ? parseInt(activityMaxParticipants) : undefined,
+        duration_minutes: Number.parseInt(activityDuration) || 60,
+        max_participants: activityMaxParticipants ? Number.parseInt(activityMaxParticipants) : undefined,
         instructor: activityInstructor.trim() || undefined,
         color: categoryData?.color || '#FF6B6B',
       };

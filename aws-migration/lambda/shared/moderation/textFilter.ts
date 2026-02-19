@@ -135,14 +135,14 @@ async function loadWordlist(): Promise<WordlistCache> {
 
 function normalizeText(text: string): string {
   // 1. Remove zero-width characters used to evade detection
-  let normalized = text.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF\u00AD]/g, '');
+  let normalized = text.replaceAll(/[\u200B-\u200F\u2028-\u202F\uFEFF\u00AD]/g, '');
 
   // 2. Unicode NFD normalization: decompose accented chars and strip combining marks
   // e.g., "nig\u0308er" → "niger", "fa\u0301ggot" → "faggot"
-  normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  normalized = normalized.normalize('NFD').replaceAll(/[\u0300-\u036f]/g, '');
 
   // 3. Strip bidirectional override characters (used to reverse text direction for evasion)
-  normalized = normalized.replace(/[\u202A-\u202E\u2066-\u2069]/g, '');
+  normalized = normalized.replaceAll(/[\u202A-\u202E\u2066-\u2069]/g, '');
 
   // 4. Cyrillic + Greek homoglyph replacement (visually identical to Latin)
   const homoglyphMap: Record<string, string> = {
@@ -175,24 +175,24 @@ function normalizeText(text: string): string {
     '\u03A7': 'x', '\u03C7': 'x', // Χ/χ → x
     '\u0396': 'z', '\u03B6': 'z', // Ζ/ζ → z
   };
-  normalized = normalized.replace(/[\u0410\u0430\u0412\u0432\u0421\u0441\u0415\u0435\u041D\u043D\u041A\u043A\u041C\u043C\u041E\u043E\u0420\u0440\u0422\u0442\u0425\u0445\u0423\u0443\u0391\u03B1\u0392\u03B2\u0395\u03B5\u0397\u03B7\u0399\u03B9\u039A\u03BA\u039C\u039D\u03BD\u039F\u03BF\u03A1\u03C1\u03A4\u03C4\u03A5\u03C5\u03A7\u03C7\u0396\u03B6]/g,
+  normalized = normalized.replaceAll(/[\u0410\u0430\u0412\u0432\u0421\u0441\u0415\u0435\u041D\u043D\u041A\u043A\u041C\u043C\u041E\u043E\u0420\u0440\u0422\u0442\u0425\u0445\u0423\u0443\u0391\u03B1\u0392\u03B2\u0395\u03B5\u0397\u03B7\u0399\u03B9\u039A\u03BA\u039C\u039D\u03BD\u039F\u03BF\u03A1\u03C1\u03A4\u03C4\u03A5\u03C5\u03A7\u03C7\u0396\u03B6]/g,
     (ch) => homoglyphMap[ch] || ch);
 
   // 5. Leet-speak normalization
   return normalized
     .toLowerCase()
-    .replace(/[@]/g, 'a')
-    .replace(/[0]/g, 'o')
-    .replace(/[1!|]/g, 'i')
-    .replace(/[3]/g, 'e')
-    .replace(/[4]/g, 'a')
-    .replace(/[5$]/g, 's')
-    .replace(/[7]/g, 't')
-    .replace(/[8]/g, 'b')
-    .replace(/[9]/g, 'g')
-    .replace(/[6]/g, 'g')
-    .replace(/[2]/g, 'z')
-    .replace(/\+/g, 't');
+    .replaceAll('@', 'a')
+    .replaceAll('0', 'o')
+    .replaceAll(/[1!|]/g, 'i')
+    .replaceAll('3', 'e')
+    .replaceAll('4', 'a')
+    .replaceAll(/[5$]/g, 's')
+    .replaceAll('7', 't')
+    .replaceAll('8', 'b')
+    .replaceAll('9', 'g')
+    .replaceAll('6', 'g')
+    .replaceAll('2', 'z')
+    .replaceAll('+', 't');
 }
 
 function checkWordlist(text: string, wordlist: string[]): boolean {
@@ -200,7 +200,7 @@ function checkWordlist(text: string, wordlist: string[]): boolean {
   const lower = text.toLowerCase();
 
   for (const word of wordlist) {
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = word.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`\\b${escaped}\\b`, 'i');
     if (regex.test(lower) || regex.test(normalized)) {
       return true;

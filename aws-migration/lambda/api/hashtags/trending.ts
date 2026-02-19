@@ -38,7 +38,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const { limit = '20' } = event.queryStringParameters || {};
 
-    const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);
+    const parsedLimit = Math.min(Math.max(Number.parseInt(limit) || 20, 1), MAX_LIMIT);
 
     const pool = await getPool();
 
@@ -61,7 +61,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const data = result.rows.map((row: { tag: string; count: string }) => ({
       tag: row.tag,
-      count: parseInt(row.count) || 0,
+      count: Number.parseInt(row.count) || 0,
     }));
 
     return response(200, {

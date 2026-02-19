@@ -13,7 +13,7 @@
  * @param {string} v - The string to sanitize
  * @returns {string} Sanitized string
  */
-export const sanitize = (v: string | undefined | null): string => v?.replace(/[<>"'`]/g, '').trim() || '';
+export const sanitize = (v: string | undefined | null): string => v?.replaceAll(/[<>"'`]/g, '').trim() || '';
 
 /**
  * Sanitize all string values in an object.

@@ -64,7 +64,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const bookingMap = new Map<string, number>();
     for (const row of bookingCounts.rows) {
-      bookingMap.set(row.slot_time, parseInt(row.booked));
+      bookingMap.set(row.slot_time, Number.parseInt(row.booked));
     }
 
     const slots = slotsResult.rows.map((s: Record<string, unknown>) => {

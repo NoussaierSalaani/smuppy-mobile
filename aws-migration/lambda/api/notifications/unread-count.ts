@@ -65,7 +65,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        unreadCount: parseInt(result.rows[0].count),
+        unreadCount: Number.parseInt(result.rows[0].count),
       }),
     };
   } catch (error: unknown) {

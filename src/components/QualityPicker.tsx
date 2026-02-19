@@ -28,7 +28,7 @@ function QualityPicker({ category, selected, onSelectionChange }: QualityPickerP
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const key = category.toLowerCase().replace(/\s+/g, '_');
+  const key = category.toLowerCase().replaceAll(/\s+/g, '_');
   const qualities = SPOT_QUALITIES[key] || SPOT_QUALITIES.general || [];
 
   const toggle = (quality: string) => {

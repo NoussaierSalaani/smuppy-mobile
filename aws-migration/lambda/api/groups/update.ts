@@ -125,7 +125,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Validate maxParticipants if provided
     if (body.maxParticipants !== undefined && body.maxParticipants !== null) {
       const maxP = Number(body.maxParticipants);
-      if (isNaN(maxP) || maxP < 2 || maxP > 10000) {
+      if (Number.isNaN(maxP) || maxP < 2 || maxP > 10000) {
         return cors({
           statusCode: 400,
           body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),
@@ -136,7 +136,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Validate startsAt if provided
     if (body.startsAt !== undefined && body.startsAt !== null) {
       const startDate = new Date(body.startsAt);
-      if (isNaN(startDate.getTime())) {
+      if (Number.isNaN(startDate.getTime())) {
         return cors({
           statusCode: 400,
           body: JSON.stringify({ success: false, message: 'Invalid start date' }),
@@ -147,7 +147,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Validate coordinates if provided
     if (body.latitude !== undefined && body.latitude !== null) {
       const lat = Number(body.latitude);
-      if (isNaN(lat) || lat < -90 || lat > 90) {
+      if (Number.isNaN(lat) || lat < -90 || lat > 90) {
         return cors({
           statusCode: 400,
           body: JSON.stringify({ success: false, message: 'Invalid latitude' }),
@@ -156,7 +156,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
     if (body.longitude !== undefined && body.longitude !== null) {
       const lng = Number(body.longitude);
-      if (isNaN(lng) || lng < -180 || lng > 180) {
+      if (Number.isNaN(lng) || lng < -180 || lng > 180) {
         return cors({
           statusCode: 400,
           body: JSON.stringify({ success: false, message: 'Invalid longitude' }),
@@ -193,7 +193,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       } else if (config.type === 'date') {
         if (value !== null) {
           const d = new Date(value);
-          if (isNaN(d.getTime())) continue;
+          if (Number.isNaN(d.getTime())) continue;
           setClauses.push(`${config.column} = $${paramIndex}`);
           params.push(d);
           paramIndex++;

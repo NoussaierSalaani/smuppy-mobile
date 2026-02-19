@@ -17,9 +17,9 @@ const MAX_LIMIT = 50;
 
 function sanitizeQuery(raw: string): string {
   const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
-  const sanitized = raw.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().substring(0, MAX_SEARCH_QUERY_LENGTH);
+  const sanitized = raw.replaceAll(/<[^>]*>/g, '').replaceAll(CONTROL_CHARS, '').trim().substring(0, MAX_SEARCH_QUERY_LENGTH);
   // SECURITY: Escape ILIKE special characters to prevent wildcard injection
-  return sanitized.replace(/[%_\\]/g, '\\$&');
+  return sanitized.replaceAll(/[%_\\]/g, '\\$&');
 }
 
 function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
@@ -58,7 +58,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return response(400, { success: false, error: 'Search query is required' });
     }
 
-    const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);
+    const parsedLimit = Math.min(Math.max(Number.parseInt(limit) || 20, 1), MAX_LIMIT);
 
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const pool = await getPool();
@@ -75,7 +75,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Detect hashtag search: query starts with # or is a bare tag word
     const isHashtagSearch = sanitized.startsWith('#') || /^[a-z0-9_]+$/i.test(sanitized);
-    const hashtagTerm = sanitized.replace(/^#/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const hashtagTerm = sanitized.replace(/^#/, '').toLowerCase().replaceAll(/[^a-z0-9_]/g, '');
 
     // Build query with dynamic $N parameter indices
     const searchTerm = isHashtagSearch ? hashtagTerm : sanitized;
@@ -175,9 +175,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       videoUrl: peak.videoUrl,
       thumbnailUrl: peak.thumbnailUrl,
       duration: peak.duration,
-      likesCount: parseInt(String(peak.likesCount)) || 0,
-      commentsCount: parseInt(String(peak.commentsCount)) || 0,
-      viewsCount: parseInt(String(peak.viewsCount)) || 0,
+      likesCount: Number.parseInt(String(peak.likesCount)) || 0,
+      commentsCount: Number.parseInt(String(peak.commentsCount)) || 0,
+      viewsCount: Number.parseInt(String(peak.viewsCount)) || 0,
       createdAt: peak.createdAt,
       filterId: (peak.filterId as string) || null,
       filterIntensity: (peak.filterIntensity as number) ?? null,

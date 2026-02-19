@@ -128,7 +128,7 @@ const TipModal: React.FC<TipModalProps> = ({
 
   const handleCustomAmountChange = (text: string) => {
     // Only allow numbers and decimal point
-    const cleaned = text.replace(/[^0-9.]/g, '');
+    const cleaned = text.replaceAll(/[^0-9.]/g, '');
     setCustomAmount(cleaned);
     setSelectedAmount(null);
 

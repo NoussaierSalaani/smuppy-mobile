@@ -94,9 +94,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Get pagination params with validation
-    // Per CLAUDE.md: validate all input - parseInt('invalid') returns NaN
+    // Per CLAUDE.md: validate all input - Number.parseInt('invalid') returns NaN
     const rawLimit = event.queryStringParameters?.limit;
-    const parsedLimit = rawLimit ? parseInt(rawLimit, 10) : 50;
+    const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : 50;
     const limit = Number.isNaN(parsedLimit) ? 50 : Math.max(1, Math.min(parsedLimit, 100));
 
     const cursor = event.queryStringParameters?.cursor;

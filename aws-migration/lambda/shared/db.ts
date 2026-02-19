@@ -111,7 +111,7 @@ async function generateIAMToken(host: string, port: number, username: string): P
  */
 async function createPool(host: string, options?: { maxConnections?: number }): Promise<Pool> {
   const credentials = await getDbCredentials();
-  const port = parseInt(process.env.DB_PORT || '5432');
+  const port = Number.parseInt(process.env.DB_PORT || '5432');
   const database = credentials.dbname || credentials.database || process.env.DB_NAME || 'smuppy';
 
   // Use IAM auth token for RDS Proxy, or password for direct connection

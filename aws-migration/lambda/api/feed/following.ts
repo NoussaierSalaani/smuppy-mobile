@@ -43,7 +43,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();

@@ -31,7 +31,7 @@ const USER_POOL_ID = process.env.USER_POOL_ID;
 // Generate username from email - fallback if lookup fails
 // Example: john@gmail.com -> johngmailcom (no special chars)
 const generateUsername = (email: string): string => {
-  return email.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return email.toLowerCase().replaceAll(/[^a-z0-9]/g, '');
 };
 
 // Look up actual username by email (handles any username format)
@@ -40,7 +40,7 @@ const getUsernameByEmail = async (email: string): Promise<string | null> => {
     const response = await cognitoClient.send(
       new ListUsersCommand({
         UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase().replace(/["\\]/g, '').replace(/[^a-z0-9@.+_-]/g, '')}"`,
+        Filter: `email = "${email.toLowerCase().replaceAll(/["\\]/g, '').replaceAll(/[^a-z0-9@.+_-]/g, '')}"`,
         Limit: 1,
       })
     );

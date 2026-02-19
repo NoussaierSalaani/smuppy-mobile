@@ -182,7 +182,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       return;
     }
 
-    if (!formPrice || isNaN(parseFloat(formPrice))) {
+    if (!formPrice || Number.isNaN(parseFloat(formPrice))) {
       showError('Error', 'Valid price is required');
       return;
     }
@@ -196,11 +196,11 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         description: formDescription.trim() || undefined,
         category: formCategory,
         price_cents: Math.round(parseFloat(formPrice) * 100),
-        duration_minutes: formDuration ? parseInt(formDuration) : undefined,
+        duration_minutes: formDuration ? Number.parseInt(formDuration) : undefined,
         is_subscription: formIsSubscription,
         subscription_period: formIsSubscription ? formSubscriptionPeriod : undefined,
-        trial_days: formTrialDays ? parseInt(formTrialDays) : undefined,
-        max_capacity: formMaxCapacity ? parseInt(formMaxCapacity) : undefined,
+        trial_days: formTrialDays ? Number.parseInt(formTrialDays) : undefined,
+        max_capacity: formMaxCapacity ? Number.parseInt(formMaxCapacity) : undefined,
         is_active: formIsActive,
       };
 

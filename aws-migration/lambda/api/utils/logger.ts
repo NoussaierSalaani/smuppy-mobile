@@ -66,10 +66,10 @@ function maskPII(obj: unknown, depth = 0): unknown {
 
   if (typeof obj === 'string') {
     // Strip zero-width characters that could be used to evade masking
-    let cleaned = obj.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, '');
+    let cleaned = obj.replaceAll(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, '');
 
     // Mask email addresses — hide both local part and domain to prevent PII leakage
-    cleaned = cleaned.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (match) => {
+    cleaned = cleaned.replaceAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (match) => {
       const atIndex = match.indexOf('@');
       const localPart = match.substring(0, Math.min(2, atIndex)) + '***';
       const domain = match.substring(atIndex + 1);
@@ -79,9 +79,9 @@ function maskPII(obj: unknown, depth = 0): unknown {
     });
 
     // Mask phone numbers (international and local formats)
-    cleaned = cleaned.replace(/(?:\+?\d{1,4}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{2,4}[\s.-]?\d{2,6}/g, (match) => {
+    cleaned = cleaned.replaceAll(/(?:\+?\d{1,4}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{2,4}[\s.-]?\d{2,6}/g, (match) => {
       // Only mask if it looks like a real phone number (7+ digits)
-      const digits = match.replace(/\D/g, '');
+      const digits = match.replaceAll(/\D/g, '');
       if (digits.length >= 7) {
         return match.substring(0, 3) + '***' + match.substring(match.length - 2);
       }

@@ -61,7 +61,7 @@ export default function DatePickerModal({ visible, onClose, onConfirm, initialDa
   const parseInitialDate = () => {
     if (initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate)) {
       const [year, month, day] = initialDate.split('-');
-      return { year: parseInt(year), month, day };
+      return { year: Number.parseInt(year), month, day };
     }
     return { year: 1990, month: '01', day: '15' };
   };

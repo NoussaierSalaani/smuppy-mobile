@@ -89,7 +89,7 @@ function Header({
           hitSlop={HIT_SLOP.medium}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel={rightIcon.replace(/-/g, ' ').replace('outline', '').trim()}
+          accessibilityLabel={rightIcon.replaceAll('-', ' ').replace('outline', '').trim()}
         >
           <Ionicons name={rightIcon} size={24} color={colors.dark} />
         </TouchableOpacity>

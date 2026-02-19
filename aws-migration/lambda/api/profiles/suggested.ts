@@ -41,7 +41,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
     // Get limit from query params
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '10'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '10'), 50);
 
     const db = await getPool();
 
@@ -58,7 +58,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Cap offset to prevent deep scanning
     const MAX_OFFSET = 500;
     const cursor = event.queryStringParameters?.cursor;
-    const offset = cursor ? Math.min(parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
+    const offset = cursor ? Math.min(Number.parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
     const fetchLimit = limit + 1; // Fetch one extra to detect hasMore
 
     if (cognitoSub) {

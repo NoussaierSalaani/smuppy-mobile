@@ -43,7 +43,7 @@ export async function checkPostEscalation(
       [postId],
     );
 
-    const count = parseInt(result.rows[0]?.cnt || '0', 10) || 0;
+    const count = Number.parseInt(result.rows[0]?.cnt || '0', 10) || 0;
 
     if (count >= 3) {
       // Auto-hide the post (use 'hidden' — distinct from user 'private')
@@ -104,7 +104,7 @@ export async function checkPeakEscalation(
       [peakId],
     );
 
-    const count = parseInt(result.rows[0]?.cnt || '0', 10) || 0;
+    const count = Number.parseInt(result.rows[0]?.cnt || '0', 10) || 0;
 
     if (count >= 3) {
       // Auto-hide the peak
@@ -178,7 +178,7 @@ export async function checkUserEscalation(
       [targetUserId],
     );
 
-    const count24h = parseInt(result24h.rows[0]?.cnt || '0', 10) || 0;
+    const count24h = Number.parseInt(result24h.rows[0]?.cnt || '0', 10) || 0;
 
     // 5+ unique reporters in 24h → auto-suspend 24h
     if (count24h >= 5) {
@@ -242,7 +242,7 @@ export async function checkUserEscalation(
       [targetUserId],
     );
 
-    const count30d = parseInt(result30d.rows[0]?.cnt || '0', 10) || 0;
+    const count30d = Number.parseInt(result30d.rows[0]?.cnt || '0', 10) || 0;
 
     // 10+ confirmed reports in 30 days → flag for ban
     if (count30d >= 10) {

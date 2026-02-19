@@ -74,7 +74,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       'SELECT COUNT(1) as count FROM live_stream_viewers WHERE channel_name = $1',
       [stream.channel_name]
     );
-    const currentViewers = parseInt(viewerCountResult.rows[0].count);
+    const currentViewers = Number.parseInt(viewerCountResult.rows[0].count);
 
     // End the stream
     const updateResult = await client.query(

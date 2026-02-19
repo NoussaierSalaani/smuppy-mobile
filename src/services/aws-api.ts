@@ -88,22 +88,23 @@ class AWSAPIService {
    * Make authenticated API request.
    * GET requests are deduplicated — identical in-flight GETs share one promise.
    */
-  async request<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
-    const method = options.method || 'GET';
+  async request<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+    const resolvedOptions: RequestOptions = options ?? { method: 'GET' };
+    const method = resolvedOptions.method || 'GET';
 
     // Deduplicate identical in-flight GET requests
     if (method === 'GET') {
       const existing = this.inFlightGets.get(endpoint);
       if (existing) return existing as Promise<T>;
 
-      const promise = this._requestWithRetry<T>(endpoint, options).finally(() => {
+      const promise = this._requestWithRetry<T>(endpoint, resolvedOptions).finally(() => {
         this.inFlightGets.delete(endpoint);
       });
       this.inFlightGets.set(endpoint, promise);
       return promise;
     }
 
-    return this._requestWithRetry<T>(endpoint, options);
+    return this._requestWithRetry<T>(endpoint, resolvedOptions);
   }
 
   private async _requestWithRetry<T>(endpoint: string, options: RequestOptions): Promise<T> {
@@ -154,8 +155,9 @@ class AWSAPIService {
     throw lastError;
   }
 
-  private async _requestOnce<T>(endpoint: string, options: RequestOptions = { method: 'GET' }): Promise<T> {
-    const { method, body, headers = {}, authenticated = true, timeout = this.defaultTimeout } = options;
+  private async _requestOnce<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+    const resolvedOpts: RequestOptions = options ?? { method: 'GET' };
+    const { method, body, headers = {}, authenticated = true, timeout = this.defaultTimeout } = resolvedOpts;
 
     addBreadcrumb(`${method} ${endpoint}`, 'api', { method, endpoint, authenticated });
 

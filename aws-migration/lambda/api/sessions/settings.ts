@@ -77,7 +77,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (body.sessionPrice !== undefined) {
       const price = Number(body.sessionPrice);
-      if (isNaN(price) || price < 0 || price > MAX_SESSION_PRICE_CENTS) {
+      if (Number.isNaN(price) || price < 0 || price > MAX_SESSION_PRICE_CENTS) {
         return {
           statusCode: 400,
           headers: corsHeaders,
@@ -90,7 +90,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (body.sessionDuration !== undefined) {
       const duration = Math.round(Number(body.sessionDuration));
-      if (isNaN(duration) || duration < MIN_SESSION_DURATION_MINUTES || duration > MAX_SESSION_DURATION_MINUTES) {
+      if (Number.isNaN(duration) || duration < MIN_SESSION_DURATION_MINUTES || duration > MAX_SESSION_DURATION_MINUTES) {
         return {
           statusCode: 400,
           headers: corsHeaders,

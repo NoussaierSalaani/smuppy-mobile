@@ -55,7 +55,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Pagination params
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();
@@ -123,7 +123,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Cursor pagination
     if (cursor) {
       query += ` AND c.created_at < $${paramIndex}`;
-      params.push(new Date(parseInt(cursor)));
+      params.push(new Date(Number.parseInt(cursor)));
       paramIndex++;
     }
 

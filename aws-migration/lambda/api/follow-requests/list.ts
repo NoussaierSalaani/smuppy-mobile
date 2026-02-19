@@ -25,7 +25,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Pagination params
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();
@@ -71,7 +71,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Cursor pagination
     if (cursor) {
       query += ` AND fr.created_at < $${paramIndex}`;
-      params.push(new Date(parseInt(cursor)));
+      params.push(new Date(Number.parseInt(cursor)));
       paramIndex++;
     }
 
@@ -106,7 +106,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       : null;
 
     // Extract total from window function (no separate COUNT query needed)
-    const totalPending = result.rows.length > 0 ? parseInt(result.rows[0].total_count as string, 10) : 0;
+    const totalPending = result.rows.length > 0 ? Number.parseInt(result.rows[0].total_count as string, 10) : 0;
 
     return {
       statusCode: 200,

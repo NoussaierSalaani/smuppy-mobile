@@ -99,7 +99,7 @@ function buildVariantKey(originalKey: string, variantName: string, extension: st
 
 export async function handler(event: EventBridgeS3Event): Promise<void> {
   const bucketName = event.detail.bucket.name;
-  const objectKey = decodeURIComponent(event.detail.object.key.replace(/\+/g, ' '));
+  const objectKey = decodeURIComponent(event.detail.object.key.replaceAll('+', ' '));
   const fileSize = event.detail.object.size;
 
   const extension = objectKey.substring(objectKey.lastIndexOf('.')).toLowerCase();

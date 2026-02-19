@@ -578,7 +578,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== COPY PROFILE LINK ====================
   const getProfileUrl = useCallback(() => {
-    const username = user.username || user.displayName.toLowerCase().replace(/\s+/g, '');
+    const username = user.username || user.displayName.toLowerCase().replaceAll(/\s+/g, '');
     return `https://smuppy.app/u/${username}`;
   }, [user.username, user.displayName]);
 

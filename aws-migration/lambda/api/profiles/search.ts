@@ -40,20 +40,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
     const rawQuery = event.queryStringParameters?.search || event.queryStringParameters?.q || '';
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
 
     // Cursor-based pagination (offset-encoded)
     const cursorParam = event.queryStringParameters?.cursor;
     let offset = 0;
     if (cursorParam) {
-      const parsed = parseInt(cursorParam, 10);
-      if (!isNaN(parsed) && parsed >= 0 && parsed <= MAX_OFFSET) {
+      const parsed = Number.parseInt(cursorParam, 10);
+      if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= MAX_OFFSET) {
         offset = parsed;
       }
     }
 
     // SECURITY: Escape ILIKE special characters to prevent pattern matching bypass
-    const query = rawQuery.replace(/[%_\\]/g, '\\$&');
+    const query = rawQuery.replaceAll(/[%_\\]/g, '\\$&');
 
     // Exclude current user from search results
     const cognitoSub = extractCognitoSub(event);

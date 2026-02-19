@@ -84,8 +84,8 @@ export default function SessionPaymentScreen(): React.JSX.Element {
       const bookingResponse = await awsAPI.bookSession({
         creatorId: creator.id,
         scheduledAt: route.params?.datetime || new Date(date.fullDate!.setHours(
-          parseInt(time.split(':')[0]),
-          parseInt(time.split(':')[1])
+          Number.parseInt(time.split(':')[0]),
+          Number.parseInt(time.split(':')[1])
         )).toISOString(),
         duration: duration,
         price: price,

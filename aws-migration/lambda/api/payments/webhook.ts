@@ -215,7 +215,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                 packId,
                 buyerId,
                 amount: paymentIntent.amount,
-                creatorAmount: parseInt(paymentIntent.metadata?.creator_amount || '0'),
+                creatorAmount: Number.parseInt(paymentIntent.metadata?.creator_amount || '0'),
               }),
             ]
           );
@@ -232,7 +232,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         // SECURITY: Sanitize error message before storing — strip sensitive details, limit length
         const sanitizedErrorMsg = (paymentIntent.last_payment_error?.message || 'Payment failed')
-          .replace(/<[^>]*>/g, '').substring(0, 200);
+          .replaceAll(/<[^>]*>/g, '').substring(0, 200);
         await client.query(
           `UPDATE payments
            SET status = 'failed',
@@ -856,7 +856,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
              VALUES ($1, 'dispute_created', 'Payment Disputed', $2, $3)`,
             [
               payment.creator_id,
-              `A payment of ${(dispute.amount / 100).toFixed(2)} ${(dispute.currency || 'eur').toUpperCase()} has been disputed. Reason: ${(dispute.reason || 'unknown').replace(/<[^>]*>/g, '').substring(0, 100)}`,
+              `A payment of ${(dispute.amount / 100).toFixed(2)} ${(dispute.currency || 'eur').toUpperCase()} has been disputed. Reason: ${(dispute.reason || 'unknown').replaceAll(/<[^>]*>/g, '').substring(0, 100)}`,
               JSON.stringify({
                 disputeId: dispute.id,
                 chargeId,
@@ -1019,7 +1019,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
                   payoutId: payout.id,
                   failureCode: payout.failure_code,
                   // SECURITY: Sanitize payout failure message before storing
-                  failureMessage: (payout.failure_message || '').replace(/<[^>]*>/g, '').substring(0, 200),
+                  failureMessage: (payout.failure_message || '').replaceAll(/<[^>]*>/g, '').substring(0, 200),
                 }),
               ]
             );

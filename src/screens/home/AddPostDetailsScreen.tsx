@@ -212,7 +212,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           const isEmailDerivedName = (name: string | undefined | null): boolean => {
             if (!name) return true;
             return name.toLowerCase() === emailPrefix ||
-                   name.toLowerCase().replace(/[^a-z0-9]/g, '') === emailPrefix.replace(/[^a-z0-9]/g, '');
+                   name.toLowerCase().replaceAll(/[^a-z0-9]/g, '') === emailPrefix.replaceAll(/[^a-z0-9]/g, '');
           };
 
           // Find the best name, prioritizing actual names over email-derived ones

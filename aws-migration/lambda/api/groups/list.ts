@@ -38,7 +38,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       cursor,
     } = event.queryStringParameters || {};
 
-    const limitNum = Math.min(parseInt(limit) || 20, 50);
+    const limitNum = Math.min(Number.parseInt(limit) || 20, 50);
 
     // Resolve profile if authenticated
     let profileId: string | null = null;
@@ -169,7 +169,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (cursor) {
       if (isNearby) {
         // For nearby: cursor is a numeric offset (distance changes with position, keyset not possible)
-        cursorOffset = Math.min(Math.max(0, parseInt(cursor) || 0), MAX_OFFSET);
+        cursorOffset = Math.min(Math.max(0, Number.parseInt(cursor) || 0), MAX_OFFSET);
       } else {
         // For starts_at order: cursor is "ISO_DATE|UUID"
         const separatorIdx = cursor.indexOf('|');
@@ -179,7 +179,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         const cursorDate = cursor.substring(0, separatorIdx);
         const cursorId = cursor.substring(separatorIdx + 1);
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(cursorId) || isNaN(Date.parse(cursorDate))) {
+        if (!uuidRegex.test(cursorId) || Number.isNaN(Date.parse(cursorDate))) {
           return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) });
         }
         params.push(cursorDate);

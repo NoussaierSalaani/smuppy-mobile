@@ -32,13 +32,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     // Engagement-ranked feeds can't use keyset cursor (scores change between requests).
     // Use offset-based pagination with LIMIT N+1 for proper hasMore detection.
     // Cap offset to prevent deep scanning (O(n) cost in Postgres).
     const MAX_OFFSET = 500;
     const cursorParam = event.queryStringParameters?.cursor;
-    const offset = cursorParam ? Math.min(parseInt(cursorParam, 10) || 0, MAX_OFFSET) : 0;
+    const offset = cursorParam ? Math.min(Number.parseInt(cursorParam, 10) || 0, MAX_OFFSET) : 0;
 
     const interestsParam = event.queryStringParameters?.interests;
     const interests = interestsParam

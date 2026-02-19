@@ -130,9 +130,9 @@ const PERSONAL_DATA_PATTERNS: RegExp[] = [
  */
 function buildWordRegex(word: string): RegExp {
   // Escape regex special chars except * which we use as wildcard
-  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escaped = word.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // Replace * with .* for simple wildcards
-  const pattern = escaped.replace(/\\\*/g, '.*');
+  const pattern = escaped.replaceAll('\\*', '.*');
   return new RegExp(`\\b${pattern}\\b`, 'i');
 }
 
@@ -146,11 +146,11 @@ function buildWordRegex(word: string): RegExp {
 function normalizeUnicode(text: string): string {
   let normalized = text
     // Remove zero-width characters and soft hyphens
-    .replace(/[\u200B-\u200F\u2028-\u202F\uFEFF\u00AD]/g, '')
+    .replaceAll(/[\u200B-\u200F\u2028-\u202F\uFEFF\u00AD]/g, '')
     // Remove bidirectional control characters
-    .replace(/[\u202A-\u202E\u2066-\u2069]/g, '');
+    .replaceAll(/[\u202A-\u202E\u2066-\u2069]/g, '');
   // NFD normalize then strip combining diacritical marks
-  normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  normalized = normalized.normalize('NFD').replaceAll(/[\u0300-\u036f]/g, '');
   // Map common Cyrillic/Greek homoglyphs to Latin
   const homoglyphs: Record<string, string> = {
     '\u0410': 'A', '\u0430': 'a', // Cyrillic А/а
@@ -167,7 +167,7 @@ function normalizeUnicode(text: string): string {
     '\u0425': 'X', '\u0445': 'x', // Cyrillic Х/х
     '\u0423': 'Y', '\u0443': 'y', // Cyrillic У/у
   };
-  normalized = normalized.replace(/[\u0410\u0430\u0412\u0432\u0421\u0441\u0415\u0435\u041D\u043D\u0406\u0456\u041A\u043A\u041C\u043C\u041E\u043E\u0420\u0440\u0422\u0442\u0425\u0445\u0423\u0443]/g,
+  normalized = normalized.replaceAll(/[\u0410\u0430\u0412\u0432\u0421\u0441\u0415\u0435\u041D\u043D\u0406\u0456\u041A\u043A\u041C\u043C\u041E\u043E\u0420\u0440\u0422\u0442\u0425\u0445\u0423\u0443]/g,
     ch => homoglyphs[ch] || ch
   );
   return normalized;
@@ -178,17 +178,17 @@ function checkWordlist(text: string, wordlist: string[]): boolean {
   const unicodeNormalized = normalizeUnicode(text);
   const normalized = unicodeNormalized
     .toLowerCase()
-    .replace(/[@]/g, 'a')
-    .replace(/[0]/g, 'o')
-    .replace(/[1!|]/g, 'i')
-    .replace(/[3]/g, 'e')
-    .replace(/[4]/g, 'a')
-    .replace(/[5$]/g, 's')
-    .replace(/[7]/g, 't')
-    .replace(/[8]/g, 'b')
-    .replace(/[9]/g, 'g')
-    .replace(/[6]/g, 'g')
-    .replace(/[2]/g, 'z');
+    .replaceAll('@', 'a')
+    .replaceAll('0', 'o')
+    .replaceAll(/[1!|]/g, 'i')
+    .replaceAll('3', 'e')
+    .replaceAll('4', 'a')
+    .replaceAll(/[5$]/g, 's')
+    .replaceAll('7', 't')
+    .replaceAll('8', 'b')
+    .replaceAll('9', 'g')
+    .replaceAll('6', 'g')
+    .replaceAll('2', 'z');
 
   for (const word of wordlist) {
     const regex = buildWordRegex(word);
@@ -205,7 +205,7 @@ function checkPatterns(text: string, patterns: RegExp[]): boolean {
 
 function checkCapsAbuse(text: string): boolean {
   if (text.length < 20) return false;
-  const letters = text.replace(/[^a-zA-Z]/g, '');
+  const letters = text.replaceAll(/[^a-zA-Z]/g, '');
   if (letters.length < 10) return false;
   const upperCount = (letters.match(/[A-Z]/g) || []).length;
   return (upperCount / letters.length) > 0.7;

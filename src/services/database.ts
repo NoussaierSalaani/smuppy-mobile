@@ -289,7 +289,7 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
   } catch (error: unknown) {
     if (autoCreate && getErrorStatusCode(error) === 404) {
       // Profile doesn't exist, create one
-      const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
+      const username = user.email?.split('@')[0]?.toLowerCase().replaceAll(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       try {
         const newProfile = await awsAPI.updateProfile({
           username,
@@ -532,7 +532,7 @@ export const ensureProfile = async (): Promise<DbResponseWithCreated<Profile>> =
   } catch (error: unknown) {
     if (getErrorStatusCode(error) === 404) {
       // Create new profile
-      const username = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
+      const username = user.email?.split('@')[0]?.toLowerCase().replaceAll(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       try {
         const newProfile = await awsAPI.updateProfile({
           username,

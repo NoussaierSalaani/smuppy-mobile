@@ -304,8 +304,8 @@ function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEd
             label="Duration (sec)"
             value={String(params.totalSeconds || 60)}
             onChangeText={(text) => {
-              const value = parseInt(text, 10);
-              if (!isNaN(value) && value > 0) {
+              const value = Number.parseInt(text, 10);
+              if (!Number.isNaN(value) && value > 0) {
                 onUpdate({ totalSeconds: value, currentSeconds: value });
               }
             }}
@@ -330,8 +330,8 @@ function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEd
             label="Target"
             value={String(params.targetReps || 10)}
             onChangeText={(text) => {
-              const value = parseInt(text, 10);
-              if (!isNaN(value) && value > 0) {
+              const value = Number.parseInt(text, 10);
+              if (!Number.isNaN(value) && value > 0) {
                 onUpdate({ targetReps: value });
               }
             }}
@@ -357,8 +357,8 @@ function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEd
               label="Day"
               value={String(params.currentDay || 1)}
               onChangeText={(text) => {
-                const value = parseInt(text, 10);
-                if (!isNaN(value) && value > 0) {
+                const value = Number.parseInt(text, 10);
+                if (!Number.isNaN(value) && value > 0) {
                   onUpdate({ currentDay: value });
                 }
               }}
@@ -371,8 +371,8 @@ function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEd
               label="Total"
               value={String(params.totalDays || 30)}
               onChangeText={(text) => {
-                const value = parseInt(text, 10);
-                if (!isNaN(value) && value > 0) {
+                const value = Number.parseInt(text, 10);
+                if (!Number.isNaN(value) && value > 0) {
                   onUpdate({ totalDays: value });
                 }
               }}
@@ -392,8 +392,8 @@ function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEd
             label="Target Calories"
             value={String(params.targetCalories || 500)}
             onChangeText={(text) => {
-              const value = parseInt(text, 10);
-              if (!isNaN(value) && value > 0) {
+              const value = Number.parseInt(text, 10);
+              if (!Number.isNaN(value) && value > 0) {
                 onUpdate({ targetCalories: value });
               }
             }}
@@ -411,8 +411,8 @@ function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEd
             label="BPM"
             value={String(params.bpm || 120)}
             onChangeText={(text) => {
-              const value = parseInt(text, 10);
-              if (!isNaN(value) && value > 0 && value < 250) {
+              const value = Number.parseInt(text, 10);
+              if (!Number.isNaN(value) && value > 0 && value < 250) {
                 onUpdate({ bpm: value });
               }
             }}

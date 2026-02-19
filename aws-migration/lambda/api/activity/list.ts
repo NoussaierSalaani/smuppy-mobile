@@ -38,7 +38,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Pagination params
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     const cursor = event.queryStringParameters?.cursor;
     const typeFilter = event.queryStringParameters?.type;
 
@@ -155,7 +155,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Cursor pagination
     if (cursor) {
       query += ` WHERE created_at < $${paramIndex}`;
-      params.push(new Date(parseInt(cursor, 10)));
+      params.push(new Date(Number.parseInt(cursor, 10)));
       paramIndex++;
     }
 

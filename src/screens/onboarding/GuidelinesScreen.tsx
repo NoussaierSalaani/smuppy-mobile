@@ -65,7 +65,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
       const businessLatitude = (params as Record<string, unknown>).businessLatitude;
       const businessLongitude = (params as Record<string, unknown>).businessLongitude;
 
-      const baseUsername = currentUser.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+      const baseUsername = currentUser.email?.split('@')[0]?.toLowerCase().replaceAll(/[^a-z0-9]/g, '') || 'user';
       const generatedUsername = `${baseUsername}_${Math.floor(Math.random() * 1000000)}`;
       const profileData: Record<string, unknown> = {
         full_name: name || displayName || generatedUsername,

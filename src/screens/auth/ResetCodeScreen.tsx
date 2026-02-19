@@ -51,7 +51,7 @@ interface ResetCodeScreenProps {
 
 export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenProps) {
   const { colors, isDark } = useTheme();
-  const [code, setCode] = useState(Array(CODE_LENGTH).fill(''));
+  const [code, setCode] = useState(new Array(CODE_LENGTH).fill(''));
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -76,7 +76,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
   }, [shakeAnim]);
 
   const clearCode = useCallback((shouldFocus = false) => {
-    setCode(Array(CODE_LENGTH).fill(''));
+    setCode(new Array(CODE_LENGTH).fill(''));
     setError('');
     if (shouldFocus) setTimeout(() => inputs.current[0]?.focus(), 100);
   }, []);

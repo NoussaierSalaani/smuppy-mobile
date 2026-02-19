@@ -570,7 +570,7 @@ END $$;
 async function seedDemoData(db: Pool): Promise<{ profiles: number; posts: number; peaks: number; follows: number }> {
   // Clean existing demo data
   const existingDemo = await db.query("SELECT COUNT(*) FROM profiles WHERE is_bot = true");
-  if (parseInt(existingDemo.rows[0].count) > 0) {
+  if (Number.parseInt(existingDemo.rows[0].count) > 0) {
     log.info('Cleaning existing demo data...');
     await db.query("DELETE FROM follows WHERE follower_id IN (SELECT id FROM profiles WHERE is_bot = true) OR following_id IN (SELECT id FROM profiles WHERE is_bot = true)");
     await db.query("DELETE FROM posts WHERE author_id IN (SELECT id FROM profiles WHERE is_bot = true)");
@@ -705,7 +705,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
       // SECURITY: Block destructive and DML keywords (defense-in-depth)
-      const normalizedDdl = sql.toUpperCase().replace(/\s+/g, ' ').trim();
+      const normalizedDdl = sql.toUpperCase().replaceAll(/\s+/g, ' ').trim();
       const blockedDdl = ['DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP FUNCTION', 'DROP TRIGGER',
         'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE', 'INSERT', 'UPDATE', 'COPY', 'SELECT INTO'];
       if (blockedDdl.some(kw => normalizedDdl.includes(kw))) {
@@ -742,7 +742,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
       // Only allow SELECT statements in run-sql (no DDL/DML)
-      const normalizedSql = sql.toUpperCase().replace(/\s+/g, ' ').trim();
+      const normalizedSql = sql.toUpperCase().replaceAll(/\s+/g, ' ').trim();
       if (!normalizedSql.startsWith('SELECT ')) {
         return {
           statusCode: 400,

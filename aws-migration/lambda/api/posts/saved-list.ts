@@ -27,8 +27,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const rawLimit = parseInt(event.queryStringParameters?.limit || String(DEFAULT_LIMIT), 10);
-    const limit = Math.min(Math.max(1, isNaN(rawLimit) ? DEFAULT_LIMIT : rawLimit), MAX_LIMIT);
+    const rawLimit = Number.parseInt(event.queryStringParameters?.limit || String(DEFAULT_LIMIT), 10);
+    const limit = Math.min(Math.max(1, Number.isNaN(rawLimit) ? DEFAULT_LIMIT : rawLimit), MAX_LIMIT);
     const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();
@@ -54,7 +54,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     if (cursor) {
       const parsedDate = new Date(cursor);
-      if (isNaN(parsedDate.getTime())) {
+      if (Number.isNaN(parsedDate.getTime())) {
         return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
       }
       params.push(parsedDate.toISOString());

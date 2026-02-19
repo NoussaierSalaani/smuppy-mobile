@@ -329,7 +329,7 @@ export const uploadToS3 = async (
   try {
     if (__DEV__) console.log('[uploadToS3] Reading file:', fileUri.substring(0, 80));
     const fileBase64 = await readFileAsBase64(fileUri);
-    const fileBlob = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0));
+    const fileBlob = Uint8Array.from(atob(fileBase64), (c) => c.codePointAt(0) ?? 0);
     if (__DEV__) console.log('[uploadToS3] File size:', fileBlob.length, 'bytes, contentType:', contentType);
 
     const response = await fetch(presignedUrl, {

@@ -96,7 +96,7 @@ async function getCounter(key: string): Promise<number> {
       ProjectionExpression: '#count',
       ExpressionAttributeNames: { '#count': 'count' },
     }));
-    return parseInt(result.Item?.count?.N || '0', 10);
+    return Number.parseInt(result.Item?.count?.N || '0', 10);
   } catch (error) {
     log.error('Failed to read quota counter', error);
     return 0;

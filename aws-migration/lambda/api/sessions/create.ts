@@ -76,7 +76,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Validate scheduledAt is a valid ISO 8601 date
     const scheduledDate = new Date(scheduledAt);
-    if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
+    if (Number.isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -86,7 +86,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // SECURITY: Validate duration is a safe integer (prevent SQL injection)
     const safeDuration = Math.min(Math.max(Math.round(Number(duration)), MIN_SESSION_DURATION_MINUTES), MAX_SESSION_DURATION_MINUTES);
-    if (isNaN(safeDuration)) {
+    if (Number.isNaN(safeDuration)) {
       return {
         statusCode: 400,
         headers: corsHeaders,

@@ -25,7 +25,7 @@ const memoryCache: Map<string, string> = new Map();
  * Sanitize key for SecureStore compatibility (alphanumeric + _ + -)
  */
 function sanitizeKey(key: string): string {
-  return COGNITO_SECURE_PREFIX + key.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return COGNITO_SECURE_PREFIX + key.replaceAll(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 /**

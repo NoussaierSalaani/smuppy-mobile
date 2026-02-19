@@ -141,7 +141,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           'SELECT COUNT(*) as count FROM live_stream_viewers WHERE channel_name = $1',
           [channelName]
         );
-        const viewerCount = parseInt(viewerCountResult.rows[0].count);
+        const viewerCount = Number.parseInt(viewerCountResult.rows[0].count);
 
         // Broadcast join event to all viewers
         await broadcastToChannel(db, apiClient, channelName, {
@@ -174,7 +174,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           'SELECT COUNT(*) as count FROM live_stream_viewers WHERE channel_name = $1',
           [channelName]
         );
-        const viewerCount = parseInt(viewerCountResult.rows[0].count);
+        const viewerCount = Number.parseInt(viewerCountResult.rows[0].count);
 
         // Broadcast leave event
         await broadcastToChannel(db, apiClient, channelName, {
@@ -201,7 +201,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Sanitize: strip HTML tags and control characters, limit length
         const sanitizedComment = content
           .substring(0, 500)
-          .replace(/<[^>]*>/g, '')
+          .replaceAll(/<[^>]*>/g, '')
           .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // NOSONAR — intentional control char sanitization
           .trim();
 

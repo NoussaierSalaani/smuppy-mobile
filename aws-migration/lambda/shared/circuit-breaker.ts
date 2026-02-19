@@ -88,7 +88,7 @@ export class CircuitBreaker {
 
       if (state === 'OPEN') {
         // Check if cooldown has expired → transition to HALF_OPEN
-        const lastFailureTs = lastFailure ? parseInt(lastFailure, 10) : 0;
+        const lastFailureTs = lastFailure ? Number.parseInt(lastFailure, 10) : 0;
         if (Date.now() - lastFailureTs >= this.cooldownMs) {
           await redis.set(this.stateKey, 'HALF_OPEN');
           await redis.del(this.successCountKey);

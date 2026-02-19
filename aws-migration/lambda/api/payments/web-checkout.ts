@@ -333,7 +333,7 @@ async function createCheckoutSession(
       const priceInCents = creator.channel_price_cents || 499; // Default $4.99
 
       // Calculate platform fee based on creator tier
-      const fanCount = parseInt(creator.fan_count) || 0;
+      const fanCount = Number.parseInt(creator.fan_count) || 0;
       let platformFeePercent = 40; // Default Bronze tier
       if (fanCount >= 1000000) platformFeePercent = 20;
       else if (fanCount >= 100000) platformFeePercent = 25;

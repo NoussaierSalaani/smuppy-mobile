@@ -49,9 +49,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 400, headers, body: JSON.stringify({ message: 'Reason is required' }) };
     }
 
-    const sanitizedReason = reason.replace(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_REASON_LENGTH);
+    const sanitizedReason = reason.replaceAll(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_REASON_LENGTH);
     const sanitizedDetails = details
-      ? String(details).replace(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_DETAILS_LENGTH)
+      ? String(details).replaceAll(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_DETAILS_LENGTH)
       : null;
 
     const db = await getPool();

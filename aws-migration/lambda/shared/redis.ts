@@ -114,7 +114,7 @@ export async function getRedis(): Promise<Redis | Cluster | null> {
 
   // Get auth token
   const authToken = await getRedisAuthToken();
-  const port = parseInt(process.env.REDIS_PORT || '6379');
+  const port = Number.parseInt(process.env.REDIS_PORT || '6379');
   const isClusterMode = process.env.REDIS_CLUSTER_MODE === 'true';
 
   try {

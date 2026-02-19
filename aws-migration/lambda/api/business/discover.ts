@@ -45,12 +45,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const q = event.queryStringParameters || {};
-    const category = q.category?.replace(/<[^>]*>/g, '').substring(0, 50);
-    const search = q.search?.replace(/<[^>]*>/g, '').substring(0, 100);
+    const category = q.category?.replaceAll(/<[^>]*>/g, '').substring(0, 50);
+    const search = q.search?.replaceAll(/<[^>]*>/g, '').substring(0, 100);
     const lat = q.lat ? parseFloat(q.lat) : undefined;
     const lng = q.lng ? parseFloat(q.lng) : undefined;
     const radius = q.radius ? Math.min(parseFloat(q.radius), 100) : DEFAULT_RADIUS_KM;
-    const limit = Math.min(parseInt(q.limit || String(DEFAULT_LIMIT)), MAX_LIMIT);
+    const limit = Math.min(Number.parseInt(q.limit || String(DEFAULT_LIMIT)), MAX_LIMIT);
     const cursor = q.cursor || undefined;
 
     const db = await getPool();
@@ -86,7 +86,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     if (search) {
-      const escapedSearch = search.replace(/[%_\\]/g, '\\$&');
+      const escapedSearch = search.replaceAll(/[%_\\]/g, '\\$&');
       conditions.push(`(p.full_name ILIKE $${paramIdx} OR p.username ILIKE $${paramIdx} OR p.bio ILIKE $${paramIdx})`);
       params.push(`%${escapedSearch}%`);
       paramIdx++;
@@ -97,7 +97,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let orderClause = 'ORDER BY p.created_at DESC, p.id DESC';
     let isGeoSort = false;
 
-    if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+    if (lat !== undefined && lng !== undefined && !Number.isNaN(lat) && !Number.isNaN(lng)) {
       isGeoSort = true;
       distanceSelect = `, (
         6371 * acos(
@@ -128,7 +128,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (cursor) {
       if (isGeoSort) {
         // For geo sort, cursor is a numeric offset (distance is volatile)
-        offsetValue = Math.min(Math.max(parseInt(cursor) || 0, 0), MAX_OFFSET);
+        offsetValue = Math.min(Math.max(Number.parseInt(cursor) || 0, 0), MAX_OFFSET);
       } else {
         // For created_at sort, cursor is "created_at|id" keyset
         const parts = cursor.split('|');
@@ -137,7 +137,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
         const cursorCreatedAt = parts[0];
         const cursorId = parts[1];
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursorId) || isNaN(Date.parse(cursorCreatedAt))) {
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursorId) || Number.isNaN(Date.parse(cursorCreatedAt))) {
           return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
         }
         conditions.push(`(p.created_at, p.id) < ($${paramIdx}::timestamptz, $${paramIdx + 1}::uuid)`);

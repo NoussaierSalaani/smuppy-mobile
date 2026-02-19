@@ -105,7 +105,7 @@ export const isEmailDerivedName = (name: string | undefined | null, email?: stri
   const emailPrefix = email?.split('@')[0]?.toLowerCase() || '';
   return (
     name.toLowerCase() === emailPrefix.toLowerCase() ||
-    name.toLowerCase().replace(/[^a-z0-9]/g, '') === emailPrefix.replace(/[^a-z0-9]/g, '')
+    name.toLowerCase().replaceAll(/[^a-z0-9]/g, '') === emailPrefix.replaceAll(/[^a-z0-9]/g, '')
   );
 };
 

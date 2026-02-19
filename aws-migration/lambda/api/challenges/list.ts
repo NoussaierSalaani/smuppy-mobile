@@ -72,13 +72,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
     const category = event.queryStringParameters?.category;
     const status = event.queryStringParameters?.status || 'active';
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     const cursor = event.queryStringParameters?.cursor || undefined;
 
     // Validate cursor as ISO date for non-trending filters (trending uses numeric offset)
     if (cursor && filter !== 'trending') {
       const testDate = new Date(cursor);
-      if (isNaN(testDate.getTime())) {
+      if (Number.isNaN(testDate.getTime())) {
         return cors({
           statusCode: 400,
           body: JSON.stringify({ success: false, message: 'Invalid cursor format' }),
@@ -128,7 +128,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const MAX_OFFSET = 500;
 
     if (filter === 'trending') {
-      const trendingOffset = cursor ? Math.min(Math.max(0, parseInt(cursor, 10) || 0), MAX_OFFSET) : 0;
+      const trendingOffset = cursor ? Math.min(Math.max(0, Number.parseInt(cursor, 10) || 0), MAX_OFFSET) : 0;
       const statusIdx = paramIndex++;
       const categoryIdx = category ? paramIndex++ : -1;
       const limitIdx = paramIndex++;
@@ -257,7 +257,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     let nextCursor: string | null = null;
     if (hasMore && rows.length > 0) {
       if (filter === 'trending') {
-        const trendingOffset = cursor ? Math.max(0, parseInt(cursor, 10) || 0) : 0;
+        const trendingOffset = cursor ? Math.max(0, Number.parseInt(cursor, 10) || 0) : 0;
         const nextOffset = trendingOffset + limit;
         nextCursor = nextOffset <= MAX_OFFSET ? String(nextOffset) : null;
       } else if (filter === 'tagged') {

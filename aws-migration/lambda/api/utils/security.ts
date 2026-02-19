@@ -45,7 +45,7 @@ export function sanitizeInput(input: string, maxLength: number = 1000): string {
     .trim()
     .slice(0, maxLength)
     // Remove null bytes
-    .replace(/\0/g, '')
+    .replaceAll('\0', '')
     // Remove control characters except newlines and tabs
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — intentional control char sanitization
 }
@@ -58,10 +58,10 @@ export function sanitizeText(text: string, maxLength: number = 500): string {
   if (!text || typeof text !== 'string') return '';
 
   return text
-    .replace(/<[^>]*>/g, '') // Strip HTML tags (XSS prevention)
+    .replaceAll(/<[^>]*>/g, '') // Strip HTML tags (XSS prevention)
     .trim()
     .slice(0, maxLength)
-    .replace(/\0/g, '') // Remove null bytes
+    .replaceAll('\0', '') // Remove null bytes
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — Remove control chars
 }
 

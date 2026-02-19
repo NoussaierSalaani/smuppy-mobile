@@ -164,14 +164,14 @@ async function listRefunds(
   // Cursor-based pagination on r.created_at
   if (cursor) {
     const parsedDate = new Date(cursor);
-    if (!isNaN(parsedDate.getTime())) {
+    if (!Number.isNaN(parsedDate.getTime())) {
       query += ` AND r.created_at < $${paramIndex}::timestamptz`;
       params.push(parsedDate.toISOString());
       paramIndex++;
     }
   }
 
-  const parsedLimit = Math.min(parseInt(limit), 50);
+  const parsedLimit = Math.min(Number.parseInt(limit), 50);
   query += ` ORDER BY r.created_at DESC LIMIT $${paramIndex}`;
   params.push(parsedLimit + 1);
 

@@ -118,8 +118,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Admin disputes use multi-CASE ORDER BY — use offset-encoded cursor
     const MAX_OFFSET = 500;
-    const offset = cursor ? Math.min(parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
-    const parsedLimit = Math.min(parseInt(limit), 50);
+    const offset = cursor ? Math.min(Number.parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
+    const parsedLimit = Math.min(Number.parseInt(limit), 50);
 
     params.push(parsedLimit + 1);
     params.push(offset);
@@ -176,7 +176,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           amount: d.amount_cents / 100,
           currency: d.currency,
           autoVerification: d.auto_verification,
-          evidenceCount: parseInt(d.evidence_count),
+          evidenceCount: Number.parseInt(d.evidence_count),
           complainant: {
             username: d.complainant_username,
             avatar: d.complainant_avatar,
@@ -187,10 +187,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           },
         })),
         stats: {
-          total: parseInt(stats.total),
-          open: parseInt(stats.open),
-          underReview: parseInt(stats.under_review),
-          resolved: parseInt(stats.resolved),
+          total: Number.parseInt(stats.total),
+          open: Number.parseInt(stats.open),
+          underReview: Number.parseInt(stats.under_review),
+          resolved: Number.parseInt(stats.resolved),
           avgResolutionTime: Math.round(parseFloat(stats.avg_resolution_hours) || 0),
         },
       }),

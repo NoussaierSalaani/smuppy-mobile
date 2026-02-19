@@ -60,7 +60,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Sanitize inputs
-    const sanitizedReason = reason.replace(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_REASON_LENGTH);
+    const sanitizedReason = reason.replaceAll(/<[^>]*>/g, '').trim().slice(0, MAX_REPORT_REASON_LENGTH);
     const sanitizedDetails = details
       ? String(details).replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, MAX_REPORT_DETAILS_LENGTH) // NOSONAR — intentional control char sanitization
       : null;

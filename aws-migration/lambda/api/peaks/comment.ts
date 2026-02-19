@@ -64,7 +64,7 @@ async function handleListComments(
   headers: Record<string, string>,
   peakId: string
 ): Promise<APIGatewayProxyResult> {
-  const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+  const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
   const cursor = event.queryStringParameters?.cursor;
 
   const pool = await getPool();

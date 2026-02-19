@@ -44,12 +44,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Parse pagination params
     const { limit: limitStr, cursor } = event.queryStringParameters || {};
-    const limit = Math.min(Math.max(parseInt(limitStr || '20', 10) || 20, 1), 50);
+    const limit = Math.min(Math.max(Number.parseInt(limitStr || '20', 10) || 20, 1), 50);
 
     // Validate cursor if provided
     if (cursor) {
-      const parsed = parseInt(cursor, 10);
-      if (isNaN(parsed) || parsed < 0) {
+      const parsed = Number.parseInt(cursor, 10);
+      if (Number.isNaN(parsed) || parsed < 0) {
         return {
           statusCode: 400,
           headers,
@@ -108,7 +108,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     if (cursor) {
       cursorClause = 'AND l.created_at < $3';
-      params.push(new Date(parseInt(cursor, 10)));
+      params.push(new Date(Number.parseInt(cursor, 10)));
     }
 
     // SECURITY: Resolve requester profile for block filtering

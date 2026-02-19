@@ -34,14 +34,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const lat = parseFloat(latParam);
     const lng = parseFloat(lngParam);
 
-    if (isNaN(lat) || lat < -90 || lat > 90) {
+    if (Number.isNaN(lat) || lat < -90 || lat > 90) {
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({ message: 'Invalid latitude (must be between -90 and 90)' }),
       };
     }
-    if (isNaN(lng) || lng < -180 || lng > 180) {
+    if (Number.isNaN(lng) || lng < -180 || lng > 180) {
       return {
         statusCode: 400,
         headers,
@@ -50,10 +50,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const radius = Math.min(
-      Math.max(parseInt(radiusParam || String(DEFAULT_SEARCH_RADIUS_METERS), 10) || DEFAULT_SEARCH_RADIUS_METERS, 100),
+      Math.max(Number.parseInt(radiusParam || String(DEFAULT_SEARCH_RADIUS_METERS), 10) || DEFAULT_SEARCH_RADIUS_METERS, 100),
       MAX_SEARCH_RADIUS_METERS
     );
-    const limit = Math.min(parseInt(limitParam || '20', 10) || 20, 50);
+    const limit = Math.min(Number.parseInt(limitParam || '20', 10) || 20, 50);
 
     // Rate limit: anti-scraping — geo queries are expensive
     const rateLimitId = event.requestContext.authorizer?.claims?.sub

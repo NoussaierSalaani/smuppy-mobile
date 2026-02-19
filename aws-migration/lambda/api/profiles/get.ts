@@ -200,7 +200,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         followersCount: profile.fan_count || 0,
         followingCount: profile.following_count || 0,
         postsCount: profile.post_count || 0,
-        peaksCount: parseInt(profile.peak_count, 10) || 0,
+        peaksCount: Number.parseInt(profile.peak_count, 10) || 0,
         isFollowing,
         isFollowedBy,
       }),

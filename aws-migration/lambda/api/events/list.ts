@@ -43,7 +43,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } = event.queryStringParameters || {};
 
     // NaN guard: parseInt can return NaN for non-numeric strings
-    const limitNum = Math.min(parseInt(limit) || 20, 50);
+    const limitNum = Math.min(Number.parseInt(limit) || 20, 50);
 
     // Resolve profile ID for authenticated user
     let profileId: string | null = null;
@@ -189,7 +189,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Date range filter
     if (startDate) {
-      if (isNaN(new Date(startDate).getTime())) {
+      if (Number.isNaN(new Date(startDate).getTime())) {
         return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid startDate.' }) });
       }
       params.push(new Date(startDate));
@@ -197,7 +197,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     if (endDate) {
-      if (isNaN(new Date(endDate).getTime())) {
+      if (Number.isNaN(new Date(endDate).getTime())) {
         return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid endDate.' }) });
       }
       params.push(new Date(endDate));
@@ -222,7 +222,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (cursor) {
       if (isNearbyWithDistance) {
         // For nearby filter: cursor is a numeric offset string (distance changes, keyset not possible)
-        const cursorOffset = Math.min(parseInt(cursor) || 0, 500);
+        const cursorOffset = Math.min(Number.parseInt(cursor) || 0, 500);
         params.push(cursorOffset);
         params.push(limitNum + 1);
         query += ` ORDER BY ${orderBy} LIMIT $${params.length} OFFSET $${params.length - 1}`;
@@ -245,7 +245,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             body: JSON.stringify({ success: false, message: 'Invalid cursor: bad UUID.' }),
           });
         }
-        if (isNaN(Date.parse(cursorDate))) {
+        if (Number.isNaN(Date.parse(cursorDate))) {
           return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor: bad date.' }) });
         }
         params.push(cursorDate);
@@ -350,7 +350,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           hasMore,
           nextCursor: hasMore
             ? isNearbyWithDistance
-              ? String((cursor ? parseInt(cursor) || 0 : 0) + limitNum)
+              ? String((cursor ? Number.parseInt(cursor) || 0 : 0) + limitNum)
               : `${rows[rows.length - 1].starts_at}|${rows[rows.length - 1].id}`
             : null,
         },

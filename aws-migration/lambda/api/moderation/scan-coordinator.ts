@@ -100,8 +100,8 @@ export async function recordScanResult(
   }));
 
   const attrs = response.Attributes || {};
-  const scanCount = parseInt(attrs.scanCount?.N || '0', 10);
-  const expected = parseInt(attrs.expectedScanCount?.N || '1', 10);
+  const scanCount = Number.parseInt(attrs.scanCount?.N || '0', 10);
+  const expected = Number.parseInt(attrs.expectedScanCount?.N || '1', 10);
   const virusResult = attrs.virusScanResult?.S;
   const modResult = attrs.moderationResult?.S;
 

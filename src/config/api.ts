@@ -58,10 +58,10 @@ const sanitizeSearchQuery = (query: string): string | null => {
   }
 
   // Strip HTML tags
-  sanitized = sanitized.replace(/<[^>]*>/g, '');
+  sanitized = sanitized.replaceAll(/<[^>]*>/g, '');
 
   // Strip control characters (except normal whitespace)
-  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — intentional control char sanitization
+  sanitized = sanitized.replaceAll(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   // Re-check if empty after sanitization
   if (sanitized.trim().length === 0) {

@@ -99,12 +99,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     ]);
 
     const stats = {
-      todayBookings: parseInt(bookingsToday.rows[0]?.count || '0'),
-      activeMembers: parseInt(activeMembers.rows[0]?.count || '0'),
-      monthlyRevenue: parseInt(monthlyRevenue.rows[0]?.total || '0'),
+      todayBookings: Number.parseInt(bookingsToday.rows[0]?.count || '0'),
+      activeMembers: Number.parseInt(activeMembers.rows[0]?.count || '0'),
+      monthlyRevenue: Number.parseInt(monthlyRevenue.rows[0]?.total || '0'),
       pendingRequests: 0,
-      todayCheckIns: parseInt(todayCheckIns.rows[0]?.count || '0'),
-      upcomingClasses: parseInt(upcomingClasses.rows[0]?.count || '0'),
+      todayCheckIns: Number.parseInt(todayCheckIns.rows[0]?.count || '0'),
+      upcomingClasses: Number.parseInt(upcomingClasses.rows[0]?.count || '0'),
     };
 
     const now = new Date();

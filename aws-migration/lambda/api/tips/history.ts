@@ -40,7 +40,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const profileId = profileResult.rows[0].id;
 
     const type = event.queryStringParameters?.type || 'received'; // 'sent' or 'received'
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
     const contextType = event.queryStringParameters?.contextType;
 
@@ -49,7 +49,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const baseParams: SqlParam[] = [profileId];
     if (cursor) {
       const parsedDate = new Date(cursor);
-      if (isNaN(parsedDate.getTime())) {
+      if (Number.isNaN(parsedDate.getTime())) {
         return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) });
       }
       baseParams.push(parsedDate.toISOString());
@@ -162,7 +162,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         type,
         tips,
         totals: {
-          count: parseInt(totalsResult.rows[0].total_count),
+          count: Number.parseInt(totalsResult.rows[0].total_count),
           totalAmount: parseFloat(totalsResult.rows[0].total_amount),
           monthAmount: parseFloat(totalsResult.rows[0].month_amount),
         },

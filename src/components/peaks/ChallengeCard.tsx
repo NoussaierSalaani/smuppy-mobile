@@ -58,7 +58,7 @@ interface ChallengeCardProps {
 function getTimeRemaining(endsAt?: string): string {
   if (!endsAt) return '';
   const end = new Date(endsAt);
-  if (isNaN(end.getTime())) return '';
+  if (Number.isNaN(end.getTime())) return '';
   const now = new Date();
   const diff = end.getTime() - now.getTime();
   if (diff <= 0) return 'Ended';

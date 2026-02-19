@@ -153,7 +153,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Validate coordinates
     const lat = Number(latitude);
     const lng = Number(longitude);
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return cors({
         statusCode: 400,
         body: JSON.stringify({ success: false, message: 'Invalid coordinates' }),

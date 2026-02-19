@@ -371,7 +371,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const { submitPeakReport } = useContentStore();
 
   const heartScale = useRef(new Animated.Value(0)).current;
-  const heartParticles = useRef([...Array(6)].map(() => ({
+  const heartParticles = useRef([...new Array(6)].map(() => ({
     scale: new Animated.Value(0),
     translateX: new Animated.Value(0),
     translateY: new Animated.Value(0),
@@ -388,7 +388,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const createdDate = useMemo(() => {
     const value = currentPeak?.createdAt || new Date().toISOString();
     const d = new Date(value);
-    return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
   }, [currentPeak]);
 
   useEffect(() => {
@@ -421,7 +421,7 @@ const PeakViewScreen = (): React.JSX.Element => {
     if (!currentPeak.expiresAt || currentPeak.isOwnPeak) return;
     const checkExpiration = () => {
       const expiresMs = new Date(currentPeak.expiresAt!).getTime();
-      if (!isNaN(expiresMs) && Date.now() > expiresMs) {
+      if (!Number.isNaN(expiresMs) && Date.now() > expiresMs) {
         showWarning('Peak Expired', 'This peak has expired and is no longer available.');
         navigation.goBack();
       }
@@ -1415,7 +1415,7 @@ const PeakViewScreen = (): React.JSX.Element => {
       {carouselVisible && currentPeak.filterId && (
         <View style={[styles.filterBadge, filterBadgeTopStyle]}>
           <Ionicons name="color-wand" size={12} color={colors.primary} />
-          <Text style={styles.filterBadgeText}>{currentPeak.filterId.replace(/_/g, ' ')}</Text>
+          <Text style={styles.filterBadgeText}>{currentPeak.filterId.replaceAll('_', ' ')}</Text>
         </View>
       )}
 

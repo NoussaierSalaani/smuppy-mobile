@@ -24,7 +24,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10) || 20, 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10) || 20, 50);
     const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();
@@ -82,7 +82,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     if (cursor) {
       query += ` AND ss.created_at < $${paramIndex}`;
-      params.push(new Date(parseInt(cursor, 10)));
+      params.push(new Date(Number.parseInt(cursor, 10)));
       paramIndex++;
     }
 

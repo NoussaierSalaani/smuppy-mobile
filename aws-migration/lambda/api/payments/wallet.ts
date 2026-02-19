@@ -151,7 +151,7 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
     }
 
     // Get revenue tier based on fan count
-    const fanCount = parseInt(profile.fan_count) || 0;
+    const fanCount = Number.parseInt(profile.fan_count) || 0;
     const tier = getTierInfo(fanCount);
 
     // Get lifetime earnings
@@ -234,21 +234,21 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
           tier,
           earnings: {
             lifetime: {
-              total: parseInt(lifetime.total_earnings) || 0,
-              transactions: parseInt(lifetime.total_transactions) || 0,
+              total: Number.parseInt(lifetime.total_earnings) || 0,
+              transactions: Number.parseInt(lifetime.total_transactions) || 0,
             },
             thisMonth: {
-              total: parseInt(month.month_earnings) || 0,
-              transactions: parseInt(month.month_transactions) || 0,
+              total: Number.parseInt(month.month_earnings) || 0,
+              transactions: Number.parseInt(month.month_transactions) || 0,
             },
             breakdown: breakdown.map((b: Record<string, unknown>) => ({
               type: b.type,
-              earnings: parseInt(b.earnings as string) || 0,
-              count: parseInt(b.count as string) || 0,
+              earnings: Number.parseInt(b.earnings as string) || 0,
+              count: Number.parseInt(b.count as string) || 0,
             })),
           },
           subscribers: {
-            active: parseInt(subscriberResult.rows[0].subscriber_count) || 0,
+            active: Number.parseInt(subscriberResult.rows[0].subscriber_count) || 0,
           },
           balance: stripeBalance,
         },
@@ -275,7 +275,7 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
     let cursorCondition = '';
     if (options.cursor) {
       const parsedDate = new Date(options.cursor);
-      if (!isNaN(parsedDate.getTime())) {
+      if (!Number.isNaN(parsedDate.getTime())) {
         params.push(parsedDate.toISOString());
         cursorCondition = `AND p.created_at < $${params.length}::timestamptz`;
       }
@@ -441,21 +441,21 @@ async function getAnalytics(userId: string, period: string, headers: Record<stri
           dateFormat,
           timeline: timelineResult.rows.map((row: Record<string, unknown>) => ({
             period: row.period,
-            earnings: parseInt(row.earnings as string) || 0,
-            transactions: parseInt(row.transactions as string) || 0,
+            earnings: Number.parseInt(row.earnings as string) || 0,
+            transactions: Number.parseInt(row.transactions as string) || 0,
           })),
           topBuyers: topBuyersResult.rows.map((row: Record<string, unknown>) => ({
             id: row.id,
             username: row.username,
             name: row.full_name,
             avatar: row.avatar_url,
-            totalSpent: parseInt(row.total_spent as string) || 0,
-            transactionCount: parseInt(row.transaction_count as string) || 0,
+            totalSpent: Number.parseInt(row.total_spent as string) || 0,
+            transactionCount: Number.parseInt(row.transaction_count as string) || 0,
           })),
           bySource: bySourceResult.rows.map((row: Record<string, unknown>) => ({
             source: row.source,
-            earnings: parseInt(row.earnings as string) || 0,
-            count: parseInt(row.count as string) || 0,
+            earnings: Number.parseInt(row.earnings as string) || 0,
+            count: Number.parseInt(row.count as string) || 0,
           })),
         },
       }),

@@ -59,8 +59,8 @@ export const getMediaUrl = (post: Post, fallback: string | null = null): string 
  */
 export const formatDuration = (seconds: number | string | null | undefined): string | undefined => {
   if (seconds === undefined || seconds === null) return undefined;
-  const s = typeof seconds === 'string' ? parseInt(seconds, 10) : seconds;
-  if (isNaN(s) || s <= 0) return undefined;
+  const s = typeof seconds === 'string' ? Number.parseInt(seconds, 10) : seconds;
+  if (Number.isNaN(s) || s <= 0) return undefined;
   const mins = Math.floor(s / 60);
   const secs = s % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -270,7 +270,7 @@ export const getMasonryHeight = (
   // Fallback: deterministic hash from post ID
   const mid = Math.floor(postId.length / 2);
   const charSum = Math.abs(
-    postId.charCodeAt(0) + postId.charCodeAt(mid) + postId.charCodeAt(postId.length - 1)
+    (postId.codePointAt(0) ?? 0) + (postId.codePointAt(mid) ?? 0) + (postId.codePointAt(postId.length - 1) ?? 0)
   );
   return FALLBACK_HEIGHTS[charSum % FALLBACK_HEIGHTS.length];
 };

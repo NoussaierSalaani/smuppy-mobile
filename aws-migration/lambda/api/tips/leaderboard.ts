@@ -21,7 +21,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const creatorId = event.pathParameters?.creatorId;
     const period = event.queryStringParameters?.period || 'all_time'; // all_time, monthly, weekly
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '10'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '10'), 50);
 
     if (!creatorId) {
       return cors({
@@ -100,7 +100,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     const leaderboard = result.rows.map((row: Record<string, unknown>) => ({
-      rank: parseInt(row.rank as string),
+      rank: Number.parseInt(row.rank as string),
       tipper: {
         id: row.tipper_id,
         username: row.username,
@@ -108,7 +108,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         avatarUrl: row.avatar_url,
       },
       totalAmount: parseFloat(row.total_amount as string),
-      tipCount: parseInt(row.tip_count as string),
+      tipCount: Number.parseInt(row.tip_count as string),
     }));
 
     return cors({
@@ -118,7 +118,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         period,
         leaderboard,
         stats: {
-          uniqueTippers: parseInt(statsResult.rows[0].unique_tippers),
+          uniqueTippers: Number.parseInt(statsResult.rows[0].unique_tippers),
           totalAmount: parseFloat(statsResult.rows[0].total_amount),
           creatorTotal: parseFloat(statsResult.rows[0].creator_total),
         },

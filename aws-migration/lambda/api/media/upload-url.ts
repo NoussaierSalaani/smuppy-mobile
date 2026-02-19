@@ -290,7 +290,7 @@ export async function handler(
       Metadata: {
         'uploaded-by': userId,
         'upload-type': uploadType,
-        'original-filename': (request.filename || 'unknown').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255),
+        'original-filename': (request.filename || 'unknown').replaceAll(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255),
       },
     });
 

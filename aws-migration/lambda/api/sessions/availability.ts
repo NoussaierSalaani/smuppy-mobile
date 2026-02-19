@@ -45,7 +45,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   // Get date from query params or default to next 7 days
   const startDate = event.queryStringParameters?.startDate || new Date().toISOString().split('T')[0];
-  const daysAhead = parseInt(event.queryStringParameters?.days || '7');
+  const daysAhead = Number.parseInt(event.queryStringParameters?.days || '7');
 
   try {
     const pool = await getPool();

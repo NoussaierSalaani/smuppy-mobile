@@ -93,7 +93,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         body: JSON.stringify({
           success: true,
           requiresPayment: true,
-          price: typeof group.price === 'number' ? group.price : parseInt(group.price, 10),
+          price: typeof group.price === 'number' ? group.price : Number.parseInt(group.price, 10),
           currency: group.currency || 'EUR',
           message: 'Payment required to join this group',
         }),

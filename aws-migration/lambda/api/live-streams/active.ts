@@ -76,7 +76,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       channelName: row.channel_name,
       title: row.title,
       startedAt: row.started_at,
-      viewerCount: parseInt(row.viewer_count as string) || 0,
+      viewerCount: Number.parseInt(row.viewer_count as string) || 0,
       host: {
         id: row.host_id,
         username: row.host_username,

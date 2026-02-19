@@ -98,7 +98,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const reactionCounts: Record<string, number> = {};
       countsResult.rows.forEach((row: { reaction_type: string; count: string }) => {
-        reactionCounts[row.reaction_type] = parseInt(row.count);
+        reactionCounts[row.reaction_type] = Number.parseInt(row.count);
       });
 
       log.info('Reaction added', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***', reaction });

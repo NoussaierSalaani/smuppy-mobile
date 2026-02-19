@@ -39,7 +39,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
     }
 
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();
@@ -69,7 +69,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const cursorDate = cursor.substring(0, pipeIndex);
         const cursorId = cursor.substring(pipeIndex + 1);
         const parsedDate = new Date(cursorDate);
-        if (isNaN(parsedDate.getTime())) {
+        if (Number.isNaN(parsedDate.getTime())) {
           return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
         }
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -80,7 +80,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         params.push(parsedDate.toISOString(), cursorId);
       } else {
         const parsedDate = new Date(cursor);
-        if (isNaN(parsedDate.getTime())) {
+        if (Number.isNaN(parsedDate.getTime())) {
           return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
         }
         cursorCondition = 'AND p.created_at < $2::timestamptz';

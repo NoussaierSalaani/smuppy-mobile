@@ -77,21 +77,21 @@ const secureStore = {
  */
 function base64UrlDecode(str: string): string {
   // Base64url → standard Base64
-  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  let b64 = str.replaceAll('-', '+').replaceAll('_', '/');
   // Pad to multiple of 4
   while (b64.length % 4 !== 0) b64 += '=';
 
   // Pure-JS Base64 decode
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const lookup = new Uint8Array(128);
-  for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i;
+  for (let i = 0; i < chars.length; i++) lookup[chars.codePointAt(i) ?? 0] = i;
 
   const bytes: number[] = [];
   for (let i = 0; i < b64.length; i += 4) {
-    const a = lookup[b64.charCodeAt(i)];
-    const b = lookup[b64.charCodeAt(i + 1)];
-    const c = lookup[b64.charCodeAt(i + 2)];
-    const d = lookup[b64.charCodeAt(i + 3)];
+    const a = lookup[b64.codePointAt(i) ?? 0];
+    const b = lookup[b64.codePointAt(i + 1) ?? 0];
+    const c = lookup[b64.codePointAt(i + 2) ?? 0];
+    const d = lookup[b64.codePointAt(i + 3) ?? 0];
     bytes.push((a << 2) | (b >> 4));
     if (b64[i + 2] !== '=') bytes.push(((b & 0xf) << 4) | (c >> 2));
     if (b64[i + 3] !== '=') bytes.push(((c & 0x3) << 6) | d);
@@ -258,7 +258,7 @@ class AWSAuthService {
 
       // Generate a deterministic username from email (Cognito requires non-email username when email alias is enabled)
       // Example: john@gmail.com -> johngmailcom (no special chars, no prefix)
-      const emailHash = email.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const emailHash = email.toLowerCase().replaceAll(/[^a-z0-9]/g, '');
       const cognitoUsername = username || emailHash;
 
       const userAttributes = [

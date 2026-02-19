@@ -20,7 +20,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const userId = extractCognitoSub(event);
 
     // Pagination params
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
     const authorIdParam = event.queryStringParameters?.authorId || event.queryStringParameters?.author_id;
     const usernameParam = event.queryStringParameters?.username;
@@ -159,7 +159,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Cursor pagination
     if (cursor) {
       query += ` AND pk.created_at < $${paramIndex}`;
-      params.push(new Date(parseInt(cursor)));
+      params.push(new Date(Number.parseInt(cursor)));
       paramIndex++;
     }
 

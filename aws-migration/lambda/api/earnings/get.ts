@@ -79,11 +79,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    const fanCount = parseInt(userResult.rows[0].fan_count || '0');
+    const fanCount = Number.parseInt(userResult.rows[0].fan_count || '0');
     const creatorShare = getCreatorSharePercent(fanCount) / 100; // e.g. 0.60 – 0.80
 
     const period = event.queryStringParameters?.period || 'month'; // 'week', 'month', 'year', 'all'
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
 
     // Calculate date range
     let startDate: Date;
@@ -207,15 +207,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           pendingBalance,
           breakdown: {
             sessions: {
-              count: parseInt(sessionsEarnings.rows[0]?.session_count || 0),
+              count: Number.parseInt(sessionsEarnings.rows[0]?.session_count || 0),
               total: sessionsTotal,
             },
             packs: {
-              count: parseInt(packsEarnings.rows[0]?.pack_count || 0),
+              count: Number.parseInt(packsEarnings.rows[0]?.pack_count || 0),
               total: packsTotal,
             },
             subscriptions: {
-              count: parseInt(subscriptionsEarnings.rows[0]?.subscriber_count || 0),
+              count: Number.parseInt(subscriptionsEarnings.rows[0]?.subscriber_count || 0),
               total: subscriptionsTotal,
             },
           },

@@ -15,9 +15,9 @@ const MAX_LIMIT = 50;
 
 function sanitizeQuery(raw: string): string {
   const CONTROL_CHARS = /[\x00-\x1F\x7F]/g; // NOSONAR — intentional control char sanitization
-  const sanitized = raw.replace(/<[^>]*>/g, '').replace(CONTROL_CHARS, '').trim().substring(0, MAX_SEARCH_QUERY_LENGTH);
+  const sanitized = raw.replaceAll(/<[^>]*>/g, '').replaceAll(CONTROL_CHARS, '').trim().substring(0, MAX_SEARCH_QUERY_LENGTH);
   // SECURITY: Escape ILIKE special characters to prevent wildcard injection
-  return sanitized.replace(/[%_\\]/g, '\\$&');
+  return sanitized.replaceAll(/[%_\\]/g, '\\$&');
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -48,7 +48,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 400, headers: { ...headers, 'Cache-Control': 'no-cache' }, body: JSON.stringify({ success: false, error: 'Search query is required' }) };
     }
 
-    const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, 1), MAX_LIMIT);
+    const parsedLimit = Math.min(Math.max(Number.parseInt(limit) || 20, 1), MAX_LIMIT);
 
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const pool = await getPool();
@@ -66,7 +66,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const cursorParams: string[] = [];
     if (cursor) {
       const parsedDate = new Date(cursor);
-      if (isNaN(parsedDate.getTime())) {
+      if (Number.isNaN(parsedDate.getTime())) {
         return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'Invalid cursor format' }) };
       }
       cursorParams.push(parsedDate.toISOString());
@@ -179,8 +179,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       mediaUrls: (post.mediaUrls as string[]) || [],
       mediaType: post.mediaType,
       mediaMeta: post.mediaMeta || {},
-      likesCount: parseInt(String(post.likesCount)) || 0,
-      commentsCount: parseInt(String(post.commentsCount)) || 0,
+      likesCount: Number.parseInt(String(post.likesCount)) || 0,
+      commentsCount: Number.parseInt(String(post.commentsCount)) || 0,
       createdAt: post.createdAt,
       isLiked: likedSet.has(post.id as string),
       author: {

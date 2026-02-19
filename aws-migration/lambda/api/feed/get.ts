@@ -24,7 +24,7 @@ async function getRedis(): Promise<Redis | null> {
   if (!redis) {
     redis = new Redis({
       host: process.env.REDIS_ENDPOINT,
-      port: parseInt(process.env.REDIS_PORT || '6379'),
+      port: Number.parseInt(process.env.REDIS_PORT || '6379'),
       // TLS required - ElastiCache has transit encryption enabled
       tls: {},
       maxRetriesPerRequest: 3,
@@ -41,7 +41,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
 
     if (!cognitoSub) {
@@ -134,7 +134,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           };
         }
         const parsedDate = new Date(cursorDate);
-        if (isNaN(parsedDate.getTime())) {
+        if (Number.isNaN(parsedDate.getTime())) {
           return {
             statusCode: 400,
             headers,
@@ -147,7 +147,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       } else {
         // Legacy cursor: created_at only (backward compatibility)
         const parsedDate = new Date(cursor);
-        if (isNaN(parsedDate.getTime())) {
+        if (Number.isNaN(parsedDate.getTime())) {
           return {
             statusCode: 400,
             headers,

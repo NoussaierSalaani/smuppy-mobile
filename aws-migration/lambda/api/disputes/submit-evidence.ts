@@ -228,7 +228,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [disputeId, profileId]
     );
 
-    if (parseInt(evidenceCount.rows[0].count) >= 10) {
+    if (Number.parseInt(evidenceCount.rows[0].count) >= 10) {
       return {
         statusCode: 400,
         headers,

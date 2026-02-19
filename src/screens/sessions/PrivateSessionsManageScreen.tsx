@@ -340,9 +340,9 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       const response = await awsAPI.createPack({
         name: packName,
         description: '',
-        sessionsIncluded: parseInt(packSessions) || 8,
+        sessionsIncluded: Number.parseInt(packSessions) || 8,
         sessionDuration: packDuration,
-        validityDays: parseInt(packValidity) || 30,
+        validityDays: Number.parseInt(packValidity) || 30,
         price: parseFloat(packPrice) || 0,
         savingsPercent: 0,
       });
@@ -464,7 +464,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
     for (const request of sessionRequests) {
       if (request.status === 'confirmed') {
         const d = new Date(request.date);
-        if (!isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month) {
+        if (!Number.isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month) {
           days.add(d.getDate());
         }
       }

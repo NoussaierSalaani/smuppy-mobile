@@ -37,7 +37,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
   const barHeights = useMemo(() => {
     const heights: number[] = [];
     let seed = 0;
-    for (let i = 0; i < uri.length; i++) seed = ((seed << 5) - seed + uri.charCodeAt(i)) | 0;
+    for (let i = 0; i < uri.length; i++) seed = Math.trunc((seed << 5) - seed + (uri.codePointAt(i) ?? 0));
     for (let i = 0; i < BAR_COUNT; i++) {
       seed = (seed * 16807 + 0) % 2147483647;
       heights.push(8 + (seed % 17));

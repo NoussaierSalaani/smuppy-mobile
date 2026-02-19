@@ -225,7 +225,7 @@ async function subscribeToChannel(
     if (!fan.email && fan.cognito_sub) {
       try {
         const cognitoClient = new CognitoIdentityProviderClient({});
-        const sanitizedSub = fan.cognito_sub.replace(/["\\]/g, '');
+        const sanitizedSub = fan.cognito_sub.replaceAll(/["\\]/g, '');
         const cognitoResult = await cognitoClient.send(new ListUsersCommand({
           UserPoolId: process.env.USER_POOL_ID,
           Filter: `sub = "${sanitizedSub}"`,
@@ -260,7 +260,7 @@ async function subscribeToChannel(
     }
 
     // Calculate platform fee based on creator's fan count
-    const fanCount = parseInt(creator.fan_count) || 0;
+    const fanCount = Number.parseInt(creator.fan_count) || 0;
     const platformFeePercent = calculatePlatformFeePercent(fanCount);
 
     // Get or create the price for this creator's channel
@@ -336,7 +336,7 @@ async function getOrCreateChannelPrice(
 
   // Search for existing product for this creator
   // SECURITY: Sanitize creatorId to prevent Stripe search query injection
-  const sanitizedCreatorId = creatorId.replace(/['\\]/g, '');
+  const sanitizedCreatorId = creatorId.replaceAll(/['\\]/g, '');
   const products = await safeStripeCall(
     () => stripe.products.search({
       query: `metadata['creatorId']:'${sanitizedCreatorId}' AND active:'true'`,
@@ -525,7 +525,7 @@ async function getChannelInfo(creatorId: string, headers: Record<string, string>
     }
 
     const creator = result.rows[0];
-    const fanCount = parseInt(creator.fan_count) || 0;
+    const fanCount = Number.parseInt(creator.fan_count) || 0;
 
     return {
       statusCode: 200,
@@ -541,7 +541,7 @@ async function getChannelInfo(creatorId: string, headers: Record<string, string>
           pricePerMonth: creator.channel_price_cents,
           description: creator.channel_description,
           fanCount,
-          subscriberCount: parseInt(creator.subscriber_count) || 0,
+          subscriberCount: Number.parseInt(creator.subscriber_count) || 0,
           tier: getTierName(fanCount),
         },
       }),
@@ -654,8 +654,8 @@ async function getMySubscribers(userId: string, headers: Record<string, string>)
           subscribedAt: row.created_at,
         })),
         earnings: {
-          totalGross: parseInt(earnings.total_gross) || 0,
-          totalNet: parseInt(earnings.total_net) || 0,
+          totalGross: Number.parseInt(earnings.total_gross) || 0,
+          totalNet: Number.parseInt(earnings.total_net) || 0,
         },
       }),
     };

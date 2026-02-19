@@ -14,6 +14,7 @@ import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 import * as path from 'path';
+import { createLambdaFactory } from './lambda-helpers';
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   vpc: ec2.IVpc;
@@ -326,59 +327,19 @@ export class LambdaStack extends cdk.NestedStack {
       encryption: sqs.QueueEncryption.SQS_MANAGED,
     });
 
-    // Create optimized Lambda function helper
-    const createLambda = (name: string, entryFile: string, options?: {
-      memory?: number;
-      timeout?: number;
-      reservedConcurrency?: number;
-    }) => {
-      const fn = new NodejsFunction(this, name, {
-        entry: path.join(__dirname, `../../lambda/api/${entryFile}.ts`),
-        handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_22_X,
-        memorySize: options?.memory || 512,
-        timeout: cdk.Duration.seconds(options?.timeout || 30),
-        vpc,
-        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-        securityGroups: [lambdaSecurityGroup],
-        environment: lambdaEnvironment,
-        bundling: {
-          minify: true,
-          sourceMap: !isProduction,
-          externalModules: [],
-        },
-        reservedConcurrentExecutions: options?.reservedConcurrency,
-        tracing: lambda.Tracing.ACTIVE,
-        logGroup: apiLogGroup,
-        depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
-        projectRoot: path.join(__dirname, '../../lambda/api'),
-      });
-
-      dbCredentials.grantRead(fn);
-
-      // Grant Redis auth secret read permission
-      if (props.redisAuthSecret) {
-        props.redisAuthSecret.grantRead(fn);
-      }
-
-      // Grant DynamoDB rate limit table access
-      fn.addToRolePolicy(new iam.PolicyStatement({
-        actions: ['dynamodb:UpdateItem'],
-        resources: [`arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/smuppy-rate-limit-${environment}`],
-      }));
-
-      // Grant RDS Proxy IAM authentication permissions
-      // This allows Lambda to connect to RDS Proxy using IAM auth instead of username/password
-      if (props.rdsProxyArn) {
-        fn.addToRolePolicy(new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ['rds-db:connect'],
-          resources: [props.rdsProxyArn],
-        }));
-      }
-
-      return fn;
-    };
+    // Shared Lambda factory (eliminates duplicated createLambda across stacks)
+    const createLambda = createLambdaFactory({
+      scope: this,
+      vpc,
+      lambdaSecurityGroup,
+      dbCredentials,
+      lambdaEnvironment,
+      environment,
+      isProduction,
+      apiLogGroup,
+      redisAuthSecret: props.redisAuthSecret,
+      rdsProxyArn: props.rdsProxyArn,
+    });
 
     // ========================================
     // Phase 1: Core API Lambda Functions

@@ -8,7 +8,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('comments-list');
@@ -39,20 +39,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Rate limit: anti-scraping
     const rateLimitId = extractCognitoSub(event)
       || event.requestContext.identity?.sourceIp || 'anonymous';
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'comments-list',
       identifier: rateLimitId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
       failOpen: true,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Pagination params
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);

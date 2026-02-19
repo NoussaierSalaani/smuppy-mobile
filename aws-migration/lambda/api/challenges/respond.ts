@@ -5,13 +5,15 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('challenges-respond');
+const corsHeaders = getSecureHeaders();
 
 interface RespondChallengeRequest {
   challengeId: string;
@@ -36,10 +38,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'challenge-respond', identifier: cognitoSub, windowSeconds: 60, maxRequests: 20 });
-    if (!allowed) {
-      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-respond', identifier: cognitoSub, windowSeconds: 60, maxRequests: 20 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check + block business accounts from participating
     const accountCheck = await requireActiveAccount(cognitoSub, {});
@@ -54,17 +54,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Resolve cognito sub to profile ID
-    const profileResult = await client.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-    if (profileResult.rows.length === 0) {
+    const userId = await resolveProfileId(client, cognitoSub);
+    if (!userId) {
       return cors({
         statusCode: 404,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       });
     }
-    const userId = profileResult.rows[0].id;
 
     const body: RespondChallengeRequest = JSON.parse(event.body || '{}');
     const { challengeId, peakId, score, timeSeconds } = body;

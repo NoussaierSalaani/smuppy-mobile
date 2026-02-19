@@ -16,7 +16,7 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('auth-confirm-forgot-password');
 const cognitoClient = new CognitoIdentityProviderClient({});
@@ -103,23 +103,13 @@ export const handler = async (
 
     // Rate limit: 5 requests per minute per IP (password reset is sensitive)
     const ip = event.requestContext.identity?.sourceIp || 'unknown';
-    const rateLimitResult = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'confirm-forgot-password',
       identifier: ip,
       windowSeconds: 60,
       maxRequests: 5,
-    });
-    if (!rateLimitResult.allowed) {
-      log.warn('Rate limit exceeded for confirm-forgot-password', { ip: ip.substring(0, 2) + '***' });
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: 'Too many attempts. Please wait before trying again.',
-        }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Look up actual username by email (handles any username format)
     // Falls back to generated username if lookup fails

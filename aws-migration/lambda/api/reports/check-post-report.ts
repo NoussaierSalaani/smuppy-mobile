@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('reports-check-post');
 
@@ -28,11 +29,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    const userResult = await db.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
-    if (userResult.rows.length === 0) {
+    const reporterId = await resolveProfileId(db, cognitoSub);
+    if (!reporterId) {
       return { statusCode: 200, headers, body: JSON.stringify({ hasReported: false }) };
     }
-    const reporterId = userResult.rows[0].id;
 
     const result = await db.query(
       `SELECT EXISTS(SELECT 1 FROM post_reports WHERE reporter_id = $1 AND post_id = $2) AS has_reported`,

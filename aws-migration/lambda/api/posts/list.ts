@@ -8,8 +8,9 @@ import Redis from 'ioredis';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('posts-list');
@@ -73,16 +74,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Per-user rate limit (fail-open: WAF provides baseline protection for read endpoints)
     if (cognitoSub) {
-      const { allowed } = await checkRateLimit({
+      const rateLimitResponse = await requireRateLimit({
         prefix: 'feed-posts-list',
         identifier: cognitoSub,
         windowSeconds: RATE_WINDOW_1_MIN,
         maxRequests: 60,
         failOpen: true,
-      });
-      if (!allowed) {
-        return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
-      }
+      }, headers);
+      if (rateLimitResponse) return rateLimitResponse;
     }
 
     // BUG-2026-02-14: Include cognitoSub in cache key to prevent cross-user isLiked/blocked data leaks
@@ -105,11 +104,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Resolve the user's profile ID from cognito_sub if authenticated
     let requesterId: string | null = null;
     if (cognitoSub) {
-      const userResult = await pool.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      requesterId = userResult.rows[0]?.id || null;
+      requesterId = await resolveProfileId(pool, cognitoSub);
     }
 
     // Auth required for personalized feeds

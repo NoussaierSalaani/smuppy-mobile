@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
@@ -27,34 +27,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
 
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'comment-create',
       identifier: userId,
       windowSeconds: 60,
       maxRequests: 20,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Daily cap: 200 comments/day (consistent with likes/follows daily limits)
-    const dailyLimit = await checkRateLimit({
+    const dailyRateLimitResponse = await requireRateLimit({
       prefix: 'comment-daily',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_DAY,
       maxRequests: 200,
-    });
-    if (!dailyLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Daily comment limit reached. Please try again tomorrow.' }),
-      };
-    }
+    }, headers);
+    if (dailyRateLimitResponse) return dailyRateLimitResponse;
 
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;

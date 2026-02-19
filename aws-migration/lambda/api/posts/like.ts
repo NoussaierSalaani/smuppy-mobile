@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { sendPushToUser } from '../services/push-notification';
 import { RATE_WINDOW_1_MIN, RATE_WINDOW_1_DAY } from '../utils/constants';
@@ -23,34 +23,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
 
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'post-like',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Daily like limit: 500/day to prevent mass-like automation
-    const dailyLimit = await checkRateLimit({
+    const dailyRateLimitResponse = await requireRateLimit({
       prefix: 'like-daily',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_DAY,
       maxRequests: 500,
-    });
-    if (!dailyLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Daily like limit reached. Please try again tomorrow.' }),
-      };
-    }
+    }, headers);
+    if (dailyRateLimitResponse) return dailyRateLimitResponse;
 
     // Get post ID from path
     const postId = validateUUIDParam(event, headers, 'id', 'Post');

@@ -14,8 +14,9 @@ import { getPool, SqlParam } from '../../shared/db';
 import { getStripeClient } from '../../shared/stripe-client';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('payments-wallet');
 
@@ -56,27 +57,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 20 wallet requests per minute — fail-closed for financial data
-    const { allowed } = await checkRateLimit({ prefix: 'wallet', identifier: userId, windowSeconds: 60, maxRequests: 20, failOpen: false });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'wallet', identifier: userId, windowSeconds: 60, maxRequests: 20, failOpen: false }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body: WalletBody = JSON.parse(event.body || '{}');
 
     // Resolve cognito_sub → profile ID
     const pool = await getPool();
-    const profileLookup = await pool.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileLookup.rows.length === 0) {
+    const profileId = await resolveProfileId(pool, userId);
+    if (!profileId) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-    const profileId = profileLookup.rows[0].id as string;
 
     switch (body.action) {
       case 'get-dashboard':
@@ -91,10 +82,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await getPayouts(profileId, body.limit || 10, headers);
       case 'create-payout': {
         // Stricter rate limit for payouts — failClosed to prevent abuse during DynamoDB outage
-        const payoutCheck = await checkRateLimit({ prefix: 'wallet-payout', identifier: userId, windowSeconds: 60, maxRequests: 3, failOpen: false });
-        if (!payoutCheck.allowed) {
-          return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many payout requests. Please try again later.' }) };
-        }
+        const rateLimitResponse = await requireRateLimit({ prefix: 'wallet-payout', identifier: userId, windowSeconds: 60, maxRequests: 3, failOpen: false }, headers);
+        if (rateLimitResponse) return rateLimitResponse;
         return await createPayout(profileId, headers);
       }
       case 'get-stripe-dashboard-link':

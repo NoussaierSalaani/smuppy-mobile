@@ -7,6 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('notifications-preferences-get');
 
@@ -35,20 +36,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, cognitoSub);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     const result = await db.query(
       `SELECT likes_enabled, comments_enabled, follows_enabled,

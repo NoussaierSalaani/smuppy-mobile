@@ -9,7 +9,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('media-video-status');
@@ -27,15 +27,13 @@ export async function handler(
     }
 
     // Rate limit: 60 per minute (polling is expected)
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'video-status',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 60,
-    });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const entityType = event.queryStringParameters?.type;
     const entityId = event.queryStringParameters?.id;

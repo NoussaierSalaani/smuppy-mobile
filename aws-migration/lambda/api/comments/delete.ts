@@ -8,7 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('comments-delete');
 
@@ -20,10 +20,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
 
-    const { allowed } = await checkRateLimit({ prefix: 'comment-delete', identifier: userId, windowSeconds: 60, maxRequests: 20 });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'comment-delete', identifier: userId, windowSeconds: 60, maxRequests: 20 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const commentId = validateUUIDParam(event, headers, 'id', 'Comment');
     if (isErrorResponse(commentId)) return commentId;

@@ -8,7 +8,8 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
-import { checkRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('posts-save');
 
@@ -21,31 +22,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (isErrorResponse(userId)) return userId;
 
     // Rate limit: 30 save operations per minute
-    const rateCheck = await checkRateLimit({ prefix: 'post-save', identifier: userId as string, maxRequests: 30, windowSeconds: 60 });
-    if (!rateCheck.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'post-save', identifier: userId as string, maxRequests: 30, windowSeconds: 60 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
+    // Get user's profile ID
+    const profileId = await resolveProfileId(db, userId);
 
-    if (userResult.rows.length === 0) {
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Check if post exists
     const postResult = await db.query(

@@ -7,8 +7,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('feed-following');
 
@@ -28,40 +29,29 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Per-user rate limit: 60 req/min, fail-open (WAF baseline protects)
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'feed-following',
       identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 60,
       failOpen: true,
-    });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
     const cursor = event.queryStringParameters?.cursor;
 
     const db = await getPool();
 
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
+    const userId = await resolveProfileId(db, cognitoSub);
 
-    if (userResult.rows.length === 0) {
+    if (!userId) {
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({ data: [] }),
       };
     }
-
-    const userId = userResult.rows[0].id;
 
     // Build cursor-based query (compound cursor: created_at|id, consistent with feed/get.ts)
     let cursorCondition = '';

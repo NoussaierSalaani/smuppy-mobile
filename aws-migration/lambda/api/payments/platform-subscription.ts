@@ -6,9 +6,10 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { getStripeClient } from '../../shared/stripe-client';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
 import { createHeaders } from '../utils/cors';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('payments-platform-subscription');
 
@@ -48,27 +49,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 5 requests per minute per user
-    const rateCheck = await checkRateLimit({ prefix: 'platform-sub', identifier: userId, maxRequests: 5, failOpen: false });
-    if (!rateCheck.allowed) {
-      return {
-        statusCode: 429,
-        headers: fallbackCorsHeaders,
-        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'platform-sub', identifier: userId, maxRequests: 5, failOpen: false }, fallbackCorsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body: SubscriptionBody = JSON.parse(event.body || '{}');
 
     // Resolve cognito_sub → profile ID
     const pool = await getPool();
-    const profileLookup = await pool.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileLookup.rows.length === 0) {
+    const profileId = await resolveProfileId(pool, userId);
+    if (!profileId) {
       return { statusCode: 404, headers: fallbackCorsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-    const profileId = profileLookup.rows[0].id as string;
 
     switch (body.action) {
       case 'subscribe':

@@ -8,7 +8,7 @@ import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_PEAK_DURATION_SECONDS } from '../utils/constants';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -51,19 +51,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'peak-create',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 5,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Parse body
     const body = event.body ? JSON.parse(event.body) : {};

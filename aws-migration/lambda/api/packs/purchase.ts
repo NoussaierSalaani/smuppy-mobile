@@ -6,7 +6,8 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 import { createLogger } from '../utils/logger';
 import Stripe from 'stripe';
 import { getStripeClient } from '../../shared/stripe-client';
@@ -36,14 +37,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    const { allowed } = await checkRateLimit({ prefix: 'packs-purchase', identifier: userId, windowSeconds: 60, maxRequests: 10 });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers: corsHeaders,
-        body: JSON.stringify({ success: false, message: 'Too many requests' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'packs-purchase', identifier: userId, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const stripe = await getStripeClient();
     const body: PurchaseBody = JSON.parse(event.body || '{}');
@@ -60,18 +55,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const pool = await getPool();
 
     // Resolve cognito_sub to profile ID
-    const profileResult = await pool.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(pool, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers: corsHeaders,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
-    const profileId = profileResult.rows[0].id;
 
     // SECURITY: Derive creatorId from pack (never trust client-provided creatorId)
     const packResult = await pool.query(

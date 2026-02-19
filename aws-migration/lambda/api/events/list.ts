@@ -5,11 +5,12 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('events-list');
+const corsHeaders = getSecureHeaders();
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
@@ -18,10 +19,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   // Rate limit: 30 requests per minute per IP (unauthenticated) or user
   const identifier = event.requestContext.authorizer?.claims?.sub ||
                      event.requestContext.identity?.sourceIp || 'unknown';
-  const { allowed } = await checkRateLimit({ prefix: 'events-list', identifier, maxRequests: 30 });
-  if (!allowed) {
-    return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-  }
+  const rateLimitResponse = await requireRateLimit({ prefix: 'events-list', identifier, maxRequests: 30 }, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   const pool = await getPool();
   const client = await pool.connect();

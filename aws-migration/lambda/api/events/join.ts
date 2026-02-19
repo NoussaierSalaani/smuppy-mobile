@@ -5,12 +5,13 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('events-join');
+const corsHeaders = getSecureHeaders();
 
 interface JoinEventRequest {
   action: 'register' | 'cancel' | 'interested';
@@ -34,18 +35,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'events-join',
       identifier: userId,
       windowSeconds: 60,
       maxRequests: 10,
-    });
-    if (!rateLimit.allowed) {
-      return cors({
-        statusCode: 429,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      });
-    }
+    }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const eventId = event.pathParameters?.eventId;
     if (!eventId || !isValidUUID(eventId)) {

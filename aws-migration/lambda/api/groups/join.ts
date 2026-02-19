@@ -5,12 +5,13 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('groups-join');
+const corsHeaders = getSecureHeaders();
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
@@ -29,18 +30,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'groups-join',
       identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 10,
-    });
-    if (!rateLimit.allowed) {
-      return cors({
-        statusCode: 429,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      });
-    }
+    }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const groupId = event.pathParameters?.groupId;
     if (!groupId || !isValidUUID(groupId)) {

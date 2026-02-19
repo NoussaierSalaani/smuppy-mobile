@@ -14,7 +14,7 @@ import { getStripePublishableKey } from '../../shared/secrets';
 import { getStripeClient } from '../../shared/stripe-client';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 import { PLATFORM_FEE_PERCENT, APPLE_FEE_PERCENT, GOOGLE_FEE_PERCENT, MIN_PAYMENT_CENTS, MAX_PAYMENT_CENTS } from '../utils/constants';
 
@@ -73,14 +73,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 10 payment intents per minute
-    const { allowed } = await checkRateLimit({ prefix: 'payment-create', identifier: userId, windowSeconds: 60, maxRequests: 10, failOpen: false });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'payment-create', identifier: userId, windowSeconds: 60, maxRequests: 10, failOpen: false }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Parse request body
     const body: CreateIntentRequest = event.body ? JSON.parse(event.body) : {};

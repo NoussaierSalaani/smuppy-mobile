@@ -8,7 +8,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('feed-discover');
 
@@ -22,14 +23,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
     if (cognitoSub) {
-      const { allowed } = await checkRateLimit({ prefix: 'feed-discover', identifier: cognitoSub, windowSeconds: 60, maxRequests: 60 });
-      if (!allowed) {
-        return {
-          statusCode: 429,
-          headers,
-          body: JSON.stringify({ message: 'Too many requests' }),
-        };
-      }
+      const rateLimitResponse = await requireRateLimit({ prefix: 'feed-discover', identifier: cognitoSub, windowSeconds: 60, maxRequests: 60 }, headers);
+      if (rateLimitResponse) return rateLimitResponse;
     }
 
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
@@ -50,13 +45,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let userId: string | null = null;
 
     if (cognitoSub) {
-      const userResult = await db.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      if (userResult.rows.length > 0) {
-        userId = userResult.rows[0].id;
-      }
+      userId = await resolveProfileId(db, cognitoSub);
     }
 
     const params: SqlParam[] = [];

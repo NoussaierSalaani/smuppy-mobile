@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { createHeaders } from '../utils/cors';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 import { randomBytes } from 'crypto';
@@ -21,15 +21,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 10 token requests per minute
-    const rateLimitResult = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'ws-token',
       identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 10,
-    });
-    if (!rateLimitResult.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Verify user exists
     const db = await getPool();

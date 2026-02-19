@@ -16,7 +16,7 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_5_MIN } from '../utils/constants';
 
 const log = createLogger('auth-forgot-password');
@@ -91,22 +91,8 @@ export const handler = async (
     const clientIp = event.requestContext.identity?.sourceIp ||
                      event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
                      'unknown';
-    const rateLimit = await checkRateLimit({ prefix: 'forgot-password', identifier: clientIp, windowSeconds: RATE_WINDOW_5_MIN, maxRequests: 3 });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers: {
-          ...headers,
-          'Retry-After': rateLimit.retryAfter?.toString() || '300',
-        },
-        body: JSON.stringify({
-          success: false,
-          code: 'RATE_LIMITED',
-          message: `Too many requests. Please wait ${Math.ceil((rateLimit.retryAfter || 300) / 60)} minutes before trying again.`,
-          retryAfter: rateLimit.retryAfter,
-        }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'forgot-password', identifier: clientIp, windowSeconds: RATE_WINDOW_5_MIN, maxRequests: 3 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     log.setRequestId(getRequestId(event));
 

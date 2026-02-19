@@ -8,7 +8,8 @@ import { getPool, getReaderPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('conversations-messages');
 
@@ -28,19 +29,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Rate limit: 60 requests per minute for message fetching
     // Per CLAUDE.md: rate limit ALL endpoints
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'conversations-messages',
       identifier: userId,
       windowSeconds: 60,
       maxRequests: 60,
-    });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const conversationId = event.pathParameters?.id;
     if (!conversationId) {
@@ -63,20 +58,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const readerDb = await getReaderPool();
 
     // Get user's profile ID
-    const userResult = await readerDb.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
+    const profileId = await resolveProfileId(readerDb, userId);
 
-    if (userResult.rows.length === 0) {
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Check if user is participant in this conversation
     const conversationResult = await readerDb.query(

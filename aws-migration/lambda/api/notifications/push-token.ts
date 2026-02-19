@@ -15,7 +15,8 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isNamedError } from '../utils/error-handler';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('notifications-push-token');
 const snsClient = new SNSClient({});
@@ -111,23 +112,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Rate limit POST and DELETE requests: 5 per minute per user (DynamoDB-based, works across Lambda instances)
     // Per CLAUDE.md: rate limit ALL endpoints that create resources or cost money
     if (event.httpMethod === 'POST' || event.httpMethod === 'DELETE') {
-      const rateLimitResult = await checkRateLimit({
+      const rateLimitResponse = await requireRateLimit({
         // BUG-2026-02-14: Use shared prefix so POST+DELETE share the same rate window
         prefix: 'push-token-mutation',
         identifier: userId,
         windowSeconds: 60,
         maxRequests: 5,
-      });
-      if (!rateLimitResult.allowed) {
-        const message = event.httpMethod === 'POST'
-          ? 'Too many token registrations. Please wait.'
-          : 'Too many token deletions. Please wait.';
-        return {
-          statusCode: 429,
-          headers,
-          body: JSON.stringify({ message }),
-        };
-      }
+      }, headers);
+      if (rateLimitResponse) return rateLimitResponse;
     }
 
     // Handle DELETE method
@@ -211,21 +203,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Create SNS Platform Endpoint based on platform
     let snsEndpointArn: string | null = null;

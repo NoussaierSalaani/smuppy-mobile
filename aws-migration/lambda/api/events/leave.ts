@@ -6,12 +6,13 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('events-leave');
+const corsHeaders = getSecureHeaders();
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
@@ -29,10 +30,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'event-leave', identifier: userId, windowSeconds: 60, maxRequests: 10 });
-    if (!allowed) {
-      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'event-leave', identifier: userId, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const eventId = event.pathParameters?.eventId;
     if (!eventId || !isValidUUID(eventId)) {

@@ -13,9 +13,9 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../../lambda/shared/db';
 import type { PoolClient } from 'pg';
 import { createLogger } from '../../api/utils/logger';
-import { getUserFromEvent } from '../../api/utils/auth';
+import { getUserFromEvent, resolveProfileId } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
-import { checkRateLimit } from '../../api/utils/rate-limit';
+import { requireRateLimit } from '../../api/utils/rate-limit';
 import { isValidUUID } from '../../api/utils/security';
 
 const log = createLogger('disputes/submit-evidence');
@@ -75,23 +75,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit: 5 evidence submissions per hour
-    const rateCheck = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'dispute-evidence',
       identifier: user.id,
       maxRequests: 5,
       windowSeconds: 3600,
-    });
-
-    if (!rateCheck.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: 'Evidence submission rate limit reached. Try again later.',
-        }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body: SubmitEvidenceBody = JSON.parse(event.body || '{}');
     const { type, url, filename, description, textContent } = body;
@@ -146,18 +136,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const db = await getPool();
 
     // Resolve cognito_sub → profile ID (SECURITY: user.id is cognito_sub, not profiles.id)
-    const profileLookup = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [user.id]
-    );
-    if (profileLookup.rows.length === 0) {
+    const profileId = await resolveProfileId(db, user.id);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
-    const profileId = profileLookup.rows[0].id;
 
     client = await db.connect();
 

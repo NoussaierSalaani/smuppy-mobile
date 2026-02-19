@@ -7,8 +7,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('notifications-delete');
 
@@ -26,10 +27,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'notif-delete', identifier: userId, maxRequests: 30 });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'notif-delete', identifier: userId, maxRequests: 30 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const notificationId = event.pathParameters?.id;
     if (!notificationId) {
@@ -51,21 +50,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get user's profile ID
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Delete notification (only if it belongs to the user)
     const result = await db.query(

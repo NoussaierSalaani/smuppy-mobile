@@ -6,12 +6,14 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('challenges-vote');
+const corsHeaders = getSecureHeaders();
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
@@ -29,23 +31,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'challenge-vote', identifier: cognitoSub, windowSeconds: 60, maxRequests: 30 });
-    if (!allowed) {
-      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-vote', identifier: cognitoSub, windowSeconds: 60, maxRequests: 30 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Resolve cognito sub to profile ID
-    const profileResult = await client.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-    if (profileResult.rows.length === 0) {
+    const voterId = await resolveProfileId(client, cognitoSub);
+    if (!voterId) {
       return cors({
         statusCode: 404,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       });
     }
-    const voterId = profileResult.rows[0].id;
 
     const challengeId = event.pathParameters?.challengeId;
     const responseId = event.pathParameters?.responseId;

@@ -6,9 +6,9 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { v4 as uuidv4 } from 'uuid';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { isValidUUID, sanitizeInput } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
 import { DEFAULT_BATTLE_DURATION_MINUTES, MIN_BATTLE_DURATION_MINUTES, MAX_BATTLE_DURATION_MINUTES } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -26,6 +26,7 @@ interface CreateBattleRequest {
 }
 
 const log = createLogger('battles-create');
+const corsHeaders = getSecureHeaders();
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
@@ -43,10 +44,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'battle-create', identifier: userId, windowSeconds: 60, maxRequests: 3 });
-    if (!allowed) {
-      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'battle-create', identifier: userId, windowSeconds: 60, maxRequests: 3 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot create battles)
     const accountCheck = await requireActiveAccount(userId, {});

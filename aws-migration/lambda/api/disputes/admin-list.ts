@@ -13,7 +13,7 @@ import { getPool } from '../../../lambda/shared/db';
 import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
-import { checkRateLimit } from '../../api/utils/rate-limit';
+import { requireRateLimit } from '../../api/utils/rate-limit';
 
 const log = createLogger('admin/disputes-list');
 
@@ -44,20 +44,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit: 30 reads per minute
-    const rateCheck = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'admin-disputes-list',
       identifier: user.id,
       maxRequests: 30,
       windowSeconds: 60,
-    });
-
-    if (!rateCheck.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const db = await getPool();
 

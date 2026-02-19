@@ -6,8 +6,9 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('earnings-get');
 
@@ -36,32 +37,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   // Rate limit: financial data — fail-closed
-  const rateLimit = await checkRateLimit({
+  const rateLimitResponse = await requireRateLimit({
     prefix: 'earnings-get',
     identifier: userId,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 20,
-  });
-  if (!rateLimit.allowed) {
-    return {
-      statusCode: 429,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-    };
-  }
+  }, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const pool = await getPool();
 
     // Resolve cognito_sub to profile ID
-    const profileResult = await pool.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(pool, userId);
+    if (!profileId) {
       return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-    const profileId = profileResult.rows[0].id;
 
     // Verify user is a creator
     const userResult = await pool.query(

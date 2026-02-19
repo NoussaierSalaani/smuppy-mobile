@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_MESSAGE_LENGTH } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
@@ -32,14 +32,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 60 messages per minute
-    const { allowed } = await checkRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const conversationId = event.pathParameters?.id;
     if (!conversationId) {
@@ -88,19 +82,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Per-conversation rate limit: 10 messages per minute per conversation
-    const { allowed: convAllowed } = await checkRateLimit({
+    const convRateLimitResponse = await requireRateLimit({
       prefix: 'send-message-conv',
       identifier: `${userId}:${conversationId}`,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
-    });
-    if (!convAllowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'You are sending messages too quickly in this conversation.' }),
-      };
-    }
+    }, headers);
+    if (convRateLimitResponse) return convRateLimitResponse;
 
     // Validate optional media fields — media_type is only valid when media_url is also valid
     const ALLOWED_MEDIA_TYPES = ['image', 'video', 'audio', 'voice'];

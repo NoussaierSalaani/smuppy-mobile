@@ -7,11 +7,12 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('spots-update');
 
@@ -52,10 +53,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const accountCheck = await requireActiveAccount(userId, headers);
     if (isAccountError(accountCheck)) return accountCheck;
 
-    const rateLimit = await checkRateLimit({ prefix: 'spot-update', identifier: userId, windowSeconds: 60, maxRequests: 10 });
-    if (!rateLimit.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'spot-update', identifier: userId, windowSeconds: 60, maxRequests: 10 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const spotId = event.pathParameters?.id;
     if (!spotId || !isValidUUID(spotId)) {
@@ -144,20 +143,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getPool();
 
     // Resolve cognito_sub to profile ID
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Update with ownership check
     params.push(spotId);

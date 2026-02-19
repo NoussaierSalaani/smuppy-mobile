@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders, createCacheableHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('profiles-get');
 
@@ -99,11 +100,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     if (currentUserId) {
       // Resolve the current user's profile ID from cognito_sub
-      const userResult = await db.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [currentUserId]
-      );
-      resolvedUserId = userResult.rows[0]?.id || null;
+      resolvedUserId = await resolveProfileId(db, currentUserId);
       isOwner = resolvedUserId === profile.id;
 
       if (resolvedUserId && !isOwner) {

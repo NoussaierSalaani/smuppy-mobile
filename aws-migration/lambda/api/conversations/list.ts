@@ -7,8 +7,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('conversations-list');
 
@@ -28,37 +29,26 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Rate limit: 30 requests per minute for list operations
     // Per CLAUDE.md: rate limit ALL endpoints
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'conversations-list',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
-    });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
+    // Get user's profile ID
+    const profileId = await resolveProfileId(db, userId);
 
-    if (userResult.rows.length === 0) {
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Get pagination params with validation
     // Per CLAUDE.md: validate all input - Number.parseInt('invalid') returns NaN

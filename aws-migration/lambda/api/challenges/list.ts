@@ -5,13 +5,15 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('challenges-list');
+const corsHeaders = getSecureHeaders();
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
@@ -20,19 +22,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   // Rate limit: anti-scraping
   const rateLimitId = event.requestContext.authorizer?.claims?.sub
     || event.requestContext.identity?.sourceIp || 'anonymous';
-  const rateLimit = await checkRateLimit({
+  const rateLimitResponse = await requireRateLimit({
     prefix: 'challenges-list',
     identifier: rateLimitId,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 20,
     failOpen: true,
-  });
-  if (!rateLimit.allowed) {
-    return cors({
-      statusCode: 429,
-      body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-    });
-  }
+  }, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Auto-expire on writer pool (reader replicas are read-only)
   try {
@@ -57,11 +54,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Resolve cognito sub to profile ID (needed for all filters)
     let userId: string | undefined;
     if (cognitoSub) {
-      const profileResult = await client.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      userId = profileResult.rows[0]?.id;
+      userId = await resolveProfileId(client, cognitoSub) ?? undefined;
     }
     const creatorId = event.queryStringParameters?.creatorId;
     if (creatorId && !isValidUUID(creatorId)) {

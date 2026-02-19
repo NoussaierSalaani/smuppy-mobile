@@ -8,9 +8,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent } from '../utils/auth';
+import { getUserFromEvent, resolveProfileId } from '../utils/auth';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { getStripeClient } from '../../shared/stripe-client';
 
 const log = createLogger('business/subscription-cancel');
@@ -29,10 +29,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'biz-sub-cancel', identifier: user.sub, windowSeconds: 60, maxRequests: 5, failOpen: false });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-sub-cancel', identifier: user.sub, windowSeconds: 60, maxRequests: 5, failOpen: false }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const subscriptionId = event.pathParameters?.subscriptionId;
     if (!subscriptionId) {
@@ -47,16 +45,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getPool();
 
     // First resolve cognito_sub to profile.id
-    const profileResult = await db.query(
-      `SELECT id FROM profiles WHERE cognito_sub = $1`,
-      [user.sub]
-    );
-
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, user.sub);
+    if (!profileId) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-
-    const profileId = profileResult.rows[0].id;
 
     // Get subscription and verify ownership
     const subscriptionResult = await db.query(

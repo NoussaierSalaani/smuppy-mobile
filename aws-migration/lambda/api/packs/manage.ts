@@ -9,8 +9,9 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 import { isValidUUID } from '../utils/security';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('packs-manage');
 
@@ -44,37 +45,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   // Rate limit: pack management — fail-closed for write operations
-  const rateLimit = await checkRateLimit({
+  const rateLimitResponse = await requireRateLimit({
     prefix: 'packs-manage',
     identifier: userId,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 10,
-  });
-  if (!rateLimit.allowed) {
-    return {
-      statusCode: 429,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-    };
-  }
+  }, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   const pool = await getPool();
   const packId = event.pathParameters?.id;
 
   try {
     // Resolve cognito_sub to profile ID
-    const profileResult = await pool.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(pool, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers: corsHeaders,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
-    const profileId = profileResult.rows[0].id;
 
     if (packId && !isValidUUID(packId)) {
       return {

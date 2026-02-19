@@ -5,15 +5,16 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { sanitizeInput, isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('groups-update');
+const corsHeaders = getSecureHeaders();
 
 const VALID_DIFFICULTIES = ['easy', 'moderate', 'hard', 'expert'];
 
@@ -70,18 +71,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit
-    const rateLimitResult = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'group-update',
       identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 10,
-    });
-    if (!rateLimitResult.allowed) {
-      return cors({
-        statusCode: 429,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      });
-    }
+    }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check
     const accountCheck = await requireActiveAccount(cognitoSub, {});

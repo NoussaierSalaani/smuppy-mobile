@@ -11,7 +11,7 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, sanitizeInput } from '../utils/security';
 import { getPool } from '../../shared/db';
@@ -20,10 +20,12 @@ import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 import { getStripeClient } from '../../shared/stripe-client';
 import { safeStripeCall } from '../../shared/stripe-resilience';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 import { RATE_WINDOW_1_MIN, MAX_TIP_AMOUNT_CENTS, PLATFORM_FEE_PERCENT, MIN_PAYMENT_CENTS } from '../utils/constants';
 
 const log = createLogger('tips-send');
+const corsHeaders = getSecureHeaders();
 
 interface SendTipRequest {
   receiverId: string;
@@ -57,17 +59,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Resolve cognito_sub to profile ID
-    const profileResult = await client.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(client, userId);
+    if (!profileId) {
       return cors({
         statusCode: 404,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       });
     }
-    const profileId = profileResult.rows[0].id;
 
     // Account status check (suspended/banned users cannot send tips)
     const accountCheck = await requireActiveAccount(userId, {});
@@ -76,18 +74,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit check (distributed via DynamoDB — works across Lambda instances)
-    const { allowed: rateLimitAllowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'tips-send',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
-    });
-    if (!rateLimitAllowed) {
-      return cors({
-        statusCode: 429,
-        body: JSON.stringify({ success: false, message: 'Too many tips. Please wait.' }),
-      });
-    }
+    }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     let body: SendTipRequest;
     try {

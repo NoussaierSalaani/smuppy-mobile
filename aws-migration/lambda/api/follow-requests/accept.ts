@@ -9,7 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_30S } from '../utils/constants';
 
 const log = createLogger('follow-requests-accept');
@@ -28,10 +28,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'follow-accept', identifier: userId, windowSeconds: RATE_WINDOW_30S, maxRequests: 10 });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'follow-accept', identifier: userId, windowSeconds: RATE_WINDOW_30S, maxRequests: 10 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const requestId = event.pathParameters?.id;
     if (!requestId) {

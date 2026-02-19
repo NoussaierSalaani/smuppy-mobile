@@ -9,7 +9,8 @@ import { getStripeClient } from '../../shared/stripe-client';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('payments/connect');
 
@@ -44,23 +45,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 10 connect actions per minute
-    const { allowed } = await checkRateLimit({ prefix: 'payment-connect', identifier: userId, windowSeconds: 60, maxRequests: 10 });
-    if (!allowed) {
-      return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'payment-connect', identifier: userId, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body: ConnectBody = JSON.parse(event.body || '{}');
 
     // Resolve cognito_sub → profile ID
     const pool = await getPool();
-    const profileLookup = await pool.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileLookup.rows.length === 0) {
+    const profileId = await resolveProfileId(pool, userId);
+    if (!profileId) {
       return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-    const profileId = profileLookup.rows[0].id as string;
 
     switch (body.action) {
       case 'create-account':

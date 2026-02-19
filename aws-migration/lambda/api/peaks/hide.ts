@@ -7,12 +7,14 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createCorsResponse } from '../utils/cors';
+import { createCorsResponse, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-hide');
+const corsHeaders = getSecureHeaders();
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   log.initFromEvent(event);
@@ -24,28 +26,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return createCorsResponse(401, { success: false, message: 'Unauthorized' });
   }
 
-  const rateLimit = await checkRateLimit({
+  const rateLimitResponse = await requireRateLimit({
     prefix: 'peak-hide',
     identifier: userId,
     windowSeconds: 60,
     maxRequests: 20,
-  });
-  if (!rateLimit.allowed) {
-    return createCorsResponse(429, { success: false, message: 'Too many requests. Please wait.' });
-  }
+  }, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const db = await getPool();
 
     // Resolve cognito_sub to profile ID
-    const profileResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, userId);
+    if (!profileId) {
       return createCorsResponse(404, { success: false, message: 'Profile not found' });
     }
-    const profileId = profileResult.rows[0].id;
 
     // GET /peaks/hidden - List hidden peaks
     if (httpMethod === 'GET' && !peakId) {

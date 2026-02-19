@@ -9,6 +9,7 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { extractCognitoSub } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('profiles-search');
 
@@ -64,11 +65,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Resolve current user ID to exclude from results
     let currentUserId: string | null = null;
     if (cognitoSub) {
-      const userResult = await db.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      currentUserId = userResult.rows[0]?.id || null;
+      currentUserId = await resolveProfileId(db, cognitoSub);
     }
 
     let result;

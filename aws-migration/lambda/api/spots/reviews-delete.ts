@@ -8,8 +8,9 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('spots-reviews-delete');
 
@@ -28,19 +29,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: destructive action
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'spot-review-delete',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const reviewId = event.pathParameters?.id;
     if (!reviewId || !isValidUUID(reviewId)) {
@@ -54,20 +49,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getPool();
 
     // Resolve cognito_sub to profile ID
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Use transaction: delete review + recalculate spot rating
     const client = await db.connect();

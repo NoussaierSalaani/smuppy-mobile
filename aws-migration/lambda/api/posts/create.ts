@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { RATE_WINDOW_1_MIN, MAX_POST_CONTENT_LENGTH, MAX_MEDIA_URL_LENGTH } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -53,19 +53,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'post-create',
       identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     let body: CreatePostInput;
     try {

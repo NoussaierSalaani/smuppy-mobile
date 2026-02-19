@@ -9,7 +9,7 @@ import { getSecureHeaders } from '../utils/cors';
 
 const corsHeaders = getSecureHeaders();
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { CACHE_TTL_TRENDING } from '../utils/constants';
 
 const log = createLogger('hashtags-trending');
@@ -31,10 +31,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   log.initFromEvent(event);
   try {
     const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
-    const { allowed } = await checkRateLimit({ prefix: 'hashtags-trending', identifier: clientIp, windowSeconds: 60, maxRequests: 30 });
-    if (!allowed) {
-      return response(429, { success: false, error: 'Too many requests' });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'hashtags-trending', identifier: clientIp, windowSeconds: 60, maxRequests: 30 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const { limit = '20' } = event.queryStringParameters || {};
 

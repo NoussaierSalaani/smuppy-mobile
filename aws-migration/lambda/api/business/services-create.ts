@@ -9,7 +9,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('business/services-create');
 
@@ -32,10 +32,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
     }
 
-    const rateCheck = await checkRateLimit({ prefix: 'biz-svc-create', identifier: user.id, maxRequests: 10 });
-    if (!rateCheck.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-svc-create', identifier: user.id, maxRequests: 10 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body = JSON.parse(event.body || '{}');
     const {

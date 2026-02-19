@@ -7,7 +7,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('notifications-mark-all-read');
 
@@ -26,32 +27,19 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 10 mark-all-read per minute
-    const { allowed } = await checkRateLimit({ prefix: 'notif-mark-read', identifier: userId, windowSeconds: 60, maxRequests: 10, failOpen: true });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'notif-mark-read', identifier: userId, windowSeconds: 60, maxRequests: 10, failOpen: true }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Mark all notifications as read
     const result = await db.query(

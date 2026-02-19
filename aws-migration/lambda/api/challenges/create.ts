@@ -5,15 +5,17 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, sanitizeInput } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
+import { resolveProfileId } from '../utils/auth';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('challenges-create');
+const corsHeaders = getSecureHeaders();
 
 interface CreateChallengeRequest {
   peakId: string;
@@ -50,10 +52,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'challenge-create', identifier: userId, windowSeconds: 60, maxRequests: 5 });
-    if (!allowed) {
-      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-create', identifier: userId, windowSeconds: 60, maxRequests: 5 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot create challenges)
     const accountCheck = await requireActiveAccount(userId, {});
@@ -70,17 +70,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Resolve cognito_sub to profile ID
-    const profileResult = await client.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(client, userId);
+    if (!profileId) {
       return cors({
         statusCode: 404,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       });
     }
-    const profileId = profileResult.rows[0].id;
 
     const body: CreateChallengeRequest = JSON.parse(event.body || '{}');
     const {

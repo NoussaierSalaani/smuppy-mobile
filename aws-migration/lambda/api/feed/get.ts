@@ -10,8 +10,9 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders, createCacheableHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { CACHE_TTL_SHORT, RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('feed-get');
 
@@ -53,27 +54,22 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Per-user rate limit (fail-open: WAF provides baseline protection for read endpoints)
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'feed-get',
       identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 60,
       failOpen: true,
-    });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Use reader pool for read-heavy feed operations (distributed across read replicas)
     const db = await getPool();
 
     // Resolve the user's profile ID from cognito_sub
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
+    const userId = await resolveProfileId(db, cognitoSub);
 
-    if (userResult.rows.length === 0) {
+    if (!userId) {
       // User has no profile - return empty feed
       return {
         statusCode: 200,
@@ -81,8 +77,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ data: [], nextCursor: null, hasMore: false, total: 0 }),
       };
     }
-
-    const userId = userResult.rows[0].id;
 
     // Try to get cached feed from Redis
     const cacheKey = `feed:${userId}:${cursor || 'start'}`;

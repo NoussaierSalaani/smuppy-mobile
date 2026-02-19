@@ -9,7 +9,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const s3Client = new S3Client({
   requestChecksumCalculation: 'WHEN_REQUIRED',
@@ -34,14 +34,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 30 deletes per minute
-    const { allowed } = await checkRateLimit({ prefix: 'message-delete', identifier: userId, windowSeconds: 60, maxRequests: 30 });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'message-delete', identifier: userId, windowSeconds: 60, maxRequests: 30 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const messageId = event.pathParameters?.id;
     if (!messageId) {

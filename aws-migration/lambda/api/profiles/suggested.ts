@@ -6,6 +6,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { resolveProfileId } from '../utils/auth';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 
@@ -63,12 +64,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     if (cognitoSub) {
       // First, get the current user's profile ID from their cognito_sub
-      const userResult = await db.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-
-      const currentUserId = userResult.rows[0]?.id;
+      const currentUserId = await resolveProfileId(db, cognitoSub);
 
       if (!currentUserId) {
         // User has no profile yet - return popular profiles

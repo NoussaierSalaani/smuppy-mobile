@@ -8,7 +8,8 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-unlike');
 
@@ -26,15 +27,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'peak-unlike',
       identifier: userId,
       windowSeconds: 60,
       maxRequests: 30,
-    });
-    if (!rateLimit.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please wait.' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const peakId = event.pathParameters?.id;
     if (!peakId) {
@@ -56,21 +55,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
+    // Get user's profile ID
+    const profileId = await resolveProfileId(db, userId);
 
-    if (userResult.rows.length === 0) {
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Unlike peak in transaction
     // CRITICAL: Use dedicated client for transaction isolation with connection pooling

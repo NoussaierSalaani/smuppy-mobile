@@ -6,8 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
+import { resolveProfileId } from '../utils/auth';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('posts-search');
@@ -28,15 +29,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const userId = event.requestContext.authorizer?.claims?.sub;
   const clientIp = event.requestContext.identity?.sourceIp;
 
-  const { allowed } = await checkRateLimit({
+  const rateLimitResponse = await requireRateLimit({
     prefix: 'posts-search',
     identifier: userId || clientIp || 'anonymous',
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 30,
-  });
-  if (!allowed) {
-    return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many search requests. Please wait.' }) };
-  }
+  }, headers);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const q = event.queryStringParameters?.q || '';
@@ -56,11 +55,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Resolve requester profile if authenticated
     let requesterId: string | null = null;
     if (cognitoSub) {
-      const userResult = await pool.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      requesterId = userResult.rows[0]?.id || null;
+      requesterId = await resolveProfileId(pool, cognitoSub);
     }
 
     const cursorParams: string[] = [];

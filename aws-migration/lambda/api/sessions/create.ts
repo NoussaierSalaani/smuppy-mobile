@@ -7,8 +7,9 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MIN_SESSION_DURATION_MINUTES, MAX_SESSION_DURATION_MINUTES } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('sessions-create');
 
@@ -35,26 +36,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
-  const { allowed } = await checkRateLimit({ prefix: 'session-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 });
-  if (!allowed) {
-    return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
-  }
+  const rateLimitResponse = await requireRateLimit({ prefix: 'session-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 }, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     // Resolve cognito_sub to profile ID
     const pool0 = await getPool();
-    const profileResult = await pool0.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(pool0, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers: corsHeaders,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
-    const profileId = profileResult.rows[0].id;
     const body: CreateSessionBody = JSON.parse(event.body || '{}');
     const { creatorId, scheduledAt, duration, notes, fromPackId } = body;
 

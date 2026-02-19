@@ -6,8 +6,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('profiles-mute');
 
@@ -26,23 +27,20 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid user ID format' }) };
     }
 
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'mute-user',
       identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 20,
-    });
-    if (!rateLimit.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const db = await getPool();
 
-    const userResult = await db.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
-    if (userResult.rows.length === 0) {
+    const muterId = await resolveProfileId(db, cognitoSub);
+    if (!muterId) {
       return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
     }
-    const muterId = userResult.rows[0].id;
 
     if (muterId === targetUserId) {
       return { statusCode: 400, headers, body: JSON.stringify({ message: 'Cannot mute yourself' }) };

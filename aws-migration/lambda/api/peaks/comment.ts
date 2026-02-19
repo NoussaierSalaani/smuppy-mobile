@@ -8,10 +8,11 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID, extractCognitoSub } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
@@ -73,8 +74,7 @@ async function handleListComments(
   const cognitoSub = extractCognitoSub(event);
   let currentProfileId: string | null = null;
   if (cognitoSub) {
-    const userResult = await pool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
-    currentProfileId = userResult.rows[0]?.id || null;
+    currentProfileId = await resolveProfileId(pool, cognitoSub);
   }
 
   // Verify peak exists
@@ -178,19 +178,13 @@ async function handleCreateComment(
   if (isAccountError(accountCheck)) return accountCheck;
 
   // Rate limit: 20 comments per minute
-  const rateLimit = await checkRateLimit({
+  const rateLimitResponse = await requireRateLimit({
     prefix: 'peak-comment',
     identifier: userId,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 20,
-  });
-  if (!rateLimit.allowed) {
-    return {
-      statusCode: 429,
-      headers,
-      body: JSON.stringify({ message: 'Too many comments. Please wait.' }),
-    };
-  }
+  }, headers);
+  if (rateLimitResponse) return rateLimitResponse;
 
   const body = event.body ? JSON.parse(event.body) : {};
   const { text } = body;

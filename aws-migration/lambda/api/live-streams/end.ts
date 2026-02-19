@@ -7,7 +7,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('live-streams-end');
@@ -24,19 +24,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit: destructive action
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'live-stream-end',
       identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 5,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const pool = await getPool();
 

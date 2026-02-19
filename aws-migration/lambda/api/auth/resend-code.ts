@@ -16,7 +16,7 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('auth-resend-code');
@@ -91,22 +91,8 @@ export const handler = async (
     const clientIp = event.requestContext.identity?.sourceIp ||
                      event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
                      'unknown';
-    const rateLimit = await checkRateLimit({ prefix: 'resend-code', identifier: clientIp, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 3 });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers: {
-          ...headers,
-          'Retry-After': rateLimit.retryAfter?.toString() || '60',
-        },
-        body: JSON.stringify({
-          success: false,
-          code: 'RATE_LIMITED',
-          message: `Too many requests. Please wait ${rateLimit.retryAfter} seconds before trying again.`,
-          retryAfter: rateLimit.retryAfter,
-        }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'resend-code', identifier: clientIp, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 3 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     log.setRequestId(getRequestId(event));
 

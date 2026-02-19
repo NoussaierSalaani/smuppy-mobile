@@ -18,7 +18,7 @@ import type { Pool } from 'pg';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 
 const log = createLogger('business/program-update');
@@ -40,10 +40,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Rate limit write operations (POST, PUT, DELETE)
     if (['POST', 'PUT', 'DELETE'].includes(event.httpMethod)) {
-      const rateCheck = await checkRateLimit({ prefix: 'biz-program', identifier: user.id, maxRequests: 20 });
-      if (!rateCheck.allowed) {
-        return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
-      }
+      const rateLimitResponse = await requireRateLimit({ prefix: 'biz-program', identifier: user.id, maxRequests: 20 }, headers);
+      if (rateLimitResponse) return rateLimitResponse;
     }
 
     const path = event.resource || event.path || '';

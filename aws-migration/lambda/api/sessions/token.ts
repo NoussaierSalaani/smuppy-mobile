@@ -7,9 +7,10 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders } from '../../shared/db';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('sessions-token');
 
@@ -40,20 +41,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
-  const { allowed } = await checkRateLimit({ prefix: 'session-token', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 10 });
-  if (!allowed) {
-    return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
-  }
+  const rateLimitResponse = await requireRateLimit({ prefix: 'session-token', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 10 }, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const pool = await getPool();
 
     // Resolve cognitoSub → profile ID
-    const profileLookup = await pool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
-    if (profileLookup.rows.length === 0) {
+    const profileId = await resolveProfileId(pool, cognitoSub);
+    if (!profileId) {
       return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-    const profileId = profileLookup.rows[0].id as string;
 
     // Get session and verify user is participant
     const sessionResult = await pool.query(

@@ -11,9 +11,9 @@ import { getPool, SqlParam } from '../../shared/db';
 import { getStripeClient } from '../../shared/stripe-client';
 import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent } from '../utils/auth';
+import { getUserFromEvent, resolveProfileId } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 
 const log = createLogger('payments/refunds');
@@ -50,31 +50,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Rate limit: 3 refund creations per minute, 20 reads per minute
     const isWrite = event.httpMethod === 'POST';
-    const rateCheck = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: isWrite ? 'refund-create' : 'refund-read',
       identifier: user.id,
       maxRequests: isWrite ? 3 : 20,
       ...(isWrite && { failOpen: false }),
-    });
-    if (!rateCheck.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const db = await getPool();
 
     // Resolve cognito_sub → profile ID (SECURITY: user.id is cognito_sub, not profiles.id)
-    const profileLookup = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [user.id]
-    );
-    if (profileLookup.rows.length === 0) {
+    const resolvedProfileId = await resolveProfileId(db, user.id);
+    if (!resolvedProfileId) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-    const resolvedUser = { id: profileLookup.rows[0].id };
+    const resolvedUser = { id: resolvedProfileId };
 
     const pathParts = event.path.split('/').filter(Boolean);
     const refundId = pathParts.length > 2 ? pathParts[2] : null;

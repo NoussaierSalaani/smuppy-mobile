@@ -7,8 +7,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 import { checkUserEscalation } from '../../shared/moderation/autoEscalation';
 import { RATE_WINDOW_5_MIN, MAX_REPORT_REASON_LENGTH, MAX_REPORT_DETAILS_LENGTH } from '../utils/constants';
 
@@ -24,15 +25,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
     }
 
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'report-all',
       identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_5_MIN,
       maxRequests: 5,
-    });
-    if (!rateLimit.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body = JSON.parse(event.body || '{}');
     const { liveStreamId, reason, details } = body;
@@ -52,11 +51,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    const userResult = await db.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
-    if (userResult.rows.length === 0) {
+    const reporterId = await resolveProfileId(db, cognitoSub);
+    if (!reporterId) {
       return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
     }
-    const reporterId = userResult.rows[0].id;
 
     // Verify live stream exists
     const streamResult = await db.query('SELECT id FROM live_streams WHERE id = $1', [liveStreamId]);

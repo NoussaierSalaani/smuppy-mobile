@@ -8,6 +8,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders, createCacheableHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('peaks-get');
 
@@ -39,16 +40,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get current user's profile ID if authenticated (check both id and cognito_sub for consistency)
+    // Get current user's profile ID if authenticated
     let currentProfileId: string | null = null;
     if (userId) {
-      const userResult = await db.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [userId]
-      );
-      if (userResult.rows.length > 0) {
-        currentProfileId = userResult.rows[0].id;
-      }
+      currentProfileId = await resolveProfileId(db, userId);
     }
 
     // Get peak with author info (include expiration fields)

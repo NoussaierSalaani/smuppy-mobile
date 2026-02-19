@@ -10,7 +10,8 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
-import { checkRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-delete');
 
@@ -49,10 +50,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
 
-    const { allowed } = await checkRateLimit({ prefix: 'peak-delete', identifier: userId, windowSeconds: 60, maxRequests: 10 });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'peak-delete', identifier: userId, windowSeconds: 60, maxRequests: 10 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const peakId = validateUUIDParam(event, headers, 'id', 'Peak');
     if (isErrorResponse(peakId)) return peakId;
@@ -60,20 +59,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getPool();
 
     // Get user's profile ID
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
+    const profileId = await resolveProfileId(db, userId);
 
-    if (userResult.rows.length === 0) {
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Get peak with media URLs and check ownership
     const peakResult = await db.query(

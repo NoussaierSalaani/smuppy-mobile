@@ -7,8 +7,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('spots-unsave');
 
@@ -38,12 +39,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getPool();
 
     // Resolve cognito_sub to profile ID
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
@@ -51,12 +48,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const profileId = userResult.rows[0].id;
-
-    const rateCheck = await checkRateLimit({ prefix: 'spot-unsave', identifier: profileId, maxRequests: 30, windowSeconds: 60 });
-    if (!rateCheck.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'spot-unsave', identifier: profileId, maxRequests: 30, windowSeconds: 60 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     await db.query(
       'DELETE FROM saved_spots WHERE user_id = $1 AND spot_id = $2',

@@ -11,9 +11,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { getUserFromEvent } from '../utils/auth';
+import { getUserFromEvent, resolveProfileId } from '../utils/auth';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { getStripeClient } from '../../shared/stripe-client';
 
 const log = createLogger('business/subscription-manage');
@@ -52,16 +52,10 @@ async function handleListSubscriptions(event: APIGatewayProxyEvent, headers: Rec
 
     const db = await getPool();
 
-    const profileResult = await db.query(
-      `SELECT id FROM profiles WHERE cognito_sub = $1`,
-      [user.sub]
-    );
-
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, user.sub);
+    if (!profileId) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-
-    const profileId = profileResult.rows[0].id;
 
     const subscriptionsResult = await db.query(
       `SELECT
@@ -159,16 +153,10 @@ async function handleGetAccessPass(event: APIGatewayProxyEvent, headers: Record<
 
     const db = await getPool();
 
-    const profileResult = await db.query(
-      `SELECT id FROM profiles WHERE cognito_sub = $1`,
-      [user.sub]
-    );
-
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, user.sub);
+    if (!profileId) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-
-    const profileId = profileResult.rows[0].id;
 
     const subscriptionResult = await db.query(
       `SELECT
@@ -246,10 +234,8 @@ async function handleCancel(event: APIGatewayProxyEvent, headers: Record<string,
     }
 
     // Rate limit: 5 cancel operations per minute
-    const rateCheck = await checkRateLimit({ prefix: 'biz-sub-cancel', identifier: user.sub, maxRequests: 5, windowSeconds: 60 });
-    if (!rateCheck.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-sub-cancel', identifier: user.sub, maxRequests: 5, windowSeconds: 60 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const subscriptionId = event.pathParameters?.subscriptionId;
     if (!subscriptionId) {
@@ -262,16 +248,10 @@ async function handleCancel(event: APIGatewayProxyEvent, headers: Record<string,
 
     const db = await getPool();
 
-    const profileResult = await db.query(
-      `SELECT id FROM profiles WHERE cognito_sub = $1`,
-      [user.sub]
-    );
-
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, user.sub);
+    if (!profileId) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-
-    const profileId = profileResult.rows[0].id;
 
     const subscriptionResult = await db.query(
       `SELECT id, user_id, stripe_subscription_id, status, cancel_at_period_end
@@ -343,10 +323,8 @@ async function handleReactivate(event: APIGatewayProxyEvent, headers: Record<str
     }
 
     // Rate limit: 5 reactivate operations per minute
-    const rateCheck = await checkRateLimit({ prefix: 'biz-sub-reactivate', identifier: user.sub, maxRequests: 5, windowSeconds: 60 });
-    if (!rateCheck.allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-sub-reactivate', identifier: user.sub, maxRequests: 5, windowSeconds: 60 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const subscriptionId = event.pathParameters?.subscriptionId;
     if (!subscriptionId) {
@@ -359,16 +337,10 @@ async function handleReactivate(event: APIGatewayProxyEvent, headers: Record<str
 
     const db = await getPool();
 
-    const profileResult = await db.query(
-      `SELECT id FROM profiles WHERE cognito_sub = $1`,
-      [user.sub]
-    );
-
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, user.sub);
+    if (!profileId) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-
-    const profileId = profileResult.rows[0].id;
 
     const subscriptionResult = await db.query(
       `SELECT id, user_id, stripe_subscription_id, status, cancel_at_period_end, current_period_end

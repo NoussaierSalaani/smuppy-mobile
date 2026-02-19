@@ -7,7 +7,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_HOUR, NOTIFICATION_BATCH_SIZE, NOTIFICATION_BATCH_DELAY_MS } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -28,15 +28,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit: 5 stream starts per hour (prevents abuse)
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'live-stream-start',
       identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_1_HOUR,
       maxRequests: 5,
-    });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many live streams started. Please try again later.' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot go live)
     const accountCheck = await requireActiveAccount(cognitoSub, headers);

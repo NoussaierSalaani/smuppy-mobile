@@ -9,8 +9,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { sanitizeInput, isValidUsername, isReservedUsername, logSecurityEvent } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { hasErrorCode } from '../utils/error-handler';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
@@ -161,19 +162,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'profile-update',
       identifier: userId,
       windowSeconds: 60,
       maxRequests: 10,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const rawBody = JSON.parse(event.body || '{}');
 
@@ -302,21 +297,18 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Add updated_at
     updateFields.push(`updated_at = NOW()`);
 
-    // First, check if profile exists (by both id and cognito_sub for compatibility)
-    const existingProfile = await db.query(
-      `SELECT id FROM profiles WHERE cognito_sub = $1`,
-      [userId]
-    );
+    // First, check if profile exists
+    const existingProfileId = await resolveProfileId(db, userId);
 
     // Account status check — only for existing profiles (not during onboarding/creation)
-    if (existingProfile.rows.length > 0) {
+    if (existingProfileId) {
       const accountCheck = await requireActiveAccount(userId, headers);
       if (isAccountError(accountCheck)) return accountCheck;
     }
 
     // SECURITY: Prevent account type changes on existing profiles
     // Account type upgrades can ONLY happen via Stripe webhook
-    if (existingProfile.rows.length > 0 && body.accountType !== undefined) {
+    if (existingProfileId && body.accountType !== undefined) {
       const currentType = await db.query(
         `SELECT account_type FROM profiles WHERE cognito_sub = $1`,
         [userId]
@@ -338,7 +330,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // SECURITY: Prevent setting pro account type on profile CREATE
     // Account type upgrades can ONLY happen via Stripe webhook
-    if (existingProfile.rows.length === 0 && body.accountType && body.accountType !== 'personal') {
+    if (!existingProfileId && body.accountType && body.accountType !== 'personal') {
       logSecurityEvent('suspicious_activity', {
         userId,
         requestedType: body.accountType,
@@ -349,7 +341,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     let result;
-    if (existingProfile.rows.length === 0) {
+    if (!existingProfileId) {
       // Create new profile - use cognito_sub as the primary id for simplicity
       // This ensures all other queries using id = cognito_sub will work
       const insertFields = ['id', 'cognito_sub'];
@@ -378,7 +370,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
     } else {
       // Update existing profile using the resolved profile ID
-      const profileId = existingProfile.rows[0].id;
+      const profileId = existingProfileId;
       values.push(profileId);
 
       result = await db.query(

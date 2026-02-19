@@ -6,10 +6,11 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { getSecureHeaders } from '../utils/cors';
+import { resolveProfileId } from '../utils/auth';
 
 const corsHeaders = getSecureHeaders();
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('peaks-search');
@@ -37,15 +38,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   log.initFromEvent(event);
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'peaks-search',
       identifier: userId || event.requestContext.identity?.sourceIp || 'anonymous',
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
-    });
-    if (!allowed) {
-      return response(429, { success: false, message: 'Too many requests' });
-    }
+    }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const {
       q = '',
@@ -66,11 +65,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Resolve requester profile if authenticated
     let requesterId: string | null = null;
     if (cognitoSub) {
-      const userResult = await pool.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      requesterId = userResult.rows[0]?.id || null;
+      requesterId = await resolveProfileId(pool, cognitoSub);
     }
 
     // Detect hashtag search: query starts with # or is a bare tag word

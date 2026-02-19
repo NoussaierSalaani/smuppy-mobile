@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 
 const log = createLogger('follow-requests-cancel');
@@ -27,14 +27,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 10 per minute
-    const { allowed } = await checkRateLimit({ prefix: 'follow-cancel', identifier: userId, windowSeconds: 60, maxRequests: 10 });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'follow-cancel', identifier: userId, windowSeconds: 60, maxRequests: 10 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const targetUserId = event.pathParameters?.userId;
     if (!targetUserId || !isValidUUID(targetUserId)) {

@@ -15,7 +15,7 @@ import type { PoolClient } from 'pg';
 import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
-import { checkRateLimit } from '../../api/utils/rate-limit';
+import { requireRateLimit } from '../../api/utils/rate-limit';
 import { RATE_WINDOW_1_DAY } from '../../api/utils/constants';
 import { requireActiveAccount, isAccountError } from '../../api/utils/account-status';
 import { isValidUUID } from '../../api/utils/security';
@@ -83,24 +83,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (isAccountError(accountCheck)) return accountCheck;
 
     // Rate limit: 3 disputes per day
-    const rateCheck = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'dispute-create',
       identifier: user.id,
       maxRequests: 3,
       windowSeconds: RATE_WINDOW_1_DAY,
       failOpen: false,
-    });
-
-    if (!rateCheck.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: 'Too many disputes. Please contact support.',
-        }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Parse body
     const body: CreateDisputeBody = JSON.parse(event.body || '{}');

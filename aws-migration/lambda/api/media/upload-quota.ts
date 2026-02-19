@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { getQuotaLimits, getQuotaUsage, isPremiumAccount } from '../utils/upload-quota';
 
@@ -26,16 +26,14 @@ export async function handler(
     }
 
     // Rate limit: 30 per minute
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'upload-quota',
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
       failOpen: true,
-    });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Look up account type
     const db = await getPool();

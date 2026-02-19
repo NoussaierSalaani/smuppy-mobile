@@ -9,6 +9,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { resolveProfileId } from '../utils/auth';
 import { checkRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('peaks-save-decision');
@@ -60,12 +61,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await client.query('BEGIN');
 
       // Resolve cognito_sub to profile ID
-      const userResult = await client.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [userId]
-      );
+      const profileId = await resolveProfileId(client, userId);
 
-      if (userResult.rows.length === 0) {
+      if (!profileId) {
         await client.query('ROLLBACK');
         return {
           statusCode: 404,
@@ -73,8 +71,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ message: 'User profile not found' }),
         };
       }
-
-      const profileId = userResult.rows[0].id;
 
       // Check peak exists and verify ownership with row lock to prevent concurrent race
       const peakResult = await client.query(

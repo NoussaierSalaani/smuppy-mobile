@@ -8,7 +8,8 @@ import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { checkPrivacyAccess } from '../utils/auth';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
 const log = createLogger('profiles-followers');
@@ -39,20 +40,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Rate limit: anti-scraping — use IP for public endpoint
     const rateLimitId = event.requestContext.authorizer?.claims?.sub
       || event.requestContext.identity?.sourceIp || 'anonymous';
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'profiles-followers',
       identifier: rateLimitId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
       failOpen: true,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Pagination params
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
@@ -77,30 +72,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Privacy check: if profile is private, only the owner or accepted followers can see the list
     if (profileResult.rows[0].is_private) {
       const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-      let isAuthorized = false;
-
-      if (cognitoSub) {
-        const requesterResult = await db.query(
-          'SELECT id FROM profiles WHERE cognito_sub = $1',
-          [cognitoSub]
-        );
-        if (requesterResult.rows.length > 0) {
-          const requesterId = requesterResult.rows[0].id;
-          // Owner can always see their own followers
-          if (requesterId === profileId) {
-            isAuthorized = true;
-          } else {
-            // Check if requester is an accepted follower
-            const followResult = await db.query(
-              `SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted') as is_follower`,
-              [requesterId, profileId]
-            );
-            isAuthorized = followResult.rows[0].is_follower;
-          }
-        }
-      }
-
-      if (!isAuthorized) {
+      const hasAccess = await checkPrivacyAccess(db, profileId, cognitoSub);
+      if (!hasAccess) {
         return {
           statusCode: 403,
           headers,

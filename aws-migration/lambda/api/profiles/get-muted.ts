@@ -6,6 +6,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('profiles-get-muted');
 
@@ -21,11 +22,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    const userResult = await db.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
-    if (userResult.rows.length === 0) {
+    const userId = await resolveProfileId(db, cognitoSub);
+    if (!userId) {
       return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
     }
-    const userId = userResult.rows[0].id;
 
     const result = await db.query(
       `SELECT mu.id, mu.muted_id AS muted_user_id, mu.created_at AS muted_at,

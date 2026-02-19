@@ -8,7 +8,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { getUserFromEvent } from '../utils/auth';
 import { isValidUUID } from '../utils/security';
 
@@ -32,10 +32,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'biz-svc-update', identifier: user.id, maxRequests: 20 });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-svc-update', identifier: user.id, maxRequests: 20 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const serviceId = event.pathParameters?.serviceId;
     if (!serviceId || !isValidUUID(serviceId)) {

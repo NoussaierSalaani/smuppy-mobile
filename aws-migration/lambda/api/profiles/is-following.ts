@@ -8,6 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('profiles-is-following');
 
@@ -39,20 +40,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getPool();
 
     // Resolve cognito_sub to profile ID
-    const profileResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [currentUserId]
-    );
+    const currentProfileId = await resolveProfileId(db, currentUserId);
 
-    if (profileResult.rows.length === 0) {
+    if (!currentProfileId) {
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({ isFollowing: false, isPending: false, status: null }),
       };
     }
-
-    const currentProfileId = profileResult.rows[0].id;
 
     // Check if current user is following the target user
     const result = await db.query(

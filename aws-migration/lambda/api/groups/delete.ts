@@ -5,13 +5,14 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
 const log = createLogger('groups-cancel');
+const corsHeaders = getSecureHeaders();
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
@@ -30,18 +31,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit
-    const rateLimitResult = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'group-cancel',
       identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 5,
-    });
-    if (!rateLimitResult.allowed) {
-      return cors({
-        statusCode: 429,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      });
-    }
+    }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check
     const accountCheck = await requireActiveAccount(cognitoSub, {});

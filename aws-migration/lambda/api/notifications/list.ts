@@ -7,8 +7,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('notifications-list');
 
@@ -26,14 +27,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'notifications-list', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'notifications-list', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Pagination params
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
@@ -42,21 +37,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, userId);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Build query — join with profiles to enrich actor user data
     // Actor ID is stored in the JSONB data column under different keys

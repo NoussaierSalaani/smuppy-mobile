@@ -6,13 +6,14 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
 const log = createLogger('battles-join');
+const corsHeaders = getSecureHeaders();
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID ?? '';
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE ?? '';
@@ -42,10 +43,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit: 20 battle actions per minute
-    const { allowed } = await checkRateLimit({ prefix: 'battle-join', identifier: userId, windowSeconds: 60, maxRequests: 20 });
-    if (!allowed) {
-      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'battle-join', identifier: userId, windowSeconds: 60, maxRequests: 20 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot join battles)
     const accountCheck = await requireActiveAccount(userId, {});

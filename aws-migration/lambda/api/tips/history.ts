@@ -7,6 +7,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { cors, handleOptions } from '../utils/cors';
 import { createLogger } from '../utils/logger';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('tips-history');
 
@@ -27,17 +28,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Resolve cognito_sub to profile.id
-    const profileResult = await client.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-    if (profileResult.rows.length === 0) {
+    const profileId = await resolveProfileId(client, cognitoSub);
+    if (!profileId) {
       return cors({
         statusCode: 404,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       });
     }
-    const profileId = profileResult.rows[0].id;
 
     const type = event.queryStringParameters?.type || 'received'; // 'sent' or 'received'
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);

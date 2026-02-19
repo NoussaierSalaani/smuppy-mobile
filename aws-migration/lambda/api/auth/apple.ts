@@ -17,7 +17,7 @@ import * as jwksClient from 'jwks-rsa';
 import { randomBytes, createHash } from 'crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const cognitoClient = new CognitoIdentityProviderClient({});
 const log = createLogger('auth/apple');
@@ -230,20 +230,13 @@ export const handler = async (
 
     // Rate limit: 10 requests per minute per IP
     const ip = event.requestContext.identity?.sourceIp || 'unknown';
-    const rateLimitResult = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'auth-apple',
       identifier: ip,
       windowSeconds: 60,
       maxRequests: 10,
-    });
-    if (!rateLimitResult.allowed) {
-      log.warn('Rate limit exceeded for Apple auth', { ip: ip.substring(0, 2) + '***' });
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Verify Apple token
     log.info('Verifying Apple token');

@@ -7,7 +7,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('notifications-preferences-update');
 
@@ -37,10 +38,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'notif-prefs', identifier: cognitoSub, maxRequests: 10 });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ message: 'Too many requests' }) };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'notif-prefs', identifier: cognitoSub, maxRequests: 10 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     let body: Record<string, unknown>;
     try {
@@ -78,20 +77,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const db = await getPool();
 
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-
-    if (userResult.rows.length === 0) {
+    const profileId = await resolveProfileId(db, cognitoSub);
+    if (!profileId) {
       return {
         statusCode: 404,
         headers,
         body: JSON.stringify({ message: 'User profile not found' }),
       };
     }
-
-    const profileId = userResult.rows[0].id;
 
     // Build UPSERT query with only the provided fields
     const columns = Object.keys(updates) as PrefKey[];

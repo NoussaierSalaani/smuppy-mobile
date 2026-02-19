@@ -8,8 +8,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('business/discover');
 
@@ -29,20 +30,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Rate limit: anti-scraping — use user ID or IP
     const rateLimitId = event.requestContext.authorizer?.claims?.sub
       || event.requestContext.identity?.sourceIp || 'anonymous';
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'business-discover',
       identifier: rateLimitId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 20,
       failOpen: true,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const q = event.queryStringParameters || {};
     const category = q.category?.replaceAll(/<[^>]*>/g, '').substring(0, 50);
@@ -59,11 +54,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     let currentProfileId: string | null = null;
     if (cognitoSub) {
-      const profileResult = await db.query(
-        'SELECT id FROM profiles WHERE cognito_sub = $1',
-        [cognitoSub]
-      );
-      currentProfileId = profileResult.rows[0]?.id || null;
+      currentProfileId = await resolveProfileId(db, cognitoSub);
     }
 
     const conditions: string[] = [

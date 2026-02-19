@@ -5,15 +5,16 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_EVENT_TITLE_LENGTH, MIN_EVENT_PARTICIPANTS, MAX_EVENT_PARTICIPANTS } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('events-create');
+const corsHeaders = getSecureHeaders();
 
 interface CreateEventRequest {
   title: string;
@@ -60,10 +61,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'event-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 });
-    if (!allowed) {
-      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'event-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot create events)
     const accountCheck = await requireActiveAccount(userId, {});

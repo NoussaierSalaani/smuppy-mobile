@@ -8,7 +8,7 @@ import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { EARTH_RADIUS_METERS, MAX_SEARCH_RADIUS_METERS, DEFAULT_SEARCH_RADIUS_METERS, RATE_WINDOW_1_MIN } from '../utils/constants';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 
 const log = createLogger('spots-nearby');
 
@@ -58,20 +58,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Rate limit: anti-scraping — geo queries are expensive
     const rateLimitId = event.requestContext.authorizer?.claims?.sub
       || event.requestContext.identity?.sourceIp || 'anonymous';
-    const rateLimit = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'spots-nearby',
       identifier: rateLimitId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 20,
       failOpen: true,
-    });
-    if (!rateLimit.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Bounding box pre-filter for performance
     const latDelta = (radius / EARTH_RADIUS_METERS) * (180 / Math.PI);

@@ -12,7 +12,7 @@ import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 
@@ -57,14 +57,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Rate limit: 5 requests per minute per user
-    const rateCheck = await checkRateLimit({ prefix: 'biz-checkout', identifier: user.id, maxRequests: 5, failOpen: false });
-    if (!rateCheck.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-checkout', identifier: user.id, maxRequests: 5, failOpen: false }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const db = await getPool();
     return await createBusinessCheckout(db, user, event, headers);

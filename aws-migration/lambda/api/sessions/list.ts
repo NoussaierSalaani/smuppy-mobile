@@ -6,7 +6,8 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, corsHeaders, SqlParam } from '../../shared/db';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('sessions-list');
 
@@ -25,19 +26,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
-  const { allowed } = await checkRateLimit({ prefix: 'sessions-list', identifier: cognitoSub, maxRequests: 30 });
-  if (!allowed) {
-    return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
-  }
+  const rateLimitResponse = await requireRateLimit({ prefix: 'sessions-list', identifier: cognitoSub, maxRequests: 30 }, corsHeaders);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     // Resolve cognitoSub → profile ID (use write pool for profile lookup)
     const writePool = await getPool();
-    const profileLookup = await writePool.query('SELECT id FROM profiles WHERE cognito_sub = $1', [cognitoSub]);
-    if (profileLookup.rows.length === 0) {
+    const profileId = await resolveProfileId(writePool, cognitoSub);
+    if (!profileId) {
       return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-    const profileId = profileLookup.rows[0].id as string;
 
     const pool = await getPool();
     const status = event.queryStringParameters?.status; // 'upcoming', 'past', 'pending'

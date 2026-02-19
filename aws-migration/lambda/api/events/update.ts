@@ -5,16 +5,17 @@
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
+import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { MAX_EVENT_TITLE_LENGTH, MIN_EVENT_PARTICIPANTS, MAX_EVENT_PARTICIPANTS } from '../utils/constants';
 import { isValidUUID, sanitizeText } from '../utils/security';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { filterText } from '../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
 
 const log = createLogger('events-update');
+const corsHeaders = getSecureHeaders();
 
 interface UpdateEventRequest {
   title?: string;
@@ -56,10 +57,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    const { allowed } = await checkRateLimit({ prefix: 'event-update', identifier: userId, windowSeconds: 60, maxRequests: 10 });
-    if (!allowed) {
-      return cors({ statusCode: 429, body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }) });
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'event-update', identifier: userId, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot update events)
     const accountCheck = await requireActiveAccount(userId, {});

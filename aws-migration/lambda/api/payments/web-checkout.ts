@@ -18,7 +18,7 @@ import type { Pool } from 'pg';
 import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 
 const log = createLogger('payments/web-checkout');
@@ -63,14 +63,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const rateLimitPrefix = event.httpMethod === 'POST' ? 'web-checkout' : 'web-checkout-status';
     const maxReqs = event.httpMethod === 'POST' ? 10 : 30;
     const isCheckoutCreation = event.httpMethod === 'POST';
-    const rateCheck = await checkRateLimit({ prefix: rateLimitPrefix, identifier: user.sub, maxRequests: maxReqs, ...(isCheckoutCreation && { failOpen: false }) });
-    if (!rateCheck.allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests, please try again later' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: rateLimitPrefix, identifier: user.sub, maxRequests: maxReqs, ...(isCheckoutCreation && { failOpen: false }) }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const db = await getPool();
 

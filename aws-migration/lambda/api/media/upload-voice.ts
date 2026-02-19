@@ -17,7 +17,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { randomUUID } from 'crypto';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS, MAX_VOICE_MESSAGE_SECONDS, MAX_VOICE_SIZE_BYTES } from '../utils/constants';
@@ -78,14 +78,8 @@ export async function handler(
     }
 
     // Rate limit
-    const { allowed } = await checkRateLimit({ prefix: 'voice-upload', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'voice-upload', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Parse and validate body
     if (!event.body) {

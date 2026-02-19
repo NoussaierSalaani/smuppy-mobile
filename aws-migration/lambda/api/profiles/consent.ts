@@ -14,7 +14,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
+import { resolveProfileId } from '../utils/auth';
 
 const log = createLogger('profiles-consent');
 
@@ -40,15 +41,13 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Rate limit: 10 consent updates per minute
-    const { allowed } = await checkRateLimit({
+    const rateLimitResponse = await requireRateLimit({
       prefix: 'profile-consent',
       identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 10,
-    });
-    if (!allowed) {
-      return { statusCode: 429, headers, body: JSON.stringify({ success: false, message: 'Too many requests' }) };
-    }
+    }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     if (!event.body) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Request body is required' }) };
@@ -85,16 +84,11 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const db = await getPool();
 
     // Get user profile
-    const profileResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
+    const profileId = await resolveProfileId(db, cognitoSub);
 
-    if (profileResult.rows.length === 0) {
+    if (!profileId) {
       return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
-
-    const profileId = profileResult.rows[0].id;
 
     // Upsert each consent record
     for (const consent of body.consents) {

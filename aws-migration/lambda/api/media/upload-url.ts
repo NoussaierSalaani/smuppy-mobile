@@ -15,7 +15,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomBytes } from 'crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { checkRateLimit } from '../utils/rate-limit';
+import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS } from '../utils/constants';
 import { getPool } from '../../shared/db';
 import { checkQuota, getQuotaLimits } from '../utils/upload-quota';
@@ -125,14 +125,8 @@ export async function handler(
     }
 
     // Rate limit: 30 uploads per minute
-    const { allowed } = await checkRateLimit({ prefix: 'media-upload', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 });
-    if (!allowed) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
-      };
-    }
+    const rateLimitResponse = await requireRateLimit({ prefix: 'media-upload', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
 
     if (!event.body) {
       return {

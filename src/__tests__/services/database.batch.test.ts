@@ -1,3 +1,6 @@
+// Define __DEV__ for modules relying on it
+(global as unknown as { __DEV__: boolean }).__DEV__ = false;
+
 import { awsAPI } from '../../services/aws-api';
 import { awsAuth } from '../../services/aws-auth';
 import { hasLikedPostsBatch, hasSavedPostsBatch } from '../../services/database';

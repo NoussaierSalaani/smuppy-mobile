@@ -110,7 +110,7 @@ async function notifyFans(
   db: import('pg').Pool,
   host: { id: string; username: string; display_name: string; avatar_url: string },
   streamId: string,
-  log: { error: (msg: string, ...args: unknown[]) => void },
+  log: ReturnType<typeof import('../utils/logger').createLogger>,
 ): Promise<void> {
   // Get all fans who follow this creator AND have live notifications enabled
   // Per CLAUDE.md: respect notification preferences

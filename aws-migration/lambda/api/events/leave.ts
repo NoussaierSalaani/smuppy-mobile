@@ -4,67 +4,16 @@
  * POST /events/{eventId}/leave
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
-import { requireRateLimit } from '../utils/rate-limit';
-import { resolveProfileId } from '../utils/auth';
+import { cors } from '../utils/cors';
+import { createEventActionHandler } from '../utils/create-event-action-handler';
 
-const log = createLogger('events-leave');
-const corsHeaders = getSecureHeaders();
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
-  const pool = await getPool();
-  const client = await pool.connect();
-
-  try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return cors({
-        statusCode: 401,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'event-leave', identifier: userId, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    const eventId = event.pathParameters?.eventId;
-    if (!eventId || !isValidUUID(eventId)) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
-    }
-
-    // Resolve cognito_sub to profile ID
-    const profileId = await resolveProfileId(client, userId);
-    if (!profileId) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
-    }
-
-    // Check event exists
-    const eventResult = await client.query(
-      `SELECT id, title, status, creator_id FROM events WHERE id = $1`,
-      [eventId]
-    );
-    if (eventResult.rows.length === 0) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Event not found' }),
-      });
-    }
-
-    const eventData = eventResult.rows[0];
-
+export const { handler } = createEventActionHandler({
+  action: 'leave',
+  loggerName: 'events-leave',
+  rateLimitPrefix: 'event-leave',
+  rateLimitMax: 10,
+  eventColumns: 'id, title, status, creator_id, max_participants',
+  onAction: async ({ client, eventData, profileId, eventId }) => {
     // Creator cannot leave their own event
     if (eventData.creator_id === profileId) {
       return cors({
@@ -95,8 +44,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    await client.query('BEGIN');
-
     // Cancel participation
     await client.query(
       `UPDATE event_participants SET status = 'cancelled'
@@ -110,8 +57,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
        WHERE id = $1`,
       [eventId]
     );
-
-    await client.query('COMMIT');
 
     // Get updated participant count
     const updatedEvent = await client.query(
@@ -132,17 +77,5 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           : null,
       }),
     });
-  } catch (error: unknown) {
-    await client.query('ROLLBACK');
-    log.error('Leave event error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to leave event',
-      }),
-    });
-  } finally {
-    client.release();
-  }
-};
+  },
+});

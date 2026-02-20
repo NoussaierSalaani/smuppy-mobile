@@ -14,6 +14,12 @@ import { createLogger } from '../../api/utils/logger';
 import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { requireRateLimit } from '../../api/utils/rate-limit';
+import {
+  parseOffsetCursor,
+  deriveOffsetPage,
+  DISPUTE_STATUS_ORDER_SQL,
+  mapDisputeBase,
+} from '../../api/utils/dispute-helpers';
 
 const log = createLogger('admin/disputes-list');
 
@@ -110,19 +116,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Admin disputes use multi-CASE ORDER BY — use offset-encoded cursor
-    const MAX_OFFSET = 500;
-    const offset = cursor ? Math.min(Number.parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
-    const parsedLimit = Math.min(Number.parseInt(limit), 50);
+    const { offset, parsedLimit } = parseOffsetCursor(cursor, limit);
 
     params.push(parsedLimit + 1);
     params.push(offset);
     query += ` ORDER BY
-      CASE d.status
-        WHEN 'open' THEN 1
-        WHEN 'under_review' THEN 2
-        WHEN 'evidence_requested' THEN 3
-        ELSE 4
-      END,
+      ${DISPUTE_STATUS_ORDER_SQL},
       CASE d.priority
         WHEN 'urgent' THEN 1
         WHEN 'high' THEN 2
@@ -135,9 +134,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const disputesResult = await db.query(query, params);
 
-    const hasMore = disputesResult.rows.length > parsedLimit;
-    const rows = disputesResult.rows.slice(0, parsedLimit);
-    const nextCursor = hasMore ? String(offset + parsedLimit) : null;
+    const { data: rows, nextCursor, hasMore } = deriveOffsetPage(
+      disputesResult.rows,
+      parsedLimit,
+      offset,
+    );
 
     // Get statistics
     const statsResult = await db.query(`
@@ -160,24 +161,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         nextCursor,
         hasMore,
         disputes: rows.map((d) => ({
-          id: d.id,
-          disputeNumber: d.dispute_number,
-          type: d.type,
-          status: d.status,
-          priority: d.priority,
-          createdAt: d.created_at,
-          amount: d.amount_cents / 100,
-          currency: d.currency,
-          autoVerification: d.auto_verification,
+          ...mapDisputeBase(d),
           evidenceCount: Number.parseInt(d.evidence_count),
-          complainant: {
-            username: d.complainant_username,
-            avatar: d.complainant_avatar,
-          },
-          respondent: {
-            username: d.respondent_username,
-            avatar: d.respondent_avatar,
-          },
         })),
         stats: {
           total: Number.parseInt(stats.total),

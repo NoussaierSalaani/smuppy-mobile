@@ -6,11 +6,14 @@
 
 import { createBusinessHandler } from '../utils/create-business-handler';
 import { isValidUUID } from '../utils/security';
-
-const VALID_CATEGORIES = ['drop_in', 'pack', 'membership'];
-const VALID_PERIODS = ['weekly', 'monthly', 'yearly'];
-const MAX_NAME_LENGTH = 200;
-const MAX_DESCRIPTION_LENGTH = 2000;
+import {
+  VALID_SERVICE_CATEGORIES,
+  VALID_SUBSCRIPTION_PERIODS,
+  MAX_SERVICE_NAME_LENGTH,
+  MAX_SERVICE_DESCRIPTION_LENGTH,
+  mapServiceRow,
+} from '../utils/business-constants';
+import type { ServiceRow } from '../utils/business-constants';
 
 const { handler } = createBusinessHandler({
   loggerName: 'business/services-update',
@@ -30,7 +33,7 @@ const { handler } = createBusinessHandler({
     let paramIndex = 1;
 
     if (body.name !== undefined) {
-      const name = String(body.name).trim().replaceAll(/<[^>]*>/g, '').substring(0, MAX_NAME_LENGTH); // NOSONAR
+      const name = String(body.name).trim().replaceAll(/<[^>]*>/g, '').substring(0, MAX_SERVICE_NAME_LENGTH); // NOSONAR
       if (name.length === 0) {
         return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Name cannot be empty' }) };
       }
@@ -39,13 +42,13 @@ const { handler } = createBusinessHandler({
     }
 
     if (body.description !== undefined) {
-      const desc = body.description ? String(body.description).trim().replaceAll(/<[^>]*>/g, '').substring(0, MAX_DESCRIPTION_LENGTH) : null; // NOSONAR
+      const desc = body.description ? String(body.description).trim().replaceAll(/<[^>]*>/g, '').substring(0, MAX_SERVICE_DESCRIPTION_LENGTH) : null; // NOSONAR
       setClauses.push(`description = $${paramIndex++}`);
       params.push(desc);
     }
 
     if (body.category !== undefined) {
-      if (!VALID_CATEGORIES.includes(body.category)) {
+      if (!VALID_SERVICE_CATEGORIES.includes(body.category)) {
         return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid category' }) };
       }
       setClauses.push(`category = $${paramIndex++}`);
@@ -76,7 +79,7 @@ const { handler } = createBusinessHandler({
     }
 
     if (body.subscription_period !== undefined) {
-      if (body.subscription_period && !VALID_PERIODS.includes(body.subscription_period)) {
+      if (body.subscription_period && !VALID_SUBSCRIPTION_PERIODS.includes(body.subscription_period)) {
         return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid subscription period' }) };
       }
       setClauses.push(`subscription_period = $${paramIndex++}`);
@@ -123,29 +126,15 @@ const { handler } = createBusinessHandler({
       params
     );
 
-    const s = result.rows[0];
-    log.info('Business service updated', { serviceId: s.id });
+    const row = result.rows[0] as ServiceRow;
+    log.info('Business service updated', { serviceId: row.id });
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        service: {
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          category: s.category,
-          priceCents: s.price_cents,
-          durationMinutes: s.duration_minutes,
-          isSubscription: s.is_subscription,
-          subscriptionPeriod: s.subscription_period,
-          trialDays: s.trial_days,
-          maxCapacity: s.max_capacity,
-          entriesTotal: s.entries_total,
-          isActive: s.is_active,
-          createdAt: s.created_at,
-        },
+        service: mapServiceRow(row),
       }),
     };
   },

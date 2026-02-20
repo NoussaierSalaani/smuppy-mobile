@@ -3,48 +3,23 @@
  * Returns user's notifications with pagination
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { requireRateLimit } from '../utils/rate-limit';
+import { SqlParam } from '../../shared/db';
+import { withNotificationContext } from '../utils/create-notification-handler';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
-import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('notifications-list');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'notifications-list', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
+export const handler = withNotificationContext(
+  {
+    loggerName: 'notifications-list',
+    rateLimitPrefix: 'notifications-list',
+    maxRequests: 60,
+    windowSeconds: RATE_WINDOW_1_MIN,
+    errorLabel: 'Error listing notifications',
+  },
+  async ({ profileId, db, headers, event }) => {
     // Pagination params
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
     const unreadOnly = event.queryStringParameters?.unread === 'true';
-
-    const db = await getPool();
-
-    const profileId = await resolveProfileId(db, userId);
-    if (!profileId) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
 
     // Build query — join with profiles to enrich actor user data
     // Actor ID is stored in the JSONB data column under different keys
@@ -180,12 +155,5 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         hasMore,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error listing notifications', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+  },
+);

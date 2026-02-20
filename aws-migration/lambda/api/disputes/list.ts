@@ -14,6 +14,12 @@ import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { requireRateLimit } from '../../api/utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../../api/utils/constants';
+import {
+  parseOffsetCursor,
+  deriveOffsetPage,
+  DISPUTE_STATUS_ORDER_SQL,
+  mapDisputeBase,
+} from '../../api/utils/dispute-helpers';
 
 const log = createLogger('disputes/list');
 
@@ -133,28 +139,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Disputes use multi-column CASE ORDER BY (status rank + created_at).
     // Use offset-encoded cursor since keyset on CASE expressions is complex.
-    const MAX_OFFSET = 500;
-    const offset = cursor ? Math.min(Number.parseInt(cursor, 10) || 0, MAX_OFFSET) : 0;
-    const parsedLimit = Math.min(Number.parseInt(limit), 50);
+    const { offset, parsedLimit } = parseOffsetCursor(cursor, limit);
 
     params.push(parsedLimit + 1);
     params.push(offset);
     query += ` ORDER BY
-      CASE d.status
-        WHEN 'open' THEN 1
-        WHEN 'under_review' THEN 2
-        WHEN 'evidence_requested' THEN 3
-        ELSE 4
-      END,
+      ${DISPUTE_STATUS_ORDER_SQL},
       d.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     paramIndex += 2;
 
     const result = await db.query(query, params);
 
-    const hasMore = result.rows.length > parsedLimit;
-    const rows = result.rows.slice(0, parsedLimit);
-    const nextCursor = hasMore ? String(offset + parsedLimit) : null;
+    const { data: rows, nextCursor, hasMore } = deriveOffsetPage(
+      result.rows,
+      parsedLimit,
+      offset,
+    );
 
     return {
       statusCode: 200,
@@ -162,32 +163,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({
         success: true,
         disputes: rows.map((d) => ({
-          id: d.id,
-          disputeNumber: d.dispute_number,
-          type: d.type,
-          status: d.status,
-          priority: d.priority,
+          ...mapDisputeBase(d),
           description: d.complainant_description,
           respondentResponse: d.respondent_response,
-          amount: d.amount_cents / 100,
           refundAmount: d.refund_amount_cents ? d.refund_amount_cents / 100 : null,
-          currency: d.currency,
           resolution: d.resolution,
-          createdAt: d.created_at,
           resolvedAt: d.resolved_at,
           evidenceDeadline: d.evidence_deadline,
-          autoVerification: d.auto_verification,
           session: {
             scheduledAt: d.session_date,
             durationMinutes: d.session_duration,
-          },
-          complainant: {
-            username: d.complainant_username,
-            avatar: d.complainant_avatar,
-          },
-          respondent: {
-            username: d.respondent_username,
-            avatar: d.respondent_avatar,
           },
         })),
         nextCursor,

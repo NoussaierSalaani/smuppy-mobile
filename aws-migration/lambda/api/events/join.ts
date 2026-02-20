@@ -3,55 +3,25 @@
  * Register for / leave an event
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
-import { requireRateLimit } from '../utils/rate-limit';
-
-const log = createLogger('events-join');
-const corsHeaders = getSecureHeaders();
+import { cors } from '../utils/cors';
+import { createEventActionHandler } from '../utils/create-event-action-handler';
 
 interface JoinEventRequest {
   action: 'register' | 'cancel' | 'interested';
   notes?: string;
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
-  const pool = await getPool();
-  const client = await pool.connect();
-
-  try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return cors({
-        statusCode: 401,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
-    }
-
-    // Rate limit
-    const rateLimitResponse = await requireRateLimit({
-      prefix: 'events-join',
-      identifier: userId,
-      windowSeconds: 60,
-      maxRequests: 10,
-    }, corsHeaders);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    const eventId = event.pathParameters?.eventId;
-    if (!eventId || !isValidUUID(eventId)) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
-    }
-
-    const body: JoinEventRequest = JSON.parse(event.body || '{}');
+export const { handler } = createEventActionHandler({
+  action: 'join',
+  loggerName: 'events-join',
+  rateLimitPrefix: 'events-join',
+  rateLimitMax: 10,
+  eventColumns: `e.id, e.title, e.starts_at, e.status, e.is_fans_only, e.creator_id,
+                 e.is_free, e.price, e.currency, e.max_participants, e.current_participants,
+                 p.username as creator_username, p.display_name as creator_display_name`,
+  eventJoins: 'JOIN profiles p ON e.creator_id = p.id',
+  onAction: async ({ client, eventData, profileId, eventId, rawEvent }) => {
+    const body: JoinEventRequest = JSON.parse(rawEvent.body || '{}');
     const { action, notes } = body;
 
     if (!['register', 'cancel', 'interested'].includes(action)) {
@@ -61,42 +31,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    // Get user profile ID
-    const userProfileResult = await client.query(
-      'SELECT id, full_name, username FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-    if (userProfileResult.rows.length === 0) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'User profile not found' }),
-      });
-    }
-    const userProfile = userProfileResult.rows[0];
-    const userProfileId = userProfile.id;
-
-    // Get event details
-    const eventResult = await client.query(
-      `SELECT e.id, e.title, e.starts_at, e.status, e.is_fans_only, e.creator_id,
-              e.is_free, e.price, e.currency, e.max_participants, e.current_participants,
-              p.username as creator_username, p.display_name as creator_display_name
-       FROM events e
-       JOIN profiles p ON e.creator_id = p.id
-       WHERE e.id = $1`,
-      [eventId]
-    );
-
-    if (eventResult.rows.length === 0) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Event not found' }),
-      });
-    }
-
-    const eventData = eventResult.rows[0];
-
     // Check if event is still upcoming
-    if (new Date(eventData.starts_at) < new Date() && action === 'register') {
+    if (new Date(eventData.starts_at as string) < new Date() && action === 'register') {
       return cors({
         statusCode: 400,
         body: JSON.stringify({
@@ -118,11 +54,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // BUG-2026-02-14: Fans-only check must use profile IDs (not Cognito sub)
-    if (eventData.is_fans_only && eventData.creator_id !== userProfileId) {
+    if (eventData.is_fans_only && eventData.creator_id !== profileId) {
       const followCheck = await client.query(
         `SELECT id FROM follows
          WHERE follower_id = $1 AND following_id = $2 AND status = 'accepted'`,
-        [userProfileId, eventData.creator_id]
+        [profileId, eventData.creator_id as string]
       );
 
       if (followCheck.rows.length === 0) {
@@ -136,14 +72,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
-    // Get existing participation (use profile ID, not Cognito sub)
+    // Get existing participation
     const existingResult = await client.query(
       `SELECT id FROM event_participants
        WHERE event_id = $1 AND user_id = $2`,
-      [eventId, userProfileId]
+      [eventId, profileId]
     );
-
-    await client.query('BEGIN');
 
     let message: string;
     let participationStatus: string | null = null;
@@ -151,13 +85,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     switch (action) {
       case 'register':
         // Check if paid event (before capacity to avoid holding spots)
-        if (!eventData.is_free && eventData.price > 0) {
+        if (!eventData.is_free && (eventData.price as number) > 0) {
           return cors({
             statusCode: 200,
             body: JSON.stringify({
               success: true,
               requiresPayment: true,
-              price: Number.parseFloat(eventData.price),
+              price: Number.parseFloat(eventData.price as string),
               currency: eventData.currency,
               message: 'Payment required to register',
             }),
@@ -185,13 +119,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             `UPDATE event_participants
              SET status = 'registered', notes = $1
              WHERE event_id = $2 AND user_id = $3`,
-            [notes, eventId, userProfileId]
+            [notes, eventId, profileId]
           );
         } else {
           await client.query(
             `INSERT INTO event_participants (event_id, user_id, status, notes)
              VALUES ($1, $2, 'registered', $3)`,
-            [eventId, userProfileId, notes]
+            [eventId, profileId, notes]
           );
         }
 
@@ -208,15 +142,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }
 
         // Notify creator
-        if (eventData.creator_id !== userProfileId) {
-          const registrantName = userProfile.full_name || 'Someone';
+        if (eventData.creator_id !== profileId) {
+          // Fetch registrant name for notification
+          const registrantResult = await client.query(
+            `SELECT full_name FROM profiles WHERE id = $1`,
+            [profileId]
+          );
+          const registrantName = registrantResult.rows[0]?.full_name || 'Someone';
+
           await client.query(
             `INSERT INTO notifications (user_id, type, title, body, data)
              VALUES ($1, 'event_registration', 'New Registration', $2, $3)`,
             [
-              eventData.creator_id,
+              eventData.creator_id as string,
               `${registrantName} registered for your event!`,
-              JSON.stringify({ eventId, eventTitle: eventData.title, senderId: userProfileId }),
+              JSON.stringify({ eventId, eventTitle: eventData.title, senderId: profileId }),
             ]
           );
         }
@@ -228,13 +168,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             `UPDATE event_participants
              SET status = 'interested'
              WHERE event_id = $1 AND user_id = $2`,
-            [eventId, userProfileId]
+            [eventId, profileId]
           );
         } else {
           await client.query(
             `INSERT INTO event_participants (event_id, user_id, status)
              VALUES ($1, $2, 'interested')`,
-            [eventId, userProfileId]
+            [eventId, profileId]
           );
         }
 
@@ -257,7 +197,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           `UPDATE event_participants
            SET status = 'cancelled'
            WHERE event_id = $1 AND user_id = $2`,
-          [eventId, userProfileId]
+          [eventId, profileId]
         );
 
         // Decrement cached participant count
@@ -270,8 +210,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         message = 'Registration cancelled';
         break;
     }
-
-    await client.query('COMMIT');
 
     // Get updated participant count from cached column (faster than COUNT)
     const updatedEvent = await client.query(
@@ -288,21 +226,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         participationStatus,
         currentParticipants,
         spotsLeft: eventData.max_participants
-          ? eventData.max_participants - currentParticipants
+          ? (eventData.max_participants as number) - currentParticipants
           : null,
       }),
     });
-  } catch (error: unknown) {
-    await client.query('ROLLBACK');
-    log.error('Join event error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to process request',
-      }),
-    });
-  } finally {
-    client.release();
-  }
-};
+  },
+});

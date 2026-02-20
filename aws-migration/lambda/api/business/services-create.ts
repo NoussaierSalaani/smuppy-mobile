@@ -5,11 +5,14 @@
  */
 
 import { createBusinessHandler } from '../utils/create-business-handler';
-
-const VALID_CATEGORIES = ['drop_in', 'pack', 'membership'];
-const VALID_PERIODS = ['weekly', 'monthly', 'yearly'];
-const MAX_NAME_LENGTH = 200;
-const MAX_DESCRIPTION_LENGTH = 2000;
+import {
+  VALID_SERVICE_CATEGORIES,
+  VALID_SUBSCRIPTION_PERIODS,
+  MAX_SERVICE_NAME_LENGTH,
+  MAX_SERVICE_DESCRIPTION_LENGTH,
+  mapServiceRow,
+} from '../utils/business-constants';
+import type { ServiceRow } from '../utils/business-constants';
 
 const { handler } = createBusinessHandler({
   loggerName: 'business/services-create',
@@ -27,26 +30,26 @@ const { handler } = createBusinessHandler({
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Name is required' }) };
     }
-    if (name.length > MAX_NAME_LENGTH) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: `Name must be under ${MAX_NAME_LENGTH} characters` }) };
+    if (name.length > MAX_SERVICE_NAME_LENGTH) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: `Name must be under ${MAX_SERVICE_NAME_LENGTH} characters` }) };
     }
-    if (!category || !VALID_CATEGORIES.includes(category)) {
+    if (!category || !VALID_SERVICE_CATEGORIES.includes(category)) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Valid category is required (drop_in, pack, membership)' }) };
     }
     if (typeof price_cents !== 'number' || price_cents < 0) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Valid price is required' }) };
     }
-    if (description && typeof description === 'string' && description.length > MAX_DESCRIPTION_LENGTH) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: `Description must be under ${MAX_DESCRIPTION_LENGTH} characters` }) };
+    if (description && typeof description === 'string' && description.length > MAX_SERVICE_DESCRIPTION_LENGTH) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: `Description must be under ${MAX_SERVICE_DESCRIPTION_LENGTH} characters` }) };
     }
-    if (is_subscription && subscription_period && !VALID_PERIODS.includes(subscription_period)) {
+    if (is_subscription && subscription_period && !VALID_SUBSCRIPTION_PERIODS.includes(subscription_period)) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Valid subscription period is required' }) };
     }
 
     // Sanitize text inputs
-    const sanitizedName = name.trim().replaceAll(/<[^>]*>/g, '').substring(0, MAX_NAME_LENGTH); // NOSONAR
+    const sanitizedName = name.trim().replaceAll(/<[^>]*>/g, '').substring(0, MAX_SERVICE_NAME_LENGTH); // NOSONAR
     const sanitizedDesc = description
-      ? String(description).trim().replaceAll(/<[^>]*>/g, '').substring(0, MAX_DESCRIPTION_LENGTH) // NOSONAR
+      ? String(description).trim().replaceAll(/<[^>]*>/g, '').substring(0, MAX_SERVICE_DESCRIPTION_LENGTH) // NOSONAR
       : null;
 
     // Verify user is a business account
@@ -89,29 +92,15 @@ const { handler } = createBusinessHandler({
       ]
     );
 
-    const s = result.rows[0];
-    log.info('Business service created', { serviceId: s.id, businessId: user.id.substring(0, 8) + '***' });
+    const row = result.rows[0] as ServiceRow;
+    log.info('Business service created', { serviceId: row.id, businessId: user.id.substring(0, 8) + '***' });
 
     return {
       statusCode: 201,
       headers,
       body: JSON.stringify({
         success: true,
-        service: {
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          category: s.category,
-          priceCents: s.price_cents,
-          durationMinutes: s.duration_minutes,
-          isSubscription: s.is_subscription,
-          subscriptionPeriod: s.subscription_period,
-          trialDays: s.trial_days,
-          maxCapacity: s.max_capacity,
-          entriesTotal: s.entries_total,
-          isActive: s.is_active,
-          createdAt: s.created_at,
-        },
+        service: mapServiceRow(row),
       }),
     };
   },

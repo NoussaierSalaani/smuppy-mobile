@@ -6,7 +6,8 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 import { isValidUUID } from '../utils/security';
 import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
@@ -31,15 +32,16 @@ interface UpdatePackBody extends Partial<CreatePackBody> {
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   const userId = event.requestContext.authorizer?.claims?.sub;
   if (!userId) {
     return {
       statusCode: 401,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
   }
@@ -50,7 +52,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     identifier: userId,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 10,
-  }, corsHeaders);
+  }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   const pool = await getPool();
@@ -62,7 +64,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!profileId) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
@@ -70,7 +72,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (packId && !isValidUUID(packId)) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       };
     }
@@ -84,7 +86,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (userResult.rows.length === 0 || userResult.rows[0].account_type !== 'pro_creator') {
       return {
         statusCode: 403,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Only pro creators can manage packs' }),
       };
     }
@@ -97,26 +99,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (!name || !sessionsIncluded || !sessionDuration || !validityDays || !price) {
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers: headers,
           body: JSON.stringify({ success: false, message: 'Missing required fields' }),
         };
       }
 
       // Input validation bounds
       if (name.length > 100) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Name too long (max 100)' }) };
+        return { statusCode: 400, headers: headers, body: JSON.stringify({ success: false, message: 'Name too long (max 100)' }) };
       }
       if (sessionsIncluded < 1 || sessionsIncluded > 100) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Sessions must be between 1 and 100' }) };
+        return { statusCode: 400, headers: headers, body: JSON.stringify({ success: false, message: 'Sessions must be between 1 and 100' }) };
       }
       if (sessionDuration < 15 || sessionDuration > 480) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Duration must be between 15 and 480 minutes' }) };
+        return { statusCode: 400, headers: headers, body: JSON.stringify({ success: false, message: 'Duration must be between 15 and 480 minutes' }) };
       }
       if (validityDays < 1 || validityDays > 365) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Validity must be between 1 and 365 days' }) };
+        return { statusCode: 400, headers: headers, body: JSON.stringify({ success: false, message: 'Validity must be between 1 and 365 days' }) };
       }
       if (price <= 0 || price > 50000) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Price must be between 0 and 50000' }) };
+        return { statusCode: 400, headers: headers, body: JSON.stringify({ success: false, message: 'Price must be between 0 and 50000' }) };
       }
 
       const result = await pool.query(
@@ -132,7 +134,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       return {
         statusCode: 201,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({
           success: true,
           pack: {
@@ -161,7 +163,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (ownerCheck.rows.length === 0) {
         return {
           statusCode: 404,
-          headers: corsHeaders,
+          headers: headers,
           body: JSON.stringify({ success: false, message: 'Pack not found' }),
         };
       }
@@ -207,7 +209,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (updates.length === 0) {
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers: headers,
           body: JSON.stringify({ success: false, message: 'No updates provided' }),
         };
       }
@@ -223,7 +225,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       return {
         statusCode: 200,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({
           success: true,
           pack: {
@@ -252,7 +254,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (ownerCheck.rows.length === 0) {
         return {
           statusCode: 404,
-          headers: corsHeaders,
+          headers: headers,
           body: JSON.stringify({ success: false, message: 'Pack not found' }),
         };
       }
@@ -276,21 +278,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       return {
         statusCode: 200,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: true, message: 'Pack deleted' }),
       };
     }
 
     return {
       statusCode: 405,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
   } catch (error) {
     log.error('Pack management error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Failed to manage pack' }),
     };
   }

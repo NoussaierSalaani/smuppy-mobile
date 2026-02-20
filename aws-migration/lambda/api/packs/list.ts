@@ -6,22 +6,24 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('packs-list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   const userId = event.requestContext.authorizer?.claims?.sub;
   if (!userId) {
     return {
       statusCode: 401,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
   }
@@ -68,7 +70,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       return {
         statusCode: 200,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: true, packs }),
       };
     }
@@ -107,21 +109,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       return {
         statusCode: 200,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: true, packs }),
       };
     }
 
     return {
       statusCode: 400,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Specify creatorId or owned=true' }),
     };
   } catch (error) {
     log.error('List packs error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Failed to list packs' }),
     };
   }

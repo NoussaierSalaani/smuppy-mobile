@@ -4,7 +4,8 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
@@ -13,20 +14,21 @@ const log = createLogger('sessions-list');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   const cognitoSub = event.requestContext.authorizer?.claims?.sub;
   if (!cognitoSub) {
     return {
       statusCode: 401,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
   }
 
-  const rateLimitResponse = await requireRateLimit({ prefix: 'sessions-list', identifier: cognitoSub, maxRequests: 30 }, corsHeaders);
+  const rateLimitResponse = await requireRateLimit({ prefix: 'sessions-list', identifier: cognitoSub, maxRequests: 30 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
@@ -34,7 +36,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const writePool = await getPool();
     const profileId = await resolveProfileId(writePool, cognitoSub);
     if (!profileId) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+      return { statusCode: 404, headers: headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
     }
 
     const pool = await getPool();
@@ -116,7 +118,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         sessions,
@@ -126,7 +128,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     log.error('List sessions error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Failed to list sessions' }),
     };
   }

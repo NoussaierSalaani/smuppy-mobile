@@ -4,22 +4,24 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('sessions-availability');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   const userId = event.requestContext.authorizer?.claims?.sub;
   if (!userId) {
     return {
       statusCode: 401,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
   }
@@ -28,7 +30,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   if (!creatorId) {
     return {
       statusCode: 400,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Creator ID required' }),
     };
   }
@@ -38,7 +40,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   if (!UUID_REGEX.test(creatorId)) {
     return {
       statusCode: 400,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Invalid creator ID format' }),
     };
   }
@@ -63,7 +65,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (creatorResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Creator not found' }),
       };
     }
@@ -73,7 +75,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!creator.sessions_enabled) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Creator does not accept sessions' }),
       };
     }
@@ -161,7 +163,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         creator: {
@@ -180,7 +182,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     log.error('Get availability error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Failed to get availability' }),
     };
   }

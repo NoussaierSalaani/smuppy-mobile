@@ -4,7 +4,8 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
@@ -18,15 +19,16 @@ interface DeclineBody {
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   const cognitoSub = event.requestContext.authorizer?.claims?.sub;
   if (!cognitoSub) {
     return {
       statusCode: 401,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
   }
@@ -35,12 +37,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   if (!sessionId || !isValidUUID(sessionId)) {
     return {
       statusCode: 400,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Valid session ID required' }),
     };
   }
 
-  const rateLimitResponse = await requireRateLimit({ prefix: 'session-decline', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
+  const rateLimitResponse = await requireRateLimit({ prefix: 'session-decline', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   const pool = await getPool();
@@ -48,7 +50,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   // Resolve cognitoSub → profile ID
   const profileId = await resolveProfileId(pool, cognitoSub);
   if (!profileId) {
-    return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
+    return { statusCode: 404, headers: headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
   }
 
   const client = await pool.connect();
@@ -72,7 +74,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       await client.query('ROLLBACK');
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Session not found or already processed' }),
       };
     }
@@ -85,7 +87,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       await client.query('ROLLBACK');
       return {
         statusCode: 403,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Forbidden' }),
       };
     }
@@ -94,7 +96,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       await client.query('ROLLBACK');
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Only pending sessions can be declined by creator' }),
       };
     }
@@ -156,7 +158,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         message: isCreator ? 'Session declined' : 'Session cancelled',
@@ -167,7 +169,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     log.error('Decline session error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Failed to decline session' }),
     };
   } finally {

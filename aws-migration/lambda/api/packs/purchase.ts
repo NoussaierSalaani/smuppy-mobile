@@ -4,7 +4,8 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
+import { getPool } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
@@ -23,21 +24,22 @@ interface PurchaseBody {
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   const userId = event.requestContext.authorizer?.claims?.sub;
   if (!userId) {
     return {
       statusCode: 401,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
   }
 
   try {
-    const rateLimitResponse = await requireRateLimit({ prefix: 'packs-purchase', identifier: userId, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'packs-purchase', identifier: userId, windowSeconds: 60, maxRequests: 10 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     const stripe = await getStripeClient();
@@ -47,7 +49,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!packId || !isValidUUID(packId)) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       };
     }
@@ -59,7 +61,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!profileId) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
@@ -76,7 +78,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (packResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Pack not found' }),
       };
     }
@@ -143,7 +145,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         paymentIntent: {
@@ -165,7 +167,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     log.error('Purchase pack error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Failed to process purchase' }),
     };
   }

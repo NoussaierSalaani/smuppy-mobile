@@ -4,7 +4,8 @@
  */
 
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders, SqlParam } from '../../shared/db';
+import { getPool, SqlParam } from '../../shared/db';
+import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { MIN_SESSION_DURATION_MINUTES, MAX_SESSION_DURATION_MINUTES, MAX_SESSION_PRICE_CENTS } from '../utils/constants';
 
@@ -24,15 +25,16 @@ interface UpdateSettingsBody {
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers, body: '' };
   }
 
   const cognitoSub = event.requestContext.authorizer?.claims?.sub;
   if (!cognitoSub) {
     return {
       statusCode: 401,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
   }
@@ -48,7 +50,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (profileLookup.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
@@ -60,7 +62,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (userResult.rows.length === 0 || userResult.rows[0].account_type !== 'pro_creator') {
       return {
         statusCode: 403,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Only pro creators can manage session settings' }),
       };
     }
@@ -80,7 +82,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (Number.isNaN(price) || price < 0 || price > MAX_SESSION_PRICE_CENTS) {
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers: headers,
           body: JSON.stringify({ success: false, message: 'Price must be between 0 and 10000' }),
         };
       }
@@ -93,7 +95,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (Number.isNaN(duration) || duration < MIN_SESSION_DURATION_MINUTES || duration > MAX_SESSION_DURATION_MINUTES) {
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers: headers,
           body: JSON.stringify({ success: false, message: 'Duration must be between 15 and 480 minutes' }),
         };
       }
@@ -114,7 +116,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (updates.length === 0) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'No updates provided' }),
       };
     }
@@ -131,7 +133,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         settings: {
@@ -147,7 +149,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     log.error('Update session settings error', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Failed to update session settings' }),
     };
   }

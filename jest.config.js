@@ -2,7 +2,11 @@
 module.exports = {
   // Use ts-jest for pure TypeScript tests
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': ['ts-jest', {
+      tsconfig: {
+        jsx: 'react-jsx',
+      },
+    }],
   },
   testEnvironment: 'node',
   coverageProvider: 'v8',

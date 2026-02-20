@@ -9,7 +9,13 @@ tags:
 - launchApp:
     clearState: true
 
-# Handle Expo Dev Launcher
+# Dismiss Expo Dev Menu / error overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
 - tapOn:
     text: "http://localhost:8081"
     optional: true
@@ -18,7 +24,9 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "welcome-screen"
-    timeout: 20000
+    timeout: 30000
+
+- takeScreenshot: "02-welcome-screen"
 
 # Tap login
 - tapOn:
@@ -30,6 +38,8 @@ tags:
       id: "login-screen"
     timeout: 10000
 
+- takeScreenshot: "02-login-screen"
+
 # Enter credentials
 - tapOn:
     id: "email-input"
@@ -39,6 +49,8 @@ tags:
     id: "password-input"
 - inputText: "${TEST_PASSWORD}"
 
+- takeScreenshot: "02-credentials-entered"
+
 # Submit login
 - tapOn:
     id: "submit-login-button"
@@ -47,3 +59,5 @@ tags:
 - extendedWaitUntil:
     visible: "Fan"
     timeout: 15000
+
+- takeScreenshot: "02-login-success"

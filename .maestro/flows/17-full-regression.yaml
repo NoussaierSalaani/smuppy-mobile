@@ -10,13 +10,40 @@ tags:
 
 - launchApp
 
+# Dismiss Expo Dev Menu / error overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+
 # ========== 1. HOME / FEEDS ==========
 
 - extendedWaitUntil:
-    visible: "Fan"
-    timeout: 15000
+    true:
+      or:
+        - visible:
+            id: "welcome-screen"
+        - visible: "Fan"
+    timeout: 30000
 
-- screenshot: "01-home-fan-feed"
+# If on welcome, tap login (assumes auto-login or skip)
+- tapOn:
+    id: "login-button"
+    optional: true
+- tapOn:
+    id: "submit-login-button"
+    optional: true
+
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 30000
+
+- takeScreenshot: "01-home-fan-feed"
 
 # Fan Feed - scroll
 - scroll:
@@ -27,12 +54,12 @@ tags:
 # Vibes Feed
 - tapOn: "Vibes"
 - waitForAnimationToEnd
-- screenshot: "02-home-vibes-feed"
+- takeScreenshot: "02-home-vibes-feed"
 
 # Xplorer Feed
 - tapOn: "Xplorer"
 - waitForAnimationToEnd
-- screenshot: "03-home-xplorer-feed"
+- takeScreenshot: "03-home-xplorer-feed"
 
 # Back to Fan
 - tapOn: "Fan"
@@ -42,10 +69,10 @@ tags:
 - tapOn:
     id: "search-button"
 - waitForAnimationToEnd
-- screenshot: "04-search-screen"
+- takeScreenshot: "04-search-screen"
 - inputText: "smuppy"
 - waitForAnimationToEnd
-- screenshot: "05-search-results"
+- takeScreenshot: "05-search-results"
 - hideKeyboard
 - back
 
@@ -54,7 +81,7 @@ tags:
 - tapOn:
     id: "notifications-button"
 - waitForAnimationToEnd
-- screenshot: "06-notifications"
+- takeScreenshot: "06-notifications"
 - back
 
 # ========== 4. PEAKS TAB ==========
@@ -62,7 +89,7 @@ tags:
 - tapOn:
     id: "peaks-tab"
 - waitForAnimationToEnd
-- screenshot: "07-peaks-feed"
+- takeScreenshot: "07-peaks-feed"
 
 # Scroll peaks
 - scroll:
@@ -75,7 +102,7 @@ tags:
 - tapOn:
     id: "create-tab"
 - waitForAnimationToEnd
-- screenshot: "08-create-screen"
+- takeScreenshot: "08-create-screen"
 - back
 
 # ========== 6. MESSAGES TAB ==========
@@ -83,7 +110,7 @@ tags:
 - tapOn:
     id: "messages-tab"
 - waitForAnimationToEnd
-- screenshot: "09-messages-list"
+- takeScreenshot: "09-messages-list"
 
 # Scroll conversations
 - scroll:
@@ -96,12 +123,12 @@ tags:
 - tapOn:
     id: "profile-tab"
 - waitForAnimationToEnd
-- screenshot: "10-profile-screen"
+- takeScreenshot: "10-profile-screen"
 
 # Scroll profile
 - scroll:
     direction: DOWN
-- screenshot: "11-profile-scrolled"
+- takeScreenshot: "11-profile-scrolled"
 - scroll:
     direction: UP
 
@@ -110,18 +137,18 @@ tags:
 - tapOn:
     id: "settings-button"
 - waitForAnimationToEnd
-- screenshot: "12-settings-screen"
+- takeScreenshot: "12-settings-screen"
 
 # Check Edit Profile
 - tapOn: "Edit Profile"
 - waitForAnimationToEnd
-- screenshot: "13-edit-profile"
+- takeScreenshot: "13-edit-profile"
 - back
 
 # Scroll settings
 - scroll:
     direction: DOWN
-- screenshot: "14-settings-bottom"
+- takeScreenshot: "14-settings-bottom"
 
 # Back to profile
 - back
@@ -135,4 +162,4 @@ tags:
     visible: "Fan"
     timeout: 5000
 
-- screenshot: "15-final-home"
+- takeScreenshot: "15-final-home"

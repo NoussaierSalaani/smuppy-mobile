@@ -9,7 +9,13 @@ tags:
 # Launch app (assumes already logged in)
 - launchApp
 
-# Handle Expo Dev Launcher
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
 - tapOn:
     text: "http://localhost:8081"
     optional: true

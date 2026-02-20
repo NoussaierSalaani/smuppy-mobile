@@ -8,6 +8,14 @@ tags:
 
 - launchApp
 
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+
 # Go to search
 - tapOn:
     id: "home-tab"
@@ -21,14 +29,14 @@ tags:
 
 - waitForAnimationToEnd
 
-- screenshot: "search-screen"
+- takeScreenshot: "search-screen"
 
 # Search for a user
 - inputText: "test"
 
 - waitForAnimationToEnd
 
-- screenshot: "search-results"
+- takeScreenshot: "search-results"
 
 # Tap first result (if user results appear)
 - tapOn:
@@ -37,13 +45,13 @@ tags:
 
 - waitForAnimationToEnd
 
-- screenshot: "user-profile"
+- takeScreenshot: "user-profile"
 
 # Scroll user profile
 - scroll:
     direction: DOWN
 
-- screenshot: "user-profile-scrolled"
+- takeScreenshot: "user-profile-scrolled"
 
 - scroll:
     direction: UP

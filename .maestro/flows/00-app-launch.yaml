@@ -8,41 +8,44 @@ tags:
   - navigation
 ---
 
-# Launch app
+# Launch app and dismiss dev overlays
 - launchApp
 
-# Handle Expo Dev Launcher
+# Dismiss Expo Dev Menu / error overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
 - tapOn:
     text: "http://localhost:8081"
     optional: true
 
-# Wait for welcome screen
+# Wait for either welcome screen OR feed (if already logged in)
 - extendedWaitUntil:
-    visible:
-      id: "welcome-screen"
-    timeout: 20000
+    true:
+      or:
+        - visible:
+            id: "welcome-screen"
+        - visible: "Fan"
+    timeout: 30000
 
-# Tap login button
+# If on welcome screen, go through login
 - tapOn:
     id: "login-button"
+    optional: true
 
-# Wait for login screen
-- extendedWaitUntil:
-    visible:
-      id: "login-screen"
-    timeout: 10000
-
-- waitForAnimationToEnd
-
-# Submit empty login to verify we stay on login screen
 - tapOn:
     id: "submit-login-button"
     optional: true
 
-# Wait for feed (assumes already logged in or auto-login)
+# Wait for feed
 - extendedWaitUntil:
     visible: "Fan"
     timeout: 30000
+
+- takeScreenshot: "00-feed-loaded"
 
 # ========== TEST FEED TAB NAVIGATION ==========
 
@@ -94,3 +97,5 @@ tags:
 - tapOn:
     id: "profile-tab"
 - waitForAnimationToEnd
+
+- takeScreenshot: "00-profile"

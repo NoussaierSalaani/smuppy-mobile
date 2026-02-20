@@ -8,6 +8,14 @@ tags:
 
 - launchApp
 
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+
 # Navigate to notifications via header button
 - tapOn:
     id: "home-tab"
@@ -21,13 +29,13 @@ tags:
 
 - waitForAnimationToEnd
 
-- screenshot: "notifications-screen"
+- takeScreenshot: "notifications-screen"
 
 # Scroll through notifications
 - scroll:
     direction: DOWN
 
-- screenshot: "notifications-scrolled"
+- takeScreenshot: "notifications-scrolled"
 
 - scroll:
     direction: UP

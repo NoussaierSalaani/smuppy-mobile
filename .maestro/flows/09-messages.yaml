@@ -8,6 +8,14 @@ tags:
 
 - launchApp
 
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+
 # Navigate to Messages tab
 - tapOn:
     id: "messages-tab"
@@ -16,7 +24,7 @@ tags:
     visible: "Direct"
     timeout: 10000
 
-- screenshot: "messages-list"
+- takeScreenshot: "messages-list"
 
 # Verify tabs exist
 - assertVisible: "Direct"
@@ -36,7 +44,7 @@ tags:
 - inputText: "test"
 - hideKeyboard
 
-- screenshot: "messages-search"
+- takeScreenshot: "messages-search"
 
 # Clear search and go back
 - clearText
@@ -52,7 +60,7 @@ tags:
     timeout: 5000
     optional: true
 
-- screenshot: "chat-screen"
+- takeScreenshot: "chat-screen"
 
 # Type a message (don't send - just verify input works)
 - tapOn:
@@ -62,7 +70,7 @@ tags:
 - inputText: "Maestro test message"
 - hideKeyboard
 
-- screenshot: "chat-message-typed"
+- takeScreenshot: "chat-message-typed"
 
 # Go back
 - back

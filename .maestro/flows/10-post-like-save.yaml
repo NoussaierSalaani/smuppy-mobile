@@ -9,6 +9,14 @@ tags:
 
 - launchApp
 
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+
 # Make sure we're on Fan feed
 - tapOn:
     id: "home-tab"
@@ -22,20 +30,20 @@ tags:
 # Wait for posts to load
 - waitForAnimationToEnd
 
-- screenshot: "fan-feed-loaded"
+- takeScreenshot: "fan-feed-loaded"
 
 # Scroll to see posts
 - scroll:
     direction: DOWN
 
-- screenshot: "fan-feed-scrolled"
+- takeScreenshot: "fan-feed-scrolled"
 
 # Double-tap to like (on first post area)
 - doubleTapOn:
     point: "50%,40%"
     optional: true
 
-- screenshot: "post-double-tapped"
+- takeScreenshot: "post-double-tapped"
 
 # Scroll back to top
 - scroll:
@@ -48,4 +56,4 @@ tags:
 
 - waitForAnimationToEnd
 
-- screenshot: "fan-feed-refreshed"
+- takeScreenshot: "fan-feed-refreshed"

@@ -8,6 +8,14 @@ tags:
 
 - launchApp
 
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+
 # Navigate to Xplorer tab (business/map)
 - tapOn:
     id: "home-tab"
@@ -20,7 +28,7 @@ tags:
 
 - waitForAnimationToEnd
 
-- screenshot: "xplorer-map"
+- takeScreenshot: "xplorer-map"
 
 # Try search on map
 - tapOn:
@@ -30,7 +38,7 @@ tags:
 - inputText: "gym"
 - hideKeyboard
 
-- screenshot: "xplorer-search"
+- takeScreenshot: "xplorer-search"
 
 # Clear and go back
 - clearText
@@ -45,7 +53,7 @@ tags:
     direction: RIGHT
     duration: 500
 
-- screenshot: "xplorer-map-panned"
+- takeScreenshot: "xplorer-map-panned"
 
 # Go back to Fan feed
 - tapOn: "Fan"

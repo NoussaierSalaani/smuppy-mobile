@@ -8,19 +8,27 @@ tags:
 
 - launchApp
 
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+
 # Navigate to Peaks tab
 - tapOn:
     id: "peaks-tab"
 
 - waitForAnimationToEnd
 
-- screenshot: "peaks-feed"
+- takeScreenshot: "peaks-feed"
 
 # Scroll through peaks grid
 - scroll:
     direction: DOWN
 
-- screenshot: "peaks-feed-scrolled"
+- takeScreenshot: "peaks-feed-scrolled"
 
 - scroll:
     direction: UP
@@ -31,7 +39,7 @@ tags:
 
 - waitForAnimationToEnd
 
-- screenshot: "create-screen"
+- takeScreenshot: "create-screen"
 
 # Go back without creating
 - back

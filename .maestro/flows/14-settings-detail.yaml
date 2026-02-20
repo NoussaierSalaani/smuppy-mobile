@@ -8,6 +8,14 @@ tags:
 
 - launchApp
 
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+
 # Navigate to profile → settings
 - tapOn:
     id: "profile-tab"
@@ -19,12 +27,12 @@ tags:
 
 - waitForAnimationToEnd
 
-- screenshot: "settings-main"
+- takeScreenshot: "settings-main"
 
 # Test Edit Profile
 - tapOn: "Edit Profile"
 - waitForAnimationToEnd
-- screenshot: "settings-edit-profile"
+- takeScreenshot: "settings-edit-profile"
 - back
 
 # Test Notification Settings
@@ -32,7 +40,7 @@ tags:
     text: "Notification Settings"
     optional: true
 - waitForAnimationToEnd
-- screenshot: "settings-notifications"
+- takeScreenshot: "settings-notifications"
 - back
 
 # Test Blocked Users
@@ -43,7 +51,7 @@ tags:
     text: "Blocked Users"
     optional: true
 - waitForAnimationToEnd
-- screenshot: "settings-blocked"
+- takeScreenshot: "settings-blocked"
 - back
 
 # Test Muted Users
@@ -51,7 +59,7 @@ tags:
     text: "Muted Users"
     optional: true
 - waitForAnimationToEnd
-- screenshot: "settings-muted"
+- takeScreenshot: "settings-muted"
 - back
 
 # Test appearance toggle (System/Light/Dark)
@@ -62,7 +70,7 @@ tags:
     text: "Dark"
     optional: true
 
-- screenshot: "settings-dark-mode"
+- takeScreenshot: "settings-dark-mode"
 
 - tapOn:
     text: "System"
@@ -72,7 +80,7 @@ tags:
 - scroll:
     direction: DOWN
 
-- screenshot: "settings-bottom"
+- takeScreenshot: "settings-bottom"
 
 # Go back to profile
 - back

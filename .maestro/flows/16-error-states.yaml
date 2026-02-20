@@ -10,7 +10,13 @@ tags:
 - launchApp:
     clearState: true
 
-# Handle Expo Dev Launcher
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
 - tapOn:
     text: "http://localhost:8081"
     optional: true
@@ -34,7 +40,7 @@ tags:
 - tapOn:
     id: "submit-login-button"
 
-- screenshot: "login-empty-submit"
+- takeScreenshot: "login-empty-submit"
 
 # Test 2: Invalid email format
 - tapOn:
@@ -48,7 +54,7 @@ tags:
 - tapOn:
     id: "submit-login-button"
 
-- screenshot: "login-invalid-input"
+- takeScreenshot: "login-invalid-input"
 
 # Test 3: Valid format but wrong credentials
 - tapOn:
@@ -66,7 +72,7 @@ tags:
 
 - waitForAnimationToEnd
 
-- screenshot: "login-wrong-credentials"
+- takeScreenshot: "login-wrong-credentials"
 
 # Go to signup to test signup validation
 - back
@@ -95,10 +101,10 @@ tags:
     optional: true
 - inputText: "weak"
 
-- screenshot: "signup-weak-password"
+- takeScreenshot: "signup-weak-password"
 
 # Test 5: Valid password (check requirements)
 - clearText
 - inputText: "StrongPass123!@#"
 
-- screenshot: "signup-strong-password"
+- takeScreenshot: "signup-strong-password"

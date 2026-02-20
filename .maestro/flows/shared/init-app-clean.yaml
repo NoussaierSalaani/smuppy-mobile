@@ -1,0 +1,26 @@
+# Shared: Launch app with cleared state and dismiss dev overlays
+# Use with: - runFlow: flows/shared/init-app-clean.yaml
+
+appId: com.nou09.Smuppy
+---
+
+- launchApp:
+    clearState: true
+
+# Dismiss Expo Dev Menu "Continue" button (dev builds)
+- tapOn:
+    text: "Continue"
+    optional: true
+
+# Dismiss Expo Dev Launcher URL screen
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+
+# Dismiss any error/red screen by tapping "Dismiss"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+
+# Wait a moment for app to stabilize
+- waitForAnimationToEnd

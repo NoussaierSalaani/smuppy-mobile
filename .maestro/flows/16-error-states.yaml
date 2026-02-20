@@ -1,0 +1,104 @@
+# Test: Error States & Validation
+appId: com.nou09.Smuppy
+name: "Validation - Error States"
+tags:
+  - validation
+  - error
+  - auth
+---
+
+- launchApp:
+    clearState: true
+
+# Handle Expo Dev Launcher
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+
+# Wait for welcome screen
+- extendedWaitUntil:
+    visible:
+      id: "welcome-screen"
+    timeout: 20000
+
+# Go to login
+- tapOn:
+    id: "login-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 10000
+
+# Test 1: Submit empty form
+- tapOn:
+    id: "submit-login-button"
+
+- screenshot: "login-empty-submit"
+
+# Test 2: Invalid email format
+- tapOn:
+    id: "email-input"
+- inputText: "not-an-email"
+
+- tapOn:
+    id: "password-input"
+- inputText: "short"
+
+- tapOn:
+    id: "submit-login-button"
+
+- screenshot: "login-invalid-input"
+
+# Test 3: Valid format but wrong credentials
+- tapOn:
+    id: "email-input"
+- clearText
+- inputText: "wrong@example.com"
+
+- tapOn:
+    id: "password-input"
+- clearText
+- inputText: "WrongPassword123!"
+
+- tapOn:
+    id: "submit-login-button"
+
+- waitForAnimationToEnd
+
+- screenshot: "login-wrong-credentials"
+
+# Go to signup to test signup validation
+- back
+
+- extendedWaitUntil:
+    visible:
+      id: "welcome-screen"
+    timeout: 10000
+
+- tapOn:
+    id: "signup-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "signup-screen"
+    timeout: 10000
+
+# Test 4: Weak password
+- tapOn:
+    id: "email-input"
+    optional: true
+- inputText: "test@example.com"
+
+- tapOn:
+    id: "password-input"
+    optional: true
+- inputText: "weak"
+
+- screenshot: "signup-weak-password"
+
+# Test 5: Valid password (check requirements)
+- clearText
+- inputText: "StrongPass123!@#"
+
+- screenshot: "signup-strong-password"

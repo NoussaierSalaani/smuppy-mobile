@@ -1,0 +1,40 @@
+# Test: Notifications Screen
+appId: com.nou09.Smuppy
+name: "Notifications - View & Interact"
+tags:
+  - notifications
+  - social
+---
+
+- launchApp
+
+# Navigate to notifications via header button
+- tapOn:
+    id: "home-tab"
+
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 10000
+
+- tapOn:
+    id: "notifications-button"
+
+- waitForAnimationToEnd
+
+- screenshot: "notifications-screen"
+
+# Scroll through notifications
+- scroll:
+    direction: DOWN
+
+- screenshot: "notifications-scrolled"
+
+- scroll:
+    direction: UP
+
+# Go back
+- back
+
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 5000

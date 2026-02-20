@@ -107,7 +107,7 @@ export const handler = withAuthHandler('conversations-send-message', async (even
     : null;
 
   // Sanitize content: strip HTML tags and control characters (preserve tab, LF, CR)
-  const sanitizedContent = content.trim().replaceAll(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — intentional control char sanitization
+  const sanitizedContent = content.trim().replaceAll(/<[^>]*>/g, '').replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ''); // NOSONAR — intentional control char sanitization
 
   // Detect shared content: [shared_post:UUID] or [shared_peak:UUID]
   const SHARED_CONTENT_PATTERN = /^\[shared_(post|peak):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;

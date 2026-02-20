@@ -1,0 +1,51 @@
+# Test: Post Interactions (Like, Save, Comment)
+appId: com.nou09.Smuppy
+name: "Posts - Like, Save & Comment"
+tags:
+  - posts
+  - interactions
+  - critical
+---
+
+- launchApp
+
+# Make sure we're on Fan feed
+- tapOn:
+    id: "home-tab"
+
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 10000
+
+- tapOn: "Fan"
+
+# Wait for posts to load
+- waitForAnimationToEnd
+
+- screenshot: "fan-feed-loaded"
+
+# Scroll to see posts
+- scroll:
+    direction: DOWN
+
+- screenshot: "fan-feed-scrolled"
+
+# Double-tap to like (on first post area)
+- doubleTapOn:
+    point: "50%,40%"
+    optional: true
+
+- screenshot: "post-double-tapped"
+
+# Scroll back to top
+- scroll:
+    direction: UP
+
+# Pull to refresh
+- scroll:
+    direction: DOWN
+    duration: 500
+
+- waitForAnimationToEnd
+
+- screenshot: "fan-feed-refreshed"

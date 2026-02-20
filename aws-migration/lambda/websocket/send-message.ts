@@ -53,7 +53,7 @@ export function stripHtmlTagsLinear(input: string): string {
 export function sanitizeMessageContent(rawContent: string): string {
   const capped = String(rawContent ?? '').slice(0, MAX_MESSAGE_LENGTH);
   const withoutTags = stripHtmlTagsLinear(capped);
-  return withoutTags.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  return withoutTags.replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ''); // NOSONAR — intentional control char sanitization
 }
 
 function checkWsRateLimit(connectionId: string): boolean {

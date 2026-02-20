@@ -1,0 +1,78 @@
+# Test: Settings - All Sub-screens
+appId: com.nou09.Smuppy
+name: "Settings - Detail Screens"
+tags:
+  - settings
+  - profile
+---
+
+- launchApp
+
+# Navigate to profile → settings
+- tapOn:
+    id: "profile-tab"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "settings-button"
+
+- waitForAnimationToEnd
+
+- screenshot: "settings-main"
+
+# Test Edit Profile
+- tapOn: "Edit Profile"
+- waitForAnimationToEnd
+- screenshot: "settings-edit-profile"
+- back
+
+# Test Notification Settings
+- tapOn:
+    text: "Notification Settings"
+    optional: true
+- waitForAnimationToEnd
+- screenshot: "settings-notifications"
+- back
+
+# Test Blocked Users
+- scroll:
+    direction: DOWN
+
+- tapOn:
+    text: "Blocked Users"
+    optional: true
+- waitForAnimationToEnd
+- screenshot: "settings-blocked"
+- back
+
+# Test Muted Users
+- tapOn:
+    text: "Muted Users"
+    optional: true
+- waitForAnimationToEnd
+- screenshot: "settings-muted"
+- back
+
+# Test appearance toggle (System/Light/Dark)
+- scroll:
+    direction: UP
+
+- tapOn:
+    text: "Dark"
+    optional: true
+
+- screenshot: "settings-dark-mode"
+
+- tapOn:
+    text: "System"
+    optional: true
+
+# Scroll to verify Terms & Log Out exist
+- scroll:
+    direction: DOWN
+
+- screenshot: "settings-bottom"
+
+# Go back to profile
+- back

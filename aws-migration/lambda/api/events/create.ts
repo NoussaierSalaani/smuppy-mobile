@@ -147,7 +147,7 @@ export const handler = withAuthHandler('events-create', async (event, { headers,
     }
 
     // Sanitize user-provided text fields
-    const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''); // NOSONAR — intentional control char sanitization
+    const sanitize = (s: string) => s.replaceAll(/<[^>]*>/g, '').replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ''); // NOSONAR — intentional control char sanitization
     const sanitizedTitle = sanitize(title);
     const sanitizedDescription = description ? sanitize(description) : description;
     const sanitizedLocationName = sanitize(locationName || '');

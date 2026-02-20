@@ -122,7 +122,7 @@ export const handler = withAuthHandler('posts-create', async (event, { headers, 
       }
     }
 
-    const CONTROL_CHARS = /[\x00-\x1F\x7F]/g; // NOSONAR — intentional control char sanitization
+    const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g; // NOSONAR — intentional control char sanitization
     const sanitizedContent = (body.content || '')
       .replaceAll(/<[^>]*>/g, '') // NOSONAR
       .replaceAll(CONTROL_CHARS, '')

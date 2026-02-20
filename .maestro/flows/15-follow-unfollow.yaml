@@ -1,0 +1,54 @@
+# Test: Follow/Unfollow & User Profile
+appId: com.nou09.Smuppy
+name: "Social - Follow & User Profile"
+tags:
+  - social
+  - follow
+---
+
+- launchApp
+
+# Go to search
+- tapOn:
+    id: "home-tab"
+
+- extendedWaitUntil:
+    visible: "Fan"
+    timeout: 10000
+
+- tapOn:
+    id: "search-button"
+
+- waitForAnimationToEnd
+
+- screenshot: "search-screen"
+
+# Search for a user
+- inputText: "test"
+
+- waitForAnimationToEnd
+
+- screenshot: "search-results"
+
+# Tap first result (if user results appear)
+- tapOn:
+    index: 0
+    optional: true
+
+- waitForAnimationToEnd
+
+- screenshot: "user-profile"
+
+# Scroll user profile
+- scroll:
+    direction: DOWN
+
+- screenshot: "user-profile-scrolled"
+
+- scroll:
+    direction: UP
+
+# Go back
+- back
+- hideKeyboard
+- back

@@ -48,7 +48,7 @@ export const handler = withAuthHandler('live-streams-start', async (event, { hea
   // Parse optional title (sanitize: strip HTML + control chars)
   const body = event.body ? JSON.parse(event.body) : {};
   const title = body.title
-    ? String(body.title).replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().substring(0, 100) // NOSONAR — intentional control char sanitization
+    ? String(body.title).replaceAll(/<[^>]*>/g, '').replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().substring(0, 100) // NOSONAR — intentional control char sanitization
     : 'Live';
 
   // Moderation: check title for violations (skip default 'Live' title)

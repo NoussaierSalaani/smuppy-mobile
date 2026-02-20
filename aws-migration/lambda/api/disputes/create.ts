@@ -138,7 +138,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Sanitize description: strip HTML tags and control characters
     const sanitizedDescription = description
       .replaceAll(/<[^>]*>/g, '') // NOSONAR
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // NOSONAR — intentional control char sanitization
+      .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '') // NOSONAR — intentional control char sanitization
       .trim();
 
     // Moderation: check description for violations

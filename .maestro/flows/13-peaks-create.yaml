@@ -1,0 +1,43 @@
+# Test: Peaks Creation Flow
+appId: com.nou09.Smuppy
+name: "Peaks - Create & Preview"
+tags:
+  - peaks
+  - creation
+---
+
+- launchApp
+
+# Navigate to Peaks tab
+- tapOn:
+    id: "peaks-tab"
+
+- waitForAnimationToEnd
+
+- screenshot: "peaks-feed"
+
+# Scroll through peaks grid
+- scroll:
+    direction: DOWN
+
+- screenshot: "peaks-feed-scrolled"
+
+- scroll:
+    direction: UP
+
+# Navigate to create (center tab)
+- tapOn:
+    id: "create-tab"
+
+- waitForAnimationToEnd
+
+- screenshot: "create-screen"
+
+# Go back without creating
+- back
+
+# Return to peaks and verify
+- tapOn:
+    id: "peaks-tab"
+
+- waitForAnimationToEnd

@@ -202,7 +202,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const sanitizedComment = content
           .substring(0, 500)
           .replaceAll(/<[^>]*>/g, '') // NOSONAR
-          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // NOSONAR — intentional control char sanitization
+          .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '') // NOSONAR — intentional control char sanitization
           .trim();
 
         if (!sanitizedComment) {

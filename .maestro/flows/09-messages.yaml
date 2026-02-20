@@ -1,0 +1,68 @@
+# Test: Messages & Chat
+appId: com.nou09.Smuppy
+name: "Messages - Conversations & Chat"
+tags:
+  - messages
+  - social
+---
+
+- launchApp
+
+# Navigate to Messages tab
+- tapOn:
+    id: "messages-tab"
+
+- extendedWaitUntil:
+    visible: "Direct"
+    timeout: 10000
+
+- screenshot: "messages-list"
+
+# Verify tabs exist
+- assertVisible: "Direct"
+
+# Scroll through conversations
+- scroll:
+    direction: DOWN
+
+- scroll:
+    direction: UP
+
+# Search conversations
+- tapOn:
+    text: "Search conversations"
+    optional: true
+
+- inputText: "test"
+- hideKeyboard
+
+- screenshot: "messages-search"
+
+# Clear search and go back
+- clearText
+- hideKeyboard
+
+# Tap first conversation (if exists)
+- tapOn:
+    index: 0
+    optional: true
+
+- extendedWaitUntil:
+    visible: "Message..."
+    timeout: 5000
+    optional: true
+
+- screenshot: "chat-screen"
+
+# Type a message (don't send - just verify input works)
+- tapOn:
+    text: "Message..."
+    optional: true
+
+- inputText: "Maestro test message"
+- hideKeyboard
+
+- screenshot: "chat-message-typed"
+
+# Go back
+- back

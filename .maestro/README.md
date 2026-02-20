@@ -9,114 +9,102 @@ End-to-end tests for the Smuppy mobile app using [Maestro](https://maestro.mobil
 curl -Ls "https://get.maestro.mobile.dev" | bash
 ```
 
-2. For iOS simulator:
-   - Xcode installed
-   - iOS Simulator running
-
-3. For Android emulator:
-   - Android Studio installed
-   - Android emulator running
+2. iOS Simulator running with Smuppy installed:
+```bash
+npx expo run:ios
+```
 
 ## Running Tests
 
-### Run all tests
+### Quick runner script (recommended)
 ```bash
-maestro test .maestro/
+# Run all flows
+./scripts/test-e2e.sh
+
+# Smoke tests only (fast)
+./scripts/test-e2e.sh --smoke
+
+# Specific flow by number
+./scripts/test-e2e.sh --flow 02
+
+# Flows by tag
+./scripts/test-e2e.sh --tag auth
 ```
 
-### Run specific test flow
+### Direct Maestro commands
 ```bash
-maestro test .maestro/auth/login.yaml
-maestro test .maestro/feed/view-feed.yaml
-```
+# Run all flows
+maestro test .maestro/flows/
 
-### Run with different app ID
-```bash
-maestro test --app-id com.nou09.Smuppy.dev .maestro/auth/login.yaml
+# Run specific flow
+maestro test .maestro/flows/02-auth-login.yaml
+
+# Interactive studio (element inspector)
+maestro studio
 ```
 
 ## Test Flows
 
-### Authentication (`auth/`)
-- **login.yaml** - Tests user login flow
-- **signup.yaml** - Tests user registration flow
+### Numbered Flows (`flows/`)
 
-### Feed (`feed/`)
-- **view-feed.yaml** - Tests viewing and scrolling the main feed
-- **create-post.yaml** - Tests creating a new post
+| # | Flow | Tags | What it tests |
+|---|------|------|---------------|
+| 00 | `app-launch` | smoke, launch | App launch, login, full tab navigation |
+| 01 | `auth-signup` | auth | Welcome screen, signup button |
+| 02 | `auth-login` | auth, critical | Login with email/password |
+| 03 | `feed-navigation` | feed | Fan/Vibes/Xplorer tab switching |
+| 04 | `profile-screen` | profile | Profile header, stats, settings |
+| 05 | `post-interaction` | posts | Feed scrolling, swipe |
+| 06 | `peaks-feed` | peaks | Vertical video feed, swipe, double-tap like |
+| 07 | `search` | search | Search UI, query, results |
+| 08 | `settings` | settings | Settings menu, sub-screens |
+| 09 | `messages` | messages | Conversations, chat, search |
+| 10 | `post-like-save` | posts, interactions | Like, scroll, refresh |
+| 11 | `notifications` | notifications | Notification screen, scroll |
+| 12 | `business-discover` | business | Xplorer map, search |
+| 13 | `peaks-create` | peaks, creation | Peaks tab, create screen |
+| 14 | `settings-detail` | settings | Edit profile, notifications, blocked, theme |
+| 15 | `follow-unfollow` | social | Search users, view profile |
+| 16 | `error-states` | validation | Login/signup validation, error messages |
+| 17 | `full-regression` | regression, critical | Complete app walkthrough (all screens) |
 
-### Profile (`profile/`)
-- **view-profile.yaml** - Tests viewing user profile
-- **edit-profile.yaml** - Tests editing profile information
+### Legacy Flows (subdirectories)
+- `auth/login.yaml` - Login flow
+- `auth/signup.yaml` - Signup flow
+- `feed/view-feed.yaml` - Feed viewing
+- `feed/create-post.yaml` - Post creation
+- `profile/view-profile.yaml` - Profile viewing
+- `profile/edit-profile.yaml` - Profile editing
 
 ## Configuration
 
-Environment variables can be set in `.maestro/config.yaml`:
+Environment variables in `.maestro/config.yaml`:
 - `TEST_EMAIL` - Email for test account
 - `TEST_PASSWORD` - Password for test account
 
-## Writing New Tests
+## Claude Code Integration
 
-### Basic Flow Structure
-```yaml
-appId: com.nou09.Smuppy
+After running tests, feed results to Claude Code for automated fixes:
 
----
-
-- launchApp:
-    clearState: true
-
-- waitForAnimationToEnd
-
-- tapOn: "Button Text"
-
-- assertVisible: "Expected Text"
-```
-
-### Useful Commands
-- `tapOn` - Tap on element by text, id, or accessibility label
-- `inputText` - Enter text into focused field
-- `assertVisible` - Assert element is visible
-- `scroll` - Scroll in direction
-- `swipe` - Swipe gesture (pull to refresh)
-- `back` - Press back button
-- `hideKeyboard` - Hide soft keyboard
-- `waitForAnimationToEnd` - Wait for animations
-- `extendedWaitUntil` - Wait for element with timeout
-
-### Conditional Flows
-```yaml
-- runFlow:
-    when:
-      visible: "Optional Button"
-    commands:
-      - tapOn: "Optional Button"
-```
-
-## CI/CD Integration
-
-### GitHub Actions
-```yaml
-- name: Run E2E Tests
-  run: |
-    maestro test .maestro/ --format junit --output report.xml
-```
-
-### Reporting
-Generate HTML report:
 ```bash
-maestro test .maestro/ --format html --output report.html
+# 1. Run tests
+./scripts/test-e2e.sh
+
+# 2. Find results directory (printed at end)
+# 3. In Claude Code:
+#    "Read maestro-results/<timestamp>/summary.txt and the screenshots.
+#     Fix all issues found, 100% complete."
 ```
 
 ## Troubleshooting
 
 ### App not launching
-- Verify app is installed on simulator/emulator
-- Check `appId` matches bundle identifier
+- Verify app is installed: `xcrun simctl list devices booted`
+- Check `appId` matches: `com.nou09.Smuppy`
 
 ### Element not found
 - Use Maestro Studio to inspect: `maestro studio`
-- Check element visibility and accessibility
+- Check testID props in source code
 
 ### Timeouts
 - Increase `extendedWaitUntil` timeout

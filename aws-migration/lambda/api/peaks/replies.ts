@@ -166,7 +166,7 @@ export const handler = withAuthHandler('peaks-replies', async (event, { headers,
 
       // SECURITY: Sanitize caption (strip HTML + control chars)
       const sanitizedCaption = caption
-        ? caption.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 500) // NOSONAR — intentional control char sanitization
+        ? caption.replaceAll(/<[^>]*>/g, '').replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').substring(0, 500) // NOSONAR — intentional control char sanitization
         : null;
 
       if (!duration || typeof duration !== 'number' || duration <= 0) {

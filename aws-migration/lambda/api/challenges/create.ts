@@ -125,7 +125,7 @@ export const handler = withErrorHandler('challenges-create', async (event, { hea
     // Resolve challenge type: accept UUID directly, or resolve from slug
     let challengeTypeId = rawChallengeTypeId || null;
     if (!challengeTypeId && challengeTypeSlug && typeof challengeTypeSlug === 'string') {
-      const slug = challengeTypeSlug.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim().substring(0, 50); // NOSONAR — intentional control char sanitization
+      const slug = challengeTypeSlug.replaceAll(/<[^>]*>/g, '').replaceAll(/[\u0000-\u001F\u007F]/g, '').trim().substring(0, 50); // NOSONAR — intentional control char sanitization
       const typeResult = await client.query(
         'SELECT id FROM challenge_types WHERE slug = $1',
         [slug]

@@ -54,10 +54,9 @@ export const handler = createDeleteHandler({
     );
     const commentIds = replyIds.rows.map((r: { id: string }) => r.id);
     if (commentIds.length > 0) {
-      const placeholders = commentIds.map((_: string, i: number) => `$${i + 1}`).join(', ');
       await client.query(
-        `DELETE FROM notifications WHERE data->>'commentId' IN (${placeholders})`,
-        commentIds,
+        `DELETE FROM notifications WHERE data->>'commentId' = ANY($1::text[])`,
+        [commentIds],
       );
     }
 

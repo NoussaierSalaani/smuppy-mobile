@@ -3,13 +3,11 @@
  * Update an existing event (creator only)
  */
 
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { MAX_EVENT_TITLE_LENGTH, MIN_EVENT_PARTICIPANTS, MAX_EVENT_PARTICIPANTS } from '../utils/constants';
 import { isValidUUID, sanitizeText } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { resolveProfileId } from '../utils/auth';
 import { moderateTexts } from '../utils/text-moderation';
 
 interface UpdateEventRequest {
@@ -37,23 +35,12 @@ interface UpdateEventRequest {
   routeWaypoints?: { lat: number; lng: number; name?: string }[];
 }
 
-export const handler = withErrorHandler('events-update', async (event, { headers, log }) => {
-  const pool = await getPool();
-
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-    };
-  }
-
-  const rateLimitResponse = await requireRateLimit({ prefix: 'event-update', identifier: userId, windowSeconds: 60, maxRequests: 10 }, headers);
+export const handler = withAuthHandler('events-update', async (event, { headers, log, cognitoSub, profileId, db }) => {
+  const rateLimitResponse = await requireRateLimit({ prefix: 'event-update', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   // Account status check (suspended/banned users cannot update events)
-  const accountCheck = await requireActiveAccount(userId, {});
+  const accountCheck = await requireActiveAccount(cognitoSub, {});
   if (isAccountError(accountCheck)) {
     return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
   }
@@ -64,16 +51,6 @@ export const handler = withErrorHandler('events-update', async (event, { headers
       statusCode: 400,
       headers,
       body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-    };
-  }
-
-  // Resolve cognito_sub to profile ID (pre-transaction read via pool)
-  const profileId = await resolveProfileId(pool, userId);
-  if (!profileId) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Profile not found' }),
     };
   }
 
@@ -145,7 +122,7 @@ export const handler = withErrorHandler('events-update', async (event, { headers
   if (modResult.blocked) return modResult.blockResponse!;
 
   // Ownership check: verify event exists and belongs to the user
-  const ownerCheck = await pool.query(
+  const ownerCheck = await db.query(
     `SELECT id, status FROM events WHERE id = $1 AND creator_id = $2`,
     [eventId, profileId]
   );
@@ -223,7 +200,7 @@ export const handler = withErrorHandler('events-update', async (event, { headers
   params.push(profileId);
 
   // Acquire transaction client only after all validation passes
-  const client = await pool.connect();
+  const client = await db.connect();
   try {
     await client.query('BEGIN');
 

@@ -5,26 +5,16 @@
  * Enforces 7-day cooldown after 2+ unfollows (anti-spam)
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
 import { isBidirectionallyBlocked } from '../utils/block-filter';
 import { RATE_WINDOW_1_MIN, RATE_WINDOW_1_DAY } from '../utils/constants';
 
-export const handler = withErrorHandler('follows-create', async (event, { headers, log }) => {
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-
-  if (!cognitoSub) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ message: 'Unauthorized' }),
-    };
-  }
+export const handler = withAuthHandler('follows-create', async (event, { headers, log, cognitoSub, profileId, db }) => {
+  const followerId = profileId;
 
   const rateLimitResponse = await requireRateLimit({
     prefix: 'follow-create',
@@ -59,24 +49,6 @@ export const handler = withErrorHandler('follows-create', async (event, { header
       body: JSON.stringify({ message: 'Valid followingId is required' }),
     };
   }
-
-  const db = await getPool();
-
-  // Resolve the follower's profile ID from cognito_sub
-  const followerResult = await db.query(
-    'SELECT id FROM profiles WHERE cognito_sub = $1',
-    [cognitoSub]
-  );
-
-  if (followerResult.rows.length === 0) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'Your profile not found. Please complete onboarding.' }),
-    };
-  }
-
-  const followerId = followerResult.rows[0].id;
 
   if (followerId === followingId) {
     return {

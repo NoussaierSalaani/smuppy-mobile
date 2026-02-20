@@ -373,6 +373,42 @@ describe('comments/delete handler', () => {
       expect(deleteCall).toBeDefined();
       expect(deleteCall![1]).toContain(COMMENT_ID);
     });
+
+    it('should delete related notifications using parameterized ANY clause', async () => {
+      const event = makeEvent();
+      await handler(event);
+
+      const deleteNotificationCall = mockClient.query.mock.calls.find(
+        (call: unknown[]) =>
+          typeof call[0] === 'string' &&
+          (call[0] as string).includes('DELETE FROM notifications')
+      );
+
+      expect(deleteNotificationCall).toBeDefined();
+      expect(deleteNotificationCall?.[0]).toBe(
+        `DELETE FROM notifications WHERE data->>'commentId' = ANY($1::text[])`
+      );
+      expect(deleteNotificationCall?.[1]).toEqual([[COMMENT_ID]]);
+    });
+
+    it('should skip notification delete when there are no related comment IDs', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id FROM comments WHERE')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent();
+      await handler(event);
+
+      const deleteNotificationCall = mockClient.query.mock.calls.find(
+        (call: unknown[]) =>
+          typeof call[0] === 'string' &&
+          (call[0] as string).includes('DELETE FROM notifications')
+      );
+      expect(deleteNotificationCall).toBeUndefined();
+    });
   });
 
   // ── 7. Database errors ──

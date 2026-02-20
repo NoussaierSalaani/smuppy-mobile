@@ -11,18 +11,13 @@
  * - Short-lived presigned URL (5 minutes)
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { getPool } from '../../shared/db';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
 import { randomUUID } from 'crypto';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS, MAX_VOICE_MESSAGE_SECONDS, MAX_VOICE_SIZE_BYTES } from '../utils/constants';
-
-const log = createLogger('media-upload-voice');
 
 const s3Client = new S3Client({
   requestChecksumCalculation: 'WHEN_REQUIRED',
@@ -44,10 +39,10 @@ function getValidatedCdnDomain(): string | null {
     if (hostname.endsWith('.cloudfront.net') || hostname.endsWith('.amazonaws.com')) {
       return `${parsed.protocol}//${parsed.hostname}`;
     }
-    log.warn('CDN domain rejected — not in whitelist', { hostname });
+    console.warn('[media-upload-voice] CDN domain rejected — not in whitelist', { hostname });
     return null;
   } catch {
-    log.warn('CDN domain rejected — invalid URL', { raw: raw.substring(0, 50) });
+    console.warn('[media-upload-voice] CDN domain rejected — invalid URL', { raw: raw.substring(0, 50) });
     return null;
   }
 }
@@ -60,17 +55,7 @@ interface VoiceUploadRequest {
   fileSize?: number;
 }
 
-export const handler = withErrorHandler('media-upload-voice', async (event, { headers }) => {
-    // Auth check
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
-
+export const handler = withAuthHandler('media-upload-voice', async (event, { headers, log, cognitoSub, profileId, db }) => {
     // Rate limit
     const rateLimitResponse = await requireRateLimit({ prefix: 'voice-upload', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
@@ -135,23 +120,6 @@ export const handler = withErrorHandler('media-upload-voice', async (event, { he
         body: JSON.stringify({ success: false, message: `Invalid duration: must be between 0 and ${MAX_VOICE_MESSAGE_SECONDS} seconds` }),
       };
     }
-
-    // Look up profileId from cognito_sub
-    const db = await getPool();
-    const profileResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1 LIMIT 1',
-      [cognitoSub]
-    );
-
-    if (profileResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      };
-    }
-
-    const profileId: string = profileResult.rows[0].id;
 
     // Verify user is participant in this conversation
     const convCheck = await db.query(

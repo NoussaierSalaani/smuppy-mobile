@@ -14,6 +14,38 @@
 
 import { moodDetection, MoodType, MoodAnalysisResult } from './moodDetection';
 
+const UINT32_MAX_PLUS_ONE = 0x100000000;
+
+export function secureRandomInt(maxExclusive: number): number {
+  if (maxExclusive <= 0 || Number.isNaN(maxExclusive)) return 0;
+  const uint32 = new Uint32Array(1);
+  const limit = Math.floor(UINT32_MAX_PLUS_ONE / maxExclusive) * maxExclusive;
+  let value = UINT32_MAX_PLUS_ONE;
+
+  while (value >= limit) {
+    crypto.getRandomValues(uint32);
+    value = uint32[0];
+  }
+
+  return value % maxExclusive;
+}
+
+export function shuffleInPlace<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = secureRandomInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+const MIN_INSERT_OFFSET = 3;
+
+export function computeInsertIndex(length: number): number {
+  if (length <= MIN_INSERT_OFFSET) return MIN_INSERT_OFFSET;
+  const range = Math.max(1, length - MIN_INSERT_OFFSET);
+  return MIN_INSERT_OFFSET + secureRandomInt(range);
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -445,15 +477,13 @@ class MoodRecommendationEngine {
     const currentCategories = new Set(currentPosts.map(p => p.category));
 
     // Find posts from different categories
-    const explorationPosts = allPosts
-      .filter(p => !currentIds.has(p.id) && !currentCategories.has(p.category))
-      .sort(() => Math.random() - 0.5) // Shuffle // NOSONAR
-      .slice(0, explorationCount);
+    const explorationPool = allPosts.filter(p => !currentIds.has(p.id) && !currentCategories.has(p.category));
+    const explorationPosts = shuffleInPlace([...explorationPool]).slice(0, explorationCount);
 
     // Interleave exploration posts
     const result = [...currentPosts];
     for (let i = 0; i < explorationPosts.length && result.length < limit; i++) {
-      const insertIndex = Math.floor(Math.random() * (result.length - 3)) + 3; // After first 3 // NOSONAR
+      const insertIndex = computeInsertIndex(result.length); // After first 3
       result.splice(insertIndex, 0, explorationPosts[i]);
     }
 

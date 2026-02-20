@@ -3,24 +3,15 @@
  * Returns the user's own actions (likes, follows, comments) with cursor pagination
  */
 
-import { getPool, SqlParam } from '../../shared/db';
+import { SqlParam } from '../../shared/db';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 
 const VALID_TYPES = new Set(['post_like', 'peak_like', 'follow', 'comment', 'peak_comment']);
 
-export const handler = withErrorHandler('activity-list', async (event, { headers, log }) => {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'activity-list', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
+export const handler = withAuthHandler('activity-list', async (event, { headers, cognitoSub, profileId, db }) => {
+    const rateLimitResponse = await requireRateLimit({ prefix: 'activity-list', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Pagination params
@@ -36,24 +27,6 @@ export const handler = withErrorHandler('activity-list', async (event, { headers
         body: JSON.stringify({ message: 'Invalid type filter' }),
       };
     }
-
-    const db = await getPool();
-
-    // Get user's profile ID
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    const profileId = userResult.rows[0].id;
 
     // Build UNION ALL query for the user's own activity
     const subqueries: string[] = [];

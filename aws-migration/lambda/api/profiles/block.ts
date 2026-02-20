@@ -3,19 +3,11 @@
  * Blocks a user and removes mutual follow relationships
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
-import { resolveProfileId } from '../utils/auth';
 
-export const handler = withErrorHandler('profiles-block', async (event, { headers }) => {
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-  if (!cognitoSub) {
-    return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
-  }
-
+export const handler = withAuthHandler('profiles-block', async (event, { headers, cognitoSub, profileId: blockerId, db }) => {
   const targetUserId = event.pathParameters?.id;
   if (!targetUserId || !isValidUUID(targetUserId)) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid user ID format' }) };
@@ -28,13 +20,6 @@ export const handler = withErrorHandler('profiles-block', async (event, { header
     maxRequests: 10,
   }, headers);
   if (rateLimitResponse) return rateLimitResponse;
-
-  const db = await getPool();
-
-  const blockerId = await resolveProfileId(db, cognitoSub);
-  if (!blockerId) {
-    return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
-  }
 
   if (blockerId === targetUserId) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Cannot block yourself' }) };

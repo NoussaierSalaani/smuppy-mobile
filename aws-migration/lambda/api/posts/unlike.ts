@@ -3,35 +3,16 @@
  * Removes a like from a post and updates the likes count
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
-import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
-import { resolveProfileId } from '../utils/auth';
+import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 
-export const handler = withErrorHandler('posts-unlike', async (event, { headers, log }) => {
-  const userId = requireAuth(event, headers);
-  if (isErrorResponse(userId)) return userId;
-
-  const rateLimitResponse = await requireRateLimit({ prefix: 'posts-unlike', identifier: userId, maxRequests: 30 }, headers);
+export const handler = withAuthHandler('posts-unlike', async (event, { headers, profileId, db }) => {
+  const rateLimitResponse = await requireRateLimit({ prefix: 'posts-unlike', identifier: profileId, maxRequests: 30 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   const postId = validateUUIDParam(event, headers, 'id', 'Post');
   if (isErrorResponse(postId)) return postId;
-
-  const db = await getPool();
-
-  // Get user's profile ID
-  const profileId = await resolveProfileId(db, userId);
-
-  if (!profileId) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'User profile not found' }),
-    };
-  }
 
   // Check if like exists
   const existingLike = await db.query(

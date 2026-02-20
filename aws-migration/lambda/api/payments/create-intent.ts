@@ -8,10 +8,9 @@
  */
 
 import Stripe from 'stripe';
-import { getPool } from '../../shared/db';
 import { getStripePublishableKey } from '../../shared/secrets';
 import { getStripeClient } from '../../shared/stripe-client';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 import { PLATFORM_FEE_PERCENT, APPLE_FEE_PERCENT, GOOGLE_FEE_PERCENT, MIN_PAYMENT_CENTS, MAX_PAYMENT_CENTS } from '../utils/constants';
@@ -51,21 +50,11 @@ function calculateNetAmount(amount: number, source: PurchaseSource): number {
   }
 }
 
-export const handler = withErrorHandler('payments-create-intent', async (event, { headers, log }) => {
+export const handler = withAuthHandler('payments-create-intent', async (event, { headers, log, cognitoSub, profileId, db }) => {
   const stripe = await getStripeClient();
 
-  // Get authenticated user
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ message: 'Unauthorized' }),
-    };
-  }
-
   // Rate limit: 10 payment intents per minute
-  const rateLimitResponse = await requireRateLimit({ prefix: 'payment-create', identifier: userId, windowSeconds: 60, maxRequests: 10, failOpen: false }, headers);
+  const rateLimitResponse = await requireRateLimit({ prefix: 'payment-create', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10, failOpen: false }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   // Parse request body
@@ -90,15 +79,13 @@ export const handler = withErrorHandler('payments-create-intent', async (event, 
     };
   }
 
-  const db = await getPool();
-
   // SECURITY: Derive amount server-side from session or pack records
   let verifiedAmount: number;
 
   if (type === 'session' && sessionId) {
     const sessionResult = await db.query(
-      'SELECT price FROM private_sessions WHERE id = $1 AND fan_id = (SELECT id FROM profiles WHERE cognito_sub = $2)',
-      [sessionId, userId]
+      'SELECT price FROM private_sessions WHERE id = $1 AND fan_id = $2',
+      [sessionId, profileId]
     );
     if (sessionResult.rows.length === 0) {
       return { statusCode: 404, headers, body: JSON.stringify({ message: 'Session not found' }) };
@@ -130,19 +117,11 @@ export const handler = withErrorHandler('payments-create-intent', async (event, 
     };
   }
 
-  // Get buyer's profile
+  // Get buyer's profile details (profileId already resolved by withAuthHandler)
   const buyerResult = await db.query(
-    'SELECT id, email, full_name FROM profiles WHERE cognito_sub = $1',
-    [userId]
+    'SELECT id, email, full_name FROM profiles WHERE id = $1',
+    [profileId]
   );
-
-  if (buyerResult.rows.length === 0) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'User profile not found' }),
-    };
-  }
 
   const buyer = buyerResult.rows[0];
 

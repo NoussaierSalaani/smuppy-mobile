@@ -3,20 +3,14 @@
  * Creates a live_streams record and notifies fans/members
  */
 
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_HOUR, NOTIFICATION_BATCH_SIZE, NOTIFICATION_BATCH_DELAY_MS } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { moderateText } from '../utils/text-moderation';
 
-export const handler = withErrorHandler('live-streams-start', async (event, { headers, log }) => {
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-  if (!cognitoSub) {
-    return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
-  }
-
+export const handler = withAuthHandler('live-streams-start', async (event, { headers, log, cognitoSub, profileId, db }) => {
   // Rate limit: 5 stream starts per hour (prevents abuse)
   const rateLimitResponse = await requireRateLimit({
     prefix: 'live-stream-start',
@@ -30,17 +24,11 @@ export const handler = withErrorHandler('live-streams-start', async (event, { he
   const accountCheck = await requireActiveAccount(cognitoSub, headers);
   if (isAccountError(accountCheck)) return accountCheck;
 
-  const db = await getPool();
-
-  // Get profile
+  // Get profile details for notification context
   const profileResult = await db.query(
-    'SELECT id, username, display_name, avatar_url, account_type FROM profiles WHERE cognito_sub = $1',
-    [cognitoSub]
+    'SELECT id, username, display_name, avatar_url, account_type FROM profiles WHERE id = $1',
+    [profileId]
   );
-  if (profileResult.rows.length === 0) {
-    return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
-  }
-
   const profile = profileResult.rows[0];
 
   // Only pro_creator can go live

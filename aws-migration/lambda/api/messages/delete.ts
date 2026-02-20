@@ -3,12 +3,10 @@
  * Deletes a message (only by sender)
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { getPool } from '../../shared/db';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
-import { withErrorHandler } from '../utils/error-handler';
 
 const s3Client = new S3Client({
   requestChecksumCalculation: 'WHEN_REQUIRED',
@@ -16,18 +14,9 @@ const s3Client = new S3Client({
 });
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
 
-export const handler = withErrorHandler('messages-delete', async (event, { headers, log }) => {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
+export const handler = withAuthHandler('messages-delete', async (event, { headers, log, cognitoSub, profileId, db }) => {
     // Rate limit: 30 deletes per minute
-    const rateLimitResponse = await requireRateLimit({ prefix: 'message-delete', identifier: userId, windowSeconds: 60, maxRequests: 30 }, headers);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'message-delete', identifier: cognitoSub, windowSeconds: 60, maxRequests: 30 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     const messageId = event.pathParameters?.id;
@@ -47,24 +36,6 @@ export const handler = withErrorHandler('messages-delete', async (event, { heade
         body: JSON.stringify({ message: 'Invalid message ID format' }),
       };
     }
-
-    const db = await getPool();
-
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    const profileId = userResult.rows[0].id;
 
     // Soft-delete message only if user is the sender and within 15-minute window
     // Use CTE to capture media info BEFORE the UPDATE nullifies it

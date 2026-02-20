@@ -10,11 +10,8 @@
  * Each consent is tracked with timestamp and version for auditability.
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
-import { resolveProfileId } from '../utils/auth';
 
 const VALID_CONSENT_TYPES = ['terms_of_service', 'privacy_policy', 'marketing'] as const;
 type ConsentType = typeof VALID_CONSENT_TYPES[number];
@@ -27,12 +24,7 @@ interface ConsentRequest {
   }>;
 }
 
-export const handler = withErrorHandler('profiles-consent', async (event, { headers, log }) => {
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-  if (!cognitoSub) {
-    return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-  }
-
+export const handler = withAuthHandler('profiles-consent', async (event, { headers, log, cognitoSub, profileId, db }) => {
   // Rate limit: 10 consent updates per minute
   const rateLimitResponse = await requireRateLimit({
     prefix: 'profile-consent',
@@ -72,15 +64,6 @@ export const handler = withErrorHandler('profiles-consent', async (event, { head
     if (!consent.version || typeof consent.version !== 'string' || consent.version.length > 20) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'version is required (max 20 chars)' }) };
     }
-  }
-
-  const db = await getPool();
-
-  // Get user profile
-  const profileId = await resolveProfileId(db, cognitoSub);
-
-  if (!profileId) {
-    return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
   }
 
   // Upsert each consent record

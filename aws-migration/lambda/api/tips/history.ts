@@ -3,34 +3,13 @@
  * Get sent/received tips history
  */
 
-import { getPool, SqlParam } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
-import { resolveProfileId } from '../utils/auth';
+import { SqlParam } from '../../shared/db';
+import { withAuthHandler } from '../utils/with-auth-handler';
 
-export const handler = withErrorHandler('tips-history', async (event, { headers }) => {
-  const pool = await getPool();
-  const client = await pool.connect();
+export const handler = withAuthHandler('tips-history', async (event, { headers, profileId, db }) => {
+  const client = await db.connect();
 
   try {
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
-
-    // Resolve cognito_sub to profile.id
-    const profileId = await resolveProfileId(client, cognitoSub);
-    if (!profileId) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      };
-    }
-
     const type = event.queryStringParameters?.type || 'received'; // 'sent' or 'received'
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;

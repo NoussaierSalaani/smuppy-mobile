@@ -61,7 +61,7 @@ export interface DeleteHandlerConfig {
   resourceName: string;
 
   /** DB table that holds the resource (e.g. "posts", "peaks") */
-  resourceTable: string;
+  resourceTable: ResourceTable;
 
   /** Logger namespace (e.g. "posts-delete") */
   loggerName: string;
@@ -129,6 +129,64 @@ export interface DeleteHandlerConfig {
   afterCommit?: AfterCommitHook;
 }
 
+type ResourceTable =
+  | 'posts'
+  | 'peaks'
+  | 'events'
+  | 'groups'
+  | 'comments'
+  | 'spots'
+  | 'spot_reviews';
+
+const RESOURCE_SELECT_QUERIES: Record<ResourceTable, { ownershipField: string; selectQueries: Record<string, string> }> = {
+  posts: {
+    ownershipField: 'author_id',
+    selectQueries: {
+      'id, author_id': 'SELECT id, author_id FROM posts WHERE id = $1',
+      'id, author_id, media_urls, media_url, media_meta':
+        'SELECT id, author_id, media_urls, media_url, media_meta FROM posts WHERE id = $1',
+    },
+  },
+  peaks: {
+    ownershipField: 'author_id',
+    selectQueries: {
+      'id, author_id, video_url, thumbnail_url':
+        'SELECT id, author_id, video_url, thumbnail_url FROM peaks WHERE id = $1',
+    },
+  },
+  events: {
+    ownershipField: 'creator_id',
+    selectQueries: {
+      'id, creator_id, title, status':
+        'SELECT id, creator_id, title, status FROM events WHERE id = $1',
+    },
+  },
+  groups: {
+    ownershipField: 'creator_id',
+    selectQueries: {
+      'id, creator_id, status': 'SELECT id, creator_id, status FROM groups WHERE id = $1',
+    },
+  },
+  comments: {
+    ownershipField: 'user_id',
+    selectQueries: {
+      'id, user_id, post_id': 'SELECT id, user_id, post_id FROM comments WHERE id = $1',
+    },
+  },
+  spots: {
+    ownershipField: 'creator_id',
+    selectQueries: {
+      'id, creator_id': 'SELECT id, creator_id FROM spots WHERE id = $1',
+    },
+  },
+  spot_reviews: {
+    ownershipField: 'user_id',
+    selectQueries: {
+      'id, user_id, spot_id': 'SELECT id, user_id, spot_id FROM spot_reviews WHERE id = $1',
+    },
+  },
+} as const;
+
 // ── Factory ──────────────────────────────────────────────────────────
 
 export function createDeleteHandler(config: DeleteHandlerConfig) {
@@ -148,17 +206,32 @@ export function createDeleteHandler(config: DeleteHandlerConfig) {
     afterCommit,
   } = config;
 
+  const resourceKey = resourceTable as ResourceTable;
+  const registryEntry = RESOURCE_SELECT_QUERIES[resourceKey];
+
+  const resolvedOwnershipField = ownershipField ?? registryEntry?.ownershipField ?? 'author_id';
+  const resolvedSelectColumns = selectColumns ?? `id, ${resolvedOwnershipField}`;
+  const ownershipSelectQuery = registryEntry?.selectQueries[resolvedSelectColumns] ?? null;
+
   // Defense-in-depth: validate config-provided identifiers at factory init time.
   // These are compile-time constants, never user input.
   assertSafeIdentifier(resourceTable, `${loggerName}.resourceTable`);
-  assertSafeColumnList(selectColumns, `${loggerName}.selectColumns`);
-  assertSafeIdentifier(ownershipField, `${loggerName}.ownershipField`);
+  assertSafeColumnList(resolvedSelectColumns, `${loggerName}.selectColumns`);
+  assertSafeIdentifier(resolvedOwnershipField, `${loggerName}.ownershipField`);
 
   const log = createLogger(loggerName);
 
   async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const headers = createHeaders(event);
     log.initFromEvent(event);
+
+    if (!registryEntry || !ownershipSelectQuery || registryEntry.ownershipField !== resolvedOwnershipField) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Unsupported resource type' }),
+      };
+    }
 
     try {
       // ── Auth ────────────────────────────────────────────────────
@@ -194,12 +267,7 @@ export function createDeleteHandler(config: DeleteHandlerConfig) {
       }
 
       // ── Ownership check ────────────────────────────────────────
-      // NOTE: selectColumns and resourceTable are compile-time constants
-      // validated by assertSafeIdentifier/assertSafeColumnList at init.
-      const resourceResult = await db.query(
-        `SELECT ${selectColumns} FROM ${resourceTable} WHERE id = $1`,
-        [resourceId],
-      );
+      const resourceResult = await db.query(ownershipSelectQuery, [resourceId]);
 
       if (resourceResult.rows.length === 0) {
         return {

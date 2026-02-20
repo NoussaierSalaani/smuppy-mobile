@@ -4,20 +4,16 @@
  * Creates SNS Platform Endpoint for receiving push notifications
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   SNSClient,
   CreatePlatformEndpointCommand,
   SetEndpointAttributesCommand,
   DeleteEndpointCommand,
 } from '@aws-sdk/client-sns';
-import { getPool } from '../../shared/db';
-import { createLogger } from '../utils/logger';
-import { isNamedError, withErrorHandler } from '../utils/error-handler';
+import { isNamedError } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
-import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('notifications-push-token');
+import type { Logger } from '../utils/logger';
 const snsClient = new SNSClient({});
 
 // Platform Application ARNs (set via environment variables)
@@ -30,7 +26,8 @@ const ANDROID_PLATFORM_ARN = process.env.ANDROID_PLATFORM_APPLICATION_ARN || '';
 async function createOrUpdateEndpoint(
   token: string,
   platformArn: string,
-  userId: string
+  userId: string,
+  log: Logger
 ): Promise<string | null> {
   if (!platformArn) {
     log.info('Platform ARN not configured, skipping SNS endpoint creation');
@@ -94,23 +91,14 @@ async function createOrUpdateEndpoint(
   }
 }
 
-export const handler = withErrorHandler('notifications-push-token', async (event, { headers }) => {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
+export const handler = withAuthHandler('notifications-push-token', async (event, { headers, log, cognitoSub, profileId, db }) => {
     // Rate limit POST and DELETE requests: 5 per minute per user (DynamoDB-based, works across Lambda instances)
     // Per CLAUDE.md: rate limit ALL endpoints that create resources or cost money
     if (event.httpMethod === 'POST' || event.httpMethod === 'DELETE') {
       const rateLimitResponse = await requireRateLimit({
         // BUG-2026-02-14: Use shared prefix so POST+DELETE share the same rate window
         prefix: 'push-token-mutation',
-        identifier: userId,
+        identifier: cognitoSub,
         windowSeconds: 60,
         maxRequests: 5,
       }, headers);
@@ -128,14 +116,12 @@ export const handler = withErrorHandler('notifications-push-token', async (event
         };
       }
 
-      const db = await getPool();
-
       // Get the endpoint ARN before deleting
       const tokenResult = await db.query(
         `SELECT sns_endpoint_arn FROM push_tokens
-         WHERE user_id = (SELECT id FROM profiles WHERE cognito_sub = $1)
+         WHERE user_id = $1
          AND device_id = $2`,
-        [userId, deviceId]
+        [profileId, deviceId]
       );
 
       if (tokenResult.rows.length > 0 && tokenResult.rows[0].sns_endpoint_arn) {
@@ -153,9 +139,9 @@ export const handler = withErrorHandler('notifications-push-token', async (event
       // Delete from database
       await db.query(
         `DELETE FROM push_tokens
-         WHERE user_id = (SELECT id FROM profiles WHERE cognito_sub = $1)
+         WHERE user_id = $1
          AND device_id = $2`,
-        [userId, deviceId]
+        [profileId, deviceId]
       );
 
       return {
@@ -196,23 +182,12 @@ export const handler = withErrorHandler('notifications-push-token', async (event
       };
     }
 
-    const db = await getPool();
-
-    const profileId = await resolveProfileId(db, userId);
-    if (!profileId) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
     // Create SNS Platform Endpoint based on platform
     let snsEndpointArn: string | null = null;
     if (normalizedPlatform === 'ios') {
-      snsEndpointArn = await createOrUpdateEndpoint(token.trim(), IOS_PLATFORM_ARN, profileId);
+      snsEndpointArn = await createOrUpdateEndpoint(token.trim(), IOS_PLATFORM_ARN, profileId, log);
     } else if (normalizedPlatform === 'android') {
-      snsEndpointArn = await createOrUpdateEndpoint(token.trim(), ANDROID_PLATFORM_ARN, profileId);
+      snsEndpointArn = await createOrUpdateEndpoint(token.trim(), ANDROID_PLATFORM_ARN, profileId, log);
     }
 
     // Upsert push token with SNS endpoint ARN

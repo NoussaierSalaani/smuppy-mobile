@@ -3,23 +3,17 @@
  * POST: toggles like state for the current user
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
-import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { sendPushToUser } from '../services/push-notification';
 import { isBidirectionallyBlocked } from '../utils/block-filter';
 import { RATE_WINDOW_1_MIN, RATE_WINDOW_1_DAY } from '../utils/constants';
 
-export const handler = withErrorHandler('posts-like', async (event, { headers, log }) => {
-  // Get user ID from Cognito authorizer
-  const userId = requireAuth(event, headers);
-  if (isErrorResponse(userId)) return userId;
-
+export const handler = withAuthHandler('posts-like', async (event, { headers, log, profileId, db }) => {
   const rateLimitResponse = await requireRateLimit({
     prefix: 'post-like',
-    identifier: userId,
+    identifier: profileId,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 30,
   }, headers);
@@ -28,7 +22,7 @@ export const handler = withErrorHandler('posts-like', async (event, { headers, l
   // Daily like limit: 500/day to prevent mass-like automation
   const dailyRateLimitResponse = await requireRateLimit({
     prefix: 'like-daily',
-    identifier: userId,
+    identifier: profileId,
     windowSeconds: RATE_WINDOW_1_DAY,
     maxRequests: 500,
   }, headers);
@@ -37,24 +31,6 @@ export const handler = withErrorHandler('posts-like', async (event, { headers, l
   // Get post ID from path
   const postId = validateUUIDParam(event, headers, 'id', 'Post');
   if (isErrorResponse(postId)) return postId;
-
-  const db = await getPool();
-
-  // Get user's profile ID (check both id and cognito_sub for compatibility)
-  const userResult = await db.query(
-    'SELECT id, username, full_name FROM profiles WHERE cognito_sub = $1',
-    [userId]
-  );
-
-  if (userResult.rows.length === 0) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'User profile not found' }),
-    };
-  }
-
-  const profileId = userResult.rows[0].id;
 
   // Check if post exists
   const postResult = await db.query(
@@ -79,6 +55,10 @@ export const handler = withErrorHandler('posts-like', async (event, { headers, l
     };
   }
 
+  // Fetch liker name for notification
+  const nameResult = await db.query('SELECT full_name FROM profiles WHERE id = $1', [profileId]);
+  const likerName = nameResult.rows[0]?.full_name || 'Someone';
+
   // Toggle like in transaction
   // CRITICAL: Use dedicated client for transaction isolation with connection pooling
   const client = await db.connect();
@@ -93,7 +73,6 @@ export const handler = withErrorHandler('posts-like', async (event, { headers, l
     );
 
     const post = postResult.rows[0];
-    const likerName = userResult.rows[0].full_name || 'Someone';
     const alreadyLiked = existingLike.rows.length > 0;
 
     if (alreadyLiked) {

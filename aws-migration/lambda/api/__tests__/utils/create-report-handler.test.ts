@@ -63,6 +63,7 @@ const TEST_SUB = 'cognito-sub-test123';
 const TEST_PROFILE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const TEST_POST_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
 const TEST_REPORT_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
+const TEST_CONVERSATION_ID = 'd3e4f5a6-b7c8-9012-dcba-0987654321ff';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
   return {
@@ -93,15 +94,15 @@ describe('createReportHandler', () => {
   let mockConnect: jest.Mock;
   let mockRunEscalation: jest.Mock;
 
-  const baseConfig = {
-    loggerName: 'report-post',
-    resourceType: 'post',
-    idField: 'postId',
-    entityTable: 'posts',
-    reportTable: 'post_reports',
-    resourceIdColumn: 'post_id',
-    runEscalation: jest.fn(),
-  };
+const baseConfig = {
+  loggerName: 'report-post',
+  resourceType: 'post',
+  idField: 'postId',
+  entityTable: 'posts',
+  reportTable: 'post_reports',
+  resourceIdColumn: 'post_id',
+  runEscalation: jest.fn(),
+} as const;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -242,6 +243,7 @@ describe('createReportHandler', () => {
 
     expect(result.statusCode).toBe(404);
     expect(JSON.parse(result.body).message).toBe('Post not found');
+    expect(mockQuery).toHaveBeenCalledWith('SELECT id FROM posts WHERE id = $1', [TEST_POST_ID]);
   });
 
   it('should return 409 on duplicate report', async () => {
@@ -262,6 +264,11 @@ describe('createReportHandler', () => {
 
     expect(result.statusCode).toBe(409);
     expect(JSON.parse(result.body).message).toBe('You have already reported this post');
+    expect(mockClient.query).toHaveBeenNthCalledWith(
+      2,
+      'SELECT id FROM post_reports WHERE reporter_id = $1 AND post_id = $2 FOR UPDATE',
+      [TEST_PROFILE_ID, TEST_POST_ID],
+    );
   });
 
   it('should return 201 on successful report', async () => {
@@ -286,6 +293,16 @@ describe('createReportHandler', () => {
     expect(body.success).toBe(true);
     expect(body.id).toBe(TEST_REPORT_ID);
     expect(mockRunEscalation).toHaveBeenCalled();
+    expect(mockClient.query).toHaveBeenNthCalledWith(
+      2,
+      'SELECT id FROM post_reports WHERE reporter_id = $1 AND post_id = $2 FOR UPDATE',
+      [TEST_PROFILE_ID, TEST_POST_ID],
+    );
+    expect(mockClient.query).toHaveBeenNthCalledWith(
+      3,
+      'INSERT INTO post_reports (reporter_id, post_id, reason, description) VALUES ($1, $2, $3, $4) RETURNING id',
+      [TEST_PROFILE_ID, TEST_POST_ID, 'spam', null],
+    );
   });
 
   it('should return 500 on database error', async () => {
@@ -336,5 +353,66 @@ describe('createReportHandler', () => {
     const result = await handler(event);
 
     expect(result.statusCode).toBe(201);
+  });
+
+  it('should reject unsupported report type before querying', async () => {
+    const handler = createReportHandler({
+      ...baseConfig,
+      resourceType: 'unsupported' as unknown as typeof baseConfig.resourceType,
+      runEscalation: mockRunEscalation,
+    });
+
+    const event = makeEvent({
+      body: JSON.stringify({ postId: TEST_POST_ID, reason: 'spam' }),
+    });
+
+    const result = await handler(event);
+
+    expect(result.statusCode).toBe(400);
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(mockClient.query).not.toHaveBeenCalled();
+  });
+
+  it('should use whitelisted insert params for message reports', async () => {
+    const messageConfig = {
+      loggerName: 'reports-message',
+      resourceType: 'message',
+      idField: 'messageId',
+      extraIdFields: ['conversationId'],
+      reportTable: 'message_reports',
+      resourceIdColumn: 'message_id',
+      runEscalation: mockRunEscalation,
+      customEntityCheck: jest.fn().mockResolvedValue(true),
+    } as const;
+
+    mockClient.query
+      .mockResolvedValueOnce(undefined) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // no existing report
+      .mockResolvedValueOnce({ rows: [{ id: TEST_REPORT_ID }] }) // INSERT
+      .mockResolvedValueOnce(undefined); // COMMIT
+
+    const handler = createReportHandler(messageConfig);
+    const event = makeEvent({
+      body: JSON.stringify({
+        messageId: TEST_POST_ID,
+        conversationId: TEST_CONVERSATION_ID,
+        reason: 'spam',
+        details: 'details',
+      }),
+    });
+
+    const result = await handler(event);
+
+    expect(result.statusCode).toBe(201);
+    expect(mockClient.query).toHaveBeenNthCalledWith(
+      2,
+      'SELECT id FROM message_reports WHERE reporter_id = $1 AND message_id = $2 FOR UPDATE',
+      [TEST_PROFILE_ID, TEST_POST_ID],
+    );
+    expect(mockClient.query).toHaveBeenNthCalledWith(
+      3,
+      'INSERT INTO message_reports (reporter_id, message_id, reason, description, conversation_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [TEST_PROFILE_ID, TEST_POST_ID, 'spam', 'details', TEST_CONVERSATION_ID],
+    );
   });
 });

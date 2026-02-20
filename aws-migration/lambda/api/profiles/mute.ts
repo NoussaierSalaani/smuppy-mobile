@@ -2,19 +2,11 @@
  * Mute User Lambda Handler
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
-import { resolveProfileId } from '../utils/auth';
 
-export const handler = withErrorHandler('profiles-mute', async (event, { headers }) => {
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-  if (!cognitoSub) {
-    return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
-  }
-
+export const handler = withAuthHandler('profiles-mute', async (event, { headers, cognitoSub, profileId: muterId, db }) => {
   const targetUserId = event.pathParameters?.id;
   if (!targetUserId || !isValidUUID(targetUserId)) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid user ID format' }) };
@@ -27,13 +19,6 @@ export const handler = withErrorHandler('profiles-mute', async (event, { headers
     maxRequests: 20,
   }, headers);
   if (rateLimitResponse) return rateLimitResponse;
-
-  const db = await getPool();
-
-  const muterId = await resolveProfileId(db, cognitoSub);
-  if (!muterId) {
-    return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
-  }
 
   if (muterId === targetUserId) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Cannot mute yourself' }) };

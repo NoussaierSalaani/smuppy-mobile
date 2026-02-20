@@ -4,28 +4,9 @@
  * Only returns peaks owned by the authenticated user where saved_to_profile IS NULL
  */
 
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
-import { requireAuth, isErrorResponse } from '../utils/validators';
-import { resolveProfileId } from '../utils/auth';
+import { withAuthHandler } from '../utils/with-auth-handler';
 
-export const handler = withErrorHandler('peaks-expired', async (event, { headers }) => {
-    const userId = requireAuth(event, headers);
-    if (isErrorResponse(userId)) return userId;
-
-    const db = await getPool();
-
-    // Resolve cognito_sub to profile ID
-    const profileId = await resolveProfileId(db, userId);
-
-    if (!profileId) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
+export const handler = withAuthHandler('peaks-expired', async (event, { headers, profileId, db }) => {
     // Get expired peaks with no decision yet
     const result = await db.query(
       `SELECT pk.id, pk.video_url, pk.thumbnail_url, pk.caption, pk.duration,

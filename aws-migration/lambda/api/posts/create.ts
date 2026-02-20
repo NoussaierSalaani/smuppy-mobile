@@ -5,8 +5,7 @@
 
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { v4 as uuidv4 } from 'uuid';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { RATE_WINDOW_1_MIN, MAX_POST_CONTENT_LENGTH, MAX_MEDIA_URL_LENGTH } from '../utils/constants';
@@ -33,17 +32,7 @@ interface CreatePostInput {
   videoDuration?: number;
 }
 
-export const handler = withErrorHandler('posts-create', async (event, { headers, log }) => {
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-
-    if (!cognitoSub) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
-
+export const handler = withAuthHandler('posts-create', async (event, { headers, log, cognitoSub, db }) => {
     const rateLimitResponse = await requireRateLimit({
       prefix: 'post-create',
       identifier: cognitoSub,
@@ -161,8 +150,6 @@ export const handler = withErrorHandler('posts-create', async (event, { headers,
     const accountCheck = await requireActiveAccount(cognitoSub, headers);
     if (isAccountError(accountCheck)) return accountCheck;
     const userId = accountCheck.profileId;
-
-    const db = await getPool();
 
     // Duplicate content detection: same author, same content hash, within 1 hour
     if (sanitizedContent) {

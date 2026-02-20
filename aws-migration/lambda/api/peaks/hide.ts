@@ -5,37 +5,22 @@
  * GET /peaks/hidden - Get list of hidden peaks for user
  */
 
-import { getPool } from '../../shared/db';
 import { createCorsResponse } from '../utils/cors';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
-import { resolveProfileId } from '../utils/auth';
 import { requireRateLimit } from '../utils/rate-limit';
 
-export const handler = withErrorHandler('peaks-hide', async (event, { headers, log }) => {
-  const userId = event.requestContext.authorizer?.claims?.sub;
+export const handler = withAuthHandler('peaks-hide', async (event, { headers, log, cognitoSub, profileId, db }) => {
   const peakId = event.pathParameters?.id;
   const httpMethod = event.httpMethod;
 
-  if (!userId) {
-    return createCorsResponse(401, { success: false, message: 'Unauthorized' });
-  }
-
   const rateLimitResponse = await requireRateLimit({
     prefix: 'peak-hide',
-    identifier: userId,
+    identifier: cognitoSub,
     windowSeconds: 60,
     maxRequests: 20,
   }, headers);
   if (rateLimitResponse) return rateLimitResponse;
-
-    const db = await getPool();
-
-    // Resolve cognito_sub to profile ID
-    const profileId = await resolveProfileId(db, userId);
-    if (!profileId) {
-      return createCorsResponse(404, { success: false, message: 'Profile not found' });
-    }
 
     // GET /peaks/hidden - List hidden peaks
     if (httpMethod === 'GET' && !peakId) {
@@ -108,7 +93,7 @@ export const handler = withErrorHandler('peaks-hide', async (event, { headers, l
         [profileId, peakId, reason]
       );
 
-      log.info('Peak hidden from feed', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***', reason });
+      log.info('Peak hidden from feed', { peakId: peakId.substring(0, 8) + '***', userId: cognitoSub.substring(0, 8) + '***', reason });
 
       return createCorsResponse(200, {
         success: true,
@@ -127,7 +112,7 @@ export const handler = withErrorHandler('peaks-hide', async (event, { headers, l
         return createCorsResponse(404, { success: false, message: 'Peak was not hidden' });
       }
 
-      log.info('Peak unhidden', { peakId: peakId.substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
+      log.info('Peak unhidden', { peakId: peakId.substring(0, 8) + '***', userId: cognitoSub.substring(0, 8) + '***' });
 
       return createCorsResponse(200, {
         success: true,

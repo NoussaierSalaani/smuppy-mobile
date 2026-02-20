@@ -78,6 +78,7 @@ export function validateSubscriptionId(
 
 // ── Ownership query ──────────────────────────────────────────────────
 
+// Constant query with parameter binding to avoid SQL injection on identifiers/values.
 const OWNED_SUBSCRIPTION_SELECT = `
   SELECT id, user_id, stripe_subscription_id, status, cancel_at_period_end,
          current_period_end, current_period_start, created_at, updated_at

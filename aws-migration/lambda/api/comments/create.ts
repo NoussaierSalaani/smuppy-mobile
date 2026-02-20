@@ -3,11 +3,9 @@
  * Adds a comment to a post
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
 import { requireRateLimit } from '../utils/rate-limit';
-import { withErrorHandler } from '../utils/error-handler';
-import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
+import { withAuthHandler } from '../utils/with-auth-handler';
+import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { moderateText } from '../utils/text-moderation';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
@@ -16,13 +14,10 @@ import { sanitizeText, isValidUUID } from '../utils/security';
 import { isBidirectionallyBlocked } from '../utils/block-filter';
 import { RATE_WINDOW_1_DAY } from '../utils/constants';
 
-export const handler = withErrorHandler('comments-create', async (event, { headers, log }) => {
-    const userId = requireAuth(event, headers);
-    if (isErrorResponse(userId)) return userId;
-
+export const handler = withAuthHandler('comments-create', async (event, { headers, log, cognitoSub, db }) => {
     const rateLimitResponse = await requireRateLimit({
       prefix: 'comment-create',
-      identifier: userId,
+      identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 20,
     }, headers);
@@ -31,7 +26,7 @@ export const handler = withErrorHandler('comments-create', async (event, { heade
     // Daily cap: 200 comments/day (consistent with likes/follows daily limits)
     const dailyRateLimitResponse = await requireRateLimit({
       prefix: 'comment-daily',
-      identifier: userId,
+      identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_1_DAY,
       maxRequests: 200,
     }, headers);
@@ -77,7 +72,7 @@ export const handler = withErrorHandler('comments-create', async (event, { heade
     const { contentFlagged, flagCategory, flagScore } = modResult;
 
     // Check account moderation status
-    const accountCheck = await requireActiveAccount(userId, headers);
+    const accountCheck = await requireActiveAccount(cognitoSub, headers);
     if (isAccountError(accountCheck)) return accountCheck;
     const profile = {
       id: accountCheck.profileId,
@@ -88,8 +83,6 @@ export const handler = withErrorHandler('comments-create', async (event, { heade
       account_type: accountCheck.accountType,
       business_name: accountCheck.businessName,
     };
-
-    const db = await getPool();
 
     // Check if post exists
     const postResult = await db.query(

@@ -3,7 +3,7 @@
  * Simplified dashboard for business owners — 3 main actions + compact stats
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
+import { useDataFetch } from '../../hooks/useDataFetch';
 import type { IconName } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
@@ -71,41 +72,18 @@ export default function BusinessDashboardScreen({ navigation }: Props) {
   const { colors, isDark } = useTheme();
   const user = useUserStore((state) => state.user);
 
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { data: stats, isLoading, isRefreshing, refresh: handleRefresh } = useDataFetch(
+    () => awsAPI.getBusinessDashboard(),
+    {
+      extractData: (r) => ({
+        todayBookings: r.stats?.todayBookings ?? 0,
+        activeMembers: r.stats?.activeMembers ?? 0,
+      } as DashboardStats),
+      defaultValue: { todayBookings: 0, activeMembers: 0 } as DashboardStats,
+    }
+  );
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const loadDashboard = async () => {
-    try {
-      const response = await awsAPI.getBusinessDashboard();
-
-      if (response.success && response.stats) {
-        setStats({
-          todayBookings: response.stats.todayBookings ?? 0,
-          activeMembers: response.stats.activeMembers ?? 0,
-        });
-      } else {
-        setStats({ todayBookings: 0, activeMembers: 0 });
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Load dashboard error:', error);
-      setStats({ todayBookings: 0, activeMembers: 0 });
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadDashboard();
-  }, []);
 
   const handleAction = useCallback((action: ActionCard) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

@@ -3,28 +3,17 @@
  * Creates a new conversation with another user or returns existing one
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { isValidUUID } from '../utils/security';
 import { isBidirectionallyBlocked } from '../utils/block-filter';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
-export const handler = withErrorHandler('conversations-create', async (event, { headers }) => {
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ message: 'Unauthorized' }),
-    };
-  }
-
+export const handler = withAuthHandler('conversations-create', async (event, { headers, cognitoSub, profileId, db }) => {
   const rateLimitResponse = await requireRateLimit({
     prefix: 'conversation-create',
-    identifier: userId,
+    identifier: cognitoSub,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 5,
   }, headers);
@@ -52,12 +41,8 @@ export const handler = withErrorHandler('conversations-create', async (event, { 
   }
 
   // Check sender account status (suspended/banned users cannot create conversations)
-  const accountCheck = await requireActiveAccount(userId, headers);
+  const accountCheck = await requireActiveAccount(cognitoSub, headers);
   if (isAccountError(accountCheck)) return accountCheck;
-
-  const profileId = accountCheck.profileId;
-
-  const db = await getPool();
 
   // Cannot create conversation with yourself
   if (profileId === participantId) {

@@ -22,7 +22,7 @@ type Logger = ReturnType<typeof createLogger>;
 
 interface ReportHandlerConfig {
   loggerName: string;
-  resourceType: string;
+  resourceType: ReportResource;
   idField: string;
 
   /** Simple entity check: SELECT id FROM {entityTable} WHERE id = $1 */
@@ -49,6 +49,91 @@ interface ReportHandlerConfig {
   runEscalation: (db: Pool, log: Logger, resourceId: string) => Promise<void>;
 }
 
+type ReportResource = 'post' | 'comment' | 'peak' | 'live stream' | 'user' | 'message';
+
+type ReportQuerySet = {
+  entitySelectSql?: string;
+  existingSelectSql: string;
+  insertSql: string;
+  buildInsertParams: (params: {
+    reporterId: string;
+    resourceId: string;
+    sanitizedReason: string;
+    sanitizedDetails: string | null;
+    body: Record<string, unknown>;
+  }) => unknown[];
+};
+
+const REPORT_QUERIES: Record<ReportResource, ReportQuerySet> = {
+  post: {
+    entitySelectSql: 'SELECT id FROM posts WHERE id = $1',
+    existingSelectSql: 'SELECT id FROM post_reports WHERE reporter_id = $1 AND post_id = $2 FOR UPDATE',
+    insertSql: 'INSERT INTO post_reports (reporter_id, post_id, reason, description) VALUES ($1, $2, $3, $4) RETURNING id',
+    buildInsertParams: ({ reporterId, resourceId, sanitizedReason, sanitizedDetails }) => [
+      reporterId,
+      resourceId,
+      sanitizedReason,
+      sanitizedDetails,
+    ],
+  },
+  comment: {
+    entitySelectSql: 'SELECT id FROM comments WHERE id = $1',
+    existingSelectSql: 'SELECT id FROM comment_reports WHERE reporter_id = $1 AND comment_id = $2 FOR UPDATE',
+    insertSql: 'INSERT INTO comment_reports (reporter_id, comment_id, reason, description) VALUES ($1, $2, $3, $4) RETURNING id',
+    buildInsertParams: ({ reporterId, resourceId, sanitizedReason, sanitizedDetails }) => [
+      reporterId,
+      resourceId,
+      sanitizedReason,
+      sanitizedDetails,
+    ],
+  },
+  peak: {
+    entitySelectSql: 'SELECT id FROM peaks WHERE id = $1',
+    existingSelectSql: 'SELECT id FROM peak_reports WHERE reporter_id = $1 AND peak_id = $2 FOR UPDATE',
+    insertSql: 'INSERT INTO peak_reports (reporter_id, peak_id, reason, description) VALUES ($1, $2, $3, $4) RETURNING id',
+    buildInsertParams: ({ reporterId, resourceId, sanitizedReason, sanitizedDetails }) => [
+      reporterId,
+      resourceId,
+      sanitizedReason,
+      sanitizedDetails,
+    ],
+  },
+  'live stream': {
+    entitySelectSql: 'SELECT id FROM live_streams WHERE id = $1',
+    existingSelectSql: 'SELECT id FROM live_stream_reports WHERE reporter_id = $1 AND live_stream_id = $2 FOR UPDATE',
+    insertSql: 'INSERT INTO live_stream_reports (reporter_id, live_stream_id, reason, description) VALUES ($1, $2, $3, $4) RETURNING id',
+    buildInsertParams: ({ reporterId, resourceId, sanitizedReason, sanitizedDetails }) => [
+      reporterId,
+      resourceId,
+      sanitizedReason,
+      sanitizedDetails,
+    ],
+  },
+  user: {
+    entitySelectSql: 'SELECT id FROM profiles WHERE id = $1',
+    existingSelectSql: 'SELECT id FROM user_reports WHERE reporter_id = $1 AND reported_user_id = $2 FOR UPDATE',
+    insertSql: 'INSERT INTO user_reports (reporter_id, reported_user_id, reason, description) VALUES ($1, $2, $3, $4) RETURNING id',
+    buildInsertParams: ({ reporterId, resourceId, sanitizedReason, sanitizedDetails }) => [
+      reporterId,
+      resourceId,
+      sanitizedReason,
+      sanitizedDetails,
+    ],
+  },
+  message: {
+    existingSelectSql: 'SELECT id FROM message_reports WHERE reporter_id = $1 AND message_id = $2 FOR UPDATE',
+    insertSql:
+      'INSERT INTO message_reports (reporter_id, message_id, reason, description, conversation_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    buildInsertParams: ({ reporterId, resourceId, sanitizedReason, sanitizedDetails, body }) => [
+      reporterId,
+      resourceId,
+      sanitizedReason,
+      sanitizedDetails,
+      body.conversationId,
+    ],
+  },
+};
+
 export function createReportHandler(config: ReportHandlerConfig) {
   // Defense-in-depth: validate config-provided identifiers at factory init time.
   // These are compile-time constants, never user input.
@@ -69,6 +154,11 @@ export function createReportHandler(config: ReportHandlerConfig) {
   return async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const headers = createHeaders(event);
     log.initFromEvent(event);
+
+    const querySet = REPORT_QUERIES[config.resourceType];
+    if (!querySet) {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Unsupported report type' }) };
+    }
 
     try {
       const cognitoSub = event.requestContext.authorizer?.claims?.sub;
@@ -130,27 +220,12 @@ export function createReportHandler(config: ReportHandlerConfig) {
         if (!exists) {
           return { statusCode: 404, headers, body: JSON.stringify({ message: `${config.resourceType.charAt(0).toUpperCase() + config.resourceType.slice(1)} not found` }) };
         }
-      } else if (config.entityTable) {
-        // NOTE: entityTable is a compile-time constant from handler config, not user input.
-        const entityResult = await db.query(`SELECT id FROM ${config.entityTable} WHERE id = $1`, [resourceId]);
+      } else if (querySet.entitySelectSql) {
+        const entityResult = await db.query(querySet.entitySelectSql, [resourceId]);
         if (entityResult.rows.length === 0) {
           return { statusCode: 404, headers, body: JSON.stringify({ message: `${config.resourceType.charAt(0).toUpperCase() + config.resourceType.slice(1)} not found` }) };
         }
       }
-
-      // Build INSERT query dynamically from config
-      // NOTE: All table/column names are compile-time constants from handler config.
-      const insertColumns = ['reporter_id', config.resourceIdColumn, 'reason', 'description'];
-      const insertValues = [reporterId, resourceId, sanitizedReason, sanitizedDetails];
-
-      if (config.extraInsertFields) {
-        for (const field of config.extraInsertFields) {
-          insertColumns.push(field.column);
-          insertValues.push(body[field.bodyField]);
-        }
-      }
-
-      const placeholders = insertValues.map((_, i) => `$${i + 1}`).join(', ');
 
       // Atomic duplicate check + insert
       const client = await db.connect();
@@ -158,20 +233,22 @@ export function createReportHandler(config: ReportHandlerConfig) {
       try {
         await client.query('BEGIN');
 
-        const existing = await client.query(
-          `SELECT id FROM ${config.reportTable} WHERE reporter_id = $1 AND ${config.resourceIdColumn} = $2 FOR UPDATE`,
-          [reporterId, resourceId]
-        );
+        const existing = await client.query(querySet.existingSelectSql, [reporterId, resourceId]);
         if (existing.rows.length > 0) {
           await client.query('ROLLBACK');
           client.release();
           return { statusCode: 409, headers, body: JSON.stringify({ message: `You have already reported this ${config.resourceType}` }) };
         }
 
-        result = await client.query(
-          `INSERT INTO ${config.reportTable} (${insertColumns.join(', ')}) VALUES (${placeholders}) RETURNING id`,
-          insertValues
-        );
+        const insertValues = querySet.buildInsertParams({
+          reporterId,
+          resourceId,
+          sanitizedReason,
+          sanitizedDetails,
+          body,
+        });
+
+        result = await client.query(querySet.insertSql, insertValues);
 
         await client.query('COMMIT');
       } catch (txErr) {

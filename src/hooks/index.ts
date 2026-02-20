@@ -106,3 +106,6 @@ export { useTheme } from './useTheme';
 
 // Expired Peaks
 export { useExpiredPeaks } from './useExpiredPeaks';
+
+// Data Fetching (generic fetch-on-mount hook)
+export { useDataFetch } from './useDataFetch';

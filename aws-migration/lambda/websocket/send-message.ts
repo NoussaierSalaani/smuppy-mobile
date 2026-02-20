@@ -17,6 +17,44 @@ const log = createLogger('websocket-send-message');
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // messages per window
 const RATE_WINDOW = 10000; // 10 seconds
+export const MAX_MESSAGE_LENGTH = 5000;
+
+// Linear-time HTML tag stripper to avoid regex backtracking (ReDoS-safe)
+export function stripHtmlTagsLinear(input: string): string {
+  let out = '';
+  let inTag = false;
+  let tagStart = -1;
+
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === '<') {
+      inTag = true;
+      tagStart = i;
+      continue;
+    }
+    if (ch === '>' && inTag) {
+      inTag = false;
+      tagStart = -1;
+      continue;
+    }
+    if (!inTag) {
+      out += ch;
+    }
+  }
+
+  // If we ended inside an unclosed tag, keep the literal text from tagStart
+  if (inTag && tagStart >= 0) {
+    out += input.slice(tagStart);
+  }
+
+  return out;
+}
+
+export function sanitizeMessageContent(rawContent: string): string {
+  const capped = String(rawContent ?? '').slice(0, MAX_MESSAGE_LENGTH);
+  const withoutTags = stripHtmlTagsLinear(capped);
+  return withoutTags.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
 
 function checkWsRateLimit(connectionId: string): boolean {
   const now = Date.now();
@@ -120,7 +158,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const sender = senderResult.rows[0];
 
     // Validate content length (consistent with HTTP handler)
-    const MAX_MESSAGE_LENGTH = 5000;
     if (typeof content !== 'string' || content.length > MAX_MESSAGE_LENGTH) {
       return {
         statusCode: 400,
@@ -128,10 +165,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Sanitize message content: strip HTML tags and control characters
-    const sanitizedContent = content
-      .replaceAll(/<[^>]*>/g, '')  // Strip HTML tags // NOSONAR
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — Strip control chars
+    // Sanitize message content: strip HTML tags and control characters (ReDoS-safe)
+    const sanitizedContent = sanitizeMessageContent(content);
 
     // Detect shared content: [shared_post:UUID] or [shared_peak:UUID]
     const SHARED_CONTENT_PATTERN = /^\[shared_(post|peak):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;

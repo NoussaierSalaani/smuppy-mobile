@@ -5,26 +5,19 @@
  * GET /peaks/{id}/tags - Get all tags on a peak
  */
 
-import { getPool } from '../../shared/db';
 import { createCorsResponse } from '../utils/cors';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
-import { resolveProfileId } from '../utils/auth';
 import { requireRateLimit } from '../utils/rate-limit';
 
-export const handler = withErrorHandler('peaks-tag', async (event, { headers, log }) => {
-  const userId = event.requestContext.authorizer?.claims?.sub;
+export const handler = withAuthHandler('peaks-tag', async (event, { headers, log, cognitoSub, profileId, db }) => {
   const peakId = event.pathParameters?.id;
   const taggedUserId = event.pathParameters?.userId;
   const httpMethod = event.httpMethod;
 
-  if (!userId) {
-    return createCorsResponse(401, { success: false, message: 'Unauthorized' });
-  }
-
   const rateLimitResponse = await requireRateLimit({
     prefix: 'peak-tag',
-    identifier: userId,
+    identifier: cognitoSub,
     windowSeconds: 60,
     maxRequests: 10,
   }, headers);
@@ -38,14 +31,6 @@ export const handler = withErrorHandler('peaks-tag', async (event, { headers, lo
   if (!isValidUUID(peakId)) {
     return createCorsResponse(400, { success: false, message: 'Invalid peak ID format' });
   }
-
-    const db = await getPool();
-
-    // Resolve cognito_sub to profile ID
-    const profileId = await resolveProfileId(db, userId);
-    if (!profileId) {
-      return createCorsResponse(404, { success: false, message: 'Profile not found' });
-    }
 
     // Verify peak exists
     const peakResult = await db.query(
@@ -145,7 +130,7 @@ export const handler = withErrorHandler('peaks-tag', async (event, { headers, lo
       );
 
       const friend = friendResult.rows[0];
-      log.info('Friend tagged on peak', { peakId: peakId.substring(0, 8) + '***', taggedUserId: friendId.substring(0, 8) + '***', taggedBy: userId.substring(0, 8) + '***' });
+      log.info('Friend tagged on peak', { peakId: peakId.substring(0, 8) + '***', taggedUserId: friendId.substring(0, 8) + '***', taggedBy: cognitoSub.substring(0, 8) + '***' });
 
       return createCorsResponse(201, {
         success: true,
@@ -194,7 +179,7 @@ export const handler = withErrorHandler('peaks-tag', async (event, { headers, lo
         [peakId, taggedUserId]
       );
 
-      log.info('Tag removed from peak', { peakId: peakId.substring(0, 8) + '***', taggedUserId: taggedUserId.substring(0, 8) + '***', removedBy: userId.substring(0, 8) + '***' });
+      log.info('Tag removed from peak', { peakId: peakId.substring(0, 8) + '***', taggedUserId: taggedUserId.substring(0, 8) + '***', removedBy: cognitoSub.substring(0, 8) + '***' });
 
       return createCorsResponse(200, {
         success: true,

@@ -4,25 +4,15 @@
  * Tracks unfollows for anti-spam cooldown (7 days after 2+ unfollows)
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 
 // Cooldown: 7 days after 2+ unfollows
 const COOLDOWN_THRESHOLD = 2;
 const COOLDOWN_DAYS = 7;
 
-export const handler = withErrorHandler('follows-delete', async (event, { headers, log }) => {
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-
-  if (!cognitoSub) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ message: 'Unauthorized' }),
-    };
-  }
+export const handler = withAuthHandler('follows-delete', async (event, { headers, log, cognitoSub, profileId, db }) => {
+  const followerId = profileId;
 
   const rateLimitResponse = await requireRateLimit({
     prefix: 'follow-delete',
@@ -51,24 +41,6 @@ export const handler = withErrorHandler('follows-delete', async (event, { header
       body: JSON.stringify({ message: 'Invalid ID format' }),
     };
   }
-
-  const db = await getPool();
-
-  // Resolve the follower's profile ID from cognito_sub
-  const followerResult = await db.query(
-    'SELECT id FROM profiles WHERE cognito_sub = $1',
-    [cognitoSub]
-  );
-
-  if (followerResult.rows.length === 0) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'Your profile not found' }),
-    };
-  }
-
-  const followerId = followerResult.rows[0].id;
 
   const client = await db.connect();
   try {

@@ -3,45 +3,21 @@
  * Returns all conversations for the authenticated user
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, SqlParam } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { SqlParam } from '../../shared/db';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
-import { resolveProfileId } from '../utils/auth';
 
-export const handler = withErrorHandler('conversations-list', async (event, { headers }) => {
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ message: 'Unauthorized' }),
-    };
-  }
-
+export const handler = withAuthHandler('conversations-list', async (event, { headers, cognitoSub, profileId, db }) => {
   // Rate limit: 30 requests per minute for list operations
   // Per CLAUDE.md: rate limit ALL endpoints
   const rateLimitResponse = await requireRateLimit({
     prefix: 'conversations-list',
-    identifier: userId,
+    identifier: cognitoSub,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 30,
   }, headers);
   if (rateLimitResponse) return rateLimitResponse;
-
-  const db = await getPool();
-
-  // Get user's profile ID
-  const profileId = await resolveProfileId(db, userId);
-
-  if (!profileId) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'User profile not found' }),
-    };
-  }
 
   // Get pagination params with validation
   // Per CLAUDE.md: validate all input - Number.parseInt('invalid') returns NaN

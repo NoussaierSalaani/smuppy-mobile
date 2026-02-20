@@ -9,18 +9,15 @@
  * - Payout management via Stripe Connect
  * - Revenue analytics
  */
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
 import { getStripeClient } from '../../shared/stripe-client';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
-import { resolveProfileId } from '../utils/auth';
+import { createLogger } from '../utils/logger';
 
 const log = createLogger('payments-wallet');
-
-// CORS headers now dynamically created via createHeaders(event)
 
 interface WalletBody {
   action:
@@ -37,37 +34,14 @@ interface WalletBody {
   type?: 'channel' | 'session' | 'pack' | 'all';
 }
 
-export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
-
-  try {
+export const handler = withAuthHandler('payments-wallet', async (event, { headers, log, cognitoSub, profileId }) => {
     await getStripeClient();
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
 
     // Rate limit: 20 wallet requests per minute — fail-closed for financial data
-    const rateLimitResponse = await requireRateLimit({ prefix: 'wallet', identifier: userId, windowSeconds: 60, maxRequests: 20, failOpen: false }, headers);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'wallet', identifier: cognitoSub, windowSeconds: 60, maxRequests: 20, failOpen: false }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     const body: WalletBody = JSON.parse(event.body || '{}');
-
-    // Resolve cognito_sub → profile ID
-    const pool = await getPool();
-    const profileId = await resolveProfileId(pool, userId);
-    if (!profileId) {
-      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
-    }
 
     switch (body.action) {
       case 'get-dashboard':
@@ -82,8 +56,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return await getPayouts(profileId, body.limit || 10, headers);
       case 'create-payout': {
         // Stricter rate limit for payouts — failClosed to prevent abuse during DynamoDB outage
-        const rateLimitResponse = await requireRateLimit({ prefix: 'wallet-payout', identifier: userId, windowSeconds: 60, maxRequests: 3, failOpen: false }, headers);
-        if (rateLimitResponse) return rateLimitResponse;
+        const payoutRateLimitResponse = await requireRateLimit({ prefix: 'wallet-payout', identifier: cognitoSub, windowSeconds: 60, maxRequests: 3, failOpen: false }, headers);
+        if (payoutRateLimitResponse) return payoutRateLimitResponse;
         return await createPayout(profileId, headers);
       }
       case 'get-stripe-dashboard-link':
@@ -95,15 +69,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
-  } catch (error) {
-    log.error('Wallet error', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-};
+});
 
 /**
  * Get comprehensive creator dashboard data

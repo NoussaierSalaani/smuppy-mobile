@@ -3,29 +3,18 @@
  * Updates a comment (only author can update)
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
 import { requireRateLimit } from '../utils/rate-limit';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { moderateText } from '../utils/text-moderation';
 
-export const handler = withErrorHandler('comments-update', async (event, { headers, log }) => {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'comments-update', identifier: userId, maxRequests: 20 }, headers);
+export const handler = withAuthHandler('comments-update', async (event, { headers, log, cognitoSub, profileId, db }) => {
+    const rateLimitResponse = await requireRateLimit({ prefix: 'comments-update', identifier: cognitoSub, maxRequests: 20 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check
-    const accountCheck = await requireActiveAccount(userId, headers);
+    const accountCheck = await requireActiveAccount(cognitoSub, headers);
     if (isAccountError(accountCheck)) return accountCheck;
 
     const commentId = event.pathParameters?.id;
@@ -71,24 +60,6 @@ export const handler = withErrorHandler('comments-update', async (event, { heade
     // Moderate comment text (keyword filter + Comprehend toxicity)
     const modResult = await moderateText(sanitizedText, headers, log, 'comment update');
     if (modResult.blocked) return modResult.blockResponse!;
-
-    const db = await getPool();
-
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    const profileId = userResult.rows[0].id;
 
     // Check if comment exists and user owns it
     const commentResult = await db.query(

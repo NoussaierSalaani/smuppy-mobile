@@ -3,8 +3,7 @@
  * Create a sports/fitness activity group on the map
  */
 
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { sanitizeInput } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -40,20 +39,10 @@ interface CreateGroupRequest {
   cover_image_url?: string;
 }
 
-export const handler = withErrorHandler('groups-create', async (event, { headers, log }) => {
-  const pool = await getPool();
-  const client = await pool.connect();
+export const handler = withAuthHandler('groups-create', async (event, { headers, log, cognitoSub, profileId, db }) => {
+  const client = await db.connect();
 
   try {
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
-
     // Rate limit
     const rateLimitResponse = await requireRateLimit({
       prefix: 'groups-create',
@@ -69,19 +58,11 @@ export const handler = withErrorHandler('groups-create', async (event, { headers
       return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
-    // Resolve profile and account type
+    // Resolve account type for limit/pricing checks
     const profileResult = await client.query(
-      'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
+      'SELECT account_type FROM profiles WHERE id = $1',
+      [profileId]
     );
-    if (profileResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      };
-    }
-    const profileId = profileResult.rows[0].id;
     const accountType = profileResult.rows[0].account_type;
 
     // Enforce monthly creation limit for personal accounts (4/month)

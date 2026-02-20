@@ -3,8 +3,15 @@ import { getPool } from '../../shared/db';
 import { createCacheableHeaders } from './cors';
 import { createLogger } from './logger';
 
+const LIST_QUERIES = {
+  interests: `SELECT id, name, icon, category FROM interests ORDER BY category, name LIMIT 500`,
+  expertise: `SELECT id, name, icon, category FROM expertise ORDER BY category, name LIMIT 500`,
+} as const;
+
+type ListTableName = keyof typeof LIST_QUERIES;
+
 interface ListHandlerConfig {
-  tableName: string;
+  tableName: ListTableName;
   loggerName: string;
   description: string;
 }
@@ -19,9 +26,8 @@ export function createListHandler(config: ListHandlerConfig) {
     try {
       const db = await getPool();
 
-      const result = await db.query(
-        `SELECT id, name, icon, category FROM ${config.tableName} ORDER BY category, name LIMIT 500`
-      );
+      const queryText = LIST_QUERIES[config.tableName];
+      const result = await db.query(queryText); // constant query; identifiers not interpolated
 
       const data = result.rows.map((row: { id: string; name: string; icon: string; category: string }) => ({
         id: row.id,

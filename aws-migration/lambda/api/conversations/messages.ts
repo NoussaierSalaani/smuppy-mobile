@@ -3,28 +3,17 @@
  * Returns messages in a specific conversation
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool, getReaderPool, SqlParam } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { getReaderPool, SqlParam } from '../../shared/db';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
-import { resolveProfileId } from '../utils/auth';
 
-export const handler = withErrorHandler('conversations-messages', async (event, { headers }) => {
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ message: 'Unauthorized' }),
-    };
-  }
-
+export const handler = withAuthHandler('conversations-messages', async (event, { headers, cognitoSub, profileId, db }) => {
   // Rate limit: 60 requests per minute for message fetching
   // Per CLAUDE.md: rate limit ALL endpoints
   const rateLimitResponse = await requireRateLimit({
     prefix: 'conversations-messages',
-    identifier: userId,
+    identifier: cognitoSub,
     windowSeconds: 60,
     maxRequests: 60,
   }, headers);
@@ -49,17 +38,6 @@ export const handler = withErrorHandler('conversations-messages', async (event, 
   }
 
   const readerDb = await getReaderPool();
-
-  // Get user's profile ID
-  const profileId = await resolveProfileId(readerDb, userId);
-
-  if (!profileId) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ message: 'User profile not found' }),
-    };
-  }
 
   // Check if user is participant in this conversation
   const conversationResult = await readerDb.query(
@@ -142,8 +120,7 @@ export const handler = withErrorHandler('conversations-messages', async (event, 
   // Mark messages as read only when explicitly requested (uses writer pool for mutations)
   const shouldMarkRead = event.queryStringParameters?.markAsRead === 'true';
   if (shouldMarkRead) {
-    const writerDb = await getPool();
-    await writerDb.query(
+    await db.query(
       `UPDATE messages
        SET read = true
        WHERE conversation_id = $1 AND sender_id != $2 AND read = false`,

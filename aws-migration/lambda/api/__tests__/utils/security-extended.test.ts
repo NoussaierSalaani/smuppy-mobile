@@ -100,6 +100,12 @@ describe('Security Utils - Extended', () => {
     it('should handle text with only HTML tags', () => {
       expect(sanitizeText('<br/><hr/>')).toBe('');
     });
+
+    it('should cap work and output length for very large inputs', () => {
+      const huge = '<'.repeat(100000) + 'safe';
+      const result = sanitizeText(huge, 500);
+      expect(result.length).toBeLessThanOrEqual(500);
+    });
   });
 
   describe('extractCognitoSub', () => {

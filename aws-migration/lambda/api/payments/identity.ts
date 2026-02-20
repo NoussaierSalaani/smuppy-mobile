@@ -7,18 +7,14 @@
  * - Stripe Identity charges ~$1.50 per verification (first time only)
  * - If subscription lapses, is_verified is set to false via webhook
  */
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getStripePublishableKey } from '../../shared/secrets';
 import { getStripeClient } from '../../shared/stripe-client';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { VERIFICATION_FEE_CENTS } from '../utils/constants';
-import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('payments-identity');
 
 // Stripe Price ID — resolved lazily by getOrCreateVerificationPrice()
 let cachedVerificationPriceId: string | null = null;
@@ -91,37 +87,14 @@ interface IdentityBody {
   paymentIntentId?: string;
 }
 
-export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
-
-  try {
+export const handler = withAuthHandler('payments-identity', async (event, { headers, log, cognitoSub, profileId }) => {
     const stripe = await getStripeClient();
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
 
     // Rate limit: 10 identity actions per minute
-    const rateLimitResponse = await requireRateLimit({ prefix: 'payment-identity', identifier: userId, windowSeconds: 60, maxRequests: 10 }, headers);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'payment-identity', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     const body: IdentityBody = JSON.parse(event.body || '{}');
-
-    // Resolve cognito_sub → profile ID
-    const pool = await getPool();
-    const profileId = await resolveProfileId(pool, userId);
-    if (!profileId) {
-      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
-    }
 
     // Validate returnUrl if provided — must be smuppy:// deep link or https://smuppy.com
     if (body.returnUrl && !/^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/.test(body.returnUrl)) {
@@ -164,15 +137,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
-  } catch (error) {
-    log.error('Identity error', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-};
+});
 
 // ============================================
 // SUBSCRIPTION-BASED VERIFICATION

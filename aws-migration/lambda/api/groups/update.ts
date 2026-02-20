@@ -3,12 +3,10 @@
  * Partial update of a group (creator only)
  */
 
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { sanitizeInput, isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { resolveProfileId } from '../utils/auth';
 import { moderateTexts } from '../utils/text-moderation';
 
 const VALID_DIFFICULTIES = ['easy', 'moderate', 'hard', 'expert'];
@@ -49,20 +47,10 @@ const ALLOWED_FIELDS: Record<string, UpdateGroupField> = {
   coverImageUrl: { column: 'cover_image_url', maxLength: 2000, type: 'text' },
 };
 
-export const handler = withErrorHandler('groups-update', async (event, { headers, log }) => {
-  const pool = await getPool();
-  const client = await pool.connect();
+export const handler = withAuthHandler('groups-update', async (event, { headers, log, cognitoSub, profileId, db }) => {
+  const client = await db.connect();
 
   try {
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
-
     // Rate limit
     const rateLimitResponse = await requireRateLimit({
       prefix: 'group-update',
@@ -84,16 +72,6 @@ export const handler = withErrorHandler('groups-update', async (event, { headers
         statusCode: 400,
         headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      };
-    }
-
-    // Resolve profile
-    const profileId = await resolveProfileId(client, cognitoSub);
-    if (!profileId) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
       };
     }
 

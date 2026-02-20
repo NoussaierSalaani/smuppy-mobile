@@ -17,21 +17,10 @@
  * - Business subscriptions
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 
-export const handler = withErrorHandler('profiles-export-data', async (event, { headers, log }) => {
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-  if (!cognitoSub) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-    };
-  }
-
+export const handler = withAuthHandler('profiles-export-data', async (event, { headers, log, cognitoSub, profileId, db }) => {
   // Rate limit: 3 exports per hour (expensive query)
   const rateLimitResponse = await requireRateLimit({
     prefix: 'profile-export',
@@ -41,27 +30,16 @@ export const handler = withErrorHandler('profiles-export-data', async (event, { 
   }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
-  const db = await getPool();
-
-  // Get user profile
+  // Get user profile data for export
   const profileResult = await db.query(
     `SELECT id, username, full_name, display_name, email, bio, avatar_url,
             account_type, is_verified, created_at, updated_at,
             business_name, business_category, location, website, phone_number
-     FROM profiles WHERE cognito_sub = $1`,
-    [cognitoSub]
+     FROM profiles WHERE id = $1`,
+    [profileId]
   );
 
-  if (profileResult.rows.length === 0) {
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Profile not found' }),
-    };
-  }
-
   const profile = profileResult.rows[0];
-  const profileId = profile.id;
 
   // Fetch all user data in parallel (read-only queries, no transaction needed)
   const [

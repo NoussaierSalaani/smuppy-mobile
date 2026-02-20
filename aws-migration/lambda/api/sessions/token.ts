@@ -3,58 +3,30 @@
  * POST /sessions/{id}/token - Generate Agora token for session
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { isValidUUID } from '../utils/security';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
-import { createLogger } from '../utils/logger';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
-import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('sessions-token');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID || '';
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || '';
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
-  }
-
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-  if (!cognitoSub) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-    };
-  }
-
+export const handler = withAuthHandler('sessions-token', async (event, { headers, cognitoSub, profileId, db }) => {
   const sessionId = event.pathParameters?.id;
   if (!sessionId || !isValidUUID(sessionId)) {
     return {
       statusCode: 400,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({ success: false, message: 'Valid session ID required' }),
     };
   }
 
-  const rateLimitResponse = await requireRateLimit({ prefix: 'session-token', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 10 }, corsHeaders);
+  const rateLimitResponse = await requireRateLimit({ prefix: 'session-token', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 10 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
-  try {
-    const pool = await getPool();
-
-    // Resolve cognitoSub → profile ID
-    const profileId = await resolveProfileId(pool, cognitoSub);
-    if (!profileId) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
-    }
-
     // Get session and verify user is participant
-    const sessionResult = await pool.query(
+    const sessionResult = await db.query(
       `SELECT id, creator_id, fan_id, scheduled_at, duration, agora_channel, started_at
        FROM private_sessions
        WHERE id = $1 AND (creator_id = $2 OR fan_id = $2)
@@ -65,7 +37,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (sessionResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Session not found or not authorized' }),
       };
     }
@@ -81,7 +53,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (now < fiveMinBefore) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Session has not started yet',
@@ -93,7 +65,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (now > sessionEnd) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Session has ended' }),
       };
     }
@@ -102,7 +74,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     let channelName = session.agora_channel;
     if (!channelName) {
       channelName = `session_${sessionId}`;
-      await pool.query(
+      await db.query(
         `UPDATE private_sessions SET agora_channel = $1 WHERE id = $2`,
         [channelName, sessionId]
       );
@@ -130,7 +102,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Update session status to in_progress if not already
     if (!session.started_at) {
-      await pool.query(
+      await db.query(
         `UPDATE private_sessions SET status = 'in_progress', started_at = NOW() WHERE id = $1`,
         [sessionId]
       );
@@ -138,7 +110,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({
         success: true,
         token,
@@ -149,15 +121,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         expiresIn: tokenExpireSeconds,
       }),
     };
-  } catch (error) {
-    log.error('Generate token error', error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Failed to generate token' }),
-    };
-  }
-};
+});
 
 // Simple hash function for generating UID from UUID
 function hashCode(str: string): number {

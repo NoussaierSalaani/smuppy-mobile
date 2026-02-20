@@ -3,9 +3,7 @@
  * Sends a message in a conversation
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_MESSAGE_LENGTH } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
@@ -14,18 +12,9 @@ import { isBidirectionallyBlocked } from '../utils/block-filter';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { moderateText } from '../utils/text-moderation';
 
-export const handler = withErrorHandler('conversations-send-message', async (event, { headers, log }) => {
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ message: 'Unauthorized' }),
-    };
-  }
-
+export const handler = withAuthHandler('conversations-send-message', async (event, { headers, log, cognitoSub, profileId, db }) => {
   // Rate limit: 60 messages per minute
-  const rateLimitResponse = await requireRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
+  const rateLimitResponse = await requireRateLimit({ prefix: 'send-message', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   const conversationId = event.pathParameters?.id;
@@ -77,7 +66,7 @@ export const handler = withErrorHandler('conversations-send-message', async (eve
   // Per-conversation rate limit: 10 messages per minute per conversation
   const convRateLimitResponse = await requireRateLimit({
     prefix: 'send-message-conv',
-    identifier: `${userId}:${conversationId}`,
+    identifier: `${cognitoSub}:${conversationId}`,
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 10,
   }, headers);
@@ -134,7 +123,7 @@ export const handler = withErrorHandler('conversations-send-message', async (eve
   }
 
   // Check account status (suspended/banned users cannot send messages)
-  const accountCheck = await requireActiveAccount(userId, headers);
+  const accountCheck = await requireActiveAccount(cognitoSub, headers);
   if (isAccountError(accountCheck)) return accountCheck;
 
   // Skip moderation for pure shared content messages (only contain the share token)
@@ -143,12 +132,10 @@ export const handler = withErrorHandler('conversations-send-message', async (eve
     if (modResult.blocked) return modResult.blockResponse!;
   }
 
-  const db = await getPool();
-
-  // Get user's profile
+  // Get user's profile details (username, display_name, avatar_url) for response and push
   const userResult = await db.query(
-    'SELECT id, username, display_name, avatar_url FROM profiles WHERE cognito_sub = $1',
-    [userId]
+    'SELECT id, username, display_name, avatar_url FROM profiles WHERE id = $1',
+    [profileId]
   );
 
   if (userResult.rows.length === 0) {

@@ -3,15 +3,10 @@
  * POST /sessions - Book a new private session
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool, corsHeaders } from '../../shared/db';
-import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MIN_SESSION_DURATION_MINUTES, MAX_SESSION_DURATION_MINUTES } from '../utils/constants';
-import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('sessions-create');
 
 interface CreateSessionBody {
   creatorId: string;
@@ -21,42 +16,17 @@ interface CreateSessionBody {
   fromPackId?: string; // If using a session pack
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
-  }
-
-  const userId = event.requestContext.authorizer?.claims?.sub;
-  if (!userId) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-    };
-  }
-
-  const rateLimitResponse = await requireRateLimit({ prefix: 'session-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 }, corsHeaders);
+export const handler = withAuthHandler('sessions-create', async (event, { headers, cognitoSub, profileId, db }) => {
+  const rateLimitResponse = await requireRateLimit({ prefix: 'session-create', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
-  try {
-    // Resolve cognito_sub to profile ID
-    const pool0 = await getPool();
-    const profileId = await resolveProfileId(pool0, userId);
-    if (!profileId) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      };
-    }
     const body: CreateSessionBody = JSON.parse(event.body || '{}');
     const { creatorId, scheduledAt, duration, notes, fromPackId } = body;
 
     if (!creatorId || !scheduledAt || !duration) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Missing required fields' }),
       };
     }
@@ -64,7 +34,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!isValidUUID(creatorId) || (fromPackId && !isValidUUID(fromPackId))) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
       };
     }
@@ -74,7 +44,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (Number.isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid or past scheduled date' }),
       };
     }
@@ -84,13 +54,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (Number.isNaN(safeDuration)) {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid duration' }),
       };
     }
 
-    const pool = await getPool();
-    const client = await pool.connect();
+    const client = await db.connect();
 
     try {
       await client.query('BEGIN');
@@ -106,7 +75,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         await client.query('ROLLBACK');
         return {
           statusCode: 404,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({ success: false, message: 'Creator not found' }),
         };
       }
@@ -116,7 +85,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         await client.query('ROLLBACK');
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({ success: false, message: 'Creator does not accept sessions' }),
         };
       }
@@ -140,7 +109,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         await client.query('ROLLBACK');
         return {
           statusCode: 409,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({ success: false, message: 'Time slot not available' }),
         };
       }
@@ -160,7 +129,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           await client.query('ROLLBACK');
           return {
             statusCode: 400,
-            headers: corsHeaders,
+            headers,
             body: JSON.stringify({ success: false, message: 'Invalid or expired pack' }),
           };
         }
@@ -177,7 +146,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           await client.query('ROLLBACK');
           return {
             statusCode: 400,
-            headers: corsHeaders,
+            headers,
             body: JSON.stringify({ success: false, message: 'No sessions remaining in pack' }),
           };
         }
@@ -223,7 +192,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       return {
         statusCode: 201,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({
           success: true,
           session: {
@@ -243,12 +212,4 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } finally {
       client.release();
     }
-  } catch (error) {
-    log.error('Create session error', error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Failed to create session' }),
-    };
-  }
-};
+});

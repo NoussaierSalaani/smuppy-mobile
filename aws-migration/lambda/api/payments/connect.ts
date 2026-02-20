@@ -2,17 +2,13 @@
  * Stripe Connect Lambda
  * Handles creator onboarding to Stripe Connect for revenue share
  */
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getPool } from '../../shared/db';
 import { getStripeClient } from '../../shared/stripe-client';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
-import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('payments/connect');
 
 // SECURITY: Allowed URL patterns for Stripe redirects
 const ALLOWED_URL_PATTERN = /^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/;
@@ -25,72 +21,49 @@ interface ConnectBody {
   stripeAccountId?: string;
 }
 
-export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  const corsHeaders = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
-  }
-
-  try {
+export const handler = withAuthHandler('payments-connect', async (event, { headers, log, cognitoSub, profileId, db }) => {
     await getStripeClient();
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
 
     // Rate limit: 10 connect actions per minute
-    const rateLimitResponse = await requireRateLimit({ prefix: 'payment-connect', identifier: userId, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'payment-connect', identifier: cognitoSub, windowSeconds: 60, maxRequests: 10 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     const body: ConnectBody = JSON.parse(event.body || '{}');
 
-    // Resolve cognito_sub → profile ID
-    const pool = await getPool();
-    const profileId = await resolveProfileId(pool, userId);
-    if (!profileId) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Profile not found' }) };
-    }
-
     switch (body.action) {
       case 'create-account':
-        return await createConnectAccount(profileId, corsHeaders);
+        return await createConnectAccount(profileId, headers);
       case 'create-link':
         // SECURITY: Validate returnUrl and refreshUrl against allowlist
         if (!body.returnUrl || !ALLOWED_URL_PATTERN.test(body.returnUrl)) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid return URL' }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid return URL' }) };
         }
         if (!body.refreshUrl || !ALLOWED_URL_PATTERN.test(body.refreshUrl)) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid refresh URL' }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid refresh URL' }) };
         }
-        return await createAccountLink(profileId, body.returnUrl, body.refreshUrl, corsHeaders);
+        return await createAccountLink(profileId, body.returnUrl, body.refreshUrl, headers);
       case 'get-status':
-        return await getAccountStatus(profileId, corsHeaders);
+        return await getAccountStatus(profileId, headers);
       case 'get-dashboard-link':
-        return await getDashboardLink(profileId, corsHeaders);
+        return await getDashboardLink(profileId, headers);
       case 'get-balance':
-        return await getBalance(profileId, corsHeaders);
+        return await getBalance(profileId, headers);
       case 'admin-set-account': {
         // SECURITY: Require admin key verification, not just environment check
         const { getAdminKey } = await import('../../shared/secrets');
         const adminKey = event.headers?.['x-admin-key'] || event.headers?.['X-Admin-Key'];
         if (!adminKey) {
-          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Admin key required' }) };
+          return { statusCode: 403, headers, body: JSON.stringify({ success: false, message: 'Admin key required' }) };
         }
         const expectedKey = await getAdminKey();
         const { timingSafeEqual } = await import('crypto');
         const a = Buffer.from(adminKey);
         const b = Buffer.from(expectedKey);
         if (a.length !== b.length || !timingSafeEqual(a, b)) {
-          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Invalid admin key' }) };
+          return { statusCode: 403, headers, body: JSON.stringify({ success: false, message: 'Invalid admin key' }) };
         }
         if (!body.targetProfileId || !body.stripeAccountId) {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Missing targetProfileId or stripeAccountId' }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing targetProfileId or stripeAccountId' }) };
         }
         // Verify the Stripe account exists and is an Express account
         const stripeForAdmin = await getStripeClient();
@@ -98,39 +71,30 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         try {
           adminAccount = await stripeForAdmin.accounts.retrieve(body.stripeAccountId);
         } catch {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Stripe account not found' }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Stripe account not found' }) };
         }
         if (adminAccount.type !== 'express') {
-          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Only Express accounts are supported' }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Only Express accounts are supported' }) };
         }
         // Verify account is not already assigned to another user
-        const adminPool = await getPool();
-        const existingAssignment = await adminPool.query(
+        const existingAssignment = await db.query(
           'SELECT id FROM profiles WHERE stripe_account_id = $1 AND id != $2',
           [body.stripeAccountId, body.targetProfileId]
         );
         if (existingAssignment.rows.length > 0) {
-          return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, message: 'Stripe account already assigned to another user' }) };
+          return { statusCode: 409, headers, body: JSON.stringify({ success: false, message: 'Stripe account already assigned to another user' }) };
         }
-        await adminPool.query('UPDATE profiles SET stripe_account_id = $1, channel_price_cents = COALESCE(channel_price_cents, 999), updated_at = NOW() WHERE id = $2', [body.stripeAccountId, body.targetProfileId]);
-        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, targetProfileId: body.targetProfileId, stripeAccountId: body.stripeAccountId }) };
+        await db.query('UPDATE profiles SET stripe_account_id = $1, channel_price_cents = COALESCE(channel_price_cents, 999), updated_at = NOW() WHERE id = $2', [body.stripeAccountId, body.targetProfileId]);
+        return { statusCode: 200, headers, body: JSON.stringify({ success: true, targetProfileId: body.targetProfileId, stripeAccountId: body.stripeAccountId }) };
       }
       default:
         return {
           statusCode: 400,
-          headers: corsHeaders,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
-  } catch (error) {
-    log.error('Connect error', { error: error instanceof Error ? error.message : 'Unknown error' });
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-};
+});
 
 async function createConnectAccount(userId: string, corsHeaders: Record<string, string>): Promise<APIGatewayProxyResult> {
   const stripe = await getStripeClient();

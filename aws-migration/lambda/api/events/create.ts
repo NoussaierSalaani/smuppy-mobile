@@ -3,8 +3,7 @@
  * Create a sports/fitness event on the map
  */
 
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_EVENT_TITLE_LENGTH, MIN_EVENT_PARTICIPANTS, MAX_EVENT_PARTICIPANTS } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
@@ -39,42 +38,24 @@ interface CreateEventRequest {
   routeWaypoints?: { lat: number; lng: number; name?: string }[];
 }
 
-export const handler = withErrorHandler('events-create', async (event, { headers, log }) => {
-  const pool = await getPool();
-  const client = await pool.connect();
+export const handler = withAuthHandler('events-create', async (event, { headers, log, cognitoSub, profileId, db }) => {
+  const client = await db.connect();
 
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'event-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 }, headers);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'event-create', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot create events)
-    const accountCheck = await requireActiveAccount(userId, {});
+    const accountCheck = await requireActiveAccount(cognitoSub, {});
     if (isAccountError(accountCheck)) {
       return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
-    // Resolve cognito_sub to profile ID and account type
+    // Resolve account type for limit/pricing checks
     const profileResult = await client.query(
-      'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
-      [userId]
+      'SELECT account_type FROM profiles WHERE id = $1',
+      [profileId]
     );
-    if (profileResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      };
-    }
-    const profileId = profileResult.rows[0].id;
     const accountType = profileResult.rows[0].account_type;
 
     // Enforce monthly creation limit for personal accounts (4/month)

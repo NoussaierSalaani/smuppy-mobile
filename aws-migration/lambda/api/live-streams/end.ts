@@ -3,17 +3,11 @@
  * Marks a live stream as ended and records stats
  */
 
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
-export const handler = withErrorHandler('live-streams-end', async (event, { headers, log }) => {
-  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-  if (!cognitoSub) {
-    return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
-  }
-
+export const handler = withAuthHandler('live-streams-end', async (event, { headers, cognitoSub, profileId, db }) => {
   // Rate limit: destructive action
   const rateLimitResponse = await requireRateLimit({
     prefix: 'live-stream-end',
@@ -23,19 +17,7 @@ export const handler = withErrorHandler('live-streams-end', async (event, { head
   }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
-  const pool = await getPool();
-
-  const profileResult = await pool.query(
-    'SELECT id FROM profiles WHERE cognito_sub = $1',
-    [cognitoSub]
-  );
-  if (profileResult.rows.length === 0) {
-    return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
-  }
-
-  const profileId = profileResult.rows[0].id;
-
-  const client = await pool.connect();
+  const client = await db.connect();
   try {
     await client.query('BEGIN');
 

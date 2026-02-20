@@ -3,7 +3,7 @@
  * View and manage user's business subscriptions
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
+import { useDataFetch } from '../../hooks/useDataFetch';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateShort } from '../../utils/dateFormatters';
@@ -70,34 +71,16 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
   const { formatAmount } = useCurrency();
   const { colors, isDark } = useTheme();
 
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { data: rawSubscriptions, isLoading, isRefreshing, refresh: handleRefresh, reload } = useDataFetch(
+    () => awsAPI.getMyBusinessSubscriptions(),
+    {
+      extractData: (r) => (r.subscriptions || []) as unknown as Subscription[],
+      defaultValue: [] as Subscription[],
+    }
+  );
+  const subscriptions = rawSubscriptions ?? [];
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  useEffect(() => {
-    loadSubscriptions();
-  }, []);
-
-  const loadSubscriptions = async () => {
-    try {
-      const response = await awsAPI.getMyBusinessSubscriptions();
-      if (response.success) {
-        setSubscriptions((response.subscriptions || []) as unknown as Subscription[]);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Load subscriptions error:', error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    loadSubscriptions();
-  };
 
   const handleCancelSubscription = (subscription: Subscription) => {
     showDestructiveConfirm(
@@ -108,7 +91,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
           const response = await awsAPI.cancelBusinessSubscription(subscription.id);
           if (response.success) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            loadSubscriptions();
+            reload();
           } else {
             throw new Error(response.message);
           }
@@ -126,7 +109,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         showSuccess('Reactivated', 'Your subscription has been reactivated!');
-        loadSubscriptions();
+        reload();
       } else {
         throw new Error(response.message);
       }

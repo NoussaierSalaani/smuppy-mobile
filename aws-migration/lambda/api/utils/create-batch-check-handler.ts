@@ -8,10 +8,17 @@ import { resolveProfileId } from './auth';
 const MAX_BATCH_SIZE = 50;
 
 interface BatchCheckHandlerConfig {
-  tableName: string;
+  tableName: BatchCheckTable;
   responseKey: string;
   loggerName: string;
 }
+
+const BATCH_CHECK_QUERIES = {
+  likes: `SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])`,
+  saved_posts: `SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])`,
+} as const;
+
+type BatchCheckTable = keyof typeof BATCH_CHECK_QUERIES;
 
 export function createBatchCheckHandler(config: BatchCheckHandlerConfig) {
   const log = createLogger(config.loggerName);
@@ -88,10 +95,8 @@ export function createBatchCheckHandler(config: BatchCheckHandlerConfig) {
         };
       }
 
-      const queryResult = await db.query(
-        `SELECT post_id FROM ${config.tableName} WHERE user_id = $1 AND post_id = ANY($2::uuid[])`,
-        [profileId, postIds]
-      );
+      const queryText = BATCH_CHECK_QUERIES[config.tableName];
+      const queryResult = await db.query(queryText, [profileId, postIds]); // constant query; identifiers not interpolated
 
       const matchedSet = new Set(queryResult.rows.map((row: { post_id: string }) => row.post_id));
 

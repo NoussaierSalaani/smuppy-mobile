@@ -51,18 +51,46 @@ export function sanitizeInput(input: string, maxLength: number = 1000): string {
 }
 
 /**
+ * SECURITY: Strip HTML tags in linear time to avoid regex backtracking (ReDoS).
+ * Uses a simple state machine instead of regex; input is length-capped before processing.
+ */
+function stripHtmlTagsLinear(input: string): string {
+  let result = '';
+  let inTag = false;
+
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === '<') {
+      inTag = true;
+      continue;
+    }
+    if (ch === '>' && inTag) {
+      inTag = false;
+      continue;
+    }
+    if (!inTag) result += ch;
+  }
+
+  return result;
+}
+
+/**
  * SECURITY: Sanitize text input with HTML stripping
  * Use for user-generated content (comments, bios, captions, etc.)
  */
 export function sanitizeText(text: string, maxLength: number = 500): string {
   if (!text || typeof text !== 'string') return '';
 
-  return text
-    .replaceAll(/<[^>]*>/g, '') // Strip HTML tags (XSS prevention) // NOSONAR
+  // Bound the work up front
+  const capped = String(text).slice(0, maxLength);
+
+  const stripped = stripHtmlTagsLinear(capped);
+
+  return stripped
     .trim()
     .slice(0, maxLength)
     .replaceAll('\0', '') // Remove null bytes
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — Remove control chars
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars
 }
 
 /**
@@ -171,4 +199,3 @@ export function logSecurityEvent(
 ): void {
   log.logSecurity(eventType, details);
 }
-

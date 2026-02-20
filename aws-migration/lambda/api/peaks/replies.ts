@@ -4,27 +4,20 @@
  * GET /peaks/{id}/replies - Get all peak replies to a peak
  */
 
-import { getPool } from '../../shared/db';
 import { createCorsResponse } from '../utils/cors';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
-import { resolveProfileId } from '../utils/auth';
 import { requireRateLimit } from '../utils/rate-limit';
 
-export const handler = withErrorHandler('peaks-replies', async (event, { headers, log }) => {
-  const userId = event.requestContext.authorizer?.claims?.sub;
+export const handler = withAuthHandler('peaks-replies', async (event, { headers, log, cognitoSub, profileId, db }) => {
   const peakId = event.pathParameters?.id;
   const httpMethod = event.httpMethod;
-
-  if (!userId) {
-    return createCorsResponse(401, { success: false, message: 'Unauthorized' });
-  }
 
   // Only rate limit POST (creating replies), not GET (listing)
   if (event.httpMethod === 'POST') {
     const rateLimitResponse = await requireRateLimit({
       prefix: 'peak-replies',
-      identifier: userId,
+      identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 10,
     }, headers);
@@ -39,14 +32,6 @@ export const handler = withErrorHandler('peaks-replies', async (event, { headers
   if (!isValidUUID(peakId)) {
     return createCorsResponse(400, { success: false, message: 'Invalid peak ID format' });
   }
-
-    const db = await getPool();
-
-    // Resolve cognito_sub to profile ID
-    const profileId = await resolveProfileId(db, userId);
-    if (!profileId) {
-      return createCorsResponse(404, { success: false, message: 'Profile not found' });
-    }
 
     // Verify parent peak exists and check if responses are allowed
     const peakResult = await db.query(
@@ -252,7 +237,7 @@ export const handler = withErrorHandler('peaks-replies', async (event, { headers
       );
       const author = authorResult.rows[0];
 
-      log.info('Peak reply created', { parentPeakId: peakId.substring(0, 8) + '***', replyId: (newReply.id as string).substring(0, 8) + '***', userId: userId.substring(0, 8) + '***' });
+      log.info('Peak reply created', { parentPeakId: peakId.substring(0, 8) + '***', replyId: (newReply.id as string).substring(0, 8) + '***', userId: cognitoSub.substring(0, 8) + '***' });
 
       return createCorsResponse(201, {
         success: true,

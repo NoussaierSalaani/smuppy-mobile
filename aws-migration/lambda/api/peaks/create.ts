@@ -4,8 +4,7 @@
  */
 
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_PEAK_DURATION_SECONDS } from '../utils/constants';
 import { sanitizeText, isValidUUID } from '../utils/security';
@@ -32,19 +31,10 @@ function isValidUrl(url: string): boolean {
   }
 }
 
-export const handler = withErrorHandler('peaks-create', async (event, { headers, log }) => {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
+export const handler = withAuthHandler('peaks-create', async (event, { headers, log, cognitoSub, db }) => {
     const rateLimitResponse = await requireRateLimit({
       prefix: 'peak-create',
-      identifier: userId,
+      identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 5,
     }, headers);
@@ -112,7 +102,7 @@ export const handler = withErrorHandler('peaks-create', async (event, { headers,
     }
 
     // Check account moderation status
-    const accountCheck = await requireActiveAccount(userId, headers);
+    const accountCheck = await requireActiveAccount(cognitoSub, headers);
     if (isAccountError(accountCheck)) return accountCheck;
     const profile = {
       id: accountCheck.profileId,
@@ -168,8 +158,6 @@ export const handler = withErrorHandler('peaks-create', async (event, { headers,
         }
       }
     }
-
-    const db = await getPool();
 
     // Sanitize caption
     const sanitizedCaption = caption ? sanitizeText(caption, 500) : null;

@@ -5,38 +5,18 @@
  * INSERT + UPDATE are wrapped in a transaction for atomicity.
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
-import { resolveProfileId } from '../utils/auth';
+import { withAuthHandler } from '../utils/with-auth-handler';
+import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireRateLimit } from '../utils/rate-limit';
-import { withErrorHandler } from '../utils/error-handler';
 
-export const handler = withErrorHandler('posts-view', async (event, { headers, log }) => {
-    // Auth required
-    const cognitoSub = requireAuth(event, headers);
-    if (isErrorResponse(cognitoSub)) return cognitoSub;
-
+export const handler = withAuthHandler('posts-view', async (event, { headers, cognitoSub, profileId, db }) => {
     // Rate limit: 60 view recordings per minute
-    const rateLimitResponse = await requireRateLimit({ prefix: 'post-view', identifier: cognitoSub as string, maxRequests: 60, windowSeconds: 60 }, headers);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'post-view', identifier: cognitoSub, maxRequests: 60, windowSeconds: 60 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Get post ID from path
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;
-
-    const db = await getPool();
-
-    // Resolve viewer profile ID
-    const viewerId = await resolveProfileId(db, cognitoSub);
-
-    if (!viewerId) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'Profile not found' }),
-      };
-    }
 
     // Verify post exists before recording view
     const postExists = await db.query(
@@ -63,7 +43,7 @@ export const handler = withErrorHandler('posts-view', async (event, { headers, l
       const result = await client.query(
         `INSERT INTO post_views (post_id, user_id) VALUES ($1, $2)
          ON CONFLICT (post_id, user_id) DO NOTHING`,
-        [postId, viewerId]
+        [postId, profileId]
       );
 
       // Only increment views_count if this was a new view

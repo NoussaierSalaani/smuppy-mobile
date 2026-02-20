@@ -244,6 +244,18 @@ export function createRateLimitError(
 }
 
 /**
+ * Build a JSON APIGatewayProxyResult.
+ * Lightweight shorthand that accepts pre-computed headers (no duplicate createHeaders call).
+ */
+export function response(
+  statusCode: number,
+  body: Record<string, unknown>,
+  headers: Record<string, string>,
+): APIGatewayProxyResult {
+  return { statusCode, headers, body: JSON.stringify(body) };
+}
+
+/**
  * Wrap a Lambda handler with standardized error handling, CORS headers, and logging.
  *
  * The wrapped function receives the raw event plus a context object containing

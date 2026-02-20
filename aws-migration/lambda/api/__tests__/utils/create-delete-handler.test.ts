@@ -207,6 +207,21 @@ describe('createDeleteHandler', () => {
     expect(JSON.parse(result.body).message).toBe('Not authorized to delete this post');
   });
 
+  it('should use the whitelisted ownership SELECT with bound parameters', async () => {
+    mockQuery.mockResolvedValue({
+      rows: [{ id: TEST_RESOURCE_ID, author_id: TEST_PROFILE_ID }],
+    });
+    mockClient.query.mockResolvedValue({ rows: [] });
+
+    const handler = createDeleteHandler({ ...baseConfig, onDelete: mockOnDelete });
+    await handler(makeEvent());
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      'SELECT id, author_id FROM posts WHERE id = $1',
+      [TEST_RESOURCE_ID],
+    );
+  });
+
   it('should return 200 on successful delete with transaction', async () => {
     mockQuery.mockResolvedValue({
       rows: [{ id: TEST_RESOURCE_ID, author_id: TEST_PROFILE_ID }],
@@ -330,6 +345,19 @@ describe('createDeleteHandler', () => {
 
     expect(result.statusCode).toBe(200);
     expect(customOwnership).toHaveBeenCalled();
+  });
+
+  it('should short-circuit with 400 for unsupported resource configuration', async () => {
+    const handler = createDeleteHandler({
+      ...baseConfig,
+      resourceTable: 'unsupported' as unknown as 'posts',
+      onDelete: mockOnDelete,
+    });
+
+    const result = await handler(makeEvent());
+
+    expect(result.statusCode).toBe(400);
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it('should return 500 on unexpected error', async () => {

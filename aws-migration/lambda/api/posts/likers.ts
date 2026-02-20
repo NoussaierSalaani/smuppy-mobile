@@ -3,22 +3,16 @@
  * Returns paginated list of users who liked a specific post
  */
 
-import { getPool } from '../../shared/db';
-import { withErrorHandler } from '../utils/error-handler';
-import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
-import { resolveProfileId } from '../utils/auth';
+import { withAuthHandler } from '../utils/with-auth-handler';
+import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
-export const handler = withErrorHandler('posts-likers', async (event, { headers }) => {
-    // Auth check
-    const cognitoSub = requireAuth(event, headers);
-    if (isErrorResponse(cognitoSub)) return cognitoSub;
-
+export const handler = withAuthHandler('posts-likers', async (event, { headers, cognitoSub, profileId, db }) => {
     // Rate limit: anti-scraping of social data
     const rateLimitResponse = await requireRateLimit({
       prefix: 'posts-likers',
-      identifier: cognitoSub,
+      identifier: profileId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
       failOpen: true,
@@ -44,8 +38,6 @@ export const handler = withErrorHandler('posts-likers', async (event, { headers 
         };
       }
     }
-
-    const db = await getPool();
 
     // Verify post exists and check privacy
     const postResult = await db.query(
@@ -98,18 +90,14 @@ export const handler = withErrorHandler('posts-likers', async (event, { headers 
       params.push(new Date(Number.parseInt(cursor, 10)));
     }
 
-    // SECURITY: Resolve requester profile for block filtering
-    let blockClause = '';
-    const requesterProfileId = await resolveProfileId(db, cognitoSub);
-    if (requesterProfileId) {
-      params.push(requesterProfileId);
-      const blockParamIdx = params.length;
-      blockClause = `AND NOT EXISTS (
+    // Block filtering using profileId from withAuthHandler
+    params.push(profileId);
+    const blockParamIdx = params.length;
+    const blockClause = `AND NOT EXISTS (
         SELECT 1 FROM blocked_users bu
         WHERE (bu.blocker_id = $${blockParamIdx} AND bu.blocked_id = p.id)
            OR (bu.blocker_id = p.id AND bu.blocked_id = $${blockParamIdx})
       )`;
-    }
 
     const likersResult = await db.query(
       `SELECT

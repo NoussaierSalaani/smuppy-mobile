@@ -781,12 +781,13 @@ export const hasLikedPost = async (postId: string): Promise<{ hasLiked: boolean 
  * Check if current user liked multiple posts at once (batch operation)
  */
 export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
-  const resultMap = new Map<string, boolean>();
+  const buildMap = (record?: Record<string, boolean>) =>
+    new Map(postIds.map(id => [id, record?.[id] ?? false]));
+
   const user = await awsAuth.getCurrentUser();
 
   if (!user || postIds.length === 0) {
-    postIds.forEach(id => resultMap.set(id, false));
-    return resultMap;
+    return buildMap();
   }
 
   try {
@@ -795,18 +796,14 @@ export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string,
       body: { postIds },
     });
     if (result.likes && typeof result.likes === 'object') {
-      postIds.forEach(id => resultMap.set(id, result.likes[id] || false));
-    } else {
-      // Unexpected response shape — default to false
-      if (__DEV__) console.warn('[hasLikedPostsBatch] Unexpected response:', result);
-      postIds.forEach(id => resultMap.set(id, false));
+      return buildMap(result.likes);
     }
+    if (__DEV__) console.warn('[hasLikedPostsBatch] Unexpected response:', result);
+    return buildMap();
   } catch (err: unknown) {
     if (__DEV__) console.warn('[hasLikedPostsBatch] Error:', err);
-    postIds.forEach(id => resultMap.set(id, false));
+    return buildMap();
   }
-
-  return resultMap;
 };
 
 // ============================================
@@ -862,31 +859,35 @@ export const hasSavedPost = async (postId: string): Promise<{ saved: boolean }> 
  * Check if current user saved multiple posts at once (batch operation)
  */
 export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string, boolean>> => {
-  const resultMap = new Map<string, boolean>();
+  const buildMap = (record?: Record<string, boolean>) =>
+    new Map(postIds.map(id => [id, record?.[id] ?? false]));
+
   const user = await awsAuth.getCurrentUser();
 
   if (!user || postIds.length === 0) {
-    postIds.forEach(id => resultMap.set(id, false));
-    return resultMap;
+    return buildMap();
   }
 
   try {
-    const result = await awsAPI.request<{ saves: Record<string, boolean> }>('/posts/saves/batch', {
-      method: 'POST',
-      body: { postIds },
-    });
-    if (result.saves && typeof result.saves === 'object') {
-      postIds.forEach(id => resultMap.set(id, result.saves[id] || false));
-    } else {
-      if (__DEV__) console.warn('[hasSavedPostsBatch] Unexpected response:', result);
-      postIds.forEach(id => resultMap.set(id, false));
-    }
-  } catch (err: unknown) {
-    if (__DEV__) console.warn('[hasSavedPostsBatch] Error:', err);
-    postIds.forEach(id => resultMap.set(id, false));
-  }
+    const result = await awsAPI.request<{ saves: Record<string, boolean> }>(
+      '/posts/saves/batch',
+      {
+        method: 'POST',
+        body: { postIds },
+      }
+    );
 
-  return resultMap;
+    if (result.saves && typeof result.saves === 'object') {
+      return buildMap(result.saves);
+    }
+    if (__DEV__)
+      console.warn('[hasSavedPostsBatch] Unexpected response:', result);
+    return buildMap();
+  } catch (err: unknown) {
+    if (__DEV__)
+      console.warn('[hasSavedPostsBatch] Error:', err);
+    return buildMap();
+  }
 };
 
 /**

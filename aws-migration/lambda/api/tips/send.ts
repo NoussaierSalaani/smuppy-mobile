@@ -10,15 +10,13 @@
  */
 
 import Stripe from 'stripe';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID, sanitizeInput } from '../utils/security';
-import { getPool } from '../../shared/db';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { moderateText } from '../utils/text-moderation';
 import { getStripeClient } from '../../shared/stripe-client';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 import { requireRateLimit } from '../utils/rate-limit';
-import { resolveProfileId } from '../utils/auth';
 import { RATE_WINDOW_1_MIN, MAX_TIP_AMOUNT_CENTS, PLATFORM_FEE_PERCENT, MIN_PAYMENT_CENTS } from '../utils/constants';
 
 interface SendTipRequest {
@@ -34,35 +32,15 @@ interface SendTipRequest {
 // SECURITY: Whitelist of allowed currencies
 const ALLOWED_CURRENCIES = ['eur', 'usd'];
 
-export const handler = withErrorHandler('tips-send', async (event, { headers, log }) => {
-  const db = await getPool();
+export const handler = withAuthHandler('tips-send', async (event, { headers, log, cognitoSub, profileId, db }) => {
   const client = await db.connect();
 
   try {
     await client.query('BEGIN');
     const stripe = await getStripeClient();
-    // Get authenticated user
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
-
-    // Resolve cognito_sub to profile ID
-    const profileId = await resolveProfileId(client, userId);
-    if (!profileId) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      };
-    }
 
     // Account status check (suspended/banned users cannot send tips)
-    const accountCheck = await requireActiveAccount(userId, {});
+    const accountCheck = await requireActiveAccount(cognitoSub, {});
     if (isAccountError(accountCheck)) {
       return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
@@ -70,7 +48,7 @@ export const handler = withErrorHandler('tips-send', async (event, { headers, lo
     // Rate limit check (distributed via DynamoDB — works across Lambda instances)
     const rateLimitResponse = await requireRateLimit({
       prefix: 'tips-send',
-      identifier: userId,
+      identifier: cognitoSub,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
     }, headers);

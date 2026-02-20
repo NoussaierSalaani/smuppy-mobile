@@ -9,14 +9,12 @@
  * - Short-lived presigned URLs (5 minutes)
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomBytes } from 'crypto';
 import { requireRateLimit } from '../utils/rate-limit';
-import { withErrorHandler } from '../utils/error-handler';
+import { withAuthHandler } from '../utils/with-auth-handler';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS } from '../utils/constants';
-import { getPool } from '../../shared/db';
 import { checkQuota, getQuotaLimits } from '../utils/upload-quota';
 
 const s3Client = new S3Client({
@@ -104,19 +102,9 @@ function getUploadPath(userId: string, uploadType: string, filename: string): st
   }
 }
 
-export const handler = withErrorHandler('media-upload-url', async (event, { headers, log }) => {
-    // Get user ID from Cognito authorizer
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
-    }
-
+export const handler = withAuthHandler('media-upload-url', async (event, { headers, log, cognitoSub, profileId, db }) => {
     // Rate limit: 30 uploads per minute
-    const rateLimitResponse = await requireRateLimit({ prefix: 'media-upload', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 }, headers);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'media-upload', identifier: cognitoSub, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 30 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     if (!event.body) {
@@ -176,15 +164,12 @@ export const handler = withErrorHandler('media-upload-url', async (event, { head
     // Resolve account type for quota-aware limits
     const isQuotaUpload = uploadType === 'post' || uploadType === 'peak';
     let accountType = 'personal';
-    let profileId: string | null = null;
     if (isQuotaUpload) {
-      const db = await getPool();
       const profileResult = await db.query(
-        'SELECT id, account_type FROM profiles WHERE cognito_sub = $1',
-        [userId]
+        'SELECT account_type FROM profiles WHERE id = $1',
+        [profileId]
       );
       accountType = profileResult.rows[0]?.account_type || 'personal';
-      profileId = profileResult.rows[0]?.id || null;
     }
     const limits = getQuotaLimits(accountType);
 
@@ -257,7 +242,7 @@ export const handler = withErrorHandler('media-upload-url', async (event, { head
 
     // Generate secure filename and path
     const secureFilename = generateSecureFilename(contentType);
-    const key = getUploadPath(userId, uploadType, secureFilename);
+    const key = getUploadPath(cognitoSub, uploadType, secureFilename);
 
     // QUARANTINE-FIRST: images upload to pending-scan/<path> and are promoted
     // to <path> only after both virus scan and moderation pass.
@@ -273,7 +258,7 @@ export const handler = withErrorHandler('media-upload-url', async (event, { head
       ContentType: contentType,
       ContentLength: fileSize,
       Metadata: {
-        'uploaded-by': userId,
+        'uploaded-by': cognitoSub,
         'upload-type': uploadType,
         'original-filename': (request.filename || 'unknown').replaceAll(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255),
       },
@@ -291,7 +276,7 @@ export const handler = withErrorHandler('media-upload-url', async (event, { head
     const publicUrl = `https://${MEDIA_BUCKET}.s3.amazonaws.com/${key}`;
 
     // Log upload request (masked user ID for security)
-    log.info('Upload URL generated', { userId: userId.substring(0, 2) + '***', uploadType, mediaType });
+    log.info('Upload URL generated', { userId: cognitoSub.substring(0, 2) + '***', uploadType, mediaType });
 
     return {
       statusCode: 200,

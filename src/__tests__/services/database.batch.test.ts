@@ -1,12 +1,16 @@
 // Define __DEV__ for modules relying on it
 (global as unknown as { __DEV__: boolean }).__DEV__ = false;
 
+jest.mock('@sentry/react-native', () => ({}));
+jest.mock('expo-constants', () => ({ default: { manifest: {} } }));
+jest.mock('../../config/env', () => ({ ENV: { API_URL: '', STAGE: 'test' } }));
+jest.mock('../../lib/sentry', () => ({}));
+jest.mock('../../services/aws-api', () => ({ awsAPI: { request: jest.fn() } }));
+jest.mock('../../services/aws-auth', () => ({ awsAuth: { getCurrentUser: jest.fn() } }));
+
 import { awsAPI } from '../../services/aws-api';
 import { awsAuth } from '../../services/aws-auth';
 import { hasLikedPostsBatch, hasSavedPostsBatch } from '../../services/database';
-
-jest.mock('../../services/aws-api', () => ({ awsAPI: { request: jest.fn() } }));
-jest.mock('../../services/aws-auth', () => ({ awsAuth: { getCurrentUser: jest.fn() } }));
 
 const mockedAwsAPI = awsAPI as unknown as { request: jest.Mock };
 const mockedAwsAuth = awsAuth as unknown as { getCurrentUser: jest.Mock };
@@ -89,9 +93,3 @@ describe('database batch helpers', () => {
     });
   });
 });
-jest.mock('@sentry/react-native', () => ({}));
-jest.mock('expo-constants', () => ({ default: { manifest: {} } }));
-jest.mock('../../config/env', () => ({ ENV: { API_URL: '', STAGE: 'test' } }));
-jest.mock('../../lib/sentry', () => ({}));
-// Define __DEV__ for modules that rely on it
-(global as unknown as { __DEV__: boolean }).__DEV__ = false;

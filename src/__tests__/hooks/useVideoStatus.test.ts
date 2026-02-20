@@ -136,15 +136,20 @@ function createHookRunner<T>(hookFn: () => T) {
   return runner;
 }
 
-/** Helper: flush microtasks to let dynamic import + async operations complete */
-function flushMicrotasks(ms = 6000): Promise<void> {
-  jest.advanceTimersByTime(ms);
-  return Promise.resolve();
+/** Helper: interleave timer advancement with microtask flushing so dynamic imports resolve */
+async function flushMicrotasks(ms = 6000): Promise<void> {
+  const steps = 10;
+  const stepMs = ms / steps;
+  for (let i = 0; i < steps; i++) {
+    jest.advanceTimersByTime(stepMs);
+    await Promise.resolve();
+    await Promise.resolve();
+  }
 }
 
 import { useVideoStatus } from '../../hooks/useVideoStatus';
 
-describe.skip('useVideoStatus', () => {
+describe('useVideoStatus', () => {
   beforeAll(() => {
     jest.useFakeTimers();
   });
@@ -162,16 +167,17 @@ describe.skip('useVideoStatus', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
-    jest.runOnlyPendingTimers();
-    jest.clearAllTimers();
+    // Clean up runners first (clears timeouts via effect cleanups)
     for (const runner of activeRunners.splice(0, activeRunners.length)) {
       runner.cleanup();
     }
+    // Clear any remaining timers that async callbacks may have scheduled
+    jest.clearAllTimers();
+    jest.restoreAllMocks();
   });
 
   afterAll(() => {
-    jest.runAllTimers();
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 

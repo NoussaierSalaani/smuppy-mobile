@@ -18,7 +18,7 @@ on:
           - production
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -143,8 +143,10 @@ jobs:
           echo "--- Verifying coverage artifacts ---"
           test -f coverage/lcov.info || { echo "::error::frontend lcov.info missing"; exit 1; }
           echo "OK: frontend lcov.info ($(wc -l < coverage/lcov.info) lines)"
+          grep -q '^SF:' coverage/lcov.info || { echo "::error::frontend lcov.info has no SF: entries"; exit 1; }
           test -f aws-migration/lambda/api/coverage/lcov.info || { echo "::error::lambda lcov.info missing"; exit 1; }
           echo "OK: lambda lcov.info ($(wc -l < aws-migration/lambda/api/coverage/lcov.info) lines)"
+          grep -q '^SF:aws-migration/lambda/api/' aws-migration/lambda/api/coverage/lcov.info || { echo "::error::lambda lcov.info SF: paths not prefixed correctly"; exit 1; }
 
       - name: SonarCloud Scan
         if: steps.sonar-check.outputs.skip != 'true'

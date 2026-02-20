@@ -17,6 +17,10 @@ on:
           - staging
           - production
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '22'
 
@@ -136,8 +140,11 @@ jobs:
       - name: Verify coverage files exist
         if: steps.sonar-check.outputs.skip != 'true'
         run: |
-          test -f coverage/lcov.info && echo "OK: frontend lcov.info exists" || echo "WARN: frontend lcov.info missing"
-          test -f aws-migration/lambda/api/coverage/lcov.info && echo "OK: lambda lcov.info exists" || echo "WARN: lambda lcov.info missing"
+          echo "--- Verifying coverage artifacts ---"
+          test -f coverage/lcov.info || { echo "::error::frontend lcov.info missing"; exit 1; }
+          echo "OK: frontend lcov.info ($(wc -l < coverage/lcov.info) lines)"
+          test -f aws-migration/lambda/api/coverage/lcov.info || { echo "::error::lambda lcov.info missing"; exit 1; }
+          echo "OK: lambda lcov.info ($(wc -l < aws-migration/lambda/api/coverage/lcov.info) lines)"
 
       - name: SonarCloud Scan
         if: steps.sonar-check.outputs.skip != 'true'

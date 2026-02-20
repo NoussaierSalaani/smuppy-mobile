@@ -546,10 +546,10 @@ class AWSAPIService {
       hasMore: boolean;
     }>(`/posts/${postId}/likers${query ? `?${query}` : ''}`);
     return {
-      data: response.data || [],
+      data: response.data ?? [],
       nextCursor: response.nextCursor || null,
       hasMore: response.hasMore || false,
-      total: response.data?.length || 0,
+      total: response.data?.length ?? 0,
     };
   }
 
@@ -803,9 +803,9 @@ class AWSAPIService {
       hasMore?: boolean;
     }>(`/activity${query ? `?${query}` : ''}`);
     return {
-      data: response.data || [],
+      data: response.data ?? [],
       nextCursor: response.nextCursor ?? null,
-      hasMore: response.hasMore || false,
+      hasMore: !!response.hasMore,
       total: 0,
     };
   }

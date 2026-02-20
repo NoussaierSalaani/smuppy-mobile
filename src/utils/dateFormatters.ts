@@ -152,14 +152,21 @@ export const formatTime = (input: Date | string): string =>
 // RELATIVE TIME
 // ============================================
 
+/** Shared diff computation for relative time formatters */
+const getRelativeTimeParts = (input: Date | string) => {
+  const diffMs = Date.now() - toDate(input).getTime();
+  return {
+    diffMins: Math.floor(diffMs / 60000),
+    diffHours: Math.floor(diffMs / 3600000),
+    diffDays: Math.floor(diffMs / 86400000),
+  };
+};
+
 /**
  * "Just now", "5 min ago", "3h ago", "2d ago" — English relative time
  */
 export const formatRelativeTime = (input: Date | string): string => {
-  const diffMs = Date.now() - toDate(input).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
+  const { diffMins, diffHours, diffDays } = getRelativeTimeParts(input);
 
   if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins} min ago`;
@@ -172,10 +179,7 @@ export const formatRelativeTime = (input: Date | string): string => {
  * "now", "3m", "3h", "3d" — compact relative time (for messages list)
  */
 export const formatRelativeTimeShort = (input: Date | string): string => {
-  const diffMs = Date.now() - toDate(input).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+  const { diffMins, diffHours, diffDays } = getRelativeTimeParts(input);
 
   if (diffMins < 1) return 'now';
   if (diffMins < 60) return `${diffMins}m`;
@@ -188,10 +192,7 @@ export const formatRelativeTimeShort = (input: Date | string): string => {
  * "Just now", "3m ago", "3h ago", "3d ago" — compact with "ago" suffix
  */
 export const formatTimeAgo = (input: Date | string): string => {
-  const diffMs = Date.now() - toDate(input).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+  const { diffMins, diffHours, diffDays } = getRelativeTimeParts(input);
 
   if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;

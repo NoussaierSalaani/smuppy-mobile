@@ -175,7 +175,7 @@ const SessionDetailScreen = (): React.JSX.Element => {
     navigation.navigate('UserProfile', { userId: session.creatorId });
   };
 
-  const canCancel = session.status === 'pending' || session.status === 'confirmed';
+  const canCancel = ['pending', 'confirmed'].includes(session.status);
   const isUpcoming = session.scheduledAt > new Date();
 
   return (

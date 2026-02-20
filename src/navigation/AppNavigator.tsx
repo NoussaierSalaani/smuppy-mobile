@@ -275,7 +275,7 @@ export default function AppNavigator(): React.JSX.Element {
       requestAnimationFrame(() => SplashScreen.hideAsync());
     };
 
-    loadSession();
+    void loadSession();
 
     // Listen for auth state changes (login, signup, signout)
     const unsubscribe = backend.onAuthStateChange(async (authUser) => {

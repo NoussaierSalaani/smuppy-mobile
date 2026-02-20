@@ -291,8 +291,9 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const calculateRouteDistance = (points: { latitude: number; longitude: number }[]) => {
     if (points.length < 2) { setRouteDistance(0); return; }
     let distance = 0;
-    for (let i = 1; i < points.length; i++) {
-      distance += getDistanceKm(points[i - 1].latitude, points[i - 1].longitude, points[i].latitude, points[i].longitude);
+    for (const [i, point] of points.slice(1).entries()) {
+      const prev = points[i];
+      distance += getDistanceKm(prev.latitude, prev.longitude, point.latitude, point.longitude);
     }
     setRouteDistance(distance);
   };
@@ -424,7 +425,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
     const textsToCheck = [title, description].filter(t => t.trim());
     for (const text of textsToCheck) {
       const filterResult = filterContent(text, { context: 'event' });
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      if (!filterResult.clean && ['critical', 'high'].includes(filterResult.severity)) {
         showError('Content Policy', filterResult.reason || 'Your content contains inappropriate language.');
         return;
       }

@@ -20,28 +20,12 @@ import { isValidUUID } from '../utils/security';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 import { resolveProfileId } from '../utils/auth';
+import { calculatePlatformFeePercent } from '../utils/revenue-share';
+import { PLATFORM_NAME } from '../utils/constants';
 
 const log = createLogger('payments-channel-subscription');
 
 // CORS headers now dynamically created via createHeaders(event)
-
-/**
- * Calculate Smuppy's fee percentage based on creator's fan count
- * Returns the platform fee as a percentage (e.g., 40 for 40%)
- */
-function calculatePlatformFeePercent(fanCount: number): number {
-  if (fanCount >= 1000000) {
-    return 20; // Creator gets 80%, Smuppy 20%
-  } else if (fanCount >= 100000) {
-    return 25; // Creator gets 75%, Smuppy 25%
-  } else if (fanCount >= 10000) {
-    return 30; // Creator gets 70%, Smuppy 30%
-  } else if (fanCount >= 1000) {
-    return 35; // Creator gets 65%, Smuppy 35%
-  } else {
-    return 40; // Creator gets 60%, Smuppy 40%
-  }
-}
 
 /**
  * Get the tier name for display purposes
@@ -138,63 +122,208 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 };
 
+interface CreatorInfo {
+  id: string;
+  stripe_account_id: string;
+  channel_price_cents: number;
+  username: string;
+  full_name: string;
+  fan_count: string;
+}
+
+interface FanInfo {
+  stripe_customer_id: string | null;
+  email: string | null;
+  full_name: string;
+  cognito_sub: string | null;
+}
+
+/**
+ * Validate that the fan can subscribe to the creator's channel.
+ * Returns an error response if ineligible, or the creator row if valid.
+ */
+async function validateSubscriptionEligibility(
+  client: import('pg').PoolClient,
+  fanUserId: string,
+  creatorId: string,
+  headers: Record<string, string>
+): Promise<APIGatewayProxyResult | CreatorInfo> {
+  // Check if already subscribed
+  const existingSub = await client.query(
+    `SELECT id FROM channel_subscriptions
+     WHERE fan_id = $1 AND creator_id = $2 AND status = 'active'`,
+    [fanUserId, creatorId]
+  );
+
+  if (existingSub.rows.length > 0) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Already subscribed to this channel' }),
+    };
+  }
+
+  // Get creator info (use cached fan_count column instead of COUNT subquery)
+  const creatorResult = await client.query(
+    `SELECT p.id, p.stripe_account_id, p.channel_price_cents, p.username, p.full_name, p.fan_count
+     FROM profiles p
+     WHERE p.id = $1 AND p.account_type = 'pro_creator'`,
+    [creatorId]
+  );
+
+  if (creatorResult.rows.length === 0) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Creator not found or not a Pro account' }),
+    };
+  }
+
+  const creator = creatorResult.rows[0] as CreatorInfo;
+
+  if (!creator.stripe_account_id) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Creator has not set up payments yet' }),
+    };
+  }
+
+  if (!creator.channel_price_cents || creator.channel_price_cents <= 0) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Creator has not set a channel subscription price' }),
+    };
+  }
+
+  return creator;
+}
+
+/**
+ * If the fan has no email in the profiles table, attempt to sync it from Cognito.
+ * Mutates the fan object in place if email is found.
+ */
+async function syncFanEmailFromCognito(
+  client: import('pg').PoolClient,
+  fan: FanInfo,
+  fanUserId: string
+): Promise<void> {
+  if (fan.email || !fan.cognito_sub) return;
+
+  try {
+    const cognitoClient = new CognitoIdentityProviderClient({});
+    const sanitizedSub = fan.cognito_sub.replaceAll(/["\\]/g, '');
+    const cognitoResult = await cognitoClient.send(new ListUsersCommand({
+      UserPoolId: process.env.USER_POOL_ID,
+      Filter: `sub = "${sanitizedSub}"`,
+      Limit: 1,
+    }));
+    fan.email = cognitoResult.Users?.[0]?.Attributes?.find(a => a.Name === 'email')?.Value || null;
+    if (fan.email) {
+      await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [fan.email, fanUserId]);
+    }
+  } catch (cognitoErr) {
+    log.warn('Failed to fetch email from Cognito, continuing with null email', { error: String(cognitoErr) });
+  }
+}
+
+/**
+ * Get an existing Stripe customer ID for the fan, or create a new one.
+ * Updates the profiles table if a new customer is created.
+ */
+async function getOrCreateStripeCustomer(
+  client: import('pg').PoolClient,
+  fan: FanInfo,
+  fanUserId: string
+): Promise<string> {
+  if (fan.stripe_customer_id) {
+    return fan.stripe_customer_id;
+  }
+
+  const stripe = await getStripeClient();
+  const customer = await safeStripeCall(
+    () => stripe.customers.create({
+      email: fan.email ?? undefined,
+      name: fan.full_name,
+      metadata: { userId: fanUserId, platform: PLATFORM_NAME },
+    }),
+    'customers.create',
+    log
+  );
+
+  await client.query(
+    'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
+    [customer.id, fanUserId]
+  );
+
+  return customer.id;
+}
+
+/**
+ * Create a Stripe checkout session for the channel subscription.
+ */
+async function createChannelCheckoutSession(
+  customerId: string,
+  fanUserId: string,
+  creatorId: string,
+  creator: CreatorInfo,
+  priceId: string,
+  platformFeePercent: number,
+  fanCount: number
+): Promise<{ url: string | null; id: string }> {
+  const stripe = await getStripeClient();
+
+  return safeStripeCall(
+    () => stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `smuppy://channel-subscription-success?creator=${creatorId}`,
+      cancel_url: 'smuppy://channel-subscription-cancel',
+      subscription_data: {
+        application_fee_percent: platformFeePercent,
+        transfer_data: {
+          destination: creator.stripe_account_id,
+        },
+        metadata: {
+          fanId: fanUserId,
+          creatorId,
+          subscriptionType: 'channel',
+          platformFeePercent: platformFeePercent.toString(),
+          creatorFanCount: fanCount.toString(),
+          tier: getTierName(fanCount),
+        },
+      },
+      metadata: {
+        fanId: fanUserId,
+        creatorId,
+        subscriptionType: 'channel',
+      },
+    }),
+    'checkout.sessions.create',
+    log
+  );
+}
+
 async function subscribeToChannel(
   fanUserId: string,
   creatorId: string,
   headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
-    // Check if already subscribed
-    const existingSub = await client.query(
-      `SELECT id FROM channel_subscriptions
-       WHERE fan_id = $1 AND creator_id = $2 AND status = 'active'`,
-      [fanUserId, creatorId]
-    );
-
-    if (existingSub.rows.length > 0) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Already subscribed to this channel' }),
-      };
-    }
-
-    // Get creator info (use cached fan_count column instead of COUNT subquery)
-    const creatorResult = await client.query(
-      `SELECT p.id, p.stripe_account_id, p.channel_price_cents, p.username, p.full_name, p.fan_count
-       FROM profiles p
-       WHERE p.id = $1 AND p.account_type = 'pro_creator'`,
-      [creatorId]
-    );
-
-    if (creatorResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Creator not found or not a Pro account' }),
-      };
-    }
-
-    const creator = creatorResult.rows[0];
-
-    if (!creator.stripe_account_id) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Creator has not set up payments yet' }),
-      };
-    }
-
-    if (!creator.channel_price_cents || creator.channel_price_cents <= 0) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Creator has not set a channel subscription price' }),
-      };
-    }
+    // Validate eligibility (existing sub, creator exists, stripe setup, price set)
+    const eligibilityResult = await validateSubscriptionEligibility(client, fanUserId, creatorId, headers);
+    if ('statusCode' in eligibilityResult) return eligibilityResult;
+    const creator = eligibilityResult;
 
     // Get fan (subscriber) info
     const fanResult = await client.query(
@@ -210,45 +339,13 @@ async function subscribeToChannel(
       };
     }
 
-    const fan = fanResult.rows[0];
+    const fan = fanResult.rows[0] as FanInfo;
 
-    // If email missing in profiles, fetch from Cognito and sync
-    if (!fan.email && fan.cognito_sub) {
-      try {
-        const cognitoClient = new CognitoIdentityProviderClient({});
-        const sanitizedSub = fan.cognito_sub.replaceAll(/["\\]/g, '');
-        const cognitoResult = await cognitoClient.send(new ListUsersCommand({
-          UserPoolId: process.env.USER_POOL_ID,
-          Filter: `sub = "${sanitizedSub}"`,
-          Limit: 1,
-        }));
-        fan.email = cognitoResult.Users?.[0]?.Attributes?.find(a => a.Name === 'email')?.Value || null;
-        if (fan.email) {
-          await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [fan.email, fanUserId]);
-        }
-      } catch (cognitoErr) {
-        log.warn('Failed to fetch email from Cognito, continuing with null email', { error: String(cognitoErr) });
-      }
-    }
+    // Sync email from Cognito if missing
+    await syncFanEmailFromCognito(client, fan, fanUserId);
 
     // Create or get Stripe customer
-    let customerId = fan.stripe_customer_id;
-    if (!customerId) {
-      const customer = await safeStripeCall(
-        () => stripe.customers.create({
-          email: fan.email,
-          name: fan.full_name,
-          metadata: { userId: fanUserId, platform: 'smuppy' },
-        }),
-        'customers.create',
-        log
-      );
-      customerId = customer.id;
-      await client.query(
-        'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
-        [customerId, fanUserId]
-      );
-    }
+    const customerId = await getOrCreateStripeCustomer(client, fan, fanUserId);
 
     // Calculate platform fee based on creator's fan count
     const fanCount = Number.parseInt(creator.fan_count) || 0;
@@ -262,41 +359,8 @@ async function subscribeToChannel(
     );
 
     // Create checkout session with Connect
-    const session = await safeStripeCall(
-      () => stripe.checkout.sessions.create({
-        customer: customerId,
-        mode: 'subscription',
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        success_url: `smuppy://channel-subscription-success?creator=${creatorId}`,
-        cancel_url: 'smuppy://channel-subscription-cancel',
-        subscription_data: {
-          application_fee_percent: platformFeePercent,
-          transfer_data: {
-            destination: creator.stripe_account_id,
-          },
-          metadata: {
-            fanId: fanUserId,
-            creatorId,
-            subscriptionType: 'channel',
-            platformFeePercent: platformFeePercent.toString(),
-            creatorFanCount: fanCount.toString(),
-            tier: getTierName(fanCount),
-          },
-        },
-        metadata: {
-          fanId: fanUserId,
-          creatorId,
-          subscriptionType: 'channel',
-        },
-      }),
-      'checkout.sessions.create',
-      log
+    const session = await createChannelCheckoutSession(
+      customerId, fanUserId, creatorId, creator, priceId, platformFeePercent, fanCount
     );
 
     return {
@@ -317,15 +381,16 @@ async function subscribeToChannel(
   }
 }
 
-async function getOrCreateChannelPrice(
+/**
+ * Search for an existing Stripe product for the creator, or create one.
+ */
+async function getOrCreateStripeProduct(
   creatorId: string,
-  creatorName: string,
-  priceCents: number
+  creatorName: string
 ): Promise<string> {
   const stripe = await getStripeClient();
   const productName = `${creatorName}'s Channel`;
 
-  // Search for existing product for this creator
   // SECURITY: Sanitize creatorId to prevent Stripe search query injection
   const sanitizedCreatorId = creatorId.replaceAll(/['\\]/g, '');
   const products = await safeStripeCall(
@@ -336,25 +401,34 @@ async function getOrCreateChannelPrice(
     log
   );
 
-  let productId: string;
-
   if (products.data.length > 0) {
-    productId = products.data[0].id;
-  } else {
-    // Create product
-    const product = await safeStripeCall(
-      () => stripe.products.create({
-        name: productName,
-        description: `Monthly subscription to ${creatorName}'s streaming channel on Smuppy`,
-        metadata: { creatorId, type: 'channel_subscription' },
-      }),
-      'products.create',
-      log
-    );
-    productId = product.id;
+    return products.data[0].id;
   }
 
-  // Search for existing price with this amount
+  const product = await safeStripeCall(
+    () => stripe.products.create({
+      name: productName,
+      description: `Monthly subscription to ${creatorName}'s streaming channel on Smuppy`,
+      metadata: { creatorId, type: 'channel_subscription' },
+    }),
+    'products.create',
+    log
+  );
+
+  return product.id;
+}
+
+/**
+ * Find an existing recurring price at the given amount, or deactivate old prices
+ * and create a new one.
+ */
+async function resolveStripePrice(
+  productId: string,
+  creatorId: string,
+  priceCents: number
+): Promise<string> {
+  const stripe = await getStripeClient();
+
   const prices = await safeStripeCall(
     () => stripe.prices.list({
       product: productId,
@@ -393,6 +467,15 @@ async function getOrCreateChannelPrice(
   );
 
   return price.id;
+}
+
+async function getOrCreateChannelPrice(
+  creatorId: string,
+  creatorName: string,
+  priceCents: number
+): Promise<string> {
+  const productId = await getOrCreateStripeProduct(creatorId, creatorName);
+  return resolveStripePrice(productId, creatorId, priceCents);
 }
 
 async function cancelChannelSubscription(

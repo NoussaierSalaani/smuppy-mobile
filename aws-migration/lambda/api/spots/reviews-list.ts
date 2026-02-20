@@ -73,7 +73,7 @@ export const handler = withErrorHandler('spots-reviews-list', async (event, { he
       username: r.user_username,
       fullName: r.user_full_name,
       avatarUrl: r.user_avatar_url,
-      isVerified: r.user_is_verified || false,
+      isVerified: !!r.user_is_verified,
       accountType: r.user_account_type || 'personal',
       businessName: r.user_business_name || null,
     },

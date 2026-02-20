@@ -43,6 +43,9 @@ export const MAX_PAYMENT_CENTS = 5_000_000;     // $50,000
 export const MAX_TIP_AMOUNT_CENTS = 50_000;     // $500
 export const VERIFICATION_FEE_CENTS = 1490;     // $14.90
 
+// ── Platform Identity ────────────────────────────────────────────────
+export const PLATFORM_NAME = 'smuppy';
+
 // ── Platform Fees (percent) ───────────────────────────────────────────
 export const PLATFORM_FEE_PERCENT = 20;
 export const APPLE_FEE_PERCENT = 30;

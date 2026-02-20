@@ -78,7 +78,7 @@ export const handler = withAuthHandler('groups-update', async (event, { headers,
     const body = JSON.parse(event.body || '{}');
 
     // Validate difficulty if provided
-    if (body.difficulty !== undefined && body.difficulty !== null) {
+    if (body.difficulty != null) {
       if (!VALID_DIFFICULTIES.includes(body.difficulty)) {
         return {
           statusCode: 400,
@@ -89,7 +89,7 @@ export const handler = withAuthHandler('groups-update', async (event, { headers,
     }
 
     // Validate maxParticipants if provided
-    if (body.maxParticipants !== undefined && body.maxParticipants !== null) {
+    if (body.maxParticipants != null) {
       const maxP = Number(body.maxParticipants);
       if (Number.isNaN(maxP) || maxP < 2 || maxP > 10000) {
         return {
@@ -101,7 +101,7 @@ export const handler = withAuthHandler('groups-update', async (event, { headers,
     }
 
     // Validate startsAt if provided
-    if (body.startsAt !== undefined && body.startsAt !== null) {
+    if (body.startsAt != null) {
       const startDate = new Date(body.startsAt);
       if (Number.isNaN(startDate.getTime())) {
         return {
@@ -113,7 +113,7 @@ export const handler = withAuthHandler('groups-update', async (event, { headers,
     }
 
     // Validate coordinates if provided
-    if (body.latitude !== undefined && body.latitude !== null) {
+    if (body.latitude != null) {
       const lat = Number(body.latitude);
       if (Number.isNaN(lat) || lat < -90 || lat > 90) {
         return {
@@ -123,7 +123,7 @@ export const handler = withAuthHandler('groups-update', async (event, { headers,
         };
       }
     }
-    if (body.longitude !== undefined && body.longitude !== null) {
+    if (body.longitude != null) {
       const lng = Number(body.longitude);
       if (Number.isNaN(lng) || lng < -180 || lng > 180) {
         return {

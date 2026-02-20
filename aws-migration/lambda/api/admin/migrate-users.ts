@@ -120,7 +120,7 @@ async function createAuroraProfile(
       user.avatarUrl || null,
       user.bio || null,
       user.accountType || 'personal',
-      user.isVerified || false,
+      !!user.isVerified,
     ]
   );
 

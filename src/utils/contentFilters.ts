@@ -265,8 +265,9 @@ export function filterContent(text: string, options: FilterOptions): FilterResul
   }
 
   // 4. Spam patterns
-  if (checkCapsAbuse(text) || checkCharRepetition(text)) {
-    violations.push(checkCapsAbuse(text) ? 'caps_abuse' : 'spam');
+  const hasCapsAbuse = checkCapsAbuse(text);
+  if (hasCapsAbuse || checkCharRepetition(text)) {
+    violations.push(hasCapsAbuse ? 'caps_abuse' : 'spam');
   }
 
   // 5. Phishing URLs

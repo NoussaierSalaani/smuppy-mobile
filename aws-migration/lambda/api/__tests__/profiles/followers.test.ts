@@ -4,46 +4,13 @@
  */
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { getPool } from '../../../shared/db';
+import { createMockDb } from '../helpers';
+import type { MockDb } from '../helpers';
 
-// ── Mocks (must be before handler import — Jest hoists jest.mock calls) ──
+// ── Mocks: the 4 standard blocks (db, rate-limit, logger, cors) are
+//    auto-mocked by __tests__/helpers/setup.ts ──
 
-jest.mock('../../../shared/db', () => ({
-  getPool: jest.fn(),
-  getReaderPool: jest.fn(),
-}));
-
-jest.mock('../../utils/rate-limit', () => ({
-  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
-  requireRateLimit: jest.fn().mockResolvedValue(null),
-}));
-
-jest.mock('../../utils/logger', () => ({
-  createLogger: jest.fn(() => ({
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    initFromEvent: jest.fn(),
-    setRequestId: jest.fn(),
-    setUserId: jest.fn(),
-    logRequest: jest.fn(),
-    logResponse: jest.fn(),
-    logQuery: jest.fn(),
-    logSecurity: jest.fn(),
-    child: jest.fn().mockReturnThis(),
-  })),
-}));
-
-jest.mock('../../utils/cors', () => ({
-  createHeaders: jest.fn(() => ({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Credentials': 'true',
-  })),
-  getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
-}));
-
+// Domain-specific mocks
 jest.mock('../../utils/security', () => ({
   isValidUUID: jest.fn((uuid: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)
@@ -125,16 +92,12 @@ function buildEvent(overrides: {
 // ── Test Suite ──
 
 describe('profiles/followers handler', () => {
-  let mockDb: { query: jest.Mock };
+  let mockDb: MockDb;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockDb = {
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-    };
-
-    (getPool as jest.Mock).mockResolvedValue(mockDb);
+    mockDb = createMockDb();
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
     (checkPrivacyAccess as jest.Mock).mockResolvedValue(true);
   });

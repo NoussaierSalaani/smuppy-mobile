@@ -184,7 +184,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
     const textsToCheck = [textOverlay, challengeTitle, challengeRules].filter(t => t.trim());
     for (const text of textsToCheck) {
       const filterResult = filterContent(text, { context: 'post' });
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      if (!filterResult.clean && ['critical', 'high'].includes(filterResult.severity)) {
         alert.error('Content Policy', filterResult.reason || 'Your content contains inappropriate language.');
         return;
       }

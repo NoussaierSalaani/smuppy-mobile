@@ -116,8 +116,6 @@ export default function UpgradeToProScreen() {
   const { showDestructiveConfirm, showWarning, showAlert, showError } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
   const { formatAmount } = useCurrency();
-  const _user = useUserStore((state) => state.user);
-  const _setUser = useUserStore((state) => state.setUser);
 
   const [isLoading, setIsLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);

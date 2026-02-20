@@ -3,42 +3,9 @@
  * Standalone handler — lists pending follow requests with pagination.
  */
 
-import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getPool } from '../../../shared/db';
-
-// ── Mocks ──
-
-jest.mock('../../../shared/db', () => ({
-  getPool: jest.fn(),
-  getReaderPool: jest.fn(),
-}));
-
-jest.mock('../../utils/rate-limit', () => ({
-  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
-  requireRateLimit: jest.fn().mockResolvedValue(null),
-}));
-
-jest.mock('../../utils/logger', () => ({
-  createLogger: jest.fn(() => ({
-    info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(),
-    initFromEvent: jest.fn(), setRequestId: jest.fn(), setUserId: jest.fn(),
-    logRequest: jest.fn(), logResponse: jest.fn(), logQuery: jest.fn(),
-    logSecurity: jest.fn(), child: jest.fn().mockReturnThis(),
-  })),
-}));
-
-jest.mock('../../utils/cors', () => ({
-  createHeaders: jest.fn(() => ({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Credentials': 'true',
-  })),
-  createCacheableHeaders: jest.fn(() => ({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  })),
-  getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
-}));
+import { makeEvent, TEST_SUB, TEST_PROFILE_ID, createMockDb } from '../helpers';
+import type { MockDb } from '../helpers';
 
 // ── Import handler AFTER all mocks are declared ──
 
@@ -46,50 +13,25 @@ import { handler } from '../../follow-requests/list';
 
 // ── Test constants ──
 
-const TEST_SUB = 'cognito-sub-test123';
-const TEST_PROFILE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const REQUESTER_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
 const REQUEST_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
 const NOW = new Date('2026-02-19T12:00:00Z');
 
 // ── Helpers ──
 
-function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
-  return {
-    httpMethod: 'GET',
-    headers: {},
-    body: null,
-    queryStringParameters: overrides.queryStringParameters as Record<string, string> ?? null,
-    pathParameters: null,
-    multiValueHeaders: {},
-    multiValueQueryStringParameters: null,
-    isBase64Encoded: false,
-    path: '/',
-    resource: '/',
-    stageVariables: null,
-    requestContext: {
-      requestId: 'test-request-id',
-      authorizer: overrides.sub !== null
-        ? { claims: { sub: overrides.sub ?? TEST_SUB } }
-        : undefined,
-      identity: { sourceIp: '127.0.0.1' },
-    },
-  } as unknown as APIGatewayProxyEvent;
+function makeFollowRequestEvent(overrides: Partial<Record<string, unknown>> = {}) {
+  return makeEvent(overrides);
 }
 
 // ── Test suite ──
 
 describe('follow-requests/list handler', () => {
-  let mockDb: { query: jest.Mock };
+  let mockDb: MockDb;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockDb = {
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-    };
-
-    (getPool as jest.Mock).mockResolvedValue(mockDb);
+    mockDb = createMockDb();
 
     // Default: profile exists, one follow request
     mockDb.query.mockImplementation((sql: string) => {
@@ -121,7 +63,7 @@ describe('follow-requests/list handler', () => {
 
   describe('authentication', () => {
     it('should return 401 when no authorizer claims are present', async () => {
-      const event = makeEvent({ sub: null });
+      const event = makeFollowRequestEvent({ sub: null });
       const result = await handler(event);
 
       expect(result.statusCode).toBe(401);
@@ -140,7 +82,7 @@ describe('follow-requests/list handler', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(404);
@@ -152,7 +94,7 @@ describe('follow-requests/list handler', () => {
 
   describe('happy path', () => {
     it('should return 200 with formatted follow requests', async () => {
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(200);
@@ -163,7 +105,7 @@ describe('follow-requests/list handler', () => {
     });
 
     it('should include formatted requester data', async () => {
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       const body = JSON.parse(result.body);
@@ -180,7 +122,7 @@ describe('follow-requests/list handler', () => {
     });
 
     it('should return hasMore=false when results fit in one page', async () => {
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       const body = JSON.parse(result.body);
@@ -189,7 +131,7 @@ describe('follow-requests/list handler', () => {
     });
 
     it('should return totalPending from window function', async () => {
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       const body = JSON.parse(result.body);
@@ -224,7 +166,7 @@ describe('follow-requests/list handler', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       const body = JSON.parse(result.body);
@@ -235,7 +177,7 @@ describe('follow-requests/list handler', () => {
     });
 
     it('should support cursor-based pagination', async () => {
-      const event = makeEvent({
+      const event = makeFollowRequestEvent({
         queryStringParameters: { cursor: String(NOW.getTime()), limit: '10' },
       });
       const result = await handler(event);
@@ -244,7 +186,7 @@ describe('follow-requests/list handler', () => {
     });
 
     it('should cap limit at 50', async () => {
-      const event = makeEvent({
+      const event = makeFollowRequestEvent({
         queryStringParameters: { limit: '100' },
       });
       await handler(event);
@@ -268,7 +210,7 @@ describe('follow-requests/list handler', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       const body = JSON.parse(result.body);
@@ -284,7 +226,7 @@ describe('follow-requests/list handler', () => {
     it('should return 500 when getPool throws', async () => {
       (getPool as jest.Mock).mockRejectedValue(new Error('Connection failed'));
 
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(500);
@@ -294,7 +236,7 @@ describe('follow-requests/list handler', () => {
     it('should return 500 when db.query throws', async () => {
       mockDb.query.mockRejectedValue(new Error('Query timeout'));
 
-      const event = makeEvent();
+      const event = makeFollowRequestEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(500);

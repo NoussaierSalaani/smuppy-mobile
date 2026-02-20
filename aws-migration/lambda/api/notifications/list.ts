@@ -124,11 +124,11 @@ export const handler = withNotificationContext(
           username: n.actor_username,
           name: n.actor_full_name || 'Someone',
           avatar: n.actor_avatar_url,
-          isVerified: n.actor_is_verified || false,
+          isVerified: !!n.actor_is_verified,
           accountType: n.actor_account_type,
           businessName: n.actor_business_name,
         };
-        enrichedData.isFollowing = n.is_following_actor || false;
+        enrichedData.isFollowing = !!n.is_following_actor;
       }
 
       return {

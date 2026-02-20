@@ -2,6 +2,8 @@
  * CORS Utils Unit Tests
  */
 
+jest.unmock('../../utils/cors');
+
 import { createHeaders, getAllowedOrigin, getSecureHeaders } from '../../utils/cors';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 

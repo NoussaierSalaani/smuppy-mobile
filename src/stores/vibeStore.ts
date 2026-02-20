@@ -157,7 +157,7 @@ export const useVibeStore = create<VibeState>()(
 
       addVibeAction: (type: VibeActionType) =>
         set((state) => {
-          const points = ACTION_POINTS[type] || 0;
+          const points = ACTION_POINTS[type] ?? 0;
           state.vibeScore = Math.min(MAX_VIBE_SCORE, state.vibeScore + points);
           state.vibeLevel = resolveLevel(state.vibeScore);
 

@@ -278,7 +278,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
             <View style={styles.statsCard}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>
-                  {subscriptions.filter(s => s.status === 'active' || s.status === 'trial').length}
+                  {subscriptions.filter(s => ['active', 'trial'].includes(s.status)).length}
                 </Text>
                 <Text style={styles.statLabel}>Active</Text>
               </View>

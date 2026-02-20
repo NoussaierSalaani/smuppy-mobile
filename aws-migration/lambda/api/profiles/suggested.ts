@@ -178,15 +178,15 @@ export const handler = withErrorHandler('profiles-suggested', async (event, { he
       avatarUrl: profile.avatar_url,
       coverUrl: profile.cover_url,
       bio: profile.bio,
-      isVerified: profile.is_verified || false,
-      isPrivate: profile.is_private || false,
+      isVerified: !!profile.is_verified,
+      isPrivate: !!profile.is_private,
       accountType: profile.account_type || 'personal',
       businessName: profile.business_name || null,
       followersCount: profile.fan_count || 0,
       followingCount: profile.following_count || 0,
       postsCount: profile.post_count || 0,
       isFollowing: false,
-      isFollowedBy: profile.is_followed_by || false,
+      isFollowedBy: !!profile.is_followed_by,
     }));
 
     return {

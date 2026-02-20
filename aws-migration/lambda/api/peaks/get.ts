@@ -188,7 +188,7 @@ export const handler = withErrorHandler('peaks-get', async (event, { headers, lo
             username: peak.author_username,
             fullName: peak.author_full_name,
             avatarUrl: peak.author_avatar_url,
-            isVerified: peak.author_is_verified || false,
+            isVerified: !!peak.author_is_verified,
             accountType: peak.author_account_type,
             businessName: peak.author_business_name,
           },

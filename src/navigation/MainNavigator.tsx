@@ -315,8 +315,8 @@ export default function MainNavigator() {
             businessLatitude: data.business_latitude,
             businessLongitude: data.business_longitude,
             stats: {
-              fans: data.fan_count || 0,
-              posts: data.post_count || 0,
+              fans: data.fan_count ?? 0,
+              posts: data.post_count ?? 0,
             },
           });
         }
@@ -325,7 +325,7 @@ export default function MainNavigator() {
       }
     };
 
-    syncProfile();
+    void syncProfile();
 
     // Fetch initial unread counts (retry in case auth token wasn't ready)
     fetchBadgeCounts();

@@ -42,7 +42,7 @@ export const normalizeMediaType = (
   mediaType: string | undefined
 ): 'image' | 'video' | 'carousel' => {
   if (mediaType === 'video') return 'video';
-  if (mediaType === 'multiple' || mediaType === 'carousel') return 'carousel';
+  if (mediaType != null && ['multiple', 'carousel'].includes(mediaType)) return 'carousel';
   return 'image'; // 'photo', 'image', undefined all map to 'image'
 };
 
@@ -186,8 +186,8 @@ export const transformToFanPost = (
       accountType: post.author?.account_type || 'personal',
     },
     caption: getContentText(post),
-    likes: post.likes_count || 0,
-    comments: post.comments_count || 0,
+    likes: post.likes_count ?? 0,
+    comments: post.comments_count ?? 0,
     shares: 0,
     saves: 0,
     isLiked: likedPostIds.has(post.id),
@@ -231,7 +231,7 @@ export const transformToVibePost = (
       accountType: post.author?.account_type || 'personal',
     },
     title: getContentText(post),
-    likes: post.likes_count || 0,
+    likes: post.likes_count ?? 0,
     isLiked: likedPostIds.has(post.id),
     isSaved: savedPostIds?.has(post.id) ?? false,
     category: post.tags?.[0] || '',

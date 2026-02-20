@@ -66,10 +66,10 @@ export const useUserSafetyStore = create<UserSafetyState>()(
         ]);
 
         set((s) => {
-          s.blockedUsers = blocked || [];
-          s.blockedUserIds = (blocked || []).map((b) => b.blocked_user_id);
-          s.mutedUsers = muted || [];
-          s.mutedUserIds = (muted || []).map((m) => m.muted_user_id);
+          s.blockedUsers = blocked ?? [];
+          s.blockedUserIds = (blocked ?? []).map((b) => b.blocked_user_id);
+          s.mutedUsers = muted ?? [];
+          s.mutedUserIds = (muted ?? []).map((m) => m.muted_user_id);
           s.isInitialized = true;
           s.isLoading = false;
         });

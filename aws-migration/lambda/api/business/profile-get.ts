@@ -82,7 +82,7 @@ const { handler } = createBusinessHandler({
       isVerified: profile.is_verified,
       paymentsEnabled: !!profile.stripe_account_id && profile.stripe_charges_enabled,
       followersCount: profile.fan_count ?? 0,
-      isFollowing: isFollowingResult.rows[0]?.is_following || false,
+      isFollowing: !!isFollowingResult.rows[0]?.is_following,
       tags: tagsResult.rows.map((t: Record<string, unknown>) => ({ id: t.id, name: t.name, category: t.category })),
       services: servicesResult.rows.map((s: Record<string, unknown>) => ({
         id: s.id,

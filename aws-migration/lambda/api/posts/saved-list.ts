@@ -96,7 +96,7 @@ export const handler = withErrorHandler('posts-saved-list', async (event, { head
       mediaMeta: row.media_meta || {},
       likesCount: row.likes_count || 0,
       commentsCount: row.comments_count || 0,
-      isPeak: row.is_peak || false,
+      isPeak: !!row.is_peak,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       savedAt: row.saved_at,
@@ -106,7 +106,7 @@ export const handler = withErrorHandler('posts-saved-list', async (event, { head
         fullName: row.author_full_name,
         avatarUrl: row.author_avatar_url,
         accountType: row.author_account_type,
-        isVerified: row.author_is_verified || false,
+        isVerified: !!row.author_is_verified,
         businessName: row.author_business_name,
       },
     }));

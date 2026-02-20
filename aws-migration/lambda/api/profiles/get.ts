@@ -24,14 +24,12 @@ export const handler = withErrorHandler('profiles-get', async (event, { headers 
     }
 
     // SECURITY: Validate UUID format for profileId
-    if (profileId) {
-      if (!isValidUUID(profileId)) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Invalid profile ID format' }),
-        };
-      }
+    if (profileId && !isValidUUID(profileId)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: 'Invalid profile ID format' }),
+      };
     }
 
     // Use reader pool for read operations
@@ -134,7 +132,7 @@ export const handler = withErrorHandler('profiles-get', async (event, { headers 
     }
 
     // PRIVACY CHECK: If profile is private and user is not owner/follower, return limited info
-    const isPrivate = profile.is_private || false;
+    const isPrivate = !!profile.is_private;
     const canViewFullProfile = isOwner || isFollowing || !isPrivate;
 
     if (!canViewFullProfile) {
@@ -147,7 +145,7 @@ export const handler = withErrorHandler('profiles-get', async (event, { headers 
           username: profile.username,
           fullName: profile.full_name,
           avatarUrl: profile.avatar_url,
-          isVerified: profile.is_verified || false,
+          isVerified: !!profile.is_verified,
           isPrivate: true,
           accountType: profile.account_type || 'personal',
           followersCount: profile.fan_count || 0,
@@ -171,8 +169,8 @@ export const handler = withErrorHandler('profiles-get', async (event, { headers 
         coverUrl: profile.cover_url,
         bio: profile.bio,
         website: profile.website,
-        isVerified: profile.is_verified || false,
-        isPremium: profile.is_premium || false,
+        isVerified: !!profile.is_verified,
+        isPremium: !!profile.is_premium,
         isPrivate,
         accountType: profile.account_type || 'personal',
         gender: profile.gender,

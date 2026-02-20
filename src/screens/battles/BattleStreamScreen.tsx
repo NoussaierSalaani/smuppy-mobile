@@ -21,7 +21,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -33,9 +32,6 @@ const MAX_TIP_EVENTS = 10;
 const MAX_COMMENTS = 50;
 const POLL_INTERVAL_MS = 2000;
 const BATTLE_END_DELAY_MS = 3000;
-
-// Get user from store
-const getUser = (state: { user: { id: string } | null }) => state.user;
 
 const { height } = Dimensions.get('window');
 const STREAM_HEIGHT = (height - 200) / 2;
@@ -75,11 +71,10 @@ export default function BattleStreamScreen() {
   const { showDestructiveConfirm } = useSmuppyAlert();
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const route = useRoute<{ key: string; name: string; params: { battleId: string; agoraToken: string; agoraUid: number } }>();
-  const _user = useUserStore(getUser);
   const { formatAmount } = useCurrency();
 
   // agoraToken and agoraUid will be used when integrating Agora RTC
-  const { battleId, agoraToken: _agoraToken, agoraUid: _agoraUid } = route.params;
+  const { battleId } = route.params;
 
   // SECURITY: Validate UUID on mount
   useEffect(() => {

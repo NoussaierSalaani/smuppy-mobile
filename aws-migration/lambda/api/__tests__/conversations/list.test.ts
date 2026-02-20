@@ -4,38 +4,12 @@
  * blocked user filtering, and conversation listing with last message/unread count.
  */
 
-import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getPool } from '../../../shared/db';
+import { createMockDb } from '../helpers';
+import type { MockDb } from '../helpers';
+import { APIGatewayProxyEvent } from 'aws-lambda';
 
-// ── Mocks (must be before handler import — Jest hoists jest.mock calls) ──
-
-jest.mock('../../../shared/db', () => ({
-  getPool: jest.fn(),
-  getReaderPool: jest.fn(),
-}));
-
-jest.mock('../../utils/rate-limit', () => ({
-  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
-  requireRateLimit: jest.fn().mockResolvedValue(null),
-}));
-
-jest.mock('../../utils/logger', () => ({
-  createLogger: jest.fn(() => ({
-    info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(),
-    initFromEvent: jest.fn(), setRequestId: jest.fn(), setUserId: jest.fn(),
-    logRequest: jest.fn(), logResponse: jest.fn(), logQuery: jest.fn(),
-    logSecurity: jest.fn(), child: jest.fn().mockReturnThis(),
-  })),
-}));
-
-jest.mock('../../utils/cors', () => ({
-  createHeaders: jest.fn(() => ({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Credentials': 'true',
-  })),
-  getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
-}));
+// ── Domain-specific mocks ──
 
 jest.mock('../../utils/auth', () => ({
   resolveProfileId: jest.fn(),
@@ -81,16 +55,12 @@ function makeEvent(overrides: Record<string, unknown> = {}): APIGatewayProxyEven
 // ── Test suite ──
 
 describe('conversations/list handler', () => {
-  let mockDb: { query: jest.Mock };
+  let mockDb: MockDb;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockDb = {
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-    };
-
-    (getPool as jest.Mock).mockResolvedValue(mockDb);
+    mockDb = createMockDb();
     (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });

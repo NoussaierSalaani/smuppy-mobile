@@ -400,7 +400,7 @@ async function runAutoVerification(
     // Determine quality
     let quality: 'good' | 'fair' | 'poor' = 'good';
     const avgQuality = userAttendance?.network_quality_avg;
-    if (avgQuality !== null && avgQuality !== undefined) {
+    if (avgQuality != null) {
       if (avgQuality <= 2) quality = 'poor';
       else if (avgQuality <= 4) quality = 'fair';
     }

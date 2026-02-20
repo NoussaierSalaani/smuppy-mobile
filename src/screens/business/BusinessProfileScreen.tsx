@@ -30,7 +30,6 @@ import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { validate } from '../../utils/validation';
 import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: _width, height: _height } = Dimensions.get('window');
@@ -122,7 +121,6 @@ const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function BusinessProfileScreen({ route, navigation }: BusinessProfileScreenProps) {
   const { businessId } = route.params;
   const { formatAmount } = useCurrency();
-  const _user = useUserStore((state) => state.user);
   const { colors, isDark } = useTheme();
 
   const [business, setBusiness] = useState<BusinessProfile | null>(null);

@@ -17,6 +17,7 @@ import { getUserFromEvent } from '../../api/utils/auth';
 import { createHeaders } from '../../api/utils/cors';
 import { requireRateLimit } from '../../api/utils/rate-limit';
 import { getStripeClient } from '../../shared/stripe-client';
+import { PLATFORM_NAME } from '../../api/utils/constants';
 
 const log = createLogger('admin/disputes-resolve');
 
@@ -211,7 +212,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             dispute_id: disputeId,
             admin_id: user.id,
             resolution_reason: reason,
-            platform: 'smuppy',
+            platform: PLATFORM_NAME,
           },
           ...(dispute.creator_stripe_account && {
             reverse_transfer: true,

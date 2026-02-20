@@ -10,12 +10,13 @@
  */
 
 import { Pool, PoolConfig, PoolClient } from 'pg';
-
-/** Type-safe SQL query parameter value */
-export type SqlParam = string | number | boolean | null | Date | string[] | number[];
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { Signer } from '@aws-sdk/rds-signer';
 import { createLogger } from '../api/utils/logger';
+import { getSecureHeaders as _getSecureHeaders } from '../api/utils/cors';
+
+/** Type-safe SQL query parameter value */
+export type SqlParam = string | number | boolean | null | Date | string[] | number[];
 
 const log = createLogger('db');
 
@@ -297,7 +298,6 @@ export function handleDbError(error: unknown): void {
   }
 }
 
-import { getSecureHeaders as _getSecureHeaders } from '../api/utils/cors';
 export { createCorsResponse, getCorsHeaders, getSecureHeaders } from '../api/utils/cors';
 /** @deprecated Use createHeaders(event) from cors.ts for dynamic origin validation */
 export const corsHeaders = _getSecureHeaders();

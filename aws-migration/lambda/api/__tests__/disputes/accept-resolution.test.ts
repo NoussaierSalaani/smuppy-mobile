@@ -6,20 +6,9 @@
  * transitioning the dispute to 'closed' status.
  */
 
-jest.mock('../../../shared/db', () => ({ getPool: jest.fn(), getReaderPool: jest.fn() }));
-jest.mock('../../utils/logger', () => ({
-  createLogger: jest.fn(() => ({
-    info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(),
-    initFromEvent: jest.fn(), setRequestId: jest.fn(), setUserId: jest.fn(),
-    logRequest: jest.fn(), logResponse: jest.fn(), logQuery: jest.fn(),
-    logSecurity: jest.fn(), child: jest.fn().mockReturnThis(),
-  })),
-}));
+// ── Domain-specific mocks (db/rate-limit/logger/cors handled by setup.ts) ──
+
 jest.mock('../../utils/auth', () => ({ getUserFromEvent: jest.fn() }));
-jest.mock('../../utils/cors', () => ({
-  createHeaders: jest.fn(() => ({ 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })),
-}));
-jest.mock('../../utils/rate-limit', () => ({ requireRateLimit: jest.fn().mockResolvedValue(null) }));
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getPool } from '../../../shared/db';
@@ -574,17 +563,12 @@ describe('disputes/accept-resolution handler', () => {
       (getUserFromEvent as jest.Mock).mockRejectedValueOnce(new Error('Auth service down'));
       const result = await handler(makeEvent(), {} as never, {} as never);
       expect(result!.statusCode).toBe(500);
-      // client is null, so ROLLBACK should not be called on mockClient
-      // (the handler catches the error before client is assigned)
       expect(mockClient.query).not.toHaveBeenCalledWith('ROLLBACK');
     });
 
     it('should not call client.release when client was never connected', async () => {
       (getUserFromEvent as jest.Mock).mockRejectedValueOnce(new Error('Auth error'));
       await handler(makeEvent(), {} as never, {} as never);
-      // client was never assigned since error happened before db.connect()
-      // Note: mockClient.release may still not be called because the handler
-      // only releases if client is truthy
       expect(mockDb.connect).not.toHaveBeenCalled();
     });
 

@@ -363,7 +363,7 @@ export async function getAccessPass(
   });
 
   let remainingSessions: number | undefined;
-  if (subscription.sessions_limit !== null && subscription.sessions_limit !== undefined) {
+  if (subscription.sessions_limit != null) {
     remainingSessions = subscription.sessions_limit - (subscription.sessions_used || 0);
   }
 

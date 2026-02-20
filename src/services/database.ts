@@ -1118,7 +1118,7 @@ export const addComment = async (postId: string, text: string, parentId?: string
 
   // Client-side content filtering (backend also validates)
   const filterResult = filterContent(text, { context: 'comment' });
-  if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+  if (!filterResult.clean && ['critical', 'high'].includes(filterResult.severity)) {
     return { data: null, error: filterResult.reason || 'Comment violates community guidelines.' };
   }
 

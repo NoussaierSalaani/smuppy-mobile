@@ -86,7 +86,7 @@ export const handler = withErrorHandler('follow-requests-list', async (event, { 
       fullName: request.requester_full_name,
       avatarUrl: request.requester_avatar_url,
       bio: request.requester_bio,
-      isVerified: request.requester_is_verified || false,
+      isVerified: !!request.requester_is_verified,
       accountType: request.requester_account_type,
       businessName: request.requester_business_name,
     },

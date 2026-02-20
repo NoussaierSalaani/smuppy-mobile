@@ -135,7 +135,7 @@ export const handler = withErrorHandler('comments-list', async (event, { headers
         username: comment.author_username,
         fullName: comment.author_full_name,
         avatarUrl: comment.author_avatar_url,
-        isVerified: comment.author_is_verified || false,
+        isVerified: !!comment.author_is_verified,
         accountType: comment.author_account_type || 'personal',
         businessName: comment.author_business_name || null,
       },

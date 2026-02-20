@@ -174,8 +174,8 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       name: businessName || 'My Business',
       avatar: userAvatar || '',
       bio: userBio || '',
-      fans: userFans || 0,
-      posts: userPosts || 0,
+      fans: userFans ?? 0,
+      posts: userPosts ?? 0,
       coordinate: { latitude: businessLatitude, longitude: businessLongitude },
       address: businessAddress,
     };

@@ -83,7 +83,7 @@ const { handler } = createBusinessHandler({
         category,
         Math.round(price_cents),
         duration_minutes || null,
-        is_subscription || false,
+        !!is_subscription,
         subscription_period || null,
         trial_days || 0,
         max_capacity || null,

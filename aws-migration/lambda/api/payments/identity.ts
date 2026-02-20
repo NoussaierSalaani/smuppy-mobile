@@ -9,15 +9,56 @@
  */
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import type { PoolClient } from 'pg';
 import { getStripePublishableKey } from '../../shared/secrets';
 import { getStripeClient } from '../../shared/stripe-client';
 import { getPool } from '../../shared/db';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
-import { VERIFICATION_FEE_CENTS } from '../utils/constants';
+import { VERIFICATION_FEE_CENTS, PLATFORM_NAME } from '../utils/constants';
 
 // Stripe Price ID — resolved lazily by getOrCreateVerificationPrice()
 let cachedVerificationPriceId: string | null = null;
+
+// ============================================
+// SHARED HELPERS
+// ============================================
+
+/**
+ * Find or create the Stripe Product for identity verification.
+ * Returns the product ID.
+ */
+async function findOrCreateVerificationProduct(stripe: Stripe): Promise<string> {
+  const products = await stripe.products.search({
+    query: 'metadata["type"]:"smuppy_identity_verification"',
+    limit: 1,
+  });
+
+  if (products.data.length > 0 && products.data[0].active) {
+    return products.data[0].id;
+  }
+
+  const product = await stripe.products.create({
+    name: 'Smuppy Verified Account',
+    description: 'Monthly identity verification subscription for Smuppy creators',
+    metadata: { type: 'smuppy_identity_verification', platform: PLATFORM_NAME },
+  });
+  return product.id;
+}
+
+/**
+ * Find an existing active recurring price for the given product.
+ * Returns the price ID or null if none found.
+ */
+async function findExistingPrice(stripe: Stripe, productId: string): Promise<string | null> {
+  const prices = await stripe.prices.list({
+    product: productId,
+    active: true,
+    type: 'recurring',
+    limit: 1,
+  });
+  return prices.data.length > 0 ? prices.data[0].id : null;
+}
 
 /**
  * Get or create the Stripe Price for identity verification.
@@ -26,42 +67,19 @@ let cachedVerificationPriceId: string | null = null;
 async function getVerificationPriceId(): Promise<string> {
   if (cachedVerificationPriceId) return cachedVerificationPriceId;
 
-  // Check env var first
   if (process.env.STRIPE_VERIFICATION_PRICE_ID) {
     cachedVerificationPriceId = process.env.STRIPE_VERIFICATION_PRICE_ID;
     return cachedVerificationPriceId;
   }
 
   const stripe = await getStripeClient();
+  const productId = await findOrCreateVerificationProduct(stripe);
 
-  // Search for existing product
-  const products = await stripe.products.search({
-    query: 'metadata["type"]:"smuppy_identity_verification"',
-    limit: 1,
-  });
-
-  let productId: string;
-  if (products.data.length > 0 && products.data[0].active) {
-    productId = products.data[0].id;
-    // Find active price for this product
-    const prices = await stripe.prices.list({
-      product: productId,
-      active: true,
-      type: 'recurring',
-      limit: 1,
-    });
-    if (prices.data.length > 0) {
-      cachedVerificationPriceId = prices.data[0].id;
-      return cachedVerificationPriceId;
-    }
-  } else {
-    // Create product
-    const product = await stripe.products.create({
-      name: 'Smuppy Verified Account',
-      description: 'Monthly identity verification subscription for Smuppy creators',
-      metadata: { type: 'smuppy_identity_verification', platform: 'smuppy' },
-    });
-    productId = product.id;
+  // Check for existing price on the product before creating a new one
+  const existingPriceId = await findExistingPrice(stripe, productId);
+  if (existingPriceId) {
+    cachedVerificationPriceId = existingPriceId;
+    return cachedVerificationPriceId;
   }
 
   // Create recurring price
@@ -77,6 +95,39 @@ async function getVerificationPriceId(): Promise<string> {
   return cachedVerificationPriceId;
 }
 
+/**
+ * Ensure a Stripe customer exists for the given user profile.
+ * Creates one if missing and persists the ID to the database.
+ * Returns the Stripe customer ID.
+ */
+async function ensureStripeCustomer(
+  stripe: Stripe,
+  dbClient: PoolClient,
+  userId: string,
+  existingCustomerId: string | null,
+  email: string,
+  fullName: string,
+): Promise<string> {
+  if (existingCustomerId) return existingCustomerId;
+
+  const customer = await stripe.customers.create({
+    email,
+    name: fullName,
+    metadata: { userId, platform: PLATFORM_NAME },
+  });
+  await dbClient.query('UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2', [customer.id, userId]);
+  return customer.id;
+}
+
+/**
+ * Extract the payment_intent from a Stripe Invoice.
+ * The payment_intent field was moved to InvoicePayment in the clover API,
+ * but expand still populates it at runtime.
+ */
+function extractInvoicePaymentIntent(invoice: Stripe.Invoice): Stripe.PaymentIntent | null {
+  return (invoice as unknown as { payment_intent: Stripe.PaymentIntent | null }).payment_intent;
+}
+
 // CORS headers now dynamically created via createHeaders(event)
 
 interface IdentityBody {
@@ -86,6 +137,10 @@ interface IdentityBody {
   returnUrl?: string;
   paymentIntentId?: string;
 }
+
+// ============================================
+// HANDLER
+// ============================================
 
 export const handler = withAuthHandler('payments-identity', async (event, { headers, log, cognitoSub, profileId }) => {
     const stripe = await getStripeClient();
@@ -144,6 +199,42 @@ export const handler = withAuthHandler('payments-identity', async (event, { head
 // ============================================
 
 /**
+ * Check if an existing subscription is still usable.
+ * Returns an early response if the subscription is active/trialing or has a pending client secret.
+ * Returns null if a new subscription should be created.
+ */
+async function checkExistingSubscription(
+  stripe: Stripe,
+  subscriptionId: string,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult | null> {
+  try {
+    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+
+    if (sub.status === 'active' || sub.status === 'trialing') {
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, subscriptionActive: true }) };
+    }
+
+    // incomplete — return the pending invoice client secret
+    if (sub.status === 'incomplete' && sub.latest_invoice) {
+      const invoice = await stripe.invoices.retrieve(sub.latest_invoice as string, { expand: ['payment_intent'] });
+      const pi = extractInvoicePaymentIntent(invoice);
+      if (pi?.client_secret) {
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ success: true, clientSecret: pi.client_secret }),
+        };
+      }
+    }
+  } catch {
+    // Subscription invalid, create new one
+  }
+
+  return null;
+}
+
+/**
  * Create a monthly subscription for verification ($14.90/month).
  * Returns the clientSecret for the first invoice's PaymentIntent
  * so the frontend can present PaymentSheet.
@@ -171,40 +262,12 @@ async function createVerificationSubscription(stripe: Stripe, userId: string, he
 
     // Check existing subscription
     if (verification_subscription_id) {
-      try {
-        const sub = await stripe.subscriptions.retrieve(verification_subscription_id);
-        if (sub.status === 'active' || sub.status === 'trialing') {
-          return { statusCode: 200, headers, body: JSON.stringify({ success: true, subscriptionActive: true }) };
-        }
-        // incomplete — return the pending invoice client secret
-        if (sub.status === 'incomplete' && sub.latest_invoice) {
-          const invoice = await stripe.invoices.retrieve(sub.latest_invoice as string, { expand: ['payment_intent'] });
-          // payment_intent was moved to InvoicePayment in clover API, but expand still populates it at runtime
-          const pi = (invoice as unknown as { payment_intent: Stripe.PaymentIntent | null }).payment_intent;
-          if (pi?.client_secret) {
-            return {
-              statusCode: 200,
-              headers,
-              body: JSON.stringify({ success: true, clientSecret: pi.client_secret }),
-            };
-          }
-        }
-      } catch {
-        // Subscription invalid, create new one
-      }
+      const existingResponse = await checkExistingSubscription(stripe, verification_subscription_id, headers);
+      if (existingResponse) return existingResponse;
     }
 
     // Ensure Stripe customer exists
-    let customerId = stripe_customer_id;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email,
-        name: full_name,
-        metadata: { userId, platform: 'smuppy' },
-      });
-      customerId = customer.id;
-      await client.query('UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2', [customerId, userId]);
-    }
+    const customerId = await ensureStripeCustomer(stripe, client, userId, stripe_customer_id, email, full_name);
 
     // Create subscription (payment_behavior: 'default_incomplete' so we get clientSecret)
     const subscription = await stripe.subscriptions.create({
@@ -213,7 +276,7 @@ async function createVerificationSubscription(stripe: Stripe, userId: string, he
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription' },
       expand: ['latest_invoice.payment_intent'],
-      metadata: { userId, platform: 'smuppy', type: 'identity_verification' },
+      metadata: { userId, platform: PLATFORM_NAME, type: 'identity_verification' },
     });
 
     // Save subscription ID
@@ -227,8 +290,7 @@ async function createVerificationSubscription(stripe: Stripe, userId: string, he
     );
 
     const invoice = subscription.latest_invoice as Stripe.Invoice;
-    // payment_intent was moved to InvoicePayment in clover API, but expand still populates it at runtime
-    const pi = (invoice as unknown as { payment_intent: Stripe.PaymentIntent }).payment_intent;
+    const pi = extractInvoicePaymentIntent(invoice) as Stripe.PaymentIntent;
 
     return {
       statusCode: 200,
@@ -357,6 +419,49 @@ async function getVerificationConfig(stripe: Stripe, headers: Record<string, str
 // ============================================
 
 /**
+ * Check if an existing payment intent can be reused.
+ * Returns an early response if the payment is already succeeded or still pending.
+ * Returns null if a new payment intent should be created.
+ */
+async function checkExistingPaymentIntent(
+  stripe: Stripe,
+  paymentId: string,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult | null> {
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentId);
+
+  if (paymentIntent.status === 'succeeded') {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        paymentCompleted: true,
+        message: 'Payment already completed, proceed to verification',
+      }),
+    };
+  }
+
+  if (paymentIntent.status === 'requires_payment_method' || paymentIntent.status === 'requires_confirmation') {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        paymentIntent: {
+          id: paymentIntent.id,
+          clientSecret: paymentIntent.client_secret,
+          amount: paymentIntent.amount,
+        },
+        priceFormatted: '$14.90',
+      }),
+    };
+  }
+
+  return null;
+}
+
+/**
  * Create a payment intent for the verification fee ($14.90)
  * This must be completed before starting verification
  */
@@ -365,79 +470,29 @@ async function createVerificationPaymentIntent(userId: string, headers: Record<s
   const pool = await getPool();
   const client = await pool.connect();
   try {
-    // Get user info
     const result = await client.query(
       'SELECT id, email, full_name, stripe_customer_id, is_verified, verification_payment_id FROM profiles WHERE id = $1',
       [userId]
     );
 
     if (result.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'User not found' }),
-      };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'User not found' }) };
     }
 
     const { email, full_name, stripe_customer_id, is_verified, verification_payment_id } = result.rows[0];
 
-    // Check if already verified
     if (is_verified) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'User is already verified' }),
-      };
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'User is already verified' }) };
     }
 
-    // Check if payment already completed
+    // Check if payment already exists
     if (verification_payment_id) {
-      // Check payment status
-      const paymentIntent = await stripe.paymentIntents.retrieve(verification_payment_id);
-      if (paymentIntent.status === 'succeeded') {
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            success: true,
-            paymentCompleted: true,
-            message: 'Payment already completed, proceed to verification',
-          }),
-        };
-      }
-
-      // If payment pending, return existing intent
-      if (paymentIntent.status === 'requires_payment_method' || paymentIntent.status === 'requires_confirmation') {
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            success: true,
-            paymentIntent: {
-              id: paymentIntent.id,
-              clientSecret: paymentIntent.client_secret,
-              amount: paymentIntent.amount,
-            },
-            priceFormatted: '$14.90',
-          }),
-        };
-      }
+      const existingResponse = await checkExistingPaymentIntent(stripe, verification_payment_id, headers);
+      if (existingResponse) return existingResponse;
     }
 
-    // Create or get Stripe customer
-    let customerId = stripe_customer_id;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email,
-        name: full_name,
-        metadata: { userId, platform: 'smuppy' },
-      });
-      customerId = customer.id;
-      await client.query(
-        'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
-        [customerId, userId]
-      );
-    }
+    // Ensure Stripe customer exists
+    const customerId = await ensureStripeCustomer(stripe, client, userId, stripe_customer_id, email, full_name);
 
     // Create payment intent for verification fee
     const paymentIntent = await stripe.paymentIntents.create({
@@ -448,7 +503,7 @@ async function createVerificationPaymentIntent(userId: string, headers: Record<s
       metadata: {
         userId,
         type: 'identity_verification',
-        platform: 'smuppy',
+        platform: PLATFORM_NAME,
       },
       automatic_payment_methods: {
         enabled: true,
@@ -529,6 +584,41 @@ async function confirmPaymentAndStartVerification(
   }
 }
 
+// ============================================
+// VERIFICATION SESSION & STATUS
+// ============================================
+
+/**
+ * Check if there is an existing pending verification session that can be reused.
+ * Returns the session response if still valid, or null if a new session is needed.
+ */
+async function checkExistingVerificationSession(
+  stripe: Stripe,
+  sessionId: string,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult | null> {
+  try {
+    const existingSession = await stripe.identity.verificationSessions.retrieve(sessionId);
+
+    if (existingSession.status === 'requires_input') {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          sessionId: existingSession.id,
+          url: existingSession.url,
+          status: existingSession.status,
+        }),
+      };
+    }
+  } catch {
+    // Session expired or invalid, create new one
+  }
+
+  return null;
+}
+
 async function createVerificationSession(
   userId: string,
   returnUrl: string,
@@ -538,7 +628,6 @@ async function createVerificationSession(
   const pool = await getPool();
   const client = await pool.connect();
   try {
-    // Get user info
     const result = await client.query(
       `SELECT email, identity_verification_session_id, verification_payment_status
        FROM profiles WHERE id = $1`,
@@ -546,11 +635,7 @@ async function createVerificationSession(
     );
 
     if (result.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'User not found' }),
-      };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'User not found' }) };
     }
 
     const { email, identity_verification_session_id, verification_payment_status } = result.rows[0];
@@ -570,27 +655,8 @@ async function createVerificationSession(
 
     // Check if there's an existing pending session
     if (identity_verification_session_id) {
-      try {
-        const existingSession = await stripe.identity.verificationSessions.retrieve(
-          identity_verification_session_id
-        );
-
-        if (existingSession.status === 'requires_input') {
-          // Session still valid, return existing URL
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({
-              success: true,
-              sessionId: existingSession.id,
-              url: existingSession.url,
-              status: existingSession.status,
-            }),
-          };
-        }
-      } catch {
-        // Session expired or invalid, create new one
-      }
+      const existingResponse = await checkExistingVerificationSession(stripe, identity_verification_session_id, headers);
+      if (existingResponse) return existingResponse;
     }
 
     // Create new verification session
@@ -609,7 +675,7 @@ async function createVerificationSession(
       },
       metadata: {
         userId,
-        platform: 'smuppy',
+        platform: PLATFORM_NAME,
         purpose: 'creator_verification',
       },
       return_url: returnUrl,
@@ -647,11 +713,7 @@ async function getVerificationStatus(userId: string, headers: Record<string, str
     );
 
     if (result.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'User not found' }),
-      };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'User not found' }) };
     }
 
     const { identity_verification_session_id, is_verified } = result.rows[0];
@@ -663,7 +725,7 @@ async function getVerificationStatus(userId: string, headers: Record<string, str
         body: JSON.stringify({
           success: true,
           hasSession: false,
-          isVerified: is_verified || false,
+          isVerified: !!is_verified,
           status: 'not_started',
         }),
       };

@@ -313,7 +313,6 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
 }
 
 const createStyles = (colors: ThemeColors, isDark: boolean) => {
-  const _errorBg = isDark ? 'rgba(239,68,68,0.15)' : '#FEE2E2';
   const errorInputBg = isDark ? 'rgba(239,68,68,0.08)' : '#FEF2F2';
   const validBg = isDark ? 'rgba(14,191,138,0.15)' : '#E6FAF8';
   const warningIconBg = isDark ? 'rgba(245,158,11,0.2)' : '#FEF3C7';

@@ -3,42 +3,11 @@
  * Standalone handler — lists comments for a post with pagination.
  */
 
-import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getPool } from '../../../shared/db';
+import { makeEvent, TEST_SUB, TEST_PROFILE_ID, createMockDb } from '../helpers';
+import type { MockDb } from '../helpers';
 
-// ── Mocks (must be before handler import — Jest hoists jest.mock calls) ──
-
-jest.mock('../../../shared/db', () => ({
-  getPool: jest.fn(),
-  getReaderPool: jest.fn(),
-}));
-
-jest.mock('../../utils/rate-limit', () => ({
-  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
-  requireRateLimit: jest.fn().mockResolvedValue(null),
-}));
-
-jest.mock('../../utils/logger', () => ({
-  createLogger: jest.fn(() => ({
-    info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(),
-    initFromEvent: jest.fn(), setRequestId: jest.fn(), setUserId: jest.fn(),
-    logRequest: jest.fn(), logResponse: jest.fn(), logQuery: jest.fn(),
-    logSecurity: jest.fn(), child: jest.fn().mockReturnThis(),
-  })),
-}));
-
-jest.mock('../../utils/cors', () => ({
-  createHeaders: jest.fn(() => ({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Credentials': 'true',
-  })),
-  createCacheableHeaders: jest.fn(() => ({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  })),
-  getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
-}));
+// ── Domain-specific mocks ──
 
 jest.mock('../../utils/security', () => ({
   isValidUUID: jest.fn().mockReturnValue(true),
@@ -58,34 +27,16 @@ import { isValidUUID, extractCognitoSub } from '../../utils/security';
 
 // ── Test constants ──
 
-const TEST_SUB = 'cognito-sub-test123';
-const TEST_PROFILE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const POST_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
 const COMMENT_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
 
 // ── Helpers ──
 
-function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
-  return {
-    httpMethod: 'GET',
-    headers: {},
-    body: null,
-    queryStringParameters: overrides.queryStringParameters as Record<string, string> ?? null,
+function makeCommentEvent(overrides: Partial<Record<string, unknown>> = {}) {
+  return makeEvent({
     pathParameters: overrides.pathParameters as Record<string, string> ?? { id: POST_ID },
-    multiValueHeaders: {},
-    multiValueQueryStringParameters: null,
-    isBase64Encoded: false,
-    path: '/',
-    resource: '/',
-    stageVariables: null,
-    requestContext: {
-      requestId: 'test-request-id',
-      authorizer: overrides.sub !== null
-        ? { claims: { sub: overrides.sub ?? TEST_SUB } }
-        : undefined,
-      identity: { sourceIp: '127.0.0.1' },
-    },
-  } as unknown as APIGatewayProxyEvent;
+    ...overrides,
+  });
 }
 
 const NOW = new Date('2026-02-19T12:00:00Z');
@@ -93,16 +44,12 @@ const NOW = new Date('2026-02-19T12:00:00Z');
 // ── Test suite ──
 
 describe('comments/list handler', () => {
-  let mockDb: { query: jest.Mock };
+  let mockDb: MockDb;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockDb = {
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-    };
-
-    (getPool as jest.Mock).mockResolvedValue(mockDb);
+    mockDb = createMockDb();
     (isValidUUID as jest.Mock).mockReturnValue(true);
     (extractCognitoSub as jest.Mock).mockReturnValue(TEST_SUB);
 
@@ -140,7 +87,7 @@ describe('comments/list handler', () => {
 
   describe('input validation', () => {
     it('should return 400 when post ID is missing', async () => {
-      const event = makeEvent({ pathParameters: {} });
+      const event = makeCommentEvent({ pathParameters: {} });
       const result = await handler(event);
 
       expect(result.statusCode).toBe(400);
@@ -150,7 +97,7 @@ describe('comments/list handler', () => {
     it('should return 400 when post ID is not a valid UUID', async () => {
       (isValidUUID as jest.Mock).mockReturnValue(false);
 
-      const event = makeEvent({ pathParameters: { id: 'not-a-uuid' } });
+      const event = makeCommentEvent({ pathParameters: { id: 'not-a-uuid' } });
       const result = await handler(event);
 
       expect(result.statusCode).toBe(400);
@@ -172,7 +119,7 @@ describe('comments/list handler', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      const event = makeEvent();
+      const event = makeCommentEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(404);
@@ -190,7 +137,7 @@ describe('comments/list handler', () => {
         body: JSON.stringify({ message: 'Too many requests. Please try again later.' }),
       });
 
-      const event = makeEvent();
+      const event = makeCommentEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(429);
@@ -202,7 +149,7 @@ describe('comments/list handler', () => {
 
   describe('happy path', () => {
     it('should return 200 with formatted comments', async () => {
-      const event = makeEvent();
+      const event = makeCommentEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(200);
@@ -215,7 +162,7 @@ describe('comments/list handler', () => {
     });
 
     it('should include formatted author data in each comment', async () => {
-      const event = makeEvent();
+      const event = makeCommentEvent();
       const result = await handler(event);
 
       const body = JSON.parse(result.body);
@@ -231,7 +178,7 @@ describe('comments/list handler', () => {
     });
 
     it('should return hasMore=false when results fit in one page', async () => {
-      const event = makeEvent();
+      const event = makeCommentEvent();
       const result = await handler(event);
 
       const body = JSON.parse(result.body);
@@ -272,7 +219,7 @@ describe('comments/list handler', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      const event = makeEvent();
+      const event = makeCommentEvent();
       const result = await handler(event);
 
       const body = JSON.parse(result.body);
@@ -282,7 +229,7 @@ describe('comments/list handler', () => {
     });
 
     it('should support cursor-based pagination', async () => {
-      const event = makeEvent({
+      const event = makeCommentEvent({
         queryStringParameters: { cursor: String(NOW.getTime()), limit: '10' },
       });
       const result = await handler(event);
@@ -291,7 +238,7 @@ describe('comments/list handler', () => {
     });
 
     it('should cap limit at 50', async () => {
-      const event = makeEvent({
+      const event = makeCommentEvent({
         queryStringParameters: { limit: '100' },
       });
       await handler(event);
@@ -313,7 +260,7 @@ describe('comments/list handler', () => {
     it('should still list comments for unauthenticated users', async () => {
       (extractCognitoSub as jest.Mock).mockReturnValue(null);
 
-      const event = makeEvent({ sub: null });
+      const event = makeCommentEvent({ sub: null });
       const result = await handler(event);
 
       expect(result.statusCode).toBe(200);
@@ -326,7 +273,7 @@ describe('comments/list handler', () => {
     it('should return 500 when db.query throws', async () => {
       mockDb.query.mockRejectedValue(new Error('Connection refused'));
 
-      const event = makeEvent();
+      const event = makeCommentEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(500);
@@ -336,7 +283,7 @@ describe('comments/list handler', () => {
     it('should return 500 when getPool throws', async () => {
       (getPool as jest.Mock).mockRejectedValue(new Error('Pool exhausted'));
 
-      const event = makeEvent();
+      const event = makeCommentEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(500);

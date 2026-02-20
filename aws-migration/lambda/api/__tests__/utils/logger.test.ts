@@ -2,6 +2,8 @@
  * Logger Utility Unit Tests
  */
 
+jest.unmock('../../utils/logger');
+
 import { createLogger, getRequestId } from '../../utils/logger';
 
 // Mock console.log to capture output

@@ -136,7 +136,7 @@ export const handler = withErrorHandler('spots-nearby', async (event, { headers 
     amenities: s.amenities || [],
     rating: s.rating,
     reviewCount: s.review_count,
-    isVerified: s.is_verified || false,
+    isVerified: !!s.is_verified,
     tags: s.tags || [],
     qualities: s.qualities || [],
     subcategory: s.subcategory,

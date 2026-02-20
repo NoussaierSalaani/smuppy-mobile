@@ -582,8 +582,7 @@ export const uploadMultiple = async (
   const results: UploadResult[] = [];
   const totalFiles = files.length;
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+  for (const [i, file] of files.entries()) {
     const fileProgress = (progress: number) => {
       const overallProgress = ((i / totalFiles) + (progress / 100 / totalFiles)) * 100;
       options.onProgress?.(overallProgress);

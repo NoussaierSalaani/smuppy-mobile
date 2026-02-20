@@ -122,7 +122,7 @@ const { handler } = createBusinessHandler({
 
     // Check session limits if applicable
     let remainingSessions: number | undefined;
-    if (subscription.sessions_limit !== null && subscription.sessions_limit !== undefined) {
+    if (subscription.sessions_limit != null) {
       const used = subscription.sessions_used || 0;
       remainingSessions = subscription.sessions_limit - used;
 

@@ -310,7 +310,7 @@ export const handler = withErrorHandler('challenges-list', async (event, { heade
         avatarUrl: row.creator_avatar,
         isVerified: row.creator_verified,
       },
-      hasResponded: userResponses[row.id as string] || false,
+      hasResponded: !!userResponses[row.id as string],
     }));
 
     return {

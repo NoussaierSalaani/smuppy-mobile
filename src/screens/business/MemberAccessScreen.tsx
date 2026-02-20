@@ -19,7 +19,6 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { awsAPI } from '../../services/aws-api';
-import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateShort } from '../../utils/dateFormatters';
 
@@ -51,9 +50,7 @@ interface AccessPass {
 
 export default function MemberAccessScreen({ route, navigation }: Props) {
   const { colors, isDark } = useTheme();
-  const { subscriptionId, businessId, businessName: _businessName } = route.params;
-  const _user = useUserStore((state) => state.user);
-  const _getFullName = useUserStore((state) => state.getFullName);
+  const { subscriptionId, businessId } = route.params;
 
   const [accessPass, setAccessPass] = useState<AccessPass | null>(null);
   const [isLoading, setIsLoading] = useState(true);

@@ -10,7 +10,7 @@
  * 4. Webhook confirms payment and updates database
  */
 
-import { APIGatewayProxyHandler, APIGatewayProxyEvent } from 'aws-lambda';
+import { APIGatewayProxyHandler, APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import { getPool } from '../../shared/db';
 import { getStripeClient } from '../../shared/stripe-client';
@@ -20,6 +20,8 @@ import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
 import { requireRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
+import { calculatePlatformFeePercent } from '../utils/revenue-share';
+import { PLATFORM_NAME } from '../utils/constants';
 
 const log = createLogger('payments/web-checkout');
 
@@ -38,6 +40,22 @@ interface CheckoutRequest {
   amount?: number; // For tips or custom amounts
   planType?: 'pro_creator' | 'pro_business'; // For platform subscriptions
   metadata?: Record<string, string>;
+}
+
+/** Result from a product-type config builder: either a session config or an early error response */
+type ConfigResult =
+  | { config: Stripe.Checkout.SessionCreateParams }
+  | { error: APIGatewayProxyResult };
+
+/** Common context passed to each product-type config builder */
+interface BuildContext {
+  db: Pool;
+  stripe: Stripe;
+  userSub: string;
+  customerId: string;
+  baseSuccessUrl: string;
+  baseCancelUrl: string;
+  headers: Record<string, string>;
 }
 
 export const handler: APIGatewayProxyHandler = async (event) => {
@@ -95,8 +113,536 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 };
 
+// ── Stripe Customer ────────────────────────────────────────────────────
+
 /**
- * Create a Stripe Checkout Session for web payment
+ * Get or create a Stripe customer for the given user profile.
+ * Returns the Stripe customer ID.
+ */
+async function getOrCreateStripeCustomer(
+  db: Pool,
+  stripe: Stripe,
+  userProfile: { id: string; email: string; full_name: string; username: string; stripe_customer_id: string | null },
+  userSub: string
+): Promise<string> {
+  if (userProfile.stripe_customer_id) {
+    return userProfile.stripe_customer_id;
+  }
+
+  const customer = await safeStripeCall(
+    () => stripe.customers.create({
+      email: userProfile.email,
+      name: userProfile.full_name || userProfile.username,
+      metadata: { userId: userSub, platform: PLATFORM_NAME },
+    }),
+    'customers.create', log
+  );
+
+  await db.query(
+    'UPDATE profiles SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
+    [customer.id, userProfile.id]
+  );
+
+  return customer.id;
+}
+
+// ── Product-Type Config Builders ───────────────────────────────────────
+
+/**
+ * Build checkout config for a 1:1 session purchase
+ */
+async function buildSessionCheckoutConfig(
+  ctx: BuildContext,
+  body: CheckoutRequest
+): Promise<ConfigResult> {
+  const { productId } = body;
+
+  if (!productId) {
+    return {
+      error: {
+        statusCode: 400,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'productId (sessionId) is required' }),
+      },
+    };
+  }
+
+  // Get session details
+  const sessionResult = await ctx.db.query(
+    `SELECT ps.*, p.full_name as creator_name, p.stripe_account_id
+     FROM private_sessions ps
+     JOIN profiles p ON ps.creator_id = p.id
+     WHERE ps.id = $1`,
+    [productId]
+  );
+
+  if (sessionResult.rows.length === 0) {
+    return {
+      error: {
+        statusCode: 404,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'Session not found' }),
+      },
+    };
+  }
+
+  const session = sessionResult.rows[0];
+  const priceInCents = session.price_cents || Math.round(session.price * 100);
+
+  // 80% to creator, 20% to platform
+  const platformFee = Math.round(priceInCents * 0.20);
+
+  return {
+    config: {
+      mode: 'payment',
+      customer: ctx.customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: DEFAULT_CURRENCY,
+          product_data: {
+            name: `Session 1:1 avec ${session.creator_name}`,
+            description: `${session.duration_minutes || session.duration} minutes`,
+          },
+          unit_amount: priceInCents,
+        },
+        quantity: 1,
+      }],
+      payment_intent_data: {
+        application_fee_amount: platformFee,
+        transfer_data: {
+          destination: session.stripe_account_id,
+        },
+        metadata: {
+          type: 'session',
+          sessionId: productId,
+          buyerId: ctx.userSub,
+          creatorId: session.creator_id,
+          source: 'web',
+        },
+      },
+      metadata: {
+        productType: 'session',
+        sessionId: productId,
+        userId: ctx.userSub,
+      },
+      success_url: `${ctx.baseSuccessUrl}&type=session&id=${productId}`,
+      cancel_url: `${ctx.baseCancelUrl}?type=session&id=${productId}`,
+    },
+  };
+}
+
+/**
+ * Build checkout config for a session pack purchase
+ */
+async function buildPackCheckoutConfig(
+  ctx: BuildContext,
+  body: CheckoutRequest
+): Promise<ConfigResult> {
+  const { productId, creatorId } = body;
+
+  if (!productId || !creatorId) {
+    return {
+      error: {
+        statusCode: 400,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'productId (packId) and creatorId are required' }),
+      },
+    };
+  }
+
+  // Get pack details
+  const packResult = await ctx.db.query(
+    `SELECT sp.*, p.full_name as creator_name, p.stripe_account_id
+     FROM session_packs sp
+     JOIN profiles p ON sp.creator_id = p.id
+     WHERE sp.id = $1`,
+    [productId]
+  );
+
+  if (packResult.rows.length === 0) {
+    return {
+      error: {
+        statusCode: 404,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'Pack not found' }),
+      },
+    };
+  }
+
+  const pack = packResult.rows[0];
+  const priceInCents = pack.price_cents || Math.round(pack.price * 100);
+  const platformFee = Math.round(priceInCents * 0.20);
+
+  return {
+    config: {
+      mode: 'payment',
+      customer: ctx.customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: DEFAULT_CURRENCY,
+          product_data: {
+            name: pack.name,
+            description: `${pack.sessions_included} sessions avec ${pack.creator_name}`,
+          },
+          unit_amount: priceInCents,
+        },
+        quantity: 1,
+      }],
+      payment_intent_data: {
+        application_fee_amount: platformFee,
+        transfer_data: {
+          destination: pack.stripe_account_id,
+        },
+        metadata: {
+          type: 'pack',
+          packId: productId,
+          buyerId: ctx.userSub,
+          creatorId: pack.creator_id,
+          source: 'web',
+        },
+      },
+      metadata: {
+        productType: 'pack',
+        packId: productId,
+        userId: ctx.userSub,
+      },
+      success_url: `${ctx.baseSuccessUrl}&type=pack&id=${productId}`,
+      cancel_url: `${ctx.baseCancelUrl}?type=pack&id=${productId}`,
+    },
+  };
+}
+
+/**
+ * Build checkout config for a channel subscription
+ */
+async function buildChannelSubscriptionCheckoutConfig(
+  ctx: BuildContext,
+  body: CheckoutRequest
+): Promise<ConfigResult> {
+  const { creatorId } = body;
+
+  if (!creatorId) {
+    return {
+      error: {
+        statusCode: 400,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'creatorId is required' }),
+      },
+    };
+  }
+
+  // Get creator details (use cached fan_count column instead of COUNT subquery)
+  const creatorResult = await ctx.db.query(
+    `SELECT id, full_name, username, stripe_account_id, channel_price_cents, fan_count
+     FROM profiles WHERE id = $1`,
+    [creatorId]
+  );
+
+  if (creatorResult.rows.length === 0) {
+    return {
+      error: {
+        statusCode: 404,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'Creator not found' }),
+      },
+    };
+  }
+
+  const creator = creatorResult.rows[0];
+  const priceInCents = creator.channel_price_cents || 499; // Default $4.99
+
+  // Calculate platform fee based on creator tier
+  const fanCount = Number.parseInt(creator.fan_count) || 0;
+  const platformFeePercent = calculatePlatformFeePercent(fanCount);
+
+  // Get or create Stripe Price for this creator's subscription
+  const stripePriceId = await getOrCreateChannelStripePriceId(
+    ctx.db, ctx.stripe, creatorId, creator, priceInCents
+  );
+
+  return {
+    config: {
+      mode: 'subscription',
+      customer: ctx.customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price: stripePriceId,
+        quantity: 1,
+      }],
+      subscription_data: {
+        application_fee_percent: platformFeePercent,
+        transfer_data: {
+          destination: creator.stripe_account_id,
+        },
+        metadata: {
+          subscriptionType: 'channel',
+          creatorId,
+          fanId: ctx.userSub,
+          creatorFanCount: fanCount.toString(),
+        },
+      },
+      metadata: {
+        productType: 'channel_subscription',
+        creatorId,
+        userId: ctx.userSub,
+      },
+      success_url: `${ctx.baseSuccessUrl}&type=channel&creator=${creatorId}`,
+      cancel_url: `${ctx.baseCancelUrl}?type=channel&creator=${creatorId}`,
+    },
+  };
+}
+
+/**
+ * Get or create a Stripe Price ID for a creator's channel subscription
+ */
+async function getOrCreateChannelStripePriceId(
+  db: Pool,
+  stripe: Stripe,
+  creatorId: string,
+  creator: { full_name: string; username: string },
+  priceInCents: number
+): Promise<string> {
+  const existingPrice = await db.query(
+    'SELECT stripe_price_id FROM creator_stripe_prices WHERE creator_id = $1 AND price_cents = $2 AND is_active = true',
+    [creatorId, priceInCents]
+  );
+
+  if (existingPrice.rows.length > 0) {
+    return existingPrice.rows[0].stripe_price_id;
+  }
+
+  // Create Stripe Product and Price
+  const product = await safeStripeCall(
+    () => stripe.products.create({
+      name: `${creator.full_name || creator.username}'s Channel`,
+      metadata: { creatorId, type: 'channel_subscription' },
+    }),
+    'products.create', log
+  );
+
+  const price = await safeStripeCall(
+    () => stripe.prices.create({
+      product: product.id,
+      unit_amount: priceInCents,
+      currency: DEFAULT_CURRENCY,
+      recurring: { interval: 'month' },
+    }),
+    'prices.create', log
+  );
+
+  await db.query(
+    `INSERT INTO creator_stripe_prices (creator_id, stripe_product_id, stripe_price_id, price_cents, is_active)
+     VALUES ($1, $2, $3, $4, true)
+     ON CONFLICT (creator_id, price_cents) DO UPDATE SET
+       stripe_price_id = $3, is_active = true, updated_at = NOW()`,
+    [creatorId, product.id, price.id, priceInCents]
+  );
+
+  return price.id;
+}
+
+/**
+ * Build checkout config for a platform subscription (pro_creator or pro_business)
+ */
+async function buildPlatformSubscriptionCheckoutConfig(
+  ctx: BuildContext,
+  body: CheckoutRequest
+): Promise<ConfigResult> {
+  const { planType } = body;
+
+  if (!planType) {
+    return {
+      error: {
+        statusCode: 400,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'planType is required' }),
+      },
+    };
+  }
+
+  // Platform subscription prices (100% to Smuppy)
+  const prices = {
+    pro_creator: { amount: 9900, name: 'Pro Creator', features: 'Monetization, Analytics, Priority Support' },
+    pro_business: { amount: 4900, name: 'Pro Business', features: 'Business Profile, Local Discovery, Promotions' },
+  };
+
+  const plan = prices[planType];
+  if (!plan) {
+    return {
+      error: {
+        statusCode: 400,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'Invalid planType' }),
+      },
+    };
+  }
+
+  // Get or create Stripe Price for platform subscription
+  const priceId = process.env[`STRIPE_PRICE_${planType.toUpperCase()}`];
+  const stripePriceId = priceId || await createPlatformStripePriceId(ctx.stripe, plan, planType);
+
+  return {
+    config: {
+      mode: 'subscription',
+      customer: ctx.customerId,
+      payment_method_types: ['card'],
+      line_items: [{ price: stripePriceId, quantity: 1 }],
+      subscription_data: {
+        metadata: {
+          subscriptionType: 'platform',
+          planType,
+          userId: ctx.userSub,
+        },
+      },
+      metadata: {
+        productType: 'platform_subscription',
+        planType,
+        userId: ctx.userSub,
+      },
+      success_url: `${ctx.baseSuccessUrl}&type=platform&plan=${planType}`,
+      cancel_url: `${ctx.baseCancelUrl}?type=platform&plan=${planType}`,
+    },
+  };
+}
+
+/**
+ * Create a Stripe Price dynamically for a platform subscription plan
+ */
+async function createPlatformStripePriceId(
+  stripe: Stripe,
+  plan: { amount: number; name: string; features: string },
+  planType: string
+): Promise<string> {
+  const product = await safeStripeCall(
+    () => stripe.products.create({
+      name: `Smuppy ${plan.name}`,
+      description: plan.features,
+      metadata: { planType, type: 'platform_subscription' },
+    }),
+    'products.create', log
+  );
+
+  const price = await safeStripeCall(
+    () => stripe.prices.create({
+      product: product.id,
+      unit_amount: plan.amount,
+      currency: DEFAULT_CURRENCY,
+      recurring: { interval: 'month' },
+    }),
+    'prices.create', log
+  );
+
+  return price.id;
+}
+
+/**
+ * Build checkout config for a tip
+ */
+async function buildTipCheckoutConfig(
+  ctx: BuildContext,
+  body: CheckoutRequest
+): Promise<ConfigResult> {
+  const { creatorId, amount } = body;
+
+  if (!creatorId || !amount) {
+    return {
+      error: {
+        statusCode: 400,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'creatorId and amount are required' }),
+      },
+    };
+  }
+
+  // SECURITY: Validate tip amount (match tips/send.ts constraints)
+  const tipAmountCents = Math.round(amount * 100);
+  if (tipAmountCents < 100 || tipAmountCents > 50000) {
+    return {
+      error: {
+        statusCode: 400,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'Invalid tip amount. Min 1.00, max 500.00' }),
+      },
+    };
+  }
+
+  // Get creator details
+  const creatorResult = await ctx.db.query(
+    'SELECT id, full_name, username, stripe_account_id FROM profiles WHERE id = $1',
+    [creatorId]
+  );
+
+  if (creatorResult.rows.length === 0) {
+    return {
+      error: {
+        statusCode: 404,
+        headers: ctx.headers,
+        body: JSON.stringify({ success: false, message: 'Creator not found' }),
+      },
+    };
+  }
+
+  const creator = creatorResult.rows[0];
+  const platformFee = Math.round(tipAmountCents * 0.15); // 15% on tips
+
+  return {
+    config: {
+      mode: 'payment',
+      customer: ctx.customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: DEFAULT_CURRENCY,
+          product_data: {
+            name: `Tip pour ${creator.full_name || creator.username}`,
+            description: 'Merci pour votre soutien!',
+          },
+          unit_amount: tipAmountCents,
+        },
+        quantity: 1,
+      }],
+      payment_intent_data: {
+        application_fee_amount: platformFee,
+        transfer_data: {
+          destination: creator.stripe_account_id,
+        },
+        metadata: {
+          type: 'tip',
+          creatorId,
+          senderId: ctx.userSub,
+          source: 'web',
+        },
+      },
+      metadata: {
+        productType: 'tip',
+        creatorId,
+        userId: ctx.userSub,
+        amount: tipAmountCents.toString(),
+      },
+      success_url: `${ctx.baseSuccessUrl}&type=tip&creator=${creatorId}`,
+      cancel_url: `${ctx.baseCancelUrl}?type=tip&creator=${creatorId}`,
+    },
+  };
+}
+
+// ── Config Builder Dispatch ────────────────────────────────────────────
+
+/** Map of product type to its config builder */
+const CONFIG_BUILDERS: Record<ProductType, (ctx: BuildContext, body: CheckoutRequest) => Promise<ConfigResult>> = {
+  session: buildSessionCheckoutConfig,
+  pack: buildPackCheckoutConfig,
+  channel_subscription: buildChannelSubscriptionCheckoutConfig,
+  platform_subscription: buildPlatformSubscriptionCheckoutConfig,
+  tip: buildTipCheckoutConfig,
+};
+
+// ── Main Checkout Orchestrator ─────────────────────────────────────────
+
+/**
+ * Create a Stripe Checkout Session for web payment.
+ * Thin orchestrator: validate -> get customer -> build config by type -> create session -> respond
  */
 async function createCheckoutSession(
   db: Pool,
@@ -106,7 +652,7 @@ async function createCheckoutSession(
 ) {
   const stripe = await getStripeClient();
   const body = JSON.parse(event.body || '{}') as CheckoutRequest;
-  const { productType, productId, creatorId, amount, planType } = body;
+  const { productType } = body;
 
   if (!productType) {
     return {
@@ -133,449 +679,40 @@ async function createCheckoutSession(
   const userProfile = userResult.rows[0];
 
   // Get or create Stripe customer
-  let customerId = userProfile.stripe_customer_id;
-  if (!customerId) {
-    const customer = await safeStripeCall(
-      () => stripe.customers.create({
-        email: userProfile.email,
-        name: userProfile.full_name || userProfile.username,
-        metadata: { userId: user.sub, platform: 'smuppy' },
-      }),
-      'customers.create', log
-    );
-    customerId = customer.id;
+  const customerId = await getOrCreateStripeCustomer(db, stripe, userProfile, user.sub);
 
-    await db.query(
-      'UPDATE profiles SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
-      [customerId, userProfile.id]
-    );
+  // Resolve config builder for this product type
+  const builder = CONFIG_BUILDERS[productType];
+  if (!builder) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Invalid productType' }),
+    };
   }
-
-  // Build checkout session based on product type
-  let sessionConfig: Stripe.Checkout.SessionCreateParams;
 
   // Deep link URLs for returning to the app
   const baseSuccessUrl = `${WEB_DOMAIN}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
   const baseCancelUrl = `${WEB_DOMAIN}/checkout/cancel`;
 
-  switch (productType) {
-    case 'session': {
-      if (!productId) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'productId (sessionId) is required' }),
-        };
-      }
+  const ctx: BuildContext = {
+    db,
+    stripe,
+    userSub: user.sub,
+    customerId,
+    baseSuccessUrl,
+    baseCancelUrl,
+    headers,
+  };
 
-      // Get session details
-      const sessionResult = await db.query(
-        `SELECT ps.*, p.full_name as creator_name, p.stripe_account_id
-         FROM private_sessions ps
-         JOIN profiles p ON ps.creator_id = p.id
-         WHERE ps.id = $1`,
-        [productId]
-      );
+  const result = await builder(ctx, body);
 
-      if (sessionResult.rows.length === 0) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Session not found' }),
-        };
-      }
-
-      const session = sessionResult.rows[0];
-      const priceInCents = session.price_cents || Math.round(session.price * 100);
-
-      // 80% to creator, 20% to platform
-      const platformFee = Math.round(priceInCents * 0.20);
-
-      sessionConfig = {
-        mode: 'payment',
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: [{
-          price_data: {
-            currency: DEFAULT_CURRENCY,
-            product_data: {
-              name: `Session 1:1 avec ${session.creator_name}`,
-              description: `${session.duration_minutes || session.duration} minutes`,
-            },
-            unit_amount: priceInCents,
-          },
-          quantity: 1,
-        }],
-        payment_intent_data: {
-          application_fee_amount: platformFee,
-          transfer_data: {
-            destination: session.stripe_account_id,
-          },
-          metadata: {
-            type: 'session',
-            sessionId: productId,
-            buyerId: user.sub,
-            creatorId: session.creator_id,
-            source: 'web',
-          },
-        },
-        metadata: {
-          productType: 'session',
-          sessionId: productId,
-          userId: user.sub,
-        },
-        success_url: `${baseSuccessUrl}&type=session&id=${productId}`,
-        cancel_url: `${baseCancelUrl}?type=session&id=${productId}`,
-      };
-      break;
-    }
-
-    case 'pack': {
-      if (!productId || !creatorId) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'productId (packId) and creatorId are required' }),
-        };
-      }
-
-      // Get pack details
-      const packResult = await db.query(
-        `SELECT sp.*, p.full_name as creator_name, p.stripe_account_id
-         FROM session_packs sp
-         JOIN profiles p ON sp.creator_id = p.id
-         WHERE sp.id = $1`,
-        [productId]
-      );
-
-      if (packResult.rows.length === 0) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Pack not found' }),
-        };
-      }
-
-      const pack = packResult.rows[0];
-      const priceInCents = pack.price_cents || Math.round(pack.price * 100);
-      const platformFee = Math.round(priceInCents * 0.20);
-
-      sessionConfig = {
-        mode: 'payment',
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: [{
-          price_data: {
-            currency: DEFAULT_CURRENCY,
-            product_data: {
-              name: pack.name,
-              description: `${pack.sessions_included} sessions avec ${pack.creator_name}`,
-            },
-            unit_amount: priceInCents,
-          },
-          quantity: 1,
-        }],
-        payment_intent_data: {
-          application_fee_amount: platformFee,
-          transfer_data: {
-            destination: pack.stripe_account_id,
-          },
-          metadata: {
-            type: 'pack',
-            packId: productId,
-            buyerId: user.sub,
-            creatorId: pack.creator_id,
-            source: 'web',
-          },
-        },
-        metadata: {
-          productType: 'pack',
-          packId: productId,
-          userId: user.sub,
-        },
-        success_url: `${baseSuccessUrl}&type=pack&id=${productId}`,
-        cancel_url: `${baseCancelUrl}?type=pack&id=${productId}`,
-      };
-      break;
-    }
-
-    case 'channel_subscription': {
-      if (!creatorId) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'creatorId is required' }),
-        };
-      }
-
-      // Get creator details (use cached fan_count column instead of COUNT subquery)
-      const creatorResult = await db.query(
-        `SELECT id, full_name, username, stripe_account_id, channel_price_cents, fan_count
-         FROM profiles WHERE id = $1`,
-        [creatorId]
-      );
-
-      if (creatorResult.rows.length === 0) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Creator not found' }),
-        };
-      }
-
-      const creator = creatorResult.rows[0];
-      const priceInCents = creator.channel_price_cents || 499; // Default $4.99
-
-      // Calculate platform fee based on creator tier
-      const fanCount = Number.parseInt(creator.fan_count) || 0;
-      let platformFeePercent = 40; // Default Bronze tier
-      if (fanCount >= 1000000) platformFeePercent = 20;
-      else if (fanCount >= 100000) platformFeePercent = 25;
-      else if (fanCount >= 10000) platformFeePercent = 30;
-      else if (fanCount >= 1000) platformFeePercent = 35;
-
-      // Get or create Stripe Price for this creator's subscription
-      let stripePriceId: string;
-      const existingPrice = await db.query(
-        'SELECT stripe_price_id FROM creator_stripe_prices WHERE creator_id = $1 AND price_cents = $2 AND is_active = true',
-        [creatorId, priceInCents]
-      );
-
-      if (existingPrice.rows.length > 0) {
-        stripePriceId = existingPrice.rows[0].stripe_price_id;
-      } else {
-        // Create Stripe Product and Price
-        const product = await safeStripeCall(
-          () => stripe.products.create({
-            name: `${creator.full_name || creator.username}'s Channel`,
-            metadata: { creatorId, type: 'channel_subscription' },
-          }),
-          'products.create', log
-        );
-
-        const price = await safeStripeCall(
-          () => stripe.prices.create({
-            product: product.id,
-            unit_amount: priceInCents,
-            currency: DEFAULT_CURRENCY,
-            recurring: { interval: 'month' },
-          }),
-          'prices.create', log
-        );
-
-        stripePriceId = price.id;
-
-        await db.query(
-          `INSERT INTO creator_stripe_prices (creator_id, stripe_product_id, stripe_price_id, price_cents, is_active)
-           VALUES ($1, $2, $3, $4, true)
-           ON CONFLICT (creator_id, price_cents) DO UPDATE SET
-             stripe_price_id = $3, is_active = true, updated_at = NOW()`,
-          [creatorId, product.id, stripePriceId, priceInCents]
-        );
-      }
-
-      sessionConfig = {
-        mode: 'subscription',
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: [{
-          price: stripePriceId,
-          quantity: 1,
-        }],
-        subscription_data: {
-          application_fee_percent: platformFeePercent,
-          transfer_data: {
-            destination: creator.stripe_account_id,
-          },
-          metadata: {
-            subscriptionType: 'channel',
-            creatorId,
-            fanId: user.sub,
-            creatorFanCount: fanCount.toString(),
-          },
-        },
-        metadata: {
-          productType: 'channel_subscription',
-          creatorId,
-          userId: user.sub,
-        },
-        success_url: `${baseSuccessUrl}&type=channel&creator=${creatorId}`,
-        cancel_url: `${baseCancelUrl}?type=channel&creator=${creatorId}`,
-      };
-      break;
-    }
-
-    case 'platform_subscription': {
-      if (!planType) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'planType is required' }),
-        };
-      }
-
-      // Platform subscription prices (100% to Smuppy)
-      const prices = {
-        pro_creator: { amount: 9900, name: 'Pro Creator', features: 'Monetization, Analytics, Priority Support' },
-        pro_business: { amount: 4900, name: 'Pro Business', features: 'Business Profile, Local Discovery, Promotions' },
-      };
-
-      const plan = prices[planType];
-      if (!plan) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Invalid planType' }),
-        };
-      }
-
-      // Get or create Stripe Price for platform subscription
-      const priceId = process.env[`STRIPE_PRICE_${planType.toUpperCase()}`];
-
-      if (!priceId) {
-        // Create price dynamically if not configured
-        const product = await safeStripeCall(
-          () => stripe.products.create({
-            name: `Smuppy ${plan.name}`,
-            description: plan.features,
-            metadata: { planType, type: 'platform_subscription' },
-          }),
-          'products.create', log
-        );
-
-        const price = await safeStripeCall(
-          () => stripe.prices.create({
-            product: product.id,
-            unit_amount: plan.amount,
-            currency: DEFAULT_CURRENCY,
-            recurring: { interval: 'month' },
-          }),
-          'prices.create', log
-        );
-
-        sessionConfig = {
-          mode: 'subscription',
-          customer: customerId,
-          payment_method_types: ['card'],
-          line_items: [{ price: price.id, quantity: 1 }],
-          subscription_data: {
-            metadata: {
-              subscriptionType: 'platform',
-              planType,
-              userId: user.sub,
-            },
-          },
-          metadata: {
-            productType: 'platform_subscription',
-            planType,
-            userId: user.sub,
-          },
-          success_url: `${baseSuccessUrl}&type=platform&plan=${planType}`,
-          cancel_url: `${baseCancelUrl}?type=platform&plan=${planType}`,
-        };
-      } else {
-        sessionConfig = {
-          mode: 'subscription',
-          customer: customerId,
-          payment_method_types: ['card'],
-          line_items: [{ price: priceId, quantity: 1 }],
-          subscription_data: {
-            metadata: {
-              subscriptionType: 'platform',
-              planType,
-              userId: user.sub,
-            },
-          },
-          metadata: {
-            productType: 'platform_subscription',
-            planType,
-            userId: user.sub,
-          },
-          success_url: `${baseSuccessUrl}&type=platform&plan=${planType}`,
-          cancel_url: `${baseCancelUrl}?type=platform&plan=${planType}`,
-        };
-      }
-      break;
-    }
-
-    case 'tip': {
-      if (!creatorId || !amount) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'creatorId and amount are required' }),
-        };
-      }
-
-      // SECURITY: Validate tip amount (match tips/send.ts constraints)
-      const tipAmountCents = Math.round(amount * 100);
-      if (tipAmountCents < 100 || tipAmountCents > 50000) {
-        return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid tip amount. Min 1.00, max 500.00' }) };
-      }
-
-      // Get creator details
-      const creatorResult = await db.query(
-        'SELECT id, full_name, username, stripe_account_id FROM profiles WHERE id = $1',
-        [creatorId]
-      );
-
-      if (creatorResult.rows.length === 0) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Creator not found' }),
-        };
-      }
-
-      const creator = creatorResult.rows[0];
-      const platformFee = Math.round(tipAmountCents * 0.15); // 15% on tips
-
-      sessionConfig = {
-        mode: 'payment',
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: [{
-          price_data: {
-            currency: DEFAULT_CURRENCY,
-            product_data: {
-              name: `Tip pour ${creator.full_name || creator.username}`,
-              description: 'Merci pour votre soutien!',
-            },
-            unit_amount: tipAmountCents,
-          },
-          quantity: 1,
-        }],
-        payment_intent_data: {
-          application_fee_amount: platformFee,
-          transfer_data: {
-            destination: creator.stripe_account_id,
-          },
-          metadata: {
-            type: 'tip',
-            creatorId,
-            senderId: user.sub,
-            source: 'web',
-          },
-        },
-        metadata: {
-          productType: 'tip',
-          creatorId,
-          userId: user.sub,
-          amount: tipAmountCents.toString(),
-        },
-        success_url: `${baseSuccessUrl}&type=tip&creator=${creatorId}`,
-        cancel_url: `${baseCancelUrl}?type=tip&creator=${creatorId}`,
-      };
-      break;
-    }
-
-    default:
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Invalid productType' }),
-      };
+  // If the builder returned an error, propagate it
+  if ('error' in result) {
+    return result.error;
   }
+
+  const sessionConfig = result.config;
 
   // Add common configuration
   sessionConfig.allow_promotion_codes = true;
@@ -605,6 +742,8 @@ async function createCheckoutSession(
     }),
   };
 }
+
+// ── Session Status ─────────────────────────────────────────────────────
 
 /**
  * Check the status of a checkout session

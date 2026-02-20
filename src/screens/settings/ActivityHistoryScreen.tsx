@@ -45,9 +45,9 @@ function filterToApiType(filter: FilterKey): string | undefined {
 function matchesFilter(item: ActivityItem, filter: FilterKey): boolean {
   switch (filter) {
     case 'all': return true;
-    case 'likes': return item.activityType === 'post_like' || item.activityType === 'peak_like';
+    case 'likes': return ['post_like', 'peak_like'].includes(item.activityType);
     case 'follow': return item.activityType === 'follow';
-    case 'comments': return item.activityType === 'comment' || item.activityType === 'peak_comment';
+    case 'comments': return ['comment', 'peak_comment'].includes(item.activityType);
   }
 }
 
@@ -176,7 +176,7 @@ const ActivityItemRow = React.memo(function ActivityItemRow({
 // ============================================
 
 export default function ActivityHistoryScreen(): React.JSX.Element {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -187,7 +187,7 @@ export default function ActivityHistoryScreen(): React.JSX.Element {
   const [hasMore, setHasMore] = useState(true);
   const loadingMoreRef = useRef(false);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const fetchActivity = useCallback(async (isRefresh = false) => {
     try {
@@ -375,7 +375,7 @@ export default function ActivityHistoryScreen(): React.JSX.Element {
 // STYLES
 // ============================================
 
-const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

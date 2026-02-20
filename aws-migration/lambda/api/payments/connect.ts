@@ -9,6 +9,7 @@ import { getStripeClient } from '../../shared/stripe-client';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
+import { PLATFORM_NAME } from '../utils/constants';
 
 // SECURITY: Allowed URL patterns for Stripe redirects
 const ALLOWED_URL_PATTERN = /^(smuppy:\/\/|https:\/\/(www\.)?smuppy\.com\/)/;
@@ -164,7 +165,7 @@ async function createConnectAccount(userId: string, corsHeaders: Record<string, 
       business_type: 'individual',
       metadata: {
         userId,
-        platform: 'smuppy',
+        platform: PLATFORM_NAME,
       },
       settings: {
         payouts: {

@@ -209,7 +209,7 @@ export const handler = withAuthHandler('comments-create', async (event, { header
               username: profile.username,
               fullName: profile.full_name,
               avatarUrl: profile.avatar_url,
-              isVerified: profile.is_verified || false,
+              isVerified: !!profile.is_verified,
               accountType: profile.account_type || 'personal',
               businessName: profile.business_name || null,
             },

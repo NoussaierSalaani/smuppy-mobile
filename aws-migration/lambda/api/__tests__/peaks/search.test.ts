@@ -5,37 +5,13 @@
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getPool } from '../../../shared/db';
+import { createMockDb, TEST_SUB, TEST_PROFILE_ID } from '../helpers';
+import type { MockDb } from '../helpers';
 
-// ── Mocks ──────────────────────────────────────────────────────────
+// ── Mocks: the 4 standard blocks (db, rate-limit, logger, cors) are
+//    auto-mocked by __tests__/helpers/setup.ts ──
 
-jest.mock('../../../shared/db', () => ({
-  getPool: jest.fn(),
-  getReaderPool: jest.fn(),
-}));
-
-jest.mock('../../utils/rate-limit', () => ({
-  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
-  requireRateLimit: jest.fn().mockResolvedValue(null),
-}));
-
-jest.mock('../../utils/logger', () => ({
-  createLogger: jest.fn(() => ({
-    info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(),
-    initFromEvent: jest.fn(), setRequestId: jest.fn(), setUserId: jest.fn(),
-    logRequest: jest.fn(), logResponse: jest.fn(), logQuery: jest.fn(),
-    logSecurity: jest.fn(), child: jest.fn().mockReturnThis(),
-  })),
-}));
-
-jest.mock('../../utils/cors', () => ({
-  createHeaders: jest.fn(() => ({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Credentials': 'true',
-  })),
-  getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
-}));
-
+// Domain-specific mocks
 jest.mock('../../utils/auth', () => ({
   resolveProfileId: jest.fn(),
 }));
@@ -50,9 +26,6 @@ import { resolveProfileId } from '../../utils/auth';
 import { requireRateLimit } from '../../utils/rate-limit';
 
 // ── Helpers ────────────────────────────────────────────────────────
-
-const TEST_SUB = 'cognito-sub-test123';
-const TEST_PROFILE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
   return {
@@ -104,16 +77,12 @@ function makePeakRow(id: string) {
 // ── Tests ──────────────────────────────────────────────────────────
 
 describe('peaks/search handler', () => {
-  let mockPool: { query: jest.Mock };
+  let mockPool: MockDb;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockPool = {
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-    };
-
-    (getPool as jest.Mock).mockResolvedValue(mockPool);
+    mockPool = createMockDb();
     (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });

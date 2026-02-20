@@ -20,7 +20,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarImage } from '../../components/OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { GRADIENTS } from '../../config/theme';
@@ -106,7 +105,6 @@ const DURATIONS = [30, 45, 60, 90];
 
 export default function PrivateSessionsManageScreen(): React.JSX.Element {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
-  const _insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { showAlert, showSuccess, showError, showDestructiveConfirm, showConfirm } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);

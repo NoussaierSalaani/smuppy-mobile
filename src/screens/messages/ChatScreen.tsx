@@ -583,7 +583,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
     // Content moderation check (skip personal data for DMs)
     const filterResult = filterContent(messageText, { context: 'chat', skipPersonalDataCheck: true });
-    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+    if (!filterResult.clean && ['critical', 'high'].includes(filterResult.severity)) {
       showError('Content Policy', filterResult.reason || 'Your message contains inappropriate content.');
       return;
     }

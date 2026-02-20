@@ -59,6 +59,7 @@
     "testMatch": [
       "**/*.test.ts"
     ],
+    "setupFilesAfterEnv": ["<rootDir>/__tests__/helpers/setup.ts"],
     "transform": {
       "^.+\\.ts$": ["ts-jest", { "diagnostics": false }]
     },

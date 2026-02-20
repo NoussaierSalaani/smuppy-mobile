@@ -53,7 +53,7 @@ export default function SessionBookedScreen(): React.JSX.Element {
         (cal: CalendarTypes.Calendar) =>
           cal.allowsModifications &&
           (Platform.OS === 'ios'
-            ? cal.source.name === 'iCloud' || cal.source.name === 'Default'
+            ? ['iCloud', 'Default'].includes(cal.source.name)
             : cal.isPrimary)
       ) || calendars.find((cal: CalendarTypes.Calendar) => cal.allowsModifications);
 

@@ -3,37 +3,10 @@
  * Validates pagination, filtering, auth, and moderation visibility
  */
 
-import { APIGatewayProxyEvent } from 'aws-lambda';
-import { getPool } from '../../../shared/db';
+import { makeEvent, TEST_SUB, TEST_PROFILE_ID, createMockDb } from '../helpers';
+import type { MockDb } from '../helpers';
 
-// ── Mocks ──────────────────────────────────────────────────────────
-
-jest.mock('../../../shared/db', () => ({
-  getPool: jest.fn(),
-  getReaderPool: jest.fn(),
-}));
-
-jest.mock('../../utils/rate-limit', () => ({
-  checkRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
-  requireRateLimit: jest.fn().mockResolvedValue(null),
-}));
-
-jest.mock('../../utils/logger', () => ({
-  createLogger: jest.fn(() => ({
-    info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(),
-    initFromEvent: jest.fn(), setRequestId: jest.fn(), setUserId: jest.fn(),
-    logRequest: jest.fn(), logResponse: jest.fn(), logQuery: jest.fn(),
-    logSecurity: jest.fn(), child: jest.fn().mockReturnThis(),
-  })),
-}));
-
-jest.mock('../../utils/cors', () => ({
-  createHeaders: jest.fn(() => ({
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Credentials': 'true',
-  })),
-}));
+// ── Domain-specific mocks ──
 
 jest.mock('../../utils/security', () => ({
   isValidUUID: jest.fn().mockReturnValue(true),
@@ -49,32 +22,6 @@ import { extractCognitoSub, isValidUUID } from '../../utils/security';
 import { resolveProfileId } from '../../utils/auth';
 
 // ── Helpers ────────────────────────────────────────────────────────
-
-const TEST_SUB = 'cognito-sub-test123';
-const TEST_PROFILE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
-
-function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
-  return {
-    httpMethod: 'GET',
-    headers: {},
-    body: null,
-    queryStringParameters: overrides.queryStringParameters as Record<string, string> ?? null,
-    pathParameters: overrides.pathParameters as Record<string, string> ?? null,
-    multiValueHeaders: {},
-    multiValueQueryStringParameters: null,
-    isBase64Encoded: false,
-    path: '/',
-    resource: '/',
-    stageVariables: null,
-    requestContext: {
-      requestId: 'test-request-id',
-      authorizer: overrides.sub !== null
-        ? { claims: { sub: overrides.sub ?? TEST_SUB } }
-        : undefined,
-      identity: { sourceIp: '127.0.0.1' },
-    },
-  } as unknown as APIGatewayProxyEvent;
-}
 
 function makePeakRow(id: string, createdAt: string) {
   return {
@@ -116,16 +63,12 @@ function makePeakRow(id: string, createdAt: string) {
 // ── Tests ──────────────────────────────────────────────────────────
 
 describe('peaks/list handler', () => {
-  let mockDb: { query: jest.Mock };
+  let mockDb: MockDb;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockDb = {
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-    };
-
-    (getPool as jest.Mock).mockResolvedValue(mockDb);
+    mockDb = createMockDb();
     (extractCognitoSub as jest.Mock).mockReturnValue(TEST_SUB);
     (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
     (isValidUUID as jest.Mock).mockReturnValue(true);

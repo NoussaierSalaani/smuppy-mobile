@@ -25,8 +25,6 @@ import * as Haptics from 'expo-haptics';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
-import { useCurrency } from '../../hooks/useCurrency';
-import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 interface Activity {
@@ -77,8 +75,6 @@ const RECOMMENDED_TAGS = [
 
 export default function BusinessProgramScreen({ navigation }: { navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void } }) {
   const { showError, showDestructiveConfirm, showWarning } = useSmuppyAlert();
-  const { formatAmount: _formatAmount, currency: _currency } = useCurrency();
-  const _user = useUserStore((state) => state.user);
   const { colors, isDark } = useTheme();
 
   const [activities, setActivities] = useState<Activity[]>([]);

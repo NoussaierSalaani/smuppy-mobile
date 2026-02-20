@@ -461,7 +461,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     // Content moderation check
     if (description.trim()) {
       const filterResult = filterContent(description, { context: 'post' });
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      if (!filterResult.clean && ['critical', 'high'].includes(filterResult.severity)) {
         showError('Content Policy', filterResult.reason || 'Your post contains inappropriate content.');
         return;
       }
@@ -483,8 +483,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       const mediaUrls: string[] = [];
       const totalFiles = media.length;
 
-      for (let i = 0; i < media.length; i++) {
-        const mediaItem = media[i];
+      for (const [i, mediaItem] of media.entries()) {
         const type = mediaItem.mediaType === 'video' ? 'video' : 'image';
 
         // Get the actual file URI from MediaLibrary asset
@@ -608,11 +607,6 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     hapticButtonPress();
     setVisibility(optionId);
     setShowVisibilityModal(false);
-  }, []);
-
-  const _handleSelectLocation = useCallback((loc: string) => {
-    setLocation(loc);
-    setShowLocationModal(false);
   }, []);
 
   const handleToggleTag = useCallback((user: TaggedPerson) => {

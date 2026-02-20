@@ -15,6 +15,7 @@ import { createHeaders } from '../utils/cors';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { safeStripeCall } from '../../shared/stripe-resilience';
+import { PLATFORM_NAME } from '../utils/constants';
 
 const log = createLogger('payments/business-checkout');
 
@@ -181,7 +182,7 @@ async function createBusinessCheckout(
       () => stripe.customers.create({
         email: userProfile.email,
         name: userProfile.full_name || userProfile.username,
-        metadata: { userId: user.id, platform: 'smuppy' },
+        metadata: { userId: user.id, platform: PLATFORM_NAME },
       }),
       'customers.create', log
     );

@@ -10,6 +10,7 @@ import { requireRateLimit } from '../utils/rate-limit';
 import { createLogger } from '../utils/logger';
 import { createHeaders } from '../utils/cors';
 import { resolveProfileId } from '../utils/auth';
+import { PLATFORM_NAME } from '../utils/constants';
 
 const log = createLogger('payments-platform-subscription');
 
@@ -125,7 +126,7 @@ async function createPlatformSubscription(
       const customer = await stripe.customers.create({
         email,
         name: full_name,
-        metadata: { userId, platform: 'smuppy' },
+        metadata: { userId, platform: PLATFORM_NAME },
       });
       customerId = customer.id;
       await client.query(

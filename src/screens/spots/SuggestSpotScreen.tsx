@@ -115,7 +115,7 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
     const textsToCheck = [name, description, review].filter(t => t.trim());
     for (const text of textsToCheck) {
       const filterResult = filterContent(text, { context: 'spot' });
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
+      if (!filterResult.clean && ['critical', 'high'].includes(filterResult.severity)) {
         showError('Content Policy', filterResult.reason || 'Your submission contains inappropriate content.');
         setIsLoading(false);
         return;

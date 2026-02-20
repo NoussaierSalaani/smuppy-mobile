@@ -261,7 +261,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
     const fullName = `${firstName} ${lastName}`.trim();
     if (bio) {
       const bioFilter = filterContent(bio, { context: 'bio' });
-      if (!bioFilter.clean && (bioFilter.severity === 'critical' || bioFilter.severity === 'high')) {
+      if (!bioFilter.clean && ['critical', 'high'].includes(bioFilter.severity)) {
         alert.error('Content Policy', bioFilter.reason || 'Your bio contains inappropriate content.');
         return;
       }

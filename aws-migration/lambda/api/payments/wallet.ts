@@ -10,12 +10,14 @@
  * - Revenue analytics
  */
 import { APIGatewayProxyResult } from 'aws-lambda';
+import type { PoolClient } from 'pg';
 import { getPool, SqlParam } from '../../shared/db';
 import { getStripeClient } from '../../shared/stripe-client';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 import { createLogger } from '../utils/logger';
+import { FAN_TIERS, DEFAULT_FEE_PERCENT, DEFAULT_TIER_NAME, DEFAULT_NEXT_TIER } from '../utils/revenue-share';
 
 const log = createLogger('payments-wallet');
 
@@ -33,6 +35,48 @@ interface WalletBody {
   cursor?: string;
   type?: 'channel' | 'session' | 'pack' | 'all';
 }
+
+interface TierInfo {
+  name: string;
+  creatorPercent: number;
+  smuppyPercent: number;
+  nextTier: { name: string; fansNeeded: number } | null;
+}
+
+interface AnalyticsPeriodConfig {
+  periodFilter: string;
+  groupBy: string;
+  dateFormat: string;
+}
+
+interface TransactionQueryResult {
+  sql: string;
+  params: SqlParam[];
+  limit: number;
+}
+
+// ─── Tier lookup table (derived from shared revenue-share constants) ───
+
+const TIER_THRESHOLDS = [
+  ...FAN_TIERS.map((tier) => ({
+    threshold: tier.minFans,
+    name: tier.name,
+    creatorPercent: 100 - tier.feePercent,
+    smuppyPercent: tier.feePercent,
+    nextTierName: tier.nextTierName,
+    nextTierThreshold: tier.nextTierThreshold,
+  })),
+  {
+    threshold: 0,
+    name: DEFAULT_TIER_NAME,
+    creatorPercent: 100 - DEFAULT_FEE_PERCENT,
+    smuppyPercent: DEFAULT_FEE_PERCENT,
+    nextTierName: DEFAULT_NEXT_TIER.name as string | null,
+    nextTierThreshold: DEFAULT_NEXT_TIER.threshold as number | null,
+  },
+];
+
+// ─── Handler ───
 
 export const handler = withAuthHandler('payments-wallet', async (event, { headers, log, cognitoSub, profileId }) => {
     await getStripeClient();
@@ -71,23 +115,120 @@ export const handler = withAuthHandler('payments-wallet', async (event, { header
     }
 });
 
+// ─── Tier info (data-driven) ───
+
+/**
+ * Get tier information based on fan count
+ */
+function getTierInfo(fanCount: number): TierInfo {
+  const tier = TIER_THRESHOLDS.find(t => fanCount >= t.threshold) ?? TIER_THRESHOLDS[TIER_THRESHOLDS.length - 1];
+  return {
+    name: tier.name,
+    creatorPercent: tier.creatorPercent,
+    smuppyPercent: tier.smuppyPercent,
+    nextTier: tier.nextTierName && tier.nextTierThreshold
+      ? { name: tier.nextTierName, fansNeeded: tier.nextTierThreshold - fanCount }
+      : null,
+  };
+}
+
+// ─── Dashboard helpers ───
+
+async function fetchCreatorProfile(client: PoolClient, userId: string) {
+  const result = await client.query(
+    `SELECT id, account_type, stripe_account_id, is_verified,
+            (SELECT COUNT(1) FROM follows WHERE following_id = profiles.id) as fan_count
+     FROM profiles WHERE id = $1`,
+    [userId]
+  );
+  return result.rows[0] as Record<string, unknown> | undefined;
+}
+
+async function fetchLifetimeEarnings(client: PoolClient, userId: string) {
+  const result = await client.query(
+    `SELECT
+       COALESCE(SUM(creator_amount), 0) as total_earnings,
+       COUNT(1) as total_transactions
+     FROM payments
+     WHERE creator_id = $1 AND status = 'succeeded'`,
+    [userId]
+  );
+  return result.rows[0];
+}
+
+async function fetchMonthEarnings(client: PoolClient, userId: string) {
+  const result = await client.query(
+    `SELECT
+       COALESCE(SUM(creator_amount), 0) as month_earnings,
+       COUNT(1) as month_transactions
+     FROM payments
+     WHERE creator_id = $1
+       AND status = 'succeeded'
+       AND created_at >= date_trunc('month', CURRENT_DATE)`,
+    [userId]
+  );
+  return result.rows[0];
+}
+
+async function fetchSubscriberCount(client: PoolClient, userId: string): Promise<number> {
+  const result = await client.query(
+    `SELECT COUNT(1) as subscriber_count
+     FROM channel_subscriptions
+     WHERE creator_id = $1 AND status = 'active'`,
+    [userId]
+  );
+  return Number.parseInt(result.rows[0].subscriber_count) || 0;
+}
+
+async function fetchEarningsBreakdown(client: PoolClient, userId: string) {
+  const result = await client.query(
+    `SELECT
+       type,
+       COALESCE(SUM(creator_amount), 0) as earnings,
+       COUNT(1) as count
+     FROM payments
+     WHERE creator_id = $1 AND status = 'succeeded'
+     GROUP BY type`,
+    [userId]
+  );
+  return result.rows;
+}
+
+async function fetchStripeBalance(stripeAccountId: string): Promise<{
+  available: number;
+  pending: number;
+  currency: string;
+} | null> {
+  const stripe = await getStripeClient();
+  try {
+    const balance = await safeStripeCall(
+      () => stripe.balance.retrieve({ stripeAccount: stripeAccountId }),
+      'balance.retrieve', log, { timeoutMs: 5000 }
+    );
+    return {
+      available: balance.available.reduce((sum, b) => sum + b.amount, 0),
+      pending: balance.pending.reduce((sum, b) => sum + b.amount, 0),
+      currency: balance.available[0]?.currency || 'usd',
+    };
+  } catch {
+    // Stripe account may not be fully set up or Stripe is unavailable
+    return null;
+  }
+}
+
+// ─── Dashboard ───
+
 /**
  * Get comprehensive creator dashboard data
  */
 async function getDashboard(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
-  const stripe = await getStripeClient();
   const pool = await getPool();
   const client = await pool.connect();
   try {
     // Verify user is a creator
-    const profileResult = await client.query(
-      `SELECT id, account_type, stripe_account_id, is_verified,
-              (SELECT COUNT(1) FROM follows WHERE following_id = profiles.id) as fan_count
-       FROM profiles WHERE id = $1`,
-      [userId]
-    );
+    const profile = await fetchCreatorProfile(client, userId);
 
-    if (profileResult.rows.length === 0) {
+    if (!profile) {
       return {
         statusCode: 404,
         headers,
@@ -95,9 +236,7 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
       };
     }
 
-    const profile = profileResult.rows[0];
-
-    if (!['pro_creator', 'pro_business'].includes(profile.account_type)) {
+    if (!['pro_creator', 'pro_business'].includes(profile.account_type as string)) {
       return {
         statusCode: 403,
         headers,
@@ -105,74 +244,18 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
       };
     }
 
-    // Get revenue tier based on fan count
-    const fanCount = Number.parseInt(profile.fan_count) || 0;
+    const fanCount = Number.parseInt(profile.fan_count as string) || 0;
     const tier = getTierInfo(fanCount);
 
-    // Get lifetime earnings
-    const lifetimeResult = await client.query(
-      `SELECT
-         COALESCE(SUM(creator_amount), 0) as total_earnings,
-         COUNT(1) as total_transactions
-       FROM payments
-       WHERE creator_id = $1 AND status = 'succeeded'`,
-      [userId]
-    );
-
-    // Get this month's earnings
-    const monthResult = await client.query(
-      `SELECT
-         COALESCE(SUM(creator_amount), 0) as month_earnings,
-         COUNT(1) as month_transactions
-       FROM payments
-       WHERE creator_id = $1
-         AND status = 'succeeded'
-         AND created_at >= date_trunc('month', CURRENT_DATE)`,
-      [userId]
-    );
-
-    // Get channel subscriber count
-    const subscriberResult = await client.query(
-      `SELECT COUNT(1) as subscriber_count
-       FROM channel_subscriptions
-       WHERE creator_id = $1 AND status = 'active'`,
-      [userId]
-    );
-
-    // Get earnings breakdown by type
-    const breakdownResult = await client.query(
-      `SELECT
-         type,
-         COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(1) as count
-       FROM payments
-       WHERE creator_id = $1 AND status = 'succeeded'
-       GROUP BY type`,
-      [userId]
-    );
-
-    // Get Stripe balance if connected
-    let stripeBalance = null;
-    if (profile.stripe_account_id) {
-      try {
-        const balance = await safeStripeCall(
-          () => stripe.balance.retrieve({ stripeAccount: profile.stripe_account_id }),
-          'balance.retrieve', log, { timeoutMs: 5000 }
-        );
-        stripeBalance = {
-          available: balance.available.reduce((sum, b) => sum + b.amount, 0),
-          pending: balance.pending.reduce((sum, b) => sum + b.amount, 0),
-          currency: balance.available[0]?.currency || 'usd',
-        };
-      } catch {
-        // Stripe account may not be fully set up or Stripe is unavailable
-        stripeBalance = null;
-      }
-    }
-
-    const lifetime = lifetimeResult.rows[0];
-    const month = monthResult.rows[0];
-    const breakdown = breakdownResult.rows;
+    const [lifetime, month, activeSubscribers, breakdown, stripeBalance] = await Promise.all([
+      fetchLifetimeEarnings(client, userId),
+      fetchMonthEarnings(client, userId),
+      fetchSubscriberCount(client, userId),
+      fetchEarningsBreakdown(client, userId),
+      profile.stripe_account_id
+        ? fetchStripeBalance(profile.stripe_account_id as string)
+        : Promise.resolve(null),
+    ]);
 
     return {
       statusCode: 200,
@@ -203,7 +286,7 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
             })),
           },
           subscribers: {
-            active: Number.parseInt(subscriberResult.rows[0].subscriber_count) || 0,
+            active: activeSubscribers,
           },
           balance: stripeBalance,
         },
@@ -214,6 +297,57 @@ async function getDashboard(userId: string, headers: Record<string, string>): Pr
   }
 }
 
+// ─── Transaction query builder ───
+
+function buildTransactionQuery(userId: string, options: WalletBody): TransactionQueryResult {
+  const limit = Math.min(options.limit || 20, 50);
+  const type = options.type || 'all';
+
+  const params: SqlParam[] = [userId];
+
+  // Cursor-based pagination on created_at
+  let cursorCondition = '';
+  if (options.cursor) {
+    const parsedDate = new Date(options.cursor);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      params.push(parsedDate.toISOString());
+      cursorCondition = `AND p.created_at < $${params.length}::timestamptz`;
+    }
+  }
+
+  let typeFilter = '';
+  if (type !== 'all') {
+    params.push(type);
+    typeFilter = `AND type = $${params.length}`;
+  }
+
+  params.push(limit + 1);
+  const limitIdx = params.length;
+
+  const sql = `SELECT
+       p.id,
+       p.type,
+       p.source,
+       p.gross_amount,
+       p.net_amount,
+       p.platform_fee,
+       p.creator_amount,
+       p.status,
+       p.created_at,
+       buyer.username as buyer_username,
+       buyer.full_name as buyer_name,
+       buyer.avatar_url as buyer_avatar
+     FROM payments p
+     JOIN profiles buyer ON p.buyer_id = buyer.id
+     WHERE p.creator_id = $1 ${cursorCondition} ${typeFilter}
+     ORDER BY p.created_at DESC
+     LIMIT $${limitIdx}`;
+
+  return { sql, params, limit };
+}
+
+// ─── Transactions ───
+
 /**
  * Get transaction history with filtering
  */
@@ -221,51 +355,8 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
   const pool = await getPool();
   const client = await pool.connect();
   try {
-    const limit = Math.min(options.limit || 20, 50);
-    const type = options.type || 'all';
-
-    const params: SqlParam[] = [userId];
-
-    // Cursor-based pagination on created_at
-    let cursorCondition = '';
-    if (options.cursor) {
-      const parsedDate = new Date(options.cursor);
-      if (!Number.isNaN(parsedDate.getTime())) {
-        params.push(parsedDate.toISOString());
-        cursorCondition = `AND p.created_at < $${params.length}::timestamptz`;
-      }
-    }
-
-    let typeFilter = '';
-    if (type !== 'all') {
-      params.push(type);
-      typeFilter = `AND type = $${params.length}`;
-    }
-
-    params.push(limit + 1);
-    const limitIdx = params.length;
-
-    const result = await client.query(
-      `SELECT
-         p.id,
-         p.type,
-         p.source,
-         p.gross_amount,
-         p.net_amount,
-         p.platform_fee,
-         p.creator_amount,
-         p.status,
-         p.created_at,
-         buyer.username as buyer_username,
-         buyer.full_name as buyer_name,
-         buyer.avatar_url as buyer_avatar
-       FROM payments p
-       JOIN profiles buyer ON p.buyer_id = buyer.id
-       WHERE p.creator_id = $1 ${cursorCondition} ${typeFilter}
-       ORDER BY p.created_at DESC
-       LIMIT $${limitIdx}`,
-      params
-    );
+    const { sql, params, limit } = buildTransactionQuery(userId, options);
+    const result = await client.query(sql, params);
 
     const hasMore = result.rows.length > limit;
     const rows = result.rows.slice(0, limit);
@@ -305,6 +396,109 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
   }
 }
 
+// ─── Analytics helpers ───
+
+function getAnalyticsPeriodConfig(period: string): AnalyticsPeriodConfig {
+  switch (period) {
+    case 'day':
+      return {
+        periodFilter: "AND created_at >= NOW() - INTERVAL '24 hours'",
+        groupBy: "date_trunc('hour', created_at)",
+        dateFormat: 'hour',
+      };
+    case 'week':
+      return {
+        periodFilter: "AND created_at >= NOW() - INTERVAL '7 days'",
+        groupBy: "date_trunc('day', created_at)",
+        dateFormat: 'day',
+      };
+    case 'month':
+      return {
+        periodFilter: "AND created_at >= NOW() - INTERVAL '30 days'",
+        groupBy: "date_trunc('day', created_at)",
+        dateFormat: 'day',
+      };
+    case 'year':
+      return {
+        periodFilter: "AND created_at >= NOW() - INTERVAL '12 months'",
+        groupBy: "date_trunc('month', created_at)",
+        dateFormat: 'month',
+      };
+    default:
+      return {
+        periodFilter: '',
+        groupBy: "date_trunc('month', created_at)",
+        dateFormat: 'month',
+      };
+  }
+}
+
+async function fetchEarningsTimeline(client: PoolClient, userId: string, config: AnalyticsPeriodConfig) {
+  const result = await client.query(
+    `SELECT
+       ${config.groupBy} as period,
+       COALESCE(SUM(creator_amount), 0) as earnings,
+       COUNT(1) as transactions
+     FROM payments
+     WHERE creator_id = $1 AND status = 'succeeded' ${config.periodFilter}
+     GROUP BY ${config.groupBy}
+     ORDER BY ${config.groupBy}`,
+    [userId]
+  );
+  return result.rows.map((row: Record<string, unknown>) => ({
+    period: row.period,
+    earnings: Number.parseInt(row.earnings as string) || 0,
+    transactions: Number.parseInt(row.transactions as string) || 0,
+  }));
+}
+
+async function fetchTopBuyers(client: PoolClient, userId: string, periodFilter: string) {
+  const result = await client.query(
+    `SELECT
+       buyer.id,
+       buyer.username,
+       buyer.full_name,
+       buyer.avatar_url,
+       COALESCE(SUM(p.creator_amount), 0) as total_spent,
+       COUNT(1) as transaction_count
+     FROM payments p
+     JOIN profiles buyer ON p.buyer_id = buyer.id
+     WHERE p.creator_id = $1 AND p.status = 'succeeded' ${periodFilter}
+     GROUP BY buyer.id, buyer.username, buyer.full_name, buyer.avatar_url
+     ORDER BY total_spent DESC
+     LIMIT 10`,
+    [userId]
+  );
+  return result.rows.map((row: Record<string, unknown>) => ({
+    id: row.id,
+    username: row.username,
+    name: row.full_name,
+    avatar: row.avatar_url,
+    totalSpent: Number.parseInt(row.total_spent as string) || 0,
+    transactionCount: Number.parseInt(row.transaction_count as string) || 0,
+  }));
+}
+
+async function fetchEarningsBySource(client: PoolClient, userId: string, periodFilter: string) {
+  const result = await client.query(
+    `SELECT
+       source,
+       COALESCE(SUM(creator_amount), 0) as earnings,
+       COUNT(1) as count
+     FROM payments
+     WHERE creator_id = $1 AND status = 'succeeded' ${periodFilter}
+     GROUP BY source`,
+    [userId]
+  );
+  return result.rows.map((row: Record<string, unknown>) => ({
+    source: row.source,
+    earnings: Number.parseInt(row.earnings as string) || 0,
+    count: Number.parseInt(row.count as string) || 0,
+  }));
+}
+
+// ─── Analytics ───
+
 /**
  * Get revenue analytics for a period
  */
@@ -312,79 +506,13 @@ async function getAnalytics(userId: string, period: string, headers: Record<stri
   const pool = await getPool();
   const client = await pool.connect();
   try {
-    let periodFilter = '';
-    let groupBy = '';
-    let dateFormat = '';
+    const config = getAnalyticsPeriodConfig(period);
 
-    switch (period) {
-      case 'day':
-        periodFilter = "AND created_at >= NOW() - INTERVAL '24 hours'";
-        groupBy = "date_trunc('hour', created_at)";
-        dateFormat = 'hour';
-        break;
-      case 'week':
-        periodFilter = "AND created_at >= NOW() - INTERVAL '7 days'";
-        groupBy = "date_trunc('day', created_at)";
-        dateFormat = 'day';
-        break;
-      case 'month':
-        periodFilter = "AND created_at >= NOW() - INTERVAL '30 days'";
-        groupBy = "date_trunc('day', created_at)";
-        dateFormat = 'day';
-        break;
-      case 'year':
-        periodFilter = "AND created_at >= NOW() - INTERVAL '12 months'";
-        groupBy = "date_trunc('month', created_at)";
-        dateFormat = 'month';
-        break;
-      default:
-        periodFilter = '';
-        groupBy = "date_trunc('month', created_at)";
-        dateFormat = 'month';
-    }
-
-    // Get earnings over time
-    const timelineResult = await client.query(
-      `SELECT
-         ${groupBy} as period,
-         COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(1) as transactions
-       FROM payments
-       WHERE creator_id = $1 AND status = 'succeeded' ${periodFilter}
-       GROUP BY ${groupBy}
-       ORDER BY ${groupBy}`,
-      [userId]
-    );
-
-    // Get top buyers
-    const topBuyersResult = await client.query(
-      `SELECT
-         buyer.id,
-         buyer.username,
-         buyer.full_name,
-         buyer.avatar_url,
-         COALESCE(SUM(p.creator_amount), 0) as total_spent,
-         COUNT(1) as transaction_count
-       FROM payments p
-       JOIN profiles buyer ON p.buyer_id = buyer.id
-       WHERE p.creator_id = $1 AND p.status = 'succeeded' ${periodFilter}
-       GROUP BY buyer.id, buyer.username, buyer.full_name, buyer.avatar_url
-       ORDER BY total_spent DESC
-       LIMIT 10`,
-      [userId]
-    );
-
-    // Get earnings by source (web vs in-app)
-    const bySourceResult = await client.query(
-      `SELECT
-         source,
-         COALESCE(SUM(creator_amount), 0) as earnings,
-         COUNT(1) as count
-       FROM payments
-       WHERE creator_id = $1 AND status = 'succeeded' ${periodFilter}
-       GROUP BY source`,
-      [userId]
-    );
+    const [timeline, topBuyers, bySource] = await Promise.all([
+      fetchEarningsTimeline(client, userId, config),
+      fetchTopBuyers(client, userId, config.periodFilter),
+      fetchEarningsBySource(client, userId, config.periodFilter),
+    ]);
 
     return {
       statusCode: 200,
@@ -393,25 +521,10 @@ async function getAnalytics(userId: string, period: string, headers: Record<stri
         success: true,
         analytics: {
           period,
-          dateFormat,
-          timeline: timelineResult.rows.map((row: Record<string, unknown>) => ({
-            period: row.period,
-            earnings: Number.parseInt(row.earnings as string) || 0,
-            transactions: Number.parseInt(row.transactions as string) || 0,
-          })),
-          topBuyers: topBuyersResult.rows.map((row: Record<string, unknown>) => ({
-            id: row.id,
-            username: row.username,
-            name: row.full_name,
-            avatar: row.avatar_url,
-            totalSpent: Number.parseInt(row.total_spent as string) || 0,
-            transactionCount: Number.parseInt(row.transaction_count as string) || 0,
-          })),
-          bySource: bySourceResult.rows.map((row: Record<string, unknown>) => ({
-            source: row.source,
-            earnings: Number.parseInt(row.earnings as string) || 0,
-            count: Number.parseInt(row.count as string) || 0,
-          })),
+          dateFormat: config.dateFormat,
+          timeline,
+          topBuyers,
+          bySource,
         },
       }),
     };
@@ -419,6 +532,8 @@ async function getAnalytics(userId: string, period: string, headers: Record<stri
     client.release();
   }
 }
+
+// ─── Balance ───
 
 /**
  * Get Stripe Connect balance
@@ -472,6 +587,8 @@ async function getBalance(userId: string, headers: Record<string, string>): Prom
   }
 }
 
+// ─── Payouts ───
+
 /**
  * Get payout history
  */
@@ -522,6 +639,8 @@ async function getPayouts(userId: string, limit: number, headers: Record<string,
     client.release();
   }
 }
+
+// ─── Create Payout ───
 
 /**
  * Request a payout (if instant payouts are available)
@@ -590,6 +709,8 @@ async function createPayout(userId: string, headers: Record<string, string>): Pr
   }
 }
 
+// ─── Stripe Dashboard Link ───
+
 /**
  * Get link to Stripe Express Dashboard
  * This allows creators to manage their account, bank details, and view detailed reports
@@ -628,47 +749,5 @@ async function getStripeDashboardLink(userId: string, headers: Record<string, st
     };
   } finally {
     client.release();
-  }
-}
-
-/**
- * Get tier information based on fan count
- */
-function getTierInfo(fanCount: number): { name: string; creatorPercent: number; smuppyPercent: number; nextTier: { name: string; fansNeeded: number } | null } {
-  if (fanCount >= 1000000) {
-    return {
-      name: 'Diamond',
-      creatorPercent: 80,
-      smuppyPercent: 20,
-      nextTier: null,
-    };
-  } else if (fanCount >= 100000) {
-    return {
-      name: 'Platinum',
-      creatorPercent: 75,
-      smuppyPercent: 25,
-      nextTier: { name: 'Diamond', fansNeeded: 1000000 - fanCount },
-    };
-  } else if (fanCount >= 10000) {
-    return {
-      name: 'Gold',
-      creatorPercent: 70,
-      smuppyPercent: 30,
-      nextTier: { name: 'Platinum', fansNeeded: 100000 - fanCount },
-    };
-  } else if (fanCount >= 1000) {
-    return {
-      name: 'Silver',
-      creatorPercent: 65,
-      smuppyPercent: 35,
-      nextTier: { name: 'Gold', fansNeeded: 10000 - fanCount },
-    };
-  } else {
-    return {
-      name: 'Bronze',
-      creatorPercent: 60,
-      smuppyPercent: 40,
-      nextTier: { name: 'Silver', fansNeeded: 1000 - fanCount },
-    };
   }
 }

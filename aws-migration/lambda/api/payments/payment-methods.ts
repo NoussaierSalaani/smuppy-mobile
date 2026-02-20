@@ -17,6 +17,7 @@ import { createLogger } from '../utils/logger';
 import { getUserFromEvent } from '../utils/auth';
 import { createHeaders } from '../utils/cors';
 import { requireRateLimit } from '../utils/rate-limit';
+import { PLATFORM_NAME } from '../utils/constants';
 
 const log = createLogger('payments/payment-methods');
 
@@ -116,7 +117,7 @@ async function getOrCreateStripeCustomer(db: Pool, cognitoSub: string): Promise<
     name: profile.full_name || profile.username,
     metadata: {
       userId: profile.id,
-      platform: 'smuppy',
+      platform: PLATFORM_NAME,
     },
   });
 
@@ -143,7 +144,7 @@ async function createSetupIntent(db: Pool, user: { sub: string }, headers: Recor
     payment_method_types: ['card'],
     metadata: {
       userId: user.sub,
-      platform: 'smuppy',
+      platform: PLATFORM_NAME,
     },
   });
 
@@ -264,7 +265,7 @@ async function attachPaymentMethod(
       paymentMethod: {
         id: paymentMethod.id,
         type: paymentMethod.type,
-        isDefault: setAsDefault || false,
+        isDefault: !!setAsDefault,
         card: paymentMethod.card ? {
           brand: paymentMethod.card.brand,
           last4: paymentMethod.card.last4,

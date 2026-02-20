@@ -6,7 +6,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'node:crypto';
 import { Pool } from 'pg';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';

@@ -11,7 +11,7 @@
 
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { requireRateLimit } from '../utils/rate-limit';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS } from '../utils/constants';

@@ -3,7 +3,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'node:crypto';
 import { getPool } from '../../shared/db';
 import { getAdminKey } from '../../shared/secrets';
 import { createHeaders } from '../utils/cors';

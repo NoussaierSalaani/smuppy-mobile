@@ -7,7 +7,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
 import { getPool } from '../shared/db';
 import type { Pool } from 'pg';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { createLogger } from '../api/utils/logger';
 import { hasStatusCode } from '../api/utils/error-handler';
 import { filterText } from '../shared/moderation/textFilter';

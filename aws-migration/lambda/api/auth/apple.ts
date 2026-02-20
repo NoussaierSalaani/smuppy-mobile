@@ -6,7 +6,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';

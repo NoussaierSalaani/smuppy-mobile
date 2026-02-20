@@ -18,7 +18,7 @@ import {
   AdminGetUserCommand,
   UserNotFoundException,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { cognitoClient, USER_POOL_ID, CLIENT_ID } from '../utils/cognito-helpers';
 
 // ── Password Generation ──────────────────────────────────────────────

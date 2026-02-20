@@ -5,11 +5,6 @@
 
 import {
   ConfirmSignUpCommand,
-  CodeMismatchException,
-  ExpiredCodeException,
-  UserNotFoundException,
-  NotAuthorizedException,
-  AliasExistsException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { getRequestId } from '../utils/logger';
 import { cognitoClient, CLIENT_ID, resolveUsername } from '../utils/cognito-helpers';

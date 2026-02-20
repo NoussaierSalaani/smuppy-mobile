@@ -16,7 +16,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { requireRateLimit } from '../utils/rate-limit';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS, MAX_VOICE_MESSAGE_SECONDS, MAX_VOICE_SIZE_BYTES } from '../utils/constants';
 
 const s3Client = new S3Client({

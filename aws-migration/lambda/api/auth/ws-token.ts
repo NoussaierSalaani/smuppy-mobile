@@ -3,7 +3,7 @@ import { createHeaders } from '../utils/cors';
 import { requireRateLimit } from '../utils/rate-limit';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 
 const log = createLogger('auth/ws-token');

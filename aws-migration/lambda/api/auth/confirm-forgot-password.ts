@@ -5,11 +5,6 @@
 
 import {
   ConfirmForgotPasswordCommand,
-  CodeMismatchException,
-  ExpiredCodeException,
-  UserNotFoundException,
-  InvalidPasswordException,
-  LimitExceededException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { getRequestId } from '../utils/logger';
 import { cognitoClient, CLIENT_ID, resolveUsername } from '../utils/cognito-helpers';

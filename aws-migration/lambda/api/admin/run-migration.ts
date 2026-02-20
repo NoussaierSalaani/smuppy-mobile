@@ -5,7 +5,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { timingSafeEqual, randomInt } from 'crypto';
+import { timingSafeEqual, randomInt } from 'node:crypto';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';

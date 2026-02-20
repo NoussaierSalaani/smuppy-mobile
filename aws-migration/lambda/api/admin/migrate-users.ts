@@ -11,7 +11,7 @@ import {
   AdminCreateUserCommand,
   AdminSetUserPasswordCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'node:crypto';
 import { Pool } from 'pg';
 import { getPool } from '../../shared/db';
 import { createHeaders } from '../utils/cors';

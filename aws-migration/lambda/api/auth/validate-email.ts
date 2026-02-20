@@ -4,8 +4,8 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import * as dns from 'dns';
-import { promisify } from 'util';
+import * as dns from 'node:dns';
+import { promisify } from 'node:util';
 import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';

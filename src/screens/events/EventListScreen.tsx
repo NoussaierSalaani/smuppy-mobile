@@ -21,7 +21,7 @@ import { resolveDisplayName } from '../../types/profile';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
+import { MapView, Camera, MarkerView, LocationPuck } from '../../utils/mapbox-safe';
 import OptimizedImage from '../../components/OptimizedImage';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -31,10 +31,6 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { MapListSkeleton } from '../../components/skeleton';
 import { formatDateTimeRelative } from '../../utils/dateFormatters';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-import { ENV } from '../../config/env';
-
-Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
-
 import { SCREEN_HEIGHT, WIDTH_CAPPED } from '../../utils/responsive';
 
 const CARD_WIDTH = WIDTH_CAPPED - 48;
@@ -123,7 +119,7 @@ export default function EventListScreen() {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const filterDrawerAnim = useRef(new Animated.Value(0)).current;
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<InstanceType<typeof MapView>>(null);
   const cardScrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
 

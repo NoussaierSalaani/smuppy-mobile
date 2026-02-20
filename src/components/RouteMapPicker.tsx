@@ -21,7 +21,7 @@ import {
   TextInput,
   Keyboard,
 } from 'react-native';
-import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
+import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '../utils/mapbox-safe';
 // Mapbox onPress event uses GeoJSON Feature type
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -105,7 +105,7 @@ export default function RouteMapPicker({
   onRouteClear,
 }: RouteMapPickerProps) {
   const { colors } = useTheme();
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<InstanceType<typeof Camera>>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);

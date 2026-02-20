@@ -10,35 +10,37 @@ tags:
 
 - launchApp
 
-# Dismiss Expo Dev Menu / error overlays
+# Dismiss dev overlays
 - tapOn:
     text: "Continue"
     optional: true
 - tapOn:
     text: "Dismiss"
     optional: true
-- tapOn:
-    text: "http://localhost:8081"
-    optional: true
 
-# ========== 1. HOME / FEEDS ==========
-
+# Wait for welcome screen or feed to load
 - extendedWaitUntil:
-    true:
-      or:
-        - visible:
-            id: "welcome-screen"
-        - visible: "Fan"
-    timeout: 30000
+    visible:
+      id: "welcome-screen"
+    timeout: 15000
 
-# If on welcome, tap login (assumes auto-login or skip)
+# Wait for button animations to finish
+- waitForAnimationToEnd
+
+# Handle welcome screen if not logged in — wait for button to appear
+- extendedWaitUntil:
+    visible:
+      id: "login-button"
+    timeout: 10000
+
 - tapOn:
     id: "login-button"
     optional: true
-- tapOn:
-    id: "submit-login-button"
-    optional: true
+- waitForAnimationToEnd
 
+# ========== 1. HOME / FEEDS ==========
+
+# Wait for feed to load (after login or if already logged in)
 - extendedWaitUntil:
     visible: "Fan"
     timeout: 30000
@@ -46,10 +48,12 @@ tags:
 - takeScreenshot: "01-home-fan-feed"
 
 # Fan Feed - scroll
-- scroll:
-    direction: DOWN
-- scroll:
+- swipe:
     direction: UP
+    duration: 400
+- swipe:
+    direction: DOWN
+    duration: 400
 
 # Vibes Feed
 - tapOn: "Vibes"
@@ -92,10 +96,12 @@ tags:
 - takeScreenshot: "07-peaks-feed"
 
 # Scroll peaks
-- scroll:
-    direction: DOWN
-- scroll:
+- swipe:
     direction: UP
+    duration: 400
+- swipe:
+    direction: DOWN
+    duration: 400
 
 # ========== 5. CREATE TAB ==========
 
@@ -113,10 +119,12 @@ tags:
 - takeScreenshot: "09-messages-list"
 
 # Scroll conversations
-- scroll:
-    direction: DOWN
-- scroll:
+- swipe:
     direction: UP
+    duration: 400
+- swipe:
+    direction: DOWN
+    duration: 400
 
 # ========== 7. PROFILE TAB ==========
 
@@ -126,11 +134,13 @@ tags:
 - takeScreenshot: "10-profile-screen"
 
 # Scroll profile
-- scroll:
-    direction: DOWN
-- takeScreenshot: "11-profile-scrolled"
-- scroll:
+- swipe:
     direction: UP
+    duration: 400
+- takeScreenshot: "11-profile-scrolled"
+- swipe:
+    direction: DOWN
+    duration: 400
 
 # ========== 8. SETTINGS ==========
 
@@ -146,8 +156,9 @@ tags:
 - back
 
 # Scroll settings
-- scroll:
-    direction: DOWN
+- swipe:
+    direction: UP
+    duration: 400
 - takeScreenshot: "14-settings-bottom"
 
 # Back to profile

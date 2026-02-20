@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
+import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '../../utils/mapbox-safe';
 import * as Haptics from 'expo-haptics';
 import OptimizedImage from '../../components/OptimizedImage';
 import { GRADIENTS } from '../../config/theme';
@@ -36,10 +36,6 @@ import SharePostModal from '../../components/SharePostModal';
 import type { ShareContentData } from '../../hooks/useModalState';
 
 import { resolveDisplayName } from '../../types/profile';
-import { ENV } from '../../config/env';
-
-Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
-
 const { width: _width } = Dimensions.get('window');
 
 // Route categories that should display route info
@@ -136,7 +132,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
   const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
 
   const scrollY = useRef(new Animated.Value(0)).current;
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<InstanceType<typeof MapView>>(null);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 

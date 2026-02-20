@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Mapbox, { MapView, Camera, MarkerView, LocationPuck } from '@rnmapbox/maps';
+import { MapView, Camera, MarkerView, LocationPuck } from '../../utils/mapbox-safe';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import OptimizedImage from '../../components/OptimizedImage';
@@ -32,10 +32,6 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { MapListSkeleton } from '../../components/skeleton';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
-
-import { ENV } from '../../config/env';
-
-Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 import { SCREEN_HEIGHT, WIDTH_CAPPED } from '../../utils/responsive';
 
@@ -110,7 +106,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
   const [filterRating, setFilterRating] = useState<number>(0);
   const [filterPriceRange, setFilterPriceRange] = useState<string[]>([]);
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<InstanceType<typeof MapView>>(null);
   const flatListRef = useRef<FlatList>(null);
   const cardScrollX = useRef(new Animated.Value(0)).current;
   const isMountedRef = useRef(true);

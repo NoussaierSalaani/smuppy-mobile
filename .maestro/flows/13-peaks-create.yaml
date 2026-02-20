@@ -25,13 +25,15 @@ tags:
 - takeScreenshot: "peaks-feed"
 
 # Scroll through peaks grid
-- scroll:
-    direction: DOWN
+- swipe:
+    direction: UP
+    duration: 400
 
 - takeScreenshot: "peaks-feed-scrolled"
 
-- scroll:
-    direction: UP
+- swipe:
+    direction: DOWN
+    duration: 400
 
 # Navigate to create (center tab)
 - tapOn:

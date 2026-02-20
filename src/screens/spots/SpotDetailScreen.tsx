@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
+import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '../../utils/mapbox-safe';
 import { GRADIENTS, COLORS } from '../../config/theme';
 
 const STAR_COLOR = COLORS.gold;

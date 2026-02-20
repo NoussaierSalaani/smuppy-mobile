@@ -27,11 +27,15 @@ import { initializeNotifications, registerPushToken, clearBadge } from './src/se
 // Backend Services
 import { initializeBackend } from './src/services/backend';
 
-// Map
-import Mapbox from '@rnmapbox/maps';
+// Map — guard against missing native module (dev builds without native rebuild)
 import { ENV } from './src/config/env';
-
-Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
+let Mapbox = null;
+try {
+  Mapbox = require('@rnmapbox/maps').default;
+  Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
+} catch (e) {
+  if (__DEV__) console.warn('[Mapbox] Native module not available — map features disabled. Rebuild with: npx expo run:ios');
+}
 
 // UI Components
 import { SmuppyAlertProvider } from './src/context/SmuppyAlertContext';

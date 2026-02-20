@@ -44,6 +44,7 @@ import { createPost } from '../../services/database';
 import { uploadPostMedia } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
 import LazyMapView, { LazyMarker } from '../../components/LazyMapView';
+import { MapView } from '../../utils/mapbox-safe';
 import type { Feature, Point } from 'geojson';
 import { useVibeStore } from '../../stores/vibeStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
@@ -180,7 +181,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
     longitudeDelta: 0.01,
   });
   const [selectedCoords, setSelectedCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const mapRef = useRef<InstanceType<typeof import('@rnmapbox/maps').default.MapView> | null>(null);
+  const mapRef = useRef<InstanceType<typeof MapView> | null>(null);
 
   // Following users for tagging
   const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);

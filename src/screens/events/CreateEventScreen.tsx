@@ -27,7 +27,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Mapbox, { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
+import { MapView, Camera, MarkerView, ShapeSource, LineLayer } from '../../utils/mapbox-safe';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -47,11 +47,8 @@ import { filterContent } from '../../utils/contentFilters';
 import SharePostModal from '../../components/SharePostModal';
 import type { ShareContentData } from '../../hooks/useModalState';
 
-import { ENV } from '../../config/env';
 import { FEATURES } from '../../config/featureFlags';
 import { sanitizeDisplayText } from '../../utils/sanitize';
-
-Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
 
@@ -184,7 +181,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [shareContent, setShareContent] = useState<ShareContentData | null>(null);
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<InstanceType<typeof MapView>>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);

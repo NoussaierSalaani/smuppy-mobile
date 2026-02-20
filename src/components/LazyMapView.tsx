@@ -2,7 +2,7 @@
 // Lazy-loaded MapView component to improve initial load performance
 import React, { useState, useEffect, memo, forwardRef } from 'react';
 import { View, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
-import Mapbox from '@rnmapbox/maps';
+import { Mapbox } from '../utils/mapbox-safe';
 import type { Feature } from 'geojson';
 import { useTheme } from '../hooks/useTheme';
 

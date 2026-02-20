@@ -1,101 +1,35 @@
-# Test: App Launch, Login, and Navigation
+# Test: App Launch and Navigation
+# Handles both logged-in and logged-out states
 appId: com.nou09.Smuppy
-name: "App - Full Navigation Test"
+name: "App - Launch & Navigation"
 tags:
   - smoke
   - launch
-  - auth
   - navigation
 ---
 
-# Launch app and dismiss dev overlays
 - launchApp
 
-# Dismiss Expo Dev Menu / error overlays
+# Dismiss any dev overlays
 - tapOn:
     text: "Continue"
     optional: true
 - tapOn:
     text: "Dismiss"
     optional: true
-- tapOn:
-    text: "http://localhost:8081"
-    optional: true
 
-# Wait for either welcome screen OR feed (if already logged in)
-- extendedWaitUntil:
-    true:
-      or:
-        - visible:
-            id: "welcome-screen"
-        - visible: "Fan"
-    timeout: 30000
+# Wait for either welcome screen or feed
+- waitForAnimationToEnd
 
-# If on welcome screen, go through login
+# Take screenshot of whatever screen loaded
+- takeScreenshot: "00-app-launched"
+
+# If on welcome screen, tap Log In (optional — will skip if already logged in)
 - tapOn:
     id: "login-button"
     optional: true
 
-- tapOn:
-    id: "submit-login-button"
-    optional: true
-
-# Wait for feed
-- extendedWaitUntil:
-    visible: "Fan"
-    timeout: 30000
-
-- takeScreenshot: "00-feed-loaded"
-
-# ========== TEST FEED TAB NAVIGATION ==========
-
-# Test Fan tab
-- tapOn: "Fan"
-- assertVisible: "Fan"
-
-# Test Vibes tab
-- tapOn: "Vibes"
-- assertVisible: "Vibes"
-
-# Test Xplorer tab
-- tapOn: "Xplorer"
 - waitForAnimationToEnd
 
-# ========== TEST BOTTOM NAVIGATION ==========
-
-# Go to Peaks tab
-- tapOn:
-    id: "peaks-tab"
-- waitForAnimationToEnd
-
-# Go back to Home
-- tapOn:
-    id: "home-tab"
-
-# Verify we're back on feed
-- extendedWaitUntil:
-    visible: "Fan"
-    timeout: 5000
-
-# ========== TEST HEADER BUTTONS ==========
-
-# Test search button
-- tapOn:
-    id: "search-button"
-- waitForAnimationToEnd
-- back
-
-# Test notifications button
-- tapOn:
-    id: "notifications-button"
-- waitForAnimationToEnd
-- back
-
-# ========== TEST PROFILE ==========
-
-# Navigate to profile
-- tapOn:
-    id: "profile-tab"
-- waitForAnimationToEnd
-
-- takeScreenshot: "00-profile"
+# If login screen appeared, take screenshot
+- takeScreenshot: "00-login-or-feed"

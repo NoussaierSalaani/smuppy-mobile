@@ -33,8 +33,9 @@ tags:
 - takeScreenshot: "fan-feed-loaded"
 
 # Scroll to see posts
-- scroll:
-    direction: DOWN
+- swipe:
+    direction: UP
+    duration: 400
 
 - takeScreenshot: "fan-feed-scrolled"
 
@@ -46,12 +47,13 @@ tags:
 - takeScreenshot: "post-double-tapped"
 
 # Scroll back to top
-- scroll:
-    direction: UP
+- swipe:
+    direction: DOWN
+    duration: 400
 
 # Pull to refresh
-- scroll:
-    direction: DOWN
+- swipe:
+    direction: UP
     duration: 500
 
 - waitForAnimationToEnd

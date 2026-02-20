@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, TextInput, StatusBar, Pressable, Keyboard } from 'react-native';
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
-import Mapbox, { MapView, Camera, PointAnnotation, LocationPuck } from '@rnmapbox/maps';
+import { MapView, Camera, PointAnnotation, LocationPuck } from '../../utils/mapbox-safe';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GRADIENTS } from '../../config/theme';
-import { ENV } from '../../config/env';
 import { FEATURES } from '../../config/featureFlags';
 import { LiquidButton } from '../../components/LiquidButton';
 import { BlurView } from 'expo-blur';
@@ -25,8 +24,6 @@ import { searchNominatim, NominatimSearchResult, isValidCoordinate } from '../..
 // UUID validation regex for API calls
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Initialize Mapbox with access token (ENV has fallback for builds missing the token)
-Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 import { wp, sp, hp, normalize } from '../../utils/responsive';
 
@@ -128,7 +125,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     color: f.color,
     subcategories: f.subcategories,
   })), []);
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<InstanceType<typeof Camera>>(null);
   const hasRequestedPermission = useRef(false);
   const { setBottomBarHidden, showBars, xplorerFullscreen, toggleXplorerFullscreen, setXplorerFullscreen } = useTabBar();
 

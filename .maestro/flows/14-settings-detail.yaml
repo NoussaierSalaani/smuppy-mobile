@@ -44,8 +44,9 @@ tags:
 - back
 
 # Test Blocked Users
-- scroll:
-    direction: DOWN
+- swipe:
+    direction: UP
+    duration: 400
 
 - tapOn:
     text: "Blocked Users"
@@ -63,8 +64,9 @@ tags:
 - back
 
 # Test appearance toggle (System/Light/Dark)
-- scroll:
-    direction: UP
+- swipe:
+    direction: DOWN
+    duration: 400
 
 - tapOn:
     text: "Dark"
@@ -77,8 +79,9 @@ tags:
     optional: true
 
 # Scroll to verify Terms & Log Out exist
-- scroll:
-    direction: DOWN
+- swipe:
+    direction: UP
+    duration: 400
 
 - takeScreenshot: "settings-bottom"
 

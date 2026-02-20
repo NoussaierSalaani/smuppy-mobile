@@ -23,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Mapbox, { MapView, Camera, MarkerView } from '@rnmapbox/maps';
+import { MapView, Camera, MarkerView } from '../../utils/mapbox-safe';
 import * as Haptics from 'expo-haptics';
 import OptimizedImage from '../../components/OptimizedImage';
 import { GRADIENTS } from '../../config/theme';
@@ -32,10 +32,6 @@ import { validate } from '../../utils/validation';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-
-import { ENV } from '../../config/env';
-
-Mapbox.setAccessToken(ENV.MAPBOX_ACCESS_TOKEN);
 
 const { width: _width, height: _height } = Dimensions.get('window');
 

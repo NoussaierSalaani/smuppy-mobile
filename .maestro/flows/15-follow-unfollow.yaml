@@ -48,13 +48,15 @@ tags:
 - takeScreenshot: "user-profile"
 
 # Scroll user profile
-- scroll:
-    direction: DOWN
+- swipe:
+    direction: UP
+    duration: 400
 
 - takeScreenshot: "user-profile-scrolled"
 
-- scroll:
-    direction: UP
+- swipe:
+    direction: DOWN
+    duration: 400
 
 # Go back
 - back

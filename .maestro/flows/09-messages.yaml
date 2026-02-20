@@ -30,11 +30,13 @@ tags:
 - assertVisible: "Direct"
 
 # Scroll through conversations
-- scroll:
-    direction: DOWN
-
-- scroll:
+- swipe:
     direction: UP
+    duration: 400
+
+- swipe:
+    direction: DOWN
+    duration: 400
 
 # Search conversations
 - tapOn:

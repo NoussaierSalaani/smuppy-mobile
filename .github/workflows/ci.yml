@@ -374,12 +374,29 @@ jobs:
       - name: Run Jest tests with coverage
         run: npx jest --coverage
 
+      - name: Verify LCOV file exists
+        run: |
+          echo "--- Checking coverage/lcov.info (relative to working-directory) ---"
+          if test -f coverage/lcov.info; then
+            echo "OK: coverage/lcov.info exists ($(wc -l < coverage/lcov.info) lines)"
+            head -5 coverage/lcov.info
+          else
+            echo "WARN: coverage/lcov.info NOT found — coverage will be missing from SonarCloud"
+            ls -la coverage/ 2>/dev/null || echo "  coverage/ directory does not exist"
+          fi
+
       - name: Fix Lambda LCOV paths for SonarCloud
         run: |
           # LCOV uses paths relative to aws-migration/lambda/api/ (e.g., SF:activity/list.ts)
           # SonarCloud resolves from repo root, so prefix with the correct path
+          # Note: working-directory is aws-migration/lambda/api, so coverage/lcov.info is correct
           if [ -f coverage/lcov.info ]; then
-            sed -i 's|^SF:|SF:aws-migration/lambda/api/|' coverage/lcov.info
+            sed -i.bak 's|^SF:|SF:aws-migration/lambda/api/|' coverage/lcov.info
+            rm -f coverage/lcov.info.bak
+            echo "LCOV paths prefixed. Sample:"
+            head -5 coverage/lcov.info
+          else
+            echo "WARN: coverage/lcov.info not found in $(pwd)"
           fi
 
       - name: Upload Lambda coverage report

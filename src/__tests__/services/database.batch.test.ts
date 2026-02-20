@@ -87,3 +87,6 @@ describe('database batch helpers', () => {
   });
 });
 jest.mock('@sentry/react-native', () => ({}));
+jest.mock('expo-constants', () => ({ default: { manifest: {} } }));
+jest.mock('../../config/env', () => ({ ENV: { API_URL: '', STAGE: 'test' } }));
+jest.mock('../../lib/sentry', () => ({}));

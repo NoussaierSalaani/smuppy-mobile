@@ -154,6 +154,10 @@ describe('useVideoStatus', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.useFakeTimers();
+    jest.runOnlyPendingTimers();
+    jest.clearAllTimers();
+    jest.useRealTimers();
   });
 
   // ========================================

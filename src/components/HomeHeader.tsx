@@ -30,10 +30,11 @@ interface Tab {
   label: string;
 }
 
-interface HomeHeaderProps {
+type HomeHeaderProps = Readonly<{
   activeTab?: TabId;
   onTabChange?: (tabId: TabId) => void;
-}
+}>;
+
 
 // Define navigation param list for type safety
 type RootStackParamList = {

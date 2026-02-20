@@ -32,14 +32,15 @@ const CATEGORY_ICONS: Record<PrescriptionCategory, IoniconsName> = {
   nutrition: 'nutrition',
 };
 
-interface ActivePrescriptionScreenProps {
+type ActivePrescriptionScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
   };
   route: {
     params: { prescriptionId: string };
   };
-}
+}>;
+
 
 const RUSHED_THRESHOLD = 0.3;
 const RUSHED_DAILY_LIMIT = 3;

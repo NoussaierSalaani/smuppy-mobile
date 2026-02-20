@@ -19,7 +19,7 @@ import TipModal from './TipModal';
 import { useTipPayment } from '../../hooks/useTipPayment';
 import { resolveDisplayName } from '../../types/profile';
 
-interface TipButtonProps {
+type TipButtonProps = Readonly<{
   recipient: {
     id: string;
     username: string;
@@ -31,7 +31,7 @@ interface TipButtonProps {
   variant?: 'default' | 'compact' | 'icon';
   disabled?: boolean;
   onTipSent?: () => void;
-}
+}>;
 
 export default function TipButton({
   recipient,

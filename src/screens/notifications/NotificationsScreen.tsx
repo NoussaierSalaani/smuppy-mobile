@@ -239,7 +239,7 @@ function getMessageForType(backendType: string, displayType: UserNotification['t
 // MEMOIZED LIST ITEM
 // ============================================
 
-interface NotificationItemProps {
+type NotificationItemProps = Readonly<{
   item: Notification;
   styles: ReturnType<typeof createStyles>;
   colors: ThemeColors;
@@ -250,7 +250,8 @@ interface NotificationItemProps {
   deleteNotification: (id: number | string) => void;
   getNotificationIcon: (type: string) => { name: keyof typeof Ionicons.glyphMap; color: string };
   isToggling: boolean;
-}
+}>;
+
 
 const isSystemNotification = (notif: Notification): notif is SystemNotification => {
   return notif.type === 'system' || notif.type === 'reminder';

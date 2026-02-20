@@ -9,10 +9,11 @@ import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { useRipple } from '../hooks/useRipple';
 
-interface RippleVisualizationProps {
+type RippleVisualizationProps = Readonly<{
   size: number;
   children: React.ReactNode;
-}
+}>;
+
 
 const MAX_RINGS = 5;
 const RING_OVERFLOW = 60; // Extra space for ring animations to render without clipping

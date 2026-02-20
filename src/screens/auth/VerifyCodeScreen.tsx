@@ -18,7 +18,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const CODE_LENGTH = 6;
 
-interface VerifyCodeScreenProps {
+type VerifyCodeScreenProps = Readonly<{
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     replace: (screen: string, params?: Record<string, unknown>) => void;
@@ -34,7 +34,7 @@ interface VerifyCodeScreenProps {
       accountCreated?: boolean;
     };
   };
-}
+}>;
 
 export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreenProps) {
   const { colors, isDark } = useTheme();

@@ -15,7 +15,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { triggerHaptic } from '../../utils/haptics';
 import { sanitizeDisplayText } from '../../utils/sanitize';
 
-interface CreatorOptionalInfoScreenProps {
+type CreatorOptionalInfoScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -24,7 +24,7 @@ interface CreatorOptionalInfoScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: Record<string, unknown> };
-}
+}>;
 
 export default function CreatorOptionalInfoScreen({ navigation, route }: CreatorOptionalInfoScreenProps) {
   const { colors, isDark } = useTheme();

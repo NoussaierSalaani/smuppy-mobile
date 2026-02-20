@@ -17,14 +17,14 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 const { height } = Dimensions.get('window');
 
-interface CreateOptionsPopupProps {
+type CreateOptionsPopupProps = Readonly<{
   visible: boolean;
   onClose?: () => void;
   onSelectPost?: () => void;
   onSelectPeak?: () => void;
   onSelectChallenge?: () => void;
   onSelectEvent?: () => void;
-}
+}>;
 
 const CreateOptionsPopup = ({ visible, onClose, onSelectPost, onSelectPeak, onSelectChallenge, onSelectEvent }: CreateOptionsPopupProps): React.JSX.Element | null => {
   const { colors, isDark } = useTheme();

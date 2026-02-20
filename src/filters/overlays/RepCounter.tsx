@@ -14,10 +14,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { RepCounterParams } from '../types';
 
-interface RepCounterProps {
+type RepCounterProps = Readonly<{
   params: RepCounterParams;
   size?: number;
-}
+}>;
+
 
 export function RepCounter({ params, size = 80 }: RepCounterProps) {
   const { currentReps, targetReps, exerciseName, color } = params;

@@ -9,7 +9,7 @@ type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'danger' |
 type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 type IconPosition = 'left' | 'right';
 
-interface ButtonProps {
+type ButtonProps = Readonly<{
   variant?: ButtonVariant;
   size?: ButtonSize;
   disabled?: boolean;
@@ -22,7 +22,8 @@ interface ButtonProps {
   children?: ReactNode;
   accessibilityLabel?: string;
   accessibilityHint?: string;
-}
+}>;
+
 
 /**
  * Button Component

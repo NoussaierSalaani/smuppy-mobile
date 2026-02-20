@@ -20,7 +20,7 @@ interface ActionOption {
   disabled?: boolean;
 }
 
-interface SmuppyActionSheetProps {
+type SmuppyActionSheetProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   title?: string;
@@ -28,7 +28,8 @@ interface SmuppyActionSheetProps {
   options: ActionOption[];
   showCancel?: boolean;
   cancelLabel?: string;
-}
+}>;
+
 
 const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
   visible,

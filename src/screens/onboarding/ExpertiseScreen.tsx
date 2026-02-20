@@ -2,7 +2,7 @@ import React from 'react';
 import { ALL_EXPERTISE } from '../../config/expertise';
 import CategorySelectionScreen from '../../components/CategorySelectionScreen';
 
-interface ExpertiseScreenProps {
+type ExpertiseScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -11,7 +11,7 @@ interface ExpertiseScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: Record<string, unknown> };
-}
+}>;
 
 export default function ExpertiseScreen({ navigation, route }: ExpertiseScreenProps) {
   return (

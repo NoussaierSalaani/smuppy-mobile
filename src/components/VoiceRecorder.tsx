@@ -13,10 +13,11 @@ import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 
 const MAX_DURATION_SECONDS = 300; // 5-minute max recording
 
-interface VoiceRecorderProps {
+type VoiceRecorderProps = Readonly<{
   onFinish: (uri: string, duration: number) => void;
   onCancel: () => void;
-}
+}>;
+
 
 export default function VoiceRecorder({ onFinish, onCancel }: VoiceRecorderProps) {
   const { colors } = useTheme();

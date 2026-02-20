@@ -4,10 +4,11 @@ import Svg, { Path, Circle, G } from 'react-native-svg';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { COLORS } from '../config/theme';
 
-interface BadgeProps {
+type BadgeProps = Readonly<{
   size?: number;
   style?: ViewStyle;
-}
+}>;
+
 
 // Badge colors from theme
 const BADGE_COLORS = {
@@ -128,11 +129,12 @@ export type AccountType = 'personal' | 'pro_creator' | 'pro_business';
 
 const MEGA_FOLLOWER_THRESHOLD = 100_000_000;
 
-interface AccountBadgeProps extends BadgeProps {
+type AccountBadgeProps = Readonly<BadgeProps & {
   isVerified?: boolean;
   accountType?: AccountType;
   followerCount?: number;
-}
+}>;
+
 
 export const AccountBadge: React.FC<AccountBadgeProps> = ({
   size = 16,

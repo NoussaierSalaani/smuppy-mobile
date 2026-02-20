@@ -31,12 +31,13 @@ const CATEGORY_CONFIG: Record<PrescriptionCategory, { icon: IoniconsName; color:
   nutrition: { icon: 'nutrition', color: '#FF9800' },
 };
 
-interface PrescriptionsScreenProps {
+type PrescriptionsScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
     navigate: (screen: string, params?: Record<string, unknown>) => void;
   };
-}
+}>;
+
 
 export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenProps) {
   const { colors, isDark } = useTheme();
@@ -140,11 +141,12 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
 // PRESCRIPTION CARD
 // ============================================================================
 
-interface PrescriptionCardProps {
+type PrescriptionCardProps = Readonly<{
   prescription: Prescription;
   onStart: (rx: Prescription) => void;
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 const PrescriptionCard: React.FC<PrescriptionCardProps> = React.memo(({ prescription, onStart, styles }) => {
   const config = CATEGORY_CONFIG[prescription.category];

@@ -54,7 +54,7 @@ interface OnboardingProfileFormNavigation {
   reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
 }
 
-interface OnboardingProfileFormProps {
+type OnboardingProfileFormProps = Readonly<{
   navigation: OnboardingProfileFormNavigation;
   currentStep: number;
   totalSteps: number;
@@ -74,7 +74,8 @@ interface OnboardingProfileFormProps {
   sanitizeName?: (text: string) => string;
   /** Max length for the name input field. */
   nameMaxLength?: number;
-}
+}>;
+
 
 const OnboardingProfileForm = ({
   navigation,

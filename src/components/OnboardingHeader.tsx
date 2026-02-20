@@ -7,14 +7,15 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
 const SEGMENT_GAP = 4;
 
-interface OnboardingHeaderProps {
+type OnboardingHeaderProps = Readonly<{
   onBack?: () => void;
   disabled?: boolean;
   currentStep?: number;
   totalSteps?: number;
   showProgress?: boolean;
   showBackArrow?: boolean;
-}
+}>;
+
 
 export default function OnboardingHeader({
   onBack,

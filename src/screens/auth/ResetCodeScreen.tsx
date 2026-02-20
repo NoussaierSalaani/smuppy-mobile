@@ -34,7 +34,7 @@ const maskEmail = (email: string): string => {
   return `${maskedLocal}@${maskedDomain}.${domainExt.join('.')}`;
 };
 
-interface ResetCodeScreenProps {
+type ResetCodeScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -47,7 +47,7 @@ interface ResetCodeScreenProps {
       email?: string;
     };
   };
-}
+}>;
 
 export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenProps) {
   const { colors, isDark } = useTheme();

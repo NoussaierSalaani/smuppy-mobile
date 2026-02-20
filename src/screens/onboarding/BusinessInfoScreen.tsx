@@ -15,7 +15,7 @@ import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
-interface BusinessInfoScreenProps {
+type BusinessInfoScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -24,7 +24,7 @@ interface BusinessInfoScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: Record<string, unknown> };
-}
+}>;
 
 export default function BusinessInfoScreen({ navigation, route }: BusinessInfoScreenProps) {
   const { colors, isDark } = useTheme();

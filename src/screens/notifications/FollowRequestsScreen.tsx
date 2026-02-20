@@ -24,9 +24,10 @@ import { isValidUUID } from '../../utils/formatters';
 import { resolveDisplayName } from '../../types/profile';
 import { createListScreenStyles } from '../../components/shared-list-styles';
 
-interface FollowRequestsScreenProps {
+type FollowRequestsScreenProps = Readonly<{
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
-}
+}>;
+
 
 const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
   const { colors, isDark } = useTheme();

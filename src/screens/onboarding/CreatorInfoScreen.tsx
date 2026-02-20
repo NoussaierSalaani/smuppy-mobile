@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import OnboardingProfileForm from '../../components/OnboardingProfileForm';
 
-interface CreatorInfoScreenProps {
+type CreatorInfoScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -10,7 +10,7 @@ interface CreatorInfoScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: Record<string, unknown> };
-}
+}>;
 
 export default function CreatorInfoScreen({ navigation, route }: CreatorInfoScreenProps) {
   const params = useMemo(() => route?.params || {}, [route?.params]);

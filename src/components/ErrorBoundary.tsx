@@ -5,7 +5,7 @@ import { SPACING } from '../config/theme';
 import { captureException, addBreadcrumb } from '../lib/sentry';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
-interface ErrorBoundaryProps {
+type ErrorBoundaryProps = Readonly<{
   children: ReactNode;
   name?: string;
   fallback?: ReactNode;
@@ -15,7 +15,8 @@ interface ErrorBoundaryProps {
   showReportButton?: boolean;
   colors?: ThemeColors;
   isDark?: boolean;
-}
+}>;
+
 
 interface ErrorBoundaryState {
   hasError: boolean;

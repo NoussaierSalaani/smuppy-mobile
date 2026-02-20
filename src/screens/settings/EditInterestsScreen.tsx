@@ -10,10 +10,10 @@ import { useTheme } from '../../hooks/useTheme';
 import { SelectChip } from '../../components/settings/SelectChip';
 import { createSelectListStyles } from '../../components/settings/selectListStyles';
 
-interface EditInterestsScreenProps {
+type EditInterestsScreenProps = Readonly<{
   navigation: { goBack: () => void };
   route: { params?: { currentInterests?: string[] } };
-}
+}>;
 
 export default function EditInterestsScreen({ navigation, route }: EditInterestsScreenProps) {
   const insets = useSafeAreaInsets();

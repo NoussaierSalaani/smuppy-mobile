@@ -12,14 +12,15 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../hooks/useTheme';
 import SmuppyHeartIcon from './icons/SmuppyHeartIcon';
 
-interface DoubleTapLikeProps {
+type DoubleTapLikeProps = Readonly<{
   children: React.ReactNode;
   onDoubleTap: () => void;
   onSingleTap?: () => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   showAnimation?: boolean;
-}
+}>;
+
 
 /**
  * DoubleTapLike - Smuppy's unique double-tap to like gesture

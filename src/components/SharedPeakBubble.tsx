@@ -15,10 +15,11 @@ import { getPeakById, Post } from '../services/database';
 import { resolveDisplayName } from '../types/profile';
 import { Ionicons } from '@expo/vector-icons';
 
-interface SharedPeakBubbleProps {
+type SharedPeakBubbleProps = Readonly<{
   peakId: string;
   isFromMe: boolean;
-}
+}>;
+
 
 function SharedPeakBubble({ peakId, isFromMe }: SharedPeakBubbleProps) {
   const { colors, isDark } = useTheme();

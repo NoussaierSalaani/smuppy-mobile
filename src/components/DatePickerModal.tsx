@@ -12,12 +12,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
-interface DatePickerModalProps {
+type DatePickerModalProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   onConfirm: (date: string) => void;
   initialDate?: string;
-}
+}>;
+
 const ITEM_HEIGHT = 50;
 const VISIBLE_ITEMS = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;

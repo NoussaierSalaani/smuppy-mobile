@@ -2,7 +2,7 @@ import React from 'react';
 import { ALL_INTERESTS } from '../../config/interests';
 import CategorySelectionScreen from '../../components/CategorySelectionScreen';
 
-interface InterestsScreenProps {
+type InterestsScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -11,7 +11,7 @@ interface InterestsScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: Record<string, unknown> };
-}
+}>;
 
 export default function InterestsScreen({ navigation, route }: InterestsScreenProps) {
   return (

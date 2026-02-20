@@ -79,12 +79,13 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: '#EF4444',
 };
 
-interface DisputeCardProps {
+type DisputeCardProps = Readonly<{
   dispute: Dispute;
   onPress: (dispute: Dispute) => void;
   colors: ThemeColors;
   currentUserId: string;
-}
+}>;
+
 
 const DisputeCard = memo(function DisputeCard({
   dispute,

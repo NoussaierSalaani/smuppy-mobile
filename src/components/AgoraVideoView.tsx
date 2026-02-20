@@ -13,27 +13,27 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 
-interface LocalVideoViewProps {
+type LocalVideoViewProps = Readonly<{
   style?: ViewStyle;
   zOrderMediaOverlay?: boolean;
   renderMode?: RenderModeType;
   isVideoOff?: boolean;
-}
+}>;
 
-interface RemoteVideoViewProps {
+type RemoteVideoViewProps = Readonly<{
   uid: number;
   channelId: string;
   style?: ViewStyle;
   zOrderMediaOverlay?: boolean;
   renderMode?: RenderModeType;
   isVideoOff?: boolean;
-}
+}>;
 
-interface VideoPlaceholderProps {
+type VideoPlaceholderProps = Readonly<{
   style?: ViewStyle;
   label?: string;
   iconSize?: number;
-}
+}>;
 
 /**
  * Placeholder shown when video is off or loading
@@ -105,12 +105,12 @@ export function RemoteVideoView({
 /**
  * Grid of remote video views
  */
-interface VideoGridProps {
+type VideoGridProps = Readonly<{
   remoteUsers: number[];
   channelId: string;
   style?: ViewStyle;
   maxVisible?: number;
-}
+}>;
 
 export function RemoteVideoGrid({
   remoteUsers,

@@ -15,10 +15,11 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { awsAPI } from '../services/aws-api';
 import { resolveDisplayName } from '../types/profile';
 
-interface SharedProfileBubbleProps {
+type SharedProfileBubbleProps = Readonly<{
   profileId: string;
   isFromMe: boolean;
-}
+}>;
+
 
 interface ProfileData {
   id: string;

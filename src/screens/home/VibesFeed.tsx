@@ -135,11 +135,12 @@ const INTEREST_DATA: Record<string, { icon: string; color: string }> = (() => {
 })();
 
 // Advanced Smuppy Mood Indicator Component
-interface MoodIndicatorProps {
+type MoodIndicatorProps = Readonly<{
   mood: ReturnType<typeof useMoodAI>['mood'];
   onRefresh?: () => void;
   onVibePress?: () => void;
-}
+}>;
+
 
 const LEVEL_COLORS: Record<string, string> = {
   newcomer: '#9E9E9E',
@@ -243,14 +244,15 @@ const MoodIndicator = React.memo(({ mood, onRefresh, onVibePress }: MoodIndicato
 // ============================================
 // Memoized VibeCard for masonry grid
 // ============================================
-interface VibeCardProps {
+type VibeCardProps = Readonly<{
   post: UIVibePost;
   colors: ReturnType<typeof useTheme>['colors'];
   styles: ReturnType<typeof createStyles>;
   onLike: (postId: string) => void;
   onTap: (post: UIVibePost) => void;
   onUserPress: (userId: string) => void;
-}
+}>;
+
 
 const VibeCard = memo<VibeCardProps>(({ post, styles, onLike, onTap, onUserPress }) => (
   <DoubleTapLike
@@ -299,9 +301,10 @@ const VibeCard = memo<VibeCardProps>(({ post, styles, onLike, onTap, onUserPress
   prev.styles === next.styles
 );
 
-interface VibesFeedProps {
+type VibesFeedProps = Readonly<{
   headerHeight?: number;
-}
+}>;
+
 
 export interface VibesFeedRef {
   scrollToTop: () => void;

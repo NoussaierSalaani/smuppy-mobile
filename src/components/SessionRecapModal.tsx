@@ -13,11 +13,11 @@ import { getMoodDisplay } from '../hooks/useMoodAI';
 import { SPACING, HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
-interface SessionRecapModalProps {
+type SessionRecapModalProps = Readonly<{
   visible: boolean;
   recap: SessionRecap | null;
   onDismiss: () => void;
-}
+}>;
 
 const TRAJECTORY_CONFIG = {
   improved: { icon: 'trending-up' as const, label: 'Improved', color: '#4CAF50' },

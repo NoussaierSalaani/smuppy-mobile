@@ -14,10 +14,11 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { getPostById, Post } from '../services/database';
 import { resolveDisplayName } from '../types/profile';
 
-interface SharedPostBubbleProps {
+type SharedPostBubbleProps = Readonly<{
   postId: string;
   isFromMe: boolean;
-}
+}>;
+
 
 function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
   const { colors, isDark } = useTheme();

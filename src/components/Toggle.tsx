@@ -12,14 +12,15 @@ interface SizeConfig {
   padding: number;
 }
 
-interface ToggleProps {
+type ToggleProps = Readonly<{
   value?: boolean;
   onValueChange?: (value: boolean) => void;
   disabled?: boolean;
   size?: ToggleSize;
   style?: ViewStyle;
   accessibilityLabel?: string;
-}
+}>;
+
 
 /**
  * Toggle/Switch Component

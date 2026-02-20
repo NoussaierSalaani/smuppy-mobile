@@ -11,12 +11,12 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CONFETTI_COLORS = ['#00CDB5', '#0891B2', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
 
-interface ConfettiProps {
+type ConfettiProps = Readonly<{
   delay: number;
   startX: number;
   color: string;
   size: number;
-}
+}>;
 
 const Confetti = ({ delay, startX, color, size }: ConfettiProps) => {
   const translateY = useRef(new Animated.Value(-50)).current;
@@ -57,13 +57,13 @@ const Confetti = ({ delay, startX, color, size }: ConfettiProps) => {
   );
 };
 
-interface FireworkParticleProps {
+type FireworkParticleProps = Readonly<{
   delay: number;
   centerX: number;
   centerY: number;
   angle: number;
   color: string;
-}
+}>;
 
 const FireworkParticle = ({ delay, centerX, centerY, angle, color }: FireworkParticleProps) => {
   const translateX = useRef(new Animated.Value(0)).current;
@@ -109,12 +109,12 @@ const FireworkParticle = ({ delay, centerX, centerY, angle, color }: FireworkPar
   );
 };
 
-interface FireworkProps {
+type FireworkProps = Readonly<{
   x: number;
   y: number;
   delay: number;
   color: string;
-}
+}>;
 
 const Firework = ({ x, y, delay, color }: FireworkProps) => (
   <>
@@ -124,9 +124,9 @@ const Firework = ({ x, y, delay, color }: FireworkProps) => (
   </>
 );
 
-interface SuccessScreenProps {
+type SuccessScreenProps = Readonly<{
   navigation: { reset: (state: { index: number; routes: Array<{ name: string }> }) => void };
-}
+}>;
 
 export default function SuccessScreen({ navigation: _navigation }: SuccessScreenProps) {
   const { colors, isDark } = useTheme();

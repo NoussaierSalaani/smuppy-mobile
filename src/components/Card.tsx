@@ -37,13 +37,14 @@ interface VibeData {
 
 type CardData = PostData | SuggestionData | VibeData;
 
-interface CardProps {
+type CardProps = Readonly<{
   variant?: CardVariant;
   data: CardData;
   size?: VibeSize;
   onPress?: () => void;
   style?: ViewStyle;
-}
+}>;
+
 
 /**
  * Card Component - Memoized for performance in lists

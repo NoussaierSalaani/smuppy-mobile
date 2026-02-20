@@ -27,12 +27,13 @@ import { FilterDefinition } from '../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 const FILTER_ITEM_SIZE = 72;
 
-interface FilterSelectorProps {
+type FilterSelectorProps = Readonly<{
   onFilterChange?: (filterId: string | null) => void;
   onIntensityChange?: (intensity: number) => void;
   onOpenOverlays?: () => void;
   compact?: boolean;
-}
+}>;
+
 
 type TabType = 'body' | 'lighting' | 'effects';
 
@@ -204,13 +205,14 @@ export function FilterSelector({
 }
 
 // Tab Button Component
-interface TabButtonProps {
+type TabButtonProps = Readonly<{
   tab: { id: TabType; label: string; icon: string };
   isSelected: boolean;
   onPress: () => void;
   colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 function TabButton({ tab, isSelected, onPress, colors, styles }: TabButtonProps) {
   const scale = useSharedValue(1);
@@ -249,13 +251,14 @@ function TabButton({ tab, isSelected, onPress, colors, styles }: TabButtonProps)
 }
 
 // Filter Card Component
-interface FilterCardProps {
+type FilterCardProps = Readonly<{
   filter: FilterDefinition | null;
   isSelected: boolean;
   onPress: () => void;
   colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 function FilterCard({ filter, isSelected, onPress, colors, styles }: FilterCardProps) {
   const scale = useSharedValue(1);

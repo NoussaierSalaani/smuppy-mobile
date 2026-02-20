@@ -16,10 +16,11 @@ import Animated, {
 import { Canvas, Path, Skia, Group } from '@shopify/react-native-skia';
 import { HeartRatePulseParams } from '../types';
 
-interface HeartRatePulseProps {
+type HeartRatePulseProps = Readonly<{
   params: HeartRatePulseParams;
   size?: number;
-}
+}>;
+
 
 export function HeartRatePulse({ params, size = 100 }: HeartRatePulseProps) {
   const { bpm, isAnimating, color } = params;

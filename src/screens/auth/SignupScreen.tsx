@@ -18,13 +18,13 @@ import {
   AUTH_FORM,
 } from '../../components/auth/authStyles';
 
-interface SignupScreenProps {
+type SignupScreenProps = Readonly<{
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     replace: (screen: string, params?: Record<string, unknown>) => void;
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
-}
+}>;
 
 export default function SignupScreen({ navigation }: SignupScreenProps) {
 

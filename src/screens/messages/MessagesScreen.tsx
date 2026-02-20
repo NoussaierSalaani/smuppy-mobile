@@ -29,21 +29,23 @@ import { formatRelativeTimeShort } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
-interface MessagesScreenProps {
+type MessagesScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
     navigate: (screen: string, params?: Record<string, unknown>) => void;
   };
-}
+}>;
 
-interface ConversationItemProps {
+
+type ConversationItemProps = Readonly<{
   item: Conversation;
   colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
   onNavigate: (screen: string, params?: Record<string, unknown>) => void;
   onProfilePress: (userId: string) => void;
   formatTime: (dateString: string) => string;
-}
+}>;
+
 
 const ConversationItem = memo(({ item, colors, styles, onNavigate, onProfilePress, formatTime }: ConversationItemProps) => {
   const otherUser = item.other_user;

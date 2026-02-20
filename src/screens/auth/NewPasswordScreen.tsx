@@ -11,7 +11,7 @@ import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
-interface NewPasswordScreenProps {
+type NewPasswordScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -25,7 +25,7 @@ interface NewPasswordScreenProps {
       code?: string;
     };
   };
-}
+}>;
 
 export default function NewPasswordScreen({ navigation, route }: NewPasswordScreenProps) {
   const { colors, isDark } = useTheme();

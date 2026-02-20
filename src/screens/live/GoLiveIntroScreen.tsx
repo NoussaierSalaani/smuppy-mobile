@@ -16,11 +16,12 @@ import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
-interface FeatureItemProps {
+type FeatureItemProps = Readonly<{
   icon: string;
   text: string;
   colors: ThemeColors;
-}
+}>;
+
 
 const FeatureItem = ({ icon, text, colors }: FeatureItemProps) => {
   const styles = useMemo(() => createStyles(colors, false), [colors]);

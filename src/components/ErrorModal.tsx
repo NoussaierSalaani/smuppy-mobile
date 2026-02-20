@@ -11,13 +11,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
-interface ErrorModalProps {
+type ErrorModalProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   title?: string;
   message?: string;
   buttonText?: string;
-}
+}>;
+
 
 /**
  * ErrorModal - Popup d'erreur style app

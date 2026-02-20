@@ -27,10 +27,11 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
 import type { IconName } from '../../types';
 
-interface BusinessSubscriptionScreenProps {
+type BusinessSubscriptionScreenProps = Readonly<{
   route: { params: { businessId: string; serviceId?: string } };
   navigation: NavigationProp<ParamListBase>;
-}
+}>;
+
 
 interface SubscriptionPlan {
   id: string;

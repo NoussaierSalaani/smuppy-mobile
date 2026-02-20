@@ -114,10 +114,11 @@ interface MediaItem {
 type AddPostDetailsScreenRouteProp = RouteProp<MainStackParamList, 'AddPostDetails'>;
 type AddPostDetailsScreenNavigationProp = NativeStackNavigationProp<MainStackParamList, 'AddPostDetails'>;
 
-interface AddPostDetailsScreenProps {
+type AddPostDetailsScreenProps = Readonly<{
   route: AddPostDetailsScreenRouteProp;
   navigation: AddPostDetailsScreenNavigationProp;
-}
+}>;
+
 
 // ============================================
 // COMPONENT

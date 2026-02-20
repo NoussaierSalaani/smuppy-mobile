@@ -871,7 +871,7 @@ export interface AuthStore {
 // COMPONENT PROPS TYPES
 // ============================================
 
-export interface OptimizedImageProps {
+export type OptimizedImageProps = Readonly<{
   source: string | { uri: string } | number;
   style?: object;
   contentFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
@@ -881,14 +881,16 @@ export interface OptimizedImageProps {
   recyclingKey?: string;
   onLoad?: () => void;
   onError?: (error: Error) => void;
-}
+}>;
 
-export interface AvatarImageProps extends Omit<OptimizedImageProps, 'contentFit' | 'priority'> {
+
+export type AvatarImageProps = Readonly<Omit<OptimizedImageProps, 'contentFit' | 'priority'> & {
   size?: number;
   fallbackColor?: string;
-}
+}>;
 
-export interface GradientButtonProps {
+
+export type GradientButtonProps = Readonly<{
   title: string;
   onPress: () => void;
   disabled?: boolean;
@@ -896,7 +898,8 @@ export interface GradientButtonProps {
   style?: object;
   textStyle?: object;
   colors?: string[];
-}
+}>;
+
 
 // ============================================
 // HOOK TYPES

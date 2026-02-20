@@ -31,7 +31,7 @@ interface UserProfile {
   username?: string;
 }
 
-interface UserManagementListScreenProps {
+type UserManagementListScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
     navigate: (screen: string, params?: Record<string, unknown>) => void;
@@ -51,7 +51,7 @@ interface UserManagementListScreenProps {
   confirmMessage: (name: string) => string;
   errorMessage: string;
   isLoading: boolean;
-}
+}>;
 
 const UserManagementListScreen = ({
   navigation,

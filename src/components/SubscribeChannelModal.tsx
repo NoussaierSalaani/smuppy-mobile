@@ -25,14 +25,14 @@ interface SubscriptionTier {
   popular?: boolean;
 }
 
-interface SubscribeChannelModalProps {
+type SubscribeChannelModalProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   creatorName: string;
   creatorAvatar: string;
   creatorUsername: string;
   onSubscribe?: (tierId: string) => void;
-}
+}>;
 
 const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
   {

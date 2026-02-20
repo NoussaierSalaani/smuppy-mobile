@@ -4,7 +4,7 @@ import { sanitizeDisplayText } from '../../utils/sanitize';
 
 const NAME_MAX_LENGTH = 100;
 
-interface TellUsAboutYouScreenProps {
+type TellUsAboutYouScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -13,7 +13,7 @@ interface TellUsAboutYouScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: Record<string, unknown> };
-}
+}>;
 
 export default function TellUsAboutYouScreen({ navigation, route }: TellUsAboutYouScreenProps) {
   const { accountType } = route?.params || {};

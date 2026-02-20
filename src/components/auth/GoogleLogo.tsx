@@ -1,9 +1,9 @@
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 
-interface GoogleLogoProps {
+type GoogleLogoProps = Readonly<{
   size?: number;
-}
+}>;
 
 /**
  * Google Logo SVG component used in social login buttons.

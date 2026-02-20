@@ -34,10 +34,10 @@ interface Peak {
   createdAt: string; // ISO string for React Navigation serialization
 }
 
-interface PeakCardProps {
+type PeakCardProps = Readonly<{
   peak: Peak;
   onPress: (peak: Peak) => void;
-}
+}>;
 
 const PeakCard = memo(({ peak, onPress }: PeakCardProps): React.JSX.Element => {
   const { colors, isDark } = useTheme();

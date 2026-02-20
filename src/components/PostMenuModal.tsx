@@ -19,7 +19,7 @@ export const REPORT_OPTIONS = [
   { key: 'other', label: 'Other' },
 ] as const;
 
-export interface PostMenuModalProps {
+export type PostMenuModalProps = Readonly<{
   /** Whether the menu modal is visible */
   visible: boolean;
   /** Close the menu modal */
@@ -46,7 +46,8 @@ export interface PostMenuModalProps {
   hasReported?: boolean;
   /** Whether the post is already under review */
   isUnderReview?: boolean;
-}
+}>;
+
 
 const PostMenuModal: React.FC<PostMenuModalProps> = ({
   visible,

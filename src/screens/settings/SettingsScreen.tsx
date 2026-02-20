@@ -33,12 +33,12 @@ import { sanitizeOptionalText } from '../../utils/sanitize';
 
 const COVER_HEIGHT = 160;
 
-interface SettingsScreenProps {
+type SettingsScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
     navigate: (screen: string, params?: Record<string, unknown>) => void;
   };
-}
+}>;
 
 const APPEARANCE_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'System' },

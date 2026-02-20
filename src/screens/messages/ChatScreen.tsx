@@ -60,7 +60,7 @@ import { sanitizeDisplayText } from '../../utils/sanitize';
 
 import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
 
-interface MessageItemProps {
+type MessageItemProps = Readonly<{
   item: Message;
   isFromMe: boolean;
   showAvatar: boolean;
@@ -74,7 +74,8 @@ interface MessageItemProps {
   onDelete?: (message: Message) => void;
   colors: ThemeColors;
   currentUserId: string | null;
-}
+}>;
+
 
 // Available quick reactions
 const QUICK_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '🙏'];
@@ -295,7 +296,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
   prev.currentUserId === next.currentUserId
 ));
 
-interface ChatScreenProps {
+type ChatScreenProps = Readonly<{
   route: {
     params: {
       conversationId?: string | null;
@@ -309,7 +310,8 @@ interface ChatScreenProps {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     setOptions: (options: Record<string, unknown>) => void;
   };
-}
+}>;
+
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const { colors, isDark } = useTheme();

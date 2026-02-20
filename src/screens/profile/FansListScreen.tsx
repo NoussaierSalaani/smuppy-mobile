@@ -65,7 +65,7 @@ const profileToUser = (
   lastUnfollowAt: null,
 });
 
-interface FansListScreenProps {
+type FansListScreenProps = Readonly<{
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     goBack: () => void;
@@ -76,7 +76,8 @@ interface FansListScreenProps {
       userId?: string;
     };
   };
-}
+}>;
+
 
 export default function FansListScreen({ navigation, route }: FansListScreenProps) {
   const insets = useSafeAreaInsets();

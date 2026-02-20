@@ -3,18 +3,18 @@ import { View, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { GradeName, getGradeColors } from '../utils/gradeSystem';
 
-interface GradeFrameProps {
+type GradeFrameProps = Readonly<{
   grade: GradeName;
   color: string;
   size: number;
   children: React.ReactNode;
-}
+}>;
 
-interface FrameProps {
+type FrameProps = Readonly<{
   color: string;
   size: number;
   uid: string;
-}
+}>;
 
 const FRAME_PADDING = 8;
 const HEX_SIDES = 6;

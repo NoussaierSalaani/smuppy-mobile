@@ -14,14 +14,15 @@ import { SPOT_QUALITIES } from '../types';
 
 import { normalize } from '../utils/responsive';
 
-interface QualityPickerProps {
+type QualityPickerProps = Readonly<{
   /** Sport type or category key to determine which qualities to show */
   category: string;
   /** Currently selected qualities */
   selected: string[];
   /** Callback when selection changes */
   onSelectionChange: (qualities: string[]) => void;
-}
+}>;
+
 
 function QualityPicker({ category, selected, onSelectionChange }: QualityPickerProps) {
   const { colors } = useTheme();

@@ -14,7 +14,7 @@ import { useCooldown } from '../../hooks/useCooldown';
 import * as backend from '../../services/backend';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
-interface CheckEmailScreenProps {
+type CheckEmailScreenProps = Readonly<{
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     replace: (screen: string, params?: Record<string, unknown>) => void;
@@ -27,7 +27,7 @@ interface CheckEmailScreenProps {
       email?: string;
     };
   };
-}
+}>;
 
 /**
  * Mask email for privacy/security

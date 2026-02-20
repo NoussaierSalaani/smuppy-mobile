@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SIZES, HIT_SLOP } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
-interface HeaderProps {
+type HeaderProps = Readonly<{
   title?: string;
   subtitle?: string;
   showBack?: boolean;
@@ -18,7 +18,8 @@ interface HeaderProps {
   leftComponent?: ReactNode;
   rightComponent?: ReactNode;
   style?: ViewStyle;
-}
+}>;
+
 
 /**
  * Header Component

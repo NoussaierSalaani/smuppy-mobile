@@ -30,9 +30,9 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateForDisplay } from '../../utils/dateFormatters';
 import { filterContent } from '../../utils/contentFilters';
 
-interface EditProfileScreenProps {
+type EditProfileScreenProps = Readonly<{
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
-}
+}>;
 
 const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const insets = useSafeAreaInsets();

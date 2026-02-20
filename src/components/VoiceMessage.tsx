@@ -9,10 +9,11 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 
-interface VoiceMessageProps {
+type VoiceMessageProps = Readonly<{
   uri: string;
   isFromMe: boolean;
-}
+}>;
+
 
 const BAR_COUNT = 20;
 const PROGRESS_UPDATE_THRESHOLD = 0.02; // Only re-render when progress changes by 2%

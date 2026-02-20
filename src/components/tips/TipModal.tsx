@@ -30,7 +30,7 @@ import { WIDTH_CAPPED } from '../../utils/responsive';
 const MIN_TIP_AMOUNT_CENTS = 100;
 const MAX_TIP_AMOUNT_CENTS = 50000;
 
-interface TipModalProps {
+type TipModalProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   onConfirm: (amount: number, message?: string, isAnonymous?: boolean) => Promise<void>;
@@ -43,7 +43,7 @@ interface TipModalProps {
   contextType: 'profile' | 'live' | 'peak' | 'battle';
   presetAmounts?: number[];
   isLoading?: boolean;
-}
+}>;
 
 const DEFAULT_PRESETS = [200, 500, 1000, 2000]; // in cents
 

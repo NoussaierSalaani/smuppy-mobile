@@ -14,12 +14,12 @@ const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 // SECURITY: Generic message that doesn't reveal if email exists
 
 
-interface ForgotPasswordScreenProps {
+type ForgotPasswordScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
     navigate: (screen: string, params?: Record<string, unknown>) => void;
   };
-}
+}>;
 
 export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScreenProps) {
 

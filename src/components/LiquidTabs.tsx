@@ -38,7 +38,7 @@ interface Tab {
   icon?: string;
 }
 
-interface LiquidTabsProps {
+type LiquidTabsProps = Readonly<{
   tabs: Tab[];
   activeTab: string;
   onTabChange: (key: string) => void;
@@ -46,7 +46,8 @@ interface LiquidTabsProps {
   variant?: 'glass' | 'solid' | 'minimal';
   size?: 'small' | 'medium' | 'large';
   fullWidth?: boolean;
-}
+}>;
+
 
 // Spring config for water-like movement
 const WATER_SPRING = {
@@ -225,10 +226,11 @@ export const LiquidTabsCompact: React.FC<LiquidTabsProps> = React.memo((props) =
 ));
 
 // With More button for profile
-interface LiquidTabsWithMoreProps extends LiquidTabsProps {
+type LiquidTabsWithMoreProps = Readonly<LiquidTabsProps & {
   extraTabs?: Tab[];
   onMorePress?: () => void;
-}
+}>;
+
 
 export const LiquidTabsWithMore: React.FC<LiquidTabsWithMoreProps> = React.memo(({
   tabs,

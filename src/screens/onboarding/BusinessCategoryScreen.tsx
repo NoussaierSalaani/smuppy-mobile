@@ -22,7 +22,7 @@ const LOCATIONS_MODES = [
   { id: 'multiple', label: 'Multiple Locations', desc: 'Chain or franchise' },
 ];
 
-interface BusinessCategoryScreenProps {
+type BusinessCategoryScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -31,7 +31,7 @@ interface BusinessCategoryScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: Record<string, unknown> };
-}
+}>;
 
 export default function BusinessCategoryScreen({ navigation, route }: BusinessCategoryScreenProps) {
   const { colors } = useTheme();

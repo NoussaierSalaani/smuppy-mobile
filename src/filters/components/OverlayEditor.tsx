@@ -37,10 +37,11 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface OverlayEditorProps {
+type OverlayEditorProps = Readonly<{
   visible: boolean;
   onClose: () => void;
-}
+}>;
+
 
 const OVERLAY_OPTIONS: { type: OverlayType; label: string; icon: string; description: string }[] = [
   { type: 'workout_timer', label: 'Timer', icon: 'timer-outline', description: 'Countdown or stopwatch' },
@@ -178,12 +179,13 @@ export function OverlayEditor({ visible, onClose }: OverlayEditorProps) {
 }
 
 // Overlay Option Card
-interface OverlayOptionProps {
+type OverlayOptionProps = Readonly<{
   option: typeof OVERLAY_OPTIONS[0];
   onPress: () => void;
   colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 function OverlayOption({ option, onPress, colors, styles }: OverlayOptionProps) {
   const scale = useSharedValue(1);
@@ -213,7 +215,7 @@ function OverlayOption({ option, onPress, colors, styles }: OverlayOptionProps) 
 }
 
 // Active Overlay Card
-interface ActiveOverlayCardProps {
+type ActiveOverlayCardProps = Readonly<{
   overlay: OverlayConfig;
   label: string;
   icon: string;
@@ -223,7 +225,8 @@ interface ActiveOverlayCardProps {
   onUpdateParams: (params: Record<string, unknown>) => void;
   colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 function ActiveOverlayCard({
   overlay,
@@ -287,13 +290,14 @@ function ActiveOverlayCard({
 }
 
 // Overlay Edit Fields
-interface OverlayEditFieldsProps {
+type OverlayEditFieldsProps = Readonly<{
   type: OverlayType;
   params: Record<string, unknown>;
   onUpdate: (params: Record<string, unknown>) => void;
   colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEditFieldsProps) {
   switch (type) {
@@ -429,7 +433,7 @@ function OverlayEditFields({ type, params, onUpdate, colors, styles }: OverlayEd
 }
 
 // Edit Field Component
-interface EditFieldProps {
+type EditFieldProps = Readonly<{
   label: string;
   value: string;
   onChangeText: (text: string) => void;
@@ -437,7 +441,8 @@ interface EditFieldProps {
   small?: boolean;
   colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 function EditField({ label, value, onChangeText, keyboardType = 'default', small, colors, styles }: EditFieldProps) {
   return (
@@ -458,12 +463,13 @@ function EditField({ label, value, onChangeText, keyboardType = 'default', small
 /**
  * Draggable Overlay Component
  */
-interface DraggableOverlayProps {
+type DraggableOverlayProps = Readonly<{
   overlay: OverlayConfig;
   containerWidth: number;
   containerHeight: number;
   onPositionChange: (position: Partial<OverlayPosition>) => void;
-}
+}>;
+
 
 export function DraggableOverlay({
   overlay,

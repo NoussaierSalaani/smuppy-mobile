@@ -107,10 +107,11 @@ const DEFAULT_CENTER: [number, number] = [-73.5673, 45.5017];
 // COMPONENT
 // ============================================
 
-interface XplorerFeedProps {
+type XplorerFeedProps = Readonly<{
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void };
   isActive: boolean;
-}
+}>;
+
 
 export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) {
   const { colors, isDark } = useTheme();

@@ -6,7 +6,7 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { HIT_SLOP } from '../config/theme';
 import { formatShortDateTime } from '../utils/dateFormatters';
 
-interface EventGroupCardProps {
+type EventGroupCardProps = Readonly<{
   type: 'event' | 'group';
   id: string;
   title: string;
@@ -19,7 +19,8 @@ interface EventGroupCardProps {
   isOwner: boolean;
   onPress: () => void;
   onMenuPress: () => void;
-}
+}>;
+
 
 const EventGroupCard = memo(({
   title,

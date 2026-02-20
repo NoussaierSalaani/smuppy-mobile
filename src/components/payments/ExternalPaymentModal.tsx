@@ -20,14 +20,14 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
 
-interface ExternalPaymentModalProps {
+type ExternalPaymentModalProps = Readonly<{
   visible: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   productName: string;
   price: string;
   creatorName?: string;
-}
+}>;
 
 const ExternalPaymentModal: React.FC<ExternalPaymentModalProps> = ({
   visible,

@@ -16,7 +16,7 @@ interface SizeConfig {
   onlineSize: number;
 }
 
-interface AvatarProps {
+type AvatarProps = Readonly<{
   source?: string;
   size?: AvatarSize;
   hasBorder?: boolean;
@@ -27,7 +27,8 @@ interface AvatarProps {
   onPress?: () => void;
   style?: ViewStyle;
   accessibilityLabel?: string;
-}
+}>;
+
 
 /**
  * Avatar Component

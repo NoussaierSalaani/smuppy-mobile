@@ -14,11 +14,12 @@ import { GRADIENTS } from '../config/theme';
 const SWIPE_THRESHOLD = 100; // Distance to trigger Peaks
 const MAX_DRAG = 150; // Maximum drag distance
 
-interface SwipeToPeaksProps {
+type SwipeToPeaksProps = Readonly<{
   children: React.ReactNode;
   onOpenPeaks: () => void;
   enabled?: boolean;
-}
+}>;
+
 
 /**
  * SwipeToPeaks - Smuppy's unique gesture to open Peaks

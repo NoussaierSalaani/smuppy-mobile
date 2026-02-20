@@ -29,10 +29,11 @@ import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
-interface EventManageScreenProps {
+type EventManageScreenProps = Readonly<{
   route: { params: { eventId: string } };
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
-}
+}>;
+
 
 interface Participant {
   id: string;

@@ -4,9 +4,9 @@ import { BlockedUser } from '../../services/database';
 import { useTheme } from '../../hooks/useTheme';
 import UserManagementListScreen from '../../components/UserManagementListScreen';
 
-interface BlockedUsersScreenProps {
+type BlockedUsersScreenProps = Readonly<{
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
-}
+}>;
 
 const BlockedUsersScreen = ({ navigation }: BlockedUsersScreenProps) => {
   const { colors } = useTheme();

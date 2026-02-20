@@ -27,9 +27,9 @@ const DATA_CATEGORIES = [
   { id: 'activity', icon: 'time-outline' as const, label: 'Activity & Preferences', description: 'Likes, saves, settings, consent history' },
 ];
 
-interface DataExportScreenProps {
+type DataExportScreenProps = Readonly<{
   navigation: { goBack: () => void };
-}
+}>;
 
 const DataExportScreen = ({ navigation }: DataExportScreenProps) => {
   const insets = useSafeAreaInsets();

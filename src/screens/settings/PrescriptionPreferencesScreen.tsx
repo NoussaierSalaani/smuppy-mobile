@@ -47,11 +47,11 @@ const FREQUENCY_OPTIONS = [
   { id: 'daily' as const, label: 'Once a day' },
 ];
 
-interface PrescriptionPreferencesScreenProps {
+type PrescriptionPreferencesScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
   };
-}
+}>;
 
 export default function PrescriptionPreferencesScreen({ navigation }: PrescriptionPreferencesScreenProps) {
   const insets = useSafeAreaInsets();

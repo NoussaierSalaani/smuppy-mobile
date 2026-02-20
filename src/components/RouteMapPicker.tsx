@@ -53,7 +53,7 @@ import { normalize } from '../utils/responsive';
 // TYPES
 // ============================================
 
-export interface RouteMapPickerProps {
+export type RouteMapPickerProps = Readonly<{
   /** Mode: 'location' for single point, 'route' for start/end with directions */
   mode: 'location' | 'route';
   /** Activity type to determine route profile (running, cycling, etc.) */
@@ -75,7 +75,8 @@ export interface RouteMapPickerProps {
   }) => void;
   /** Callback when route is cleared */
   onRouteClear?: () => void;
-}
+}>;
+
 
 export interface RouteMapPickerRef {
   clearRoute: () => void;

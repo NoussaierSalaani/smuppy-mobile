@@ -22,7 +22,7 @@ interface Peak {
   user: PeakUser;
 }
 
-interface PeakCarouselProps {
+type PeakCarouselProps = Readonly<{
   peaks: Peak[];
   currentIndex: number;
   onPeakSelect: (index: number) => void;
@@ -30,7 +30,7 @@ interface PeakCarouselProps {
   isPaused: boolean;
   onPeakComplete: () => void;
   visible?: boolean;
-}
+}>;
 
 const PeakCarousel = ({
   peaks,

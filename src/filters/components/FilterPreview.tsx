@@ -22,13 +22,14 @@ import { filterEngine } from '../core/FilterEngine';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface FilterPreviewProps {
+type FilterPreviewProps = Readonly<{
   imageSource?: string;
   width?: number;
   height?: number;
   showFps?: boolean;
   children?: React.ReactNode;
-}
+}>;
+
 
 export function FilterPreview({
   imageSource,
@@ -108,10 +109,11 @@ export function FilterPreview({
  * Filter Preview Overlay
  * Use this component to overlay filter preview on top of camera
  */
-interface FilterOverlayProps {
+type FilterOverlayProps = Readonly<{
   width?: number;
   height?: number;
-}
+}>;
+
 
 export function FilterOverlay({
   width = SCREEN_WIDTH,

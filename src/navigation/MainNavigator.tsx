@@ -227,9 +227,10 @@ const AUTH_RETRY_DELAY_MS = 3000;
 
 const screenWithBackSwipe = { gestureEnabled: true, gestureDirection: 'horizontal' as const };
 
-interface TabNavigatorProps {
+type TabNavigatorProps = Readonly<{
   navigation: NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
-}
+}>;
+
 
 function TabNavigator({ navigation }: TabNavigatorProps) {
   const [showCreatePopup, setShowCreatePopup] = useState(false);

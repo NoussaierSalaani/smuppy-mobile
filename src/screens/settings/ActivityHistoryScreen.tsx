@@ -115,12 +115,12 @@ const ActivitySkeleton = React.memo(function ActivitySkeleton() {
 // ACTIVITY ITEM
 // ============================================
 
-interface ActivityItemRowProps {
+type ActivityItemRowProps = Readonly<{
   item: ActivityItem;
   styles: ReturnType<typeof createStyles>;
   onPress: (item: ActivityItem) => void;
   onAvatarPress: (userId: string) => void;
-}
+}>;
 
 const ActivityItemRow = React.memo(function ActivityItemRow({
   item,

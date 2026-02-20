@@ -73,12 +73,13 @@ const REACTIONS: Reaction[] = [
   },
 ];
 
-interface PeakReactionsProps {
+type PeakReactionsProps = Readonly<{
   visible: boolean;
   onReact: (reactionType: ReactionType) => void;
   onClose: () => void;
   currentReaction?: ReactionType | null;
-}
+}>;
+
 
 const PeakReactions: React.FC<PeakReactionsProps> = ({
   visible,

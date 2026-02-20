@@ -29,7 +29,7 @@ export interface SuccessAction {
   icon?: string;
 }
 
-interface SuccessScreenProps {
+type SuccessScreenProps = Readonly<{
   title: string;
   subtitle: string;
   /** The details card content rendered between the subtitle and extraContent. */
@@ -48,7 +48,8 @@ interface SuccessScreenProps {
   darkBackground?: boolean;
   /** Center content vertically instead of top-aligning with paddingTop. Defaults to false. */
   centerContent?: boolean;
-}
+}>;
+
 
 const SuccessScreen = ({
   title,

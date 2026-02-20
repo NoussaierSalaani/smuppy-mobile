@@ -258,9 +258,10 @@ const getDefaultOverlayParams = (type: OverlayType): Record<string, unknown> => 
 };
 
 // Provider Component
-interface FilterProviderProps {
+type FilterProviderProps = Readonly<{
   children: ReactNode;
-}
+}>;
+
 
 export function FilterProvider({ children }: FilterProviderProps) {
   const [state, dispatch] = useReducer(filterReducer, initialState);

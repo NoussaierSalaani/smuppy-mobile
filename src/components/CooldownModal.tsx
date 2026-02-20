@@ -32,13 +32,13 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 // COOLDOWN MODAL COMPONENT
 // ============================================
 
-interface CooldownModalProps {
+type CooldownModalProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   seconds?: number;
   title?: string;
   message?: string;
-}
+}>;
 
 export default function CooldownModal({
   visible,

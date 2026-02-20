@@ -35,10 +35,11 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
-interface BusinessProfileScreenProps {
+type BusinessProfileScreenProps = Readonly<{
   route: { params: { businessId: string } };
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void };
-}
+}>;
+
 
 interface BusinessProfile {
   id: string;

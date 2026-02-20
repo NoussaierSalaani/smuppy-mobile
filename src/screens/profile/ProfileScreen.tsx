@@ -75,7 +75,7 @@ interface BusinessScheduleSlot {
 const PLANNING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 /** Memoized wrapper to prevent inline arrow functions from defeating EventGroupCard memo */
-interface MemoizedEventGroupCardProps {
+type MemoizedEventGroupCardProps = Readonly<{
   type: 'event' | 'group';
   id: string;
   title: string;
@@ -87,7 +87,8 @@ interface MemoizedEventGroupCardProps {
   isOwner: boolean;
   onCardPress: (type: 'event' | 'group', id: string) => void;
   onCardMenuPress: (type: 'event' | 'group', id: string) => void;
-}
+}>;
+
 
 const MemoizedEventGroupCard = React.memo(({
   type,
@@ -132,13 +133,14 @@ const BIO_EXPANDED_MAX_LINES = 6;
 const PEAK_PLACEHOLDER = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
 
 
-interface ProfileScreenProps {
+type ProfileScreenProps = Readonly<{
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     goBack: () => void;
   };
   route: { params?: { userId?: string } };
-}
+}>;
+
 
 const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const insets = useSafeAreaInsets();

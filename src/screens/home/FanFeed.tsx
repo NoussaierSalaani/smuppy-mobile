@@ -64,7 +64,7 @@ type UIPost = UIFanPost;
 // ============================================
 // Memoized PostItem component for FlashList
 // ============================================
-interface PostItemProps {
+type PostItemProps = Readonly<{
   post: UIPost;
   isLast: boolean;
   colors: ReturnType<typeof useTheme>['colors'];
@@ -78,7 +78,8 @@ interface PostItemProps {
   onLikersPress: (postId: string) => void;
   initialCarouselIndex?: number;
   onCarouselIndexChange?: (postId: string, index: number) => void;
-}
+}>;
+
 
 const PostItem = memo<PostItemProps>(({
   post, isLast, colors, styles,
@@ -295,9 +296,10 @@ const PostItem = memo<PostItemProps>(({
   prev.styles === next.styles
 );
 
-interface FanFeedProps {
+type FanFeedProps = Readonly<{
   headerHeight?: number;
-}
+}>;
+
 
 export interface FanFeedRef {
   scrollToTop: () => void;

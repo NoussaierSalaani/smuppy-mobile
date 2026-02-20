@@ -61,7 +61,7 @@ const COLOR_SCHEMES: Record<ColorScheme, {
   },
 };
 
-interface LiquidButtonProps {
+type LiquidButtonProps = Readonly<{
   label: string;
   onPress: () => void;
   disabled?: boolean;
@@ -75,7 +75,8 @@ interface LiquidButtonProps {
   colorScheme?: ColorScheme;
   accessibilityLabel?: string;
   accessibilityHint?: string;
-}
+}>;
+
 
 const SIZE_CONFIG = {
   xs: { height: 28, paddingH: 14, fontSize: 11, radius: 14 },

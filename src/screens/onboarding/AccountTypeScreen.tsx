@@ -14,7 +14,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 type AccountType = 'personal' | 'pro' | null;
 type ProType = 'creator' | 'business' | null;
 
-interface AccountTypeScreenProps {
+type AccountTypeScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -23,7 +23,7 @@ interface AccountTypeScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: Record<string, unknown> };
-}
+}>;
 
 export default function AccountTypeScreen({ navigation, route: _route }: AccountTypeScreenProps) {
   const { colors, isDark } = useTheme();

@@ -6,7 +6,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-interface PeakProgressRingProps {
+type PeakProgressRingProps = Readonly<{
   size?: number;
   strokeWidth?: number;
   avatar: string;
@@ -15,7 +15,7 @@ interface PeakProgressRingProps {
   duration?: number;
   onComplete?: () => void;
   isPaused?: boolean;
-}
+}>;
 
 const PeakProgressRing = ({
   size = 66,

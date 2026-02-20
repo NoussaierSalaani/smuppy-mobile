@@ -17,10 +17,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { CalorieBurnParams } from '../types';
 
-interface CalorieBurnProps {
+type CalorieBurnProps = Readonly<{
   params: CalorieBurnParams;
   size?: number;
-}
+}>;
+
 
 export function CalorieBurn({ params, size = 100 }: CalorieBurnProps) {
   const { calories, targetCalories, color } = params;

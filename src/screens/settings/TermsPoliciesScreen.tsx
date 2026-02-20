@@ -55,9 +55,9 @@ const POLICY_LINKS = [
   },
 ];
 
-interface TermsPoliciesScreenProps {
+type TermsPoliciesScreenProps = Readonly<{
   navigation: { goBack: () => void };
-}
+}>;
 
 const TermsPoliciesScreen = ({ navigation }: TermsPoliciesScreenProps) => {
   const insets = useSafeAreaInsets();

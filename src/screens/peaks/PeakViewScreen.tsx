@@ -58,7 +58,7 @@ const toCdn = (url?: string | null): string => {
 // Memoized List Item Components
 // ============================================
 
-interface ChallengeResponseItemProps {
+type ChallengeResponseItemProps = Readonly<{
   item: {
     id: string;
     challengeId?: string;
@@ -73,7 +73,8 @@ interface ChallengeResponseItemProps {
   votedResponses: Set<string>;
   colors: { primary: string; gray: string };
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 const ChallengeResponseItem = React.memo<ChallengeResponseItemProps>(({ item, onPress, onVote, votedResponses, colors, styles }) => {
   const handlePress = useCallback(() => {

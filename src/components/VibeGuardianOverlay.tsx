@@ -13,10 +13,10 @@ import BreathingCircle from './BreathingCircle';
 import { SPACING } from '../config/theme';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
-interface VibeGuardianOverlayProps {
+type VibeGuardianOverlayProps = Readonly<{
   visible: boolean;
   onDismiss: () => void;
-}
+}>;
 
 const VibeGuardianOverlay: React.FC<VibeGuardianOverlayProps> = ({ visible, onDismiss }) => {
   const { colors, isDark } = useTheme();

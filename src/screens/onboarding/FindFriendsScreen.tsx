@@ -10,11 +10,11 @@ import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
-interface FindFriendsScreenProps {
+type FindFriendsScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
   };
-}
+}>;
 
 export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps) {
   const { colors, isDark } = useTheme();

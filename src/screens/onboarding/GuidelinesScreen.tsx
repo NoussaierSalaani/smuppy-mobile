@@ -14,7 +14,7 @@ import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
-interface GuidelinesScreenProps {
+type GuidelinesScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -23,7 +23,7 @@ interface GuidelinesScreenProps {
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
   route: { params?: { accountType?: string } & Record<string, unknown> };
-}
+}>;
 
 export default function GuidelinesScreen({ navigation, route }: GuidelinesScreenProps) {
   const { colors, isDark } = useTheme();

@@ -76,12 +76,13 @@ const STATUS_OPTIONS = [
 
 
 
-interface DisputeCardProps {
+type DisputeCardProps = Readonly<{
   dispute: DisputeSummary;
   onPress: (dispute: DisputeSummary) => void;
   onLongPress?: (dispute: DisputeSummary) => void;
   colors: ThemeColors;
-}
+}>;
+
 
 const DisputeCard = memo(function DisputeCard({ dispute, onPress, onLongPress, colors }: DisputeCardProps) {
   const getRecommendationColor = () => {
@@ -169,13 +170,14 @@ const DisputeCard = memo(function DisputeCard({ dispute, onPress, onLongPress, c
   );
 });
 
-interface ResolutionModalProps {
+type ResolutionModalProps = Readonly<{
   visible: boolean;
   dispute: DisputeSummary | null;
   onClose: () => void;
   onResolve: (resolution: string, reason: string, refundAmount: number) => void;
   colors: ThemeColors;
-}
+}>;
+
 
 const ResolutionModal = memo(function ResolutionModal({
   visible,

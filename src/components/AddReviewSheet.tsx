@@ -38,7 +38,7 @@ export interface ReviewData {
   photos: string[];
 }
 
-interface AddReviewSheetProps {
+type AddReviewSheetProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   onSubmit: (data: ReviewData) => void;
@@ -50,7 +50,7 @@ interface AddReviewSheetProps {
   showQualities?: boolean;
   /** Loading state */
   isSubmitting?: boolean;
-}
+}>;
 
 // ============================================
 // COMPONENT

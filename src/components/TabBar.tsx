@@ -12,14 +12,15 @@ interface Tab {
   icon?: keyof typeof Ionicons.glyphMap;
 }
 
-interface TabBarProps {
+type TabBarProps = Readonly<{
   tabs?: Tab[];
   activeTab?: string;
   onTabChange: (key: string) => void;
   variant?: TabBarVariant;
   scrollable?: boolean;
   style?: ViewStyle;
-}
+}>;
+
 
 const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   // Underline variant

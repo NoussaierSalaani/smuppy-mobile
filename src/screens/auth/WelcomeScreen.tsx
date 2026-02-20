@@ -9,11 +9,11 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
 const { height } = Dimensions.get('window');
 
-interface WelcomeScreenProps {
+type WelcomeScreenProps = Readonly<{
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
   };
-}
+}>;
 
 const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
 

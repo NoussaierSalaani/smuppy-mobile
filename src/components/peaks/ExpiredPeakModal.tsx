@@ -23,14 +23,14 @@ import { sanitizeDisplayText } from '../../utils/sanitize';
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
 
-interface ExpiredPeakModalProps {
+type ExpiredPeakModalProps = Readonly<{
   visible: boolean;
   peaks: Peak[];
   onSaveToProfile: (peakId: string) => Promise<void>;
   onDownload: (peakId: string, videoUrl: string) => Promise<boolean>;
   onDelete: (peakId: string) => Promise<void>;
   onClose: () => void;
-}
+}>;
 
 const ExpiredPeakModal: React.FC<ExpiredPeakModalProps> = ({
   visible,

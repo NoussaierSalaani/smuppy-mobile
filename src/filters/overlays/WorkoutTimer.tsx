@@ -16,11 +16,12 @@ import Animated, {
 import { Canvas, Circle, Path, Skia, Group } from '@shopify/react-native-skia';
 import { WorkoutTimerParams } from '../types';
 
-interface WorkoutTimerProps {
+type WorkoutTimerProps = Readonly<{
   params: WorkoutTimerParams;
   size?: number;
   onComplete?: () => void;
-}
+}>;
+
 
 export function WorkoutTimer({
   params,

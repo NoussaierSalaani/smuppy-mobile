@@ -7,7 +7,7 @@ import { GRADIENTS, SPACING } from '../../config/theme';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 
-interface PasswordSuccessScreenProps {
+type PasswordSuccessScreenProps = Readonly<{
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     replace: (screen: string, params?: Record<string, unknown>) => void;
@@ -15,7 +15,7 @@ interface PasswordSuccessScreenProps {
     canGoBack: () => boolean;
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
-}
+}>;
 
 export default function PasswordSuccessScreen({ navigation: _navigation }: PasswordSuccessScreenProps) {
   const { onRecoveryComplete } = useAuthCallbacks();

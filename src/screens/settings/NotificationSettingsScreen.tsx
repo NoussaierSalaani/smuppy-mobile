@@ -33,9 +33,9 @@ const DEFAULTS: NotificationPreferences = {
   live: true,
 };
 
-interface NotificationSettingsScreenProps {
+type NotificationSettingsScreenProps = Readonly<{
   navigation: { goBack: () => void };
-}
+}>;
 
 const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenProps) => {
   const insets = useSafeAreaInsets();

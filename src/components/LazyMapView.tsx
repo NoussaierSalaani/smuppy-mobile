@@ -9,7 +9,7 @@ import { useTheme } from '../hooks/useTheme';
 // Token set once in App.js at startup
 
 // Types for MapView props (Mapbox-compatible)
-interface LazyMapViewProps {
+type LazyMapViewProps = Readonly<{
   style?: ViewStyle;
   centerCoordinate?: [number, number]; // [lng, lat]
   zoomLevel?: number;
@@ -18,7 +18,8 @@ interface LazyMapViewProps {
   showsUserLocation?: boolean;
   scrollEnabled?: boolean;
   zoomEnabled?: boolean;
-}
+}>;
+
 
 // Lazy-loaded MapView component
 const LazyMapView = memo(forwardRef<InstanceType<typeof Mapbox.MapView>, LazyMapViewProps>((props, ref) => {
@@ -59,11 +60,12 @@ const LazyMapView = memo(forwardRef<InstanceType<typeof Mapbox.MapView>, LazyMap
 }));
 
 // Props for the lazy-loaded MarkerView
-interface LazyMarkerProps {
+type LazyMarkerProps = Readonly<{
   children: React.ReactElement;
   coordinate?: { latitude: number; longitude: number };
   coordinateArray?: [number, number];
-}
+}>;
+
 
 // Export MarkerView separately for use in parent components
 export const LazyMarker = memo(({ children, coordinate, coordinateArray }: LazyMarkerProps) => {

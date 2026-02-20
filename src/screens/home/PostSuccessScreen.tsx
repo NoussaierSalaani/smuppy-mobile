@@ -16,14 +16,15 @@ interface MediaItem {
   uri: string;
 }
 
-interface PostSuccessScreenProps {
+type PostSuccessScreenProps = Readonly<{
   route: { params: { media: MediaItem[]; postType: string; fromProfile?: boolean } };
   navigation: {
     goBack: () => void;
     navigate: (screen: string) => void;
     reset: (state: { index: number; routes: Array<{ name: string; params?: object }> }) => void;
   };
-}
+}>;
+
 
 export default function PostSuccessScreen({ route, navigation }: PostSuccessScreenProps) {
   const { media, postType, fromProfile = false } = route.params;

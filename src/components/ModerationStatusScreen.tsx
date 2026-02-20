@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 
-interface ModerationStatusScreenProps {
+type ModerationStatusScreenProps = Readonly<{
   iconName: string;
   iconColor: string;
   title: string;
@@ -28,7 +28,7 @@ interface ModerationStatusScreenProps {
   onAppeal?: () => void;
   /** Additional info rendered between the reason card and the notice (e.g., duration card). */
   additionalInfo?: React.ReactNode;
-}
+}>;
 
 const ModerationStatusScreen = ({
   iconName,

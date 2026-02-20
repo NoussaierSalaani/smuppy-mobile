@@ -37,13 +37,13 @@ interface Friend {
   isMutual?: boolean;
 }
 
-interface TagFriendModalProps {
+type TagFriendModalProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   onTagFriend: (friend: Friend) => void;
   peakId: string;
   existingTags?: string[]; // IDs of already tagged friends
-}
+}>;
 
 // Transform Profile to Friend
 const profileToFriend = (profile: Profile, isMutual: boolean): Friend => ({

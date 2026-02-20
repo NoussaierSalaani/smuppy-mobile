@@ -9,11 +9,12 @@ import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 
-interface BreathingCircleProps {
+type BreathingCircleProps = Readonly<{
   size?: number;
   color?: string;
   showLabel?: boolean;
-}
+}>;
+
 
 const INHALE_DURATION = 4000;
 const EXHALE_DURATION = 4000;

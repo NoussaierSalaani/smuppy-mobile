@@ -25,10 +25,10 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 // ===== CUSTOM SVG ICONS =====
 
-interface IconProps {
+type IconProps = Readonly<{
   size?: number;
   color?: string;
-}
+}>;
 
 // Home icon from UI Kit - House shape with tilted roof
 const HomeIconFilled = ({ size = 22, color = '#0A252F' }: IconProps & { color?: string }): React.JSX.Element => (
@@ -210,12 +210,12 @@ const MenuPlanningIcon = ({ size = 24 }: IconProps): React.JSX.Element => (
   </Svg>
 );
 
-interface ProfileIconProps {
+type ProfileIconProps = Readonly<{
   imageUri?: string;
   isActive: boolean;
   size?: number;
   activeColor: string;
-}
+}>;
 
 import { normalizeCdnUrl } from '../utils/cdnUrl';
 
@@ -263,11 +263,11 @@ interface TabConfig {
   isProfile?: boolean;
 }
 
-interface BottomNavProps {
+type BottomNavProps = Readonly<{
   state: BottomTabBarProps['state'];
   navigation: BottomTabBarProps['navigation'];
   onCreatePress?: () => void;
-}
+}>;
 
 /**
  * BottomNav - Main tab navigation bar

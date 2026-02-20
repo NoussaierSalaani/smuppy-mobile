@@ -10,10 +10,10 @@ import { useTheme } from '../../hooks/useTheme';
 import { SelectChip } from '../../components/settings/SelectChip';
 import { createSelectListStyles } from '../../components/settings/selectListStyles';
 
-interface EditBusinessCategoryScreenProps {
+type EditBusinessCategoryScreenProps = Readonly<{
   navigation: { goBack: () => void };
   route: { params?: { currentCategory?: string } };
-}
+}>;
 
 export default function EditBusinessCategoryScreen({ navigation, route }: EditBusinessCategoryScreenProps) {
   const insets = useSafeAreaInsets();

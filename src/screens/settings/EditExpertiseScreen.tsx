@@ -11,10 +11,10 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { SelectChip } from '../../components/settings/SelectChip';
 import { createSelectListStyles } from '../../components/settings/selectListStyles';
 
-interface EditExpertiseScreenProps {
+type EditExpertiseScreenProps = Readonly<{
   navigation: { goBack: () => void };
   route: { params?: { currentExpertise?: string[]; includeBusinessCategories?: boolean } };
-}
+}>;
 
 // Convert business categories to chip-compatible items
 const BUSINESS_CATEGORY_ITEMS = ALL_BUSINESS_CATEGORIES.map(cat => ({

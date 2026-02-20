@@ -29,14 +29,15 @@ export interface SmuppyAlertConfig {
   buttons?: AlertButton[];
 }
 
-interface SmuppyAlertProps {
+type SmuppyAlertProps = Readonly<{
   visible: boolean;
   onClose: () => void;
   title: string;
   message?: string;
   type?: AlertType;
   buttons?: AlertButton[];
-}
+}>;
+
 
 const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
   visible,

@@ -13,13 +13,14 @@ import { shaderManager } from '../core/ShaderManager';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface CameraFilterViewProps {
+type CameraFilterViewProps = Readonly<{
   facing: CameraType;
   mode?: CameraMode;
   style?: import('react-native').ViewStyle;
   children?: React.ReactNode;
   onCameraReady?: () => void;
-}
+}>;
+
 
 /**
  * CameraFilterView - Camera with AR filter overlay
@@ -76,12 +77,13 @@ export const CameraFilterView = forwardRef<CameraView, CameraFilterViewProps>(
  * FilteredImageView - Display an image with filter applied
  * Use this for previewing filtered images/video frames
  */
-interface FilteredImageViewProps {
+type FilteredImageViewProps = Readonly<{
   imageSource: string;
   width?: number;
   height?: number;
   style?: import('react-native').ViewStyle;
-}
+}>;
+
 
 export function FilteredImageView({
   imageSource,

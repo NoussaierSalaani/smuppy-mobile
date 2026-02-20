@@ -16,10 +16,11 @@ import Animated, {
 import { Canvas, RoundedRect, LinearGradient, vec } from '@shopify/react-native-skia';
 import { DayChallengeParams } from '../types';
 
-interface DayChallengeProps {
+type DayChallengeProps = Readonly<{
   params: DayChallengeParams;
   size?: number;
-}
+}>;
+
 
 export function DayChallenge({ params, size = 120 }: DayChallengeProps) {
   const { currentDay, totalDays, challengeName, color } = params;

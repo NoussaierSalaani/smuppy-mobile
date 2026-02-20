@@ -25,7 +25,7 @@ interface VariantStyle {
   useGradient?: boolean;
 }
 
-interface TagProps {
+type TagProps = Readonly<{
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
   selected?: boolean;
@@ -36,7 +36,8 @@ interface TagProps {
   removable?: boolean;
   onRemove?: () => void;
   style?: ViewStyle;
-}
+}>;
+
 
 /**
  * Tag/Chip Component

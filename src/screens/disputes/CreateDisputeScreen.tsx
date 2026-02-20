@@ -85,12 +85,13 @@ const DISPUTE_TYPES: { type: DisputeType; label: string; description: string; ic
   },
 ];
 
-interface TypeCardProps {
+type TypeCardProps = Readonly<{
   item: typeof DISPUTE_TYPES[0];
   selected: boolean;
   onPress: () => void;
   colors: ThemeColors;
-}
+}>;
+
 
 const TypeCard = memo(function TypeCard({ item, selected, onPress, colors }: TypeCardProps) {
   return (
@@ -133,12 +134,13 @@ const TypeCard = memo(function TypeCard({ item, selected, onPress, colors }: Typ
   );
 });
 
-interface SessionCardProps {
+type SessionCardProps = Readonly<{
   session: EligibleSession;
   selected: boolean;
   onPress: () => void;
   colors: ThemeColors;
-}
+}>;
+
 
 const SessionCard = memo(function SessionCard({
   session,

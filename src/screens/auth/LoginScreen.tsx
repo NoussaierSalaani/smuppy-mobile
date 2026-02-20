@@ -14,13 +14,13 @@ import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 import { getCurrentProfile } from '../../services/database';
 
-interface LoginScreenProps {
+type LoginScreenProps = Readonly<{
   navigation: {
     replace: (screen: string, params?: Record<string, unknown>) => void;
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     reset: (state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }) => void;
   };
-}
+}>;
 
 const createLocalStyles = (colors: ThemeColors, authColors: ReturnType<typeof createAuthColors>) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },

@@ -41,10 +41,11 @@ const { width: _width } = Dimensions.get('window');
 // Route categories that should display route info
 const ROUTE_CATEGORIES = ['running', 'cycling', 'hiking', 'skating', 'trail'];
 
-interface ActivityDetailScreenProps {
+type ActivityDetailScreenProps = Readonly<{
   route: { params: { activityId: string; activityType: 'event' | 'group' } };
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; replace: (screen: string, params?: Record<string, unknown>) => void };
-}
+}>;
+
 
 interface Activity {
   id: string;

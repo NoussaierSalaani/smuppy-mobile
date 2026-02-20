@@ -10,12 +10,12 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../hooks/useTheme';
 
-interface SkeletonBaseProps {
+type SkeletonBaseProps = Readonly<{
   width: number | `${number}%`;
   height: number;
   borderRadius?: number;
   style?: ViewStyle;
-}
+}>;
 
 const SHIMMER_DURATION = 1200;
 

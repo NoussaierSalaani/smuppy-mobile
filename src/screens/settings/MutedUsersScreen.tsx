@@ -4,9 +4,9 @@ import { MutedUser } from '../../services/database';
 import { useTheme } from '../../hooks/useTheme';
 import UserManagementListScreen from '../../components/UserManagementListScreen';
 
-interface MutedUsersScreenProps {
+type MutedUsersScreenProps = Readonly<{
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
-}
+}>;
 
 const MutedUsersScreen = ({ navigation }: MutedUsersScreenProps) => {
   const { colors } = useTheme();

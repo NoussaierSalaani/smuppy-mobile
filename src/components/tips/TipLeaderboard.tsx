@@ -33,12 +33,12 @@ interface TopTipper {
   tip_count: number;
 }
 
-interface TipLeaderboardProps {
+type TipLeaderboardProps = Readonly<{
   creatorId: string;
   creatorUsername: string;
   compact?: boolean;
   maxItems?: number;
-}
+}>;
 
 type Period = 'weekly' | 'monthly' | 'all_time';
 

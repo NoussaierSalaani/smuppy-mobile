@@ -53,20 +53,22 @@ type RootStackParamList = {
 type CreatePostScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'CreatePost'>;
 type CreatePostScreenRouteProp = RouteProp<RootStackParamList, 'CreatePost'>;
 
-interface CreatePostScreenProps {
+type CreatePostScreenProps = Readonly<{
   navigation: CreatePostScreenNavigationProp;
   route: CreatePostScreenRouteProp;
-}
+}>;
+
 
 // --- Memoized grid item to prevent full-list re-renders on selection change ---
-interface MediaGridItemProps {
+type MediaGridItemProps = Readonly<{
   item: MediaLibrary.Asset;
   selectionIndex: number | null;
   isPreview: boolean;
   onPress: (item: MediaLibrary.Asset) => void;
   onSelectionToggle: (item: MediaLibrary.Asset) => void;
   styles: ReturnType<typeof createStyles>;
-}
+}>;
+
 
 const MediaGridItem = React.memo(function MediaGridItem({
   item,

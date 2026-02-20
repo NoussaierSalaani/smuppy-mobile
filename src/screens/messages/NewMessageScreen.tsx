@@ -24,13 +24,14 @@ import {
 import { isValidUUID } from '../../utils/formatters';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 
-interface NewMessageScreenProps {
+type NewMessageScreenProps = Readonly<{
   navigation: {
     goBack: () => void;
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     replace: (screen: string, params?: Record<string, unknown>) => void;
   };
-}
+}>;
+
 
 export default function NewMessageScreen({ navigation }: NewMessageScreenProps) {
   const { colors, isDark } = useTheme();

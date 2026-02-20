@@ -31,11 +31,11 @@ import {
 import { useUserSafetyStore } from '../stores/userSafetyStore';
 import { resolveDisplayName } from '../types/profile';
 
-interface ShareContentModalProps {
+type ShareContentModalProps = Readonly<{
   visible: boolean;
   content: ShareContentData | null;
   onClose: () => void;
-}
+}>;
 
 const CONTENT_LABELS: Record<string, string> = {
   post: 'Post',

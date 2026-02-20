@@ -30,10 +30,11 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateLong } from '../../utils/dateFormatters';
 
-interface BusinessBookingScreenProps {
+type BusinessBookingScreenProps = Readonly<{
   route: { params: { businessId: string; serviceId?: string } };
   navigation: NavigationProp<ParamListBase>;
-}
+}>;
+
 
 interface Service {
   id: string;

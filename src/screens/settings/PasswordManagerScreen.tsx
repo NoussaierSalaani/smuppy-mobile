@@ -7,9 +7,9 @@ import { validatePassword, isPasswordValid, getPasswordStrengthLevel } from '../
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 
-interface PasswordManagerScreenProps {
+type PasswordManagerScreenProps = Readonly<{
   navigation: { goBack: () => void };
-}
+}>;
 
 const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
   const insets = useSafeAreaInsets();

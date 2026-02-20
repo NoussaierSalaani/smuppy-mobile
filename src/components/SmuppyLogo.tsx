@@ -18,40 +18,40 @@ type IconVariant = 'gradient' | 'white' | 'dark';
 type TextVariant = 'gradient' | 'dark' | 'white';
 type LogoVariant = 'icon' | 'text' | 'full' | 'stacked';
 
-interface SmuppyIconProps {
+type SmuppyIconProps = Readonly<{
   size?: number;
   variant?: IconVariant;
-}
+}>;
 
-interface SmuppyTextProps {
+type SmuppyTextProps = Readonly<{
   width?: number;
   variant?: TextVariant;
-}
+}>;
 
-interface SmuppyLogoFullProps {
+type SmuppyLogoFullProps = Readonly<{
   iconSize?: number;
   textWidth?: number;
   spacing?: number;
   iconVariant?: IconVariant;
   textVariant?: TextVariant;
-}
+}>;
 
-interface SmuppyLogoStackedProps {
+type SmuppyLogoStackedProps = Readonly<{
   iconSize?: number;
   textWidth?: number;
   spacing?: number;
   iconVariant?: IconVariant;
   textVariant?: TextVariant;
-}
+}>;
 
-interface SmuppyLogoProps {
+type SmuppyLogoProps = Readonly<{
   variant?: LogoVariant;
   size?: number;
   textWidth?: number;
   iconVariant?: IconVariant;
   textVariant?: TextVariant;
   spacing?: number;
-}
+}>;
 
 // ============================================
 // ICON VARIANTS

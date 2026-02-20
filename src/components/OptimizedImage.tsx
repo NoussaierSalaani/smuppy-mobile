@@ -16,7 +16,7 @@ const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
 // Cache policy
 const CACHE_POLICY = 'memory-disk';
 
-interface OptimizedImageProps {
+type OptimizedImageProps = Readonly<{
   source?: ImageSource | string | number | null;
   style?: StyleProp<ImageStyle>;
   contentFit?: ImageContentFit;
@@ -26,32 +26,32 @@ interface OptimizedImageProps {
   recyclingKey?: string;
   onLoad?: () => void;
   onError?: () => void;
-}
+}>;
 
-interface AvatarImageProps {
+type AvatarImageProps = Readonly<{
   source?: ImageSource | string | number | null;
   size?: number;
   style?: StyleProp<ViewStyle>;
   fallbackColor?: string;
-}
+}>;
 
-interface PostImageProps {
+type PostImageProps = Readonly<{
   source?: ImageSource | string | number | null;
   aspectRatio?: number;
   style?: StyleProp<ImageStyle>;
-}
+}>;
 
-interface BackgroundImageProps {
+type BackgroundImageProps = Readonly<{
   source?: ImageSource | string | number | null;
   style?: StyleProp<ViewStyle>;
   children?: ReactNode;
-}
+}>;
 
-interface ThumbnailImageProps {
+type ThumbnailImageProps = Readonly<{
   source?: ImageSource | string | number | null;
   size?: number;
   style?: StyleProp<ImageStyle>;
-}
+}>;
 
 /**
  * Optimized Image component with caching and placeholders

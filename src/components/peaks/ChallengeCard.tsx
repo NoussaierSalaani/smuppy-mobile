@@ -47,12 +47,12 @@ export interface Challenge {
   hasResponded?: boolean;
 }
 
-interface ChallengeCardProps {
+type ChallengeCardProps = Readonly<{
   challenge: Challenge;
   onPress: (challenge: Challenge) => void;
   onAccept: (challenge: Challenge) => void;
   compact?: boolean;
-}
+}>;
 
 function getTimeRemaining(endsAt?: string): string {
   if (!endsAt) return '';

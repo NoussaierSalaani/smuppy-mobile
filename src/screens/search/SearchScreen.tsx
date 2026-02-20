@@ -58,8 +58,8 @@ const SMUPPY_URL_PATTERNS = {
     ? /(?:smuppy\.app|smuppy\.com|localhost)\/peak\/([a-f0-9-]{36})/i
     : /(?:smuppy\.app|smuppy\.com)\/peak\/([a-f0-9-]{36})/i,
   profile: __DEV__
-    ? /(?:smuppy\.app|smuppy\.com|localhost)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i
-    : /(?:smuppy\.app|smuppy\.com)\/u\/([a-zA-Z0-9_]+|[a-f0-9-]{36})/i,
+    ? /(?:smuppy\.app|smuppy\.com|localhost)\/u\/(\w+|[a-f0-9-]{36})/i
+    : /(?:smuppy\.app|smuppy\.com)\/u\/(\w+|[a-f0-9-]{36})/i,
 };
 
 type SearchTab = 'all' | 'users' | 'posts' | 'peaks' | 'tags';
@@ -119,8 +119,8 @@ const SearchScreen = (): React.JSX.Element => {
         if (mounted && currentProfile) {
           setCurrentUserId(currentProfile.id);
         }
-      } catch (error) {
-        if (__DEV__) console.warn('[SearchScreen] Failed to load current user:', error);
+      } catch (error_) {
+        if (__DEV__) console.warn('[SearchScreen] Failed to load current user:', error_);
       }
     };
     loadCurrentUser();
@@ -190,8 +190,8 @@ const SearchScreen = (): React.JSX.Element => {
           return true;
         }
       }
-    } catch (error) {
-      if (__DEV__) console.warn('[SearchScreen] Link detection failed:', error);
+    } catch (error_) {
+      if (__DEV__) console.warn('[SearchScreen] Link detection failed:', error_);
       setSearchError('Could not load linked content. Please try again.');
     }
 
@@ -213,8 +213,8 @@ const SearchScreen = (): React.JSX.Element => {
       if (hashtagsRes.data) setTrendingHashtags(hashtagsRes.data);
       if (postsRes.data) setDiscoverPosts(postsRes.data.filter(p => !isHidden(p.author_id)));
       if (peaksRes.data) setDefaultPeaks(peaksRes.data.filter(p => !isHidden(p.author_id)));
-    } catch (error) {
-      if (__DEV__) console.warn('[SearchScreen] Failed to load suggested content:', error);
+    } catch (error_) {
+      if (__DEV__) console.warn('[SearchScreen] Failed to load suggested content:', error_);
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
@@ -307,8 +307,8 @@ const SearchScreen = (): React.JSX.Element => {
         }
       }
       setHasMore(resHasMore);
-    } catch (error) {
-      if (__DEV__) console.warn('[SearchScreen] Search failed:', error);
+    } catch (error_) {
+      if (__DEV__) console.warn('[SearchScreen] Search failed:', error_);
       setSearchError('Search failed. Please try again.');
     } finally {
       setIsLoading(false); setLoadingMore(false);
@@ -333,8 +333,8 @@ const SearchScreen = (): React.JSX.Element => {
             if (handled) { setLinkDetected(true); return; }
           }
           await performSearch(searchQuery, activeTab, 0, false);
-        } catch (error) {
-          if (__DEV__) console.warn('[SearchScreen] Debounced search failed:', error);
+        } catch (error_) {
+          if (__DEV__) console.warn('[SearchScreen] Debounced search failed:', error_);
         }
       }, 300);
     } else {
@@ -373,7 +373,7 @@ const SearchScreen = (): React.JSX.Element => {
   const handlePostPress = useCallback((post: Post): void => {
     const currentPosts = postResultsRef.current;
     const transformedPosts = currentPosts.map(p => ({
-      id: p.id, type: (p.media_type === 'video' ? 'video' : 'image') as 'video' | 'image',
+      id: p.id, type: p.media_type === 'video' ? 'video' as const : 'image' as const,
       media: p.media_urls?.[0] || p.media_url || '', thumbnail: p.media_urls?.[0] || p.media_url || '',
       description: p.content || p.caption || '', likes: p.likes_count || 0, comments: p.comments_count || 0,
       user: { id: p.author?.id || p.author_id, name: resolveDisplayName(p.author), avatar: p.author?.avatar_url || DEFAULT_AVATAR || '', followsMe: false },

@@ -286,8 +286,8 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
   try {
     const profile = await awsAPI.getProfile(user.id);
     return { data: convertProfile(profile), error: null };
-  } catch (error: unknown) {
-    if (autoCreate && getErrorStatusCode(error) === 404) {
+  } catch (error_: unknown) {
+    if (autoCreate && getErrorStatusCode(error_) === 404) {
       // Profile doesn't exist, create one
       const username = user.email?.split('@')[0]?.toLowerCase().replaceAll(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       try {
@@ -296,11 +296,11 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
           fullName: user.attributes?.name || '',
         });
         return { data: convertProfile(newProfile), error: null };
-      } catch (createError: unknown) {
-        return { data: null, error: getErrorMessage(createError) };
+      } catch (error_: unknown) {
+        return { data: null, error: getErrorMessage(error_) };
       }
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -311,8 +311,8 @@ export const getProfileById = async (userId: string): Promise<DbResponse<Profile
   try {
     const profile = await awsAPI.getProfile(userId);
     return { data: convertProfile(profile), error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -323,8 +323,8 @@ export const getProfileByUsername = async (username: string): Promise<DbResponse
   try {
     const profile = await awsAPI.getProfileByUsername(username);
     return { data: convertProfile(profile), error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -375,9 +375,9 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     if (__DEV__) console.log('[Database] updateProfile', Object.keys(updateData));
     const profile = await awsAPI.updateProfile(updateData);
     return { data: convertProfile(profile), error: null };
-  } catch (error: unknown) {
-    if (__DEV__) console.warn('[Database] updateProfile error:', error);
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    if (__DEV__) console.warn('[Database] updateProfile error:', error_);
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -411,8 +411,8 @@ export const searchProfiles = async (
       nextCursor: result.nextCursor || null,
       hasMore: !!result.hasMore,
     };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -433,8 +433,8 @@ export const searchPosts = async (
     if (cursor) params.set('cursor', cursor);
     const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/posts/search?${params.toString()}`);
     return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -455,8 +455,8 @@ export const searchPeaks = async (
     if (cursor) params.set('cursor', cursor);
     const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/peaks/search?${params.toString()}`);
     return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -480,8 +480,8 @@ export const searchByHashtag = async (
     if (cursor) params.set('cursor', cursor);
     const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/posts/search?${params.toString()}`);
     return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -492,8 +492,8 @@ export const getTrendingHashtags = async (limit = 10): Promise<DbResponse<{ tag:
   try {
     const result = await awsAPI.request<{ data: { tag: string; count: number }[] }>(`/hashtags/trending?limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -513,8 +513,8 @@ export const getSuggestedProfiles = async (limit = 10, cursor?: string): Promise
     try {
       const result = await awsAPI.searchProfiles('', limit);
       return { data: result.data.map((p: AWSProfile) => convertProfile(p)).filter(Boolean) as Profile[], error: null };
-    } catch (innerError: unknown) {
-      return { data: [], error: getErrorMessage(innerError) };
+    } catch (error_: unknown) {
+      return { data: [], error: getErrorMessage(error_) };
     }
   }
 };
@@ -529,8 +529,8 @@ export const ensureProfile = async (): Promise<DbResponseWithCreated<Profile>> =
   try {
     const profile = await awsAPI.getProfile(user.id);
     return { data: convertProfile(profile), error: null, created: false };
-  } catch (error: unknown) {
-    if (getErrorStatusCode(error) === 404) {
+  } catch (error_: unknown) {
+    if (getErrorStatusCode(error_) === 404) {
       // Create new profile
       const username = user.email?.split('@')[0]?.toLowerCase().replaceAll(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       try {
@@ -539,11 +539,11 @@ export const ensureProfile = async (): Promise<DbResponseWithCreated<Profile>> =
           fullName: user.attributes?.name || '',
         });
         return { data: convertProfile(newProfile), error: null, created: true };
-      } catch (createError: unknown) {
-        return { data: null, error: getErrorMessage(createError) };
+      } catch (error_: unknown) {
+        return { data: null, error: getErrorMessage(error_) };
       }
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -566,8 +566,8 @@ export const getFeedPosts = async (_page = 0, limit = 10): Promise<DbResponse<Po
   try {
     const result = await awsAPI.getPosts({ limit, type: 'all' });
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -602,8 +602,8 @@ export const getPostsByUser = async (userId: string, _page = 0, limit = 10, curs
   try {
     const result = await awsAPI.getPosts({ userId, limit, cursor });
     return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -633,8 +633,8 @@ export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: n
       hasMore: result.hasMore,
       error: null,
     };
-  } catch (error: unknown) {
-    return { data: null, nextCursor: null, hasMore: false, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, nextCursor: null, hasMore: false, error: getErrorMessage(error_) };
   }
 };
 
@@ -664,13 +664,13 @@ export const getDiscoveryFeed = async (
     }
 
     return { data: posts.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     // Fallback to explore
     try {
       const result = await awsAPI.getPosts({ type: 'explore', limit });
       return { data: result.data.map(convertPost), error: null };
     } catch {
-      return { data: [], error: getErrorMessage(error) };
+      return { data: [], error: getErrorMessage(error_) };
     }
   }
 };
@@ -686,8 +686,8 @@ export const getPostsByTags = async (
   try {
     const result = await awsAPI.request<{ data: AWSPost[] }>(`/posts/tags?tags=${encodeURIComponent(tags.join(','))}&limit=${limit}&page=${page}`);
     return { data: result.data.map(convertPost), error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -726,8 +726,8 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
 
     const post = await awsAPI.createPost(createData);
     return { data: convertPost(post), error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -738,8 +738,8 @@ export const deletePost = async (postId: string): Promise<{ error: string | null
   try {
     await awsAPI.deletePost(postId);
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -757,8 +757,8 @@ export const likePost = async (postId: string): Promise<DbResponse<Like>> => {
   try {
     await awsAPI.likePost(postId);
     return { data: { id: '', user_id: user.id, post_id: postId, created_at: new Date().toISOString() }, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -800,8 +800,8 @@ export const hasLikedPostsBatch = async (postIds: string[]): Promise<Map<string,
     }
     if (__DEV__) console.warn('[hasLikedPostsBatch] Unexpected response:', result);
     return buildMap();
-  } catch (err: unknown) {
-    if (__DEV__) console.warn('[hasLikedPostsBatch] Error:', err);
+  } catch (error_: unknown) {
+    if (__DEV__) console.warn('[hasLikedPostsBatch] Error:', error_);
     return buildMap();
   }
 };
@@ -820,8 +820,8 @@ export const savePost = async (postId: string): Promise<DbResponse<{ id: string 
   try {
     await awsAPI.request(`/posts/${postId}/save`, { method: 'POST' });
     return { data: { id: postId }, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -835,8 +835,8 @@ export const unsavePost = async (postId: string): Promise<{ error: string | null
   try {
     await awsAPI.request(`/posts/${postId}/save`, { method: 'DELETE' });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -884,9 +884,9 @@ export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string,
       console.warn('[hasSavedPostsBatch] Unexpected response:', result);
     }
     return buildMap();
-  } catch (err: unknown) {
+  } catch (error_: unknown) {
     if (__DEV__) {
-      console.warn('[hasSavedPostsBatch] Error:', err);
+      console.warn('[hasSavedPostsBatch] Error:', error_);
     }
     return buildMap();
   }
@@ -901,8 +901,8 @@ export const getSavedPosts = async (cursor?: string, limit = 20): Promise<DbResp
     if (cursor) params.set('cursor', cursor);
     const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/posts/saved?${params.toString()}`);
     return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -947,13 +947,13 @@ export const followUser = async (userIdToFollow: string): Promise<DbResponse<Fol
       error: null,
       requestCreated: result.type === 'request_created',
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     // Extract cooldown data from APIError (429 responses include cooldown info in error data)
-    const apiErr = error as { data?: { cooldown?: { blocked: boolean; until: string; daysRemaining: number } } };
+    const apiErr = error_ as { data?: { cooldown?: { blocked: boolean; until: string; daysRemaining: number } } };
     if (apiErr.data?.cooldown) {
-      return { data: null, error: getErrorMessage(error), cooldown: apiErr.data.cooldown };
+      return { data: null, error: getErrorMessage(error_), cooldown: apiErr.data.cooldown };
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -976,8 +976,8 @@ export const unfollowUser = async (userIdToUnfollow: string): Promise<{
       error: null,
       cooldown: result.cooldown,
     };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -1008,8 +1008,8 @@ export const getFollowers = async (userId: string, cursor?: string, limit = 20):
       nextCursor: result.nextCursor || null,
       hasMore: !!result.hasMore,
     };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_), nextCursor: null, hasMore: false };
   }
 };
 
@@ -1025,8 +1025,8 @@ export const getFollowing = async (userId: string, cursor?: string, limit = 20):
       nextCursor: result.nextCursor || null,
       hasMore: !!result.hasMore,
     };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_), nextCursor: null, hasMore: false };
   }
 };
 
@@ -1074,8 +1074,8 @@ export const getPostLikers = async (
       nextCursor: result.nextCursor || null,
       hasMore: !!result.hasMore,
     };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_), nextCursor: null, hasMore: false };
   }
 };
 
@@ -1104,8 +1104,8 @@ export const getComments = async (postId: string, cursor?: string, limit = 20): 
       nextCursor: result.nextCursor || null,
       hasMore: !!result.hasMore,
     };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_), nextCursor: null, hasMore: false };
   }
 };
 
@@ -1133,8 +1133,8 @@ export const addComment = async (postId: string, text: string, parentId?: string
       created_at: result.createdAt,
     };
     return { data: comment, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1145,8 +1145,8 @@ export const deleteComment = async (commentId: string): Promise<{ error: string 
   try {
     await awsAPI.deleteComment(commentId);
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -1176,8 +1176,8 @@ export const getPeaks = async (_page = 0, limit = 10): Promise<DbResponse<Post[]
       author: p.author ? convertProfile(p.author) || undefined : undefined,
     }));
     return { data: posts, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1203,8 +1203,8 @@ export const getPeaksByUser = async (userId: string, _page = 0, limit = 10): Pro
       author: p.author ? convertProfile(p.author) || undefined : undefined,
     }));
     return { data: posts, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1230,8 +1230,8 @@ export const getPeakById = async (peakId: string): Promise<DbResponse<Post>> => 
       author: p.author ? convertProfile(p.author) || undefined : undefined,
     };
     return { data: post, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1242,8 +1242,8 @@ export const getPostById = async (postId: string): Promise<DbResponse<Post>> => 
   try {
     const post = await awsAPI.getPost(postId);
     return { data: convertPost(post), error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1261,8 +1261,8 @@ export const getNotifications = async (_page = 0, limit = 20): Promise<DbRespons
   try {
     const result = await awsAPI.getNotifications({ limit });
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1273,8 +1273,8 @@ export const markNotificationRead = async (notificationId: string): Promise<{ er
   try {
     await awsAPI.markNotificationRead(notificationId);
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -1285,8 +1285,8 @@ export const markAllNotificationsRead = async (): Promise<{ error: string | null
   try {
     await awsAPI.markAllNotificationsRead();
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -1313,8 +1313,8 @@ export const getInterests = async (): Promise<DbResponse<Interest[]>> => {
   try {
     const result = await awsAPI.request<{ data: Interest[] }>('/interests');
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -1325,8 +1325,8 @@ export const getExpertise = async (): Promise<DbResponse<Expertise[]>> => {
   try {
     const result = await awsAPI.request<{ data: Expertise[] }>('/expertise');
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -1349,8 +1349,8 @@ export const getSpotsNearLocation = async (
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots/nearby?lat=${lat}&lng=${lng}&radius=${radius}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -1361,8 +1361,8 @@ export const getSpotById = async (spotId: string): Promise<DbResponse<Spot>> => 
   try {
     const result = await awsAPI.request<Spot>(`/spots/${spotId}`);
     return { data: result, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1379,8 +1379,8 @@ export const createSpot = async (spotData: Partial<Spot>): Promise<DbResponse<Sp
       body: spotData,
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1391,8 +1391,8 @@ export const getSpotReviews = async (spotId: string, page = 0, limit = 20): Prom
   try {
     const result = await awsAPI.request<{ data: SpotReview[] }>(`/spots/${spotId}/reviews?page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -1414,8 +1414,8 @@ export const addSpotReview = async (
       body: { rating, comment, photos },
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1464,8 +1464,8 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
       };
     });
     return { data: conversations, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1555,8 +1555,8 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50,
       is_read: m.is_read ?? m.read,
     }));
     return { data: messages, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1630,8 +1630,8 @@ export const sendMessage = async (
         display_name: m.sender.display_name, avatar_url: m.sender.avatar_url,
       } as Profile : undefined,
     }, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1652,11 +1652,11 @@ export const reportPost = async (postId: string, reason: string, details?: strin
       body: { postId, reason, details },
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    if (getErrorMessage(error)?.includes('already')) {
+  } catch (error_: unknown) {
+    if (getErrorMessage(error_)?.includes('already')) {
       return { data: null, error: 'already_reported' };
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1673,11 +1673,11 @@ export const reportComment = async (commentId: string, reason: string, details?:
       body: { commentId, reason, details },
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    if (getErrorMessage(error)?.includes('already')) {
+  } catch (error_: unknown) {
+    if (getErrorMessage(error_)?.includes('already')) {
       return { data: null, error: 'already_reported' };
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1694,11 +1694,11 @@ export const reportPeak = async (peakId: string, reason: string, details?: strin
       body: { peakId, reason, details },
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    if (getErrorMessage(error)?.includes('already')) {
+  } catch (error_: unknown) {
+    if (getErrorMessage(error_)?.includes('already')) {
       return { data: null, error: 'already_reported' };
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1715,11 +1715,11 @@ export const reportUser = async (userId: string, reason: string, details?: strin
       body: { userId, reason, details },
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    if (getErrorMessage(error)?.includes('already')) {
+  } catch (error_: unknown) {
+    if (getErrorMessage(error_)?.includes('already')) {
       return { data: null, error: 'already_reported' };
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1736,11 +1736,11 @@ export const reportLivestream = async (liveStreamId: string, reason: string, det
       body: { liveStreamId, reason, details },
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    if (getErrorMessage(error)?.includes('already')) {
+  } catch (error_: unknown) {
+    if (getErrorMessage(error_)?.includes('already')) {
       return { data: null, error: 'already_reported' };
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1757,11 +1757,11 @@ export const reportMessage = async (messageId: string, conversationId: string, r
       body: { messageId, conversationId, reason, details },
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    if (getErrorMessage(error)?.includes('already')) {
+  } catch (error_: unknown) {
+    if (getErrorMessage(error_)?.includes('already')) {
       return { data: null, error: 'already_reported' };
     }
-    return { data: null, error: getErrorMessage(error) };
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1783,8 +1783,8 @@ export const blockUser = async (userId: string): Promise<{ data: BlockedUser | n
         : raw.blocked_user as Profile,
     };
     return { data, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1798,8 +1798,8 @@ export const unblockUser = async (userId: string): Promise<{ data: { success: bo
   try {
     await awsAPI.request(`/profiles/${userId}/unblock`, { method: 'POST' });
     return { data: { success: true }, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1821,8 +1821,8 @@ export const getBlockedUsers = async (): Promise<DbResponse<BlockedUser[]>> => {
         : raw.blocked_user as Profile,
     }));
     return { data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -1918,8 +1918,8 @@ export const muteUser = async (userId: string): Promise<{ data: MutedUser | null
         : raw.muted_user as Profile,
     };
     return { data, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1933,8 +1933,8 @@ export const unmuteUser = async (userId: string): Promise<{ data: { success: boo
   try {
     await awsAPI.request(`/profiles/${userId}/unmute`, { method: 'POST' });
     return { data: { success: true }, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -1956,8 +1956,8 @@ export const getMutedUsers = async (): Promise<DbResponse<MutedUser[]>> => {
         : raw.muted_user as Profile,
     }));
     return { data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -1975,8 +1975,8 @@ export const getPendingFollowRequests = async (): Promise<DbResponse<FollowReque
   try {
     const result = await awsAPI.request<{ requests: FollowRequest[] }>('/follow-requests');
     return { data: result.requests || [], error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -1987,8 +1987,8 @@ export const acceptFollowRequest = async (requestId: string): Promise<{ error: s
   try {
     await awsAPI.request(`/follow-requests/${requestId}/accept`, { method: 'POST' });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -1999,8 +1999,8 @@ export const declineFollowRequest = async (requestId: string): Promise<{ error: 
   try {
     await awsAPI.request(`/follow-requests/${requestId}/decline`, { method: 'POST' });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2035,8 +2035,8 @@ export const cancelFollowRequest = async (targetUserId: string): Promise<{ error
   try {
     await awsAPI.request(`/follow-requests/${targetUserId}/cancel`, { method: 'POST' });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2079,8 +2079,8 @@ export const saveUserInterests = async (interests: string[]): Promise<{ error: s
   try {
     await awsAPI.updateProfile({ interests } as Record<string, unknown>);
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2104,8 +2104,8 @@ export const getSpots = async (page = 0, limit = 50): Promise<DbResponse<Spot[]>
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots?page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -2116,8 +2116,8 @@ export const getSpotsByCreator = async (creatorId: string, page = 0, limit = 50)
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots?creatorId=${creatorId}&page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -2128,8 +2128,8 @@ export const getSpotsByCategory = async (category: string, page = 0, limit = 50)
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots?category=${encodeURIComponent(category)}&page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -2140,8 +2140,8 @@ export const getSpotsBySportType = async (sportType: string, page = 0, limit = 5
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots?sportType=${encodeURIComponent(sportType)}&page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -2160,8 +2160,8 @@ export const updateSpot = async (spotId: string, updates: Partial<Spot>): Promis
       body: updates,
     });
     return { data: result, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -2172,8 +2172,8 @@ export const deleteSpot = async (spotId: string): Promise<{ error: string | null
   try {
     await awsAPI.request(`/spots/${spotId}`, { method: 'DELETE' });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2196,8 +2196,8 @@ export const getSavedSpots = async (page = 0, limit = 50): Promise<DbResponse<Sp
   try {
     const result = await awsAPI.request<{ data: Spot[] }>(`/spots/saved?page=${page}&limit=${limit}`);
     return { data: result.data, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -2208,8 +2208,8 @@ export const saveSpot = async (spotId: string): Promise<{ error: string | null }
   try {
     await awsAPI.request(`/spots/${spotId}/save`, { method: 'POST' });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2220,8 +2220,8 @@ export const unsaveSpot = async (spotId: string): Promise<{ error: string | null
   try {
     await awsAPI.request(`/spots/${spotId}/save`, { method: 'DELETE' });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2232,8 +2232,8 @@ export const deleteSpotReview = async (reviewId: string): Promise<{ error: strin
   try {
     await awsAPI.request(`/spots/reviews/${reviewId}`, { method: 'DELETE' });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2261,9 +2261,9 @@ export const getOrCreateConversation = async (otherUserId: string): Promise<DbRe
       return { data: null, error: 'Invalid conversation response' };
     }
     return { data: conversationId, error: null };
-  } catch (error: unknown) {
-    if (__DEV__) console.warn('[getOrCreateConversation] ERROR:', getErrorMessage(error));
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    if (__DEV__) console.warn('[getOrCreateConversation] ERROR:', getErrorMessage(error_));
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -2289,8 +2289,8 @@ export const sharePostToUser = async (postId: string, recipientUserId: string): 
       body: { content: `[shared_post:${postId}]`, messageType: 'text' },
     });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2317,8 +2317,8 @@ export const sharePeakToUser = async (peakId: string, recipientUserId: string): 
       body: { content: `[shared_peak:${peakId}]`, messageType: 'text' },
     });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2340,8 +2340,8 @@ export const shareProfileToUser = async (profileId: string, recipientUserId: str
       body: { content: `[shared_profile:${profileId}]`, messageType: 'text' },
     });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2363,8 +2363,8 @@ export const shareTextToUser = async (text: string, recipientUserId: string): Pr
       body: { content: text.trim().substring(0, 1000), messageType: 'text' },
     });
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2375,8 +2375,8 @@ export const markConversationAsRead = async (conversationId: string): Promise<{ 
   try {
     await awsAPI.request(`/conversations/${conversationId}/messages?limit=1&markAsRead=true`);
     return { error: null };
-  } catch (error: unknown) {
-    return { error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { error: getErrorMessage(error_) };
   }
 };
 
@@ -2444,8 +2444,8 @@ export const uploadVoiceMessage = async (audioUri: string, conversationId: strin
       return { data: null, error: 'Failed to resolve voice message URL' };
     }
     return { data: resolvedUrl, error: null };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -2501,8 +2501,8 @@ export const addMessageReaction = async (
       },
       error: null,
     };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -2522,8 +2522,8 @@ export const removeMessageReaction = async (
       body: { emoji },
     });
     return { success: true, error: null };
-  } catch (error: unknown) {
-    return { success: false, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { success: false, error: getErrorMessage(error_) };
   }
 };
 
@@ -2559,8 +2559,8 @@ export const getMessageReactions = async (
     }));
 
     return { data: reactions, error: null };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -2582,8 +2582,8 @@ export const deleteMessage = async (
       method: 'DELETE',
     });
     return { success: true, error: null };
-  } catch (error: unknown) {
-    return { success: false, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { success: false, error: getErrorMessage(error_) };
   }
 };
 
@@ -2631,8 +2631,8 @@ export const forwardMessage = async (
       },
       error: null,
     };
-  } catch (error: unknown) {
-    return { data: null, error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: null, error: getErrorMessage(error_) };
   }
 };
 
@@ -2652,8 +2652,8 @@ export const getDiscoverPosts = async (
     if (cursor) params.set('cursor', cursor);
     const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/feed/discover?${params.toString()}`);
     return { data: (result.data || []).map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -2669,7 +2669,7 @@ export const getRecentPeaks = async (
     if (cursor) params.set('cursor', cursor);
     const result = await awsAPI.request<{ data: AWSPost[]; nextCursor?: string | null; hasMore?: boolean }>(`/peaks?${params.toString()}`);
     return { data: (result.data || []).map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error: unknown) {
-    return { data: [], error: getErrorMessage(error) };
+  } catch (error_: unknown) {
+    return { data: [], error: getErrorMessage(error_) };
   }
 };

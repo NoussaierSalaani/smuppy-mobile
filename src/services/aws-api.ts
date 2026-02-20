@@ -115,31 +115,31 @@ class AWSAPIService {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         return await this._requestOnce<T>(endpoint, options);
-      } catch (error: unknown) {
-        lastError = error as Error;
-        const apiErr = error as { statusCode?: number; status?: number; data?: { retryAfter?: number } };
+      } catch (error_: unknown) {
+        lastError = error_ as Error;
+        const apiErr = error_ as { statusCode?: number; status?: number; data?: { retryAfter?: number } };
         const status = apiErr.statusCode || apiErr.status;
         // Retry on retryable HTTP statuses OR transient network errors (no status)
-        const isNetworkError = !status && error instanceof Error && (
-          error.message.includes('Network') ||
-          error.message.includes('network') ||
-          error.message.includes('fetch') ||
-          error.message.includes('ECONNREFUSED') ||
-          error.message.includes('timeout') ||
-          error.name === 'TypeError' ||
-          error.name === 'AbortError'
+        const isNetworkError = !status && error_ instanceof Error && (
+          error_.message.includes('Network') ||
+          error_.message.includes('network') ||
+          error_.message.includes('fetch') ||
+          error_.message.includes('ECONNREFUSED') ||
+          error_.message.includes('timeout') ||
+          error_.name === 'TypeError' ||
+          error_.name === 'AbortError'
         );
         const isRetryable = isNetworkError || (status ? RETRYABLE_STATUSES.includes(status) : false);
 
         if (!isRetryable || attempt === MAX_RETRIES) {
-          if (attempt > 0 && error instanceof Error) {
-            error.message = `${error.message} (after ${attempt + 1} attempts)`;
+          if (attempt > 0 && error_ instanceof Error) {
+            error_.message = `${error_.message} (after ${attempt + 1} attempts)`;
           }
           // Report non-retryable or exhausted-retry errors to Sentry
-          if (error instanceof Error) {
-            captureException(error, { endpoint, method: options.method, attempts: attempt + 1, status });
+          if (error_ instanceof Error) {
+            captureException(error_, { endpoint, method: options.method, attempts: attempt + 1, status });
           }
-          throw error;
+          throw error_;
         }
 
         // Exponential backoff: 1s, 2s
@@ -259,14 +259,14 @@ class AWSAPIService {
             }
             try {
               return JSON.parse(retryRaw) as T;
-            } catch (parseErr) {
-              if (__DEV__) console.warn('[AWS API] Invalid JSON response (retry)', (parseErr as Error).message);
+            } catch (error_) {
+              if (__DEV__) console.warn('[AWS API] Invalid JSON response (retry)', (error_ as Error).message);
               throw new APIError('Invalid JSON response', retryResponse.status);
             }
-          } catch (retryErr: unknown) {
+          } catch (error_: unknown) {
             clearTimeout(retryTimeoutId);
-            if (retryErr instanceof Error && retryErr.name === 'AbortError') throw new APIError('Request timeout', 408);
-            throw retryErr;
+            if (error_ instanceof Error && error_.name === 'AbortError') throw new APIError('Request timeout', 408);
+            throw error_;
           }
         } else if (!newToken && !this.signingOut) {
           // getIdToken returned null = refresh failed = session dead
@@ -313,18 +313,18 @@ class AWSAPIService {
 
       try {
         return JSON.parse(raw) as T;
-      } catch (parseErr) {
-        if (__DEV__) console.warn('[AWS API] Invalid JSON response', (parseErr as Error).message);
+      } catch (error_) {
+        if (__DEV__) console.warn('[AWS API] Invalid JSON response', (error_ as Error).message);
         throw new APIError('Invalid JSON response', response.status);
       }
-    } catch (error: unknown) {
+    } catch (error_: unknown) {
       clearTimeout(timeoutId);
 
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error_ instanceof Error && error_.name === 'AbortError') {
         throw new APIError('Request timeout', 408);
       }
 
-      throw error;
+      throw error_;
     }
   }
 
@@ -332,11 +332,9 @@ class AWSAPIService {
    * Queued token refresh — concurrent 401s share one refresh call.
    */
   private _refreshToken(): Promise<string | null> {
-    if (!this.refreshPromise) {
-      this.refreshPromise = awsAuth.getIdToken().finally(() => {
-        this.refreshPromise = null;
-      });
-    }
+    this.refreshPromise ??= awsAuth.getIdToken().finally(() => {
+      this.refreshPromise = null;
+    });
     return this.refreshPromise;
   }
 

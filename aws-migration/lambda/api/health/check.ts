@@ -6,11 +6,10 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getSecureHeaders } from '../utils/cors';
+import { createHeaders } from '../utils/cors';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  const requestOrigin = event.headers?.origin || event.headers?.Origin || '';
-  const headers = getSecureHeaders(requestOrigin);
+  const headers = createHeaders(event);
 
   return {
     statusCode: 200,

@@ -6,10 +6,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { getStripeClient } from '../../shared/stripe-client';
 import { createLogger } from '../utils/logger';
-import { createHeaders, getSecureHeaders } from '../utils/cors';
-
-// Security headers for inner functions that don't receive the event
-const secureHeaders = getSecureHeaders();
+import { createHeaders } from '../utils/cors';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
@@ -65,20 +62,20 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (!body.creatorId || !body.priceId || !isValidUUID(body.creatorId)) {
           return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'creatorId and priceId are required' }) };
         }
-        return await createSubscription(profileId, body.creatorId, body.priceId);
+        return await createSubscription(profileId, body.creatorId, body.priceId, headers);
       }
       case 'cancel':
         if (!body.subscriptionId) {
           return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'subscriptionId is required' }) };
         }
-        return await cancelSubscription(profileId, body.subscriptionId);
+        return await cancelSubscription(profileId, body.subscriptionId, headers);
       case 'list':
-        return await listSubscriptions(profileId);
+        return await listSubscriptions(profileId, headers);
       case 'get-prices':
         if (!body.creatorId || !isValidUUID(body.creatorId)) {
           return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Valid creatorId is required' }) };
         }
-        return await getCreatorPrices(body.creatorId);
+        return await getCreatorPrices(body.creatorId, headers);
       default:
         return {
           statusCode: 400,
@@ -90,7 +87,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     log.error('Subscription error', error);
     return {
       statusCode: 500,
-      headers: secureHeaders,
+      headers: headers,
       body: JSON.stringify({ success: false, message: 'Internal server error' }),
     };
   }
@@ -99,7 +96,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 async function createSubscription(
   subscriberId: string,
   creatorId: string,
-  priceId: string
+  priceId: string,
+  headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripeClient();
   const pool = await getPool();
@@ -114,7 +112,7 @@ async function createSubscription(
     if (subscriberResult.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: secureHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Subscriber not found' }),
       };
     }
@@ -144,7 +142,7 @@ async function createSubscription(
     if (!creatorResult.rows[0]?.stripe_account_id) {
       return {
         statusCode: 400,
-        headers: secureHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Creator has not set up payments' }),
       };
     }
@@ -155,10 +153,10 @@ async function createSubscription(
     try {
       const price = await stripe.prices.retrieve(priceId);
       if (!price || !price.active) {
-        return { statusCode: 400, headers: secureHeaders, body: JSON.stringify({ success: false, message: 'Invalid or inactive price' }) };
+        return { statusCode: 400, headers: headers, body: JSON.stringify({ success: false, message: 'Invalid or inactive price' }) };
       }
     } catch {
-      return { statusCode: 400, headers: secureHeaders, body: JSON.stringify({ success: false, message: 'Invalid price ID' }) };
+      return { statusCode: 400, headers: headers, body: JSON.stringify({ success: false, message: 'Invalid price ID' }) };
     }
 
     // Create subscription with revenue share (platform takes 15% of subscriptions)
@@ -193,7 +191,7 @@ async function createSubscription(
 
     return {
       statusCode: 200,
-      headers: secureHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         subscription: {
@@ -210,7 +208,8 @@ async function createSubscription(
 
 async function cancelSubscription(
   userId: string,
-  subscriptionId: string
+  subscriptionId: string,
+  headers: Record<string, string>
 ): Promise<APIGatewayProxyResult> {
   const stripe = await getStripeClient();
   const pool = await getPool();
@@ -225,7 +224,7 @@ async function cancelSubscription(
     if (result.rows.length === 0) {
       return {
         statusCode: 404,
-        headers: secureHeaders,
+        headers: headers,
         body: JSON.stringify({ success: false, message: 'Subscription not found' }),
       };
     }
@@ -244,7 +243,7 @@ async function cancelSubscription(
 
     return {
       statusCode: 200,
-      headers: secureHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         message: 'Subscription will be canceled at end of billing period',
@@ -256,7 +255,7 @@ async function cancelSubscription(
   }
 }
 
-async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult> {
+async function listSubscriptions(userId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -274,7 +273,7 @@ async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult>
 
     return {
       statusCode: 200,
-      headers: secureHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         subscriptions: result.rows.map((row: Record<string, unknown>) => ({
@@ -296,7 +295,7 @@ async function listSubscriptions(userId: string): Promise<APIGatewayProxyResult>
   }
 }
 
-async function getCreatorPrices(creatorId: string): Promise<APIGatewayProxyResult> {
+async function getCreatorPrices(creatorId: string, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
   const pool = await getPool();
   const client = await pool.connect();
   try {
@@ -311,7 +310,7 @@ async function getCreatorPrices(creatorId: string): Promise<APIGatewayProxyResul
 
     return {
       statusCode: 200,
-      headers: secureHeaders,
+      headers: headers,
       body: JSON.stringify({
         success: true,
         tiers: result.rows,

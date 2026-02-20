@@ -5,9 +5,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { getSecureHeaders } from '../utils/cors';
-
-const corsHeaders = getSecureHeaders();
+import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { CACHE_TTL_TRENDING } from '../utils/constants';
@@ -16,22 +14,24 @@ const log = createLogger('hashtags-trending');
 
 const MAX_LIMIT = 50;
 
-function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
-  return {
-    statusCode,
-    headers: {
-      ...corsHeaders,
-      'Cache-Control': statusCode === 200 ? `public, max-age=${CACHE_TTL_TRENDING}` : 'no-cache',
-    },
-    body: JSON.stringify(body),
-  };
-}
-
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
+
+  function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
+    return {
+      statusCode,
+      headers: {
+        ...headers,
+        'Cache-Control': statusCode === 200 ? `public, max-age=${CACHE_TTL_TRENDING}` : 'no-cache',
+      },
+      body: JSON.stringify(body),
+    };
+  }
+
   try {
     const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
-    const rateLimitResponse = await requireRateLimit({ prefix: 'hashtags-trending', identifier: clientIp, windowSeconds: 60, maxRequests: 30 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'hashtags-trending', identifier: clientIp, windowSeconds: 60, maxRequests: 30 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     const { limit = '20' } = event.queryStringParameters || {};

@@ -5,10 +5,8 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { getSecureHeaders } from '../utils/cors';
+import { createHeaders } from '../utils/cors';
 import { resolveProfileId } from '../utils/auth';
-
-const corsHeaders = getSecureHeaders();
 import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';
@@ -23,19 +21,21 @@ function sanitizeQuery(raw: string): string {
   return sanitized.replaceAll(/[%_\\]/g, '\\$&');
 }
 
-function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
-  return {
-    statusCode,
-    headers: {
-      ...corsHeaders,
-      'Cache-Control': statusCode === 200 ? 'public, max-age=30' : 'no-cache',
-    },
-    body: JSON.stringify(body),
-  };
-}
-
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   log.initFromEvent(event);
+  const headers = createHeaders(event);
+
+  function response(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResult {
+    return {
+      statusCode,
+      headers: {
+        ...headers,
+        'Cache-Control': statusCode === 200 ? 'public, max-age=30' : 'no-cache',
+      },
+      body: JSON.stringify(body),
+    };
+  }
+
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
     const rateLimitResponse = await requireRateLimit({
@@ -43,7 +43,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       identifier: userId || event.requestContext.identity?.sourceIp || 'anonymous',
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 30,
-    }, corsHeaders);
+    }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     const {

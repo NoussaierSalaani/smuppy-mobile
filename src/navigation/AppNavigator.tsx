@@ -199,9 +199,13 @@ export default function AppNavigator(): React.JSX.Element {
     }
 
     // Parallelize email verification + profile fetch to reduce cold start
+    // BUG-2026-02-20: Use autoCreate=true so social auth users (who bypass the
+    // LoginScreen.handleLogin → AccountType navigation) get a profile created
+    // automatically. Without this, authenticated users without profiles get stuck
+    // in 'auth' state (login screen) despite being authenticated.
     const [isVerified, profileResult] = await Promise.all([
       awsAuth.isEmailVerified(),
-      getCurrentProfile(false).catch(() => ({ data: null })),
+      getCurrentProfile(true).catch(() => ({ data: null })),
     ]);
     if (__DEV__) console.log('[Session] isEmailVerified →', isVerified, 'hasProfile →', !!profileResult.data);
 
@@ -213,6 +217,8 @@ export default function AppNavigator(): React.JSX.Element {
       return { state: 'main', email: currentUser.email };
     }
 
+    // Fallback: profile auto-creation failed — still authenticated but can't proceed
+    if (__DEV__) console.warn('[Session] Authenticated user has no profile and auto-create failed');
     return { state: 'auth', email: currentUser.email };
   }, []);
 

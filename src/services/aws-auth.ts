@@ -771,13 +771,18 @@ class AWSAuthService {
       this.accessToken = result.tokens.accessToken;
       this.idToken = result.tokens.idToken;
       this.refreshToken = result.tokens.refreshToken;
-      this.user = result.user;
+
+      // BUG-2026-02-20: MUST decode Cognito ID token to get user with correct Cognito sub (UUID).
+      // The Lambda returns provider's user ID (Apple sub) which is NOT the Cognito sub.
+      // The entire app (profiles, posts, etc.) uses Cognito sub as user.id.
+      const user = this.decodeIdToken(result.tokens.idToken);
+      this.user = user;
 
       await Promise.all([
         secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
         secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
-        secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
+        secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
       ]);
 
       // Verify critical token was persisted with exponential backoff (3 retries, same as signIn)
@@ -789,8 +794,8 @@ class AWSAuthService {
         await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken);
       }
 
-      this.notifyAuthStateChange(result.user);
-      return result.user;
+      this.notifyAuthStateChange(user);
+      return user;
     } catch (error: unknown) {
       if (__DEV__) console.warn('[AWS Auth] Apple Sign-In error:', error);
       throw error;
@@ -818,13 +823,18 @@ class AWSAuthService {
       this.accessToken = result.tokens.accessToken;
       this.idToken = result.tokens.idToken;
       this.refreshToken = result.tokens.refreshToken;
-      this.user = result.user;
+
+      // BUG-2026-02-20: MUST decode Cognito ID token to get user with correct Cognito sub (UUID).
+      // The Lambda returns provider's user ID (Google sub) which is NOT the Cognito sub.
+      // The entire app (profiles, posts, etc.) uses Cognito sub as user.id.
+      const user = this.decodeIdToken(result.tokens.idToken);
+      this.user = user;
 
       await Promise.all([
         secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
         secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
-        secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(result.user)),
+        secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
       ]);
 
       // Verify critical token was persisted with exponential backoff (3 retries, same as signIn)
@@ -836,8 +846,8 @@ class AWSAuthService {
         await secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken);
       }
 
-      this.notifyAuthStateChange(result.user);
-      return result.user;
+      this.notifyAuthStateChange(user);
+      return user;
     } catch (error: unknown) {
       if (__DEV__) console.warn('[AWS Auth] Google Sign-In error:', error);
       throw error;

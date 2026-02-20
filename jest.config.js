@@ -38,19 +38,20 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      branches: 65,
-      functions: 29,
-      lines: 3,
-      statements: 3,
+      branches: 75,
+      functions: 49,
+      lines: 14,
+      statements: 14,
     },
   },
   // Coverage Ratchet Plan (thresholds only go UP, never down):
-  // Current actual: branches=65.34%, functions=32.92%, lines=3.33%, statements=3.33%
+  // Current actual: branches=75.85%, functions=49.29%, lines=14.28%, statements=14.28%
   // Phase 1 (achieved):  branches=51, functions=24, lines=2,  statements=2
   // Phase 2 (achieved):  branches=57, functions=29, lines=2,  statements=2
-  // Phase 2.5 (achieved): branches=65, functions=32, lines=3, statements=3 (regression+coverage tests)
-  // Phase 3 (target):    branches=70, functions=50, lines=30, statements=30
-  // Phase 4 (target):    branches=70, functions=60, lines=50, statements=50
+  // Phase 2.5 (achieved): branches=65, functions=32, lines=3,  statements=3
+  // Phase 3 (achieved):  branches=75, functions=49, lines=14, statements=14 (services+hooks+utils+config)
+  // Phase 4 (target):    branches=78, functions=55, lines=20, statements=20
+  // Phase 5 (target):    branches=80, functions=60, lines=30, statements=30
   // Ignore module collisions in aws-migration
   modulePathIgnorePatterns: [
     '<rootDir>/aws-migration/infrastructure/cdk.out/',

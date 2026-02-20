@@ -14,13 +14,6 @@
 
 import {
   moodDetection,
-  type MoodType,
-  type MoodAnalysisResult,
-  type MoodProbabilityVector,
-  type ScrollBehavior,
-  type EngagementSignals,
-  type TemporalContext,
-  type ContentPreferences,
 } from '../../services/moodDetection';
 
 // ---------------------------------------------------------------------------

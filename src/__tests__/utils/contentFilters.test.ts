@@ -9,14 +9,12 @@
 import {
   filterContent,
   isSpamMessage,
-  type FilterResult,
 } from '../../utils/contentFilters';
 
 // ---------------------------------------------------------------------------
 // Helper — default options for most tests
 // ---------------------------------------------------------------------------
 const postOpts = { context: 'post' as const };
-const chatOpts = { context: 'chat' as const };
 
 describe('Content Filters', () => {
   // =========================================================================

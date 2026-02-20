@@ -18,7 +18,7 @@ jest.mock('../../services/moodDetection', () => ({}));
 // ---------------------------------------------------------------------------
 
 import { buildVibeProfile } from '../../services/vibeProfile';
-import type { VibeProfileConfig, AccountType } from '../../services/vibeProfile';
+import type { AccountType } from '../../services/vibeProfile';
 
 // ---------------------------------------------------------------------------
 // Tests

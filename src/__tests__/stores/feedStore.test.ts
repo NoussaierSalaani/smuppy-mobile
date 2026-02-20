@@ -13,7 +13,6 @@ import {
   selectDeletedPostIds,
   selectDeletedPeakIds,
   Post,
-  FeedState,
 } from '../../stores/feedStore';
 
 /** Helper to generate a post with a given id and optional overrides */

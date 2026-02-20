@@ -265,7 +265,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     try {
-      const response = await awsAPI.importScheduleActivities({
+      await awsAPI.importScheduleActivities({
         activities: selectedActivities.map((a) => ({
           name: a.name,
           day: a.day,

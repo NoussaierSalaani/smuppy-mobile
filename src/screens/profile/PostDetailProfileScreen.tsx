@@ -25,7 +25,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import SharePostModal from '../../components/SharePostModal';
 import PostMenuModal from '../../components/PostMenuModal';
 import { usePostDetailActions, type PostDetailPost } from '../../hooks/usePostDetailActions';
-import { isValidUUID, formatNumber } from '../../utils/formatters';
+import { formatNumber } from '../../utils/formatters';
 import { getPostById } from '../../services/database';
 
 const { width, height } = Dimensions.get('window');

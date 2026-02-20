@@ -124,7 +124,7 @@ export const useMediaUpload = (
     if (!hasPermission) return null;
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 1,
     });
@@ -144,7 +144,7 @@ export const useMediaUpload = (
     if (!hasPermission) return null;
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ['videos'],
       allowsEditing: true,
       quality: 1,
       videoMaxDuration: 60, // 60 seconds max
@@ -168,8 +168,8 @@ export const useMediaUpload = (
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: allowVideo
-        ? ImagePicker.MediaTypeOptions.All
-        : ImagePicker.MediaTypeOptions.Images,
+        ? ['images', 'videos']
+        : ['images'],
       allowsMultipleSelection: true,
       selectionLimit: limit,
       quality: 1,

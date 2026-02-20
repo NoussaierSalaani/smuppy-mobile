@@ -245,7 +245,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.8,
       });

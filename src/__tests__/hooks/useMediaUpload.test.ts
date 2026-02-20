@@ -29,7 +29,7 @@ jest.mock('../../services/mediaUpload', () => ({
 jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: () => mockRequestMediaLibraryPermissionsAsync(),
   launchImageLibraryAsync: (_opts: unknown) => mockLaunchImageLibraryAsync(_opts),
-  MediaTypeOptions: { Images: 'Images', Videos: 'Videos', All: 'All' },
+  MediaTypeOptions: { Images: ['images'], Videos: ['videos'], All: ['images', 'videos'] },
 }));
 
 jest.mock('../../stores/userStore', () => ({

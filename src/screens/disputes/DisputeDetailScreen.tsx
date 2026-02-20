@@ -463,7 +463,7 @@ export default function DisputeDetailScreen() {
           text: 'Photo / Capture',
           onPress: () => {
             ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              mediaTypes: ['images'],
               quality: 0.8,
             }).then((result) => {
               if (!result.canceled && result.assets[0]) {

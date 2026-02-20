@@ -78,7 +78,7 @@ import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
 const TEST_USER_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const VALID_SESSION_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
 const VALID_CREATOR_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
-const VALID_DISPUTE_ID = 'd4e5f6a7-b8c9-0123-defa-234567890123';
+const _VALID_DISPUTE_ID = 'd4e5f6a7-b8c9-0123-defa-234567890123';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
   return {

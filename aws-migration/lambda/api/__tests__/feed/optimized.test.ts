@@ -65,7 +65,7 @@ const mockedIsValidUUID = isValidUUID as jest.MockedFunction<typeof isValidUUID>
 const TEST_COGNITO_SUB = 'cognito-sub-opt-12345';
 const TEST_PROFILE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const TEST_POST_ID_1 = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
-const TEST_POST_ID_2 = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
+const _TEST_POST_ID_2 = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
 const TEST_AUTHOR_ID = 'd4e5f6a7-b8c9-0123-def1-234567890123';
 
 function makePostRow(overrides: Record<string, unknown> = {}) {

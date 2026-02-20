@@ -86,7 +86,6 @@ jest.mock('../../utils/auth', () => ({
 
 import { handler } from '../../comments/create';
 import { requireRateLimit } from '../../utils/rate-limit';
-import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
 import { resolveProfileId } from '../../utils/auth';

@@ -70,7 +70,7 @@ import { resolveProfileId } from '../../utils/auth';
 // ── Test constants ──
 
 const VALID_USER_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
-const VALID_PROFILE_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
+const _VALID_PROFILE_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
 const VALID_PACK_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
 
 // ── Helpers ──

@@ -86,3 +86,4 @@ describe('database batch helpers', () => {
     });
   });
 });
+jest.mock('@sentry/react-native', () => ({}));

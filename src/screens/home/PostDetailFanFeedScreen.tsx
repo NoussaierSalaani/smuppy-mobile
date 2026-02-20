@@ -24,17 +24,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { normalizeCdnUrl } from '../../utils/cdnUrl';
 
-import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
-import { useContentStore } from '../../stores/contentStore';
-import { useUserSafetyStore } from '../../stores/userSafetyStore';
-import { copyPostLink } from '../../utils/share';
 import SharePostModal from '../../components/SharePostModal';
 import PostMenuModal from '../../components/PostMenuModal';
-import { useShareModal } from '../../hooks/useModalState';
-import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, deletePost } from '../../services/database';
+import { usePostDetailActions } from '../../hooks/usePostDetailActions';
+import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
 import { resolveDisplayName } from '../../types/profile';
 
@@ -76,12 +72,6 @@ const PostDetailFanFeedScreen = () => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
 
-  const { showError, showSuccess, showDestructiveConfirm } = useSmuppyAlert();
-
-  // Content store for reports and status
-  const { submitPostReport, hasUserReported, isUnderReview } = useContentStore();
-  // User safety store for mute/block
-  const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
   const currentUserId = useUserStore((state) => state.user?.id);
 
   // Params
@@ -93,17 +83,26 @@ const PostDetailFanFeedScreen = () => {
 
   // States
   const [currentIndex, setCurrentIndex] = useState(initialIndex >= 0 ? initialIndex : 0);
+  const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({}); // Track carousel slide index per post
+
+  // Minimum index (cannot scroll above the initial post)
+  const minIndex = initialIndex >= 0 ? initialIndex : 0;
+
+  // Current post - with bounds check to prevent crash on empty array
+  const currentPost = fanFeedPosts.length > 0 && currentIndex < fanFeedPosts.length
+    ? fanFeedPosts[currentIndex]
+    : null;
+
+  // --- Shared actions hook (menu, report, mute, block, delete, share, copy-link, view-profile, like animation) ---
+  const actions = usePostDetailActions({
+    currentPost,
+    logTag: 'PostDetailFanFeed',
+  });
+
+  // --- Per-post state (FanFeed scrolls through multiple posts, needs Records) ---
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Record<string, boolean>>({});
   const [fanStatus, setFanStatus] = useState<Record<string, boolean>>({}); // { odId: true/false }
-  const [isAudioMuted, setIsAudioMuted] = useState(true);
-  const [isPaused, setIsPaused] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const [expandedDescription, setExpandedDescription] = useState(false);
-  const [showLikeAnimation, setShowLikeAnimation] = useState(false);
-  const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({}); // Track carousel slide index per post
-
-  // Like count overrides for optimistic UI
   const [localLikes, setLocalLikes] = useState<Record<string, number>>({});
 
   // Loading states for anti spam-click
@@ -112,23 +111,11 @@ const PostDetailFanFeedScreen = () => {
   const [bookmarkLoading, setBookmarkLoading] = useState<LoadingRecord>({});
   const [fanLoading, setFanLoading] = useState<LoadingRecord>({});
   const [fanStatusChecking, setFanStatusChecking] = useState<Record<string, boolean>>({}); // Track which users we're checking
-  const shareModal = useShareModal();
-  const [muteLoading, setMuteLoading] = useState(false);
-  const [blockLoading, setBlockLoading] = useState(false);
-  
-  // Minimum index (cannot scroll above the initial post)
-  const minIndex = initialIndex >= 0 ? initialIndex : 0;
-  
+
   // Refs
   const videoRef = useRef<Video>(null);
   const flatListRef = useRef<React.ElementRef<typeof FlashList<FanFeedPost>>>(null);
-  const likeAnimationScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
-  
-  // Current post - with bounds check to prevent crash on empty array
-  const currentPost = fanFeedPosts.length > 0 && currentIndex < fanFeedPosts.length
-    ? fanFeedPosts[currentIndex]
-    : null;
 
   // Check follow status when post changes
   useEffect(() => {
@@ -178,7 +165,7 @@ const PostDetailFanFeedScreen = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPost?.id]);
 
-  // Navigate to user profile (own profile → Profile tab, others → UserProfile)
+  // Navigate to user profile (own profile -> Profile tab, others -> UserProfile)
   const navigateToProfile = useCallback((userId: string) => {
     if (!isValidUUID(userId)) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Cannot navigate - invalid userId:', userId);
@@ -191,26 +178,6 @@ const PostDetailFanFeedScreen = () => {
     }
   }, [currentUserId, navigation]);
 
-  // Like animation
-  const triggerLikeAnimation = useCallback(() => {
-    setShowLikeAnimation(true);
-    likeAnimationScale.setValue(0);
-
-    Animated.sequence([
-      Animated.spring(likeAnimationScale, {
-        toValue: 1,
-        friction: 3,
-        useNativeDriver: true,
-      }),
-      Animated.timing(likeAnimationScale, {
-        toValue: 0,
-        duration: 200,
-        delay: 500,
-        useNativeDriver: true,
-      }),
-    ]).start(() => setShowLikeAnimation(false));
-  }, [likeAnimationScale]);
-
   // Toggle like with anti spam-click (ref-based guard) - connected to database
   const toggleLike = useCallback(async (pId: string) => {
     if (likeLoadingRef.current.has(pId)) return;
@@ -219,7 +186,7 @@ const PostDetailFanFeedScreen = () => {
       // For mock data, use local state only
       setLikedPosts(prev => ({ ...prev, [pId]: !prev[pId] }));
       if (!likedPosts[pId]) {
-        triggerLikeAnimation();
+        actions.triggerLikeAnimation();
       }
       return;
     }
@@ -234,7 +201,7 @@ const PostDetailFanFeedScreen = () => {
     const newLiked = !isCurrentlyLiked;
     setLikedPosts(prev => ({ ...prev, [pId]: newLiked }));
     setLocalLikes(prev => ({ ...prev, [pId]: newLiked ? currentLikes + 1 : Math.max(currentLikes - 1, 0) }));
-    if (newLiked) triggerLikeAnimation();
+    if (newLiked) actions.triggerLikeAnimation();
 
     try {
       const { error } = await likePost(pId);
@@ -253,7 +220,7 @@ const PostDetailFanFeedScreen = () => {
       likeLoadingRef.current.delete(pId);
       setLikeLoadingState(prev => ({ ...prev, [pId]: false }));
     }
-  }, [likedPosts, localLikes, fanFeedPosts, triggerLikeAnimation]);
+  }, [likedPosts, localLikes, fanFeedPosts, actions]);
 
   // Toggle bookmark with anti spam-click - connected to database
   const toggleBookmark = useCallback(async (pId: string) => {
@@ -272,13 +239,11 @@ const PostDetailFanFeedScreen = () => {
         const { error } = await unsavePost(pId);
         if (!error) {
           setBookmarkedPosts(prev => ({ ...prev, [pId]: false }));
-          showSuccess('Removed', 'Post removed from saved.');
         }
       } else {
         const { error } = await savePost(pId);
         if (!error) {
           setBookmarkedPosts(prev => ({ ...prev, [pId]: true }));
-          showSuccess('Saved', 'Post added to your collection.');
         }
       }
     } catch (error) {
@@ -286,7 +251,7 @@ const PostDetailFanFeedScreen = () => {
     } finally {
       setBookmarkLoading(prev => ({ ...prev, [pId]: false }));
     }
-  }, [bookmarkLoading, bookmarkedPosts, showSuccess]);
+  }, [bookmarkLoading, bookmarkedPosts]);
 
   // Become fan with anti spam-click - using real database
   const becomeFan = useCallback(async (userId: string) => {
@@ -299,7 +264,6 @@ const PostDetailFanFeedScreen = () => {
       const { error } = await followUser(userId);
       if (!error) {
         setFanStatus(prev => ({ ...prev, [userId]: true }));
-        showSuccess('Followed', 'You are now a fan!');
       } else {
         if (__DEV__) console.warn('[PostDetailFanFeed] Follow error:', error);
       }
@@ -308,9 +272,9 @@ const PostDetailFanFeedScreen = () => {
     } finally {
       setFanLoading(prev => ({ ...prev, [userId]: false }));
     }
-  }, [fanLoading, showSuccess]);
+  }, [fanLoading]);
 
-  // Double tap to like
+  // Double tap to like (per-post version)
   const handleDoubleTap = useCallback(() => {
     if (!currentPost) return;
     const now = Date.now();
@@ -324,11 +288,11 @@ const PostDetailFanFeedScreen = () => {
     } else {
       // Single tap - toggle pause/play for video
       if (currentPost.type === 'video') {
-        setIsPaused(prev => !prev);
+        actions.setIsPaused(prev => !prev);
       }
     }
     lastTap.current = now;
-  }, [currentPost, likedPosts, toggleLike]);
+  }, [currentPost, likedPosts, toggleLike, actions]);
 
   // Handle scroll - prevents scrolling above the initial post
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -349,7 +313,7 @@ const PostDetailFanFeedScreen = () => {
   const minIndexRef = useRef(minIndex);
   minIndexRef.current = minIndex;
 
-  // Handle swipe to next/prev post (stable ref — FlashList requires unchanging reference)
+  // Handle swipe to next/prev post (stable ref -- FlashList requires unchanging reference)
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems.length > 0) {
       const newIndex = viewableItems[0].index;
@@ -357,11 +321,16 @@ const PostDetailFanFeedScreen = () => {
       // Do not go above minIndex
       if (newIndex !== null && newIndex !== undefined && newIndex >= minIndexRef.current) {
         setCurrentIndex(newIndex);
-        setIsPaused(false);
-        setExpandedDescription(false);
+        // Reset pause & description on scroll
+        // Using the setter form to avoid dependency on actions
+        setExpandedDescriptionLocal(false);
       }
     }
   }).current;
+
+  // Local expanded description state for FanFeed (since onViewableItemsChanged is stable ref)
+  const [expandedDescriptionLocal, setExpandedDescriptionLocal] = useState(false);
+  const handleToggleDescriptionLocal = useCallback(() => setExpandedDescriptionLocal(prev => !prev), []);
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50,
@@ -371,149 +340,6 @@ const PostDetailFanFeedScreen = () => {
     if (item.allMedia && item.allMedia.length > 1) return 'carousel';
     return item.type === 'video' ? 'video' : 'image';
   }, []);
-
-  // Share post — opens in-app send modal
-  const handleShare = useCallback(() => {
-    if (!currentPost) return;
-    setShowMenu(false);
-    shareModal.open({
-      id: currentPost.id,
-      type: 'post',
-      title: currentPost.user.name,
-      subtitle: currentPost.description,
-      image: currentPost.media,
-      avatar: currentPost.user.avatar,
-    });
-  }, [currentPost, shareModal]);
-
-  // Copy link to clipboard
-  const handleCopyLink = useCallback(async () => {
-    if (!currentPost) return;
-    setShowMenu(false);
-    const copied = await copyPostLink(currentPost.id);
-    if (copied) {
-      showSuccess('Copied!', 'Post link copied to clipboard');
-    }
-  }, [currentPost, showSuccess]);
-
-  // Report post — called from PostMenuModal with reason
-  const handleReport = useCallback(async (reason: string) => {
-    if (!currentPost) return;
-    if (hasUserReported(currentPost.id)) {
-      showError('Already Reported', 'You have already reported this content. It is under review.');
-      return;
-    }
-    if (isUnderReview(currentPost.id)) {
-      showError('Under Review', 'This content is already being reviewed by our team.');
-      return;
-    }
-    const result = await submitPostReport(currentPost.id, reason);
-    if (result.alreadyReported) {
-      showError('Already Reported', result.message);
-    } else if (result.success) {
-      showSuccess('Reported', result.message);
-    } else {
-      showError('Error', result.message || 'Something went wrong. Please try again.');
-    }
-  }, [currentPost, hasUserReported, isUnderReview, submitPostReport, showError, showSuccess]);
-
-  // --- Extracted inline handlers ---
-  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
-  const handleShowMenu = useCallback(() => setShowMenu(true), []);
-  const handleCloseMenu = useCallback(() => setShowMenu(false), []);
-  const handleToggleAudioMute = useCallback(() => setIsAudioMuted(prev => !prev), []);
-  const handleToggleDescription = useCallback(() => setExpandedDescription(prev => !prev), []);
-  const handleViewProfile = useCallback(() => {
-    if (!currentPost) return;
-    setShowMenu(false);
-    navigateToProfile(currentPost.user.id);
-  }, [currentPost, navigateToProfile]);
-
-  // Mute user with anti spam-click
-  const handleMute = useCallback(async () => {
-    if (muteLoading || !currentPost) return;
-    const userId = currentPost.user?.id;
-    if (!userId) return;
-
-    // Check if already muted
-    if (isUserMuted(userId)) {
-      setShowMenu(false);
-      showError('Already Muted', 'This user is already muted.');
-      return;
-    }
-
-    setShowMenu(false);
-    showDestructiveConfirm(
-      'Mute User',
-      'You will no longer see their posts in your feeds.',
-      async () => {
-        setMuteLoading(true);
-        try {
-          const { error } = await mute(userId);
-          if (error) {
-            showError('Error', 'Could not mute this user.');
-          } else {
-            showSuccess('User Muted', 'You will no longer see their posts.');
-          }
-        } finally {
-          setMuteLoading(false);
-        }
-      }
-    );
-  }, [muteLoading, currentPost, isUserMuted, showError, showDestructiveConfirm, mute, showSuccess]);
-
-  // Block user with anti spam-click
-  const handleBlock = useCallback(async () => {
-    if (blockLoading || !currentPost) return;
-    const userId = currentPost.user?.id;
-    if (!userId) return;
-
-    // Check if already blocked
-    if (isBlocked(userId)) {
-      setShowMenu(false);
-      showError('Already Blocked', 'This user is already blocked.');
-      return;
-    }
-
-    setShowMenu(false);
-    showDestructiveConfirm(
-      'Block User',
-      'You will no longer see their posts and they will not be able to interact with you.',
-      async () => {
-        setBlockLoading(true);
-        try {
-          const { error } = await block(userId);
-          if (error) {
-            showError('Error', 'Could not block this user.');
-          } else {
-            showSuccess('User Blocked', 'You will no longer see their posts.');
-          }
-        } finally {
-          setBlockLoading(false);
-        }
-      }
-    );
-  }, [blockLoading, currentPost, isBlocked, showError, showDestructiveConfirm, block, showSuccess]);
-
-  // Handle delete own post
-  const handleDeletePost = useCallback(() => {
-    if (!currentPost) return;
-    setShowMenu(false);
-    showDestructiveConfirm(
-      'Delete Post',
-      'Are you sure you want to delete this post? This action cannot be undone.',
-      async () => {
-        const { error } = await deletePost(currentPost.id);
-        if (error) {
-          showError('Error', 'Could not delete post. Please try again.');
-        } else {
-          useFeedStore.getState().markPostDeleted(currentPost.id);
-          showSuccess('Deleted', 'Post has been deleted.');
-          navigation.goBack();
-        }
-      }
-    );
-  }, [currentPost, showDestructiveConfirm, showSuccess, showError, navigation]);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -532,7 +358,7 @@ const PostDetailFanFeedScreen = () => {
     const isFanOfUser = fanStatus[item.user.id];
     const isCheckingFanStatus = fanStatusChecking[item.user.id] || fanStatus[item.user.id] === undefined;
     const userFollowsMe = item.user.followsMe;
-    const postUnderReview = isUnderReview(item.id);
+    const postUnderReview = actions.isUnderReview(item.id);
 
     return (
       <TouchableWithoutFeedback onPress={handleDoubleTap}>
@@ -555,8 +381,8 @@ const PostDetailFanFeedScreen = () => {
               style={styles.media}
               resizeMode={ResizeMode.COVER}
               isLooping
-              isMuted={isAudioMuted}
-              shouldPlay={index === currentIndex && !isPaused}
+              isMuted={actions.isAudioMuted}
+              shouldPlay={index === currentIndex && !actions.isPaused}
               posterSource={{ uri: normalizeCdnUrl(item.thumbnail) || '' }}
               usePoster
             />
@@ -602,13 +428,13 @@ const PostDetailFanFeedScreen = () => {
           />
 
           {/* Like animation */}
-          {showLikeAnimation && index === currentIndex && (
+          {actions.showLikeAnimation && index === currentIndex && (
             <Animated.View
               style={[
                 styles.likeAnimation,
                 {
-                  transform: [{ scale: likeAnimationScale }],
-                  opacity: likeAnimationScale,
+                  transform: [{ scale: actions.likeAnimationScale }],
+                  opacity: actions.likeAnimationScale,
                 },
               ]}
             >
@@ -620,7 +446,7 @@ const PostDetailFanFeedScreen = () => {
           <View style={[styles.header, headerPaddingStyle]}>
             <TouchableOpacity
               style={styles.headerBtn}
-              onPress={handleGoBack}
+              onPress={actions.handleGoBack}
               accessibilityLabel="Back"
               accessibilityRole="button"
             >
@@ -629,7 +455,7 @@ const PostDetailFanFeedScreen = () => {
 
             <TouchableOpacity
               style={styles.headerBtn}
-              onPress={handleShowMenu}
+              onPress={actions.handleShowMenu}
               accessibilityLabel="Menu"
               accessibilityRole="button"
             >
@@ -641,7 +467,7 @@ const PostDetailFanFeedScreen = () => {
           <View style={styles.rightActions}>
             <TouchableOpacity
               style={styles.actionBtn}
-              onPress={handleShare}
+              onPress={actions.handleShare}
               accessibilityLabel="Send"
               accessibilityRole="button"
             >
@@ -689,12 +515,12 @@ const PostDetailFanFeedScreen = () => {
             {item.type === 'video' && (
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={handleToggleAudioMute}
-                accessibilityLabel={isAudioMuted ? 'Unmute' : 'Mute'}
+                onPress={actions.handleToggleAudioMute}
+                accessibilityLabel={actions.isAudioMuted ? 'Unmute' : 'Mute'}
                 accessibilityRole="button"
               >
                 <Ionicons
-                  name={isAudioMuted ? 'volume-mute' : 'volume-high'}
+                  name={actions.isAudioMuted ? 'volume-mute' : 'volume-high'}
                   size={28}
                   color="#FFF"
                 />
@@ -715,10 +541,10 @@ const PostDetailFanFeedScreen = () => {
               </TouchableOpacity>
 
               {/* Fan button logic:
-                  - Checking fan status → no button (prevents flicker)
-                  - Already a fan → no button
-                  - Not a fan + they follow me → "Track"
-                  - Not a fan + they don't follow me → "+ Fan"
+                  - Checking fan status -> no button (prevents flicker)
+                  - Already a fan -> no button
+                  - Not a fan + they follow me -> "Track"
+                  - Not a fan + they don't follow me -> "+ Fan"
               */}
               {!isOwnPost && !isCheckingFanStatus && !isFanOfUser && (
                 <TouchableOpacity
@@ -762,15 +588,15 @@ const PostDetailFanFeedScreen = () => {
 
             {/* Description */}
             <TouchableOpacity
-              onPress={handleToggleDescription}
+              onPress={handleToggleDescriptionLocal}
               activeOpacity={0.8}
             >
               <Text
                 style={styles.description}
-                numberOfLines={expandedDescription ? undefined : 2}
+                numberOfLines={expandedDescriptionLocal ? undefined : 2}
               >
                 {item.description}
-                {!expandedDescription && item.description.length > 80 && (
+                {!expandedDescriptionLocal && item.description.length > 80 && (
                   <Text style={styles.moreText}> ...more</Text>
                 )}
               </Text>
@@ -791,12 +617,12 @@ const PostDetailFanFeedScreen = () => {
         </View>
       </TouchableWithoutFeedback>
     );
-  }, [likedPosts, bookmarkedPosts, localLikes, currentUserId, fanStatus, fanStatusChecking, isUnderReview,
-      handleDoubleTap, currentIndex, isAudioMuted, isPaused, carouselIndexes, showLikeAnimation,
-      likeAnimationScale, handleShare, likeLoadingState, toggleLike, bookmarkLoading,
-      toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescription,
-      styles, colors, navigation, bottomContentPaddingStyle, handleGoBack, handleShowMenu,
-      handleToggleAudioMute, handleToggleDescription, headerPaddingStyle]);
+  }, [likedPosts, bookmarkedPosts, localLikes, currentUserId, fanStatus, fanStatusChecking, actions,
+      handleDoubleTap, currentIndex, carouselIndexes,
+      likeLoadingState, toggleLike, bookmarkLoading,
+      toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescriptionLocal,
+      styles, colors, navigation, bottomContentPaddingStyle,
+      handleToggleDescriptionLocal, headerPaddingStyle]);
 
   // Early return for empty posts array
   if (fanFeedPosts.length === 0) {
@@ -806,7 +632,7 @@ const PostDetailFanFeedScreen = () => {
         <View style={[styles.header, headerPaddingStyle]}>
           <TouchableOpacity
             style={styles.headerBtn}
-            onPress={handleGoBack}
+            onPress={actions.handleGoBack}
             accessibilityLabel="Go back"
             accessibilityRole="button"
           >
@@ -822,7 +648,7 @@ const PostDetailFanFeedScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+
       {/* Posts FlashList (vertical scroll) */}
       <FlashList<FanFeedPost>
         ref={flatListRef}
@@ -841,28 +667,28 @@ const PostDetailFanFeedScreen = () => {
         initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
         {...{ estimatedItemSize: height } as Record<string, number>}
       />
-      
+
       {/* Post Menu + Report Modal */}
       <PostMenuModal
-        visible={showMenu}
-        onClose={handleCloseMenu}
+        visible={actions.showMenu}
+        onClose={actions.handleCloseMenu}
         post={currentPost ? { id: currentPost.id, authorId: currentPost.user.id } : null}
         isOwnPost={!!currentPost && currentPost.user.id === currentUserId}
-        onDelete={handleDeletePost}
-        onShare={handleShare}
-        onCopyLink={handleCopyLink}
-        onViewProfile={handleViewProfile}
-        onMute={handleMute}
-        onBlock={handleBlock}
-        onReport={handleReport}
-        hasReported={currentPost ? hasUserReported(currentPost.id) : false}
-        isUnderReview={currentPost ? isUnderReview(currentPost.id) : false}
+        onDelete={actions.handleDeletePost}
+        onShare={actions.handleShare}
+        onCopyLink={actions.handleCopyLink}
+        onViewProfile={actions.handleViewProfile}
+        onMute={actions.handleMute}
+        onBlock={actions.handleBlock}
+        onReport={actions.handleReport}
+        hasReported={currentPost ? actions.hasUserReported(currentPost.id) : false}
+        isUnderReview={currentPost ? actions.isUnderReview(currentPost.id) : false}
       />
 
       <SharePostModal
-        visible={shareModal.isVisible}
-        content={shareModal.data}
-        onClose={shareModal.close}
+        visible={actions.shareModal.isVisible}
+        content={actions.shareModal.data}
+        onClose={actions.shareModal.close}
       />
     </View>
   );
@@ -970,7 +796,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     marginLeft: -50,
     zIndex: 100,
   },
-  
+
   // Header
   header: {
     position: 'absolute',
@@ -991,7 +817,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   // Right actions
   rightActions: {
     position: 'absolute',
@@ -1008,7 +834,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   actionBtnDisabled: {
     opacity: 0.6,
   },
-  
+
   // Bottom content
   bottomContent: {
     position: 'absolute',
@@ -1061,7 +887,7 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     fontWeight: '600',
     color: colors.primaryGreen,
   },
-  
+
   // Location
   locationRow: {
     flexDirection: 'row',

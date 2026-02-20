@@ -20,6 +20,7 @@ import { AvatarImage } from './OptimizedImage';
 import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import { resolveDisplayName } from '../types/profile';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
+import { createListScreenStyles } from './shared-list-styles';
 
 interface UserProfile {
   id: string;
@@ -77,7 +78,8 @@ const UserManagementListScreen = ({
   const [users, setUsers] = useState<unknown[]>([]);
   const [actionInProgress, setActionInProgress] = useState<Record<string, boolean>>({});
 
-  const styles = useMemo(() => createStyles(colors, isDark, actionColor), [colors, isDark, actionColor]);
+  const baseStyles = useMemo(() => createListScreenStyles(colors, isDark), [colors, isDark]);
+  const localStyles = useMemo(() => createLocalStyles(actionColor, colors), [actionColor, colors]);
 
   useEffect(() => {
     loadUsers();
@@ -117,19 +119,19 @@ const UserManagementListScreen = ({
       const isActioning = actionInProgress[userId];
 
       return (
-        <View style={styles.userItem}>
+        <View style={localStyles.userItem}>
           <TouchableOpacity
-            style={styles.userInfo}
+            style={baseStyles.userInfo}
             onPress={() => navigation.navigate('UserProfile', { userId: profile.id })}
           >
-            <AvatarImage source={profile.avatar_url} size={50} style={styles.avatar} />
-            <View style={styles.userDetails}>
-              <Text style={styles.userName}>{resolveDisplayName(profile)}</Text>
+            <AvatarImage source={profile.avatar_url} size={50} style={baseStyles.avatar} />
+            <View style={baseStyles.userDetails}>
+              <Text style={baseStyles.userName}>{resolveDisplayName(profile)}</Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionBtn, isActioning && styles.actionBtnDisabled]}
+            style={[localStyles.actionBtn, isActioning && localStyles.actionBtnDisabled]}
             onPress={() =>
               handleAction(userId, resolveDisplayName(profile, 'this user'))
             }
@@ -138,7 +140,7 @@ const UserManagementListScreen = ({
             {isActioning ? (
               <ActivityIndicator size="small" color={actionColor} />
             ) : (
-              <Text style={styles.actionBtnText}>{actionLabel}</Text>
+              <Text style={localStyles.actionBtnText}>{actionLabel}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -148,7 +150,8 @@ const UserManagementListScreen = ({
       actionInProgress,
       handleAction,
       navigation,
-      styles,
+      baseStyles,
+      localStyles,
       actionColor,
       actionLabel,
       getUserId,
@@ -158,31 +161,31 @@ const UserManagementListScreen = ({
 
   const renderEmptyState = useCallback(
     () => (
-      <View style={styles.emptyState}>
-        <View style={styles.emptyIconContainer}>
+      <View style={baseStyles.emptyState}>
+        <View style={baseStyles.emptyIconContainer}>
           <Ionicons name={emptyIcon as keyof typeof Ionicons.glyphMap} size={48} color={colors.gray} />
         </View>
-        <Text style={styles.emptyTitle}>{emptyTitle}</Text>
-        <Text style={styles.emptySubtitle}>{emptySubtitle}</Text>
+        <Text style={baseStyles.emptyTitle}>{emptyTitle}</Text>
+        <Text style={baseStyles.emptySubtitle}>{emptySubtitle}</Text>
       </View>
     ),
-    [styles, colors, emptyIcon, emptyTitle, emptySubtitle],
+    [baseStyles, colors, emptyIcon, emptyTitle, emptySubtitle],
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[baseStyles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+      <View style={baseStyles.header}>
+        <TouchableOpacity style={baseStyles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{title}</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={baseStyles.headerTitle}>{title}</Text>
+        <View style={baseStyles.headerSpacer} />
       </View>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
+        <View style={baseStyles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primaryGreen} />
         </View>
       ) : (
@@ -190,7 +193,7 @@ const UserManagementListScreen = ({
           data={users}
           renderItem={renderUser}
           keyExtractor={(item) => (item as { id: string }).id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={localStyles.listContent}
           ListEmptyComponent={renderEmptyState}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={true}
@@ -203,40 +206,12 @@ const UserManagementListScreen = ({
   );
 };
 
-const createStyles = (colors: ThemeColors, isDark: boolean, actionColor: string) =>
+/**
+ * Styles specific to UserManagementListScreen (action buttons, list item layout).
+ * Shared header/empty/user-row styles come from createListScreenStyles.
+ */
+const createLocalStyles = (actionColor: string, colors: ThemeColors) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.grayBorder,
-    },
-    backButton: {
-      width: 40,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'flex-start',
-    },
-    headerTitle: {
-      fontSize: 18,
-      fontFamily: 'WorkSans-SemiBold',
-      color: colors.dark,
-    },
-    headerSpacer: {
-      width: 40,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
     listContent: {
       flexGrow: 1,
       paddingHorizontal: 20,
@@ -249,26 +224,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean, actionColor: string)
       paddingVertical: 12,
       borderBottomWidth: 1,
       borderBottomColor: colors.grayBorder,
-    },
-    userInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    avatar: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      backgroundColor: colors.grayBorder,
-    },
-    userDetails: {
-      marginLeft: 12,
-      flex: 1,
-    },
-    userName: {
-      fontSize: 16,
-      fontFamily: 'WorkSans-SemiBold',
-      color: colors.dark,
     },
     actionBtn: {
       paddingHorizontal: 16,
@@ -286,34 +241,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean, actionColor: string)
       fontSize: 14,
       fontFamily: 'Poppins-SemiBold',
       color: actionColor,
-    },
-    emptyState: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 40,
-    },
-    emptyIconContainer: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: isDark ? colors.backgroundSecondary : colors.grayLight,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 20,
-    },
-    emptyTitle: {
-      fontSize: 18,
-      fontFamily: 'WorkSans-SemiBold',
-      color: colors.dark,
-      marginBottom: 8,
-    },
-    emptySubtitle: {
-      fontSize: 14,
-      fontFamily: 'Poppins-Regular',
-      color: colors.gray,
-      textAlign: 'center',
-      lineHeight: 22,
     },
   });
 

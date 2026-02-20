@@ -2,51 +2,63 @@
  * Forgot Password Lambda Handler
  * Initiates password reset flow by sending reset code
  *
- * Includes rate limiting and security measures
+ * Includes rate limiting and security measures.
+ * Returns success even for nonexistent users to prevent email enumeration.
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
   ForgotPasswordCommand,
   UserNotFoundException,
   LimitExceededException,
   InvalidParameterException,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { createHeaders } from '../utils/cors';
-import { createLogger, getRequestId } from '../utils/logger';
-import { requireRateLimit } from '../utils/rate-limit';
-import { RATE_WINDOW_5_MIN } from '../utils/constants';
+import { getRequestId } from '../utils/logger';
 import { cognitoClient, CLIENT_ID, resolveUsername } from '../utils/cognito-helpers';
+import { createAuthHandler } from '../utils/create-auth-handler';
+import { RATE_WINDOW_5_MIN } from '../utils/constants';
 
-const log = createLogger('auth-forgot-password');
+// Anti-enumeration: same message regardless of whether user exists
+const RESET_SUCCESS_MESSAGE = 'If an account exists with this email, a password reset code has been sent.';
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
-    if (!event.body) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing request body' }) };
-    }
-
-    const { email, username } = JSON.parse(event.body);
-
-    if (!email) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Email is required' }) };
-    }
-
-    // Check rate limit (distributed via DynamoDB): 3 attempts per IP per 5 minutes
-    const clientIp = event.requestContext.identity?.sourceIp ||
-                     event.headers['X-Forwarded-For']?.split(',')[0]?.trim() ||
-                     'unknown';
-    const rateLimitResponse = await requireRateLimit({ prefix: 'forgot-password', identifier: clientIp, windowSeconds: RATE_WINDOW_5_MIN, maxRequests: 3 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
+export const { handler } = createAuthHandler({
+  loggerName: 'auth-forgot-password',
+  rateLimitPrefix: 'forgot-password',
+  rateLimitMax: 3,
+  rateLimitWindowSeconds: RATE_WINDOW_5_MIN,
+  requireFields: ['email'],
+  fallbackErrorMessage: RESET_SUCCESS_MESSAGE,
+  errorHandlers: {
+    UserNotFoundException: (headers) => ({
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ success: true, message: RESET_SUCCESS_MESSAGE }),
+    }),
+    LimitExceededException: (headers) => ({
+      statusCode: 429,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        code: 'LIMIT_EXCEEDED',
+        message: 'Too many attempts. Please wait before trying again.',
+      }),
+    }),
+    InvalidParameterException: (headers) => ({
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        code: 'NOT_CONFIRMED',
+        message: 'Please verify your email first before resetting your password.',
+      }),
+    }),
+  },
+  onAction: async (body, headers, log, event) => {
+    const email = body.email as string;
+    const username = body.username as string | undefined;
 
     log.setRequestId(getRequestId(event));
 
-    // SECURITY: Always derive username from email lookup — never trust client-supplied username
+    // SECURITY: Always derive username from email lookup -- never trust client-supplied username
     const resolvedUsername = await resolveUsername(email, username);
     if (!resolvedUsername) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Unable to resolve username' }) };
@@ -67,60 +79,7 @@ export const handler = async (
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        success: true,
-        message: 'If an account exists with this email, a password reset code has been sent.',
-      }),
+      body: JSON.stringify({ success: true, message: RESET_SUCCESS_MESSAGE }),
     };
-
-  } catch (error: unknown) {
-    log.error('ForgotPassword error', error, { errorName: error instanceof Error ? error.name : String(error) });
-
-    // Always return success message to prevent email enumeration
-    if (error instanceof UserNotFoundException) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: 'If an account exists with this email, a password reset code has been sent.',
-        }),
-      };
-    }
-
-    if (error instanceof LimitExceededException) {
-      return {
-        statusCode: 429,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          code: 'LIMIT_EXCEEDED',
-          message: 'Too many attempts. Please wait before trying again.',
-        }),
-      };
-    }
-
-    if (error instanceof InvalidParameterException) {
-      // User might not be confirmed
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          code: 'NOT_CONFIRMED',
-          message: 'Please verify your email first before resetting your password.',
-        }),
-      };
-    }
-
-    // Generic success to prevent enumeration
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        message: 'If an account exists with this email, a password reset code has been sent.',
-      }),
-    };
-  }
-};
+  },
+});

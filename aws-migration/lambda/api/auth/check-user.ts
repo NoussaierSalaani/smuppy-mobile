@@ -11,42 +11,11 @@
 
 import {
   AdminGetUserCommand,
-  ListUsersCommand,
   UserNotFoundException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { getRequestId } from '../utils/logger';
-import { cognitoClient, USER_POOL_ID, generateUsername } from '../utils/cognito-helpers';
+import { cognitoClient, USER_POOL_ID, generateUsername, checkUserByEmail } from '../utils/cognito-helpers';
 import { createAuthHandler } from '../utils/create-auth-handler';
-
-// Check if user exists by email attribute (catches legacy accounts with different username formats)
-const checkUserByEmail = async (email: string): Promise<{
-  exists: boolean;
-  confirmed: boolean;
-  username?: string;
-}> => {
-  try {
-    const response = await cognitoClient.send(
-      new ListUsersCommand({
-        UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase().replaceAll(/["\\]/g, '').replaceAll(/[^a-z0-9@.+_-]/g, '')}"`,
-        Limit: 1,
-      })
-    );
-
-    if (response.Users && response.Users.length > 0) {
-      const user = response.Users[0];
-      // Only block CONFIRMED accounts (completed signup with email verification)
-      // FORCE_CHANGE_PASSWORD = admin-created, allow re-signup
-      // UNCONFIRMED = incomplete signup, allow re-signup
-      const isConfirmed = user.UserStatus === 'CONFIRMED';
-      return { exists: true, confirmed: isConfirmed, username: user.Username };
-    }
-
-    return { exists: false, confirmed: false };
-  } catch {
-    return { exists: false, confirmed: false };
-  }
-};
 
 export const { handler } = createAuthHandler({
   loggerName: 'auth-check-user',

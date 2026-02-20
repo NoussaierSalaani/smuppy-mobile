@@ -12,6 +12,7 @@
 import { S3Client, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getPool } from '../../shared/db';
 import { createLogger } from '../utils/logger';
+import { extractS3Key } from '../utils/media-cleanup';
 
 const log = createLogger('peaks-cleanup-expired');
 
@@ -22,16 +23,6 @@ const s3Client = new S3Client({
 
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
 const BATCH_SIZE = 50;
-
-function extractS3Key(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    const key = parsed.pathname.startsWith('/') ? parsed.pathname.slice(1) : parsed.pathname;
-    return key || null;
-  } catch {
-    return null;
-  }
-}
 
 export async function handler(): Promise<{ cleaned: number; errors: number }> {
   let totalCleaned = 0;

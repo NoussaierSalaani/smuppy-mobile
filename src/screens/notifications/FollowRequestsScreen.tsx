@@ -22,6 +22,7 @@ import {
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { isValidUUID } from '../../utils/formatters';
 import { resolveDisplayName } from '../../types/profile';
+import { createListScreenStyles } from '../../components/shared-list-styles';
 
 interface FollowRequestsScreenProps {
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -29,7 +30,8 @@ interface FollowRequestsScreenProps {
 
 const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
   const { colors, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const baseStyles = useMemo(() => createListScreenStyles(colors, isDark), [colors, isDark]);
+  const localStyles = useMemo(() => createLocalStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const [requests, setRequests] = useState<FollowRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,9 +99,9 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
     const isDecline = isProcessing === 'declining';
 
     return (
-      <View style={styles.requestItem}>
+      <View style={localStyles.requestItem}>
         <TouchableOpacity
-          style={styles.userInfo}
+          style={baseStyles.userInfo}
           onPress={() => {
             if (!isValidUUID(user.id)) {
               if (__DEV__) console.warn('[FollowRequestsScreen] Invalid userId:', user.id);
@@ -108,10 +110,10 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
             navigation.navigate('UserProfile', { userId: user.id });
           }}
         >
-          <AvatarImage source={user.avatar_url} size={50} style={styles.avatar} />
-          <View style={styles.userDetails}>
-            <View style={styles.nameRow}>
-              <Text style={styles.userName}>{resolveDisplayName(user)}</Text>
+          <AvatarImage source={user.avatar_url} size={50} style={baseStyles.avatar} />
+          <View style={baseStyles.userDetails}>
+            <View style={localStyles.nameRow}>
+              <Text style={baseStyles.userName}>{resolveDisplayName(user)}</Text>
               <AccountBadge
                 size={14}
                 style={{ marginLeft: 4 }}
@@ -122,63 +124,63 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
           </View>
         </TouchableOpacity>
 
-        <View style={styles.actions}>
+        <View style={localStyles.actions}>
           <TouchableOpacity
-            style={[styles.acceptBtn, isProcessing && styles.btnDisabled]}
+            style={[localStyles.acceptBtn, isProcessing && localStyles.btnDisabled]}
             onPress={() => handleAccept(item)}
             disabled={!!isProcessing}
           >
             {isAccepting ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={styles.acceptBtnText}>Accept</Text>
+              <Text style={localStyles.acceptBtnText}>Accept</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.declineBtn, isProcessing && styles.btnDisabled]}
+            style={[localStyles.declineBtn, isProcessing && localStyles.btnDisabled]}
             onPress={() => handleDecline(item)}
             disabled={!!isProcessing}
           >
             {isDecline ? (
               <ActivityIndicator size="small" color={colors.gray} />
             ) : (
-              <Text style={styles.declineBtnText}>Decline</Text>
+              <Text style={localStyles.declineBtnText}>Decline</Text>
             )}
           </TouchableOpacity>
         </View>
       </View>
     );
-  }, [processingIds, handleAccept, handleDecline, navigation, colors.gray, colors.white, styles.acceptBtn, styles.acceptBtnText, styles.actions, styles.avatar, styles.btnDisabled, styles.declineBtn, styles.declineBtnText, styles.nameRow, styles.requestItem, styles.userDetails, styles.userInfo, styles.userName]);
+  }, [processingIds, handleAccept, handleDecline, navigation, colors.gray, colors.white, localStyles, baseStyles]);
 
   const renderEmptyState = useCallback(() => (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconContainer}>
+    <View style={baseStyles.emptyState}>
+      <View style={baseStyles.emptyIconContainer}>
         <Ionicons name="person-add-outline" size={48} color={colors.grayMuted} />
       </View>
-      <Text style={styles.emptyTitle}>No Follow Requests</Text>
-      <Text style={styles.emptySubtitle}>
+      <Text style={baseStyles.emptyTitle}>No Follow Requests</Text>
+      <Text style={baseStyles.emptySubtitle}>
         When someone requests to follow you, you'll see it here.
       </Text>
     </View>
-  ), [styles, colors]);
+  ), [baseStyles, colors]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[baseStyles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+      <View style={baseStyles.header}>
+        <TouchableOpacity style={baseStyles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Follow Requests</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={baseStyles.headerTitle}>Follow Requests</Text>
+        <View style={baseStyles.headerSpacer} />
       </View>
 
       {/* Content */}
       {loading ? (
-        <View style={styles.loadingContainer}>
+        <View style={baseStyles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
@@ -186,7 +188,7 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
           data={requests}
           renderItem={renderRequest}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={localStyles.listContent}
           ListEmptyComponent={renderEmptyState}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={true}
@@ -206,39 +208,11 @@ const FollowRequestsScreen = ({ navigation }: FollowRequestsScreenProps) => {
   );
 };
 
-const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grayBorder,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'WorkSans-SemiBold',
-    color: colors.dark,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+/**
+ * Styles specific to FollowRequestsScreen (request items, accept/decline buttons).
+ * Shared header/empty/user-row styles come from createListScreenStyles.
+ */
+const createLocalStyles = (colors: ThemeColors) => StyleSheet.create({
   listContent: {
     flexGrow: 1,
     paddingVertical: 8,
@@ -250,35 +224,9 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.grayBorder,
-  },
-  userDetails: {
-    marginLeft: 12,
-    flex: 1,
-  },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  userName: {
-    fontSize: 15,
-    fontFamily: 'WorkSans-SemiBold',
-    color: colors.dark,
-  },
-  userHandle: {
-    fontSize: 13,
-    fontFamily: 'Poppins-Regular',
-    color: colors.grayMuted,
-    marginTop: 1,
   },
   actions: {
     flexDirection: 'row',
@@ -312,34 +260,6 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   btnDisabled: {
     opacity: 0.6,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.backgroundSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontFamily: 'WorkSans-SemiBold',
-    color: colors.dark,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    fontFamily: 'Poppins-Regular',
-    color: colors.grayMuted,
-    textAlign: 'center',
-    lineHeight: 22,
   },
 });
 

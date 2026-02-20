@@ -56,6 +56,10 @@ export { useCooldown } from './useCooldown';
 // Post Interactions (DRY like/save with optimistic updates)
 export { usePostInteractions } from './usePostInteractions';
 
+// Post Detail Actions (shared logic for PostDetail screens)
+export { usePostDetailActions } from './usePostDetailActions';
+export type { PostDetailPost, PostDetailActions } from './usePostDetailActions';
+
 // Modal State Management
 export {
   useModalState,

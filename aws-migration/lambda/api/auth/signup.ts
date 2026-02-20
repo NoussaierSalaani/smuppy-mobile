@@ -16,11 +16,9 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
-  CognitoIdentityProviderClient,
   SignUpCommand,
   AdminGetUserCommand,
   AdminDeleteUserCommand,
-  ListUsersCommand,
   UserNotFoundException,
   UsernameExistsException,
 } from '@aws-sdk/client-cognito-identity-provider';
@@ -29,16 +27,15 @@ import { createLogger, getRequestId } from '../utils/logger';
 import { isNamedError } from '../utils/error-handler';
 import { checkRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_5_MIN } from '../utils/constants';
+import {
+  cognitoClient,
+  CLIENT_ID,
+  USER_POOL_ID,
+  generateUsername,
+  checkUserByEmail,
+} from '../utils/cognito-helpers';
 
 const log = createLogger('auth-signup');
-const cognitoClient = new CognitoIdentityProviderClient({});
-
-// Validate required environment variables at module load
-if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variable is required');
-if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is required');
-
-const USER_POOL_ID = process.env.USER_POOL_ID;
-const CLIENT_ID = process.env.CLIENT_ID;
 
 interface SignupRequest {
   email: string;
@@ -46,46 +43,6 @@ interface SignupRequest {
   username?: string;
   fullName?: string;
 }
-
-// Generate unique username from email
-// SECURITY: Uses full email hash to prevent collisions
-// Example: john@gmail.com -> johngmailcom (no special chars)
-// This MUST match client-side logic in aws-auth.ts
-const generateUsername = (email: string): string => {
-  // Remove all non-alphanumeric characters and lowercase
-  return email.toLowerCase().replaceAll(/[^a-z0-9]/g, '');
-};
-
-// Check if user exists by email attribute (catches legacy accounts with different username formats)
-const checkUserByEmail = async (email: string): Promise<{
-  exists: boolean;
-  confirmed: boolean;
-  username?: string;
-}> => {
-  try {
-    const response = await cognitoClient.send(
-      new ListUsersCommand({
-        UserPoolId: USER_POOL_ID,
-        Filter: `email = "${email.toLowerCase().replaceAll(/["\\]/g, '').replaceAll(/[^a-z0-9@.+_-]/g, '')}"`,
-        Limit: 1,
-      })
-    );
-
-    if (response.Users && response.Users.length > 0) {
-      const user = response.Users[0];
-      // Only block CONFIRMED accounts (completed signup with email verification)
-      // FORCE_CHANGE_PASSWORD = admin-created, allow re-signup
-      // UNCONFIRMED = incomplete signup, allow re-signup
-      const isConfirmed = user.UserStatus === 'CONFIRMED';
-      return { exists: true, confirmed: isConfirmed, username: user.Username };
-    }
-
-    return { exists: false, confirmed: false };
-  } catch (error) {
-    log.error('Error checking user by email', error);
-    return { exists: false, confirmed: false };
-  }
-};
 
 // Check if user exists and get their status (by username)
 const checkUserStatus = async (username: string): Promise<{

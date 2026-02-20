@@ -61,3 +61,40 @@ export async function resolveUsername(email: string, clientUsername?: string): P
     || generateUsername(email)
     || null;
 }
+
+// ── User existence check ─────────────────────────────────────────────
+
+export interface UserExistsResult {
+  exists: boolean;
+  confirmed: boolean;
+  username?: string;
+}
+
+/**
+ * Check if a user exists by email attribute in Cognito.
+ * Handles legacy accounts with different username formats.
+ *
+ * - CONFIRMED = completed signup with email verification
+ * - UNCONFIRMED / FORCE_CHANGE_PASSWORD = allow re-signup
+ */
+export async function checkUserByEmail(email: string): Promise<UserExistsResult> {
+  try {
+    const response = await cognitoClient.send(
+      new ListUsersCommand({
+        UserPoolId: USER_POOL_ID,
+        Filter: `email = "${email.toLowerCase().replaceAll(/["\\]/g, '').replaceAll(/[^a-z0-9@.+_-]/g, '')}"`,
+        Limit: 1,
+      })
+    );
+
+    if (response.Users && response.Users.length > 0) {
+      const user = response.Users[0];
+      const isConfirmed = user.UserStatus === 'CONFIRMED';
+      return { exists: true, confirmed: isConfirmed, username: user.Username };
+    }
+
+    return { exists: false, confirmed: false };
+  } catch {
+    return { exists: false, confirmed: false };
+  }
+}

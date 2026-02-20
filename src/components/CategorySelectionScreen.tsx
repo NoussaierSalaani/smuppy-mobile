@@ -94,7 +94,15 @@ export default function CategorySelectionScreen({
 
   const styles = useMemo(() => createStyles(colors, isDark, variant), [colors, isDark, variant]);
 
+  const chipContent = useCallback((icon: string, color: string, name: string) => (
+    <>
+      <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={16} color={color} />
+      <Text style={styles.chipText}>{name}</Text>
+    </>
+  ), [styles.chipText]);
+
   const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
+    const inner = chipContent(item.icon, item.color, item.name);
     if (isSelected) {
       return (
         <TouchableOpacity
@@ -109,8 +117,7 @@ export default function CategorySelectionScreen({
             style={styles.chipGradientBorder}
           >
             <View style={styles.chipSelectedInner}>
-              <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
-              <Text style={styles.chipText}>{item.name}</Text>
+              {inner}
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -123,11 +130,10 @@ export default function CategorySelectionScreen({
         onPress={() => toggle(item.name)}
         activeOpacity={0.7}
       >
-        <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
-        <Text style={styles.chipText}>{item.name}</Text>
+        {inner}
       </TouchableOpacity>
     );
-  }, [toggle, styles.chip, styles.chipGradientBorder, styles.chipSelectedInner, styles.chipText]);
+  }, [toggle, chipContent, styles.chip, styles.chipGradientBorder, styles.chipSelectedInner]);
 
   return (
     <SafeAreaView style={styles.container}>

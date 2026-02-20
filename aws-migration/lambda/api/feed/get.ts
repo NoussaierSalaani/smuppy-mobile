@@ -105,7 +105,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       [userId]
     );
 
-    const followingIds = followingResult.rows.map((row: Record<string, unknown>) => row.following_id);
+    const followingIds = followingResult.rows.map((row: Record<string, unknown>) => row.following_id as string);
 
     // Include user's own posts
     const allAuthorIds = [userId, ...followingIds];

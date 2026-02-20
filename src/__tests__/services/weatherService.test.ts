@@ -32,7 +32,7 @@ process.env = { ...originalEnv, EXPO_PUBLIC_OPENWEATHERMAP_API_KEY: 'test-api-ke
 // Imports — after mocks
 // ---------------------------------------------------------------------------
 
-import { getWeather, clearWeatherCache, WeatherData } from '../../services/weatherService';
+import { getWeather, clearWeatherCache } from '../../services/weatherService';
 
 // ---------------------------------------------------------------------------
 // Tests

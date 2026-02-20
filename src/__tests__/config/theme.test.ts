@@ -25,7 +25,6 @@ import {
   getThemeForm,
   getThemeShadows,
 } from '../../config/theme';
-import type { ThemeMode } from '../../config/theme';
 
 describe('Theme Config', () => {
   describe('COLORS', () => {

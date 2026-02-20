@@ -204,10 +204,6 @@ function createHookRunner<T>(hookFn: () => T) {
   };
 }
 
-function flushAsync(ms = 50): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 import { usePostDetailActions, PostDetailPost } from '../../hooks/usePostDetailActions';
 
 const VALID_POST_ID = '550e8400-e29b-41d4-a716-446655440000';

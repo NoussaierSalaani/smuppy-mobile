@@ -71,11 +71,6 @@ import {
   getCloudFrontUrl,
   s3ToCloudFront,
   getPresignedUrl,
-  uploadAvatar,
-  uploadCoverImage,
-  uploadPostMedia,
-  uploadPeakMedia,
-  uploadMultiple,
   generateVideoThumbnail,
   deleteFromS3,
 } from '../../services/mediaUpload';

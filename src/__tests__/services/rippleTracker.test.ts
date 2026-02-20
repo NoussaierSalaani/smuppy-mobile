@@ -32,7 +32,6 @@ import {
   getRippleLevel,
   getRippleAnimationIntensity,
   RIPPLE_LEVELS,
-  RippleActionType,
 } from '../../services/rippleTracker';
 
 // ---------------------------------------------------------------------------

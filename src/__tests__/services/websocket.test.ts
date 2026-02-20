@@ -370,7 +370,7 @@ describe('WebSocketService', () => {
       const handler = jest.fn();
       websocketModule.websocketService.onError(handler);
 
-      const connectPromise = websocketModule.websocketService.connect();
+      void websocketModule.websocketService.connect();
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();

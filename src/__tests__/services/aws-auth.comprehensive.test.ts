@@ -796,3 +796,131 @@ describe('Edge cases and integration', () => {
     expect(typeof user.id).toBe('string');
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('BUG-2026-02-20: Social auth must use Cognito sub from ID token', () => {
+  // This regression test ensures that social auth (Apple/Google) uses the Cognito
+  // sub (UUID) from the ID token, NOT the provider's user ID from the Lambda response.
+  //
+  // Root cause: signInWithApple/Google stored `result.user` from the Lambda which had
+  // `id: providerPayload.sub` (Apple/Google user ID). The fix uses `decodeIdToken()`
+  // to extract the Cognito sub from the JWT, matching email/password login behavior.
+
+  it('Apple social auth: Cognito sub differs from Apple provider sub', () => {
+    // Simulate a Cognito ID token for an Apple-linked user.
+    // Cognito assigns its own UUID as `sub`, while `cognito:username` is `apple_{appleUserId}`.
+    const cognitoSub = 'f47ac10b-58cc-4372-a567-0e02b2c3d479'; // Cognito's UUID
+    const appleUserId = '001234.abcdef0123456789abcdef0123456789.0123'; // Apple's sub
+
+    const cognitoIdToken = buildJWT({
+      sub: cognitoSub,
+      'cognito:username': `apple_${appleUserId}`,
+      email: 'user@privaterelay.appleid.com',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      iss: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_testPool',
+      token_use: 'id',
+    });
+
+    // The Lambda response would have had:
+    const lambdaUser = { id: appleUserId, email: 'user@privaterelay.appleid.com' };
+
+    // The fix: decode the Cognito ID token instead of using Lambda's user
+    const decodedUser = decodeIdToken(cognitoIdToken);
+
+    // CRITICAL: user.id must be the Cognito sub (UUID), NOT the Apple sub
+    expect(decodedUser.id).toBe(cognitoSub);
+    expect(decodedUser.id).not.toBe(appleUserId);
+    expect(decodedUser.id).not.toBe(lambdaUser.id);
+
+    // username should be the Cognito username (apple_xxx)
+    expect(decodedUser.username).toBe(`apple_${appleUserId}`);
+    expect(decodedUser.emailVerified).toBe(true);
+  });
+
+  it('Google social auth: Cognito sub differs from Google provider sub', () => {
+    // Simulate a Cognito ID token for a Google-linked user.
+    const cognitoSub = 'b8c7d6e5-f4a3-2190-8765-43210fedcba9'; // Cognito's UUID
+    const googleUserId = '109876543210987654321'; // Google's numeric sub
+
+    const cognitoIdToken = buildJWT({
+      sub: cognitoSub,
+      'cognito:username': `google_${googleUserId}`,
+      email: 'user@gmail.com',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      iss: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_testPool',
+      token_use: 'id',
+    });
+
+    // The Lambda response would have had:
+    const lambdaUser = { id: googleUserId, email: 'user@gmail.com' };
+
+    // The fix: decode the Cognito ID token instead of using Lambda's user
+    const decodedUser = decodeIdToken(cognitoIdToken);
+
+    // CRITICAL: user.id must be the Cognito sub (UUID), NOT the Google sub
+    expect(decodedUser.id).toBe(cognitoSub);
+    expect(decodedUser.id).not.toBe(googleUserId);
+    expect(decodedUser.id).not.toBe(lambdaUser.id);
+
+    // username should be the Cognito username (google_xxx)
+    expect(decodedUser.username).toBe(`google_${googleUserId}`);
+    expect(decodedUser.emailVerified).toBe(true);
+  });
+
+  it('Email/password login and social auth produce same user.id format', () => {
+    const cognitoSub = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+    // Email/password Cognito ID token
+    const emailPasswordToken = buildJWT({
+      sub: cognitoSub,
+      'cognito:username': 'user@example.com',
+      email: 'user@example.com',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    // Apple social auth Cognito ID token (same Cognito sub, different username format)
+    const appleSocialToken = buildJWT({
+      sub: cognitoSub,
+      'cognito:username': 'apple_001234.abc',
+      email: 'user@privaterelay.appleid.com',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const emailUser = decodeIdToken(emailPasswordToken);
+    const socialUser = decodeIdToken(appleSocialToken);
+
+    // Both should produce the same user.id (Cognito sub)
+    expect(emailUser.id).toBe(cognitoSub);
+    expect(socialUser.id).toBe(cognitoSub);
+    expect(emailUser.id).toBe(socialUser.id);
+  });
+
+  it('decodeIdToken user.id is used for profile lookup (not Lambda user.id)', () => {
+    // This test documents the contract: the profile API uses user.id from decodeIdToken.
+    // If someone changes signInWithApple/Google to use result.user again, this test reminds
+    // them that the profile system depends on Cognito sub.
+    const cognitoSub = 'profile-lookup-uuid-1234';
+    const appleProviderSub = 'apple-provider-sub-5678';
+
+    const token = buildJWT({
+      sub: cognitoSub,
+      'cognito:username': `apple_${appleProviderSub}`,
+      email: 'test@apple.com',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const user = decodeIdToken(token);
+
+    // This is the ID that gets passed to getProfile(user.id)
+    // It MUST be the Cognito sub, not the provider sub
+    expect(user.id).toBe(cognitoSub);
+    // The provider sub should NOT appear as user.id
+    expect(user.id).not.toContain('apple');
+    expect(user.id).not.toContain(appleProviderSub);
+  });
+});

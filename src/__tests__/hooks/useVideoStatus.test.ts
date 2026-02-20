@@ -137,7 +137,7 @@ function createHookRunner<T>(hookFn: () => T) {
 }
 
 /** Helper: flush microtasks to let dynamic import + async operations complete */
-function flushMicrotasks(ms = 50): Promise<void> {
+function flushMicrotasks(ms = 6000): Promise<void> {
   jest.advanceTimersByTime(ms);
   return Promise.resolve();
 }
@@ -215,7 +215,7 @@ describe('useVideoStatus', () => {
 
   it('should start polling when enabled with valid entityId', async () => {
     createHookRunner(() =>
-      useVideoStatus({ entityType: 'post', entityId: 'post-123' })
+      useVideoStatus({ entityType: 'post', entityId: 'post-123', pollInterval: 1 })
     );
 
     // Wait for the dynamic import + async request to complete
@@ -237,7 +237,7 @@ describe('useVideoStatus', () => {
     });
 
     const runner = createHookRunner(() =>
-      useVideoStatus({ entityType: 'post', entityId: 'post-123' })
+      useVideoStatus({ entityType: 'post', entityId: 'post-123', pollInterval: 1 })
     );
 
     await flushMicrotasks();
@@ -260,7 +260,7 @@ describe('useVideoStatus', () => {
     });
 
     const runner = createHookRunner(() =>
-      useVideoStatus({ entityType: 'post', entityId: 'post-123' })
+      useVideoStatus({ entityType: 'post', entityId: 'post-123', pollInterval: 1 })
     );
 
     await flushMicrotasks();
@@ -272,7 +272,7 @@ describe('useVideoStatus', () => {
 
   it('should use correct URL for peak entity type', async () => {
     createHookRunner(() =>
-      useVideoStatus({ entityType: 'peak', entityId: 'peak-456' })
+      useVideoStatus({ entityType: 'peak', entityId: 'peak-456', pollInterval: 1 })
     );
 
     await flushMicrotasks();
@@ -289,7 +289,7 @@ describe('useVideoStatus', () => {
     });
 
     const runner = createHookRunner(() =>
-      useVideoStatus({ entityType: 'post', entityId: 'post-123' })
+      useVideoStatus({ entityType: 'post', entityId: 'post-123', pollInterval: 1 })
     );
 
     await flushMicrotasks();

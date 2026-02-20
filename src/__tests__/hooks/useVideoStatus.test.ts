@@ -152,13 +152,19 @@ describe('useVideoStatus', () => {
     });
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-    jest.useFakeTimers();
-    jest.runOnlyPendingTimers();
-    jest.clearAllTimers();
-    jest.useRealTimers();
-  });
+afterEach(() => {
+  jest.restoreAllMocks();
+  jest.useFakeTimers();
+  jest.runOnlyPendingTimers();
+  jest.clearAllTimers();
+  jest.useRealTimers();
+});
+
+afterAll(() => {
+  jest.useFakeTimers();
+  jest.runAllTimers();
+  jest.useRealTimers();
+});
 
   // ========================================
   // Initial state

@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path, Circle, Polygon } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyEnergyBurstIconProps {
+type SmuppyEnergyBurstIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Energy Burst Icon - 100% Original Design

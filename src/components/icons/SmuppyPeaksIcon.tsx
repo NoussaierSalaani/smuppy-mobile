@@ -2,13 +2,13 @@ import React from 'react';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyPeaksIconProps {
+type SmuppyPeaksIconProps = Readonly<{
   size?: number;
   color?: string;
   gradientColors?: [string, string];
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * SmuppyPeaksIcon - Mountain peak icon for Peaks feature

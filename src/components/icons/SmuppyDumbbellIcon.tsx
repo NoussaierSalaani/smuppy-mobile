@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyDumbbellIconProps {
+type SmuppyDumbbellIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Dumbbell Icon - Two dumbbells with power lines

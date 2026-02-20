@@ -2,11 +2,11 @@ import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyMindBlownIconProps {
+type SmuppyMindBlownIconProps = Readonly<{
   size?: number;
   color?: string;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Mind Blown Icon - Head with explosion effect

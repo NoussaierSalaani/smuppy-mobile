@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyCelebrationBurstIconProps {
+type SmuppyCelebrationBurstIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Celebration Burst Icon - 100% Original Design

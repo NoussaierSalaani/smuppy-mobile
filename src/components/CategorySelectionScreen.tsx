@@ -18,7 +18,7 @@ import { useTheme, type ThemeColors } from '../hooks/useTheme';
 const INITIAL_CATEGORIES = 4;
 const EXPAND_BY = 4;
 
-interface CategorySelectionScreenProps {
+type CategorySelectionScreenProps = Readonly<{
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
@@ -45,7 +45,7 @@ interface CategorySelectionScreenProps {
   nextScreen: string;
   /** Style variant — minor differences between interest and expertise screens */
   variant?: 'interests' | 'expertise';
-}
+}>;
 
 export default function CategorySelectionScreen({
   navigation,

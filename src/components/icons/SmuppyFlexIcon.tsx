@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyFlexIconProps {
+type SmuppyFlexIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Flex Icon - Flexing bicep with energy/power lines

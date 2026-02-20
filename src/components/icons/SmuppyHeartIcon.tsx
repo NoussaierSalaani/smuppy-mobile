@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyHeartIconProps {
+type SmuppyHeartIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Heart Icon - Heart with integrated ECG pulse line

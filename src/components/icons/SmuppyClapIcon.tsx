@@ -2,11 +2,11 @@ import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyClapIconProps {
+type SmuppyClapIconProps = Readonly<{
   size?: number;
   color?: string;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Clap Icon - Clapping hands with energy burst

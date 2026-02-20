@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GRADIENTS } from '../../config/theme';
 import type { ThemeColors } from '../../hooks/useTheme';
 
-export interface SelectChipProps {
+export type SelectChipProps = Readonly<{
   label: string;
   icon: string;
   iconColor: string;
@@ -30,7 +30,7 @@ export interface SelectChipProps {
   colors: ThemeColors;
   /** Dark mode flag */
   isDark: boolean;
-}
+}>;
 
 function SelectChipComponent({
   label,

@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyEnergyIconProps {
+type SmuppyEnergyIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Energy Icon - Lightning bolt with circular energy pulse

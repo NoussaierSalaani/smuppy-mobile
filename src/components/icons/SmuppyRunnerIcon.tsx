@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyRunnerIconProps {
+type SmuppyRunnerIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Runner Icon - Running figure with energy trail

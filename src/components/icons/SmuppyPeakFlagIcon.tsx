@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyPeakFlagIconProps {
+type SmuppyPeakFlagIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Peak Flag Icon - 100% Original Design

@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyTargetIconProps {
+type SmuppyTargetIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Target Icon - Bullseye target with arrow/checkmark hit

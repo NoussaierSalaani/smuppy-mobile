@@ -2,12 +2,12 @@ import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ViewStyle } from 'react-native';
 
-interface SmuppyMedalIconProps {
+type SmuppyMedalIconProps = Readonly<{
   size?: number;
   color?: string;
   filled?: boolean;
   style?: ViewStyle;
-}
+}>;
 
 /**
  * Smuppy Medal Icon - Achievement medal with ribbon and sparkles

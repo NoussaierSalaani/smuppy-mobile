@@ -36,7 +36,7 @@ export const ShapeSource = _Mapbox?.ShapeSource;
 export const LineLayer = _Mapbox?.LineLayer;
 
 /** Placeholder shown when Mapbox is not available */
-export function MapPlaceholder({ style }: { style?: object }) {
+export function MapPlaceholder({ style }: Readonly<{ style?: object }>) {
   return (
     <View style={[styles.placeholder, style]}>
       <Text style={styles.placeholderText}>Map not available</Text>

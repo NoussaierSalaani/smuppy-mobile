@@ -1158,4 +1158,41 @@ describe('follow-requests/accept handler', () => {
       expect(result2.statusCode).toBe(200);
     });
   });
+
+  // ── 16. Defensive null guard (line 25) ──
+
+  describe('onAction defensive null guard', () => {
+    it('should return 404 if request is null (defensive guard)', async () => {
+      // This tests the defensive `if (!request)` guard inside onAction.
+      // In normal factory flow with paramName='id', request is never null,
+      // but the guard exists for safety. We test it by capturing onAction
+      // via a mocked factory and calling it directly with request: null.
+      let capturedOnAction: Function | null = null;
+
+      jest.isolateModules(() => {
+        jest.doMock('../../utils/create-follow-request-handler', () => ({
+          createFollowRequestHandler: (config: { onAction: Function }) => {
+            capturedOnAction = config.onAction;
+            return jest.fn();
+          },
+        }));
+        // Re-require the module so the factory captures onAction
+        require('../../follow-requests/accept');
+      });
+
+      expect(capturedOnAction).not.toBeNull();
+
+      const headers = { 'Content-Type': 'application/json' };
+      const result = await capturedOnAction!({
+        db: mockDb,
+        client: mockClient,
+        request: null,
+        profileId: TARGET_PROFILE_ID,
+        headers,
+      });
+
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).message).toBe('Follow request not found');
+    });
+  });
 });

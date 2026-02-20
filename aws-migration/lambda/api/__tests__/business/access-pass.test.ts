@@ -11,13 +11,13 @@ import { APIGatewayProxyEvent } from 'aws-lambda';
 
 // ── Mocks (must be before handler import — Jest hoists jest.mock calls) ──
 
-const mockWithErrorHandler = jest.fn((name: string, fn: Function) => {
-  return async (event: any) => {
+const mockWithErrorHandler = jest.fn((_name: string, fn: Function) => {
+  return async (event: APIGatewayProxyEvent) => {
     const headers = { 'Content-Type': 'application/json' };
     const log = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
     try {
       return await fn(event, { headers, log });
-    } catch (error) {
+    } catch (_err) {
       return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
     }
   };
@@ -319,8 +319,8 @@ describe('business/access-pass handler', () => {
       // Re-import to capture the registration call on a fresh mock
       jest.resetModules();
 
-      const freshMock = jest.fn((name: string, fn: Function) => {
-        return async (event: any) => {
+      const freshMock = jest.fn((_name: string, fn: Function) => {
+        return async (event: APIGatewayProxyEvent) => {
           const h = { 'Content-Type': 'application/json' };
           const log = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
           return await fn(event, { headers: h, log });

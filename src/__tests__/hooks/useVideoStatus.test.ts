@@ -24,6 +24,7 @@ jest.mock('../../services/aws-api', () => ({
 }));
 
 // Minimal hook runner with deferred useEffect (matches real React behavior)
+const activeRunners: Array<{ cleanup: () => void }> = [];
 function createHookRunner<T>(hookFn: () => T) {
   let state: Map<number, unknown> = new Map();
   let callbackMap: Map<number, unknown> = new Map();
@@ -117,7 +118,7 @@ function createHookRunner<T>(hookFn: () => T) {
 
   render();
 
-  return {
+  const runner = {
     get current() {
       return result;
     },
@@ -130,16 +131,24 @@ function createHookRunner<T>(hookFn: () => T) {
       }
     },
   };
+
+  activeRunners.push(runner);
+  return runner;
 }
 
 /** Helper: flush microtasks to let dynamic import + async operations complete */
 function flushMicrotasks(ms = 50): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  jest.advanceTimersByTime(ms);
+  return Promise.resolve();
 }
 
 import { useVideoStatus } from '../../hooks/useVideoStatus';
 
 describe('useVideoStatus', () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockRequest.mockResolvedValue({
@@ -152,19 +161,19 @@ describe('useVideoStatus', () => {
     });
   });
 
-afterEach(() => {
-  jest.restoreAllMocks();
-  jest.useFakeTimers();
-  jest.runOnlyPendingTimers();
-  jest.clearAllTimers();
-  jest.useRealTimers();
-});
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.runOnlyPendingTimers();
+    jest.clearAllTimers();
+    for (const runner of activeRunners.splice(0, activeRunners.length)) {
+      runner.cleanup();
+    }
+  });
 
-afterAll(() => {
-  jest.useFakeTimers();
-  jest.runAllTimers();
-  jest.useRealTimers();
-});
+  afterAll(() => {
+    jest.runAllTimers();
+    jest.useRealTimers();
+  });
 
   // ========================================
   // Initial state

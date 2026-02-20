@@ -387,9 +387,14 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       if (error) {
         if (__DEV__) console.warn('[FanFeed] Error fetching posts:', error);
         if (refresh) {
+          // On refresh error: show toast but KEEP existing posts (non-destructive)
           showError('Refresh failed', 'Unable to load new posts. Please try again.');
-        }
-        if (refresh || isInitial) {
+          // Only clear posts if there are none (initial-like state)
+          if (postsRef.current.length === 0) {
+            setLoadError(error);
+          }
+        } else if (isInitial) {
+          // Initial load error: no existing posts to preserve — show empty state
           setPosts([]);
           hasMoreRef.current = false;
           setHasMore(false);
@@ -406,8 +411,9 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         return;
       }
 
-      // Reset error count on successful fetch
+      // Reset error count and clear any previous error on successful fetch
       loadMoreErrorCount.current = 0;
+      setLoadError(null);
 
       // Handle null or undefined data
       if (!data || data.length === 0) {
@@ -460,7 +466,14 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       setHasMore(more);
     } catch (err) {
       if (__DEV__) console.warn('[FanFeed] Error:', err);
-      if (refresh || isInitial) {
+      if (refresh) {
+        // On refresh error: show toast but KEEP existing posts
+        showError('Refresh failed', 'Unable to load new posts. Please try again.');
+        if (postsRef.current.length === 0) {
+          setLoadError('Unable to load feed. Check your connection and try again.');
+        }
+      } else if (isInitial) {
+        // Initial load error: no existing posts to preserve
         setPosts([]);
         hasMoreRef.current = false;
         setHasMore(false);

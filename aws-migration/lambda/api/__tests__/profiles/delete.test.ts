@@ -80,7 +80,7 @@ jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
 }));
 
 import { handler } from '../../profiles/delete';
-import { checkRateLimit } from '../../utils/rate-limit';
+import { requireRateLimit } from '../../utils/rate-limit';
 
 // --- Test Helpers ---
 
@@ -343,7 +343,11 @@ describe('Profile Delete Handler', () => {
   // -------------------------------------------------------
   describe('Rate Limiting', () => {
     it('should return 429 when rate limit is exceeded', async () => {
-      (checkRateLimit as jest.Mock).mockResolvedValueOnce({ allowed: false });
+      (requireRateLimit as jest.Mock).mockResolvedValueOnce({
+        statusCode: 429,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+      });
 
       const event = createMockEvent(TEST_COGNITO_SUB);
       const response = await handler(event);
@@ -353,18 +357,21 @@ describe('Profile Delete Handler', () => {
       expect(body.message).toContain('Too many requests');
     });
 
-    it('should call checkRateLimit with correct parameters', async () => {
+    it('should call requireRateLimit with correct parameters', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [createProfileRow()] });
 
       const event = createMockEvent(TEST_COGNITO_SUB);
       await handler(event);
 
-      expect(checkRateLimit).toHaveBeenCalledWith({
-        prefix: 'account-delete',
-        identifier: TEST_COGNITO_SUB,
-        windowSeconds: 3600,
-        maxRequests: 2,
-      });
+      expect(requireRateLimit).toHaveBeenCalledWith(
+        {
+          prefix: 'account-delete',
+          identifier: TEST_COGNITO_SUB,
+          windowSeconds: 3600,
+          maxRequests: 2,
+        },
+        expect.any(Object),
+      );
     });
   });
 

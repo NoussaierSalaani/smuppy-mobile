@@ -41,6 +41,7 @@ jest.mock('../../utils/cors', () => ({
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Credentials': 'true',
   })),
+  getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
 }));
 
 jest.mock('../../utils/account-status', () => ({

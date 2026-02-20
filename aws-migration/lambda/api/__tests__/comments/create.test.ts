@@ -82,7 +82,7 @@ jest.mock('../../services/push-notification', () => ({
 // ── Import handler AFTER all mocks are declared ──
 
 import { handler } from '../../comments/create';
-import { checkRateLimit } from '../../utils/rate-limit';
+import { requireRateLimit } from '../../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
@@ -479,8 +479,12 @@ describe('comments/create handler', () => {
   // ─────────────────────────────────────────────────────────────────────
   describe('rate limiting', () => {
     it('should return 429 when per-minute rate limit is exceeded', async () => {
-      (checkRateLimit as jest.Mock)
-        .mockResolvedValueOnce({ allowed: false }); // per-minute limit
+      (requireRateLimit as jest.Mock)
+        .mockResolvedValueOnce({
+          statusCode: 429,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+        });
 
       const event = makeEvent();
 
@@ -491,16 +495,20 @@ describe('comments/create handler', () => {
     });
 
     it('should return 429 when daily rate limit is exceeded', async () => {
-      (checkRateLimit as jest.Mock)
-        .mockResolvedValueOnce({ allowed: true })   // per-minute passes
-        .mockResolvedValueOnce({ allowed: false });  // daily limit fails
+      (requireRateLimit as jest.Mock)
+        .mockResolvedValueOnce(null)   // per-minute passes
+        .mockResolvedValueOnce({
+          statusCode: 429,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+        });  // daily limit fails
 
       const event = makeEvent();
 
       const result = await handler(event);
 
       expect(result.statusCode).toBe(429);
-      expect(JSON.parse(result.body).message).toContain('Daily comment limit');
+      expect(JSON.parse(result.body).message).toContain('Too many requests');
     });
   });
 

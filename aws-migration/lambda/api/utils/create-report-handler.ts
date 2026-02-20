@@ -113,13 +113,13 @@ export function createReportHandler(config: ReportHandlerConfig) {
       if (config.customEntityCheck) {
         const exists = await config.customEntityCheck(db, resourceId, reporterId, body);
         if (!exists) {
-          return { statusCode: 404, headers, body: JSON.stringify({ message: `${config.resourceType} not found` }) };
+          return { statusCode: 404, headers, body: JSON.stringify({ message: `${config.resourceType.charAt(0).toUpperCase() + config.resourceType.slice(1)} not found` }) };
         }
       } else if (config.entityTable) {
         // NOTE: entityTable is a compile-time constant from handler config, not user input.
         const entityResult = await db.query(`SELECT id FROM ${config.entityTable} WHERE id = $1`, [resourceId]);
         if (entityResult.rows.length === 0) {
-          return { statusCode: 404, headers, body: JSON.stringify({ message: `${config.resourceType} not found` }) };
+          return { statusCode: 404, headers, body: JSON.stringify({ message: `${config.resourceType.charAt(0).toUpperCase() + config.resourceType.slice(1)} not found` }) };
         }
       }
 

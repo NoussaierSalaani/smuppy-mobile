@@ -6,7 +6,7 @@
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getPool } from '../../../shared/db';
-import { checkRateLimit } from '../../utils/rate-limit';
+import { requireRateLimit } from '../../utils/rate-limit';
 
 // Mocks — must be before handler import (Jest hoists jest.mock calls)
 jest.mock('../../../shared/db', () => ({
@@ -169,13 +169,17 @@ describe('feed/discover handler', () => {
     });
 
     it('should return 429 when rate limited', async () => {
-      (checkRateLimit as jest.Mock).mockResolvedValueOnce({ allowed: false });
+      (requireRateLimit as jest.Mock).mockResolvedValueOnce({
+        statusCode: 429,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+      });
 
       const event = makeEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(429);
-      expect(JSON.parse(result.body).message).toBe('Too many requests');
+      expect(JSON.parse(result.body).message).toContain('Too many requests');
     });
   });
 

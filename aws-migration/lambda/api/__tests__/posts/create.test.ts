@@ -99,7 +99,7 @@ jest.mock('uuid', () => ({
 }));
 
 import { handler } from '../../posts/create';
-import { checkRateLimit } from '../../utils/rate-limit';
+import { requireRateLimit } from '../../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
@@ -597,7 +597,11 @@ describe('posts/create handler', () => {
     });
 
     it('should return 429 when rate limited', async () => {
-      (checkRateLimit as jest.Mock).mockResolvedValueOnce({ allowed: false });
+      (requireRateLimit as jest.Mock).mockResolvedValueOnce({
+        statusCode: 429,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+      });
 
       const event = makeEvent({
         body: JSON.stringify({ content: 'Hello' }),

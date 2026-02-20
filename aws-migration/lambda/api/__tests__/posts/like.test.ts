@@ -49,7 +49,7 @@ jest.mock('../../services/push-notification', () => ({
 }));
 
 import { handler } from '../../posts/like';
-import { checkRateLimit } from '../../utils/rate-limit';
+import { requireRateLimit } from '../../utils/rate-limit';
 import { sendPushToUser } from '../../services/push-notification';
 
 // ── Constants ──
@@ -107,7 +107,7 @@ describe('posts/like handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
-    (checkRateLimit as jest.Mock).mockResolvedValue({ allowed: true });
+    (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });
 
   // ── 1. Auth ──
@@ -149,8 +149,12 @@ describe('posts/like handler', () => {
 
   describe('rate limiting', () => {
     it('should return 429 when per-minute rate limit is exceeded', async () => {
-      (checkRateLimit as jest.Mock)
-        .mockResolvedValueOnce({ allowed: false }); // per-minute limit hit
+      (requireRateLimit as jest.Mock)
+        .mockResolvedValueOnce({
+          statusCode: 429,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+        });
 
       const event = buildEvent({});
 
@@ -161,16 +165,20 @@ describe('posts/like handler', () => {
     });
 
     it('should return 429 when daily like limit is exceeded', async () => {
-      (checkRateLimit as jest.Mock)
-        .mockResolvedValueOnce({ allowed: true })   // per-minute passes
-        .mockResolvedValueOnce({ allowed: false });  // daily limit hit
+      (requireRateLimit as jest.Mock)
+        .mockResolvedValueOnce(null)   // per-minute passes
+        .mockResolvedValueOnce({
+          statusCode: 429,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: false, message: 'Too many requests. Please try again later.' }),
+        });  // daily limit hit
 
       const event = buildEvent({});
 
       const result = await handler(event);
 
       expect(result.statusCode).toBe(429);
-      expect(JSON.parse(result.body).message).toContain('Daily like limit reached');
+      expect(JSON.parse(result.body).message).toContain('Too many requests');
     });
   });
 

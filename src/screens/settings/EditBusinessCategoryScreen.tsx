@@ -1,15 +1,14 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GRADIENTS } from '../../config/theme';
 import { ALL_BUSINESS_CATEGORIES } from '../../config/businessCategories';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks/queries';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-
-import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useTheme } from '../../hooks/useTheme';
+import { SelectChip } from '../../components/settings/SelectChip';
+import { createSelectListStyles } from '../../components/settings/selectListStyles';
 
 interface EditBusinessCategoryScreenProps {
   navigation: { goBack: () => void };
@@ -54,44 +53,7 @@ export default function EditBusinessCategoryScreen({ navigation, route }: EditBu
     }
   };
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  const renderItem = useCallback((item: { id: string; icon: string; label: string; color: string }) => {
-    const isSelected = selected === item.id;
-    if (isSelected) {
-      return (
-        <TouchableOpacity
-          key={item.id}
-          onPress={() => setSelected(item.id)}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={GRADIENTS.button}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.chipGradientBorder}
-          >
-            <View style={styles.chipSelectedInner}>
-              <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={18} color={item.color} />
-              <Text style={styles.chipText}>{item.label}</Text>
-              <Ionicons name="checkmark-circle" size={16} color={colors.primaryGreen} style={styles.chipCheckIcon} />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-    return (
-      <TouchableOpacity
-        key={item.id}
-        style={styles.chip}
-        onPress={() => setSelected(item.id)}
-        activeOpacity={0.7}
-      >
-        <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={18} color={item.color} />
-        <Text style={styles.chipText}>{item.label}</Text>
-      </TouchableOpacity>
-    );
-  }, [selected, styles, colors.primaryGreen]);
+  const styles = useMemo(() => createSelectListStyles(colors, isDark), [colors, isDark]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -131,104 +93,23 @@ export default function EditBusinessCategoryScreen({ navigation, route }: EditBu
       {/* Scrollable content */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.itemsGrid}>
-          {ALL_BUSINESS_CATEGORIES.map(renderItem)}
+          {ALL_BUSINESS_CATEGORIES.map((item) => (
+            <SelectChip
+              key={item.id}
+              label={item.label}
+              icon={item.icon}
+              iconColor={item.color}
+              selected={selected === item.id}
+              onPress={() => setSelected(item.id)}
+              size="md"
+              selectedIndicator="checkmark"
+              colors={colors}
+              isDark={isDark}
+            />
+          ))}
         </View>
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
 }
-
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.dark,
-  },
-  saveButton: {
-    backgroundColor: colors.primaryGreen,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: isDark ? colors.darkGray : colors.grayLight,
-  },
-  saveButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  saveButtonTextDisabled: {
-    color: colors.grayMuted,
-  },
-
-  countContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  countText: {
-    fontSize: 14,
-    color: colors.grayMuted,
-  },
-  hintText: {
-    fontSize: 12,
-    color: isDark ? colors.gray : '#8E8E93',
-    marginTop: 4,
-  },
-
-  scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
-
-  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 12 },
-
-  chip: {
-    height: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    backgroundColor: isDark ? colors.backgroundSecondary : colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.grayBorder,
-    borderRadius: 20,
-    gap: 8,
-  },
-  chipGradientBorder: {
-    height: 40,
-    borderRadius: 20,
-    padding: 1.5,
-  },
-  chipSelectedInner: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12.5,
-    borderRadius: 18.5,
-    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E6FAF8',
-    gap: 8,
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.dark,
-  },
-  chipCheckIcon: { marginLeft: 2 },
-  bottomSpacer: { height: 40 },
-});

@@ -1,15 +1,14 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GRADIENTS } from '../../config/theme';
 import { ALL_INTERESTS } from '../../config/interests';
 import { useUpdateProfile, useCurrentProfile } from '../../hooks/queries';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
-
-import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useTheme } from '../../hooks/useTheme';
+import { SelectChip } from '../../components/settings/SelectChip';
+import { createSelectListStyles } from '../../components/settings/selectListStyles';
 
 interface EditInterestsScreenProps {
   navigation: { goBack: () => void };
@@ -77,43 +76,7 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
     }
   };
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  const renderChip = useCallback((item: { name: string; icon: string; color: string }, isSelected: boolean) => {
-    if (isSelected) {
-      return (
-        <TouchableOpacity
-          key={item.name}
-          onPress={() => toggle(item.name)}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={GRADIENTS.button}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.chipGradientBorder}
-          >
-            <View style={styles.chipSelectedInner}>
-              <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
-              <Text style={styles.chipText}>{item.name}</Text>
-              <Ionicons name="close" size={14} color={colors.gray} style={{ marginLeft: 2 }} />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-    return (
-      <TouchableOpacity
-        key={item.name}
-        style={styles.chip}
-        onPress={() => toggle(item.name)}
-        activeOpacity={0.7}
-      >
-        <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={item.color} />
-        <Text style={styles.chipText}>{item.name}</Text>
-      </TouchableOpacity>
-    );
-  }, [toggle, styles, colors.gray]);
+  const styles = useMemo(() => createSelectListStyles(colors, isDark), [colors, isDark]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -172,126 +135,26 @@ export default function EditInterestsScreen({ navigation, route }: EditInterests
 
               {/* Items grid */}
               <View style={styles.itemsGrid}>
-                {section.items.map((item) => renderChip(item, selected.includes(item.name)))}
+                {section.items.map((item) => (
+                  <SelectChip
+                    key={item.name}
+                    label={item.name}
+                    icon={item.icon}
+                    iconColor={item.color}
+                    selected={selected.includes(item.name)}
+                    onPress={() => toggle(item.name)}
+                    colors={colors}
+                    isDark={isDark}
+                  />
+                ))}
               </View>
             </View>
           );
         })}
 
         {/* Bottom spacer */}
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
 }
-
-const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.dark,
-  },
-  saveButton: {
-    backgroundColor: colors.primaryGreen,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: isDark ? colors.darkGray : colors.grayLight,
-  },
-  saveButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  saveButtonTextDisabled: {
-    color: colors.grayMuted,
-  },
-
-  // Count
-  countContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  countText: {
-    fontSize: 14,
-    color: colors.grayMuted,
-  },
-  hintText: {
-    fontSize: 12,
-    color: isDark ? colors.gray : '#8E8E93',
-    marginTop: 4,
-  },
-
-  // Scroll
-  scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
-
-  // Section
-  section: { marginBottom: 20 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grayBorder,
-  },
-  sectionIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.dark },
-  sectionCount: { fontSize: 14, fontWeight: '600', color: colors.primaryGreen },
-
-  // Items grid
-  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 12 },
-
-  // Chips
-  chip: {
-    height: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    backgroundColor: isDark ? colors.backgroundSecondary : colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.grayBorder,
-    borderRadius: 18,
-    gap: 6,
-  },
-  chipGradientBorder: {
-    height: 36,
-    borderRadius: 18,
-    padding: 1.5,
-  },
-  chipSelectedInner: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12.5,
-    borderRadius: 16.5,
-    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : '#E6FAF8',
-    gap: 6,
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.dark,
-  },
-});

@@ -3,123 +3,31 @@
  * Declines a pending follow request
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
-import { requireRateLimit } from '../utils/rate-limit';
+import { createFollowRequestHandler } from '../utils/create-follow-request-handler';
 import { RATE_WINDOW_30S } from '../utils/constants';
 
-const log = createLogger('follow-requests-decline');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
+export const handler = createFollowRequestHandler({
+  action: 'decline',
+  loggerName: 'follow-requests-decline',
+  authRole: 'target',
+  paramName: 'id',
+  rateLimitWindow: RATE_WINDOW_30S,
+  rateLimitMax: 10,
+  onAction: async ({ client, request, headers }) => {
+    // request is guaranteed non-null by factory for paramName: 'id'
+    if (!request) {
+      return { statusCode: 404, headers, body: JSON.stringify({ message: 'Follow request not found' }) };
     }
 
-    const rateLimitResponse = await requireRateLimit({ prefix: 'follow-decline', identifier: userId, windowSeconds: RATE_WINDOW_30S, maxRequests: 10 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    const requestId = event.pathParameters?.id;
-    if (!requestId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Request ID is required' }),
-      };
-    }
-
-    // Validate UUID format
-    if (!isValidUUID(requestId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid request ID format' }),
-      };
-    }
-
-    const db = await getPool();
-
-    // Get user's profile ID (check both id and cognito_sub for consistency)
-    const userResult = await db.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    const profileId = userResult.rows[0].id;
-
-    // Get the follow request
-    const requestResult = await db.query(
-      'SELECT id, requester_id, target_id, status FROM follow_requests WHERE id = $1',
-      [requestId]
-    );
-
-    if (requestResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'Follow request not found' }),
-      };
-    }
-
-    const request = requestResult.rows[0];
-
-    // Verify user is the target of the request
-    if (request.target_id !== profileId) {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ message: 'Not authorized to decline this request' }),
-      };
-    }
-
-    // Check if already processed
-    if (request.status !== 'pending') {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: `Request already ${request.status}` }),
-      };
-    }
-
-    // Decline the request
-    await db.query(
+    await client.query(
       'UPDATE follow_requests SET status = $1, updated_at = NOW() WHERE id = $2',
-      ['declined', requestId]
+      ['declined', request.id],
     );
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        success: true,
-        message: 'Follow request declined',
-      }),
+      body: JSON.stringify({ success: true, message: 'Follow request declined' }),
     };
-  } catch (error: unknown) {
-    log.error('Error declining follow request', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+  },
+});

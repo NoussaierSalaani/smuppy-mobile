@@ -8,7 +8,6 @@ import {
   Dimensions,
   RefreshControl,
   ActivityIndicator,
-  Modal,
   Share,
   InteractionManager,
 } from 'react-native';
@@ -35,6 +34,7 @@ import { getMediaVariant } from '../../utils/cdnUrl';
 import SharePostModal from '../../components/SharePostModal';
 import { getFeedFromFollowed, getSuggestedProfiles, followUser, Profile, hasLikedPostsBatch, hasSavedPostsBatch, deletePost } from '../../services/database';
 import { LiquidButton } from '../../components/LiquidButton';
+import PostMenuModal from '../../components/PostMenuModal';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -365,7 +365,6 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   // Post menu state
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPost, setMenuPost] = useState<UIPost | null>(null);
-  const [showReportModal, setShowReportModal] = useState(false);
 
   // Memoized styles to prevent re-renders
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -782,27 +781,17 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     setMenuVisible(true);
   }, []);
 
-  // Handle report post — opens reason selection modal
-  const handleReportPost = useCallback(() => {
+  // Handle report post — called from PostMenuModal with reason
+  const handleReportPost = useCallback(async (reason: string) => {
     if (!menuPost) return;
     if (hasUserReported(menuPost.id)) {
-      setMenuVisible(false);
       showError('Already Reported', 'You have already reported this content. It is under review.');
       return;
     }
     if (isUnderReview(String(menuPost.id))) {
-      setMenuVisible(false);
       showError('Under Review', 'This content is already being reviewed by our team.');
       return;
     }
-    setMenuVisible(false);
-    setShowReportModal(true);
-  }, [menuPost, hasUserReported, isUnderReview, showError]);
-
-  // Submit report with selected reason — async with proper error handling
-  const handleSubmitReport = useCallback(async (reason: string) => {
-    if (!menuPost) return;
-    setShowReportModal(false);
     const result = await submitPostReport(menuPost.id, reason);
     if (result.alreadyReported) {
       showError('Already Reported', result.message);
@@ -811,7 +800,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     } else {
       showError('Error', result.message || 'Could not report post. Please try again.');
     }
-  }, [menuPost, submitPostReport, showError, showSuccess]);
+  }, [menuPost, hasUserReported, isUnderReview, submitPostReport, showError, showSuccess]);
 
   // Handle mute user — uses userSafetyStore for proper state sync
   const handleMuteUser = useCallback(() => {
@@ -1199,91 +1188,19 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         onClose={shareModal.close}
       />
 
-      {/* Post Menu Modal */}
-      <Modal
+      {/* Post Menu + Report Modal */}
+      <PostMenuModal
         visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseMenu}
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={handleCloseMenu}
-        >
-          <View style={styles.menuContainer}>
-            {menuPost && menuPost.user.id === currentUser?.id && (
-              <TouchableOpacity style={styles.menuItem} onPress={handleDeletePost}>
-                <Ionicons name="trash-outline" size={22} color="#FF6B6B" />
-                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
-              </TouchableOpacity>
-            )}
-            {menuPost && menuPost.user.id !== currentUser?.id && (
-              <>
-                <TouchableOpacity style={styles.menuItem} onPress={handleMuteUser}>
-                  <Ionicons name="eye-off-outline" size={22} color={colors.dark} />
-                  <Text style={styles.menuItemText}>Mute User</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.menuItem} onPress={handleBlockUser}>
-                  <Ionicons name="ban-outline" size={22} color="#FF6B6B" />
-                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block User</Text>
-                </TouchableOpacity>
-              </>
-            )}
-            <TouchableOpacity style={styles.menuItem} onPress={handleReportPost}>
-              <Ionicons name="flag-outline" size={22} color="#FF6B6B" />
-              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemLast]}
-              onPress={handleCloseMenu}
-            >
-              <Ionicons name="close-outline" size={22} color={colors.gray} />
-              <Text style={[styles.menuItemText, styles.menuItemTextCancel]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Report Reason Modal */}
-      <Modal
-        visible={showReportModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowReportModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={() => setShowReportModal(false)}
-        >
-          <View style={styles.menuContainer}>
-            <Text style={styles.reportTitle}>Report this post</Text>
-            <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
-            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('spam')}>
-              <Text style={styles.reportOptionText}>Spam or misleading</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('inappropriate')}>
-              <Text style={styles.reportOptionText}>Inappropriate content</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('harassment')}>
-              <Text style={styles.reportOptionText}>Harassment or bullying</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('violence')}>
-              <Text style={styles.reportOptionText}>Violence or dangerous</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.reportOption} onPress={() => handleSubmitReport('other')}>
-              <Text style={styles.reportOptionText}>Other</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemLast]}
-              onPress={() => setShowReportModal(false)}
-            >
-              <Text style={[styles.menuItemText, styles.menuItemTextCancel]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={handleCloseMenu}
+        post={menuPost ? { id: menuPost.id, authorId: menuPost.user.id } : null}
+        isOwnPost={!!menuPost && menuPost.user.id === currentUser?.id}
+        onDelete={handleDeletePost}
+        onMute={handleMuteUser}
+        onBlock={handleBlockUser}
+        onReport={handleReportPost}
+        hasReported={menuPost ? hasUserReported(menuPost.id) : false}
+        isUnderReview={menuPost ? isUnderReview(String(menuPost.id)) : false}
+      />
     </View>
   );
 });
@@ -1700,68 +1617,4 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     color: colors.background,
   },
 
-  // Post Menu Modal
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  menuContainer: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: SPACING.md,
-    paddingBottom: 34,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grayBorder,
-  },
-  menuItemLast: {
-    borderBottomWidth: 0,
-  },
-  menuItemText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    color: colors.dark,
-    marginLeft: SPACING.md,
-  },
-  menuItemTextCancel: {
-    color: colors.gray,
-  },
-  menuItemTextDanger: {
-    color: '#FF6B6B',
-  },
-
-  // Report Modal
-  reportTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 18,
-    color: colors.dark,
-    textAlign: 'center',
-    paddingTop: SPACING.md,
-    marginBottom: 4,
-  },
-  reportSubtitle: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: colors.gray,
-    textAlign: 'center',
-    marginBottom: SPACING.md,
-  },
-  reportOption: {
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grayBorder,
-  },
-  reportOptionText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    color: colors.dark,
-  },
 });

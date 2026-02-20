@@ -7,7 +7,6 @@ import {
   TouchableWithoutFeedback,
   Dimensions,
   StatusBar,
-  Modal,
   Animated,
   ActivityIndicator,
   FlatList,
@@ -33,6 +32,7 @@ import { useContentStore } from '../../stores/contentStore';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { copyPostLink } from '../../utils/share';
 import SharePostModal from '../../components/SharePostModal';
+import PostMenuModal from '../../components/PostMenuModal';
 import { useShareModal } from '../../hooks/useModalState';
 import { followUser, isFollowing, likePost, hasLikedPost, savePost, unsavePost, hasSavedPost, deletePost } from '../../services/database';
 import { isValidUUID, formatNumber } from '../../utils/formatters';
@@ -99,7 +99,6 @@ const PostDetailFanFeedScreen = () => {
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
   const [expandedDescription, setExpandedDescription] = useState(false);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({}); // Track carousel slide index per post
@@ -114,7 +113,6 @@ const PostDetailFanFeedScreen = () => {
   const [fanLoading, setFanLoading] = useState<LoadingRecord>({});
   const [fanStatusChecking, setFanStatusChecking] = useState<Record<string, boolean>>({}); // Track which users we're checking
   const shareModal = useShareModal();
-  const [reportLoading, setReportLoading] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
   
@@ -398,39 +396,18 @@ const PostDetailFanFeedScreen = () => {
     }
   }, [currentPost, showSuccess]);
 
-  // Report post with anti spam-click
-  const handleReport = useCallback(async () => {
-    if (reportLoading || !currentPost) return;
-    setReportLoading(true);
-    try {
-      setShowMenu(false);
-
-      // Check if already reported (anti-spam)
-      if (hasUserReported(currentPost.id)) {
-        showError('Already Reported', 'You have already reported this content. It is under review.');
-        return;
-      }
-
-      // Check if content is already under review
-      if (isUnderReview(currentPost.id)) {
-        showError('Under Review', 'This content is already being reviewed by our team.');
-        return;
-      }
-
-      // Show report modal
-      setShowReportModal(true);
-    } finally {
-      setReportLoading(false);
-    }
-  }, [reportLoading, currentPost, hasUserReported, isUnderReview, showError]);
-
-  // Submit report to store — async with proper error handling
-  const submitReport = useCallback(async (reason: string) => {
+  // Report post — called from PostMenuModal with reason
+  const handleReport = useCallback(async (reason: string) => {
     if (!currentPost) return;
-    setShowReportModal(false);
-
+    if (hasUserReported(currentPost.id)) {
+      showError('Already Reported', 'You have already reported this content. It is under review.');
+      return;
+    }
+    if (isUnderReview(currentPost.id)) {
+      showError('Under Review', 'This content is already being reviewed by our team.');
+      return;
+    }
     const result = await submitPostReport(currentPost.id, reason);
-
     if (result.alreadyReported) {
       showError('Already Reported', result.message);
     } else if (result.success) {
@@ -438,7 +415,7 @@ const PostDetailFanFeedScreen = () => {
     } else {
       showError('Error', result.message || 'Something went wrong. Please try again.');
     }
-  }, [currentPost, submitPostReport, showError, showSuccess]);
+  }, [currentPost, hasUserReported, isUnderReview, submitPostReport, showError, showSuccess]);
 
   // --- Extracted inline handlers ---
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
@@ -446,19 +423,11 @@ const PostDetailFanFeedScreen = () => {
   const handleCloseMenu = useCallback(() => setShowMenu(false), []);
   const handleToggleAudioMute = useCallback(() => setIsAudioMuted(prev => !prev), []);
   const handleToggleDescription = useCallback(() => setExpandedDescription(prev => !prev), []);
-  const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
-
   const handleViewProfile = useCallback(() => {
     if (!currentPost) return;
     setShowMenu(false);
     navigateToProfile(currentPost.user.id);
   }, [currentPost, navigateToProfile]);
-
-  const handleReportSpam = useCallback(() => submitReport('spam'), [submitReport]);
-  const handleReportInappropriate = useCallback(() => submitReport('inappropriate'), [submitReport]);
-  const handleReportHarassment = useCallback(() => submitReport('harassment'), [submitReport]);
-  const handleReportViolence = useCallback(() => submitReport('violence'), [submitReport]);
-  const handleReportOther = useCallback(() => submitReport('other'), [submitReport]);
 
   // Mute user with anti spam-click
   const handleMute = useCallback(async () => {
@@ -873,175 +842,22 @@ const PostDetailFanFeedScreen = () => {
         {...{ estimatedItemSize: height } as Record<string, number>}
       />
       
-      {/* Menu Modal */}
-      <Modal
+      {/* Post Menu + Report Modal */}
+      <PostMenuModal
         visible={showMenu}
-        animationType="slide"
-        transparent
-        onRequestClose={handleCloseMenu}
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={handleCloseMenu}
-        >
-          <View style={styles.menuContent}>
-            <View style={styles.modalHandle} />
-
-            {currentPost && currentPost.user.id === currentUserId && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={handleDeletePost}
-                accessibilityLabel="Delete this post"
-                accessibilityRole="button"
-              >
-                <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
-                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete Post</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleShare}
-              accessibilityLabel="Share post"
-              accessibilityRole="button"
-            >
-              <Ionicons name="share-social-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Share</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleCopyLink}
-              accessibilityLabel="Copy post link"
-              accessibilityRole="button"
-            >
-              <Ionicons name="link-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>Copy Link</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleViewProfile}
-              accessibilityLabel="View user profile"
-              accessibilityRole="button"
-            >
-              <Ionicons name="person-outline" size={24} color="#FFF" />
-              <Text style={styles.menuItemText}>View Profile</Text>
-            </TouchableOpacity>
-
-            {currentPost && currentPost.user.id !== currentUserId && (
-              <>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={handleMute}
-                  disabled={muteLoading}
-                  accessibilityLabel="Mute this user"
-                  accessibilityRole="button"
-                  accessibilityHint="Hide content from this user"
-                >
-                  <Ionicons name="eye-off-outline" size={24} color="#FFF" />
-                  <Text style={styles.menuItemText}>Mute user</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={handleBlock}
-                  disabled={blockLoading}
-                  accessibilityLabel="Block this user"
-                  accessibilityRole="button"
-                  accessibilityHint="Block all interactions with this user"
-                >
-                  <Ionicons name="ban-outline" size={24} color="#FF6B6B" />
-                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Block user</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleReport}
-              accessibilityLabel="Report this post"
-              accessibilityRole="button"
-              accessibilityHint="Report inappropriate content"
-            >
-              <Ionicons name="flag-outline" size={24} color="#FF6B6B" />
-              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Report</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuCancel}
-              onPress={handleCloseMenu}
-              accessibilityLabel="Cancel"
-              accessibilityRole="button"
-            >
-              <Text style={styles.menuCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Report Modal */}
-      <Modal
-        visible={showReportModal}
-        animationType="slide"
-        transparent
-        onRequestClose={handleCloseReportModal}
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={handleCloseReportModal}
-        >
-          <View style={styles.menuContent}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.reportTitle}>Report this post</Text>
-            <Text style={styles.reportSubtitle}>Why are you reporting this?</Text>
-
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={handleReportSpam}
-            >
-              <Text style={styles.reportOptionText}>Spam or misleading</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={handleReportInappropriate}
-            >
-              <Text style={styles.reportOptionText}>Inappropriate content</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={handleReportHarassment}
-            >
-              <Text style={styles.reportOptionText}>Harassment or bullying</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={handleReportViolence}
-            >
-              <Text style={styles.reportOptionText}>Violence or dangerous</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.reportOption}
-              onPress={handleReportOther}
-            >
-              <Text style={styles.reportOptionText}>Other</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuCancel}
-              onPress={handleCloseReportModal}
-            >
-              <Text style={styles.menuCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={handleCloseMenu}
+        post={currentPost ? { id: currentPost.id, authorId: currentPost.user.id } : null}
+        isOwnPost={!!currentPost && currentPost.user.id === currentUserId}
+        onDelete={handleDeletePost}
+        onShare={handleShare}
+        onCopyLink={handleCopyLink}
+        onViewProfile={handleViewProfile}
+        onMute={handleMute}
+        onBlock={handleBlock}
+        onReport={handleReport}
+        hasReported={currentPost ? hasUserReported(currentPost.id) : false}
+        isUnderReview={currentPost ? isUnderReview(currentPost.id) : false}
+      />
 
       <SharePostModal
         visible={shareModal.isVisible}
@@ -1302,81 +1118,6 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
     color: '#FFF',
   },
 
-  // Modal handle
-  modalHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-
-  // Menu Modal
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  menuContent: {
-    backgroundColor: colors.backgroundSecondary,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 34,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    gap: 16,
-  },
-  menuItemText: {
-    fontSize: 16,
-    color: '#FFF',
-  },
-  menuItemTextDanger: {
-    color: '#FF6B6B',
-  },
-  menuCancel: {
-    marginTop: 8,
-    marginHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.border,
-    alignItems: 'center',
-  },
-  menuCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-
-  // Report modal
-  reportTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFF',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  reportSubtitle: {
-    fontSize: 14,
-    color: colors.gray,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  reportOption: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  reportOptionText: {
-    fontSize: 16,
-    color: '#FFF',
-  },
 });
 
 export default PostDetailFanFeedScreen;

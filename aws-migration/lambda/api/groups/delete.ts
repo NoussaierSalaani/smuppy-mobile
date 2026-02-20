@@ -3,122 +3,60 @@
  * Soft-delete a group by setting status to 'cancelled' (creator only)
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
-import { requireRateLimit } from '../utils/rate-limit';
+import { createDeleteHandler } from '../utils/create-delete-handler';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { resolveProfileId } from '../utils/auth';
+import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
-const log = createLogger('groups-cancel');
-const corsHeaders = getSecureHeaders();
+export const handler = createDeleteHandler({
+  resourceName: 'Group',
+  resourceTable: 'groups',
+  loggerName: 'groups-cancel',
+  ownershipField: 'creator_id',
+  selectColumns: 'id, creator_id, status',
+  rateLimitPrefix: 'group-cancel',
+  rateLimitMax: 5,
+  rateLimitWindow: RATE_WINDOW_1_MIN,
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
-  const pool = await getPool();
-  const client = await pool.connect();
-
-  try {
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      return cors({
-        statusCode: 401,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
-    }
-
-    // Rate limit
-    const rateLimitResponse = await requireRateLimit({
-      prefix: 'group-cancel',
-      identifier: cognitoSub,
-      windowSeconds: 60,
-      maxRequests: 5,
-    }, corsHeaders);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    // Account status check
-    const accountCheck = await requireActiveAccount(cognitoSub, {});
+  async afterAuth(userId, headers) {
+    const accountCheck = await requireActiveAccount(userId, headers);
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
+    return null;
+  },
 
-    const groupId = event.pathParameters?.groupId;
-    if (!groupId || !isValidUUID(groupId)) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
-    }
-
-    // Resolve profile
-    const profileId = await resolveProfileId(client, cognitoSub);
-    if (!profileId) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
-    }
-
-    // Check group exists and verify ownership
-    const groupResult = await client.query(
-      'SELECT id, creator_id, status FROM groups WHERE id = $1',
-      [groupId]
-    );
-
-    if (groupResult.rows.length === 0) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Group not found' }),
-      });
-    }
-
-    if (groupResult.rows[0].creator_id !== profileId) {
-      return cors({
+  async checkOwnership(resource, profileId, headers) {
+    if (resource.creator_id !== profileId) {
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({ success: false, message: 'Only the group creator can cancel the group' }),
-      });
+      };
     }
 
-    if (groupResult.rows[0].status === 'cancelled') {
-      return cors({
+    if (resource.status === 'cancelled') {
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Group is already cancelled' }),
-      });
+      };
     }
 
-    await client.query('BEGIN');
+    return null;
+  },
 
+  async onDelete({ client, resourceId, profileId }) {
     // Soft delete: set status to cancelled
     await client.query(
       `UPDATE groups SET status = 'cancelled', updated_at = NOW()
        WHERE id = $1 AND creator_id = $2`,
-      [groupId, profileId]
+      [resourceId, profileId],
     );
 
     // Remove all participants
     await client.query(
       'DELETE FROM group_participants WHERE group_id = $1',
-      [groupId]
+      [resourceId],
     );
-
-    await client.query('COMMIT');
-
-    return cors({
-      statusCode: 200,
-      body: JSON.stringify({ success: true, message: 'Group cancelled successfully' }),
-    });
-  } catch (error: unknown) {
-    await client.query('ROLLBACK');
-    log.error('Cancel group error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({ success: false, message: 'Failed to cancel group' }),
-    });
-  } finally {
-    client.release();
-  }
-};
+  },
+});

@@ -4,15 +4,8 @@
  * Validates member QR code for facility access
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { requireRateLimit } from '../utils/rate-limit';
-import { getUserFromEvent } from '../utils/auth';
+import { createBusinessHandler } from '../utils/create-business-handler';
 import { isValidUUID } from '../utils/security';
-
-const log = createLogger('business/validate-access');
 
 interface ValidateRequest {
   subscriptionId: string;
@@ -20,23 +13,11 @@ interface ValidateRequest {
   userId: string;
 }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
-
-  try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-validate', identifier: user.id, maxRequests: 30 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
+const { handler } = createBusinessHandler({
+  loggerName: 'business/validate-access',
+  rateLimitPrefix: 'biz-validate',
+  rateLimitMax: 30,
+  onAction: async ({ headers, user, db, event }) => {
     let body: ValidateRequest;
     try {
       body = JSON.parse(event.body || '{}');
@@ -55,8 +36,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid ID format' }) };
     }
 
-    const db = await getPool();
-
     // Verify the scanner is the business owner
     const ownerCheck = await db.query(
       `SELECT id FROM profiles WHERE id = $1 AND account_type = 'pro_business'`,
@@ -68,7 +47,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Verify the business belongs to this owner
-    // For now, we check if the business ID matches the user ID (business profile = user profile)
     if (businessId !== user.id) {
       return { statusCode: 403, headers, body: JSON.stringify({ success: false, message: 'You can only scan for your own business' }) };
     }
@@ -178,12 +156,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         photo: subscription.member_photo,
       }),
     };
-  } catch (error) {
-    log.error('Failed to validate access', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-}
+  },
+});
+
+export { handler };

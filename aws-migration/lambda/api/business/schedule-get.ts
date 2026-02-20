@@ -4,30 +4,21 @@
  * Public — returns weekly schedule for a business
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { createBusinessHandler } from '../utils/create-business-handler';
 import { isValidUUID } from '../utils/security';
 
-const log = createLogger('business/schedule-get');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
-
-  try {
+const { handler } = createBusinessHandler({
+  loggerName: 'business/schedule-get',
+  rateLimitPrefix: 'biz-schedule-get',
+  rateLimitMax: 60,
+  skipAuth: true,
+  skipRateLimit: true,
+  onAction: async ({ headers, db, event }) => {
     const businessId = event.pathParameters?.businessId;
 
     if (!businessId || !isValidUUID(businessId)) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Valid businessId is required' }) };
     }
-
-    const db = await getPool();
 
     const result = await db.query(
       `SELECT s.id, s.day_of_week, s.start_time, s.end_time, s.instructor, s.max_participants,
@@ -58,12 +49,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ success: true, activities }),
     };
-  } catch (error) {
-    log.error('Failed to get schedule', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-}
+  },
+});
+
+export { handler };

@@ -4,37 +4,18 @@
  * Owner only — creates a new service
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { getUserFromEvent } from '../utils/auth';
-import { requireRateLimit } from '../utils/rate-limit';
-
-const log = createLogger('business/services-create');
+import { createBusinessHandler } from '../utils/create-business-handler';
 
 const VALID_CATEGORIES = ['drop_in', 'pack', 'membership'];
 const VALID_PERIODS = ['weekly', 'monthly', 'yearly'];
 const MAX_NAME_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 2000;
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
-
-  try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-svc-create', identifier: user.id, maxRequests: 10 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
+const { handler } = createBusinessHandler({
+  loggerName: 'business/services-create',
+  rateLimitPrefix: 'biz-svc-create',
+  rateLimitMax: 10,
+  onAction: async ({ headers, user, db, event, log }) => {
     const body = JSON.parse(event.body || '{}');
     const {
       name, description, category, price_cents, duration_minutes,
@@ -69,7 +50,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       : null;
 
     // Verify user is a business account
-    const db = await getPool();
     const profileResult = await db.query(
       "SELECT id, account_type FROM profiles WHERE id = $1",
       [user.id]
@@ -134,12 +114,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       }),
     };
-  } catch (error) {
-    log.error('Failed to create business service', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-}
+  },
+});
+
+export { handler };

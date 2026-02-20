@@ -3,21 +3,13 @@
  * Confirmation screen after successful subscription
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { GRADIENTS } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import SharePostModal from '../../components/SharePostModal';
+import SuccessScreen from '../../components/SuccessScreen';
+import type { SuccessAction } from '../../components/SuccessScreen';
 import type { ShareContentData } from '../../hooks/useModalState';
 
 interface Props {
@@ -33,332 +25,188 @@ interface Props {
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void; popToTop: () => void; replace: (screen: string, params?: Record<string, unknown>) => void };
 }
 
-const PERIOD_TEXT = {
+const PERIOD_TEXT: Record<string, string> = {
   weekly: 'Weekly',
   monthly: 'Monthly',
   yearly: 'Annual',
 };
 
 export default function BusinessSubscriptionSuccessScreen({ route, navigation }: Props) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { subscriptionId, businessName, planName, period, trialDays } = route.params;
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
-  const shareContent: ShareContentData = {
+
+  const shareContent: ShareContentData = useMemo(() => ({
     id: subscriptionId,
     type: 'text',
     title: `Subscribed to ${businessName}`,
     subtitle: `${planName} - ${PERIOD_TEXT[period]}`,
     shareText: `I just subscribed to ${businessName} on Smuppy!\n\nJoin me and let's workout together!`,
-  };
+  }), [subscriptionId, businessName, planName, period]);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createLocalStyles(colors), [colors]);
 
-  useEffect(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleShare = () => setShareModalVisible(true);
-
-  const handleViewSubscription = () => {
-    navigation.replace('MySubscriptions');
-  };
-
-  const handleDone = () => {
+  const handleDone = useCallback(() => {
     navigation.popToTop();
     navigation.navigate('Tabs');
-  };
+  }, [navigation]);
+
+  const actions: SuccessAction[] = useMemo(() => [
+    { label: 'My Subscriptions', onPress: () => navigation.replace('MySubscriptions'), variant: 'secondary', icon: 'card-outline' },
+    { label: 'Share', onPress: () => setShareModalVisible(true), variant: 'secondary', icon: 'share-outline' },
+    { label: 'Start Exploring', onPress: handleDone, variant: 'primary', icon: 'arrow-forward' },
+  ], [navigation, handleDone]);
+
+  const subscriptionCard = useMemo(() => (
+    <View style={styles.subscriptionCard}>
+      <View style={styles.cardHeader}>
+        <View style={styles.planBadge}>
+          <Ionicons name="star" size={14} color="#FFD700" />
+          <Text style={styles.planBadgeText}>{PERIOD_TEXT[period]}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.businessName}>{businessName}</Text>
+      <Text style={styles.planName}>{planName}</Text>
+
+      {trialDays ? (
+        <View style={styles.trialInfo}>
+          <Ionicons name="gift" size={18} color="#FFD700" />
+          <Text style={styles.trialText}>
+            {trialDays}-day free trial {'\u2022'} Cancel anytime
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={styles.cardDivider} />
+
+      <View style={styles.benefitsList}>
+        <View style={styles.benefitItem}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+          <Text style={styles.benefitText}>Unlimited access to all facilities</Text>
+        </View>
+        <View style={styles.benefitItem}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+          <Text style={styles.benefitText}>Priority booking for classes</Text>
+        </View>
+        <View style={styles.benefitItem}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+          <Text style={styles.benefitText}>Exclusive member discounts</Text>
+        </View>
+      </View>
+    </View>
+  ), [styles, colors, period, businessName, planName, trialDays]);
+
+  const infoCard = useMemo(() => (
+    <View style={styles.infoCard}>
+      <Ionicons name="information-circle" size={20} color={colors.primary} />
+      <Text style={styles.infoText}>
+        You can manage your subscription anytime from your profile settings
+      </Text>
+    </View>
+  ), [styles, colors]);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#1a1a2e', '#0f0f1a']} style={StyleSheet.absoluteFill} />
-
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.content}>
-          {/* Success Animation */}
-          <Animated.View
-            style={[
-              styles.animationContainer,
-              {
-                transform: [{ scale: scaleAnim }],
-                opacity: opacityAnim,
-              },
-            ]}
-          >
-            <LinearGradient colors={GRADIENTS.primary} style={styles.successCircle}>
-              <Ionicons name="checkmark" size={60} color="#fff" />
-            </LinearGradient>
-          </Animated.View>
-
-          {/* Success Message */}
-          <Text style={styles.title}>
-            {trialDays ? 'Trial Started! 🎉' : 'Subscribed! 🎉'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {trialDays
-              ? `Enjoy your ${trialDays}-day free trial`
-              : 'You now have full access to all features'}
-          </Text>
-
-          {/* Subscription Card */}
-          <View style={styles.subscriptionCard}>
-            <View style={styles.cardHeader}>
-              <View style={styles.planBadge}>
-                <Ionicons name="star" size={14} color="#FFD700" />
-                <Text style={styles.planBadgeText}>{PERIOD_TEXT[period]}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.businessName}>{businessName}</Text>
-            <Text style={styles.planName}>{planName}</Text>
-
-            {trialDays && (
-              <View style={styles.trialInfo}>
-                <Ionicons name="gift" size={18} color="#FFD700" />
-                <Text style={styles.trialText}>
-                  {trialDays}-day free trial • Cancel anytime
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.cardDivider} />
-
-            <View style={styles.benefitsList}>
-              <View style={styles.benefitItem}>
-                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                <Text style={styles.benefitText}>Unlimited access to all facilities</Text>
-              </View>
-              <View style={styles.benefitItem}>
-                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                <Text style={styles.benefitText}>Priority booking for classes</Text>
-              </View>
-              <View style={styles.benefitItem}>
-                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                <Text style={styles.benefitText}>Exclusive member discounts</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Info Card */}
-          <View style={styles.infoCard}>
-            <Ionicons name="information-circle" size={20} color={colors.primary} />
-            <Text style={styles.infoText}>
-              You can manage your subscription anytime from your profile settings
-            </Text>
-          </View>
-        </View>
-
-        {/* Actions */}
-        <View style={styles.actions}>
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleViewSubscription}>
-              <Ionicons name="card-outline" size={20} color="#fff" />
-              <Text style={styles.secondaryButtonText}>My Subscriptions</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleShare}>
-              <Ionicons name="share-outline" size={20} color="#fff" />
-              <Text style={styles.secondaryButtonText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handleDone}>
-            <LinearGradient colors={GRADIENTS.primary} style={styles.primaryGradient}>
-              <Text style={styles.primaryButtonText}>Start Exploring</Text>
-              <Ionicons name="arrow-forward" size={20} color="#fff" />
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-
-      {/* Share Modal */}
+    <SuccessScreen
+      title={trialDays ? 'Trial Started! 🎉' : 'Subscribed! 🎉'}
+      subtitle={trialDays ? `Enjoy your ${trialDays}-day free trial` : 'You now have full access to all features'}
+      details={subscriptionCard}
+      extraContent={infoCard}
+      actions={actions}
+    >
       <SharePostModal
         visible={shareModalVisible}
         content={shareContent}
         onClose={() => setShareModalVisible(false)}
       />
-    </View>
+    </SuccessScreen>
   );
 }
 
-const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 40,
-  },
-  animationContainer: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.dark,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: colors.gray,
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  subscriptionCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(14,191,138,0.3)',
-  },
-  cardHeader: {
-    marginBottom: 12,
-  },
-  planBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,215,0,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    gap: 6,
-  },
-  planBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFD700',
-  },
-  businessName: {
-    fontSize: 14,
-    color: colors.gray,
-    marginBottom: 4,
-  },
-  planName: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.dark,
-    marginBottom: 16,
-  },
-  trialInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,215,0,0.1)',
-    padding: 12,
-    borderRadius: 12,
-    gap: 10,
-    marginBottom: 16,
-  },
-  trialText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFD700',
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginBottom: 16,
-  },
-  benefitsList: {
-    gap: 12,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  benefitText: {
-    fontSize: 14,
-    color: colors.grayLight,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(14,191,138,0.1)',
-    padding: 14,
-    borderRadius: 14,
-    gap: 12,
-    width: '100%',
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.primary,
-  },
-  actions: {
-    padding: 20,
-    paddingBottom: 34,
-    gap: 12,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  secondaryButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  primaryButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  primaryGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-});
+const createLocalStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    subscriptionCard: {
+      width: '100%',
+      backgroundColor: 'rgba(255,255,255,0.05)',
+      borderRadius: 24,
+      padding: 24,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(14,191,138,0.3)',
+    },
+    cardHeader: {
+      marginBottom: 12,
+    },
+    planBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      backgroundColor: 'rgba(255,215,0,0.15)',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 10,
+      gap: 6,
+    },
+    planBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#FFD700',
+    },
+    businessName: {
+      fontSize: 14,
+      color: colors.gray,
+      marginBottom: 4,
+    },
+    planName: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: colors.dark,
+      marginBottom: 16,
+    },
+    trialInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,215,0,0.1)',
+      padding: 12,
+      borderRadius: 12,
+      gap: 10,
+      marginBottom: 16,
+    },
+    trialText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: '#FFD700',
+    },
+    cardDivider: {
+      height: 1,
+      backgroundColor: 'rgba(255,255,255,0.1)',
+      marginBottom: 16,
+    },
+    benefitsList: {
+      gap: 12,
+    },
+    benefitItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    benefitText: {
+      fontSize: 14,
+      color: colors.grayLight,
+    },
+    infoCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(14,191,138,0.1)',
+      padding: 14,
+      borderRadius: 14,
+      gap: 12,
+      width: '100%',
+    },
+    infoText: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.primary,
+    },
+  });

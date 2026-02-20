@@ -4,31 +4,22 @@
  * Public — returns business profile with services, schedule, stats
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { getUserFromEvent } from '../utils/auth';
+import { createBusinessHandler } from '../utils/create-business-handler';
 import { isValidUUID } from '../utils/security';
+import { getUserFromEvent } from '../utils/auth';
 
-const log = createLogger('business/profile-get');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
-
-  try {
+const { handler } = createBusinessHandler({
+  loggerName: 'business/profile-get',
+  rateLimitPrefix: 'biz-profile-get',
+  rateLimitMax: 60,
+  skipAuth: true,
+  skipRateLimit: true,
+  onAction: async ({ headers, db, event }) => {
     const businessId = event.pathParameters?.businessId;
 
     if (!businessId || !isValidUUID(businessId)) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Valid businessId is required' }) };
     }
-
-    const db = await getPool();
 
     // Get business profile (include fan_count to avoid separate COUNT query)
     const profileResult = await db.query(
@@ -114,12 +105,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ success: true, business }),
     };
-  } catch (error) {
-    log.error('Failed to get business profile', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-}
+  },
+});
+
+export { handler };

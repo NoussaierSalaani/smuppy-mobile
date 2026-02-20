@@ -4,38 +4,19 @@
  * Records member check-in at a business facility
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { requireRateLimit } from '../utils/rate-limit';
-import { getUserFromEvent } from '../utils/auth';
+import { createBusinessHandler } from '../utils/create-business-handler';
 import { isValidUUID } from '../utils/security';
-
-const log = createLogger('business/log-entry');
 
 interface LogEntryRequest {
   subscriptionId: string;
   businessId: string;
 }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
-
-  try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-log-entry', identifier: user.id, maxRequests: 30 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
+const { handler } = createBusinessHandler({
+  loggerName: 'business/log-entry',
+  rateLimitPrefix: 'biz-log-entry',
+  rateLimitMax: 30,
+  onAction: async ({ headers, user, db, event, log }) => {
     let body: LogEntryRequest;
     try {
       body = JSON.parse(event.body || '{}');
@@ -53,8 +34,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!isValidUUID(subscriptionId) || !isValidUUID(businessId)) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid ID format' }) };
     }
-
-    const db = await getPool();
 
     // Verify the scanner is the business owner
     if (businessId !== user.id) {
@@ -101,12 +80,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ success: true, message: 'Entry logged successfully' }),
     };
-  } catch (error) {
-    log.error('Failed to log entry', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-}
+  },
+});
+
+export { handler };

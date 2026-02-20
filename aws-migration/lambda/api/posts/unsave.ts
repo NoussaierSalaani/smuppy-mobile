@@ -3,64 +3,12 @@
  * Removes a post from user's saved/bookmarks
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { requireRateLimit } from '../utils/rate-limit';
-import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
-import { resolveProfileId } from '../utils/auth';
+import { createSaveHandler } from '../utils/create-save-handler';
 
-const log = createLogger('posts-unsave');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
-    const userId = requireAuth(event, headers);
-    if (isErrorResponse(userId)) return userId;
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'posts-unsave', identifier: userId, maxRequests: 30 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    const postId = validateUUIDParam(event, headers, 'id', 'Post');
-    if (isErrorResponse(postId)) return postId;
-
-    const db = await getPool();
-
-    // Get user's profile ID
-    const profileId = await resolveProfileId(db, userId);
-
-    if (!profileId) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
-      };
-    }
-
-    // Delete the saved post
-    const result = await db.query(
-      'DELETE FROM saved_posts WHERE user_id = $1 AND post_id = $2 RETURNING id',
-      [profileId, postId]
-    );
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        message: result.rows.length > 0 ? 'Post unsaved successfully' : 'Post was not saved',
-        saved: false,
-      }),
-    };
-  } catch (error: unknown) {
-    log.error('Error unsaving post', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+export const handler = createSaveHandler({
+  action: 'unsave',
+  resourceType: 'post',
+  loggerName: 'posts-unsave',
+  rateLimitPrefix: 'posts-unsave',
+  rateLimitMax: 30,
+});

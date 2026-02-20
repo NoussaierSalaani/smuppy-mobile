@@ -3,25 +3,24 @@
  * Confirmation screen after successful channel subscription
  */
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Animated,
   StyleProp,
   ImageStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import OptimizedImage from '../../components/OptimizedImage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import * as Haptics from 'expo-haptics';
+import OptimizedImage from '../../components/OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
+import SuccessScreen from '../../components/SuccessScreen';
+import type { SuccessAction } from '../../components/SuccessScreen';
 
 interface ChannelTier {
   id: string;
@@ -42,23 +41,20 @@ type RouteParams = {
 };
 
 const SubscriptionSuccessScreen = (): React.JSX.Element => {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<{ replace: (screen: string, params?: Record<string, unknown>) => void }>();
   const route = useRoute<RouteProp<RouteParams, 'SubscriptionSuccess'>>();
   const { tier, creator } = route.params;
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { formatAmount: formatCurrencyAmount } = useCurrency();
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const confettiRef = useRef<ConfettiCannon>(null);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const styles = useMemo(() => createLocalStyles(colors), [colors]);
+  const gradientColors = useMemo(() => [colors.primary, colors.cyanBlue] as const, [colors]);
 
   useEffect(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    // Start confetti
     setTimeout(() => {
       confettiRef.current?.start();
     }, 300);
@@ -79,24 +75,97 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleViewChannel = () => {
+  const handleViewChannel = useCallback(() => {
     navigation.replace('UserProfile', { userId: creator.id });
-  };
+  }, [navigation, creator.id]);
 
-  const handleExploreContent = () => {
+  const handleExploreContent = useCallback(() => {
     navigation.replace('Tabs', { screen: 'Home' });
-  };
+  }, [navigation]);
 
-  const handleManageSubscription = () => {
+  const handleManageSubscription = useCallback(() => {
     navigation.replace('Settings', { screen: 'Subscriptions' });
-  };
+  }, [navigation]);
 
-  const renewalDate = new Date();
-  renewalDate.setMonth(renewalDate.getMonth() + 1);
+  const renewalDate = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d;
+  }, []);
+
+  const actions: SuccessAction[] = useMemo(() => [
+    { label: 'View exclusive content', onPress: handleViewChannel, variant: 'primary', icon: 'play-circle' },
+    { label: 'Explore feed', onPress: handleExploreContent, variant: 'secondary' },
+    { label: 'Manage my subscription', onPress: handleManageSubscription, variant: 'link' },
+  ], [handleViewChannel, handleExploreContent, handleManageSubscription]);
+
+  const avatarHero = useMemo(() => (
+    <Animated.View style={[styles.avatarContainer, { transform: [{ scale: scaleAnim }] }]}>
+      <OptimizedImage
+        source={creator.avatar}
+        style={styles.avatar as StyleProp<ImageStyle>}
+        contentFit="cover"
+        priority="high"
+      />
+      <View style={styles.badgeContainer}>
+        <LinearGradient
+          colors={[colors.primary, colors.cyanBlue]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.badge}
+        >
+          <Ionicons name="heart" size={24} color={colors.white} />
+        </LinearGradient>
+      </View>
+    </Animated.View>
+  ), [styles, colors, creator.avatar, scaleAnim]);
+
+  const tierCard = useMemo(() => (
+    <Animated.View style={{ opacity: fadeAnim, width: '100%' }}>
+      <View style={styles.tierCard}>
+        <View style={styles.tierHeader}>
+          <Text style={styles.tierName}>{tier.name}</Text>
+          <Text style={styles.tierPrice}>{formatCurrencyAmount(Math.round(tier.price * 100))}/mo</Text>
+        </View>
+        <View style={styles.perksContainer}>
+          {tier.perks.slice(0, 3).map((perk, index) => (
+            <View key={index} style={styles.perkRow}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+              <Text style={styles.perkText}>{perk}</Text>
+            </View>
+          ))}
+          {tier.perks.length > 3 && (
+            <Text style={styles.morePerks}>+{tier.perks.length - 3} more perks</Text>
+          )}
+        </View>
+      </View>
+    </Animated.View>
+  ), [styles, colors, tier, fadeAnim, formatCurrencyAmount]);
+
+  const renewalCard = useMemo(() => (
+    <Animated.View style={{ opacity: fadeAnim, width: '100%' }}>
+      <View style={styles.renewalCard}>
+        <Ionicons name="calendar-outline" size={20} color={colors.gray} />
+        <Text style={styles.renewalText}>
+          Next renewal on{' '}
+          {renewalDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+        </Text>
+      </View>
+    </Animated.View>
+  ), [styles, colors, renewalDate, fadeAnim]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Confetti */}
+    <SuccessScreen
+      title="Welcome to the community!"
+      subtitle={`You are now subscribed to ${creator.name}`}
+      details={tierCard}
+      extraContent={renewalCard}
+      actions={actions}
+      gradientColors={gradientColors}
+      customHero={avatarHero}
+      centerContent
+      darkBackground={false}
+    >
       <ConfettiCannon
         ref={confettiRef}
         count={100}
@@ -105,243 +174,96 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
         fadeOut
         colors={[colors.primary, colors.cyanBlue, '#EC4899', '#8B5CF6', '#F59E0B']}
       />
-
-      <View style={styles.content}>
-        {/* Creator Avatar with Badge */}
-        <Animated.View style={[styles.avatarContainer, { transform: [{ scale: scaleAnim }] }]}>
-          <OptimizedImage
-            source={creator.avatar}
-            style={styles.avatar as StyleProp<ImageStyle>}
-            contentFit="cover"
-            priority="high"
-          />
-          <View style={styles.badgeContainer}>
-            <LinearGradient
-              colors={[colors.primary, colors.cyanBlue]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.badge}
-            >
-              <Ionicons name="heart" size={24} color={colors.white} />
-            </LinearGradient>
-          </View>
-        </Animated.View>
-
-        <Animated.View style={[styles.textContainer, { opacity: fadeAnim }]}>
-          <Text style={styles.title}>Welcome to the community!</Text>
-          <Text style={styles.subtitle}>
-            You are now subscribed to {creator.name}
-          </Text>
-
-          {/* Tier Info */}
-          <View style={styles.tierCard}>
-            <View style={styles.tierHeader}>
-              <Text style={styles.tierName}>{tier.name}</Text>
-              <Text style={styles.tierPrice}>{formatCurrencyAmount(Math.round(tier.price * 100))}/mo</Text>
-            </View>
-
-            <View style={styles.perksContainer}>
-              {tier.perks.slice(0, 3).map((perk, index) => (
-                <View key={index} style={styles.perkRow}>
-                  <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                  <Text style={styles.perkText}>{perk}</Text>
-                </View>
-              ))}
-              {tier.perks.length > 3 && (
-                <Text style={styles.morePerks}>+{tier.perks.length - 3} more perks</Text>
-              )}
-            </View>
-          </View>
-
-          {/* Renewal Info */}
-          <View style={styles.renewalCard}>
-            <Ionicons name="calendar-outline" size={20} color={colors.gray} />
-            <Text style={styles.renewalText}>
-              Next renewal on{' '}
-              {renewalDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-            </Text>
-          </View>
-        </Animated.View>
-      </View>
-
-      {/* Actions */}
-      <Animated.View style={[styles.actions, { paddingBottom: insets.bottom + 16, opacity: fadeAnim }]}>
-        <TouchableOpacity style={styles.primaryButton} onPress={handleViewChannel}>
-          <LinearGradient
-            colors={[colors.primary, colors.cyanBlue]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.buttonGradient}
-          >
-            <Ionicons name="play-circle" size={22} color={colors.white} />
-            <Text style={styles.primaryButtonText}>View exclusive content</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleExploreContent}>
-          <Text style={styles.secondaryButtonText}>Explore feed</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.linkButton} onPress={handleManageSubscription}>
-          <Text style={styles.linkButtonText}>Manage my subscription</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    </View>
+    </SuccessScreen>
   );
 };
 
-const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  avatarContainer: {
-    marginBottom: 24,
-    position: 'relative',
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: colors.primary,
-  },
-  badgeContainer: {
-    position: 'absolute',
-    bottom: -5,
-    right: -5,
-  },
-  badge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: colors.background,
-  },
-  textContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.white,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.grayLight,
-    textAlign: 'center',
-    marginBottom: 28,
-  },
-  tierCard: {
-    width: '100%',
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 12,
-  },
-  tierHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tierName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  tierPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  perksContainer: {
-    gap: 10,
-  },
-  perkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  perkText: {
-    fontSize: 14,
-    color: colors.grayLight,
-    flex: 1,
-  },
-  morePerks: {
-    fontSize: 13,
-    color: colors.primary,
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  renewalCard: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 12,
-    padding: 14,
-  },
-  renewalText: {
-    fontSize: 14,
-    color: colors.gray,
-  },
-  actions: {
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  primaryButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  buttonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-  },
-  primaryButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  secondaryButton: {
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  linkButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  linkButtonText: {
-    fontSize: 15,
-    color: colors.gray,
-  },
-});
+const createLocalStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    avatarContainer: {
+      marginBottom: 24,
+      position: 'relative',
+    },
+    avatar: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      borderWidth: 4,
+      borderColor: colors.primary,
+    },
+    badgeContainer: {
+      position: 'absolute',
+      bottom: -5,
+      right: -5,
+    },
+    badge: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 3,
+      borderColor: colors.background,
+    },
+    tierCard: {
+      width: '100%',
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 16,
+      padding: 18,
+      marginBottom: 12,
+    },
+    tierHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 14,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    tierName: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.white,
+    },
+    tierPrice: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    perksContainer: {
+      gap: 10,
+    },
+    perkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    perkText: {
+      fontSize: 14,
+      color: colors.grayLight,
+      flex: 1,
+    },
+    morePerks: {
+      fontSize: 13,
+      color: colors.primary,
+      marginTop: 4,
+      fontWeight: '500',
+    },
+    renewalCard: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 12,
+      padding: 14,
+    },
+    renewalText: {
+      fontSize: 14,
+      color: colors.gray,
+    },
+  });
 
 export default SubscriptionSuccessScreen;

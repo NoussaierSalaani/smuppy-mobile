@@ -4,39 +4,18 @@
  * Owner only — sets is_active = false
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { requireRateLimit } from '../utils/rate-limit';
-import { getUserFromEvent } from '../utils/auth';
+import { createBusinessHandler } from '../utils/create-business-handler';
 import { isValidUUID } from '../utils/security';
 
-const log = createLogger('business/services-delete');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
-
-  try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-svc-delete', identifier: user.id, maxRequests: 10 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
+const { handler } = createBusinessHandler({
+  loggerName: 'business/services-delete',
+  rateLimitPrefix: 'biz-svc-delete',
+  rateLimitMax: 10,
+  onAction: async ({ headers, user, db, event, log }) => {
     const serviceId = event.pathParameters?.serviceId;
     if (!serviceId || !isValidUUID(serviceId)) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Valid serviceId is required' }) };
     }
-
-    const db = await getPool();
 
     // Soft delete — set is_active = false (verify ownership)
     const result = await db.query(
@@ -57,12 +36,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ success: true }),
     };
-  } catch (error) {
-    log.error('Failed to delete business service', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-}
+  },
+});
+
+export { handler };

@@ -4,30 +4,14 @@
  * Owner only — returns activities, schedule slots, and tags
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { getUserFromEvent } from '../utils/auth';
+import { createBusinessHandler } from '../utils/create-business-handler';
 
-const log = createLogger('business/program-get');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
-
-  try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
-
-    const db = await getPool();
-
+const { handler } = createBusinessHandler({
+  loggerName: 'business/program-get',
+  rateLimitPrefix: 'biz-program-get',
+  rateLimitMax: 60,
+  skipRateLimit: true,
+  onAction: async ({ headers, user, db }) => {
     const [activitiesResult, slotsResult, tagsResult] = await Promise.all([
       db.query(
         `SELECT id, name, description, category, duration_minutes, max_participants,
@@ -92,12 +76,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         })),
       }),
     };
-  } catch (error) {
-    log.error('Failed to load program', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-}
+  },
+});
+
+export { handler };

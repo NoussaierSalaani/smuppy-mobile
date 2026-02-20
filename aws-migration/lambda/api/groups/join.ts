@@ -3,75 +3,17 @@
  * Join an activity group
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
-import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-import { isValidUUID } from '../utils/security';
-import { requireRateLimit } from '../utils/rate-limit';
-import { resolveProfileId } from '../utils/auth';
+import { cors } from '../utils/cors';
+import { createGroupActionHandler } from '../utils/create-group-action-handler';
 
-const log = createLogger('groups-join');
-const corsHeaders = getSecureHeaders();
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
-  const pool = await getPool();
-  const client = await pool.connect();
-
-  try {
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      return cors({
-        statusCode: 401,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
-    }
-
-    // Rate limit
-    const rateLimitResponse = await requireRateLimit({
-      prefix: 'groups-join',
-      identifier: cognitoSub,
-      windowSeconds: 60,
-      maxRequests: 10,
-    }, corsHeaders);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    const groupId = event.pathParameters?.groupId;
-    if (!groupId || !isValidUUID(groupId)) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
-    }
-
-    // Resolve profile
-    const profileId = await resolveProfileId(client, cognitoSub);
-    if (!profileId) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
-    }
-
-    // Check group exists and is active (include pricing fields for payment check)
-    const groupResult = await client.query(
-      `SELECT id, status, max_participants, current_participants, is_free, price, currency
-       FROM groups WHERE id = $1`,
-      [groupId]
-    );
-
-    if (groupResult.rows.length === 0) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Group not found' }),
-      });
-    }
-
-    const group = groupResult.rows[0];
-
+export const { handler } = createGroupActionHandler({
+  action: 'join',
+  loggerName: 'groups-join',
+  rateLimitPrefix: 'groups-join',
+  rateLimitMax: 10,
+  groupColumns: 'id, status, max_participants, current_participants, is_free, price, currency',
+  onAction: async (client, group, profileId, groupId) => {
+    // Check group is active
     if (group.status !== 'active') {
       return cors({
         statusCode: 400,
@@ -80,14 +22,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Check if paid group — return payment required signal (same pattern as events/join.ts)
-    if (!group.is_free && group.price > 0) {
+    if (!group.is_free && (group.price as number) > 0) {
       return cors({
         statusCode: 200,
         body: JSON.stringify({
           success: true,
           requiresPayment: true,
-          price: typeof group.price === 'number' ? group.price : Number.parseInt(group.price, 10),
-          currency: group.currency || 'EUR',
+          price: typeof group.price === 'number' ? group.price : Number.parseInt(group.price as string, 10),
+          currency: (group.currency as string) || 'EUR',
           message: 'Payment required to join this group',
         }),
       });
@@ -107,8 +49,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       });
     }
 
-    await client.query('BEGIN');
-
     // BUG-2026-02-14: Atomic capacity check + increment to prevent race conditions
     if (group.max_participants) {
       const capacityResult = await client.query(
@@ -118,7 +58,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         [groupId]
       );
       if (capacityResult.rowCount === 0) {
-        await client.query('ROLLBACK');
         return cors({
           statusCode: 400,
           body: JSON.stringify({ success: false, message: 'Group is full' }),
@@ -139,20 +78,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [groupId, profileId]
     );
 
-    await client.query('COMMIT');
-
     return cors({
       statusCode: 200,
       body: JSON.stringify({ success: true, message: 'Joined group successfully' }),
     });
-  } catch (error: unknown) {
-    await client.query('ROLLBACK');
-    log.error('Join group error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({ success: false, message: 'Failed to join group' }),
-    });
-  } finally {
-    client.release();
-  }
-};
+  },
+});

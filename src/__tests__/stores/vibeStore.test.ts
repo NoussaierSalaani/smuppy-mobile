@@ -1,6 +1,7 @@
 /**
  * Vibe Store Tests
- * Tests for vibe score, levels, streaks, and prescriptions
+ * Tests for vibe score, levels, streaks, badges, prescriptions,
+ * ripple, preferences, selectors, and edge cases.
  */
 
 // Mock AsyncStorage before any imports
@@ -8,7 +9,18 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-import { useVibeStore } from '../../stores/vibeStore';
+import {
+  useVibeStore,
+  vibeStore,
+  selectVibeScore,
+  selectVibeLevel,
+  selectCurrentStreak,
+  selectLongestStreak,
+  selectEarnedBadges,
+  selectRippleScore,
+  selectCompletedToday,
+  selectPrescriptionPreferences,
+} from '../../stores/vibeStore';
 
 // Helper to get today's date key (same as store)
 const getTodayKey = (): string => new Date().toISOString().slice(0, 10);
@@ -285,6 +297,363 @@ describe('VibeStore', () => {
     });
   });
 
+  // ==========================================================================
+  // checkBadges
+  // ==========================================================================
+  describe('checkBadges', () => {
+    it('should earn first_post badge after one post action', () => {
+      useVibeStore.getState().addVibeAction('post');
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('first_post');
+    });
+
+    it('should not earn first_post badge with no post actions', () => {
+      useVibeStore.getState().addVibeAction('like');
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).not.toContain('first_post');
+    });
+
+    it('should earn social_butterfly badge after 10 follow_user actions', () => {
+      for (let i = 0; i < 10; i++) {
+        useVibeStore.getState().addVibeAction('follow_user');
+      }
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('social_butterfly');
+    });
+
+    it('should not earn social_butterfly badge with fewer than 10 follow_user actions', () => {
+      for (let i = 0; i < 9; i++) {
+        useVibeStore.getState().addVibeAction('follow_user');
+      }
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).not.toContain('social_butterfly');
+    });
+
+    it('should earn explorer badge after 5 explore_spot actions', () => {
+      for (let i = 0; i < 5; i++) {
+        useVibeStore.getState().addVibeAction('explore_spot');
+      }
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('explorer');
+    });
+
+    it('should earn streak_master badge when currentStreak >= 7', () => {
+      useVibeStore.setState({ currentStreak: 7 });
+      // Need at least one action for checkBadges to read from
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('streak_master');
+    });
+
+    it('should not earn streak_master badge when currentStreak < 7', () => {
+      useVibeStore.setState({ currentStreak: 6 });
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).not.toContain('streak_master');
+    });
+
+    it('should earn wellness_warrior badge after 10 prescription_complete actions', () => {
+      for (let i = 0; i < 10; i++) {
+        useVibeStore.getState().addVibeAction('prescription_complete');
+      }
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('wellness_warrior');
+    });
+
+    it('should earn generous_soul badge after 50 like actions', () => {
+      for (let i = 0; i < 50; i++) {
+        useVibeStore.getState().addVibeAction('like');
+      }
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('generous_soul');
+    });
+
+    it('should earn event_lover badge after 3 join_event actions', () => {
+      for (let i = 0; i < 3; i++) {
+        useVibeStore.getState().addVibeAction('join_event');
+      }
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('event_lover');
+    });
+
+    it('should earn content_sharer badge after 10 share actions', () => {
+      for (let i = 0; i < 10; i++) {
+        useVibeStore.getState().addVibeAction('share');
+      }
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('content_sharer');
+    });
+
+    it('should not duplicate badges when checkBadges is called multiple times', () => {
+      useVibeStore.getState().addVibeAction('post');
+      useVibeStore.getState().checkBadges();
+      useVibeStore.getState().checkBadges();
+      useVibeStore.getState().checkBadges();
+
+      const firstPostCount = useVibeStore.getState().earnedBadges.filter(b => b === 'first_post').length;
+      expect(firstPostCount).toBe(1);
+    });
+
+    it('should earn multiple badges in a single check', () => {
+      // Add enough actions for both first_post and generous_soul
+      useVibeStore.getState().addVibeAction('post');
+      for (let i = 0; i < 50; i++) {
+        useVibeStore.getState().addVibeAction('like');
+      }
+      useVibeStore.getState().checkBadges();
+
+      const badges = useVibeStore.getState().earnedBadges;
+      expect(badges).toContain('first_post');
+      expect(badges).toContain('generous_soul');
+    });
+
+    it('should handle empty action history without errors', () => {
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toEqual([]);
+    });
+
+    it('should preserve previously earned badges', () => {
+      useVibeStore.setState({ earnedBadges: ['first_post'] });
+      useVibeStore.getState().addVibeAction('like');
+      useVibeStore.getState().checkBadges();
+
+      expect(useVibeStore.getState().earnedBadges).toContain('first_post');
+    });
+  });
+
+  // ==========================================================================
+  // updatePreferences
+  // ==========================================================================
+  describe('updatePreferences', () => {
+    it('should update partial preferences', () => {
+      useVibeStore.getState().updatePreferences({ activityLevel: 'high' });
+
+      const prefs = useVibeStore.getState().prescriptionPreferences;
+      expect(prefs.activityLevel).toBe('high');
+      // Other fields should remain at defaults
+      expect(prefs.frequency).toBe('few_times_daily');
+      expect(prefs.outdoorPreference).toBe('weather_permitting');
+    });
+
+    it('should update multiple preferences at once', () => {
+      useVibeStore.getState().updatePreferences({
+        activityLevel: 'low',
+        outdoorPreference: 'never',
+        frequency: 'daily',
+      });
+
+      const prefs = useVibeStore.getState().prescriptionPreferences;
+      expect(prefs.activityLevel).toBe('low');
+      expect(prefs.outdoorPreference).toBe('never');
+      expect(prefs.frequency).toBe('daily');
+    });
+
+    it('should update enabledCategories', () => {
+      useVibeStore.getState().updatePreferences({
+        enabledCategories: ['movement', 'creative'],
+      });
+
+      expect(useVibeStore.getState().prescriptionPreferences.enabledCategories).toEqual([
+        'movement',
+        'creative',
+      ]);
+    });
+
+    it('should update excludedTypes', () => {
+      useVibeStore.getState().updatePreferences({
+        excludedTypes: ['heavy_exercise'],
+      });
+
+      expect(useVibeStore.getState().prescriptionPreferences.excludedTypes).toEqual([
+        'heavy_exercise',
+      ]);
+    });
+
+    it('should preserve existing preferences when updating a single field', () => {
+      const originalPrefs = { ...useVibeStore.getState().prescriptionPreferences };
+      useVibeStore.getState().updatePreferences({ frequency: 'hourly' });
+
+      const prefs = useVibeStore.getState().prescriptionPreferences;
+      expect(prefs.frequency).toBe('hourly');
+      expect(prefs.enabledCategories).toEqual(originalPrefs.enabledCategories);
+      expect(prefs.excludedTypes).toEqual(originalPrefs.excludedTypes);
+      expect(prefs.activityLevel).toBe(originalPrefs.activityLevel);
+      expect(prefs.outdoorPreference).toBe(originalPrefs.outdoorPreference);
+    });
+  });
+
+  // ==========================================================================
+  // Max Vibe Score Cap
+  // ==========================================================================
+  describe('Max Vibe Score Cap', () => {
+    it('should cap vibeScore at 9999', () => {
+      useVibeStore.setState({ vibeScore: 9995 });
+
+      useVibeStore.getState().addVibeAction('post'); // +10 = would be 10005
+
+      expect(useVibeStore.getState().vibeScore).toBe(9999);
+    });
+
+    it('should not exceed 9999 via checkDailyLogin', () => {
+      useVibeStore.setState({
+        vibeScore: 9998,
+        lastLoginDate: getYesterdayKey(),
+        currentStreak: 1,
+      });
+
+      useVibeStore.getState().checkDailyLogin(); // +5 daily_login
+
+      expect(useVibeStore.getState().vibeScore).toBe(9999);
+    });
+
+    it('should not exceed 9999 via completePrescription', () => {
+      useVibeStore.setState({ vibeScore: 9990 });
+
+      useVibeStore.getState().completePrescription('rx-1', 20, 0);
+
+      expect(useVibeStore.getState().vibeScore).toBe(9999);
+    });
+  });
+
+  // ==========================================================================
+  // Selectors
+  // ==========================================================================
+  describe('Selectors', () => {
+    it('selectVibeScore should return vibeScore', () => {
+      useVibeStore.setState({ vibeScore: 42 });
+      expect(selectVibeScore(useVibeStore.getState())).toBe(42);
+    });
+
+    it('selectVibeLevel should return vibeLevel', () => {
+      useVibeStore.setState({ vibeLevel: 'influencer' });
+      expect(selectVibeLevel(useVibeStore.getState())).toBe('influencer');
+    });
+
+    it('selectCurrentStreak should return currentStreak', () => {
+      useVibeStore.setState({ currentStreak: 7 });
+      expect(selectCurrentStreak(useVibeStore.getState())).toBe(7);
+    });
+
+    it('selectLongestStreak should return longestStreak', () => {
+      useVibeStore.setState({ longestStreak: 14 });
+      expect(selectLongestStreak(useVibeStore.getState())).toBe(14);
+    });
+
+    it('selectEarnedBadges should return earnedBadges', () => {
+      useVibeStore.setState({ earnedBadges: ['first_post', 'explorer'] });
+      expect(selectEarnedBadges(useVibeStore.getState())).toEqual(['first_post', 'explorer']);
+    });
+
+    it('selectRippleScore should return rippleScore', () => {
+      useVibeStore.setState({ rippleScore: 55 });
+      expect(selectRippleScore(useVibeStore.getState())).toBe(55);
+    });
+
+    it('selectCompletedToday should return completedToday', () => {
+      useVibeStore.setState({ completedToday: ['rx-1', 'rx-2'] });
+      expect(selectCompletedToday(useVibeStore.getState())).toEqual(['rx-1', 'rx-2']);
+    });
+
+    it('selectPrescriptionPreferences should return prescriptionPreferences', () => {
+      const prefs = useVibeStore.getState().prescriptionPreferences;
+      expect(selectPrescriptionPreferences(useVibeStore.getState())).toBe(prefs);
+    });
+
+    it('selectors should return initial state values', () => {
+      const state = useVibeStore.getState();
+      expect(selectVibeScore(state)).toBe(0);
+      expect(selectVibeLevel(state)).toBe('newcomer');
+      expect(selectCurrentStreak(state)).toBe(0);
+      expect(selectLongestStreak(state)).toBe(0);
+      expect(selectEarnedBadges(state)).toEqual([]);
+      expect(selectRippleScore(state)).toBe(0);
+      expect(selectCompletedToday(state)).toEqual([]);
+    });
+  });
+
+  // ==========================================================================
+  // vibeStore singleton
+  // ==========================================================================
+  describe('vibeStore singleton', () => {
+    it('should reset all state via vibeStore.reset()', () => {
+      useVibeStore.setState({
+        vibeScore: 300,
+        vibeLevel: 'influencer',
+        currentStreak: 10,
+        earnedBadges: ['first_post'],
+        rippleScore: 80,
+        completedToday: ['rx-1'],
+      });
+
+      vibeStore.reset();
+
+      const state = useVibeStore.getState();
+      expect(state.vibeScore).toBe(0);
+      expect(state.vibeLevel).toBe('newcomer');
+      expect(state.currentStreak).toBe(0);
+      expect(state.earnedBadges).toEqual([]);
+      expect(state.rippleScore).toBe(0);
+      expect(state.completedToday).toEqual([]);
+    });
+  });
+
+  // ==========================================================================
+  // Action Points Coverage
+  // ==========================================================================
+  describe('Action Points', () => {
+    it('should award 3 points for share action', () => {
+      useVibeStore.getState().addVibeAction('share');
+      expect(useVibeStore.getState().vibeScore).toBe(3);
+    });
+
+    it('should award 2 points for save action', () => {
+      useVibeStore.getState().addVibeAction('save');
+      expect(useVibeStore.getState().vibeScore).toBe(2);
+    });
+
+    it('should award 15 points for prescription_complete action', () => {
+      useVibeStore.getState().addVibeAction('prescription_complete');
+      expect(useVibeStore.getState().vibeScore).toBe(15);
+    });
+
+    it('should award 8 points for explore_spot action', () => {
+      useVibeStore.getState().addVibeAction('explore_spot');
+      expect(useVibeStore.getState().vibeScore).toBe(8);
+    });
+
+    it('should award 12 points for join_event action', () => {
+      useVibeStore.getState().addVibeAction('join_event');
+      expect(useVibeStore.getState().vibeScore).toBe(12);
+    });
+
+    it('should award 2 points for follow_user action', () => {
+      useVibeStore.getState().addVibeAction('follow_user');
+      expect(useVibeStore.getState().vibeScore).toBe(2);
+    });
+
+    it('should accumulate points from multiple different actions', () => {
+      useVibeStore.getState().addVibeAction('post');      // 10
+      useVibeStore.getState().addVibeAction('like');       // 1
+      useVibeStore.getState().addVibeAction('share');      // 3
+      useVibeStore.getState().addVibeAction('save');       // 2
+
+      expect(useVibeStore.getState().vibeScore).toBe(16);
+    });
+  });
+
+  // ==========================================================================
+  // reset
+  // ==========================================================================
   describe('reset', () => {
     it('should reset all state to initial values', () => {
       // Set various state
@@ -306,6 +675,116 @@ describe('VibeStore', () => {
       expect(state.earnedBadges).toEqual([]);
       expect(state.rippleScore).toBe(0);
       expect(state.completedToday).toEqual([]);
+    });
+
+    it('should reset prescription-related state', () => {
+      useVibeStore.setState({
+        prescriptionStartedAt: Date.now(),
+        rushedToday: 3,
+        completedTodayDate: getTodayKey(),
+      });
+
+      useVibeStore.getState().reset();
+
+      const state = useVibeStore.getState();
+      expect(state.prescriptionStartedAt).toBeNull();
+      expect(state.rushedToday).toBe(0);
+      expect(state.completedTodayDate).toBeNull();
+    });
+
+    it('should reset prescription preferences to defaults', () => {
+      useVibeStore.getState().updatePreferences({
+        activityLevel: 'high',
+        frequency: 'hourly',
+      });
+
+      useVibeStore.getState().reset();
+
+      const prefs = useVibeStore.getState().prescriptionPreferences;
+      expect(prefs.activityLevel).toBe('medium');
+      expect(prefs.frequency).toBe('few_times_daily');
+      expect(prefs.outdoorPreference).toBe('weather_permitting');
+      expect(prefs.enabledCategories).toEqual([
+        'movement', 'mindfulness', 'social', 'creative', 'nutrition',
+      ]);
+    });
+
+    it('should reset ripple history', () => {
+      for (let i = 0; i < 5; i++) {
+        useVibeStore.getState().addRipple(`action-${i}`);
+      }
+      expect(useVibeStore.getState().rippleHistory.length).toBe(5);
+
+      useVibeStore.getState().reset();
+
+      expect(useVibeStore.getState().rippleHistory).toEqual([]);
+    });
+
+    it('should reset lastLoginDate', () => {
+      useVibeStore.getState().checkDailyLogin();
+      expect(useVibeStore.getState().lastLoginDate).not.toBeNull();
+
+      useVibeStore.getState().reset();
+
+      expect(useVibeStore.getState().lastLoginDate).toBeNull();
+    });
+
+    it('should reset longestStreak', () => {
+      useVibeStore.setState({ longestStreak: 30 });
+
+      useVibeStore.getState().reset();
+
+      expect(useVibeStore.getState().longestStreak).toBe(0);
+    });
+  });
+
+  // ==========================================================================
+  // Edge Cases
+  // ==========================================================================
+  describe('Edge Cases', () => {
+    it('should handle completePrescription when prescriptionStartedAt is null (no rush detection)', () => {
+      // Do NOT call startPrescription — prescriptionStartedAt stays null
+      useVibeStore.getState().completePrescription('rx-1', 15, 10);
+
+      // Should get full reward since rush check is skipped when startedAt is null
+      expect(useVibeStore.getState().vibeScore).toBe(15);
+      expect(useVibeStore.getState().rushedToday).toBe(0);
+    });
+
+    it('should set completedTodayDate on completePrescription', () => {
+      useVibeStore.getState().completePrescription('rx-1', 10, 5);
+
+      expect(useVibeStore.getState().completedTodayDate).toBe(getTodayKey());
+    });
+
+    it('should track action history timestamps', () => {
+      const before = Date.now();
+      useVibeStore.getState().addVibeAction('post');
+      const after = Date.now();
+
+      const history = useVibeStore.getState().actionHistory;
+      expect(history[0].timestamp).toBeGreaterThanOrEqual(before);
+      expect(history[0].timestamp).toBeLessThanOrEqual(after);
+    });
+
+    it('should track ripple history timestamps', () => {
+      const before = Date.now();
+      useVibeStore.getState().addRipple('some_action');
+      const after = Date.now();
+
+      const history = useVibeStore.getState().rippleHistory;
+      expect(history[0].timestamp).toBeGreaterThanOrEqual(before);
+      expect(history[0].timestamp).toBeLessThanOrEqual(after);
+      expect(history[0].action).toBe('some_action');
+    });
+
+    it('should handle checkDailyReset when completedTodayDate is null', () => {
+      useVibeStore.getState().checkDailyReset();
+
+      const state = useVibeStore.getState();
+      expect(state.completedToday).toEqual([]);
+      expect(state.rushedToday).toBe(0);
+      expect(state.completedTodayDate).toBe(getTodayKey());
     });
   });
 });

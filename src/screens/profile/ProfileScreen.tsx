@@ -269,7 +269,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       created_at: p.createdAt || new Date().toISOString(),
       peak_duration: p.duration || 15,
       likes_count: p.likesCount,
-      is_liked: p.isLiked || false,
+      is_liked: !!p.isLiked,
       comments_count: p.commentsCount,
       views_count: p.viewsCount,
       author_id: p.authorId || p.author?.id || null,
@@ -1106,7 +1106,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 views: p.views_count || 0,
                 likes: p.likes_count || 0,
                 repliesCount: p.comments_count || 0,
-                isLiked: (p as { is_liked?: boolean }).is_liked || false,
+                isLiked: !!(p as { is_liked?: boolean }).is_liked,
                 isOwnPeak: isOwnProfile,
                 createdAt: p.created_at,
               }));

@@ -517,7 +517,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
           name: resolveDisplayName(p),
           username: p.username || 'user',
           avatar: p.avatar_url || null,
-          isVerified: p.is_verified || false,
+          isVerified: !!p.is_verified,
           accountType: p.account_type || 'personal',
         }));
 

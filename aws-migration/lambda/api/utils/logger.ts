@@ -62,7 +62,7 @@ const currentMinLevel = isProduction ? MIN_LOG_LEVEL.INFO : MIN_LOG_LEVEL.DEBUG;
 function maskPII(obj: unknown, depth = 0): unknown {
   if (depth > 10) return '[MAX_DEPTH]';
 
-  if (obj === null || obj === undefined) return obj;
+  if (obj == null) return obj;
 
   if (typeof obj === 'string') {
     // Strip zero-width characters that could be used to evade masking

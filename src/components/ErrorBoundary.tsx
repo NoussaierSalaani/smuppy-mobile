@@ -83,7 +83,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   render() {
     const { colors: propColors, isDark: _isDark } = this.props;
     const colors = propColors || { background: '#FFFFFF', dark: '#0a252f', gray: '#6b7280', error: '#EF4444', errorLight: '#FEE2E2', primary: '#0EBF8A', white: '#FFFFFF' } as ThemeColors;
-    const styles = createStyles(colors, _isDark || false);
+    const styles = createStyles(colors, !!_isDark);
 
     if (this.state.hasError) {
       // Custom fallback UI from props

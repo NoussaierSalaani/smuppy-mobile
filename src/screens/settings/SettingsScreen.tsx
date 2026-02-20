@@ -100,7 +100,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       setAvatarUrl(avatar);
       setCoverUrl(cover);
       setInterests(userInterests);
-      setIsPrivate(profileData?.is_private || false);
+      setIsPrivate(!!profileData?.is_private);
     } catch {
       const emailPrefix = user?.email?.split('@')[0] || '';
       setDisplayName(resolveDisplayName({
@@ -114,7 +114,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       setAvatarUrl(profileData?.avatar_url || user?.avatar || null);
       setCoverUrl(profileData?.cover_url || null);
       setInterests(profileData?.interests || user?.interests || []);
-      setIsPrivate(profileData?.is_private || false);
+      setIsPrivate(!!profileData?.is_private);
     }
   }, [user, profileData]);
 

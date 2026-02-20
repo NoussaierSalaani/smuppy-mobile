@@ -409,7 +409,7 @@ export const searchProfiles = async (
       data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
       error: null,
       nextCursor: result.nextCursor || null,
-      hasMore: result.hasMore || false,
+      hasMore: !!result.hasMore,
     };
   } catch (error: unknown) {
     return { data: [], error: getErrorMessage(error) };
@@ -1006,7 +1006,7 @@ export const getFollowers = async (userId: string, cursor?: string, limit = 20):
       data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
       error: null,
       nextCursor: result.nextCursor || null,
-      hasMore: result.hasMore || false,
+      hasMore: !!result.hasMore,
     };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
@@ -1023,7 +1023,7 @@ export const getFollowing = async (userId: string, cursor?: string, limit = 20):
       data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
       error: null,
       nextCursor: result.nextCursor || null,
-      hasMore: result.hasMore || false,
+      hasMore: !!result.hasMore,
     };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
@@ -1036,7 +1036,7 @@ export const getFollowing = async (userId: string, cursor?: string, limit = 20):
 export const getFollowersCount = async (userId: string): Promise<{ count: number }> => {
   try {
     const profile = await awsAPI.getProfile(userId);
-    return { count: profile.followersCount || 0 };
+    return { count: profile.followersCount ?? 0 };
   } catch {
     return { count: 0 };
   }
@@ -1048,7 +1048,7 @@ export const getFollowersCount = async (userId: string): Promise<{ count: number
 export const getFollowingCount = async (userId: string): Promise<{ count: number }> => {
   try {
     const profile = await awsAPI.getProfile(userId);
-    return { count: profile.followingCount || 0 };
+    return { count: profile.followingCount ?? 0 };
   } catch {
     return { count: 0 };
   }
@@ -1072,7 +1072,7 @@ export const getPostLikers = async (
       data: result.data.map(p => convertProfile(p)).filter(Boolean) as Profile[],
       error: null,
       nextCursor: result.nextCursor || null,
-      hasMore: result.hasMore || false,
+      hasMore: !!result.hasMore,
     };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };
@@ -1102,7 +1102,7 @@ export const getComments = async (postId: string, cursor?: string, limit = 20): 
       data: comments,
       error: null,
       nextCursor: result.nextCursor || null,
-      hasMore: result.hasMore || false,
+      hasMore: !!result.hasMore,
     };
   } catch (error: unknown) {
     return { data: null, error: getErrorMessage(error), nextCursor: null, hasMore: false };

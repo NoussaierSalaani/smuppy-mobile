@@ -173,7 +173,7 @@ describe('Apple Auth Handler', () => {
 
     it('should return 400 when nonce is missing', async () => {
       // Need to set up Apple token verification first since nonce check happens after verification
-      const { createHash } = require('crypto');
+      const { createHash } = require('node:crypto');
       const hashedNonce = createHash('sha256').update('raw-nonce').digest('hex');
 
       setupAppleTokenVerification({
@@ -221,7 +221,7 @@ describe('Apple Auth Handler', () => {
 
   describe('Happy Path — New User', () => {
     it('should create a new Apple user and return tokens', async () => {
-      const { createHash } = require('crypto');
+      const { createHash } = require('node:crypto');
       const rawNonce = 'raw-nonce-123';
       const hashedNonce = createHash('sha256').update(rawNonce).digest('hex');
 
@@ -272,7 +272,7 @@ describe('Apple Auth Handler', () => {
 
   describe('Happy Path — Existing User', () => {
     it('should authenticate existing Apple user and return tokens', async () => {
-      const { createHash } = require('crypto');
+      const { createHash } = require('node:crypto');
       const rawNonce = 'raw-nonce-existing';
       const hashedNonce = createHash('sha256').update(rawNonce).digest('hex');
 
@@ -380,7 +380,7 @@ describe('Apple Auth Handler', () => {
 
   describe('Cognito Auth Failure', () => {
     it('should return 401 when Cognito auth returns incomplete tokens', async () => {
-      const { createHash } = require('crypto');
+      const { createHash } = require('node:crypto');
       const rawNonce = 'raw-nonce-fail';
       const hashedNonce = createHash('sha256').update(rawNonce).digest('hex');
 

@@ -129,7 +129,7 @@ const PostDetailFanFeedScreen = () => {
             setFanStatus(prev => ({ ...prev, [userId]: false }));
           } else {
             const { following } = await isFollowing(userId);
-            setFanStatus(prev => ({ ...prev, [userId]: following || false }));
+            setFanStatus(prev => ({ ...prev, [userId]: !!following }));
           }
         } finally {
           setFanStatusChecking(prev => ({ ...prev, [userId]: false }));
@@ -319,7 +319,7 @@ const PostDetailFanFeedScreen = () => {
       const newIndex = viewableItems[0].index;
 
       // Do not go above minIndex
-      if (newIndex !== null && newIndex !== undefined && newIndex >= minIndexRef.current) {
+      if (newIndex != null && newIndex >= minIndexRef.current) {
         setCurrentIndex(newIndex);
         // Reset pause & description on scroll
         // Using the setter form to avoid dependency on actions

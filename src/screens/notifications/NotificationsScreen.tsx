@@ -199,7 +199,7 @@ function transformNotification(apiNotif: ApiNotification): Notification {
       id: userData.id || apiNotif.data?.actorId || '',
       name: userName || 'User',
       avatar: userData.avatar || userData.avatarUrl || null,
-      isVerified: userData.isVerified || false,
+      isVerified: !!userData.isVerified,
     },
     message: dynamicMessage,
     isFollowing: apiNotif.data?.isFollowing,

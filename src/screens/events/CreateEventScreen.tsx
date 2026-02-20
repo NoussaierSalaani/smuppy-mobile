@@ -169,7 +169,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const [groupRouteData, setGroupRouteData] = useState<(RouteResult & { start: { lat: number; lng: number }; end: { lat: number; lng: number }; waypoints: { lat: number; lng: number }[]; profile: RouteProfile }) | null>(null);
 
   // Derived: is this a route-type group activity?
-  const isGroupRouteActivity = mode === 'group' && (selectedCategory?.isRouteActivity || false);
+  const isGroupRouteActivity = mode === 'group' && !!selectedCategory?.isRouteActivity;
 
   // Active categories list based on mode
   const activeCategories = mode === 'event' ? EVENT_CATEGORIES : GROUP_CATEGORIES;

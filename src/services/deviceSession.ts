@@ -102,7 +102,7 @@ export async function getUserDevices(): Promise<Record<string, unknown>[]> {
 export async function revokeDeviceSession(sessionId: string): Promise<boolean> {
   try {
     const result = await awsAPI.revokeDeviceSession(sessionId);
-    return result?.success || false;
+    return !!result?.success;
   } catch (error) {
     if (__DEV__) console.warn('[DeviceSession] Revoke error:', error);
     return false;

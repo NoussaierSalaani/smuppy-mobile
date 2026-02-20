@@ -182,7 +182,7 @@ export function usePostDetailActions({
           return;
         }
         const { following } = await isFollowing(currentPost.user.id);
-        if (!cancelled) setIsFan(following || false);
+        if (!cancelled) setIsFan(!!following);
       } catch {
         // Silently handle
       }

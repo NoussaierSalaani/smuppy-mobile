@@ -98,7 +98,7 @@ export const COMPRESSION_PRESETS = {
 const getFileSize = async (uri: string): Promise<number> => {
   try {
     const info = await FileSystem.getInfoAsync(uri);
-    return (info as { size?: number }).size || 0;
+    return (info as { size?: number }).size ?? 0;
   } catch {
     return 0;
   }

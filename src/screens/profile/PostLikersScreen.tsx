@@ -37,7 +37,7 @@ const profileToLiker = (profile: Profile): LikerUser => ({
   name: resolveDisplayName(profile),
   username: `@${profile.username || 'user'}`,
   avatar: profile.avatar_url || null,
-  isVerified: profile.is_verified || false,
+  isVerified: !!profile.is_verified,
   accountType: profile.account_type || 'personal',
 });
 

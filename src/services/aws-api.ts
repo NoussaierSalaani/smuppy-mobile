@@ -376,8 +376,8 @@ class AWSAPIService {
     return {
       data: posts,
       nextCursor: response.nextCursor || null,
-      hasMore: response.hasMore || false,
-      total: response.total || 0,
+      hasMore: !!response.hasMore,
+      total: response.total ?? 0,
     };
   }
 
@@ -507,7 +507,7 @@ class AWSAPIService {
       data: response.followers || [],
       nextCursor: response.cursor,
       hasMore: response.hasMore,
-      total: response.totalCount || 0,
+      total: response.totalCount ?? 0,
     };
   }
 
@@ -527,7 +527,7 @@ class AWSAPIService {
       data: response.following || [],
       nextCursor: response.cursor,
       hasMore: response.hasMore,
-      total: response.totalCount || 0,
+      total: response.totalCount ?? 0,
     };
   }
 
@@ -548,7 +548,7 @@ class AWSAPIService {
     return {
       data: response.data ?? [],
       nextCursor: response.nextCursor || null,
-      hasMore: response.hasMore || false,
+      hasMore: !!response.hasMore,
       total: response.data?.length ?? 0,
     };
   }
@@ -786,7 +786,7 @@ class AWSAPIService {
     return {
       data: response.data || response.notifications || [],
       nextCursor: response.nextCursor ?? response.cursor ?? null,
-      hasMore: response.hasMore || false,
+      hasMore: !!response.hasMore,
       total: 0,
     };
   }

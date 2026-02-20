@@ -310,7 +310,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         likes: p.likesCount || 0,
         createdAt: p.createdAt || new Date().toISOString(),
         expiresAt: p.expiresAt || undefined,
-        isLiked: p.isLiked || false,
+        isLiked: !!p.isLiked,
         isOwnPeak: currentUser?.id != null && (p.authorId === currentUser.id || p.author?.id === currentUser.id),
       };
       setPeaks([fetched]);

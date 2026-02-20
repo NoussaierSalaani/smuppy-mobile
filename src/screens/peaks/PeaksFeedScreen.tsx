@@ -117,7 +117,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
         views: p.viewsCount ?? 0,
         likes: p.likesCount ?? 0,
         createdAt: p.createdAt || new Date().toISOString(),
-        isLiked: p.isLiked || false,
+        isLiked: !!p.isLiked,
         isChallenge: !!p.challenge?.id,
         challengeId: p.challenge?.id,
         challengeTitle: p.challenge?.title,

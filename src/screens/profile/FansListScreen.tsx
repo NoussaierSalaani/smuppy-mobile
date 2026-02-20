@@ -57,7 +57,7 @@ const profileToUser = (
   name: resolveDisplayName(profile),
   username: profile.account_type === 'pro_business' && profile.business_name ? profile.business_name : `@${profile.username || 'user'}`,
   avatar: profile.avatar_url || null,
-  isVerified: profile.is_verified || false,
+  isVerified: !!profile.is_verified,
   accountType: profile.account_type || 'personal',
   isFanOfMe,
   iAmFanOf,

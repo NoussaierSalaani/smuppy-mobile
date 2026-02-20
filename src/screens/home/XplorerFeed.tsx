@@ -1037,7 +1037,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const renderEventDetailPopup = () => {
     if (!selectedMarker || (selectedMarker.category !== 'event' && selectedMarker.category !== 'group')) return null;
     const data = selectedEventData;
-    const isJoined = data?.is_joined || data?.isJoined || false;
+    const isJoined = !!(data?.is_joined || data?.isJoined);
     const coverUrl = data?.cover_image_url || data?.coverImageUrl || selectedMarker.coverImage;
     const eventTitle = sanitizeOptionalText(data?.title || data?.name || selectedMarker.name);
     const location = sanitizeOptionalText(data?.location_name || data?.locationName || data?.address || selectedMarker.address || '');

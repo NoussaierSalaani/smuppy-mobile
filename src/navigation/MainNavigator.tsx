@@ -35,7 +35,7 @@ const fetchBadgeCounts = (): void => {
         if (__DEV__) console.warn('[Badges] msg fetch failed:', error);
         return;
       }
-      const total = data.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      const total = data.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
       if (__DEV__) console.log('[Badges] messages:', total, `(${data.length} convos)`);
       useAppStore.getState().setUnreadMessages(total);
     })
@@ -305,8 +305,8 @@ export default function MainNavigator() {
             coverImage: data.cover_url || null,
             bio: data.bio || '',
             accountType: (data.account_type as 'personal' | 'pro_creator' | 'pro_business') || 'personal',
-            isVerified: data.is_verified || false,
-            isPremium: data.is_premium || false,
+            isVerified: !!data.is_verified,
+            isPremium: !!data.is_premium,
             interests: data.interests || [],
             expertise: data.expertise || [],
             businessName: data.business_name || '',

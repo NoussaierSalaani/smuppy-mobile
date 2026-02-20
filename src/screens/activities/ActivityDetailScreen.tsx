@@ -183,7 +183,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
         response = await awsAPI.getEventDetail(activityId);
         if (response.success && response.event) {
           setActivity(response.event as unknown as Activity);
-          setHasJoined((response.event as unknown as Activity & { is_participating?: boolean }).is_participating || false);
+          setHasJoined(!!(response.event as unknown as Activity & { is_participating?: boolean }).is_participating);
         } else {
           throw new Error(response.message || 'Failed to load event');
         }

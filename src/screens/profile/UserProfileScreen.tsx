@@ -736,7 +736,7 @@ const UserProfileScreen = () => {
           username: profile.username,
           full_name: profile.displayName,
           avatar_url: profile.avatar || '',
-          is_verified: profile.isVerified || false,
+          is_verified: !!profile.isVerified,
           account_type: profile.accountType,
         },
       });
@@ -1059,7 +1059,7 @@ const UserProfileScreen = () => {
                   views: p.views_count || 0,
                   likes: p.likes_count || 0,
                   repliesCount: p.comments_count || 0,
-                  isLiked: (p as { is_liked?: boolean }).is_liked || false,
+                  isLiked: !!(p as { is_liked?: boolean }).is_liked,
                   isOwnPeak: false,
                   createdAt: p.created_at,
                 }));

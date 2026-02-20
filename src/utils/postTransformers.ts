@@ -58,7 +58,7 @@ export const getMediaUrl = (post: Post, fallback: string | null = null): string 
  * Format duration in seconds to MM:SS display string
  */
 export const formatDuration = (seconds: number | string | null | undefined): string | undefined => {
-  if (seconds === undefined || seconds === null) return undefined;
+  if (seconds == null) return undefined;
   const s = typeof seconds === 'string' ? Number.parseInt(seconds, 10) : seconds;
   if (Number.isNaN(s) || s <= 0) return undefined;
   const mins = Math.floor(s / 60);
@@ -181,8 +181,8 @@ export const transformToFanPost = (
       name: resolveDisplayName(post.author),
       username: `@${post.author?.username || 'user'}`,
       avatar: post.author?.avatar_url || null,
-      isVerified: post.author?.is_verified || false,
-      isBot: post.author?.is_bot || false,
+      isVerified: !!post.author?.is_verified,
+      isBot: !!post.author?.is_bot,
       accountType: post.author?.account_type || 'personal',
     },
     caption: getContentText(post),

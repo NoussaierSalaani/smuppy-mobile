@@ -207,7 +207,7 @@ export default function ActivityHistoryScreen(): React.JSX.Element {
       }
 
       cursorRef.current = response.nextCursor || null;
-      setHasMore(response.hasMore || false);
+      setHasMore(!!response.hasMore);
     } catch (err) {
       if (__DEV__) console.warn('Error fetching activity:', err);
     }

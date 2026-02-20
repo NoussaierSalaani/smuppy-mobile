@@ -103,7 +103,7 @@ export default function TipLeaderboard({
           username: item.tipper?.username || item.username || '',
           display_name: item.tipper?.displayName || item.display_name,
           profile_picture_url: item.tipper?.avatarUrl || item.profile_picture_url,
-          is_verified: item.tipper?.isVerified || item.is_verified || false,
+          is_verified: !!(item.tipper?.isVerified || item.is_verified),
           total_tips: item.totalAmount || item.total_tips || 0,
           tip_count: item.tipCount || item.tip_count || 0,
         }));

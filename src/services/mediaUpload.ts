@@ -162,7 +162,7 @@ const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean
 
     const info = await FileSystem.getInfoAsync(uri);
     return {
-      size: (info as { size?: number }).size || 0,
+      size: (info as { size?: number }).size ?? 0,
       exists: info.exists,
     };
   } catch (error) {

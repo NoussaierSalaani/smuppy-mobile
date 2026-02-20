@@ -3,7 +3,7 @@
  * Handles millions of requests with caching, cursor pagination, and feed algorithms
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getPool, SqlParam } from '../../shared/db';
 import { createHeaders } from '../utils/cors';
@@ -43,7 +43,7 @@ async function getRedis(): Promise<Redis | null> {
   return redis;
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
+export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const startTime = Date.now();
   const headers = {
     ...createHeaders(event),
@@ -372,4 +372,4 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     log.error('Error fetching posts', error);
     return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
   }
-};
+}

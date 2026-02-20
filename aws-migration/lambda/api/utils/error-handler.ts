@@ -5,7 +5,7 @@
  * All errors are logged server-side but generic messages are returned to clients
  */
 
-import { APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { createHeaders } from './cors';
 import { createLogger } from './logger';
 
@@ -240,5 +240,38 @@ export function createRateLimitError(
       message: SafeErrorMessages[ErrorCodes.RATE_LIMITED],
       retryAfter: retryAfterSeconds,
     }),
+  };
+}
+
+/**
+ * Wrap a Lambda handler with standardized error handling, CORS headers, and logging.
+ *
+ * The wrapped function receives the raw event plus a context object containing
+ * pre-built CORS headers and a logger instance already initialized from the event.
+ * Any unhandled error is caught, logged server-side, and a generic 500 response
+ * is returned to the client (no internal details leaked).
+ */
+export function withErrorHandler(
+  name: string,
+  fn: (
+    event: APIGatewayProxyEvent,
+    context: { headers: Record<string, string>; log: ReturnType<typeof createLogger> },
+  ) => Promise<APIGatewayProxyResult>,
+): (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult> {
+  return async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const handlerLog = createLogger(name);
+    handlerLog.initFromEvent(event);
+    const headers = createHeaders(event);
+
+    try {
+      return await fn(event, { headers, log: handlerLog });
+    } catch (error: unknown) {
+      handlerLog.error('Handler error', error);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ message: 'Internal server error' }),
+      };
+    }
   };
 }

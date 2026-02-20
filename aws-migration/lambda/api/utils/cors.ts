@@ -88,22 +88,6 @@ export function getSecureHeaders(requestOrigin?: string): Record<string, string>
 }
 
 /**
- * Standard headers for responses
- *
- * @deprecated Use getSecureHeaders(event.headers?.origin) instead for proper CORS handling
- *
- * SECURITY: Production uses fixed origin, non-production allows smuppy.com
- * This is a fallback for backwards compatibility
- */
-export const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': 'https://smuppy.com',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Request-Id',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Credentials': 'true',
-};
-
-/**
  * Create headers with dynamic CORS origin validation
  * Use this function to get proper CORS headers based on request origin
  *
@@ -178,14 +162,3 @@ export function createCacheableHeaders(
   return h;
 }
 
-/**
- * Handle OPTIONS preflight requests
- * @returns 200 response with CORS headers
- */
-export function handleOptions(): { statusCode: number; headers: Record<string, string>; body: string } {
-  return {
-    statusCode: 200,
-    headers: getSecureHeaders(),
-    body: '',
-  };
-}

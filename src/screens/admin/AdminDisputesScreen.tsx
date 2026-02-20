@@ -29,6 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useDataFetch } from '../../hooks';
 import { awsAPI } from '../../services/aws-api';
 import OptimizedImage from '../../components/OptimizedImage';
 import Button from '../../components/Button';
@@ -344,50 +345,47 @@ export default function AdminDisputesScreen() {
   const navigation = useNavigation();
   const { colors } = useTheme();
 
-  const [disputes, setDisputes] = useState<DisputeSummary[]>([]);
-  const [stats, setStats] = useState<DisputeStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState('open');
   const [priorityFilter] = useState('all');
   const [selectedDispute, setSelectedDispute] = useState<DisputeSummary | null>(null);
   const [showResolutionModal, setShowResolutionModal] = useState(false);
 
-  const fetchDisputes = useCallback(async (showLoading = true) => {
-    if (showLoading) setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (priorityFilter !== 'all') params.set('priority', priorityFilter);
-      const queryString = params.toString();
-      const endpoint = queryString ? `/admin/disputes?${queryString}` : '/admin/disputes';
-
-      const response = await awsAPI.request<{
-        success: boolean;
-        disputes: DisputeSummary[];
-        stats: DisputeStats;
-      }>(endpoint, { method: 'GET' });
-
-      if (response?.success) {
-        setDisputes(response.disputes || []);
-        setStats(response.stats || null);
-      }
-    } catch (_err) {
-      Alert.alert('Erreur', 'Impossible de charger les litiges');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  const buildEndpoint = useCallback(() => {
+    const params = new URLSearchParams();
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+    if (priorityFilter !== 'all') params.set('priority', priorityFilter);
+    const queryString = params.toString();
+    return queryString ? `/admin/disputes?${queryString}` : '/admin/disputes';
   }, [statusFilter, priorityFilter]);
 
-  useEffect(() => {
-    fetchDisputes();
-  }, [fetchDisputes]);
+  const { data, isLoading: loading, isRefreshing: refreshing, refresh, reload } = useDataFetch(
+    () => awsAPI.request<{
+      success: boolean;
+      disputes: DisputeSummary[];
+      stats: DisputeStats;
+    }>(buildEndpoint(), { method: 'GET' }),
+    {
+      extractData: (r) => ({
+        disputes: r.disputes || [],
+        stats: r.stats || null,
+      }),
+      defaultValue: { disputes: [] as DisputeSummary[], stats: null as DisputeStats | null },
+    },
+  );
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchDisputes(false);
-  }, [fetchDisputes]);
+  const disputes = data?.disputes ?? [];
+  const stats = data?.stats ?? null;
+
+  // Re-fetch when filters change (skip the initial mount, handled by fetchOnMount)
+  const [filterInitialized, setFilterInitialized] = useState(false);
+  useEffect(() => {
+    if (filterInitialized) {
+      reload();
+    } else {
+      setFilterInitialized(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, priorityFilter]);
 
   const handleDisputePress = useCallback(
     (dispute: DisputeSummary) => {
@@ -417,12 +415,12 @@ export default function AdminDisputesScreen() {
         });
         Alert.alert('Succès', 'Litige résolu avec succès');
         setShowResolutionModal(false);
-        fetchDisputes(false);
+        refresh();
       } catch (_err) {
         Alert.alert('Erreur', 'Échec de la résolution du litige');
       }
     },
-    [selectedDispute, fetchDisputes]
+    [selectedDispute, refresh]
   );
 
   const renderItem = useCallback(
@@ -442,7 +440,7 @@ export default function AdminDisputesScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.dark} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.dark }]}>Admin - Litiges</Text>
-        <TouchableOpacity onPress={() => fetchDisputes()}>
+        <TouchableOpacity onPress={reload}>
           <Ionicons name="refresh" size={22} color={colors.dark} />
         </TouchableOpacity>
       </View>
@@ -515,7 +513,7 @@ export default function AdminDisputesScreen() {
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
           showsVerticalScrollIndicator={false}
         />
       )}

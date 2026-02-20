@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../../hooks/useTheme';
+import { useDataFetch } from '../../hooks/useDataFetch';
 import { awsAPI, NotificationPreferences } from '../../services/aws-api';
 
 const TOGGLE_OPTIONS: { key: keyof NotificationPreferences; label: string }[] = [
@@ -40,36 +41,25 @@ const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenPr
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
 
-  const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULTS);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const { data: loadedPrefs, isLoading: loading, error: loadError, reload: loadPreferences } = useDataFetch(
+    () => awsAPI.request<{ success: boolean; preferences: NotificationPreferences }>(
+      '/notifications/preferences'
+    ),
+    { extractData: (r) => r.preferences, defaultValue: DEFAULTS }
+  );
+
+  const [localPrefs, setLocalPrefs] = useState<NotificationPreferences | null>(null);
+  const prefs = localPrefs ?? loadedPrefs ?? DEFAULTS;
+
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
-  const loadPreferences = useCallback(() => {
-    setLoading(true);
-    setLoadError(false);
-    awsAPI.getNotificationPreferences()
-      .then(data => {
-        if (mountedRef.current) setPrefs(data);
-      })
-      .catch(() => {
-        if (mountedRef.current) setLoadError(true);
-      })
-      .finally(() => {
-        if (mountedRef.current) setLoading(false);
-      });
-  }, []);
-
   useEffect(() => {
-    mountedRef.current = true;
-    loadPreferences();
-
     return () => {
       mountedRef.current = false;
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, [loadPreferences]);
+  }, []);
 
   const persistPreferences = useCallback((updated: Partial<NotificationPreferences>) => {
     if (debounceTimerRef.current) {
@@ -95,17 +85,18 @@ const NotificationSettingsScreen = ({ navigation }: NotificationSettingsScreenPr
       mentions: newValue,
       live: newValue,
     };
-    setPrefs(updated);
+    setLocalPrefs(updated);
     persistPreferences(updated);
   }, [allEnabled, persistPreferences]);
 
   const toggleOne = useCallback((key: keyof NotificationPreferences) => {
-    setPrefs(prev => {
-      const updated = { ...prev, [key]: !prev[key] };
+    setLocalPrefs(prev => {
+      const current = prev ?? loadedPrefs ?? DEFAULTS;
+      const updated = { ...current, [key]: !current[key] };
       persistPreferences({ [key]: updated[key] });
       return updated;
     });
-  }, [persistPreferences]);
+  }, [loadedPrefs, persistPreferences]);
 
   const renderToggle = useCallback((
     label: string,

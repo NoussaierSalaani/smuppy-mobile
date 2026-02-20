@@ -9,7 +9,7 @@
  * - Actions (submit evidence, accept resolution, appeal)
  */
 
-import React, { useCallback, useEffect, useState, memo } from 'react';
+import React, { useCallback, useState, memo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useDataFetch } from '../../hooks/useDataFetch';
 import { validate } from '../../utils/validation';
 import { useUserStore } from '../../stores/userStore';
 import { awsAPI } from '../../services/aws-api';
@@ -420,29 +421,14 @@ export default function DisputeDetailScreen() {
   const user = useUserStore((state) => state.user);
   const { disputeId } = route.params as { disputeId: string };
 
-  const [dispute, setDispute] = useState<DisputeDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: dispute, isLoading: loading, reload: fetchDispute } = useDataFetch(
+    () => awsAPI.request<{ success: boolean; dispute: DisputeDetail }>(
+      `/disputes/${disputeId}`,
+      { method: 'GET' }
+    ),
+    { extractData: (r) => r.dispute }
+  );
   const [, setSubmittingEvidence] = useState(false);
-
-  const fetchDispute = useCallback(async () => {
-    try {
-      const response = await awsAPI.request<{ success: boolean; dispute: DisputeDetail }>(
-        `/disputes/${disputeId}`,
-        { method: 'GET' }
-      );
-      if (response?.success) {
-        setDispute(response.dispute);
-      }
-    } catch (_err) {
-      Alert.alert('Erreur', 'Impossible de charger les détails du litige');
-    } finally {
-      setLoading(false);
-    }
-  }, [disputeId]);
-
-  useEffect(() => {
-    fetchDispute();
-  }, [fetchDispute]);
 
   const handleSubmitEvidence = useCallback(
     async (type: 'screenshot' | 'recording' | 'document' | 'text', data: { url?: string; description: string; textContent?: string }) => {
@@ -556,7 +542,7 @@ export default function DisputeDetailScreen() {
         <View style={styles.loadingContainer}>
           <Text style={{ color: colors.graySecondary, fontSize: 16 }}>Litige introuvable</Text>
           <TouchableOpacity
-            onPress={() => { setLoading(true); fetchDispute(); }}
+            onPress={fetchDispute}
             style={{ marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 8 }}
           >
             <Text style={{ color: '#fff', fontWeight: '600' }}>Réessayer</Text>

@@ -346,7 +346,7 @@ export const handler = withErrorHandler('posts-list', async (event, { headers: b
     // Compound cursor for following feed (deterministic); ms timestamp for other types
     let nextCursor: string | null = null;
     if (hasMore && posts.length > 0) {
-      const lastPost = posts[posts.length - 1] as Record<string, unknown>;
+      const lastPost = posts.at(-1)! as Record<string, unknown>;
       if (type === 'following') {
         nextCursor = `${new Date(lastPost.createdAt as string | number).toISOString()}|${lastPost.id}`;
       } else {

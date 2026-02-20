@@ -91,9 +91,9 @@ function isVariantKey(key: string): boolean {
  */
 function buildVariantKey(originalKey: string, variantName: string, extension: string): string {
   const parts = originalKey.split('/');
-  const filename = parts[parts.length - 1];
+  const filename = parts.at(-1)!;
   const baseName = filename.substring(0, filename.lastIndexOf('.'));
-  const prefix = parts.slice(0, parts.length - 1).join('/');
+  const prefix = parts.slice(0, -1).join('/');
   return `${prefix}/${variantName}/${baseName}${extension}`;
 }
 

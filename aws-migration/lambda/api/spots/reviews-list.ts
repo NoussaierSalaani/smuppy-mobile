@@ -80,7 +80,7 @@ export const handler = withErrorHandler('spots-reviews-list', async (event, { he
   }));
 
   const nextCursor = hasMore && reviews.length > 0
-    ? new Date(reviews[reviews.length - 1].created_at).getTime().toString()
+    ? new Date(reviews.at(-1)!.created_at).getTime().toString()
     : null;
 
   return {

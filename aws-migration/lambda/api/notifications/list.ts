@@ -144,7 +144,7 @@ export const handler = withNotificationContext(
 
     // Generate next cursor
     const nextCursor = hasMore && notifications.length > 0
-      ? new Date(notifications[notifications.length - 1].created_at).getTime().toString()
+      ? new Date(notifications.at(-1)!.created_at).getTime().toString()
       : null;
 
     return {

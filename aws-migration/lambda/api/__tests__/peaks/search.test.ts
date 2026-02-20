@@ -268,7 +268,7 @@ describe('peaks/search handler', () => {
 
       const params = mockPool.query.mock.calls[0][1];
       // Should be 51 (50 + 1 for hasMore)
-      expect(params[params.length - 1]).toBe(51);
+      expect(params.at(-1)!).toBe(51);
     });
   });
 

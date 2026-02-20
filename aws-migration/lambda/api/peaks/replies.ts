@@ -108,7 +108,7 @@ export const handler = withAuthHandler('peaks-replies', async (event, { headers,
 
       return createCorsResponse(200, {
         replies,
-        nextCursor: hasMore ? replies[replies.length - 1].createdAt : null,
+        nextCursor: hasMore ? replies.at(-1)!.createdAt : null,
         hasMore,
         total: replies.length,
       });

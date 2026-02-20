@@ -108,7 +108,7 @@ export const handler = withAuthHandler('conversations-list', async (event, { hea
     body: JSON.stringify({
       success: true,
       conversations,
-      nextCursor: hasMore ? (conversations[conversations.length - 1].last_message_at || conversations[conversations.length - 1].created_at) : null,
+      nextCursor: hasMore ? (conversations.at(-1)!.last_message_at || conversations.at(-1)!.created_at) : null,
       hasMore,
     }),
   };

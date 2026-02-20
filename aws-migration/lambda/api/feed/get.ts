@@ -232,7 +232,7 @@ export const handler = withErrorHandler('feed-get', async (event, { headers, log
         isSaved: savedSet.has(post.id as string),
         author: post.author,
       })),
-      nextCursor: hasMore ? `${posts[posts.length - 1].created_at}|${posts[posts.length - 1].id}` : null,
+      nextCursor: hasMore ? `${posts.at(-1)!.created_at}|${posts.at(-1)!.id}` : null,
       hasMore,
       total: posts.length,
     };

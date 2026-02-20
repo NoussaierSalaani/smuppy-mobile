@@ -419,7 +419,7 @@ describe('disputes/accept-resolution handler', () => {
     it('should call COMMIT after all mutations', async () => {
       await handler(makeEvent(), {} as never, {} as never);
       const queryCalls = mockClient.query.mock.calls.map((c: unknown[]) => c[0]);
-      expect(queryCalls[queryCalls.length - 1]).toBe('COMMIT');
+      expect(queryCalls.at(-1)!).toBe('COMMIT');
     });
 
     it('should UPDATE dispute status to closed', async () => {

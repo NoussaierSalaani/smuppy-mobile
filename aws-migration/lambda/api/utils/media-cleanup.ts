@@ -58,9 +58,9 @@ export function buildS3Keys(urls: string[]): { Key: string }[] {
     // Also include optimised variants
     for (const variant of VARIANT_NAMES) {
       const parts = key.split('/');
-      const filename = parts[parts.length - 1];
+      const filename = parts.at(-1)!;
       const baseName = filename.substring(0, filename.lastIndexOf('.'));
-      const prefix = parts.slice(0, parts.length - 1).join('/');
+      const prefix = parts.slice(0, -1).join('/');
       s3Keys.push({ Key: `${prefix}/${variant}/${baseName}.jpg` });
       s3Keys.push({ Key: `${prefix}/${variant}/${baseName}.webp` });
     }

@@ -133,7 +133,7 @@ async function handleListComments(
     },
   }));
 
-  const nextCursor = comments.length === limit ? comments[comments.length - 1].id : null;
+  const nextCursor = comments.length === limit ? comments.at(-1)!.id : null;
 
   return {
     statusCode: 200,

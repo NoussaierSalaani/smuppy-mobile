@@ -76,7 +76,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // GET /payments/web-checkout/status/{sessionId} - Check payment status
     if (event.httpMethod === 'GET') {
       const pathParts = event.path.split('/').filter(Boolean);
-      const sessionId = pathParts[pathParts.length - 1];
+      const sessionId = pathParts.at(-1)!;
       return await checkSessionStatus(sessionId, user.sub, headers);
     }
 

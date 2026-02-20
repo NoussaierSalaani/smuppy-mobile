@@ -270,7 +270,7 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
     const hasMore = result.rows.length > limit;
     const rows = result.rows.slice(0, limit);
     const nextCursor = hasMore && rows.length > 0
-      ? new Date(rows[rows.length - 1].created_at as string).toISOString()
+      ? new Date(rows.at(-1)!.created_at as string).toISOString()
       : null;
 
     return {

@@ -181,7 +181,7 @@ export function useFilterControls(): FilterControlsReturn {
     if (allFilters.length === 0) return;
 
     if (!activeFilterId) {
-      setFilter(allFilters[allFilters.length - 1].id);
+      setFilter(allFilters.at(-1)!.id);
       return;
     }
 

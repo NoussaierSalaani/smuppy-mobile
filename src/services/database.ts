@@ -880,12 +880,14 @@ export const hasSavedPostsBatch = async (postIds: string[]): Promise<Map<string,
     if (result.saves && typeof result.saves === 'object') {
       return buildMap(result.saves);
     }
-    if (__DEV__)
+    if (__DEV__) {
       console.warn('[hasSavedPostsBatch] Unexpected response:', result);
+    }
     return buildMap();
   } catch (err: unknown) {
-    if (__DEV__)
+    if (__DEV__) {
       console.warn('[hasSavedPostsBatch] Error:', err);
+    }
     return buildMap();
   }
 };

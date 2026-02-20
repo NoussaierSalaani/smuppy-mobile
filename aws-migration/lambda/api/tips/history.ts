@@ -123,7 +123,7 @@ export const handler = withAuthHandler('tips-history', async (event, { headers, 
     }));
 
     const nextCursor = hasMore && rows.length > 0
-      ? new Date(rows[rows.length - 1].created_at as string).toISOString()
+      ? new Date(rows.at(-1)!.created_at as string).toISOString()
       : null;
 
     return {

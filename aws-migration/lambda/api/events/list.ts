@@ -341,7 +341,7 @@ export const handler = withErrorHandler('events-list', async (event, { headers }
           nextCursor: hasMore
             ? isNearbyWithDistance
               ? String((cursor ? Number.parseInt(cursor) || 0 : 0) + limitNum)
-              : `${rows[rows.length - 1].starts_at}|${rows[rows.length - 1].id}`
+              : `${rows.at(-1)!.starts_at}|${rows.at(-1)!.id}`
             : null,
         },
       }),

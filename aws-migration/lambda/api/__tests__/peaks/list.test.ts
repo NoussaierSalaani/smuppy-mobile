@@ -192,7 +192,7 @@ describe('peaks/list handler', () => {
       // The LIMIT parameter should be 51 (50 + 1 for hasMore detection)
       const queryCall = mockDb.query.mock.calls[0];
       const params = queryCall[1];
-      const limitParam = params[params.length - 1];
+      const limitParam = params.at(-1)!;
       expect(limitParam).toBe(51);
     });
   });

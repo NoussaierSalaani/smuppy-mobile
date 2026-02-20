@@ -143,7 +143,7 @@ export const handler = withErrorHandler('comments-list', async (event, { headers
 
     // Generate next cursor
     const nextCursor = hasMore && comments.length > 0
-      ? new Date(comments[comments.length - 1].created_at).getTime().toString()
+      ? new Date(comments.at(-1)!.created_at).getTime().toString()
       : null;
 
     return {

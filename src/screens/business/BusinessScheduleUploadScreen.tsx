@@ -293,7 +293,7 @@ export default function BusinessScheduleUploadScreen({ navigation }: Props) {
   };
 
   const getCategoryInfo = (categoryId?: string) => {
-    return ACTIVITY_CATEGORIES.find((c) => c.id === categoryId) || ACTIVITY_CATEGORIES[ACTIVITY_CATEGORIES.length - 1];
+    return ACTIVITY_CATEGORIES.find((c) => c.id === categoryId) || ACTIVITY_CATEGORIES.at(-1)!;
   };
 
   const getConfidenceColor = (confidence: number) => {

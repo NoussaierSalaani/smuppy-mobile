@@ -217,7 +217,7 @@ export const handler = withErrorHandler('groups-list', async (event, { headers }
     // Compute nextCursor from last row
     let nextCursor: string | null = null;
     if (hasMore && rows.length > 0) {
-      const lastRow = rows[rows.length - 1];
+      const lastRow = rows.at(-1)!;
       if (isNearby) {
         nextCursor = String(cursorOffset + limitNum);
       } else {

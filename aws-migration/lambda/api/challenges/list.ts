@@ -248,13 +248,13 @@ export const handler = withErrorHandler('challenges-list', async (event, { heade
         const nextOffset = trendingOffset + limit;
         nextCursor = nextOffset <= MAX_OFFSET ? String(nextOffset) : null;
       } else if (filter === 'tagged') {
-        const lastRow = rows[rows.length - 1] as Record<string, unknown>;
+        const lastRow = rows.at(-1)! as Record<string, unknown>;
         nextCursor = new Date((lastRow.tag_created_at ?? lastRow.created_at) as string).toISOString();
       } else if (filter === 'responded') {
-        const lastRow = rows[rows.length - 1] as Record<string, unknown>;
+        const lastRow = rows.at(-1)! as Record<string, unknown>;
         nextCursor = new Date((lastRow.response_created_at ?? lastRow.created_at) as string).toISOString();
       } else {
-        const lastRow = rows[rows.length - 1] as Record<string, unknown>;
+        const lastRow = rows.at(-1)! as Record<string, unknown>;
         nextCursor = new Date(lastRow.created_at as string).toISOString();
       }
     }

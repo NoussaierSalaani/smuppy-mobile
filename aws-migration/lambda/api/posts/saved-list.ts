@@ -112,7 +112,7 @@ export const handler = withErrorHandler('posts-saved-list', async (event, { head
     }));
 
     const nextCursor = hasMore && rows.length > 0
-      ? new Date(rows[rows.length - 1].saved_at as string).toISOString()
+      ? new Date(rows.at(-1)!.saved_at as string).toISOString()
       : null;
 
     log.info('Listed saved posts', { profileId: profileId.slice(0, 8) + '***', count: data.length });

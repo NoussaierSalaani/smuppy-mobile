@@ -201,7 +201,7 @@ export const handler = withErrorHandler('peaks-list', async (event, { headers })
 
     // Generate next cursor
     const nextCursor = hasMore && peaks.length > 0
-      ? new Date(peaks[peaks.length - 1].created_at).getTime().toString()
+      ? new Date(peaks.at(-1)!.created_at).getTime().toString()
       : null;
 
     return {

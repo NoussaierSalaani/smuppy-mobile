@@ -3,6 +3,7 @@
  * Accept invitation and join a battle / Start streaming
  */
 
+import { randomInt } from 'node:crypto';
 import { getPool } from '../../shared/db';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 import { withErrorHandler } from '../utils/error-handler';
@@ -202,7 +203,7 @@ export const handler = withErrorHandler('battles-join', async (event, { headers,
         }
 
         // Generate cryptographically random UID for Agora
-        const agoraUid = require('crypto').randomInt(1, 2147483647);
+        const agoraUid = randomInt(1, 2147483647);
 
         // Generate Agora token
         const expirationTimeInSeconds = 3600 * 2; // 2 hours

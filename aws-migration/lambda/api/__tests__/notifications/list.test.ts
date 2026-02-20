@@ -316,7 +316,7 @@ describe('notifications/list handler', () => {
       // The limit param should be capped at 50 + 1 = 51
       const notifQueryCall = mockDb.query.mock.calls[1];
       const queryParams = notifQueryCall[1] as unknown[];
-      const limitParam = queryParams[queryParams.length - 1];
+      const limitParam = queryParams.at(-1)!;
       expect(limitParam).toBe(51); // 50 + 1 for hasMore detection
     });
 

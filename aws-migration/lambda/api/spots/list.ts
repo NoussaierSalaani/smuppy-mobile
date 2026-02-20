@@ -110,7 +110,7 @@ export const handler = withErrorHandler('spots-list', async (event, { headers })
   }));
 
   const nextCursor = hasMore && spots.length > 0
-    ? new Date(spots[spots.length - 1].created_at).getTime().toString()
+    ? new Date(spots.at(-1)!.created_at).getTime().toString()
     : null;
 
   return {

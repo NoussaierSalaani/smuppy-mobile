@@ -88,7 +88,7 @@ export const useFeedStore = create<FeedState>()(
         const uniquePosts = newPosts.filter((p) => !existingIds.has(p.id));
         const combined = [...state.feedCache, ...uniquePosts];
         state.feedCache = combined.length > MAX_FEED_CACHE
-          ? combined.slice(combined.length - MAX_FEED_CACHE)
+          ? combined.slice(-MAX_FEED_CACHE)
           : combined;
       }),
 

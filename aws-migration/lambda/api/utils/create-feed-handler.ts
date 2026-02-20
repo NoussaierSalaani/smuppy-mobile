@@ -233,7 +233,7 @@ export function createFeedHandler(config: FeedHandlerConfig) {
       });
 
       // ── Build next cursor ──────────────────────────────────────
-      const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
+      const lastRow = rows.length > 0 ? rows.at(-1)! : null;
       const nextCursor = hasMore && lastRow
         ? `${lastRow.created_at}|${lastRow.id}`
         : null;

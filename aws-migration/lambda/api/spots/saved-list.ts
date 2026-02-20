@@ -111,7 +111,7 @@ export const handler = withErrorHandler('spots-saved-list', async (event, { head
   }));
 
   const nextCursor = hasMore && spots.length > 0
-    ? new Date(spots[spots.length - 1].saved_at).getTime().toString()
+    ? new Date(spots.at(-1)!.saved_at).getTime().toString()
     : null;
 
   return {

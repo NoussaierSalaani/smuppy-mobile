@@ -218,7 +218,7 @@ describe('posts/saved-list handler', () => {
       const queryCall = mockDb.query.mock.calls[0];
       const params = queryCall[1] as (string | number)[];
       // Last param is limit+1
-      expect(params[params.length - 1]).toBe(6);
+      expect(params.at(-1)!).toBe(6);
     });
 
     it('should cap limit at MAX_LIMIT (50)', async () => {
@@ -233,7 +233,7 @@ describe('posts/saved-list handler', () => {
       const queryCall = mockDb.query.mock.calls[0];
       const params = queryCall[1] as (string | number)[];
       // Should be capped at 50+1 = 51
-      expect(params[params.length - 1]).toBe(51);
+      expect(params.at(-1)!).toBe(51);
     });
   });
 

@@ -360,7 +360,7 @@ describe('profiles/followers handler', () => {
       const followersQueryCall = mockDb.query.mock.calls[1];
       const params = followersQueryCall[1] as unknown[];
       // Last param is limit+1
-      expect(params[params.length - 1]).toBe(51);
+      expect(params.at(-1)!).toBe(51);
     });
 
     it('should use default limit of 20 when not specified', async () => {
@@ -378,7 +378,7 @@ describe('profiles/followers handler', () => {
       const followersQueryCall = mockDb.query.mock.calls[1];
       const params = followersQueryCall[1] as unknown[];
       // Default limit 20 + 1 = 21
-      expect(params[params.length - 1]).toBe(21);
+      expect(params.at(-1)!).toBe(21);
     });
   });
 

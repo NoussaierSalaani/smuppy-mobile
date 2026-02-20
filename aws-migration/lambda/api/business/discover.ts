@@ -165,7 +165,7 @@ export const handler = withErrorHandler('business-discover', async (event, { hea
     if (isGeoSort) {
       nextCursor = String(offsetValue + limit);
     } else {
-      const lastRow = rows[rows.length - 1];
+      const lastRow = rows.at(-1)!;
       nextCursor = `${lastRow.created_at}|${lastRow.id}`;
     }
   }

@@ -303,7 +303,7 @@ describe('comments/list handler', () => {
       expect(commentsQuery).toBeDefined();
       // The last param should be 51 (limit + 1)
       const params = commentsQuery![1] as unknown[];
-      expect(params[params.length - 1]).toBe(51);
+      expect(params.at(-1)!).toBe(51);
     });
   });
 

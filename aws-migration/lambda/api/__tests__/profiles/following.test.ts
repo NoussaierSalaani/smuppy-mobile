@@ -373,7 +373,7 @@ describe('profiles/following handler', () => {
       // Verify the SQL query was called with limit+1=51
       const followingQueryCall = mockDb.query.mock.calls[1];
       const params = followingQueryCall[1] as unknown[];
-      expect(params[params.length - 1]).toBe(51);
+      expect(params.at(-1)!).toBe(51);
     });
 
     it('should use default limit of 20 when not specified', async () => {
@@ -391,7 +391,7 @@ describe('profiles/following handler', () => {
       const followingQueryCall = mockDb.query.mock.calls[1];
       const params = followingQueryCall[1] as unknown[];
       // Default limit 20 + 1 = 21
-      expect(params[params.length - 1]).toBe(21);
+      expect(params.at(-1)!).toBe(21);
     });
   });
 

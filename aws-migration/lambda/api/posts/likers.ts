@@ -118,7 +118,7 @@ export const handler = withAuthHandler('posts-likers', async (event, { headers, 
     const likers = hasMore ? likersResult.rows.slice(0, limit) : likersResult.rows;
 
     const nextCursor = hasMore
-      ? new Date(likers[likers.length - 1].liked_at).getTime().toString()
+      ? new Date(likers.at(-1)!.liked_at).getTime().toString()
       : null;
 
     // Map to camelCase response

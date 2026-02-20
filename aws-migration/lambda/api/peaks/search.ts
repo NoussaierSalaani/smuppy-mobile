@@ -190,7 +190,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }));
 
     const nextCursor = hasMore && peaks.length > 0
-      ? new Date(peaks[peaks.length - 1].createdAt as string).toISOString()
+      ? new Date(peaks.at(-1)!.createdAt as string).toISOString()
       : null;
 
     return response(200, {

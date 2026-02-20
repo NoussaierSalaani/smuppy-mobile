@@ -182,7 +182,7 @@ describe('analytics', () => {
 
       const events = getQueuedEvents();
       expect(events.length).toBeGreaterThanOrEqual(1);
-      const lastEvent = events[events.length - 1];
+      const lastEvent = events.at(-1)!;
       expect(lastEvent.name).toBe('test_event');
       expect(lastEvent.properties.key).toBe('value');
       expect(lastEvent.properties.platform).toBe('ios');

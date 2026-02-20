@@ -179,7 +179,7 @@ export const handler = withErrorHandler('posts-search', async (event, { headers,
       },
     }));
 
-    const nextCursor = hasMore && posts.length > 0 ? String(posts[posts.length - 1].createdAt) : null;
+    const nextCursor = hasMore && posts.length > 0 ? String(posts.at(-1)!.createdAt) : null;
 
     return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=30' }, body: JSON.stringify({ success: true, data: posts, nextCursor, hasMore }) };
 });

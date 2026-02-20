@@ -24,7 +24,7 @@ const maskEmail = (email: string): string => {
   // Mask local part: show first and last char, rest as dots
   const maskedLocal = localPart.length <= 2
     ? '••'
-    : `${localPart[0]}${'•'.repeat(Math.min(localPart.length - 2, 6))}${localPart[localPart.length - 1]}`;
+    : `${localPart[0]}${'•'.repeat(Math.min(localPart.length - 2, 6))}${localPart.at(-1)}`;
 
   // Mask domain name: show first char, rest as dots
   const maskedDomain = domainName.length <= 1

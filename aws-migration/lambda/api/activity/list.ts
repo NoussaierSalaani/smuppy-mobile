@@ -135,7 +135,7 @@ export const handler = withAuthHandler('activity-list', async (event, { headers,
     }));
 
     const nextCursor = hasMore && activities.length > 0
-      ? new Date(activities[activities.length - 1].created_at as string).getTime().toString()
+      ? new Date(activities.at(-1)!.created_at as string).getTime().toString()
       : null;
 
     return {

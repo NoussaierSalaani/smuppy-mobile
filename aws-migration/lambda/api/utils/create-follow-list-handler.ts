@@ -178,7 +178,7 @@ export function createFollowListHandler(config: FollowListConfig) {
 
       // Generate next cursor
       const nextCursor = hasMore && items.length > 0
-        ? new Date(items[items.length - 1].followed_at).getTime().toString()
+        ? new Date(items.at(-1)!.followed_at).getTime().toString()
         : null;
 
       return {

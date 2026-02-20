@@ -94,7 +94,7 @@ export const handler = withErrorHandler('follow-requests-list', async (event, { 
 
   // Generate next cursor
   const nextCursor = hasMore && requests.length > 0
-    ? new Date(requests[requests.length - 1].created_at).getTime().toString()
+    ? new Date(requests.at(-1)!.created_at).getTime().toString()
     : null;
 
   // Extract total from window function (no separate COUNT query needed)

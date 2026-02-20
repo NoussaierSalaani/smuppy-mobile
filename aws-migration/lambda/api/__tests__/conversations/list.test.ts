@@ -295,7 +295,7 @@ describe('conversations/list handler', () => {
       // The query should use limit+1=51 as parameter
       const queryCall = mockDb.query.mock.calls[0];
       const params = queryCall[1] as unknown[];
-      const lastParam = params[params.length - 1];
+      const lastParam = params.at(-1)!;
       expect(lastParam).toBe(51); // 50 + 1
     });
   });

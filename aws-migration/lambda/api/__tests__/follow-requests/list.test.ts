@@ -254,7 +254,7 @@ describe('follow-requests/list handler', () => {
       );
       expect(listQuery).toBeDefined();
       const params = listQuery![1] as unknown[];
-      expect(params[params.length - 1]).toBe(51); // limit + 1
+      expect(params.at(-1)!).toBe(51); // limit + 1
     });
 
     it('should return empty results with totalPending=0', async () => {

@@ -4,30 +4,15 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import {
-  CognitoIdentityProviderClient,
-  AdminCreateUserCommand,
-  AdminSetUserPasswordCommand,
-  AdminInitiateAuthCommand,
-  AdminGetUserCommand,
-  UserNotFoundException,
-} from '@aws-sdk/client-cognito-identity-provider';
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
-import { randomBytes, createHash } from 'crypto';
+import { createHash } from 'crypto';
 import { createHeaders } from '../utils/cors';
 import { createLogger, getRequestId } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
+import { getOrCreateCognitoUser, authenticateUser } from './_shared-social';
 
-const cognitoClient = new CognitoIdentityProviderClient({});
 const log = createLogger('auth/apple');
-
-// Validate required environment variables at module load
-if (!process.env.USER_POOL_ID) throw new Error('USER_POOL_ID environment variable is required');
-if (!process.env.CLIENT_ID) throw new Error('CLIENT_ID environment variable is required');
-
-const USER_POOL_ID = process.env.USER_POOL_ID;
-const CLIENT_ID = process.env.CLIENT_ID;
 
 // Apple's JWKS endpoint
 const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys';
@@ -91,110 +76,6 @@ const verifyAppleToken = async (identityToken: string): Promise<AppleTokenPayloa
   }) as AppleTokenPayload;
 
   return payload;
-};
-
-// Generate a cryptographically secure random password for Cognito user
-const generateSecurePassword = (): string => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  const bytes = randomBytes(32);
-  let password = '';
-  for (let i = 0; i < 32; i++) {
-    password += chars.charAt(bytes[i] % chars.length);
-  }
-  return password;
-};
-
-// Create or get Cognito user
-const getOrCreateCognitoUser = async (
-  appleUserId: string,
-  email?: string
-): Promise<{ userId: string; isNewUser: boolean; password: string }> => {
-  const username = `apple_${appleUserId}`;
-
-  try {
-    // Try to get existing user
-    await cognitoClient.send(
-      new AdminGetUserCommand({
-        UserPoolId: USER_POOL_ID,
-        Username: username,
-      })
-    );
-    // ADMIN_NO_SRP_AUTH requires a known password. Since social-auth users
-    // don't have a user-facing password, we set a transient one each login.
-    // This is the standard Cognito pattern for federated users via Admin API.
-    const newPassword = generateSecurePassword();
-    await cognitoClient.send(
-      new AdminSetUserPasswordCommand({
-        UserPoolId: USER_POOL_ID,
-        Username: username,
-        Password: newPassword,
-        Permanent: true,
-      })
-    );
-    return { userId: username, isNewUser: false, password: newPassword };
-  } catch (error) {
-    if (!(error instanceof UserNotFoundException)) {
-      throw error;
-    }
-  }
-
-  // Create new user
-  const password = generateSecurePassword();
-
-  await cognitoClient.send(
-    new AdminCreateUserCommand({
-      UserPoolId: USER_POOL_ID,
-      Username: username,
-      UserAttributes: [
-        { Name: 'email', Value: email || `${appleUserId}@privaterelay.appleid.com` },
-        { Name: 'email_verified', Value: 'true' },
-      ],
-      MessageAction: 'SUPPRESS', // Don't send welcome email
-    })
-  );
-
-  // Set permanent password
-  await cognitoClient.send(
-    new AdminSetUserPasswordCommand({
-      UserPoolId: USER_POOL_ID,
-      Username: username,
-      Password: password,
-      Permanent: true,
-    })
-  );
-
-  return { userId: username, isNewUser: true, password };
-};
-
-// Authenticate user and get tokens
-const authenticateUser = async (username: string, password: string): Promise<{
-  accessToken: string;
-  idToken: string;
-  refreshToken: string;
-}> => {
-  // Use admin auth with the password we set
-  const authResult = await cognitoClient.send(
-    new AdminInitiateAuthCommand({
-      UserPoolId: USER_POOL_ID,
-      ClientId: CLIENT_ID,
-      AuthFlow: 'ADMIN_NO_SRP_AUTH',
-      AuthParameters: {
-        USERNAME: username,
-        PASSWORD: password,
-      },
-    })
-  );
-
-  const tokens = authResult.AuthenticationResult;
-  if (!tokens?.AccessToken || !tokens.IdToken || !tokens.RefreshToken) {
-    throw new Error('Incomplete token set from Cognito');
-  }
-
-  return {
-    accessToken: tokens.AccessToken,
-    idToken: tokens.IdToken,
-    refreshToken: tokens.RefreshToken,
-  };
 };
 
 export const handler = async (
@@ -268,8 +149,10 @@ export const handler = async (
 
     // Get or create Cognito user
     const { userId, isNewUser, password } = await getOrCreateCognitoUser(
+      'apple',
       applePayload.sub,
-      applePayload.email
+      applePayload.email,
+      'privaterelay.appleid.com',
     );
     log.info('User authenticated', { userId, isNewUser });
 

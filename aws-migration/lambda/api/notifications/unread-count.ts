@@ -5,18 +5,11 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
+import { withErrorHandler } from '../utils/error-handler';
 
-const log = createLogger('notifications-unread-count');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('notifications-unread-count', async (event, { headers }) => {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -56,12 +49,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         unreadCount: Number.parseInt(result.rows[0].count),
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error getting unread count', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

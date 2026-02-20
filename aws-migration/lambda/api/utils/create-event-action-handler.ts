@@ -13,6 +13,7 @@ import {
   createEntityActionHandler,
   EntityRow,
 } from './create-entity-action-handler';
+import { assertSafeColumnList, assertSafeJoinClause } from './sql-identifiers';
 
 /** Re-export for backward compatibility */
 export type EventRow = EntityRow;
@@ -63,6 +64,13 @@ export function createEventActionHandler(config: EventActionConfig) {
     eventJoins,
     onAction,
   } = config;
+
+  // Defense-in-depth: validate config-provided identifiers at factory init time.
+  // These are compile-time constants, never user input.
+  assertSafeColumnList(eventColumns, `${loggerName}.eventColumns`);
+  if (eventJoins) {
+    assertSafeJoinClause(eventJoins, `${loggerName}.eventJoins`);
+  }
 
   const tableRef = eventJoins ? 'events e' : 'events';
   const whereCol = eventJoins ? 'e.id' : 'id';

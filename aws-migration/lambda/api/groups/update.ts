@@ -3,19 +3,13 @@
  * Partial update of a group (creator only)
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { sanitizeInput, isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { resolveProfileId } from '../utils/auth';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
-
-const log = createLogger('groups-update');
-const corsHeaders = getSecureHeaders();
+import { moderateTexts } from '../utils/text-moderation';
 
 const VALID_DIFFICULTIES = ['easy', 'moderate', 'hard', 'expert'];
 
@@ -55,20 +49,18 @@ const ALLOWED_FIELDS: Record<string, UpdateGroupField> = {
   coverImageUrl: { column: 'cover_image_url', maxLength: 2000, type: 'text' },
 };
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('groups-update', async (event, { headers, log }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
     // Rate limit
@@ -77,30 +69,32 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 10,
-    }, corsHeaders);
+    }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check
     const accountCheck = await requireActiveAccount(cognitoSub, {});
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
     const groupId = event.pathParameters?.groupId;
     if (!groupId || !isValidUUID(groupId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     // Resolve profile
     const profileId = await resolveProfileId(client, cognitoSub);
     if (!profileId) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
 
     const body = JSON.parse(event.body || '{}');
@@ -108,10 +102,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Validate difficulty if provided
     if (body.difficulty !== undefined && body.difficulty !== null) {
       if (!VALID_DIFFICULTIES.includes(body.difficulty)) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid difficulty level. Must be one of: easy, moderate, hard, expert' }),
-        });
+        };
       }
     }
 
@@ -119,10 +114,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (body.maxParticipants !== undefined && body.maxParticipants !== null) {
       const maxP = Number(body.maxParticipants);
       if (Number.isNaN(maxP) || maxP < 2 || maxP > 10000) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),
-        });
+        };
       }
     }
 
@@ -130,10 +126,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (body.startsAt !== undefined && body.startsAt !== null) {
       const startDate = new Date(body.startsAt);
       if (Number.isNaN(startDate.getTime())) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid start date' }),
-        });
+        };
       }
     }
 
@@ -141,19 +138,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (body.latitude !== undefined && body.latitude !== null) {
       const lat = Number(body.latitude);
       if (Number.isNaN(lat) || lat < -90 || lat > 90) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid latitude' }),
-        });
+        };
       }
     }
     if (body.longitude !== undefined && body.longitude !== null) {
       const lng = Number(body.longitude);
       if (Number.isNaN(lng) || lng < -180 || lng > 180) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid longitude' }),
-        });
+        };
       }
     }
 
@@ -203,35 +202,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     if (setClauses.length === 0) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'No valid fields to update' }),
-      });
+      };
     }
 
     // Moderate text fields (name and description)
-    const textsToModerate: Array<{ key: string; value: string }> = [];
-    if (body.name && typeof body.name === 'string') textsToModerate.push({ key: 'name', value: body.name });
-    if (body.description && typeof body.description === 'string') textsToModerate.push({ key: 'description', value: body.description });
+    const textsToModerate: string[] = [];
+    if (body.name && typeof body.name === 'string') textsToModerate.push(body.name);
+    if (body.description && typeof body.description === 'string') textsToModerate.push(body.description);
 
-    for (const field of textsToModerate) {
-      const filterResult = await filterText(field.value);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Group update blocked by filter', { userId: cognitoSub.substring(0, 8) + '***', field: field.key });
-        return cors({
-          statusCode: 400,
-          body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }),
-        });
-      }
-      const toxicityResult = await analyzeTextToxicity(field.value);
-      if (toxicityResult.action === 'block') {
-        log.warn('Group update blocked by toxicity', { userId: cognitoSub.substring(0, 8) + '***', field: field.key, category: toxicityResult.topCategory });
-        return cors({
-          statusCode: 400,
-          body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }),
-        });
-      }
-    }
+    const modResult = await moderateTexts(textsToModerate, headers, log, 'group-update');
+    if (modResult.blocked) return modResult.blockResponse!;
 
     // Add updated_at
     setClauses.push('updated_at = NOW()');
@@ -269,15 +253,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         [groupId]
       );
       if (existsResult.rows.length === 0) {
-        return cors({
+        return {
           statusCode: 404,
+          headers,
           body: JSON.stringify({ success: false, message: 'Group not found' }),
-        });
+        };
       }
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({ success: false, message: 'Not authorized to update this group' }),
-      });
+      };
     }
 
     await client.query('COMMIT');
@@ -291,8 +277,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
     const creator = creatorResult.rows[0];
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         group: {
@@ -337,15 +324,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           },
         },
       }),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
-    log.error('Update group error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({ success: false, message: 'Failed to update group' }),
-    });
+    throw error;
   } finally {
     client.release();
   }
-};
+});

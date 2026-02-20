@@ -3,20 +3,14 @@
  * Update an existing event (creator only)
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { MAX_EVENT_TITLE_LENGTH, MIN_EVENT_PARTICIPANTS, MAX_EVENT_PARTICIPANTS } from '../utils/constants';
 import { isValidUUID, sanitizeText } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { resolveProfileId } from '../utils/auth';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
-
-const log = createLogger('events-update');
-const corsHeaders = getSecureHeaders();
+import { moderateTexts } from '../utils/text-moderation';
 
 interface UpdateEventRequest {
   title?: string;
@@ -43,197 +37,194 @@ interface UpdateEventRequest {
   routeWaypoints?: { lat: number; lng: number; name?: string }[];
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('events-update', async (event, { headers, log }) => {
   const pool = await getPool();
 
-  try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return cors({
-        statusCode: 401,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
-    }
-
-    const rateLimitResponse = await requireRateLimit({ prefix: 'event-update', identifier: userId, windowSeconds: 60, maxRequests: 10 }, corsHeaders);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    // Account status check (suspended/banned users cannot update events)
-    const accountCheck = await requireActiveAccount(userId, {});
-    if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
-    }
-
-    const eventId = event.pathParameters?.eventId;
-    if (!eventId || !isValidUUID(eventId)) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
-    }
-
-    // Resolve cognito_sub to profile ID (pre-transaction read via pool)
-    const profileId = await resolveProfileId(pool, userId);
-    if (!profileId) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
-    }
-
-    let body: UpdateEventRequest;
-    try {
-      body = JSON.parse(event.body || '{}');
-    } catch {
-      return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) });
-    }
-
-    // Validate fields if provided
-    if (body.title !== undefined) {
-      if (typeof body.title !== 'string' || body.title.trim().length === 0) {
-        return cors({
-          statusCode: 400,
-          body: JSON.stringify({ success: false, message: 'Title cannot be empty' }),
-        });
-      }
-      if (body.title.length > MAX_EVENT_TITLE_LENGTH) {
-        return cors({
-          statusCode: 400,
-          body: JSON.stringify({ success: false, message: 'Title too long (max 200 characters)' }),
-        });
-      }
-    }
-
-    if (body.maxParticipants !== undefined && (body.maxParticipants < MIN_EVENT_PARTICIPANTS || body.maxParticipants > MAX_EVENT_PARTICIPANTS)) {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),
-      });
-    }
-
-    if (body.latitude !== undefined || body.longitude !== undefined) {
-      const lat = Number(body.latitude);
-      const lng = Number(body.longitude);
-      if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-        return cors({
-          statusCode: 400,
-          body: JSON.stringify({ success: false, message: 'Invalid coordinates' }),
-        });
-      }
-    }
-
-    if (body.startsAt !== undefined) {
-      const startDate = new Date(body.startsAt);
-      if (startDate < new Date()) {
-        return cors({
-          statusCode: 400,
-          body: JSON.stringify({ success: false, message: 'Event start date must be in the future' }),
-        });
-      }
-    }
-
-    // Sanitize text fields
-    const sanitizedTitle = body.title !== undefined ? sanitizeText(body.title, 200) : undefined;
-    const sanitizedDescription = body.description !== undefined ? sanitizeText(body.description, 5000) : undefined;
-    const sanitizedLocationName = body.locationName !== undefined ? sanitizeText(body.locationName, 500) : undefined;
-    const sanitizedAddress = body.address !== undefined ? sanitizeText(body.address, 500) : undefined;
-
-    // Moderation: check title and description for violations
-    const textsToCheck = [sanitizedTitle, sanitizedDescription].filter(Boolean) as string[];
-    for (const text of textsToCheck) {
-      const filterResult = await filterText(text);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Event update text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-      const toxicityResult = await analyzeTextToxicity(text);
-      if (toxicityResult.action === 'block') {
-        log.warn('Event update text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-    }
-
-    // Ownership check: verify event exists and belongs to the user
-    const ownerCheck = await pool.query(
-      `SELECT id, status FROM events WHERE id = $1 AND creator_id = $2`,
-      [eventId, profileId]
-    );
-    if (ownerCheck.rows.length === 0) {
-      return cors({
-        statusCode: 404,
-        body: JSON.stringify({ success: false, message: 'Event not found or you are not the creator' }),
-      });
-    }
-
-    if (ownerCheck.rows[0].status === 'cancelled') {
-      return cors({
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'Cannot update a cancelled event' }),
-      });
-    }
-
-    // Build dynamic UPDATE query with only provided fields
-    const setClauses: string[] = [];
-    const params: (string | number | boolean | Date | string[] | null)[] = [];
-    let paramIndex = 0;
-
-    const addField = (column: string, value: string | number | boolean | Date | string[] | null) => {
-      paramIndex++;
-      setClauses.push(`${column} = $${paramIndex}`);
-      params.push(value);
+  const userId = event.requestContext.authorizer?.claims?.sub;
+  if (!userId) {
+    return {
+      statusCode: 401,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Unauthorized' }),
     };
+  }
 
-    if (sanitizedTitle !== undefined) addField('title', sanitizedTitle);
-    if (sanitizedDescription !== undefined) addField('description', sanitizedDescription);
-    if (sanitizedLocationName !== undefined) addField('location_name', sanitizedLocationName);
-    if (sanitizedAddress !== undefined) addField('address', sanitizedAddress);
-    if (body.latitude !== undefined) addField('latitude', body.latitude);
-    if (body.longitude !== undefined) addField('longitude', body.longitude);
-    if (body.startsAt !== undefined) addField('starts_at', new Date(body.startsAt));
-    if (body.endsAt !== undefined) addField('ends_at', body.endsAt ? new Date(body.endsAt) : null);
-    if (body.timezone !== undefined) addField('timezone', body.timezone);
-    if (body.maxParticipants !== undefined) addField('max_participants', body.maxParticipants);
-    if (body.isFree !== undefined) addField('is_free', body.isFree);
-    if (body.price !== undefined) addField('price', body.price);
-    if (body.currency !== undefined) addField('currency', body.currency);
-    if (body.isPublic !== undefined) addField('is_public', body.isPublic);
-    if (body.isFansOnly !== undefined) addField('is_fans_only', body.isFansOnly);
-    if (body.coverImageUrl !== undefined) addField('cover_image_url', body.coverImageUrl);
-    if (body.images !== undefined) addField('images', body.images);
-    if (body.hasRoute !== undefined) addField('has_route', body.hasRoute);
-    if (body.routeDistanceKm !== undefined) addField('route_distance_km', body.routeDistanceKm);
-    if (body.routeDifficulty !== undefined) addField('route_difficulty', body.routeDifficulty);
-    if (body.routePolyline !== undefined) addField('route_polyline', body.routePolyline);
-    if (body.routeWaypoints !== undefined) addField('route_waypoints', body.routeWaypoints ? JSON.stringify(body.routeWaypoints) : null);
+  const rateLimitResponse = await requireRateLimit({ prefix: 'event-update', identifier: userId, windowSeconds: 60, maxRequests: 10 }, headers);
+  if (rateLimitResponse) return rateLimitResponse;
 
-    // Always update updated_at
-    paramIndex++;
-    setClauses.push(`updated_at = $${paramIndex}`);
-    params.push(new Date());
+  // Account status check (suspended/banned users cannot update events)
+  const accountCheck = await requireActiveAccount(userId, {});
+  if (isAccountError(accountCheck)) {
+    return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
+  }
 
-    if (setClauses.length === 1) {
-      // Only updated_at was added — no actual fields to update
-      return cors({
+  const eventId = event.pathParameters?.eventId;
+  if (!eventId || !isValidUUID(eventId)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
+    };
+  }
+
+  // Resolve cognito_sub to profile ID (pre-transaction read via pool)
+  const profileId = await resolveProfileId(pool, userId);
+  if (!profileId) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Profile not found' }),
+    };
+  }
+
+  let body: UpdateEventRequest;
+  try {
+    body = JSON.parse(event.body || '{}');
+  } catch {
+    return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) };
+  }
+
+  // Validate fields if provided
+  if (body.title !== undefined) {
+    if (typeof body.title !== 'string' || body.title.trim().length === 0) {
+      return {
         statusCode: 400,
-        body: JSON.stringify({ success: false, message: 'No fields to update' }),
-      });
+        headers,
+        body: JSON.stringify({ success: false, message: 'Title cannot be empty' }),
+      };
     }
+    if (body.title.length > MAX_EVENT_TITLE_LENGTH) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Title too long (max 200 characters)' }),
+      };
+    }
+  }
 
-    // Add eventId and creatorId as final params for the WHERE clause
+  if (body.maxParticipants !== undefined && (body.maxParticipants < MIN_EVENT_PARTICIPANTS || body.maxParticipants > MAX_EVENT_PARTICIPANTS)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),
+    };
+  }
+
+  if (body.latitude !== undefined || body.longitude !== undefined) {
+    const lat = Number(body.latitude);
+    const lng = Number(body.longitude);
+    if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Invalid coordinates' }),
+      };
+    }
+  }
+
+  if (body.startsAt !== undefined) {
+    const startDate = new Date(body.startsAt);
+    if (startDate < new Date()) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Event start date must be in the future' }),
+      };
+    }
+  }
+
+  // Sanitize text fields
+  const sanitizedTitle = body.title !== undefined ? sanitizeText(body.title, 200) : undefined;
+  const sanitizedDescription = body.description !== undefined ? sanitizeText(body.description, 5000) : undefined;
+  const sanitizedLocationName = body.locationName !== undefined ? sanitizeText(body.locationName, 500) : undefined;
+  const sanitizedAddress = body.address !== undefined ? sanitizeText(body.address, 500) : undefined;
+
+  // Moderation: check title and description for violations
+  const textsToCheck = [sanitizedTitle, sanitizedDescription].filter(Boolean) as string[];
+  const modResult = await moderateTexts(textsToCheck, headers, log, 'event-update');
+  if (modResult.blocked) return modResult.blockResponse!;
+
+  // Ownership check: verify event exists and belongs to the user
+  const ownerCheck = await pool.query(
+    `SELECT id, status FROM events WHERE id = $1 AND creator_id = $2`,
+    [eventId, profileId]
+  );
+  if (ownerCheck.rows.length === 0) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Event not found or you are not the creator' }),
+    };
+  }
+
+  if (ownerCheck.rows[0].status === 'cancelled') {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Cannot update a cancelled event' }),
+    };
+  }
+
+  // Build dynamic UPDATE query with only provided fields
+  const setClauses: string[] = [];
+  const params: (string | number | boolean | Date | string[] | null)[] = [];
+  let paramIndex = 0;
+
+  const addField = (column: string, value: string | number | boolean | Date | string[] | null) => {
     paramIndex++;
-    const eventIdIdx = paramIndex;
-    params.push(eventId);
+    setClauses.push(`${column} = $${paramIndex}`);
+    params.push(value);
+  };
 
-    paramIndex++;
-    const creatorIdIdx = paramIndex;
-    params.push(profileId);
+  if (sanitizedTitle !== undefined) addField('title', sanitizedTitle);
+  if (sanitizedDescription !== undefined) addField('description', sanitizedDescription);
+  if (sanitizedLocationName !== undefined) addField('location_name', sanitizedLocationName);
+  if (sanitizedAddress !== undefined) addField('address', sanitizedAddress);
+  if (body.latitude !== undefined) addField('latitude', body.latitude);
+  if (body.longitude !== undefined) addField('longitude', body.longitude);
+  if (body.startsAt !== undefined) addField('starts_at', new Date(body.startsAt));
+  if (body.endsAt !== undefined) addField('ends_at', body.endsAt ? new Date(body.endsAt) : null);
+  if (body.timezone !== undefined) addField('timezone', body.timezone);
+  if (body.maxParticipants !== undefined) addField('max_participants', body.maxParticipants);
+  if (body.isFree !== undefined) addField('is_free', body.isFree);
+  if (body.price !== undefined) addField('price', body.price);
+  if (body.currency !== undefined) addField('currency', body.currency);
+  if (body.isPublic !== undefined) addField('is_public', body.isPublic);
+  if (body.isFansOnly !== undefined) addField('is_fans_only', body.isFansOnly);
+  if (body.coverImageUrl !== undefined) addField('cover_image_url', body.coverImageUrl);
+  if (body.images !== undefined) addField('images', body.images);
+  if (body.hasRoute !== undefined) addField('has_route', body.hasRoute);
+  if (body.routeDistanceKm !== undefined) addField('route_distance_km', body.routeDistanceKm);
+  if (body.routeDifficulty !== undefined) addField('route_difficulty', body.routeDifficulty);
+  if (body.routePolyline !== undefined) addField('route_polyline', body.routePolyline);
+  if (body.routeWaypoints !== undefined) addField('route_waypoints', body.routeWaypoints ? JSON.stringify(body.routeWaypoints) : null);
 
-    // Acquire transaction client only after all validation passes
-    const client = await pool.connect();
-    try {
+  // Always update updated_at
+  paramIndex++;
+  setClauses.push(`updated_at = $${paramIndex}`);
+  params.push(new Date());
+
+  if (setClauses.length === 1) {
+    // Only updated_at was added — no actual fields to update
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'No fields to update' }),
+    };
+  }
+
+  // Add eventId and creatorId as final params for the WHERE clause
+  paramIndex++;
+  const eventIdIdx = paramIndex;
+  params.push(eventId);
+
+  paramIndex++;
+  const creatorIdIdx = paramIndex;
+  params.push(profileId);
+
+  // Acquire transaction client only after all validation passes
+  const client = await pool.connect();
+  try {
     await client.query('BEGIN');
 
     const updateResult = await client.query(
@@ -250,10 +241,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     await client.query('COMMIT');
 
     if (updateResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Event not found or you are not the creator' }),
-      });
+      };
     }
 
     const updated = updateResult.rows[0];
@@ -266,8 +258,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
     const creator = creatorResult.rows[0];
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         message: 'Event updated successfully',
@@ -315,21 +308,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           },
         },
       }),
-    });
-    } catch (txError: unknown) {
-      await client.query('ROLLBACK');
-      throw txError;
-    } finally {
-      client.release();
-    }
-  } catch (error: unknown) {
-    log.error('Update event error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to update event',
-      }),
-    });
+    };
+  } catch (txError: unknown) {
+    await client.query('ROLLBACK');
+    throw txError;
+  } finally {
+    client.release();
   }
-};
+});

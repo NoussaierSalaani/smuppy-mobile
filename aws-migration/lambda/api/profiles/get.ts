@@ -5,18 +5,12 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders, createCacheableHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { createCacheableHeaders } from '../utils/cors';
 import { isValidUUID } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
+import { withErrorHandler } from '../utils/error-handler';
 
-const log = createLogger('profiles-get');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('profiles-get', async (event, { headers }) => {
     const profileId = event.pathParameters?.id;
     const username = event.pathParameters?.username;
     const currentUserId = event.requestContext.authorizer?.claims?.sub;
@@ -202,12 +196,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         isFollowedBy,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error getting profile', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

@@ -3,25 +3,20 @@
  * Creates a new post with media support
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { RATE_WINDOW_1_MIN, MAX_POST_CONTENT_LENGTH, MAX_MEDIA_URL_LENGTH } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { checkQuota, deductQuota, getQuotaLimits, isPremiumAccount } from '../utils/upload-quota';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { moderateText } from '../utils/text-moderation';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 
 const lambdaClient = new LambdaClient({});
 const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
-
-const log = createLogger('posts-create');
 
 const MAX_MEDIA_URLS = 10;
 const MAX_TAGGED_USERS = 20;
@@ -38,11 +33,7 @@ interface CreatePostInput {
   videoDuration?: number;
 }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('posts-create', async (event, { headers, log }) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
     if (!cognitoSub) {
@@ -153,37 +144,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ? body.location.replaceAll(/<[^>]*>/g, '').replaceAll(CONTROL_CHARS, '').trim().slice(0, 200) // NOSONAR
       : null;
 
-    // Comprehend flag tracking
+    // Backend content moderation check (keyword filter + Comprehend toxicity)
     let contentFlagged = false;
     let flagCategory: string | null = null;
     let flagScore: number | null = null;
 
-    // Backend content moderation check
     if (sanitizedContent) {
-      const filterResult = await filterText(sanitizedContent);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Content policy violation' }),
-        };
-      }
-
-      // AI toxicity detection (AWS Comprehend)
-      const toxicity = await analyzeTextToxicity(sanitizedContent);
-      if (toxicity.action === 'block') {
-        log.info('Post blocked by Comprehend', { topCategory: toxicity.topCategory, score: toxicity.maxScore });
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Content policy violation' }),
-        };
-      }
-      if (toxicity.action === 'flag') {
-        contentFlagged = true;
-        flagCategory = toxicity.topCategory;
-        flagScore = toxicity.maxScore;
-      }
+      const modResult = await moderateText(sanitizedContent, headers, log, 'post');
+      if (modResult.blocked) return modResult.blockResponse!;
+      contentFlagged = modResult.contentFlagged;
+      flagCategory = modResult.flagCategory;
+      flagScore = modResult.flagScore;
     }
 
     // Check account moderation status
@@ -451,12 +422,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         author,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error creating post', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
-  }
-}
+});

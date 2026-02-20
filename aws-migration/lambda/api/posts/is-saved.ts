@@ -3,20 +3,12 @@
  * Returns whether the current user has saved/bookmarked a post
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('posts-is-saved');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('posts-is-saved', async (event, { headers }) => {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -73,12 +65,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         savedAt: isSaved ? savedResult.rows[0].created_at : null,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error checking saved status', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

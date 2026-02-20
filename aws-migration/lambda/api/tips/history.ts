@@ -3,37 +3,32 @@
  * Get sent/received tips history
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('tips-history');
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('tips-history', async (event, { headers }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
     // Resolve cognito_sub to profile.id
     const profileId = await resolveProfileId(client, cognitoSub);
     if (!profileId) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
 
     const type = event.queryStringParameters?.type || 'received'; // 'sent' or 'received'
@@ -47,7 +42,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (cursor) {
       const parsedDate = new Date(cursor);
       if (Number.isNaN(parsedDate.getTime())) {
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) });
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
       }
       baseParams.push(parsedDate.toISOString());
       cursorCondition = `AND t.created_at < $${baseParams.length}::timestamptz`;
@@ -152,8 +147,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       ? new Date(rows[rows.length - 1].created_at as string).toISOString()
       : null;
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         type,
@@ -166,17 +162,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         nextCursor,
         hasMore,
       }),
-    });
+    };
   } catch (error: unknown) {
-    log.error('Tips history error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to fetch tips history',
-      }),
-    });
+    throw error;
   } finally {
     client.release();
   }
-};
+});

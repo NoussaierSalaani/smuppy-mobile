@@ -7,14 +7,12 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders, createCacheableHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { createCacheableHeaders } from '../utils/cors';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { CACHE_TTL_SHORT, RATE_WINDOW_1_MIN } from '../utils/constants';
 import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('feed-get');
+import { withErrorHandler } from '../utils/error-handler';
 
 let redis: Redis | null = null;
 
@@ -36,11 +34,7 @@ async function getRedis(): Promise<Redis | null> {
   return redis;
 }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('feed-get', async (event, { headers, log }) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
     const cursor = event.queryStringParameters?.cursor;
@@ -261,12 +255,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers: createCacheableHeaders(event, 'private, max-age=30'),
       body: JSON.stringify(response),
     };
-  } catch (error: unknown) {
-    log.error('Error getting feed', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

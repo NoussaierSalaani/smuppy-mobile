@@ -140,7 +140,7 @@ describe('utils/error-handler', () => {
     it('should include debug info in non-production when event has requestId', () => {
       // Default ENVIRONMENT is 'staging' (non-production)
       const event = buildEvent({ requestId: 'req-abc-123' });
-      const result = createErrorResponse(500, ErrorCodes.INTERNAL_ERROR, event as any);
+      const result = createErrorResponse(500, ErrorCodes.INTERNAL_ERROR, event as unknown as APIGatewayProxyEvent);
 
       const body = JSON.parse(result.body);
       expect(body.debug).toBeDefined();
@@ -148,7 +148,7 @@ describe('utils/error-handler', () => {
     });
 
     it('should use safe fallback message for unknown error codes', () => {
-      const result = createErrorResponse(500, 'UNKNOWN_CODE' as any);
+      const result = createErrorResponse(500, 'UNKNOWN_CODE' as unknown as Parameters<typeof createErrorResponse>[1]);
 
       const body = JSON.parse(result.body);
       expect(body.message).toBe('An error occurred');
@@ -401,11 +401,11 @@ describe('utils/error-handler', () => {
 
     it('should provide headers and log in context to the wrapped function', async () => {
       let receivedHeaders: Record<string, string> | undefined;
-      let receivedLog: any;
+      let receivedLog: Record<string, unknown> | undefined;
 
       const wrapped = withErrorHandler('ctx-handler', async (_event, { headers, log }) => {
         receivedHeaders = headers;
-        receivedLog = log;
+        receivedLog = log as unknown as Record<string, unknown>;
         return { statusCode: 200, headers, body: '{}' };
       });
 
@@ -419,8 +419,8 @@ describe('utils/error-handler', () => {
       expect(receivedHeaders).toBeDefined();
       expect(receivedHeaders!['Content-Type']).toBe('application/json');
       expect(receivedLog).toBeDefined();
-      expect(typeof receivedLog.info).toBe('function');
-      expect(typeof receivedLog.error).toBe('function');
+      expect(typeof receivedLog!.info).toBe('function');
+      expect(typeof receivedLog!.error).toBe('function');
     });
 
     it('should call initFromEvent on the logger', async () => {

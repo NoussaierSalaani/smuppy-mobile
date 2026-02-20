@@ -14,6 +14,7 @@ jest.mock('../../utils/logger', () => ({
   })),
 }));
 
+import { Pool, PoolClient } from 'pg';
 import { isBidirectionallyBlocked, blockExclusionSQL, muteExclusionSQL } from '../../utils/block-filter';
 
 // ── Constants ──
@@ -32,7 +33,7 @@ describe('utils/block-filter', () => {
         query: jest.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] }),
       };
 
-      const result = await isBidirectionallyBlocked(mockDb as any, USER_A, USER_B);
+      const result = await isBidirectionallyBlocked(mockDb as unknown as Pool, USER_A, USER_B);
 
       expect(result).toBe(true);
       expect(mockDb.query).toHaveBeenCalledTimes(1);
@@ -43,7 +44,7 @@ describe('utils/block-filter', () => {
         query: jest.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] }),
       };
 
-      const result = await isBidirectionallyBlocked(mockDb as any, USER_A, USER_B);
+      const result = await isBidirectionallyBlocked(mockDb as unknown as Pool, USER_A, USER_B);
 
       expect(result).toBe(true);
     });
@@ -53,7 +54,7 @@ describe('utils/block-filter', () => {
         query: jest.fn().mockResolvedValue({ rows: [] }),
       };
 
-      const result = await isBidirectionallyBlocked(mockDb as any, USER_A, USER_B);
+      const result = await isBidirectionallyBlocked(mockDb as unknown as Pool, USER_A, USER_B);
 
       expect(result).toBe(false);
     });
@@ -63,7 +64,7 @@ describe('utils/block-filter', () => {
         query: jest.fn().mockResolvedValue({ rows: [] }),
       };
 
-      await isBidirectionallyBlocked(mockDb as any, USER_A, USER_B);
+      await isBidirectionallyBlocked(mockDb as unknown as Pool, USER_A, USER_B);
 
       expect(mockDb.query).toHaveBeenCalledWith(
         expect.stringContaining('blocked_users'),
@@ -76,7 +77,7 @@ describe('utils/block-filter', () => {
         query: jest.fn().mockResolvedValue({ rows: [] }),
       };
 
-      await isBidirectionallyBlocked(mockDb as any, USER_A, USER_B);
+      await isBidirectionallyBlocked(mockDb as unknown as Pool, USER_A, USER_B);
 
       const sql = mockDb.query.mock.calls[0][0] as string;
       expect(sql).toContain('$1');
@@ -90,7 +91,7 @@ describe('utils/block-filter', () => {
         query: jest.fn().mockResolvedValue({ rows: [] }),
       };
 
-      await isBidirectionallyBlocked(mockDb as any, USER_A, USER_B);
+      await isBidirectionallyBlocked(mockDb as unknown as Pool, USER_A, USER_B);
 
       const sql = mockDb.query.mock.calls[0][0] as string;
       expect(sql).toContain('LIMIT 1');
@@ -101,7 +102,7 @@ describe('utils/block-filter', () => {
         query: jest.fn().mockResolvedValue({ rows: [] }),
       };
 
-      await isBidirectionallyBlocked(mockDb as any, USER_A, USER_B);
+      await isBidirectionallyBlocked(mockDb as unknown as Pool, USER_A, USER_B);
 
       const sql = mockDb.query.mock.calls[0][0] as string;
       // Should check A->B and B->A
@@ -115,7 +116,7 @@ describe('utils/block-filter', () => {
       };
 
       await expect(
-        isBidirectionallyBlocked(mockDb as any, USER_A, USER_B),
+        isBidirectionallyBlocked(mockDb as unknown as Pool, USER_A, USER_B),
       ).rejects.toThrow('Connection refused');
     });
 
@@ -124,7 +125,7 @@ describe('utils/block-filter', () => {
         query: jest.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] }),
       };
 
-      const result = await isBidirectionallyBlocked(mockClient as any, USER_A, USER_B);
+      const result = await isBidirectionallyBlocked(mockClient as unknown as PoolClient, USER_A, USER_B);
 
       expect(result).toBe(true);
       expect(mockClient.query).toHaveBeenCalledTimes(1);

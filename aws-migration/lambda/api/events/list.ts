@@ -3,24 +3,16 @@
  * Get events with various filters (map, nearby, category, etc.)
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('events-list');
-const corsHeaders = getSecureHeaders();
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('events-list', async (event, { headers }) => {
   // Rate limit: 30 requests per minute per IP (unauthenticated) or user
   const identifier = event.requestContext.authorizer?.claims?.sub ||
                      event.requestContext.identity?.sourceIp || 'unknown';
-  const rateLimitResponse = await requireRateLimit({ prefix: 'events-list', identifier, maxRequests: 30 }, corsHeaders);
+  const rateLimitResponse = await requireRateLimit({ prefix: 'events-list', identifier, maxRequests: 30 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   const pool = await getPool();
@@ -184,7 +176,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Date range filter
     if (startDate) {
       if (Number.isNaN(new Date(startDate).getTime())) {
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid startDate.' }) });
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid startDate.' }) };
       }
       params.push(new Date(startDate));
       query += ` AND e.starts_at >= $${params.length}`;
@@ -192,7 +184,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (endDate) {
       if (Number.isNaN(new Date(endDate).getTime())) {
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid endDate.' }) });
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid endDate.' }) };
       }
       params.push(new Date(endDate));
       query += ` AND e.starts_at <= $${params.length}`;
@@ -224,23 +216,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         // For starts_at order: cursor is "ISO_DATE|UUID"
         const separatorIdx = cursor.indexOf('|');
         if (separatorIdx === -1) {
-          return cors({
+          return {
             statusCode: 400,
+            headers,
             body: JSON.stringify({ success: false, message: 'Invalid cursor format. Expected ISO_DATE|UUID.' }),
-          });
+          };
         }
         const cursorDate = cursor.substring(0, separatorIdx);
         const cursorId = cursor.substring(separatorIdx + 1);
         // Validate UUID format
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(cursorId)) {
-          return cors({
+          return {
             statusCode: 400,
+            headers,
             body: JSON.stringify({ success: false, message: 'Invalid cursor: bad UUID.' }),
-          });
+          };
         }
         if (Number.isNaN(Date.parse(cursorDate))) {
-          return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor: bad date.' }) });
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor: bad date.' }) };
         }
         params.push(cursorDate);
         const cursorDateIdx = params.length;
@@ -333,8 +327,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       userParticipation: userParticipation[row.id as string] || null,
     }));
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         filter,
@@ -349,17 +344,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             : null,
         },
       }),
-    });
-  } catch (error: unknown) {
-    log.error('List events error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to fetch events',
-      }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

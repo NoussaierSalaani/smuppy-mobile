@@ -3,20 +3,12 @@
  * Returns whether the current user is following the target user
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
+import { withErrorHandler } from '../utils/error-handler';
 
-const log = createLogger('profiles-is-following');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('profiles-is-following', async (event, { headers, log }) => {
     const currentUserId = event.requestContext.authorizer?.claims?.sub;
 
     if (!currentUserId) {
@@ -68,12 +60,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         status: result.rows.length > 0 ? result.rows[0].status : null,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error checking follow status', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

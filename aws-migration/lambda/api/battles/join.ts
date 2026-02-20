@@ -3,32 +3,24 @@
  * Accept invitation and join a battle / Start streaming
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 
-const log = createLogger('battles-join');
-const corsHeaders = getSecureHeaders();
-
 const AGORA_APP_ID = process.env.AGORA_APP_ID ?? '';
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE ?? '';
-
-if (!AGORA_APP_ID || !AGORA_APP_CERTIFICATE) {
-  log.error('Missing AGORA_APP_ID or AGORA_APP_CERTIFICATE environment variables');
-}
 
 interface JoinBattleRequest {
   action: 'accept' | 'decline' | 'start' | 'leave';
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
+export const handler = withErrorHandler('battles-join', async (event, { headers, log }) => {
+  if (!AGORA_APP_ID || !AGORA_APP_CERTIFICATE) {
+    log.error('Missing AGORA_APP_ID or AGORA_APP_CERTIFICATE environment variables');
+  }
 
   const pool = await getPool();
   const client = await pool.connect();
@@ -36,38 +28,41 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
     // Rate limit: 20 battle actions per minute
-    const rateLimitResponse = await requireRateLimit({ prefix: 'battle-join', identifier: userId, windowSeconds: 60, maxRequests: 20 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'battle-join', identifier: userId, windowSeconds: 60, maxRequests: 20 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot join battles)
     const accountCheck = await requireActiveAccount(userId, {});
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
     const battleId = event.pathParameters?.battleId;
     if (!battleId || !isValidUUID(battleId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     const body: JoinBattleRequest = JSON.parse(event.body || '{}');
     const { action } = body;
 
     if (!['accept', 'decline', 'start', 'leave'].includes(action)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid action' }),
-      });
+      };
     }
 
     // Get user profile
@@ -76,10 +71,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [userId]
     );
     if (profileResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'User profile not found' }),
-      });
+      };
     }
     const profileId = profileResult.rows[0].id;
 
@@ -91,10 +87,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (battleResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Battle not found' }),
-      });
+      };
     }
 
     const battle = battleResult.rows[0];
@@ -108,13 +105,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (participantResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'You are not a participant in this battle',
         }),
-      });
+      };
     }
 
     const participant = participantResult.rows[0];
@@ -127,13 +125,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     switch (action) {
       case 'accept':
         if (participant.status !== 'invited') {
-          return cors({
+          return {
             statusCode: 400,
+            headers,
             body: JSON.stringify({
               success: false,
               message: 'Invitation already processed',
             }),
-          });
+          };
         }
 
         await client.query(
@@ -159,13 +158,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       case 'decline':
         if (participant.status !== 'invited') {
-          return cors({
+          return {
             statusCode: 400,
+            headers,
             body: JSON.stringify({
               success: false,
               message: 'Invitation already processed',
             }),
-          });
+          };
         }
 
         await client.query(
@@ -191,13 +191,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       case 'start': {
         if (participant.status !== 'accepted' && participant.status !== 'joined') {
-          return cors({
+          return {
             statusCode: 400,
+            headers,
             body: JSON.stringify({
               success: false,
               message: 'You must accept the invitation first',
             }),
-          });
+          };
         }
 
         // Generate cryptographically random UID for Agora
@@ -283,21 +284,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     await client.query('COMMIT');
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify(response),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
     log.error('Join battle error', error);
-    return cors({
+    return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({
         success: false,
         message: 'Failed to process action',
       }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

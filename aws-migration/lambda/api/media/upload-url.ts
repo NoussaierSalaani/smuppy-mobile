@@ -13,14 +13,11 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomBytes } from 'crypto';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
+import { withErrorHandler } from '../utils/error-handler';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS } from '../utils/constants';
 import { getPool } from '../../shared/db';
 import { checkQuota, getQuotaLimits } from '../utils/upload-quota';
-
-const log = createLogger('media-upload-url');
 
 const s3Client = new S3Client({
   requestChecksumCalculation: 'WHEN_REQUIRED',
@@ -107,13 +104,7 @@ function getUploadPath(userId: string, uploadType: string, filename: string): st
   }
 }
 
-export async function handler(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('media-upload-url', async (event, { headers, log }) => {
     // Get user ID from Cognito authorizer
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
@@ -316,12 +307,4 @@ export async function handler(
         ...(quotaInfo && { quotaInfo }),
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error generating upload URL', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Failed to generate upload URL' }),
-    };
-  }
-}
+});

@@ -4,24 +4,16 @@
  * Actions: 'save_to_profile' (keep permanently) or 'dismiss' (mark as dismissed)
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { resolveProfileId } from '../utils/auth';
 import { checkRateLimit } from '../utils/rate-limit';
 
-const log = createLogger('peaks-save-decision');
-
 const VALID_ACTIONS = ['save_to_profile', 'dismiss'] as const;
 type SaveAction = typeof VALID_ACTIONS[number];
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('peaks-save-decision', async (event, { headers, log }) => {
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
 
@@ -126,12 +118,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } finally {
       client.release();
     }
-  } catch (error: unknown) {
-    log.error('Error processing peak save decision', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

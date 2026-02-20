@@ -59,6 +59,9 @@
     "testMatch": [
       "**/*.test.ts"
     ],
+    "transform": {
+      "^.+\\.ts$": ["ts-jest", { "diagnostics": false }]
+    },
     "collectCoverageFrom": [
       "**/*.ts",
       "!**/*.d.ts",

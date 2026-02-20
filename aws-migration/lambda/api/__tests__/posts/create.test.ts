@@ -556,7 +556,6 @@ describe('posts/create handler', () => {
 
       expect(result.statusCode).toBe(500);
       const body = JSON.parse(result.body);
-      expect(body.success).toBe(false);
       expect(body.message).toBe('Internal server error');
     });
 

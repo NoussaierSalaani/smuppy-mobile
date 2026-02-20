@@ -5,6 +5,7 @@
 
 import { createFollowRequestHandler } from '../utils/create-follow-request-handler';
 import { sendPushToUser } from '../services/push-notification';
+import { isBidirectionallyBlocked } from '../utils/block-filter';
 import { createLogger } from '../utils/logger';
 import { RATE_WINDOW_30S } from '../utils/constants';
 
@@ -25,13 +26,7 @@ export const handler = createFollowRequestHandler({
     }
 
     // BUG-2026-02-14: Check bidirectional block INSIDE transaction to prevent TOCTOU race
-    const blockCheck = await client.query(
-      `SELECT 1 FROM blocked_users
-       WHERE (blocker_id = $1 AND blocked_id = $2)
-          OR (blocker_id = $2 AND blocked_id = $1)`,
-      [profileId, request.requester_id],
-    );
-    if (blockCheck.rows.length > 0) {
+    if (await isBidirectionallyBlocked(client, profileId, request.requester_id)) {
       return {
         statusCode: 403,
         headers,

@@ -78,15 +78,12 @@ export function validateSubscriptionId(
 
 // ── Ownership query ──────────────────────────────────────────────────
 
-/** Columns that callers are allowed to request beyond the base set. */
-const ALLOWED_EXTRA_COLUMNS = new Set([
-  'current_period_end',
-  'current_period_start',
-  'created_at',
-  'updated_at',
-]);
-
-const BASE_COLUMNS = 'id, user_id, stripe_subscription_id, status, cancel_at_period_end';
+const OWNED_SUBSCRIPTION_SELECT = `
+  SELECT id, user_id, stripe_subscription_id, status, cancel_at_period_end,
+         current_period_end, current_period_start, created_at, updated_at
+  FROM business_subscriptions
+  WHERE id = $1
+`;
 
 /**
  * Get a subscription by ID and verify ownership.
@@ -102,17 +99,9 @@ export async function getOwnedSubscription(
   headers: Record<string, string>,
   extraColumns?: string[]
 ): Promise<APIGatewayProxyResult | Record<string, unknown>> {
-  let columns = BASE_COLUMNS;
-  if (extraColumns && extraColumns.length > 0) {
-    const safe = extraColumns.filter(col => ALLOWED_EXTRA_COLUMNS.has(col));
-    if (safe.length > 0) {
-      columns += `, ${safe.join(', ')}`;
-    }
-  }
-  const result = await db.query(
-    `SELECT ${columns} FROM business_subscriptions WHERE id = $1`,
-    [subscriptionId]
-  );
+  void extraColumns; // preserved for backward compatibility; query is fixed to avoid SQL injection
+
+  const result = await db.query(OWNED_SUBSCRIPTION_SELECT, [subscriptionId]);
 
   if (result.rows.length === 0) {
     return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Subscription not found' }) };

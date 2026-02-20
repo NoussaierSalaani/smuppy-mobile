@@ -4,20 +4,12 @@
  * Only returns peaks owned by the authenticated user where saved_to_profile IS NULL
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireAuth, isErrorResponse } from '../utils/validators';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('peaks-expired');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('peaks-expired', async (event, { headers }) => {
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
 
@@ -76,12 +68,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         total: formattedPeaks.length,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error fetching expired peaks', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

@@ -5,19 +5,12 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { withErrorHandler } from '../utils/error-handler';
 
-const log = createLogger('comments-list');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('comments-list', async (event, { headers }) => {
     const postId = event.pathParameters?.id;
     if (!postId) {
       return {
@@ -162,12 +155,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         hasMore,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error listing comments', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

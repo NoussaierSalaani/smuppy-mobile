@@ -3,22 +3,14 @@
  * Returns the user's own actions (likes, follows, comments) with cursor pagination
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
-
-const log = createLogger('activity-list');
+import { withErrorHandler } from '../utils/error-handler';
 
 const VALID_TYPES = new Set(['post_like', 'peak_like', 'follow', 'comment', 'peak_comment']);
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('activity-list', async (event, { headers, log }) => {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -182,12 +174,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         hasMore,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error listing activity', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

@@ -5,20 +5,13 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('posts-saved-list');
+import { withErrorHandler } from '../utils/error-handler';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('posts-saved-list', async (event, { headers, log }) => {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -129,12 +122,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ success: true, data, nextCursor, hasMore }),
     };
-  } catch (error: unknown) {
-    log.error('Error listing saved posts', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

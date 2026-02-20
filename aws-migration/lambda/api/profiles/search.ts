@@ -3,26 +3,18 @@
  * Full-text search for user profiles
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
 import { extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('profiles-search');
+import { withErrorHandler } from '../utils/error-handler';
 
 // Rate limit: 60 requests per minute per IP (generous for search)
 const RATE_LIMIT = 60;
 const RATE_WINDOW_SECONDS = 60;
 const MAX_OFFSET = 500;
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('profiles-search', async (event, { headers, log }) => {
     // Rate limiting by IP address
     const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
     const { allowed, retryAfter } = await checkRateLimit({
@@ -183,12 +175,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ data: profiles, nextCursor, hasMore }),
     };
-  } catch (error: unknown) {
-    log.error('Error searching profiles', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

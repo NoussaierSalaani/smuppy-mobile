@@ -7,19 +7,12 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { resolveProfileId } from '../utils/auth';
 import { requireRateLimit } from '../utils/rate-limit';
+import { withErrorHandler } from '../utils/error-handler';
 
-const log = createLogger('posts-view');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('posts-view', async (event, { headers, log }) => {
     // Auth required
     const cognitoSub = requireAuth(event, headers);
     if (isErrorResponse(cognitoSub)) return cognitoSub;
@@ -105,12 +98,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         viewsCount,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error recording post view', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

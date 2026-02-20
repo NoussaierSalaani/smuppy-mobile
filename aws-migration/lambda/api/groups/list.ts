@@ -3,24 +3,16 @@
  * Get groups with various filters (upcoming, nearby, my-groups, joined)
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('groups-list');
-const corsHeaders = getSecureHeaders();
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('groups-list', async (event, { headers }) => {
   // Rate limit: 30 requests per minute per IP (unauthenticated) or user
   const identifier = event.requestContext.authorizer?.claims?.sub ||
                      event.requestContext.identity?.sourceIp || 'unknown';
-  const rateLimitResponse = await requireRateLimit({ prefix: 'groups-list', identifier, maxRequests: 30 }, corsHeaders);
+  const rateLimitResponse = await requireRateLimit({ prefix: 'groups-list', identifier, maxRequests: 30 }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   const pool = await getPool();
@@ -48,10 +40,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // For my-groups and joined filters, auth is required
     if ((filter === 'my-groups' || filter === 'joined') && !profileId) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
     const params: SqlParam[] = [];
@@ -168,13 +161,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         // For starts_at order: cursor is "ISO_DATE|UUID"
         const separatorIdx = cursor.indexOf('|');
         if (separatorIdx <= 0) {
-          return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) });
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
         }
         const cursorDate = cursor.substring(0, separatorIdx);
         const cursorId = cursor.substring(separatorIdx + 1);
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(cursorId) || Number.isNaN(Date.parse(cursorDate))) {
-          return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) });
+          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cursor format' }) };
         }
         params.push(cursorDate);
         const cursorDateIdx = params.length;
@@ -279,8 +272,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       },
     }));
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         groups,
@@ -290,14 +284,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           nextCursor,
         },
       }),
-    });
-  } catch (error: unknown) {
-    log.error('List groups error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({ success: false, message: 'Failed to fetch groups' }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

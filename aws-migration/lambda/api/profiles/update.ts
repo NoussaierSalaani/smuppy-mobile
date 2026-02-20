@@ -7,17 +7,12 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
 import { sanitizeInput, isValidUsername, isReservedUsername, logSecurityEvent } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
-import { hasErrorCode } from '../utils/error-handler';
+import { hasErrorCode, withErrorHandler } from '../utils/error-handler';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
-
-const log = createLogger('profiles-update');
+import { moderateTexts } from '../utils/text-moderation';
 
 // Validation rules for profile fields
 const VALIDATION_RULES: Record<string, { maxLength: number; pattern?: RegExp; required?: boolean }> = {
@@ -146,11 +141,7 @@ function validateField(field: string, value: unknown): { valid: boolean; sanitiz
   return { valid: false, sanitized: null, error: 'Unknown field' };
 }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('profiles-update', async (event, { headers, log }) => {
     // Get user ID from Cognito authorizer
     const userId = event.requestContext.authorizer?.claims?.sub;
 
@@ -217,28 +208,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Moderation: check text fields for violations (includes businessName for pro accounts)
-    const textFieldsToCheck = ['bio', 'fullName', 'displayName', 'username', 'businessName'].filter(f => body[f] && typeof body[f] === 'string');
-    for (const field of textFieldsToCheck) {
-      const textValue = body[field] as string;
-      const filterResult = await filterText(textValue);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Profile field blocked by filter', { userId: userId.substring(0, 8) + '***', field, severity: filterResult.severity });
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: `Your ${field === 'bio' ? 'bio' : field === 'username' ? 'username' : 'name'} contains content that violates our community guidelines.` }),
-        };
-      }
-      const toxicityResult = await analyzeTextToxicity(textValue);
-      if (toxicityResult.action === 'block') {
-        log.warn('Profile field blocked by toxicity', { userId: userId.substring(0, 8) + '***', field, category: toxicityResult.topCategory });
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: `Your ${field === 'bio' ? 'bio' : field === 'username' ? 'username' : 'name'} contains content that violates our community guidelines.` }),
-        };
-      }
+    // Moderation: check text fields for violations (keyword filter + Comprehend toxicity)
+    const textFieldsToCheck = ['bio', 'fullName', 'displayName', 'username', 'businessName']
+      .filter(f => body[f] && typeof body[f] === 'string')
+      .map(f => body[f] as string);
+
+    if (textFieldsToCheck.length > 0) {
+      const modResult = await moderateTexts(textFieldsToCheck, headers, log, 'profile');
+      if (modResult.blocked) return modResult.blockResponse!;
     }
 
     const db = await getPool();
@@ -341,45 +318,57 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     let result;
-    if (!existingProfileId) {
-      // Create new profile - use cognito_sub as the primary id for simplicity
-      // This ensures all other queries using id = cognito_sub will work
-      const insertFields = ['id', 'cognito_sub'];
-      const insertValues = [userId, userId];
-      const insertParams = ['$1', '$2'];
-      let insertIndex = 3;
+    try {
+      if (!existingProfileId) {
+        // Create new profile - use cognito_sub as the primary id for simplicity
+        // This ensures all other queries using id = cognito_sub will work
+        const insertFields = ['id', 'cognito_sub'];
+        const insertValues = [userId, userId];
+        const insertParams = ['$1', '$2'];
+        let insertIndex = 3;
 
-      for (const [apiField, dbField] of Object.entries(fieldMapping)) {
-        if (body[apiField] !== undefined) {
-          insertFields.push(dbField);
-          const val = jsonbFields.has(dbField) ? JSON.stringify(body[apiField]) : body[apiField];
-          insertValues.push(val);
-          insertParams.push(`$${insertIndex}`);
-          insertIndex++;
+        for (const [apiField, dbField] of Object.entries(fieldMapping)) {
+          if (body[apiField] !== undefined) {
+            insertFields.push(dbField);
+            const val = jsonbFields.has(dbField) ? JSON.stringify(body[apiField]) : body[apiField];
+            insertValues.push(val);
+            insertParams.push(`$${insertIndex}`);
+            insertIndex++;
+          }
         }
+
+        insertFields.push('created_at', 'updated_at');
+        insertParams.push('NOW()', 'NOW()');
+
+        result = await db.query(
+          `INSERT INTO profiles (${insertFields.join(', ')})
+           VALUES (${insertParams.join(', ')})
+           RETURNING id, cognito_sub, username, full_name, display_name, avatar_url, cover_url, bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth, interests, expertise, social_links, business_name, business_category, business_address, business_latitude, business_longitude, business_phone, locations_mode, onboarding_completed, fan_count, following_count, post_count, created_at, updated_at`,
+          insertValues
+        );
+      } else {
+        // Update existing profile using the resolved profile ID
+        const profileId = existingProfileId;
+        values.push(profileId);
+
+        result = await db.query(
+          `UPDATE profiles
+           SET ${updateFields.join(', ')}
+           WHERE id = $${paramIndex}
+           RETURNING id, cognito_sub, username, full_name, display_name, avatar_url, cover_url, bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth, interests, expertise, social_links, business_name, business_category, business_address, business_latitude, business_longitude, business_phone, locations_mode, onboarding_completed, fan_count, following_count, post_count, created_at, updated_at`,
+          values
+        );
       }
-
-      insertFields.push('created_at', 'updated_at');
-      insertParams.push('NOW()', 'NOW()');
-
-      result = await db.query(
-        `INSERT INTO profiles (${insertFields.join(', ')})
-         VALUES (${insertParams.join(', ')})
-         RETURNING id, cognito_sub, username, full_name, display_name, avatar_url, cover_url, bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth, interests, expertise, social_links, business_name, business_category, business_address, business_latitude, business_longitude, business_phone, locations_mode, onboarding_completed, fan_count, following_count, post_count, created_at, updated_at`,
-        insertValues
-      );
-    } else {
-      // Update existing profile using the resolved profile ID
-      const profileId = existingProfileId;
-      values.push(profileId);
-
-      result = await db.query(
-        `UPDATE profiles
-         SET ${updateFields.join(', ')}
-         WHERE id = $${paramIndex}
-         RETURNING id, cognito_sub, username, full_name, display_name, avatar_url, cover_url, bio, website, is_verified, is_premium, is_private, account_type, gender, date_of_birth, interests, expertise, social_links, business_name, business_category, business_address, business_latitude, business_longitude, business_phone, locations_mode, onboarding_completed, fan_count, following_count, post_count, created_at, updated_at`,
-        values
-      );
+    } catch (error: unknown) {
+      // Handle unique constraint violations without leaking schema details
+      if (hasErrorCode(error) && error.code === '23505') {
+        return {
+          statusCode: 409,
+          headers,
+          body: JSON.stringify({ message: 'This value is already taken.' }),
+        };
+      }
+      throw error;
     }
 
     if (result.rows.length === 0) {
@@ -426,22 +415,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         postsCount: profile.post_count || 0,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error updating profile', error);
-
-    // Handle unique constraint violations without leaking schema details
-    if (hasErrorCode(error) && error.code === '23505') {
-      return {
-        statusCode: 409,
-        headers,
-        body: JSON.stringify({ message: 'This value is already taken.' }),
-      };
-    }
-
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

@@ -11,11 +11,8 @@ import {
   CreateJobCommandInput,
 } from '@aws-sdk/client-mediaconvert';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
-
-const log = createLogger('media-start-video-processing');
+import { withErrorHandler } from '../utils/error-handler';
 
 // Validate environment at module load
 const MEDIA_CONVERT_ENDPOINT = process.env.MEDIA_CONVERT_ENDPOINT;
@@ -148,13 +145,7 @@ function buildJobSpec(
  * Internal handler — invoked asynchronously (Lambda.invoke with InvocationType: Event)
  * Body: { entityType: 'post'|'peak', entityId: UUID, sourceKey: string }
  */
-export async function handler(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('media-start-video-processing', async (event, { headers, log }) => {
     // This handler is invoked internally — no auth check needed (Lambda-to-Lambda)
     if (!event.body) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing body' }) };
@@ -227,12 +218,4 @@ export async function handler(
         status: 'processing',
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error starting video processing', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Failed to start video processing' }),
-    };
-  }
-}
+});

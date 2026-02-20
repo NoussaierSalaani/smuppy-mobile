@@ -6,59 +6,47 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID, extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { isBidirectionallyBlocked } from '../utils/block-filter';
+import { moderateText } from '../utils/text-moderation';
+import { createLogger } from '../utils/logger';
 
-const log = createLogger('peaks-comment');
+type Logger = ReturnType<typeof createLogger>;
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
+export const handler = withErrorHandler('peaks-comment', async (event, { headers, log }) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
 
-  try {
-    const peakId = event.pathParameters?.id;
-    if (!peakId || !isValidUUID(peakId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Valid Peak ID is required' }),
-      };
-    }
-
-    if (event.httpMethod === 'GET') {
-      return handleListComments(event, headers, peakId);
-    }
-
-    if (event.httpMethod === 'POST') {
-      return handleCreateComment(event, headers, peakId);
-    }
-
+  const peakId = event.pathParameters?.id;
+  if (!peakId || !isValidUUID(peakId)) {
     return {
-      statusCode: 405,
+      statusCode: 400,
       headers,
-      body: JSON.stringify({ message: 'Method not allowed' }),
-    };
-  } catch (error: unknown) {
-    log.error('Peak comment error', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
+      body: JSON.stringify({ message: 'Valid Peak ID is required' }),
     };
   }
-}
+
+  if (event.httpMethod === 'GET') {
+    return handleListComments(event, headers, peakId);
+  }
+
+  if (event.httpMethod === 'POST') {
+    return handleCreateComment(event, headers, peakId, log);
+  }
+
+  return {
+    statusCode: 405,
+    headers,
+    body: JSON.stringify({ message: 'Method not allowed' }),
+  };
+});
 
 async function handleListComments(
   event: APIGatewayProxyEvent,
@@ -162,7 +150,8 @@ async function handleListComments(
 async function handleCreateComment(
   event: APIGatewayProxyEvent,
   headers: Record<string, string>,
-  peakId: string
+  peakId: string,
+  log: Logger
 ): Promise<APIGatewayProxyResult> {
   const userId = extractCognitoSub(event);
   if (!userId) {
@@ -206,27 +195,9 @@ async function handleCreateComment(
     };
   }
 
-  // Moderation: wordlist filter
-  const filterResult = await filterText(sanitizedText);
-  if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-    log.warn('Peak comment blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ message: 'Your comment contains content that violates our community guidelines.' }),
-    };
-  }
-
-  // Moderation: Comprehend toxicity analysis
-  const toxicityResult = await analyzeTextToxicity(sanitizedText);
-  if (toxicityResult.action === 'block') {
-    log.warn('Peak comment blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ message: 'Your comment contains content that violates our community guidelines.' }),
-    };
-  }
+  // Moderation: keyword filter + Comprehend toxicity
+  const modResult = await moderateText(sanitizedText, headers, log, 'peak comment');
+  if (modResult.blocked) return modResult.blockResponse!;
 
   const db = await getPool();
 
@@ -257,14 +228,7 @@ async function handleCreateComment(
   const peak = peakResult.rows[0];
 
   // Bidirectional block check: prevent commenting on peaks from blocked/blocking users
-  const blockCheck = await db.query(
-    `SELECT 1 FROM blocked_users
-     WHERE (blocker_id = $1 AND blocked_id = $2)
-        OR (blocker_id = $2 AND blocked_id = $1)
-     LIMIT 1`,
-    [profile.id, peak.author_id]
-  );
-  if (blockCheck.rows.length > 0) {
+  if (await isBidirectionallyBlocked(db, profile.id, peak.author_id)) {
     return {
       statusCode: 403,
       headers,

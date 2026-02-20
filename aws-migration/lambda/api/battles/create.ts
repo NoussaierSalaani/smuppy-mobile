@@ -3,17 +3,14 @@
  * Start a live battle with other creators
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import { v4 as uuidv4 } from 'uuid';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID, sanitizeInput } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
-import { createLogger } from '../utils/logger';
 import { DEFAULT_BATTLE_DURATION_MINUTES, MIN_BATTLE_DURATION_MINUTES, MAX_BATTLE_DURATION_MINUTES } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { moderateTexts } from '../utils/text-moderation';
 
 interface CreateBattleRequest {
   title?: string;
@@ -25,32 +22,27 @@ interface CreateBattleRequest {
   invitedUserIds: string[];
 }
 
-const log = createLogger('battles-create');
-const corsHeaders = getSecureHeaders();
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('battles-create', async (event, { headers, log }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
-    const rateLimitResponse = await requireRateLimit({ prefix: 'battle-create', identifier: userId, windowSeconds: 60, maxRequests: 3 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'battle-create', identifier: userId, windowSeconds: 60, maxRequests: 3 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot create battles)
     const accountCheck = await requireActiveAccount(userId, {});
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
     // Resolve cognito_sub to profile ID
@@ -59,10 +51,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [userId]
     );
     if (profileResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
     const profileId = profileResult.rows[0].id;
 
@@ -80,24 +73,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Validate battleType at runtime (TypeScript types are erased)
     const VALID_BATTLE_TYPES = ['tips', 'votes', 'challenge'] as const;
     if (!VALID_BATTLE_TYPES.includes(battleType as typeof VALID_BATTLE_TYPES[number])) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid battle type' }),
-      });
+      };
     }
 
     // Validate bounds
     if (maxParticipants < 2 || maxParticipants > 10) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'maxParticipants must be between 2 and 10' }),
-      });
+      };
     }
     if (durationMinutes < MIN_BATTLE_DURATION_MINUTES || durationMinutes > MAX_BATTLE_DURATION_MINUTES) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'durationMinutes must be between 1 and 120' }),
-      });
+      };
     }
 
     // Sanitize text fields
@@ -106,44 +102,37 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Moderation: check title and description for violations
     const textsToCheck = [sanitizedTitle, sanitizedDescription].filter(Boolean) as string[];
-    for (const text of textsToCheck) {
-      const filterResult = await filterText(text);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Battle text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-      const toxicityResult = await analyzeTextToxicity(text);
-      if (toxicityResult.action === 'block') {
-        log.warn('Battle text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-    }
+    const modResult = await moderateTexts(textsToCheck, headers, log, 'battle');
+    if (modResult.blocked) return modResult.blockResponse!;
 
     if (!invitedUserIds || invitedUserIds.length === 0) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'At least one opponent must be invited',
         }),
-      });
+      };
     }
 
     if (!invitedUserIds.every(isValidUUID)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     if (invitedUserIds.length > maxParticipants - 1) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: `Maximum ${maxParticipants} participants allowed`,
         }),
-      });
+      };
     }
 
     // Verify host is a creator
@@ -154,21 +143,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (hostResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'User not found' }),
-      });
+      };
     }
 
     const host = hostResult.rows[0];
     if (host.account_type !== 'pro_creator' && host.account_type !== 'pro_business') {
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Only creators can host battles',
         }),
-      });
+      };
     }
 
     // Verify all invited users are creators
@@ -181,13 +172,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (invitedResult.rows.length !== invitedUserIds.length) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'All invited users must be creators',
         }),
-      });
+      };
     }
 
     await client.query('BEGIN');
@@ -271,8 +263,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     await client.query('COMMIT');
 
-    return cors({
+    return {
       statusCode: 201,
+      headers,
       body: JSON.stringify({
         success: true,
         battle: {
@@ -309,18 +302,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           })),
         },
       }),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
     log.error('Create battle error:', error);
-    return cors({
+    return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({
         success: false,
         message: 'Failed to create battle',
       }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

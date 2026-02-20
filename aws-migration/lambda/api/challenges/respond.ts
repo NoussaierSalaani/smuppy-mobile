@@ -3,83 +3,73 @@
  * Submit a response Peak to a challenge
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('challenges-respond');
-const corsHeaders = getSecureHeaders();
-
-interface RespondChallengeRequest {
-  challengeId: string;
-  peakId: string;
-  score?: number;
-  timeSeconds?: number;
-}
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('challenges-respond', async (event, { headers }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
-    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-respond', identifier: cognitoSub, windowSeconds: 60, maxRequests: 20 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-respond', identifier: cognitoSub, windowSeconds: 60, maxRequests: 20 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check + block business accounts from participating
     const accountCheck = await requireActiveAccount(cognitoSub, {});
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
     if (accountCheck.accountType === 'pro_business') {
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({ success: false, message: 'Business accounts cannot participate in challenges' }),
-      });
+      };
     }
 
     // Resolve cognito sub to profile ID
     const userId = await resolveProfileId(client, cognitoSub);
     if (!userId) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
 
-    const body: RespondChallengeRequest = JSON.parse(event.body || '{}');
+    const body = JSON.parse(event.body || '{}');
     const { challengeId, peakId, score, timeSeconds } = body;
 
     if (!challengeId || !peakId) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Challenge ID and Peak ID are required',
         }),
-      });
+      };
     }
 
     if (!isValidUUID(challengeId) || !isValidUUID(peakId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     // Get challenge details
@@ -94,23 +84,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (challengeResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Challenge not found' }),
-      });
+      };
     }
 
     const challenge = challengeResult.rows[0];
 
     // Block self-response: creator cannot respond to their own challenge
     if (challenge.creator_id === userId) {
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'You cannot respond to your own challenge',
         }),
-      });
+      };
     }
 
     // Auto-expire: if ends_at has passed, update status to 'ended' and reject
@@ -119,35 +111,38 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         `UPDATE peak_challenges SET status = 'ended', updated_at = NOW() WHERE id = $1 AND status = 'active'`,
         [challengeId]
       );
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'This challenge has ended',
         }),
-      });
+      };
     }
 
     // Check if challenge is still active
     if (challenge.status !== 'active') {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'This challenge is no longer active',
         }),
-      });
+      };
     }
 
     // Check max participants
     if (challenge.max_participants && challenge.response_count >= challenge.max_participants) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Maximum participants reached',
         }),
-      });
+      };
     }
 
     // Check if user can participate
@@ -160,13 +155,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       );
 
       if (tagCheck.rows.length === 0) {
-        return cors({
+        return {
           statusCode: 403,
+          headers,
           body: JSON.stringify({
             success: false,
             message: 'You were not invited to this challenge',
           }),
-        });
+        };
       }
     }
 
@@ -177,13 +173,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (peakCheck.rows.length === 0 || peakCheck.rows[0].author_id !== userId) {
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Invalid Peak',
         }),
-      });
+      };
     }
 
     await client.query('BEGIN');
@@ -198,13 +195,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (existingResponse.rows.length > 0) {
       await client.query('ROLLBACK');
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'You have already responded to this challenge',
         }),
-      });
+      };
     }
 
     // Create response (ON CONFLICT prevents race condition if two requests pass the check simultaneously)
@@ -219,13 +217,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (responseResult.rows.length === 0) {
       await client.query('ROLLBACK');
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'You have already responded to this challenge',
         }),
-      });
+      };
     }
 
     const response = responseResult.rows[0];
@@ -263,8 +262,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     await client.query('COMMIT');
 
-    return cors({
+    return {
       statusCode: 201,
+      headers,
       body: JSON.stringify({
         success: true,
         response: {
@@ -285,18 +285,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           },
         },
       }),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
-    log.error('Respond challenge error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to submit response',
-      }),
-    });
+    throw error;
   } finally {
     client.release();
   }
-};
+});

@@ -12,91 +12,77 @@
  *   DELETE /businesses/my/tags/{tagId} — remove tag
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { getUserFromEvent } from '../utils/auth';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 
-const log = createLogger('business/program-update');
 const MAX_NAME_LENGTH = 255;
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
+export const handler = withErrorHandler('business-program-update', async (event, { headers }) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers, body: '' };
   }
 
-  try {
-    const user = getUserFromEvent(event);
-    if (!user) {
-      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
-    }
-
-    // Rate limit write operations (POST, PUT, DELETE)
-    if (['POST', 'PUT', 'DELETE'].includes(event.httpMethod)) {
-      const rateLimitResponse = await requireRateLimit({ prefix: 'biz-program', identifier: user.id, maxRequests: 20 }, headers);
-      if (rateLimitResponse) return rateLimitResponse;
-    }
-
-    const path = event.resource || event.path || '';
-    const method = event.httpMethod;
-    const db = await getPool();
-
-    // ── Activities ──
-    if (path.includes('/activities')) {
-      const activityId = event.pathParameters?.activityId;
-
-      if (method === 'POST' && !activityId) {
-        return createActivity(db, user.id, event, headers);
-      }
-      if (method === 'PUT' && activityId) {
-        return updateActivity(db, user.id, activityId, event, headers);
-      }
-      if (method === 'DELETE' && activityId) {
-        return deleteActivity(db, user.id, activityId, headers);
-      }
-    }
-
-    // ── Schedule Slots ──
-    if (path.includes('/schedule')) {
-      const slotId = event.pathParameters?.slotId;
-
-      if (method === 'POST' && !slotId) {
-        return createSlot(db, user.id, event, headers);
-      }
-      if (method === 'DELETE' && slotId) {
-        return deleteSlot(db, user.id, slotId, headers);
-      }
-    }
-
-    // ── Tags ──
-    if (path.includes('/tags')) {
-      const tagId = event.pathParameters?.tagId;
-
-      if (method === 'POST' && !tagId) {
-        return addTag(db, user.id, event, headers);
-      }
-      if (method === 'DELETE' && tagId) {
-        return removeTag(db, user.id, tagId, headers);
-      }
-    }
-
-    return { statusCode: 405, headers, body: JSON.stringify({ success: false, message: 'Method not allowed' }) };
-  } catch (error) {
-    log.error('Program update error', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
+  const user = getUserFromEvent(event);
+  if (!user) {
+    return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
   }
-}
+
+  // Rate limit write operations (POST, PUT, DELETE)
+  if (['POST', 'PUT', 'DELETE'].includes(event.httpMethod)) {
+    const rateLimitResponse = await requireRateLimit({ prefix: 'biz-program', identifier: user.id, maxRequests: 20 }, headers);
+    if (rateLimitResponse) return rateLimitResponse;
+  }
+
+  const path = event.resource || event.path || '';
+  const method = event.httpMethod;
+  const db = await getPool();
+
+  // ── Activities ──
+  if (path.includes('/activities')) {
+    const activityId = event.pathParameters?.activityId;
+
+    if (method === 'POST' && !activityId) {
+      return createActivity(db, user.id, event, headers);
+    }
+    if (method === 'PUT' && activityId) {
+      return updateActivity(db, user.id, activityId, event, headers);
+    }
+    if (method === 'DELETE' && activityId) {
+      return deleteActivity(db, user.id, activityId, headers);
+    }
+  }
+
+  // ── Schedule Slots ──
+  if (path.includes('/schedule')) {
+    const slotId = event.pathParameters?.slotId;
+
+    if (method === 'POST' && !slotId) {
+      return createSlot(db, user.id, event, headers);
+    }
+    if (method === 'DELETE' && slotId) {
+      return deleteSlot(db, user.id, slotId, headers);
+    }
+  }
+
+  // ── Tags ──
+  if (path.includes('/tags')) {
+    const tagId = event.pathParameters?.tagId;
+
+    if (method === 'POST' && !tagId) {
+      return addTag(db, user.id, event, headers);
+    }
+    if (method === 'DELETE' && tagId) {
+      return removeTag(db, user.id, tagId, headers);
+    }
+  }
+
+  return { statusCode: 405, headers, body: JSON.stringify({ success: false, message: 'Method not allowed' }) };
+});
 
 async function createActivity(db: Pool, businessId: string, event: APIGatewayProxyEvent, headers: Record<string, string>) {
   const body = JSON.parse(event.body || '{}');

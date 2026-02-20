@@ -3,12 +3,8 @@
  * Detect and manage user currency preferences
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
-import { createLogger } from '../utils/logger';
-
-const log = createLogger('settings-currency');
+import { withErrorHandler } from '../utils/error-handler';
 
 // IP to currency mapping (simplified)
 const COUNTRY_CURRENCY_MAP: Record<string, string> = {
@@ -47,10 +43,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   DKK: 'kr',
 };
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('settings-currency', async (event, { headers }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
@@ -87,8 +80,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }
       }
 
-      return cors({
+      return {
         statusCode: 200,
+        headers,
         body: JSON.stringify({
           success: true,
           currency: {
@@ -103,29 +97,31 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             symbol: c.symbol,
           })),
         }),
-      });
+      };
     }
 
     // PUT - Update currency preference
     if (event.httpMethod === 'PUT') {
       if (!userId) {
-        return cors({
+        return {
           statusCode: 401,
+          headers,
           body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-        });
+        };
       }
 
       const body = JSON.parse(event.body || '{}');
       const { currency } = body;
 
       if (!currency) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({
             success: false,
             message: 'Currency code required',
           }),
-        });
+        };
       }
 
       // Verify currency is supported
@@ -136,13 +132,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       );
 
       if (currencyCheck.rows.length === 0) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({
             success: false,
             message: 'Currency not supported',
           }),
-        });
+        };
       }
 
       // Get country from request
@@ -160,8 +157,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         [userId, currency.toUpperCase(), countryCode]
       );
 
-      return cors({
+      return {
         statusCode: 200,
+        headers,
         body: JSON.stringify({
           success: true,
           currency: {
@@ -170,23 +168,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           },
           message: 'Currency preference updated',
         }),
-      });
+      };
     }
 
-    return cors({
+    return {
       statusCode: 405,
+      headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
-    });
+    };
   } catch (error: unknown) {
-    log.error('Currency settings error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to process currency settings',
-      }),
-    });
+    throw error;
   } finally {
     client.release();
   }
-};
+});

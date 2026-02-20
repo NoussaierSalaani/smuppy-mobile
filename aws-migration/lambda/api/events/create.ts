@@ -3,18 +3,12 @@
  * Create a sports/fitness event on the map
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_EVENT_TITLE_LENGTH, MIN_EVENT_PARTICIPANTS, MAX_EVENT_PARTICIPANTS } from '../utils/constants';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
-
-const log = createLogger('events-create');
-const corsHeaders = getSecureHeaders();
+import { moderateTexts } from '../utils/text-moderation';
 
 interface CreateEventRequest {
   title: string;
@@ -45,29 +39,27 @@ interface CreateEventRequest {
   routeWaypoints?: { lat: number; lng: number; name?: string }[];
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('events-create', async (event, { headers, log }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
-    const rateLimitResponse = await requireRateLimit({ prefix: 'event-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'event-create', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 5 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot create events)
     const accountCheck = await requireActiveAccount(userId, {});
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
     // Resolve cognito_sub to profile ID and account type
@@ -76,10 +68,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [userId]
     );
     if (profileResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
     const profileId = profileResult.rows[0].id;
     const accountType = profileResult.rows[0].account_type;
@@ -94,10 +87,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         [profileId, monthStart, nextMonth]
       );
       if (countResult.rows[0].count >= 4) {
-        return cors({
+        return {
           statusCode: 403,
+          headers,
           body: JSON.stringify({ success: false, message: 'Monthly event creation limit reached (4 per month). Upgrade to Pro for unlimited.' }),
-        });
+        };
       }
     }
 
@@ -132,39 +126,43 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Validation — check required fields and lengths BEFORE moderation (avoid wasting Comprehend calls)
     if (!title || typeof title !== 'string' || title.trim().length === 0 || !categorySlug || !locationName || !latitude || !longitude || !startsAt) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Title, category, location, and start date are required',
         }),
-      });
+      };
     }
 
     // Validate title length
     if (title.length > MAX_EVENT_TITLE_LENGTH) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Title too long (max 200 characters)' }),
-      });
+      };
     }
 
     // Validate coordinates
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid coordinates' }),
-      });
+      };
     }
 
     // Validate participants bounds
     if (maxParticipants !== undefined && (maxParticipants < MIN_EVENT_PARTICIPANTS || maxParticipants > MAX_EVENT_PARTICIPANTS)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),
-      });
+      };
     }
 
     // Sanitize user-provided text fields
@@ -176,18 +174,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Moderation: check title and description for violations
     const textsToCheck = [sanitizedTitle, sanitizedDescription].filter(Boolean) as string[];
-    for (const text of textsToCheck) {
-      const filterResult = await filterText(text);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Event text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-      const toxicityResult = await analyzeTextToxicity(text);
-      if (toxicityResult.action === 'block') {
-        log.warn('Event text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-    }
+    const modResult = await moderateTexts(textsToCheck, headers, log, 'event');
+    if (modResult.blocked) return modResult.blockResponse!;
 
     // Get category
     const categoryResult = await client.query(
@@ -196,10 +184,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (categoryResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid category' }),
-      });
+      };
     }
 
     const category = categoryResult.rows[0];
@@ -207,35 +196,39 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Validate date
     const startDate = new Date(startsAt);
     if (startDate < new Date()) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Event start date must be in the future',
         }),
-      });
+      };
     }
 
     // Validate price if not free
     if (!isFree) {
       // Only pro_creator can create paid events
       if (accountType !== 'pro_creator') {
-        return cors({
+        return {
           statusCode: 403,
+          headers,
           body: JSON.stringify({ success: false, message: 'Only Pro Creators can create paid events' }),
-        });
+        };
       }
       if (!price || price <= 0) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Price is required for paid events' }),
-        });
+        };
       }
       if (price > 50000) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Maximum price is 50,000' }),
-        });
+        };
       }
     }
 
@@ -248,12 +241,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       } catch { return false; }
     };
     if (coverImageUrl && !isAllowedUrl(coverImageUrl)) {
-      return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cover image URL' }) });
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cover image URL' }) };
     }
     if (images && images.length > 0) {
       const hasInvalidImage = images.some((url: string) => typeof url !== 'string' || !isAllowedUrl(url));
       if (hasInvalidImage) {
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid image URL' }) });
+        return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid image URL' }) };
       }
     }
 
@@ -332,8 +325,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const creator = creatorResult.rows[0];
 
-    return cors({
+    return {
       statusCode: 201,
+      headers,
       body: JSON.stringify({
         success: true,
         event: {
@@ -388,18 +382,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           },
         },
       }),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
-    log.error('Create event error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to create event',
-      }),
-    });
+    throw error;
   } finally {
     client.release();
   }
-};
+});

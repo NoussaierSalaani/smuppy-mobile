@@ -3,19 +3,13 @@
  * Create a Peak Challenge
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID, sanitizeInput } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { resolveProfileId } from '../utils/auth';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
-
-const log = createLogger('challenges-create');
-const corsHeaders = getSecureHeaders();
+import { moderateTexts } from '../utils/text-moderation';
 
 interface CreateChallengeRequest {
   peakId: string;
@@ -36,46 +30,46 @@ interface CreateChallengeRequest {
   tipsEnabled?: boolean;
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('challenges-create', async (event, { headers, log }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
-    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-create', identifier: userId, windowSeconds: 60, maxRequests: 5 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-create', identifier: userId, windowSeconds: 60, maxRequests: 5 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot create challenges)
     const accountCheck = await requireActiveAccount(userId, {});
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
     // Only pro_creator can create challenges — personal and pro_business are blocked
     if (accountCheck.accountType !== 'pro_creator') {
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({ success: false, message: 'Only Pro Creators can create challenges' }),
-      });
+      };
     }
 
     // Resolve cognito_sub to profile ID
     const profileId = await resolveProfileId(client, userId);
     if (!profileId) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
 
     const body: CreateChallengeRequest = JSON.parse(event.body || '{}');
@@ -105,35 +99,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const sanitizedPrizeDescription = prizeDescription ? sanitizeInput(prizeDescription, 500) : undefined;
 
     if (!peakId || !sanitizedTitle) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Peak ID and title are required',
         }),
-      });
+      };
     }
 
     // Moderation: check text fields for violations
     const textsToCheck = [sanitizedTitle, sanitizedDescription, sanitizedRules].filter(Boolean) as string[];
-    for (const text of textsToCheck) {
-      const filterResult = await filterText(text);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Challenge text blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-      const toxicityResult = await analyzeTextToxicity(text);
-      if (toxicityResult.action === 'block') {
-        log.warn('Challenge text blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-    }
+    const modResult = await moderateTexts(textsToCheck, headers, log, 'challenge');
+    if (modResult.blocked) return modResult.blockResponse!;
 
     if (!isValidUUID(peakId) || (rawChallengeTypeId && !isValidUUID(rawChallengeTypeId)) || !taggedUserIds.every(isValidUUID)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     // Resolve challenge type: accept UUID directly, or resolve from slug
@@ -156,20 +142,22 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (peakResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Peak not found' }),
-      });
+      };
     }
 
     if (peakResult.rows[0].author_id !== profileId) {
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'You can only create challenges for your own Peaks',
         }),
-      });
+      };
     }
 
     // If tips enabled, verify user is a verified Pro Creator with an active subscription tier
@@ -185,13 +173,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         user.account_type !== 'pro_creator' ||
         !user.is_verified
       ) {
-        return cors({
+        return {
           statusCode: 403,
+          headers,
           body: JSON.stringify({
             success: false,
             message: 'Tips are only available for verified Pro Creators',
           }),
-        });
+        };
       }
 
       // Verify creator has at least one active subscription tier
@@ -200,13 +189,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         [profileId]
       );
       if (!tierCheck.rows[0]?.has_tier) {
-        return cors({
+        return {
           statusCode: 403,
+          headers,
           body: JSON.stringify({
             success: false,
             message: 'You must set up a subscription tier before enabling tips',
           }),
-        });
+        };
       }
     }
 
@@ -244,10 +234,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Tag users if provided (limit to 50 to prevent abuse)
     if (taggedUserIds.length > 50) {
       await client.query('ROLLBACK');
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Cannot tag more than 50 users' }),
-      });
+      };
     }
     if (taggedUserIds.length > 0) {
       // Batch insert challenge_tags: $1 = challenge_id (shared), $2..$N = tagged user IDs
@@ -297,8 +288,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
     }
 
-    return cors({
+    return {
       statusCode: 201,
+      headers,
       body: JSON.stringify({
         success: true,
         challenge: {
@@ -324,18 +316,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           taggedUsers: taggedUserIds.length,
         },
       }),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
-    log.error('Create challenge error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to create challenge',
-      }),
-    });
+    throw error;
   } finally {
     client.release();
   }
-};
+});

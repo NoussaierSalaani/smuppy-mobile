@@ -3,20 +3,12 @@
  * Returns peaks (short videos) with pagination
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('peaks-list');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('peaks-list', async (event, { headers }) => {
     // Get current user if authenticated (for isLiked status)
     const userId = extractCognitoSub(event);
 
@@ -222,12 +214,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         total: formattedPeaks.length,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error listing peaks', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

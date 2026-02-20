@@ -19,8 +19,7 @@ import { requireRateLimit } from '../../api/utils/rate-limit';
 import { RATE_WINDOW_1_DAY } from '../../api/utils/constants';
 import { requireActiveAccount, isAccountError } from '../../api/utils/account-status';
 import { isValidUUID } from '../../api/utils/security';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { moderateText } from '../../api/utils/text-moderation';
 
 const log = createLogger('disputes/create');
 
@@ -143,24 +142,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       .trim();
 
     // Moderation: check description for violations
-    const filterResult = await filterText(sanitizedDescription);
-    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-      log.warn('Dispute description blocked by filter', { userId: user.id.substring(0, 8) + '***', severity: filterResult.severity });
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Your description contains content that violates our community guidelines.' }),
-      };
-    }
-    const toxicityResult = await analyzeTextToxicity(sanitizedDescription);
-    if (toxicityResult.action === 'block') {
-      log.warn('Dispute description blocked by toxicity', { userId: user.id.substring(0, 8) + '***', category: toxicityResult.topCategory });
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Your description contains content that violates our community guidelines.' }),
-      };
-    }
+    const modResult = await moderateText(sanitizedDescription, headers, log, 'dispute-description');
+    if (modResult.blocked) return modResult.blockResponse!;
 
     // Start transaction
     client = await db.connect();

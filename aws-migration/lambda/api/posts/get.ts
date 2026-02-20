@@ -5,20 +5,14 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders, createCacheableHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { createCacheableHeaders } from '../utils/cors';
 import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { extractCognitoSub } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { withErrorHandler } from '../utils/error-handler';
 
-const log = createLogger('posts-get');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('posts-get', async (event, { headers, log }) => {
     const postId = validateUUIDParam(event, headers, 'id', 'Post');
     if (isErrorResponse(postId)) return postId;
     const currentUserId = extractCognitoSub(event);
@@ -186,12 +180,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         author: post.author,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error getting post', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

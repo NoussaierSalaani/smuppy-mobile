@@ -3,20 +3,13 @@
  * Returns a single peak by ID
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders, createCacheableHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { createCacheableHeaders } from '../utils/cors';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('peaks-get');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('peaks-get', async (event, { headers, log }) => {
     const peakId = event.pathParameters?.id;
     if (!peakId) {
       return {
@@ -209,12 +202,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error getting peak', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

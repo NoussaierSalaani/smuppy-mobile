@@ -3,18 +3,12 @@
  * Create a sports/fitness activity group on the map
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { sanitizeInput } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
-
-const log = createLogger('groups-create');
-const corsHeaders = getSecureHeaders();
+import { moderateTexts } from '../utils/text-moderation';
 
 interface CreateGroupRequest {
   name: string;
@@ -46,20 +40,18 @@ interface CreateGroupRequest {
   cover_image_url?: string;
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('groups-create', async (event, { headers, log }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
     // Rate limit
@@ -68,13 +60,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       identifier: cognitoSub,
       windowSeconds: 60,
       maxRequests: 5,
-    }, corsHeaders);
+    }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Account status check (suspended/banned users cannot create groups)
     const accountCheck = await requireActiveAccount(cognitoSub, {});
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
     // Resolve profile and account type
@@ -83,10 +75,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [cognitoSub]
     );
     if (profileResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
     const profileId = profileResult.rows[0].id;
     const accountType = profileResult.rows[0].account_type;
@@ -101,10 +94,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         [profileId, monthStart, nextMonth]
       );
       if (countResult.rows[0].count >= 4) {
-        return cors({
+        return {
           statusCode: 403,
+          headers,
           body: JSON.stringify({ success: false, message: 'Monthly group creation limit reached (4 per month). Upgrade to Pro for unlimited.' }),
-        });
+        };
       }
     }
 
@@ -141,86 +135,96 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Validate required fields
     if (!name || !latitude || !longitude || !startsAt) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Name, latitude, longitude, and start date are required',
         }),
-      });
+      };
     }
 
     // Validate name length
     if (name.length > 255) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Name too long (max 255 characters)' }),
-      });
+      };
     }
 
     // Validate coordinates
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid coordinates' }),
-      });
+      };
     }
 
     // Validate starts_at
     const startDate = new Date(startsAt);
     if (Number.isNaN(startDate.getTime())) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid start date' }),
-      });
+      };
     }
 
     // BUG-2026-02-14: Ensure start date is in the future
     if (startDate <= new Date()) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Start date must be in the future' }),
-      });
+      };
     }
 
     // Validate max_participants
     if (maxParticipants !== undefined && (maxParticipants < 2 || maxParticipants > 10000)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Max participants must be between 2 and 10000' }),
-      });
+      };
     }
 
     // Validate difficulty
     if (difficulty && !['easy', 'moderate', 'hard', 'expert'].includes(difficulty)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid difficulty level' }),
-      });
+      };
     }
 
     // Validate price if not free
     if (!isFree) {
       // Only pro_creator can create paid groups
       if (accountType !== 'pro_creator') {
-        return cors({
+        return {
           statusCode: 403,
+          headers,
           body: JSON.stringify({ success: false, message: 'Only Pro Creators can create paid groups' }),
-        });
+        };
       }
       if (!price || price <= 0) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Price is required for paid groups' }),
-        });
+        };
       }
       if (price > 5000000) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Maximum price exceeded' }),
-        });
+        };
       }
     }
 
@@ -235,18 +239,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Moderation: check name and description for violations
     const textsToCheck = [sanitizedName, sanitizedDescription].filter(Boolean) as string[];
-    for (const text of textsToCheck) {
-      const filterResult = await filterText(text);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Group text blocked by filter', { userId: cognitoSub.substring(0, 8) + '***', severity: filterResult.severity });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-      const toxicityResult = await analyzeTextToxicity(text);
-      if (toxicityResult.action === 'block') {
-        log.warn('Group text blocked by toxicity', { userId: cognitoSub.substring(0, 8) + '***', category: toxicityResult.topCategory });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your content contains text that violates our community guidelines.' }) });
-      }
-    }
+    const modResult = await moderateTexts(textsToCheck, headers, log, 'group');
+    if (modResult.blocked) return modResult.blockResponse!;
 
     // SECURITY: Validate image URLs
     const ALLOWED_MEDIA_DOMAINS = ['.s3.amazonaws.com', '.s3.us-east-1.amazonaws.com', '.cloudfront.net'];
@@ -257,7 +251,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       } catch { return false; }
     };
     if (coverImageUrl && !isAllowedUrl(coverImageUrl)) {
-      return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid cover image URL' }) });
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid cover image URL' }) };
     }
 
     await client.query('BEGIN');
@@ -335,8 +329,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
     const creator = creatorResult.rows[0];
 
-    return cors({
+    return {
       statusCode: 201,
+      headers,
       body: JSON.stringify({
         success: true,
         group: {
@@ -380,15 +375,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           },
         },
       }),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
-    log.error('Create group error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({ success: false, message: 'Failed to create group' }),
-    });
+    throw error;
   } finally {
     client.release();
   }
-};
+});

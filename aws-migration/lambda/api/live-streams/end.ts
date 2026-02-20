@@ -3,49 +3,40 @@
  * Marks a live stream as ended and records stats
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders, handleOptions } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
-const log = createLogger('live-streams-end');
+export const handler = withErrorHandler('live-streams-end', async (event, { headers, log }) => {
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  if (!cognitoSub) {
+    return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
+  }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
+  // Rate limit: destructive action
+  const rateLimitResponse = await requireRateLimit({
+    prefix: 'live-stream-end',
+    identifier: cognitoSub,
+    windowSeconds: RATE_WINDOW_1_MIN,
+    maxRequests: 5,
+  }, headers);
+  if (rateLimitResponse) return rateLimitResponse;
 
+  const pool = await getPool();
+
+  const profileResult = await pool.query(
+    'SELECT id FROM profiles WHERE cognito_sub = $1',
+    [cognitoSub]
+  );
+  if (profileResult.rows.length === 0) {
+    return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
+  }
+
+  const profileId = profileResult.rows[0].id;
+
+  const client = await pool.connect();
   try {
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
-    }
-
-    // Rate limit: destructive action
-    const rateLimitResponse = await requireRateLimit({
-      prefix: 'live-stream-end',
-      identifier: cognitoSub,
-      windowSeconds: RATE_WINDOW_1_MIN,
-      maxRequests: 5,
-    }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    const pool = await getPool();
-
-    const profileResult = await pool.query(
-      'SELECT id FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-    if (profileResult.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
-    }
-
-    const profileId = profileResult.rows[0].id;
-
-    const client = await pool.connect();
-    try {
     await client.query('BEGIN');
 
     // Find active stream for this host
@@ -106,14 +97,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     };
-    } catch (txError) {
-      await client.query('ROLLBACK');
-      throw txError;
-    } finally {
-      client.release();
-    }
-  } catch (error) {
-    log.error('Error ending live stream', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
+  } catch (txError) {
+    await client.query('ROLLBACK');
+    throw txError;
+  } finally {
+    client.release();
   }
-};
+});

@@ -5,19 +5,14 @@
  * GET /peaks/hidden - Get list of hidden peaks for user
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createCorsResponse, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { createCorsResponse } from '../utils/cors';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 import { requireRateLimit } from '../utils/rate-limit';
 
-const log = createLogger('peaks-hide');
-const corsHeaders = getSecureHeaders();
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  log.initFromEvent(event);
+export const handler = withErrorHandler('peaks-hide', async (event, { headers, log }) => {
   const userId = event.requestContext.authorizer?.claims?.sub;
   const peakId = event.pathParameters?.id;
   const httpMethod = event.httpMethod;
@@ -31,10 +26,9 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     identifier: userId,
     windowSeconds: 60,
     maxRequests: 20,
-  }, corsHeaders);
+  }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
-  try {
     const db = await getPool();
 
     // Resolve cognito_sub to profile ID
@@ -142,9 +136,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     return createCorsResponse(405, { success: false, message: 'Method not allowed' });
-
-  } catch (error: unknown) {
-    log.error('Error in peak hide handler', error);
-    return createCorsResponse(500, { success: false, message: 'Internal server error' });
-  }
-}
+});

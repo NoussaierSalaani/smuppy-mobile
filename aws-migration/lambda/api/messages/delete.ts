@@ -6,10 +6,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
+import { withErrorHandler } from '../utils/error-handler';
 
 const s3Client = new S3Client({
   requestChecksumCalculation: 'WHEN_REQUIRED',
@@ -17,13 +16,7 @@ const s3Client = new S3Client({
 });
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET || '';
 
-const log = createLogger('messages-delete');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('messages-delete', async (event, { headers, log }) => {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -136,12 +129,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         message: 'Message deleted successfully',
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error deleting message', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

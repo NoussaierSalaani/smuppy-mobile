@@ -3,123 +3,101 @@
  * Creates a live_streams record and notifies fans/members
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders, handleOptions } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_HOUR, NOTIFICATION_BATCH_SIZE, NOTIFICATION_BATCH_DELAY_MS } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { moderateText } from '../utils/text-moderation';
 
-const log = createLogger('live-streams-start');
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
-    const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    if (!cognitoSub) {
-      return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
-    }
-
-    // Rate limit: 5 stream starts per hour (prevents abuse)
-    const rateLimitResponse = await requireRateLimit({
-      prefix: 'live-stream-start',
-      identifier: cognitoSub,
-      windowSeconds: RATE_WINDOW_1_HOUR,
-      maxRequests: 5,
-    }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    // Account status check (suspended/banned users cannot go live)
-    const accountCheck = await requireActiveAccount(cognitoSub, headers);
-    if (isAccountError(accountCheck)) return accountCheck;
-
-    const db = await getPool();
-
-    // Get profile
-    const profileResult = await db.query(
-      'SELECT id, username, display_name, avatar_url, account_type FROM profiles WHERE cognito_sub = $1',
-      [cognitoSub]
-    );
-    if (profileResult.rows.length === 0) {
-      return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
-    }
-
-    const profile = profileResult.rows[0];
-
-    // Only pro_creator can go live
-    if (profile.account_type !== 'pro_creator') {
-      return { statusCode: 403, headers, body: JSON.stringify({ message: 'Only creators can go live' }) };
-    }
-
-    // Check no active stream already
-    const activeCheck = await db.query(
-      "SELECT id FROM live_streams WHERE host_id = $1 AND status = 'live'",
-      [profile.id]
-    );
-    if (activeCheck.rows.length > 0) {
-      return { statusCode: 409, headers, body: JSON.stringify({ message: 'You already have an active live stream' }) };
-    }
-
-    // Parse optional title (sanitize: strip HTML + control chars)
-    const body = event.body ? JSON.parse(event.body) : {};
-    const title = body.title
-      ? String(body.title).replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().substring(0, 100) // NOSONAR — intentional control char sanitization
-      : 'Live';
-
-    // Moderation: check title for violations (skip default 'Live' title)
-    if (title !== 'Live') {
-      const filterResult = await filterText(title);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Live stream title blocked by filter', { userId: cognitoSub.substring(0, 8) + '***' });
-        return { statusCode: 400, headers, body: JSON.stringify({ message: 'Your title contains content that violates our community guidelines.' }) };
-      }
-      const toxicityResult = await analyzeTextToxicity(title);
-      if (toxicityResult.action === 'block') {
-        log.warn('Live stream title blocked by toxicity', { userId: cognitoSub.substring(0, 8) + '***' });
-        return { statusCode: 400, headers, body: JSON.stringify({ message: 'Your title contains content that violates our community guidelines.' }) };
-      }
-    }
-
-    const channelName = `live_${profile.id}`;
-
-    // Create live_streams record
-    const insertResult = await db.query(
-      `INSERT INTO live_streams (host_id, channel_name, title, status, started_at)
-       VALUES ($1, $2, $3, 'live', NOW())
-       RETURNING id, channel_name, title, started_at`,
-      [profile.id, channelName, title]
-    );
-
-    const stream = insertResult.rows[0];
-
-    // Notify fans (followers with status = 'accepted') — fire and forget
-    notifyFans(db, profile, stream.id).catch(err => log.error('Failed to notify fans', err));
-
-    return {
-      statusCode: 201,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        data: {
-          id: stream.id,
-          channelName: stream.channel_name,
-          title: stream.title,
-          startedAt: stream.started_at,
-        },
-      }),
-    };
-  } catch (error) {
-    log.error('Error starting live stream', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
+export const handler = withErrorHandler('live-streams-start', async (event, { headers, log }) => {
+  const cognitoSub = event.requestContext.authorizer?.claims?.sub;
+  if (!cognitoSub) {
+    return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
   }
-};
+
+  // Rate limit: 5 stream starts per hour (prevents abuse)
+  const rateLimitResponse = await requireRateLimit({
+    prefix: 'live-stream-start',
+    identifier: cognitoSub,
+    windowSeconds: RATE_WINDOW_1_HOUR,
+    maxRequests: 5,
+  }, headers);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Account status check (suspended/banned users cannot go live)
+  const accountCheck = await requireActiveAccount(cognitoSub, headers);
+  if (isAccountError(accountCheck)) return accountCheck;
+
+  const db = await getPool();
+
+  // Get profile
+  const profileResult = await db.query(
+    'SELECT id, username, display_name, avatar_url, account_type FROM profiles WHERE cognito_sub = $1',
+    [cognitoSub]
+  );
+  if (profileResult.rows.length === 0) {
+    return { statusCode: 404, headers, body: JSON.stringify({ message: 'Profile not found' }) };
+  }
+
+  const profile = profileResult.rows[0];
+
+  // Only pro_creator can go live
+  if (profile.account_type !== 'pro_creator') {
+    return { statusCode: 403, headers, body: JSON.stringify({ message: 'Only creators can go live' }) };
+  }
+
+  // Check no active stream already
+  const activeCheck = await db.query(
+    "SELECT id FROM live_streams WHERE host_id = $1 AND status = 'live'",
+    [profile.id]
+  );
+  if (activeCheck.rows.length > 0) {
+    return { statusCode: 409, headers, body: JSON.stringify({ message: 'You already have an active live stream' }) };
+  }
+
+  // Parse optional title (sanitize: strip HTML + control chars)
+  const body = event.body ? JSON.parse(event.body) : {};
+  const title = body.title
+    ? String(body.title).replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().substring(0, 100) // NOSONAR — intentional control char sanitization
+    : 'Live';
+
+  // Moderation: check title for violations (skip default 'Live' title)
+  if (title !== 'Live') {
+    const modResult = await moderateText(title, headers, log, 'live-stream-title');
+    if (modResult.blocked) return modResult.blockResponse!;
+  }
+
+  const channelName = `live_${profile.id}`;
+
+  // Create live_streams record
+  const insertResult = await db.query(
+    `INSERT INTO live_streams (host_id, channel_name, title, status, started_at)
+     VALUES ($1, $2, $3, 'live', NOW())
+     RETURNING id, channel_name, title, started_at`,
+    [profile.id, channelName, title]
+  );
+
+  const stream = insertResult.rows[0];
+
+  // Notify fans (followers with status = 'accepted') — fire and forget
+  notifyFans(db, profile, stream.id, log).catch(err => log.error('Failed to notify fans', err));
+
+  return {
+    statusCode: 201,
+    headers,
+    body: JSON.stringify({
+      success: true,
+      data: {
+        id: stream.id,
+        channelName: stream.channel_name,
+        title: stream.title,
+        startedAt: stream.started_at,
+      },
+    }),
+  };
+});
 
 /**
  * Helper to pause execution for rate limiting
@@ -131,7 +109,8 @@ function sleep(ms: number): Promise<void> {
 async function notifyFans(
   db: import('pg').Pool,
   host: { id: string; username: string; display_name: string; avatar_url: string },
-  streamId: string
+  streamId: string,
+  log: { error: (msg: string, ...args: unknown[]) => void },
 ): Promise<void> {
   // Get all fans who follow this creator AND have live notifications enabled
   // Per CLAUDE.md: respect notification preferences

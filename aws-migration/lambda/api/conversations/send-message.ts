@@ -5,371 +5,330 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_MESSAGE_LENGTH } from '../utils/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { isValidUUID } from '../utils/security';
+import { isBidirectionallyBlocked } from '../utils/block-filter';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { moderateText } from '../utils/text-moderation';
 
-const log = createLogger('conversations-send-message');
+export const handler = withErrorHandler('conversations-send-message', async (event, { headers, log }) => {
+  const userId = event.requestContext.authorizer?.claims?.sub;
+  if (!userId) {
+    return {
+      statusCode: 401,
+      headers,
+      body: JSON.stringify({ message: 'Unauthorized' }),
+    };
+  }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
+  // Rate limit: 60 messages per minute
+  const rateLimitResponse = await requireRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
+  if (rateLimitResponse) return rateLimitResponse;
 
+  const conversationId = event.pathParameters?.id;
+  if (!conversationId) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Conversation ID is required' }),
+    };
+  }
+
+  if (!isValidUUID(conversationId)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Invalid conversation ID format' }),
+    };
+  }
+
+  // Parse body
+  let body: Record<string, unknown>;
   try {
-    const userId = event.requestContext.authorizer?.claims?.sub;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
+    body = event.body ? JSON.parse(event.body) : {};
+  } catch {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Invalid request body' }),
+    };
+  }
+  const { content, mediaUrl, mediaType, replyToMessageId, voiceDuration, clientMessageId } = body;
 
-    // Rate limit: 60 messages per minute
-    const rateLimitResponse = await requireRateLimit({ prefix: 'send-message', identifier: userId, windowSeconds: RATE_WINDOW_1_MIN, maxRequests: 60 }, headers);
-    if (rateLimitResponse) return rateLimitResponse;
+  if (!content || typeof content !== 'string' || content.trim().length === 0) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Message content is required' }),
+    };
+  }
 
-    const conversationId = event.pathParameters?.id;
-    if (!conversationId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Conversation ID is required' }),
-      };
-    }
+  if (content.length > MAX_MESSAGE_LENGTH) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` }),
+    };
+  }
 
-    if (!isValidUUID(conversationId)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid conversation ID format' }),
-      };
-    }
+  // Per-conversation rate limit: 10 messages per minute per conversation
+  const convRateLimitResponse = await requireRateLimit({
+    prefix: 'send-message-conv',
+    identifier: `${userId}:${conversationId}`,
+    windowSeconds: RATE_WINDOW_1_MIN,
+    maxRequests: 10,
+  }, headers);
+  if (convRateLimitResponse) return convRateLimitResponse;
 
-    // Parse body
-    let body: Record<string, unknown>;
-    try {
-      body = event.body ? JSON.parse(event.body) : {};
-    } catch {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid request body' }),
-      };
-    }
-    const { content, mediaUrl, mediaType, replyToMessageId, voiceDuration, clientMessageId } = body;
+  // Validate optional media fields — media_type is only valid when media_url is also valid
+  const ALLOWED_MEDIA_TYPES = ['image', 'video', 'audio', 'voice'];
+  const validMediaUrl = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('https://')
+    ? mediaUrl
+    : null;
+  const validMediaType = validMediaUrl && mediaType && typeof mediaType === 'string' && ALLOWED_MEDIA_TYPES.includes(mediaType)
+    ? mediaType
+    : null;
 
-    if (!content || typeof content !== 'string' || content.trim().length === 0) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Message content is required' }),
-      };
-    }
-
-    if (content.length > MAX_MESSAGE_LENGTH) {
+  // Validate voice/audio media URLs match expected S3 path pattern
+  if (validMediaUrl && (validMediaType === 'audio' || validMediaType === 'voice')) {
+    const VOICE_URL_PATTERN = /^https:\/\/.+\/voice-messages\/[0-9a-f-]+\/[0-9a-f-]+\/[0-9a-f-]+\.m4a$/i;
+    if (!VOICE_URL_PATTERN.test(validMediaUrl)) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` }),
+        body: JSON.stringify({ message: 'Invalid voice message URL' }),
       };
     }
+  }
 
-    // Per-conversation rate limit: 10 messages per minute per conversation
-    const convRateLimitResponse = await requireRateLimit({
-      prefix: 'send-message-conv',
-      identifier: `${userId}:${conversationId}`,
-      windowSeconds: RATE_WINDOW_1_MIN,
-      maxRequests: 10,
-    }, headers);
-    if (convRateLimitResponse) return convRateLimitResponse;
+  // Validate voice duration if provided (1–300 seconds)
+  const validVoiceDuration = validMediaUrl && (validMediaType === 'audio' || validMediaType === 'voice')
+    && typeof voiceDuration === 'number' && Number.isInteger(voiceDuration) && voiceDuration >= 1 && voiceDuration <= 300
+    ? voiceDuration
+    : null;
 
-    // Validate optional media fields — media_type is only valid when media_url is also valid
-    const ALLOWED_MEDIA_TYPES = ['image', 'video', 'audio', 'voice'];
-    const validMediaUrl = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('https://')
-      ? mediaUrl
-      : null;
-    const validMediaType = validMediaUrl && mediaType && typeof mediaType === 'string' && ALLOWED_MEDIA_TYPES.includes(mediaType)
-      ? mediaType
-      : null;
+  // Validate clientMessageId for idempotent retries (optional, max 64 chars, alphanumeric + dashes)
+  const validClientMessageId = typeof clientMessageId === 'string'
+    && clientMessageId.length > 0 && clientMessageId.length <= 64
+    && /^[a-zA-Z0-9_-]+$/.test(clientMessageId)
+    ? clientMessageId
+    : null;
 
-    // Validate voice/audio media URLs match expected S3 path pattern
-    if (validMediaUrl && (validMediaType === 'audio' || validMediaType === 'voice')) {
-      const VOICE_URL_PATTERN = /^https:\/\/.+\/voice-messages\/[0-9a-f-]+\/[0-9a-f-]+\/[0-9a-f-]+\.m4a$/i;
-      if (!VOICE_URL_PATTERN.test(validMediaUrl)) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Invalid voice message URL' }),
-        };
-      }
+  // Sanitize content: strip HTML tags and control characters (preserve tab, LF, CR)
+  const sanitizedContent = content.trim().replaceAll(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — intentional control char sanitization
+
+  // Detect shared content: [shared_post:UUID] or [shared_peak:UUID]
+  const SHARED_CONTENT_PATTERN = /^\[shared_(post|peak):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;
+  const sharedMatch = sanitizedContent.match(SHARED_CONTENT_PATTERN);
+  let sharedPostId: string | null = null;
+  let sharedPeakId: string | null = null;
+  if (sharedMatch) {
+    if (sharedMatch[1] === 'post') {
+      sharedPostId = sharedMatch[2];
+    } else {
+      sharedPeakId = sharedMatch[2];
     }
+  }
 
-    // Validate voice duration if provided (1–300 seconds)
-    const validVoiceDuration = validMediaUrl && (validMediaType === 'audio' || validMediaType === 'voice')
-      && typeof voiceDuration === 'number' && Number.isInteger(voiceDuration) && voiceDuration >= 1 && voiceDuration <= 300
-      ? voiceDuration
-      : null;
+  // Check account status (suspended/banned users cannot send messages)
+  const accountCheck = await requireActiveAccount(userId, headers);
+  if (isAccountError(accountCheck)) return accountCheck;
 
-    // Validate clientMessageId for idempotent retries (optional, max 64 chars, alphanumeric + dashes)
-    const validClientMessageId = typeof clientMessageId === 'string'
-      && clientMessageId.length > 0 && clientMessageId.length <= 64
-      && /^[a-zA-Z0-9_-]+$/.test(clientMessageId)
-      ? clientMessageId
-      : null;
+  // Skip moderation for pure shared content messages (only contain the share token)
+  if (!sharedMatch) {
+    const modResult = await moderateText(sanitizedContent, headers, log, 'direct-message');
+    if (modResult.blocked) return modResult.blockResponse!;
+  }
 
-    // Sanitize content: strip HTML tags and control characters (preserve tab, LF, CR)
-    const sanitizedContent = content.trim().replaceAll(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // NOSONAR — intentional control char sanitization
+  const db = await getPool();
 
-    // Detect shared content: [shared_post:UUID] or [shared_peak:UUID]
-    const SHARED_CONTENT_PATTERN = /^\[shared_(post|peak):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;
-    const sharedMatch = sanitizedContent.match(SHARED_CONTENT_PATTERN);
-    let sharedPostId: string | null = null;
-    let sharedPeakId: string | null = null;
-    if (sharedMatch) {
-      if (sharedMatch[1] === 'post') {
-        sharedPostId = sharedMatch[2];
-      } else {
-        sharedPeakId = sharedMatch[2];
-      }
-    }
+  // Get user's profile
+  const userResult = await db.query(
+    'SELECT id, username, display_name, avatar_url FROM profiles WHERE cognito_sub = $1',
+    [userId]
+  );
 
-    // Check account status (suspended/banned users cannot send messages)
-    const accountCheck = await requireActiveAccount(userId, headers);
-    if (isAccountError(accountCheck)) return accountCheck;
+  if (userResult.rows.length === 0) {
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ message: 'User profile not found' }),
+    };
+  }
 
-    // Skip moderation for pure shared content messages (only contain the share token)
-    if (!sharedMatch) {
-      // Moderation: wordlist filter
-      const filterResult = await filterText(sanitizedContent);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('DM blocked by text filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
-        };
-      }
+  const profile = userResult.rows[0];
 
-      // Moderation: Comprehend toxicity analysis
-      const toxicityResult = await analyzeTextToxicity(sanitizedContent);
-      if (toxicityResult.action === 'block') {
-        log.warn('DM blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Your message contains content that violates our community guidelines.' }),
-        };
-      }
-    }
+  // SECURITY: Participant check, block check, and message insert in a single transaction
+  // to prevent TOCTOU race conditions (e.g., block happening between check and insert)
+  const client = await db.connect();
+  let message;
+  let recipientId: string;
+  try {
+    await client.query('BEGIN');
 
-    const db = await getPool();
-
-    // Get user's profile
-    const userResult = await db.query(
-      'SELECT id, username, display_name, avatar_url FROM profiles WHERE cognito_sub = $1',
-      [userId]
+    // Check if user is participant in this conversation
+    const conversationResult = await client.query(
+      `SELECT id, participant_1_id, participant_2_id FROM conversations
+       WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
+      [conversationId, profile.id]
     );
 
-    if (userResult.rows.length === 0) {
+    if (conversationResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ message: 'User profile not found' }),
+        body: JSON.stringify({ message: 'Conversation not found' }),
       };
     }
 
-    const profile = userResult.rows[0];
+    const conversation = conversationResult.rows[0];
+    recipientId = conversation.participant_1_id === profile.id
+      ? conversation.participant_2_id
+      : conversation.participant_1_id;
 
-    // SECURITY: Participant check, block check, and message insert in a single transaction
-    // to prevent TOCTOU race conditions (e.g., block happening between check and insert)
-    const client = await db.connect();
-    let message;
-    let recipientId: string;
-    try {
-      await client.query('BEGIN');
-
-      // Check if user is participant in this conversation
-      const conversationResult = await client.query(
-        `SELECT id, participant_1_id, participant_2_id FROM conversations
-         WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
-        [conversationId, profile.id]
-      );
-
-      if (conversationResult.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ message: 'Conversation not found' }),
-        };
-      }
-
-      const conversation = conversationResult.rows[0];
-      recipientId = conversation.participant_1_id === profile.id
-        ? conversation.participant_2_id
-        : conversation.participant_1_id;
-
-      // Check recipient account is active (suspended/banned users cannot receive messages)
-      const recipientCheck = await client.query(
-        'SELECT moderation_status FROM profiles WHERE id = $1',
-        [recipientId]
-      );
-      if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].moderation_status === 'suspended' || recipientCheck.rows[0].moderation_status === 'banned') {
-        await client.query('ROLLBACK');
-        return {
-          statusCode: 403,
-          headers,
-          body: JSON.stringify({ message: 'Cannot send message to this user' }),
-        };
-      }
-
-      // Check if either user has blocked the other
-      const blockCheck = await client.query(
-        `SELECT 1 FROM blocked_users
-         WHERE (blocker_id = $1 AND blocked_id = $2)
-            OR (blocker_id = $2 AND blocked_id = $1)
-         LIMIT 1`,
-        [profile.id, recipientId]
-      );
-      if (blockCheck.rows.length > 0) {
-        await client.query('ROLLBACK');
-        return {
-          statusCode: 403,
-          headers,
-          body: JSON.stringify({ message: 'Cannot send message to this user' }),
-        };
-      }
-
-      // Validate shared content exists (prevent sharing deleted/nonexistent posts/peaks)
-      if (sharedPostId) {
-        const postCheck = await client.query(
-          'SELECT 1 FROM posts WHERE id = $1 LIMIT 1',
-          [sharedPostId]
-        );
-        if (postCheck.rows.length === 0) {
-          await client.query('ROLLBACK');
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ message: 'Shared post not found' }),
-          };
-        }
-      }
-      if (sharedPeakId) {
-        const peakCheck = await client.query(
-          'SELECT 1 FROM peaks WHERE id = $1 LIMIT 1',
-          [sharedPeakId]
-        );
-        if (peakCheck.rows.length === 0) {
-          await client.query('ROLLBACK');
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ message: 'Shared peak not found' }),
-          };
-        }
-      }
-
-      // Validate replyToMessageId if provided
-      let validReplyToMessageId = null;
-      if (typeof replyToMessageId === 'string' && isValidUUID(replyToMessageId)) {
-        // Verify the replied message exists in this conversation
-        const replyCheck = await client.query(
-          'SELECT 1 FROM messages WHERE id = $1 AND conversation_id = $2 LIMIT 1',
-          [replyToMessageId, conversationId]
-        );
-        if (replyCheck.rows.length > 0) {
-          validReplyToMessageId = replyToMessageId;
-        }
-      }
-
-      const messageResult = await client.query(
-        `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, voice_duration_seconds, reply_to_message_id, shared_post_id, shared_peak_id, client_message_id, read, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, NOW())
-         ON CONFLICT (conversation_id, sender_id, client_message_id) WHERE client_message_id IS NOT NULL DO NOTHING
-         RETURNING id, content, media_url, media_type, voice_duration_seconds, sender_id, recipient_id, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at`,
-        [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validVoiceDuration, validReplyToMessageId, sharedPostId, sharedPeakId, validClientMessageId]
-      );
-
-      // Handle duplicate message (idempotent retry via client_message_id)
-      if (messageResult.rows.length === 0 && validClientMessageId) {
-        const existing = await client.query(
-          `SELECT id, content, media_url, media_type, voice_duration_seconds, sender_id, recipient_id,
-                  reply_to_message_id, shared_post_id, shared_peak_id, read, created_at
-           FROM messages WHERE conversation_id = $1 AND sender_id = $2 AND client_message_id = $3`,
-          [conversationId, profile.id, validClientMessageId]
-        );
-        await client.query('COMMIT');
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({
-            success: true,
-            message: {
-              ...(existing.rows[0] || {}),
-              sender: { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url },
-            },
-          }),
-        };
-      }
-
-      await client.query(
-        'UPDATE conversations SET last_message_at = NOW() WHERE id = $1',
-        [conversationId]
-      );
-
-      await client.query('COMMIT');
-      message = messageResult.rows[0];
-    } catch (txError) {
+    // Check recipient account is active (suspended/banned users cannot receive messages)
+    const recipientCheck = await client.query(
+      'SELECT moderation_status FROM profiles WHERE id = $1',
+      [recipientId]
+    );
+    if (recipientCheck.rows.length === 0 || recipientCheck.rows[0].moderation_status === 'suspended' || recipientCheck.rows[0].moderation_status === 'banned') {
       await client.query('ROLLBACK');
-      throw txError;
-    } finally {
-      client.release();
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Cannot send message to this user' }),
+      };
     }
 
-    // Send push notification to recipient (non-blocking)
-    // SECURITY: Don't include full message content in push (visible on lock screen, logged by APNs/FCM)
-    const displayName = profile.display_name || 'Someone';
-    const pushBody = sharedPostId ? 'Shared a post with you'
-      : sharedPeakId ? 'Shared a peak with you'
-      : (validMediaType === 'audio' || validMediaType === 'voice') ? 'Sent a voice message'
-      : validMediaUrl ? 'Sent you a photo'
-      : 'Sent you a message';
-    sendPushToUser(db, recipientId, {
-      title: displayName,
-      body: pushBody,
-      data: { type: 'message', conversationId, senderId: profile.id },
-    }, profile.id).catch(err => log.error('Push notification failed', err));
+    // Check if either user has blocked the other
+    if (await isBidirectionallyBlocked(client, profile.id, recipientId)) {
+      await client.query('ROLLBACK');
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: 'Cannot send message to this user' }),
+      };
+    }
 
-    return {
-      statusCode: 201,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        message: {
-          ...message,
-          sender: {
-            id: profile.id,
-            username: profile.username,
-            display_name: profile.display_name,
-            avatar_url: profile.avatar_url,
+    // Validate shared content exists (prevent sharing deleted/nonexistent posts/peaks)
+    if (sharedPostId) {
+      const postCheck = await client.query(
+        'SELECT 1 FROM posts WHERE id = $1 LIMIT 1',
+        [sharedPostId]
+      );
+      if (postCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Shared post not found' }),
+        };
+      }
+    }
+    if (sharedPeakId) {
+      const peakCheck = await client.query(
+        'SELECT 1 FROM peaks WHERE id = $1 LIMIT 1',
+        [sharedPeakId]
+      );
+      if (peakCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Shared peak not found' }),
+        };
+      }
+    }
+
+    // Validate replyToMessageId if provided
+    let validReplyToMessageId = null;
+    if (typeof replyToMessageId === 'string' && isValidUUID(replyToMessageId)) {
+      // Verify the replied message exists in this conversation
+      const replyCheck = await client.query(
+        'SELECT 1 FROM messages WHERE id = $1 AND conversation_id = $2 LIMIT 1',
+        [replyToMessageId, conversationId]
+      );
+      if (replyCheck.rows.length > 0) {
+        validReplyToMessageId = replyToMessageId;
+      }
+    }
+
+    const messageResult = await client.query(
+      `INSERT INTO messages (conversation_id, sender_id, recipient_id, content, media_url, media_type, voice_duration_seconds, reply_to_message_id, shared_post_id, shared_peak_id, client_message_id, read, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, NOW())
+       ON CONFLICT (conversation_id, sender_id, client_message_id) WHERE client_message_id IS NOT NULL DO NOTHING
+       RETURNING id, content, media_url, media_type, voice_duration_seconds, sender_id, recipient_id, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at`,
+      [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validVoiceDuration, validReplyToMessageId, sharedPostId, sharedPeakId, validClientMessageId]
+    );
+
+    // Handle duplicate message (idempotent retry via client_message_id)
+    if (messageResult.rows.length === 0 && validClientMessageId) {
+      const existing = await client.query(
+        `SELECT id, content, media_url, media_type, voice_duration_seconds, sender_id, recipient_id,
+                reply_to_message_id, shared_post_id, shared_peak_id, read, created_at
+         FROM messages WHERE conversation_id = $1 AND sender_id = $2 AND client_message_id = $3`,
+        [conversationId, profile.id, validClientMessageId]
+      );
+      await client.query('COMMIT');
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          message: {
+            ...(existing.rows[0] || {}),
+            sender: { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url },
           },
-        },
-      }),
-    };
-  } catch (error: unknown) {
-    log.error('Error sending message', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
+        }),
+      };
+    }
+
+    await client.query(
+      'UPDATE conversations SET last_message_at = NOW() WHERE id = $1',
+      [conversationId]
+    );
+
+    await client.query('COMMIT');
+    message = messageResult.rows[0];
+  } catch (txError) {
+    await client.query('ROLLBACK');
+    throw txError;
+  } finally {
+    client.release();
   }
-}
+
+  // Send push notification to recipient (non-blocking)
+  // SECURITY: Don't include full message content in push (visible on lock screen, logged by APNs/FCM)
+  const displayName = profile.display_name || 'Someone';
+  const pushBody = sharedPostId ? 'Shared a post with you'
+    : sharedPeakId ? 'Shared a peak with you'
+    : (validMediaType === 'audio' || validMediaType === 'voice') ? 'Sent a voice message'
+    : validMediaUrl ? 'Sent you a photo'
+    : 'Sent you a message';
+  sendPushToUser(db, recipientId, {
+    title: displayName,
+    body: pushBody,
+    data: { type: 'message', conversationId, senderId: profile.id },
+  }, profile.id).catch(err => log.error('Push notification failed', err));
+
+  return {
+    statusCode: 201,
+    headers,
+    body: JSON.stringify({
+      success: true,
+      message: {
+        ...message,
+        sender: {
+          id: profile.id,
+          username: profile.username,
+          display_name: profile.display_name,
+          avatar_url: profile.avatar_url,
+        },
+      },
+    }),
+  };
+});

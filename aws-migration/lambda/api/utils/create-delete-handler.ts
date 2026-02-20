@@ -17,6 +17,7 @@ import { requireAuth, validateUUIDParam, isErrorResponse } from './validators';
 import { resolveProfileId } from './auth';
 import { requireRateLimit } from './rate-limit';
 import { RATE_WINDOW_1_MIN } from './constants';
+import { assertSafeIdentifier, assertSafeColumnList } from './sql-identifiers';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -147,6 +148,12 @@ export function createDeleteHandler(config: DeleteHandlerConfig) {
     afterCommit,
   } = config;
 
+  // Defense-in-depth: validate config-provided identifiers at factory init time.
+  // These are compile-time constants, never user input.
+  assertSafeIdentifier(resourceTable, `${loggerName}.resourceTable`);
+  assertSafeColumnList(selectColumns, `${loggerName}.selectColumns`);
+  assertSafeIdentifier(ownershipField, `${loggerName}.ownershipField`);
+
   const log = createLogger(loggerName);
 
   async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -187,6 +194,8 @@ export function createDeleteHandler(config: DeleteHandlerConfig) {
       }
 
       // ── Ownership check ────────────────────────────────────────
+      // NOTE: selectColumns and resourceTable are compile-time constants
+      // validated by assertSafeIdentifier/assertSafeColumnList at init.
       const resourceResult = await db.query(
         `SELECT ${selectColumns} FROM ${resourceTable} WHERE id = $1`,
         [resourceId],

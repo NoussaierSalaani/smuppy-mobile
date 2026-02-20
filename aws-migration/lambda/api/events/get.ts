@@ -3,29 +3,23 @@
  * Get a single event by ID with creator info and user participation status
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('events-get');
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('events-get', async (event, { headers }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const eventId = event.pathParameters?.eventId;
     if (!eventId || !isValidUUID(eventId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     // Optionally resolve authenticated user
@@ -82,10 +76,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (result.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Event not found' }),
-      });
+      };
     }
 
     const row = result.rows[0];
@@ -105,8 +100,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const isCreator = profileId !== null && profileId === row.creator_id;
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         event: {
@@ -161,17 +157,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           userParticipation,
         },
       }),
-    });
-  } catch (error: unknown) {
-    log.error('Get event error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to fetch event',
-      }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

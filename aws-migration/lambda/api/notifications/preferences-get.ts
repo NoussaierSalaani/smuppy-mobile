@@ -5,11 +5,8 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('notifications-preferences-get');
+import { withErrorHandler } from '../utils/error-handler';
 
 const DEFAULTS = {
   likes: true,
@@ -20,11 +17,7 @@ const DEFAULTS = {
   live: true,
 };
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('notifications-preferences-get', async (event, { headers }) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
       return {
@@ -73,12 +66,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ success: true, preferences }),
     };
-  } catch (error: unknown) {
-    log.error('Error fetching notification preferences', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

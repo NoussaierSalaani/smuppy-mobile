@@ -3,18 +3,11 @@
  * Get top tippers for a creator
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 
-const log = createLogger('tips-leaderboard');
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('tips-leaderboard', async (event, { headers }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
@@ -24,25 +17,28 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '10'), 50);
 
     if (!creatorId) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Creator ID required' }),
-      });
+      };
     }
 
     // Validate UUID format
     if (!isValidUUID(creatorId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid creator ID format' }),
-      });
+      };
     }
 
     if (!['all_time', 'monthly', 'weekly'].includes(period)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid period' }),
-      });
+      };
     }
 
     // Get period start date using parameterized SQL (no string interpolation)
@@ -111,8 +107,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       tipCount: Number.parseInt(row.tip_count as string),
     }));
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         period,
@@ -123,17 +120,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           creatorTotal: Number.parseFloat(statsResult.rows[0].creator_total),
         },
       }),
-    });
+    };
   } catch (error: unknown) {
-    log.error('Leaderboard error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to fetch leaderboard',
-      }),
-    });
+    throw error;
   } finally {
     client.release();
   }
-};
+});

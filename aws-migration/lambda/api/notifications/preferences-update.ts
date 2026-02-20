@@ -5,12 +5,9 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
+import { withErrorHandler } from '../utils/error-handler';
 import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('notifications-preferences-update');
 
 const ALLOWED_KEYS = ['likes', 'comments', 'follows', 'messages', 'mentions', 'live'] as const;
 type PrefKey = typeof ALLOWED_KEYS[number];
@@ -24,11 +21,7 @@ const KEY_TO_COLUMN: Record<PrefKey, string> = {
   live: 'live_enabled',
 };
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('notifications-preferences-update', async (event, { headers, log }) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
       return {
@@ -124,12 +117,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ success: true, preferences }),
     };
-  } catch (error: unknown) {
-    log.error('Error updating notification preferences', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

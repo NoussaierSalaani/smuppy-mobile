@@ -3,13 +3,9 @@
  * GET /challenges/{challengeId}/responses?limit=20&offset=0
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
-
-const log = createLogger('challenges-responses');
 
 function mapResponse(r: Record<string, unknown>) {
   return {
@@ -40,20 +36,18 @@ function mapResponse(r: Record<string, unknown>) {
   };
 }
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('challenges-responses', async (event, { headers }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const challengeId = event.pathParameters?.challengeId;
     if (!challengeId || !isValidUUID(challengeId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid challenge ID' }),
-      });
+      };
     }
 
     const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
@@ -67,10 +61,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       [challengeId]
     );
     if (challengeCheck.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Challenge not found' }),
-      });
+      };
     }
 
     // Build cursor condition
@@ -103,25 +98,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const rows = result.rows.slice(0, limit);
       const nextCursor = hasMore ? String(offset + limit) : null;
 
-      return cors({
+      return {
         statusCode: 200,
+        headers,
         body: JSON.stringify({
           success: true,
           responses: rows.map((r: Record<string, unknown>) => mapResponse(r)),
           nextCursor,
           hasMore,
         }),
-      });
+      };
     }
 
     // Recent sort uses keyset cursor on created_at
     if (cursor) {
       const parsedDate = new Date(cursor);
       if (Number.isNaN(parsedDate.getTime())) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid cursor format' }),
-        });
+        };
       }
       params.push(parsedDate.toISOString());
       cursorCondition = `AND cr.created_at < $${params.length}::timestamptz`;
@@ -153,22 +150,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const responses = rows.map((r: Record<string, unknown>) => mapResponse(r));
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         responses,
         nextCursor,
         hasMore,
       }),
-    });
-  } catch (error) {
-    log.error('Failed to list challenge responses', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({ success: false, message: 'Failed to fetch responses' }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

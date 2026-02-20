@@ -3,17 +3,13 @@
  * Handles millions of requests with caching, cursor pagination, and feed algorithms
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Redis from 'ioredis';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
-
-const log = createLogger('posts-list');
 
 // Redis connection (reused across Lambda invocations)
 let redis: Redis | null = null;
@@ -43,15 +39,13 @@ async function getRedis(): Promise<Redis | null> {
   return redis;
 }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+export const handler = withErrorHandler('posts-list', async (event, { headers: baseHeaders }) => {
   const startTime = Date.now();
   const headers = {
-    ...createHeaders(event),
+    ...baseHeaders,
     'Cache-Control': 'no-cache',
   };
-  log.initFromEvent(event);
 
-  try {
     const {
       limit = '20',
       cursor,
@@ -368,8 +362,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=60' }, body: JSON.stringify({ ...responseData, cached: false, latency: Date.now() - startTime }) };
-  } catch (error: unknown) {
-    log.error('Error fetching posts', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
-  }
-}
+});

@@ -5,25 +5,18 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireAuth, validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { moderateText } from '../utils/text-moderation';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID } from '../utils/security';
+import { isBidirectionallyBlocked } from '../utils/block-filter';
 import { RATE_WINDOW_1_DAY } from '../utils/constants';
 
-const log = createLogger('comments-create');
-
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('comments-create', async (event, { headers, log }) => {
     const userId = requireAuth(event, headers);
     if (isErrorResponse(userId)) return userId;
 
@@ -78,35 +71,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Backend content moderation check
-    const filterResult = await filterText(sanitizedText);
-    if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Content policy violation' }),
-      };
-    }
-
-    // AI toxicity detection (AWS Comprehend)
-    let contentFlagged = false;
-    let flagCategory: string | null = null;
-    let flagScore: number | null = null;
-
-    const toxicity = await analyzeTextToxicity(sanitizedText);
-    if (toxicity.action === 'block') {
-      log.info('Comment blocked by Comprehend', { topCategory: toxicity.topCategory, score: toxicity.maxScore });
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Content policy violation' }),
-      };
-    }
-    if (toxicity.action === 'flag') {
-      contentFlagged = true;
-      flagCategory = toxicity.topCategory;
-      flagScore = toxicity.maxScore;
-    }
+    // Backend content moderation check (keyword filter + Comprehend toxicity)
+    const modResult = await moderateText(sanitizedText, headers, log, 'comment');
+    if (modResult.blocked) return modResult.blockResponse!;
+    const { contentFlagged, flagCategory, flagScore } = modResult;
 
     // Check account moderation status
     const accountCheck = await requireActiveAccount(userId, headers);
@@ -140,14 +108,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const post = postResult.rows[0];
 
     // Bidirectional block check: prevent commenting on posts from blocked/blocking users
-    const blockCheck = await db.query(
-      `SELECT 1 FROM blocked_users
-       WHERE (blocker_id = $1 AND blocked_id = $2)
-          OR (blocker_id = $2 AND blocked_id = $1)
-       LIMIT 1`,
-      [profile.id, post.author_id]
-    );
-    if (blockCheck.rows.length > 0) {
+    if (await isBidirectionallyBlocked(db, profile.id, post.author_id)) {
       return {
         statusCode: 403,
         headers,
@@ -268,12 +229,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } finally {
       client.release();
     }
-  } catch (error: unknown) {
-    log.error('Error creating comment', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

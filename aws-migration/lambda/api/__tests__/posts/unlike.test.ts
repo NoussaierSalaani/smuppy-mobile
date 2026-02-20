@@ -52,7 +52,7 @@ jest.mock('../../utils/error-handler', () => {
       const { createHeaders } = require('../../utils/cors');
       const { createLogger } = require('../../utils/logger');
       const handlerLog = createLogger(name);
-      return async (event: any) => {
+      return async (event: APIGatewayProxyEvent) => {
         const headers = createHeaders(event);
         handlerLog.initFromEvent(event);
         try {

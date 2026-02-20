@@ -3,28 +3,22 @@
  * Get a single group by ID with participants
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 
-const log = createLogger('groups-get');
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('groups-get', async (event, { headers }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const groupId = event.pathParameters?.groupId;
     if (!groupId || !isValidUUID(groupId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     // Get group with creator info
@@ -75,10 +69,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (groupResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Group not found' }),
-      });
+      };
     }
 
     const row = groupResult.rows[0];
@@ -109,8 +104,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       joinedAt: p.joined_at,
     }));
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         group: {
@@ -156,14 +152,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           participants,
         },
       }),
-    });
-  } catch (error: unknown) {
-    log.error('Get group error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({ success: false, message: 'Failed to fetch group' }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

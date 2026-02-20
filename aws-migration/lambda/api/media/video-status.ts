@@ -6,21 +6,12 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
+import { withErrorHandler } from '../utils/error-handler';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 
-const log = createLogger('media-video-status');
-
-export async function handler(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('media-video-status', async (event, { headers }) => {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
@@ -90,8 +81,4 @@ export async function handler(
         videoDuration: row.video_duration || null,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error checking video status', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
-  }
-}
+});

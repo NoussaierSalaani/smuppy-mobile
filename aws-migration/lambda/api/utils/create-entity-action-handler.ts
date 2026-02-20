@@ -11,11 +11,11 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import type { PoolClient } from 'pg';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from './cors';
-import { createLogger, Logger } from './logger';
+import type { Logger } from './logger';
 import { isValidUUID } from './security';
 import { requireRateLimit } from './rate-limit';
 import { resolveProfileId } from './auth';
+import { withErrorHandler } from './error-handler';
 
 /** Generic entity row returned from the DB fetch query */
 export interface EntityRow {
@@ -77,13 +77,7 @@ export function createEntityActionHandler(config: EntityActionConfig) {
     onAction,
   } = config;
 
-  const log = createLogger(loggerName);
-  const corsHeaders = getSecureHeaders();
-
-  async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    log.initFromEvent(event);
-    if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+  const handler = withErrorHandler(loggerName, async (event, { headers, log }) => {
     const pool = await getPool();
     const client = await pool.connect();
 
@@ -91,10 +85,11 @@ export function createEntityActionHandler(config: EntityActionConfig) {
       // Auth
       const cognitoSub = event.requestContext.authorizer?.claims?.sub;
       if (!cognitoSub) {
-        return cors({
+        return {
           statusCode: 401,
+          headers,
           body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-        });
+        };
       }
 
       // Rate limit
@@ -103,25 +98,27 @@ export function createEntityActionHandler(config: EntityActionConfig) {
         identifier: cognitoSub,
         windowSeconds: 60,
         maxRequests: rateLimitMax,
-      }, corsHeaders);
+      }, headers);
       if (rateLimitResponse) return rateLimitResponse;
 
       // Validate entity ID
       const entityId = event.pathParameters?.[pathParamKey];
       if (!entityId || !isValidUUID(entityId)) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-        });
+        };
       }
 
       // Resolve profile
       const profileId = await resolveProfileId(client, cognitoSub);
       if (!profileId) {
-        return cors({
+        return {
           statusCode: 404,
+          headers,
           body: JSON.stringify({ success: false, message: 'Profile not found' }),
-        });
+        };
       }
 
       // Fetch entity
@@ -129,10 +126,11 @@ export function createEntityActionHandler(config: EntityActionConfig) {
       const entityResult = await client.query(entityQuery.text, entityQuery.params);
 
       if (entityResult.rows.length === 0) {
-        return cors({
+        return {
           statusCode: 404,
+          headers,
           body: JSON.stringify({ success: false, message: entityNotFoundMessage }),
-        });
+        };
       }
 
       const entity: EntityRow = entityResult.rows[0];
@@ -145,7 +143,7 @@ export function createEntityActionHandler(config: EntityActionConfig) {
         profileId,
         cognitoSub,
         entityId,
-        headers: corsHeaders,
+        headers,
         log,
         rawEvent: event,
       });
@@ -154,14 +152,15 @@ export function createEntityActionHandler(config: EntityActionConfig) {
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       log.error(`${actionLabel} error`, error);
-      return cors({
+      return {
         statusCode: 500,
+        headers,
         body: JSON.stringify({ success: false, message: `Failed to ${actionLabel}` }),
-      });
+      };
     } finally {
       client.release();
     }
-  }
+  });
 
   return { handler };
 }

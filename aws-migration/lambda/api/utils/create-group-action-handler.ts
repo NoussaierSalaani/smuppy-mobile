@@ -13,6 +13,7 @@ import {
   createEntityActionHandler,
   EntityRow,
 } from './create-entity-action-handler';
+import { assertSafeColumnList } from './sql-identifiers';
 
 /** Re-export for backward compatibility */
 export type GroupRow = EntityRow;
@@ -55,6 +56,10 @@ export function createGroupActionHandler(config: GroupActionConfig) {
     groupColumns = 'id',
     onAction,
   } = config;
+
+  // Defense-in-depth: validate config-provided column list at factory init time.
+  // groupColumns is a compile-time constant, never user input.
+  assertSafeColumnList(groupColumns, `${loggerName}.groupColumns`);
 
   return createEntityActionHandler({
     actionLabel: `${action} group`,

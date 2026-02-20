@@ -12,9 +12,8 @@ import {
   DeleteEndpointCommand,
 } from '@aws-sdk/client-sns';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
-import { isNamedError } from '../utils/error-handler';
+import { isNamedError, withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 
@@ -95,11 +94,7 @@ async function createOrUpdateEndpoint(
   }
 }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('notifications-push-token', async (event, { headers }) => {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -238,12 +233,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         snsEnabled: !!snsEndpointArn,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error registering push token', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

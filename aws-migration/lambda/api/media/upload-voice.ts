@@ -15,9 +15,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 import { randomUUID } from 'crypto';
 import { RATE_WINDOW_1_MIN, PRESIGNED_URL_EXPIRY_SECONDS, MAX_VOICE_MESSAGE_SECONDS, MAX_VOICE_SIZE_BYTES } from '../utils/constants';
@@ -60,13 +60,7 @@ interface VoiceUploadRequest {
   fileSize?: number;
 }
 
-export async function handler(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('media-upload-voice', async (event, { headers }) => {
     // Auth check
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
@@ -212,12 +206,4 @@ export async function handler(
       headers,
       body: JSON.stringify({ success: true, url, key, cdnUrl, fileUrl }),
     };
-  } catch (error: unknown) {
-    log.error('Error generating voice upload URL', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Failed to generate upload URL' }),
-    };
-  }
-}
+});

@@ -4,53 +4,48 @@
  * Toggle vote (up) on a challenge response — idempotent toggle.
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('challenges-vote');
-const corsHeaders = getSecureHeaders();
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('challenges-vote', async (event, { headers, log }) => {
   const pool = await getPool();
   const client = await pool.connect();
 
   try {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     if (!cognitoSub) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
-    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-vote', identifier: cognitoSub, windowSeconds: 60, maxRequests: 30 }, corsHeaders);
+    const rateLimitResponse = await requireRateLimit({ prefix: 'challenge-vote', identifier: cognitoSub, windowSeconds: 60, maxRequests: 30 }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     // Resolve cognito sub to profile ID
     const voterId = await resolveProfileId(client, cognitoSub);
     if (!voterId) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
 
     const challengeId = event.pathParameters?.challengeId;
     const responseId = event.pathParameters?.responseId;
 
     if (!challengeId || !responseId || !isValidUUID(challengeId) || !isValidUUID(responseId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     // Verify the response exists and belongs to this challenge
@@ -62,18 +57,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     );
 
     if (responseCheck.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Response not found' }),
-      });
+      };
     }
 
     // Prevent voting on own response
     if (responseCheck.rows[0].user_id === voterId) {
-      return cors({
+      return {
         statusCode: 403,
+        headers,
         body: JSON.stringify({ success: false, message: 'You cannot vote on your own response' }),
-      });
+      };
     }
 
     await client.query('BEGIN');
@@ -120,25 +117,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     await client.query('COMMIT');
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         voted,
         voteCount: updatedResult.rows[0]?.vote_count || 0,
       }),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
     log.error('Vote challenge response error', error);
-    return cors({
+    return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({
         success: false,
         message: 'Failed to vote',
       }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

@@ -5,7 +5,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual, randomInt } from 'crypto';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';
@@ -618,12 +618,12 @@ async function insertDemoPosts(db: Pool, profileIds: { id: string; accountType: 
   for (const { id, accountType } of profileIds) {
     const numPosts = getPostCount(accountType);
     for (let i = 0; i < numPosts; i++) {
-      const daysAgo = Math.floor(Math.random() * 30);
+      const daysAgo = randomInt(30);
       const visibility = i === 0 && accountType === 'pro_creator' ? 'fans' : 'public';
       await db.query(
         `INSERT INTO posts (author_id, content, media_urls, media_type, visibility, likes_count, comments_count, created_at)
          VALUES ($1, $2, $3, 'image', $4, $5, $6, NOW() - make_interval(days => $7))`,
-        [id, POST_CAPTIONS[i % POST_CAPTIONS.length], [POST_IMAGES[i % POST_IMAGES.length]], visibility, Math.floor(Math.random() * 300) + 50, Math.floor(Math.random() * 30) + 5, daysAgo]
+        [id, POST_CAPTIONS[i % POST_CAPTIONS.length], [POST_IMAGES[i % POST_IMAGES.length]], visibility, randomInt(50, 350), randomInt(5, 35), daysAgo]
       ); // NOSONAR
       totalPosts++;
     }
@@ -637,11 +637,11 @@ async function insertDemoPeaks(db: Pool, profileIds: { id: string; accountType: 
   for (const { id, accountType } of profileIds) {
     if (accountType !== 'pro_creator') continue;
     for (let i = 0; i < 2; i++) {
-      const peakDaysAgo = Math.floor(Math.random() * 7);
+      const peakDaysAgo = randomInt(7);
       await db.query(
         `INSERT INTO peaks (author_id, video_url, thumbnail_url, caption, duration, views_count, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW() - make_interval(days => $7))`,
-        [id, 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4', POST_IMAGES[i], ['Quick tip!', 'Behind the scenes'][i], 15, Math.floor(Math.random() * 500) + 100, peakDaysAgo]
+        [id, 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4', POST_IMAGES[i], ['Quick tip!', 'Behind the scenes'][i], 15, randomInt(100, 600), peakDaysAgo]
       );
       totalPeaks++;
     }
@@ -654,7 +654,7 @@ async function insertDemoFollows(db: Pool, profileIds: { id: string; accountType
   let totalFollows = 0;
   for (let i = 0; i < profileIds.length; i++) {
     for (let j = 0; j < profileIds.length; j++) {
-      if (i === j || Math.random() <= 0.6) continue;
+      if (i === j || randomInt(100) < 60) continue;
       try {
         await db.query(`INSERT INTO follows (follower_id, following_id, status, created_at) VALUES ($1, $2, 'accepted', NOW()) ON CONFLICT DO NOTHING`, [profileIds[i].id, profileIds[j].id]);
         totalFollows++;

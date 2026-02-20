@@ -16,6 +16,7 @@ import { requireRateLimit } from './rate-limit';
 import { isValidUUID } from './security';
 import { resolveProfileId } from './auth';
 import { RATE_WINDOW_5_MIN, MAX_REPORT_REASON_LENGTH, MAX_REPORT_DETAILS_LENGTH } from './constants';
+import { assertSafeIdentifier, assertSafeColumnList } from './sql-identifiers';
 
 type Logger = ReturnType<typeof createLogger>;
 
@@ -49,6 +50,20 @@ interface ReportHandlerConfig {
 }
 
 export function createReportHandler(config: ReportHandlerConfig) {
+  // Defense-in-depth: validate config-provided identifiers at factory init time.
+  // These are compile-time constants, never user input.
+  assertSafeIdentifier(config.reportTable, `${config.loggerName}.reportTable`);
+  assertSafeIdentifier(config.resourceIdColumn, `${config.loggerName}.resourceIdColumn`);
+  if (config.entityTable) {
+    assertSafeIdentifier(config.entityTable, `${config.loggerName}.entityTable`);
+  }
+  if (config.extraInsertFields) {
+    assertSafeColumnList(
+      config.extraInsertFields.map(f => f.column).join(', '),
+      `${config.loggerName}.extraInsertFields`,
+    );
+  }
+
   const log = createLogger(config.loggerName);
 
   return async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

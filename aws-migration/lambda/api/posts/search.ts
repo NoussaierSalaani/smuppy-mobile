@@ -5,13 +5,11 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
 import { resolveProfileId } from '../utils/auth';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';
+import { withErrorHandler } from '../utils/error-handler';
 
-const log = createLogger('posts-search');
 const MAX_LIMIT = 50;
 
 function sanitizeQuery(raw: string): string {
@@ -21,10 +19,7 @@ function sanitizeQuery(raw: string): string {
   return sanitized.replaceAll(/[%_\\]/g, '\\$&');
 }
 
-export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
+export const handler = withErrorHandler('posts-search', async (event, { headers, log }) => {
   // Rate limiting - use cognito_sub (authenticated user) or IP (anonymous)
   const userId = event.requestContext.authorizer?.claims?.sub;
   const clientIp = event.requestContext.identity?.sourceIp;
@@ -36,8 +31,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     maxRequests: 30,
   }, headers);
   if (rateLimitResponse) return rateLimitResponse;
-
-  try {
     const q = event.queryStringParameters?.q || '';
     const limit = event.queryStringParameters?.limit || '20';
     const cursor = event.queryStringParameters?.cursor;
@@ -192,8 +185,4 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const nextCursor = hasMore && posts.length > 0 ? String(posts[posts.length - 1].createdAt) : null;
 
     return { statusCode: 200, headers: { ...headers, 'Cache-Control': 'public, max-age=30' }, body: JSON.stringify({ success: true, data: posts, nextCursor, hasMore }) };
-  } catch (error: unknown) {
-    log.error('Error searching posts', error);
-    return { statusCode: 500, headers: { ...headers, 'Cache-Control': 'no-cache' }, body: JSON.stringify({ success: false, error: 'Internal server error' }) };
-  }
-};
+});

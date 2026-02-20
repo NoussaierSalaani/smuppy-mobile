@@ -9,23 +9,17 @@
  * - battle: Tip during live battle
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import Stripe from 'stripe';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID, sanitizeInput } from '../utils/security';
 import { getPool } from '../../shared/db';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { moderateText } from '../utils/text-moderation';
 import { getStripeClient } from '../../shared/stripe-client';
 import { safeStripeCall } from '../../shared/stripe-resilience';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 import { RATE_WINDOW_1_MIN, MAX_TIP_AMOUNT_CENTS, PLATFORM_FEE_PERCENT, MIN_PAYMENT_CENTS } from '../utils/constants';
-
-const log = createLogger('tips-send');
-const corsHeaders = getSecureHeaders();
 
 interface SendTipRequest {
   receiverId: string;
@@ -39,10 +33,8 @@ interface SendTipRequest {
 
 // SECURITY: Whitelist of allowed currencies
 const ALLOWED_CURRENCIES = ['eur', 'usd'];
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
 
+export const handler = withErrorHandler('tips-send', async (event, { headers, log }) => {
   const db = await getPool();
   const client = await db.connect();
 
@@ -52,25 +44,27 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Get authenticated user
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
-      return cors({
+      return {
         statusCode: 401,
+        headers,
         body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      });
+      };
     }
 
     // Resolve cognito_sub to profile ID
     const profileId = await resolveProfileId(client, userId);
     if (!profileId) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Profile not found' }),
-      });
+      };
     }
 
     // Account status check (suspended/banned users cannot send tips)
     const accountCheck = await requireActiveAccount(userId, {});
     if (isAccountError(accountCheck)) {
-      return cors({ statusCode: accountCheck.statusCode, body: accountCheck.body });
+      return { statusCode: accountCheck.statusCode, headers, body: accountCheck.body };
     }
 
     // Rate limit check (distributed via DynamoDB — works across Lambda instances)
@@ -79,14 +73,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       identifier: userId,
       windowSeconds: RATE_WINDOW_1_MIN,
       maxRequests: 10,
-    }, corsHeaders);
+    }, headers);
     if (rateLimitResponse) return rateLimitResponse;
 
     let body: SendTipRequest;
     try {
       body = JSON.parse(event.body || '{}');
     } catch {
-      return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) });
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) };
     }
     const {
       receiverId,
@@ -100,64 +94,61 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // SECURITY: Validate currency against whitelist
     if (!ALLOWED_CURRENCIES.includes(currency.toLowerCase())) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: `Invalid currency. Allowed: ${ALLOWED_CURRENCIES.join(', ')}` }),
-      });
+      };
     }
 
     // Validation — ensure amount is a finite positive number
     if (!receiverId || typeof amount !== 'number' || !Number.isFinite(amount) || amount < MIN_PAYMENT_CENTS || amount > MAX_TIP_AMOUNT_CENTS) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: `Invalid tip amount. Min 1.00, max ${MAX_TIP_AMOUNT_CENTS / 100}.00`,
         }),
-      });
+      };
     }
 
     if (!isValidUUID(receiverId) || (contextId && !isValidUUID(contextId))) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid ID format' }),
-      });
+      };
     }
 
     if (!['profile', 'live', 'peak', 'battle'].includes(contextType)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'Invalid context type',
         }),
-      });
+      };
     }
 
-    // Sanitize and moderate the optional message
+    // Sanitize and moderate the optional message (keyword filter + Comprehend toxicity)
     const sanitizedMessage = message ? sanitizeInput(message, 500) : null;
     if (sanitizedMessage) {
-      const filterResult = await filterText(sanitizedMessage);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        log.warn('Tip message blocked by filter', { userId: userId.substring(0, 8) + '***', severity: filterResult.severity });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your message contains content that violates our community guidelines.' }) });
-      }
-      const toxicityResult = await analyzeTextToxicity(sanitizedMessage);
-      if (toxicityResult.action === 'block') {
-        log.warn('Tip message blocked by toxicity', { userId: userId.substring(0, 8) + '***', category: toxicityResult.topCategory });
-        return cors({ statusCode: 400, body: JSON.stringify({ success: false, message: 'Your message contains content that violates our community guidelines.' }) });
-      }
+      const modResult = await moderateText(sanitizedMessage, headers, log, 'tip message');
+      if (modResult.blocked) return { statusCode: 400, headers, body: modResult.blockResponse!.body };
     }
 
     // Can't tip yourself
     if (receiverId === profileId) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'You cannot tip yourself',
         }),
-      });
+      };
     }
 
     // Get sender + receiver info in parallel (independent queries on same transaction)
@@ -177,32 +168,35 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     ]);
 
     if (senderResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Sender not found' }),
-      });
+      };
     }
 
     const sender = senderResult.rows[0];
 
     if (receiverResult.rows.length === 0) {
-      return cors({
+      return {
         statusCode: 404,
+        headers,
         body: JSON.stringify({ success: false, message: 'Creator not found' }),
-      });
+      };
     }
 
     const receiver = receiverResult.rows[0];
 
     // Check if receiver can accept tips — only pro_creator accounts
     if (receiver.account_type !== 'pro_creator') {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({
           success: false,
           message: 'This user cannot receive tips',
         }),
-      });
+      };
     }
 
     // For Peak tips, verify the creator owns the peak and tips are enabled
@@ -217,24 +211,26 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       );
 
       if (peakCheck.rows.length === 0 || !peakCheck.rows[0].tips_enabled) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({
             success: false,
             message: 'Tips are not enabled for this Peak',
           }),
-        });
+        };
       }
 
       // SECURITY: Verify the peak belongs to the receiver (prevent tip misdirection)
       if (peakCheck.rows[0].user_id !== receiverId) {
-        return cors({
+        return {
           statusCode: 403,
+          headers,
           body: JSON.stringify({
             success: false,
             message: 'Peak does not belong to this creator',
           }),
-        });
+        };
       }
     }
 
@@ -337,8 +333,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     await client.query('COMMIT');
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         tipId,
@@ -354,18 +351,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           displayName: receiver.display_name,
         },
       }),
-    });
+    };
   } catch (error: unknown) {
     await client.query('ROLLBACK');
     log.error('Send tip error', error);
-    return cors({
+    return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({
         success: false,
         message: 'Failed to process tip',
       }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

@@ -3,22 +3,14 @@
  * Get challenges (trending, by user, for user)
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { cors, handleOptions, getSecureHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { resolveProfileId } from '../utils/auth';
 
-const log = createLogger('challenges-list');
-const corsHeaders = getSecureHeaders();
-
-export const handler: APIGatewayProxyHandler = async (event) => {
-  log.initFromEvent(event);
-  if (event.httpMethod === 'OPTIONS') return handleOptions();
-
+export const handler = withErrorHandler('challenges-list', async (event, { headers, log }) => {
   // Rate limit: anti-scraping
   const rateLimitId = event.requestContext.authorizer?.claims?.sub
     || event.requestContext.identity?.sourceIp || 'anonymous';
@@ -28,7 +20,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     windowSeconds: RATE_WINDOW_1_MIN,
     maxRequests: 20,
     failOpen: true,
-  }, corsHeaders);
+  }, headers);
   if (rateLimitResponse) return rateLimitResponse;
 
   // Auto-expire on writer pool (reader replicas are read-only)
@@ -58,10 +50,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
     const creatorId = event.queryStringParameters?.creatorId;
     if (creatorId && !isValidUUID(creatorId)) {
-      return cors({
+      return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ success: false, message: 'Invalid creator ID format' }),
-      });
+      };
     }
     const category = event.queryStringParameters?.category;
     const status = event.queryStringParameters?.status || 'active';
@@ -72,10 +65,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (cursor && filter !== 'trending') {
       const testDate = new Date(cursor);
       if (Number.isNaN(testDate.getTime())) {
-        return cors({
+        return {
           statusCode: 400,
+          headers,
           body: JSON.stringify({ success: false, message: 'Invalid cursor format' }),
-        });
+        };
       }
     }
 
@@ -319,8 +313,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       hasResponded: userResponses[row.id as string] || false,
     }));
 
-    return cors({
+    return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         success: true,
         filter,
@@ -331,17 +326,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           nextCursor,
         },
       }),
-    });
-  } catch (error: unknown) {
-    log.error('List challenges error', error);
-    return cors({
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        message: 'Failed to fetch challenges',
-      }),
-    });
+    };
   } finally {
     client.release();
   }
-};
+});

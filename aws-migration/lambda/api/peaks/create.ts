@@ -3,25 +3,20 @@
  * Creates a new peak (short video)
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { getPool } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
+import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_PEAK_DURATION_SECONDS } from '../utils/constants';
 import { sanitizeText, isValidUUID } from '../utils/security';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { checkQuota, deductQuota, getQuotaLimits, isPremiumAccount } from '../utils/upload-quota';
-import { filterText } from '../../shared/moderation/textFilter';
-import { analyzeTextToxicity } from '../../shared/moderation/textModeration';
+import { moderateText } from '../utils/text-moderation';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
 import { sendPushToUser } from '../services/push-notification';
 
 const lambdaClient = new LambdaClient({});
 const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
-
-const log = createLogger('peaks-create');
 
 // SECURITY: Validate URL format and restrict to trusted CDN/S3 domains
 const ALLOWED_MEDIA_HOSTS = ['.s3.amazonaws.com', '.s3.us-east-1.amazonaws.com', '.cloudfront.net'];
@@ -37,11 +32,7 @@ function isValidUrl(url: string): boolean {
   }
 }
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('peaks-create', async (event, { headers, log }) => {
     const userId = event.requestContext.authorizer?.claims?.sub;
     if (!userId) {
       return {
@@ -183,37 +174,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Sanitize caption
     const sanitizedCaption = caption ? sanitizeText(caption, 500) : null;
 
-    // Comprehend flag tracking
+    // Backend content moderation check on caption (keyword filter + Comprehend toxicity)
     let contentFlagged = false;
     let flagCategory: string | null = null;
     let flagScore: number | null = null;
 
-    // Backend content moderation check on caption
     if (sanitizedCaption) {
-      const filterResult = await filterText(sanitizedCaption);
-      if (!filterResult.clean && (filterResult.severity === 'critical' || filterResult.severity === 'high')) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Content policy violation' }),
-        };
-      }
-
-      // AI toxicity detection (AWS Comprehend)
-      const toxicity = await analyzeTextToxicity(sanitizedCaption);
-      if (toxicity.action === 'block') {
-        log.info('Peak blocked by Comprehend', { topCategory: toxicity.topCategory, score: toxicity.maxScore });
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Content policy violation' }),
-        };
-      }
-      if (toxicity.action === 'flag') {
-        contentFlagged = true;
-        flagCategory = toxicity.topCategory;
-        flagScore = toxicity.maxScore;
-      }
+      const modResult = await moderateText(sanitizedCaption, headers, log, 'peak caption');
+      if (modResult.blocked) return modResult.blockResponse!;
+      contentFlagged = modResult.contentFlagged;
+      flagCategory = modResult.flagCategory;
+      flagScore = modResult.flagScore;
     }
 
     // Validate reply parent exists if provided, save author_id for notification
@@ -390,12 +361,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error creating peak', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

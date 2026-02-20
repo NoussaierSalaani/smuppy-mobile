@@ -3,24 +3,16 @@
  * Returns profiles that the current user might want to follow
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
 import { resolveProfileId } from '../utils/auth';
-import { createLogger } from '../utils/logger';
 import { checkRateLimit } from '../utils/rate-limit';
-
-const log = createLogger('profiles-suggested');
+import { withErrorHandler } from '../utils/error-handler';
 
 // Rate limit: 30 requests per minute per IP
 const RATE_LIMIT = 30;
 const RATE_WINDOW_SECONDS = 60;
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('profiles-suggested', async (event, { headers, log }) => {
     // Rate limiting by IP address
     const clientIp = event.requestContext.identity?.sourceIp || 'unknown';
     const { allowed, retryAfter } = await checkRateLimit({
@@ -206,12 +198,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         hasMore,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Error getting suggested profiles', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

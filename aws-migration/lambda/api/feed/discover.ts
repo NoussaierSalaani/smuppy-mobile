@@ -6,20 +6,13 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool, SqlParam } from '../../shared/db';
-import { createHeaders } from '../utils/cors';
-import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
-
-const log = createLogger('feed-discover');
+import { withErrorHandler } from '../utils/error-handler';
 
 const MAX_INTERESTS = 10;
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  const headers = createHeaders(event);
-  log.initFromEvent(event);
-
-  try {
+export const handler = withErrorHandler('feed-discover', async (event, { headers }) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
     if (cognitoSub) {
@@ -154,12 +147,4 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ data, nextCursor, hasMore }),
     };
-  } catch (error: unknown) {
-    log.error('Error getting discover feed', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error' }),
-    };
-  }
-}
+});

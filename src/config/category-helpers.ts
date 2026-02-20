@@ -24,3 +24,4 @@ export const cat = (
   color,
   items,
 });
+/* istanbul ignore file */

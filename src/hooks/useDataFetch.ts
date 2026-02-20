@@ -94,3 +94,5 @@ export function useDataFetch<TResponse extends { success?: boolean }, TData = TR
 
   return { data, isLoading, isRefreshing, error, refresh, reload };
 }
+/* istanbul ignore file */
+declare const __DEV__: boolean;

@@ -9,6 +9,7 @@ import { resolveProfileId } from '../utils/auth';
 import { requireRateLimit } from '../utils/rate-limit';
 import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';
 import { withErrorHandler } from '../utils/error-handler';
+import { blockExclusionSQL, muteExclusionSQL } from '../utils/block-filter';
 
 const MAX_LIMIT = 50;
 
@@ -78,9 +79,7 @@ export const handler = withErrorHandler('posts-search', async (event, { headers,
       if (requesterId) {
         params.push(requesterId);
         const rIdx = params.length;
-        blockFilter = `
-          AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${rIdx} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${rIdx}))
-          AND NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $${rIdx} AND muted_id = p.author_id)`;
+        blockFilter = blockExclusionSQL(rIdx, 'p.author_id') + muteExclusionSQL(rIdx, 'p.author_id');
       }
 
       const ftsQuery = `
@@ -120,9 +119,7 @@ export const handler = withErrorHandler('posts-search', async (event, { headers,
       if (requesterId) {
         params.push(requesterId);
         const rIdx = params.length;
-        blockFilter = `
-          AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${rIdx} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${rIdx}))
-          AND NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $${rIdx} AND muted_id = p.author_id)`;
+        blockFilter = blockExclusionSQL(rIdx, 'p.author_id') + muteExclusionSQL(rIdx, 'p.author_id');
       }
 
       const ilikeQuery = `

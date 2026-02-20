@@ -155,7 +155,7 @@ describe('conversations/list handler', () => {
       const result = await handler(event);
 
       expect(result.statusCode).toBe(404);
-      expect(JSON.parse(result.body).message).toBe('User profile not found');
+      expect(JSON.parse(result.body).message).toBe('Profile not found');
     });
   });
 

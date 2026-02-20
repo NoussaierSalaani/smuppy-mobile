@@ -77,6 +77,9 @@ jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
   MAX_MESSAGE_LENGTH: 5000,
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 // ── Import handler AFTER all mocks are declared ──
 
@@ -87,6 +90,7 @@ import { isValidUUID } from '../../utils/security';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
 import { sendPushToUser } from '../../services/push-notification';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ──
 
@@ -136,6 +140,7 @@ describe('conversations/send-message handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
     (isValidUUID as jest.Mock).mockReturnValue(true);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
     (requireActiveAccount as jest.Mock).mockResolvedValue({

@@ -72,6 +72,10 @@ jest.mock('../../../shared/moderation/textModeration', () => ({
   }),
 }));
 
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
+
 // ── Import handler AFTER all mocks are declared ──
 
 import { handler } from '../../comments/update';
@@ -80,6 +84,7 @@ import { requireActiveAccount, isAccountError } from '../../utils/account-status
 import { isValidUUID } from '../../utils/security';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ──
 
@@ -127,6 +132,7 @@ describe('comments/update handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
     (isValidUUID as jest.Mock).mockReturnValue(true);
 
     // Reset account-status mocks to default (non-error) on every test
@@ -137,11 +143,8 @@ describe('comments/update handler', () => {
     });
     (isAccountError as unknown as jest.Mock).mockReturnValue(false);
 
-    // Default: profile exists, comment exists and belongs to user, update succeeds
+    // Default: comment exists and belongs to user, update succeeds
     mockDb.query.mockImplementation((sql: string) => {
-      if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-        return Promise.resolve({ rows: [{ id: TEST_PROFILE_ID }] });
-      }
       if (typeof sql === 'string' && sql.includes('SELECT id, user_id FROM comments')) {
         return Promise.resolve({
           rows: [{ id: COMMENT_ID, user_id: TEST_PROFILE_ID }],
@@ -253,25 +256,17 @@ describe('comments/update handler', () => {
 
   describe('not found', () => {
     it('should return 404 when user profile is not found', async () => {
-      mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = makeEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(404);
-      expect(JSON.parse(result.body).message).toBe('User profile not found');
+      expect(JSON.parse(result.body).message).toBe('Profile not found');
     });
 
     it('should return 404 when comment does not exist', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [{ id: TEST_PROFILE_ID }] });
-        }
         if (typeof sql === 'string' && sql.includes('SELECT id, user_id FROM comments')) {
           return Promise.resolve({ rows: [] });
         }
@@ -291,9 +286,6 @@ describe('comments/update handler', () => {
   describe('authorization', () => {
     it('should return 403 when user is not the comment author', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [{ id: TEST_PROFILE_ID }] });
-        }
         if (typeof sql === 'string' && sql.includes('SELECT id, user_id FROM comments')) {
           return Promise.resolve({
             rows: [{ id: COMMENT_ID, user_id: OTHER_PROFILE_ID }],

@@ -58,6 +58,9 @@ jest.mock('../../utils/account-status', () => ({
 jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 // ── Import handler AFTER all mocks are declared ──
 
@@ -65,6 +68,7 @@ import { handler } from '../../conversations/create';
 import { requireRateLimit } from '../../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { isValidUUID } from '../../utils/security';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ──
 
@@ -107,6 +111,7 @@ describe('conversations/create handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
     (isValidUUID as jest.Mock).mockReturnValue(true);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
     (requireActiveAccount as jest.Mock).mockResolvedValue({

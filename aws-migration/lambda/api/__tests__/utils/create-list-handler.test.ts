@@ -65,9 +65,9 @@ function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGateway
 
 describe('createListHandler', () => {
   const config = {
-    tableName: 'moods',
-    loggerName: 'moods-list',
-    description: 'moods',
+    tableName: 'interests' as const,
+    loggerName: 'interests-list',
+    description: 'interests',
   };
 
   let handler: ReturnType<typeof createListHandler>;
@@ -124,7 +124,7 @@ describe('createListHandler', () => {
     await handler(makeEvent());
 
     expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining('FROM moods')
+      expect.stringContaining('FROM interests')
     );
   });
 

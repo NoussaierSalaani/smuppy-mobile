@@ -8,6 +8,7 @@ import { checkRateLimit } from '../utils/rate-limit';
 import { extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 import { withErrorHandler } from '../utils/error-handler';
+import { blockExclusionSQL } from '../utils/block-filter';
 
 // Rate limit: 60 requests per minute per IP (generous for search)
 const RATE_LIMIT = 60;
@@ -73,7 +74,7 @@ export const handler = withErrorHandler('profiles-search', async (event, { heade
           FROM profiles
           WHERE is_private = false AND onboarding_completed = true AND id != $1
             AND moderation_status NOT IN ('banned', 'shadow_banned')
-            AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = profiles.id) OR (blocker_id = profiles.id AND blocked_id = $1))
+            ${blockExclusionSQL(1, 'profiles.id')}
           ORDER BY
             CASE WHEN is_verified THEN 0 ELSE 1 END,
             CASE WHEN account_type = 'pro_creator' THEN 0
@@ -117,7 +118,7 @@ export const handler = withErrorHandler('profiles-search', async (event, { heade
             AND is_private = false AND onboarding_completed = true
             AND moderation_status NOT IN ('banned', 'shadow_banned')
             AND id != $5
-            AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $5 AND blocked_id = profiles.id) OR (blocker_id = profiles.id AND blocked_id = $5))
+            ${blockExclusionSQL(5, 'profiles.id')}
           ORDER BY
             CASE WHEN username = $2 THEN 0
                  WHEN username ILIKE $3 THEN 1

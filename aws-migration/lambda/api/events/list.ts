@@ -7,6 +7,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
+import { blockExclusionSQL } from '../utils/block-filter';
 
 export const handler = withErrorHandler('events-list', async (event, { headers }) => {
   // Rate limit: 30 requests per minute per IP (unauthenticated) or user
@@ -150,7 +151,7 @@ export const handler = withErrorHandler('events-list', async (event, { headers }
     if (profileId) {
       params.push(profileId);
       whereConditions.push(
-        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${params.length} AND blocked_id = creator.id) OR (blocker_id = creator.id AND blocked_id = $${params.length}))`
+        blockExclusionSQL(params.length, 'creator.id').trimStart().replace(/^AND /, '')
       );
     }
 

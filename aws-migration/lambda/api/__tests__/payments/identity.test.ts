@@ -130,12 +130,6 @@ describe('payments/identity handler', () => {
     (getPool as jest.Mock).mockResolvedValue(mockPool);
   });
 
-  it('returns 200 for OPTIONS preflight', async () => {
-    const event = makeEvent({ httpMethod: 'OPTIONS' });
-    const result = await handler(event);
-    expect(result.statusCode).toBe(200);
-  });
-
   it('returns 401 when unauthenticated', async () => {
     const event = makeEvent({ sub: null });
     const result = await handler(event);

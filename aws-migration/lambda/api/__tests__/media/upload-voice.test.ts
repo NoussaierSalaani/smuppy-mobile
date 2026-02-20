@@ -35,10 +35,14 @@ jest.mock('@aws-sdk/client-s3', () => ({
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn().mockResolvedValue('https://s3.amazonaws.com/signed-voice-url'),
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 import { getPool } from '../../../shared/db';
 import { handler } from '../../media/upload-voice';
 import { requireRateLimit } from '../../utils/rate-limit';
+import { resolveProfileId } from '../../utils/auth';
 
 const TEST_SUB = 'cognito-sub-test123';
 const VALID_CONV_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
@@ -74,9 +78,9 @@ describe('media/upload-voice handler', () => {
     jest.clearAllMocks();
     mockDb = { query: jest.fn() };
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: VALID_PROFILE_ID }] }) // profile lookup
       .mockResolvedValueOnce({ rows: [{ id: VALID_CONV_ID }] }); // conversation check
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });
 
@@ -110,8 +114,7 @@ describe('media/upload-voice handler', () => {
   });
 
   it('should return 404 when profile not found', async () => {
-    mockDb.query.mockReset();
-    mockDb.query.mockResolvedValueOnce({ rows: [] }); // profile not found
+    (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
     const result = await handler(makeEvent());
     expect(result.statusCode).toBe(404);
   });
@@ -119,7 +122,6 @@ describe('media/upload-voice handler', () => {
   it('should return 403 when not a conversation participant', async () => {
     mockDb.query.mockReset();
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: VALID_PROFILE_ID }] }) // profile found
       .mockResolvedValueOnce({ rows: [] }); // not participant
     const result = await handler(makeEvent());
     expect(result.statusCode).toBe(403);

@@ -85,11 +85,11 @@ beforeEach(() => {
 });
 
 describe('sessions/create handler', () => {
-  it('should return 200 for OPTIONS', async () => {
-    const event = makeEvent({ httpMethod: 'OPTIONS' });
+  it('should return 401 for OPTIONS without auth (withAuthHandler enforces auth)', async () => {
+    const event = makeEvent({ httpMethod: 'OPTIONS', sub: null });
     const res = await handler(event, {} as never, () => {});
     const result = res as { statusCode: number };
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(401);
   });
 
   it('should return 401 when unauthenticated', async () => {

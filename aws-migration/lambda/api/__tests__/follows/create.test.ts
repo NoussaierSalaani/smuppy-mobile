@@ -43,8 +43,12 @@ jest.mock('../../services/push-notification', () => ({
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'generated-uuid-0000-0000-000000000000'),
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 import { handler } from '../../follows/create';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ───────────────────────────────────────────────────────
 
@@ -92,6 +96,7 @@ describe('follows/create handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(FOLLOWER_ID);
   });
 
   // ── 1. Auth ────────────────────────────────────────────────────────────
@@ -294,12 +299,7 @@ describe('follows/create handler', () => {
   describe('self-follow prevention', () => {
     it('should return 400 when trying to follow yourself', async () => {
       // Follower resolves to the same ID as the target
-      mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [{ id: TARGET_ID }] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(TARGET_ID);
 
       const event = makeEvent({ body: JSON.stringify({ followingId: TARGET_ID }) });
       const result = await handler(event);
@@ -477,18 +477,13 @@ describe('follows/create handler', () => {
 
   describe('edge cases', () => {
     it('should return 404 when follower profile is not found', async () => {
-      mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = makeEvent({});
       const result = await handler(event);
 
       expect(result.statusCode).toBe(404);
-      expect(JSON.parse(result.body).message).toContain('profile not found');
+      expect(JSON.parse(result.body).message).toBe('Profile not found');
     });
 
     it('should return 404 when target user does not exist', async () => {

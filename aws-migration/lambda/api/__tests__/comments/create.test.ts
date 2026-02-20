@@ -78,6 +78,9 @@ jest.mock('../../../shared/moderation/constants', () => ({
 jest.mock('../../services/push-notification', () => ({
   sendPushToUser: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 // ── Import handler AFTER all mocks are declared ──
 
@@ -86,6 +89,7 @@ import { requireRateLimit } from '../../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ──
 
@@ -134,6 +138,7 @@ describe('comments/create handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
 
     // Default: post exists with a different author (triggers notification path)
     mockDb.query.mockImplementation((sql: string) => {

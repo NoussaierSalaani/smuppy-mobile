@@ -6,6 +6,7 @@
 import { SqlParam } from '../../shared/db';
 import { withNotificationContext } from '../utils/create-notification-handler';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { blockExclusionSQL, muteExclusionSQL } from '../utils/block-filter';
 
 export const handler = withNotificationContext(
   {
@@ -64,8 +65,8 @@ export const handler = withNotificationContext(
         AND (
           p.id IS NULL
           OR (
-            NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = p.id) OR (blocker_id = p.id AND blocked_id = $1))
-            AND NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $1 AND muted_id = p.id)
+            ${blockExclusionSQL(1, 'p.id').trimStart().replace(/^AND /, '')}
+            ${muteExclusionSQL(1, 'p.id')}
           )
         )
         -- Exclude orphaned notifications whose referenced post/peak no longer exists

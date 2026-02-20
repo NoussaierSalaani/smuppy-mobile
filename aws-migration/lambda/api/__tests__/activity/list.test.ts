@@ -32,10 +32,14 @@ jest.mock('../../utils/cors', () => ({
 jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { getPool } from '../../../shared/db';
 import { requireRateLimit } from '../../utils/rate-limit';
+import { resolveProfileId } from '../../utils/auth';
 import { handler } from '../../activity/list';
 
 // --- Test data constants ---
@@ -90,6 +94,7 @@ describe('activity/list handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });
 
@@ -138,13 +143,13 @@ describe('activity/list handler', () => {
   // 4. User profile not found returns 404
   // ---------------------------------------------------------------
   it('should return 404 when user profile not found', async () => {
-    mockDb.query.mockResolvedValueOnce({ rows: [] }); // profile lookup — empty
+    (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
     const event = makeEvent();
     const result = await handler(event);
 
     expect(result.statusCode).toBe(404);
-    expect(JSON.parse(result.body).message).toBe('User profile not found');
+    expect(JSON.parse(result.body).message).toBe('Profile not found');
   });
 
   // ---------------------------------------------------------------
@@ -154,7 +159,6 @@ describe('activity/list handler', () => {
     const activityRow = makeActivityRow();
 
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] }) // profile lookup
       .mockResolvedValueOnce({ rows: [activityRow] });             // activity query
 
     const event = makeEvent();
@@ -179,7 +183,6 @@ describe('activity/list handler', () => {
   // ---------------------------------------------------------------
   it('should accept valid type filter "post_like"', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [] });
 
     const event = makeEvent({ queryStringParameters: { type: 'post_like' } });
@@ -188,7 +191,7 @@ describe('activity/list handler', () => {
     expect(result.statusCode).toBe(200);
 
     // Verify the activity query uses ONLY the post_like subquery
-    const activitySql: string = mockDb.query.mock.calls[1][0];
+    const activitySql: string = mockDb.query.mock.calls[0][0];
     expect(activitySql).toContain("'post_like'");
     expect(activitySql).not.toContain("'follow'");
     expect(activitySql).not.toContain("'comment'");
@@ -196,7 +199,6 @@ describe('activity/list handler', () => {
 
   it('should accept valid type filter "follow"', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [] });
 
     const event = makeEvent({ queryStringParameters: { type: 'follow' } });
@@ -204,14 +206,13 @@ describe('activity/list handler', () => {
 
     expect(result.statusCode).toBe(200);
 
-    const activitySql: string = mockDb.query.mock.calls[1][0];
+    const activitySql: string = mockDb.query.mock.calls[0][0];
     expect(activitySql).toContain("'follow'");
     expect(activitySql).not.toContain("'post_like'");
   });
 
   it('should accept valid type filter "peak_comment"', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [] });
 
     const event = makeEvent({ queryStringParameters: { type: 'peak_comment' } });
@@ -219,7 +220,7 @@ describe('activity/list handler', () => {
 
     expect(result.statusCode).toBe(200);
 
-    const activitySql: string = mockDb.query.mock.calls[1][0];
+    const activitySql: string = mockDb.query.mock.calls[0][0];
     expect(activitySql).toContain("'peak_comment'");
   });
 
@@ -235,7 +236,6 @@ describe('activity/list handler', () => {
     );
 
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows });
 
     const event = makeEvent();
@@ -249,7 +249,6 @@ describe('activity/list handler', () => {
 
   it('should return hasMore=false when fewer results than limit', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [makeActivityRow()] });
 
     const event = makeEvent({ queryStringParameters: { limit: '10' } });
@@ -265,14 +264,13 @@ describe('activity/list handler', () => {
   // ---------------------------------------------------------------
   it('should cap limit at 50', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [] });
 
     const event = makeEvent({ queryStringParameters: { limit: '200' } });
     await handler(event);
 
     // The activity query should have limit+1=51 in its params
-    const activityCall = mockDb.query.mock.calls[1];
+    const activityCall = mockDb.query.mock.calls[0];
     const activityParams: unknown[] = activityCall[1];
     expect(activityParams).toContain(51);
   });
@@ -283,7 +281,6 @@ describe('activity/list handler', () => {
   it('should pass cursor as Date parameter for pagination', async () => {
     const cursorTimestamp = Date.now() - 3600000; // 1 hour ago
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [] });
 
     const event = makeEvent({
@@ -292,7 +289,7 @@ describe('activity/list handler', () => {
     await handler(event);
 
     // The activity query should include a Date param for cursor
-    const activityParams: unknown[] = mockDb.query.mock.calls[1][1];
+    const activityParams: unknown[] = mockDb.query.mock.calls[0][1];
     const dateParam = activityParams.find(p => p instanceof Date) as Date;
     expect(dateParam).toBeDefined();
     expect(dateParam.getTime()).toBe(cursorTimestamp);
@@ -303,13 +300,12 @@ describe('activity/list handler', () => {
   // ---------------------------------------------------------------
   it('should include all activity types when no type filter', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [] });
 
     const event = makeEvent();
     await handler(event);
 
-    const activitySql: string = mockDb.query.mock.calls[1][0];
+    const activitySql: string = mockDb.query.mock.calls[0][0];
     expect(activitySql).toContain("'post_like'");
     expect(activitySql).toContain("'peak_like'");
     expect(activitySql).toContain("'follow'");
@@ -328,7 +324,6 @@ describe('activity/list handler', () => {
     });
 
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [followRow] });
 
     const event = makeEvent();
@@ -370,7 +365,6 @@ describe('activity/list handler', () => {
   // ---------------------------------------------------------------
   it('should return 500 when activity query fails after successful profile lookup', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: TEST_PROFILE_ID }] }) // profile lookup ok
       .mockRejectedValueOnce(new Error('Query timeout'));          // activity query fails
 
     const event = makeEvent();

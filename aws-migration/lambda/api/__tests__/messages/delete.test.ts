@@ -48,11 +48,16 @@ jest.mock('@aws-sdk/client-s3', () => ({
   DeleteObjectCommand: jest.fn(),
 }));
 
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
+
 // ── Import handler AFTER all mocks are declared ──
 
 import { handler } from '../../messages/delete';
 import { requireRateLimit } from '../../utils/rate-limit';
 import { isValidUUID } from '../../utils/security';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ──
 
@@ -95,14 +100,10 @@ describe('messages/delete handler', () => {
     (getPool as jest.Mock).mockResolvedValue(mockDb);
     (isValidUUID as jest.Mock).mockReturnValue(true);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
 
-    // Default: profile found, message deleted successfully
+    // Default: message deleted successfully
     mockDb.query.mockImplementation((sql: string) => {
-      if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-        return Promise.resolve({
-          rows: [{ id: VALID_PROFILE_ID }],
-        });
-      }
       if (typeof sql === 'string' && sql.includes('WITH target AS')) {
         return Promise.resolve({
           rows: [{
@@ -191,19 +192,14 @@ describe('messages/delete handler', () => {
   // 4. Profile not found
   describe('profile lookup', () => {
     it('should return 404 when user profile is not found', async () => {
-      mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = makeEvent();
 
       const result = await handler(event);
 
       expect(result.statusCode).toBe(404);
-      expect(JSON.parse(result.body).message).toBe('User profile not found');
+      expect(JSON.parse(result.body).message).toBe('Profile not found');
     });
   });
 
@@ -225,9 +221,6 @@ describe('messages/delete handler', () => {
   describe('message not found', () => {
     it('should return 404 when message does not exist or user is not sender', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [{ id: VALID_PROFILE_ID }] });
-        }
         // CTE update returns no rows
         if (typeof sql === 'string' && sql.includes('WITH target AS')) {
           return Promise.resolve({ rows: [] });
@@ -252,9 +245,6 @@ describe('messages/delete handler', () => {
   describe('15-minute deletion window', () => {
     it('should return 403 when message is outside the 15-minute window', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [{ id: VALID_PROFILE_ID }] });
-        }
         // CTE update returns no rows (outside 15-min window)
         if (typeof sql === 'string' && sql.includes('WITH target AS')) {
           return Promise.resolve({ rows: [] });
@@ -281,9 +271,6 @@ describe('messages/delete handler', () => {
   describe('S3 voice file cleanup', () => {
     it('should not fail when voice media_url is present and MEDIA_BUCKET is empty', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [{ id: VALID_PROFILE_ID }] });
-        }
         if (typeof sql === 'string' && sql.includes('WITH target AS')) {
           return Promise.resolve({
             rows: [{
@@ -336,9 +323,6 @@ describe('messages/delete handler', () => {
   describe('text-only message deletion', () => {
     it('should return 200 and not attempt S3 cleanup for text-only messages', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [{ id: VALID_PROFILE_ID }] });
-        }
         if (typeof sql === 'string' && sql.includes('WITH target AS')) {
           return Promise.resolve({
             rows: [{

@@ -9,6 +9,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 import { withErrorHandler } from '../utils/error-handler';
+import { blockExclusionSQL, muteExclusionSQL } from '../utils/block-filter';
 
 const MAX_INTERESTS = 10;
 
@@ -54,10 +55,10 @@ export const handler = withErrorHandler('feed-discover', async (event, { headers
       whereClauses.push(`p.author_id != $${paramIndex}`);
       // Exclude posts from users the current user has blocked (bidirectional) or muted
       whereClauses.push(
-        `NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${paramIndex} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${paramIndex}))`
+        blockExclusionSQL(paramIndex, 'p.author_id').trimStart().replace(/^AND /, '')
       );
       whereClauses.push(
-        `NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $${paramIndex} AND muted_id = p.author_id)`
+        muteExclusionSQL(paramIndex, 'p.author_id').trimStart().replace(/^AND /, '')
       );
       paramIndex++;
     }

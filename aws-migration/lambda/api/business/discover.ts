@@ -9,6 +9,7 @@ import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { resolveProfileId } from '../utils/auth';
+import { blockExclusionSQL } from '../utils/block-filter';
 
 const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 20;
@@ -58,7 +59,7 @@ export const handler = withErrorHandler('business-discover', async (event, { hea
 
   // Exclude businesses from users the current user has blocked (bidirectional)
   if (currentProfileId) {
-    conditions.push(`NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${paramIdx} AND blocked_id = p.id) OR (blocker_id = p.id AND blocked_id = $${paramIdx}))`);
+    conditions.push(blockExclusionSQL(paramIdx, 'p.id').trimStart().replace(/^AND /, ''));
     params.push(currentProfileId);
     paramIdx++;
   }

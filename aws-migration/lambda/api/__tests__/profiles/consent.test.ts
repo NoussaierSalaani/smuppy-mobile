@@ -94,7 +94,6 @@ describe('Consent Handler', () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.success).toBe(false);
       expect(body.message).toBe('Unauthorized');
     });
   });

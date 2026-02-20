@@ -39,11 +39,15 @@ jest.mock('../../../shared/moderation/textFilter', () => ({
 jest.mock('../../../shared/moderation/textModeration', () => ({
   analyzeTextToxicity: jest.fn().mockResolvedValue({ action: 'allow' }),
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 import { handler as _handler } from '../../groups/create';
 const handler = _handler as unknown as (event: APIGatewayProxyEvent) => Promise<{ statusCode: number; body: string; headers?: Record<string, string> }>;
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
+import { resolveProfileId } from '../../utils/auth';
 
 const TEST_SUB = 'cognito-sub-test123';
 
@@ -83,6 +87,7 @@ const mockConnect = jest.fn().mockResolvedValue({ query: mockQuery, release: moc
 beforeEach(() => {
   jest.clearAllMocks();
   (getPool as jest.Mock).mockResolvedValue({ query: mockQuery, connect: mockConnect });
+  (resolveProfileId as jest.Mock).mockResolvedValue('p1');
 });
 
 describe('groups/create handler', () => {
@@ -101,7 +106,7 @@ describe('groups/create handler', () => {
   });
 
   it('should return 404 when profile not found', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] }); // profile query
+    (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
     const event = makeEvent();
     const res = await handler(event);
     const result = res as { statusCode: number };

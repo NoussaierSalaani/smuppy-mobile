@@ -40,12 +40,17 @@ jest.mock('@aws-sdk/client-s3', () => ({
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn().mockResolvedValue('https://s3.amazonaws.com/signed-url'),
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 import { getPool } from '../../../shared/db';
 import { handler } from '../../media/upload-url';
 import { requireRateLimit } from '../../utils/rate-limit';
+import { resolveProfileId } from '../../utils/auth';
 
 const TEST_SUB = 'cognito-sub-test123';
+const TEST_PROFILE_ID = 'profile-1';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
   return {
@@ -77,8 +82,9 @@ function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGateway
 describe('media/upload-url handler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    const mockDb = { query: jest.fn().mockResolvedValue({ rows: [{ id: 'profile-1', account_type: 'personal' }] }) };
+    const mockDb = { query: jest.fn().mockResolvedValue({ rows: [{ account_type: 'personal' }] }) };
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });
 

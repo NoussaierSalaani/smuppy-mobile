@@ -13,7 +13,7 @@ import { sendPushToUser } from '../services/push-notification';
 import { sanitizeText, isValidUUID, extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 import { requireActiveAccount, isAccountError } from '../utils/account-status';
-import { isBidirectionallyBlocked } from '../utils/block-filter';
+import { blockExclusionSQL, isBidirectionallyBlocked } from '../utils/block-filter';
 import { moderateText } from '../utils/text-moderation';
 import { createLogger } from '../utils/logger';
 
@@ -95,7 +95,7 @@ async function handleListComments(
       WHERE pc.peak_id = $1
         AND pc.created_at < (SELECT created_at FROM peak_comments WHERE id = $2)
         AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pc.user_id = $4)
-        AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $4 AND blocked_id = pc.user_id) OR (blocker_id = pc.user_id AND blocked_id = $4))
+        ${blockExclusionSQL(4, 'pc.user_id')}
       ORDER BY pc.created_at DESC
       LIMIT $3
     `;
@@ -109,7 +109,7 @@ async function handleListComments(
       JOIN profiles p ON pc.user_id = p.id
       WHERE pc.peak_id = $1
         AND (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pc.user_id = $3)
-        AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $3 AND blocked_id = pc.user_id) OR (blocker_id = pc.user_id AND blocked_id = $3))
+        ${blockExclusionSQL(3, 'pc.user_id')}
       ORDER BY pc.created_at DESC
       LIMIT $2
     `;

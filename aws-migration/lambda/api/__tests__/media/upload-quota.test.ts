@@ -17,6 +17,9 @@ jest.mock('../../utils/cors', () => ({
   createHeaders: jest.fn(() => ({ 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })),
 }));
 jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 jest.mock('../../utils/upload-quota', () => ({
   getQuotaLimits: jest.fn().mockReturnValue({
     dailyVideoSeconds: 600,
@@ -32,8 +35,10 @@ jest.mock('../../utils/upload-quota', () => ({
 
 import { handler } from '../../media/upload-quota';
 import { requireRateLimit } from '../../utils/rate-limit';
+import { resolveProfileId } from '../../utils/auth';
 
 const TEST_SUB = 'cognito-sub-test123';
+const TEST_PROFILE_ID = 'profile-1';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
   return {
@@ -63,8 +68,9 @@ describe('media/upload-quota handler', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockDb = { query: jest.fn().mockResolvedValue({ rows: [{ id: 'profile-1', account_type: 'personal' }] }) };
+    mockDb = { query: jest.fn().mockResolvedValue({ rows: [{ account_type: 'personal' }] }) };
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });
 
@@ -74,7 +80,7 @@ describe('media/upload-quota handler', () => {
   });
 
   it('should return 404 when profile not found', async () => {
-    mockDb.query.mockResolvedValueOnce({ rows: [] });
+    (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
     const result = await handler(makeEvent());
     expect(result.statusCode).toBe(404);
   });

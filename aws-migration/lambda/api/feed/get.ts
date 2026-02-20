@@ -13,6 +13,7 @@ import { requireRateLimit } from '../utils/rate-limit';
 import { CACHE_TTL_SHORT, RATE_WINDOW_1_MIN } from '../utils/constants';
 import { resolveProfileId } from '../utils/auth';
 import { withErrorHandler } from '../utils/error-handler';
+import { blockExclusionSQL } from '../utils/block-filter';
 
 let redis: Redis | null = null;
 
@@ -192,11 +193,7 @@ export const handler = withErrorHandler('feed-get', async (event, { headers, log
           OR (p.visibility = 'subscribers' AND p.author_id = ANY($${subscribedIdsIndex}::uuid[]))
         )
         AND (pr.moderation_status NOT IN ('banned', 'shadow_banned') OR p.author_id = $${userIdIndex})
-        AND NOT EXISTS (
-          SELECT 1 FROM blocked_users
-          WHERE (blocker_id = $${userIdIndex} AND blocked_id = p.author_id)
-             OR (blocker_id = p.author_id AND blocked_id = $${userIdIndex})
-        )
+        ${blockExclusionSQL(userIdIndex, 'p.author_id')}
         ${cursorCondition}
       ORDER BY p.created_at DESC, p.id DESC
       LIMIT $${queryParams.length}`,
@@ -206,7 +203,7 @@ export const handler = withErrorHandler('feed-get', async (event, { headers, log
     const hasMore = result.rows.length > limit;
     const posts = result.rows.slice(0, limit);
 
-    // Batch-fetch is_liked and is_saved (2 queries instead of 2×N EXISTS subqueries)
+    // Batch-fetch is_liked and is_saved (2 queries instead of 2xN EXISTS subqueries)
     const postIds = posts.map((p: Record<string, unknown>) => p.id);
     let likedSet = new Set<string>();
     let savedSet = new Set<string>();

@@ -39,6 +39,11 @@ jest.mock('../../utils/cors', () => ({
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Credentials': 'true',
   })),
+  getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
+}));
+
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
 }));
 
 jest.mock('../../utils/account-status', () => ({
@@ -91,6 +96,7 @@ jest.mock('@aws-sdk/client-lambda', () => ({
 }));
 
 import { handler } from '../../peaks/create';
+import { resolveProfileId } from '../../utils/auth';
 
 describe('peaks/create handler - critical bug fix', () => {
   let mockDb: { query: jest.Mock; connect: jest.Mock };
@@ -110,6 +116,7 @@ describe('peaks/create handler - critical bug fix', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue('profile_123');
   });
 
   describe('peak creation with required columns', () => {

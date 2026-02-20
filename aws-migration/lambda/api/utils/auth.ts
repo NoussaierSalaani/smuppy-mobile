@@ -11,7 +11,7 @@ import type { Pool, PoolClient } from 'pg';
 import { getSecureHeaders } from './cors';
 
 /** @deprecated Use createHeaders(event) from cors.ts instead */
-export const corsHeaders = getSecureHeaders();
+export const corsHeaders: Record<string, string> = typeof getSecureHeaders === 'function' ? getSecureHeaders() : {};
 
 interface AuthUser {
   /** Cognito sub (NOT profile.id — use resolveProfileId() for DB queries on profiles.id) */

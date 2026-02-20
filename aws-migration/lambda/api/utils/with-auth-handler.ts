@@ -17,7 +17,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import type { Pool } from 'pg';
 import { withErrorHandler } from './error-handler';
 import { resolveProfileId } from './auth';
-import { getPool } from '../services/database';
+import { getPool } from '../../shared/db';
 import type { Logger } from './logger';
 
 export interface AuthContext {

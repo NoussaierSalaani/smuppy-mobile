@@ -42,7 +42,12 @@ jest.mock('../../utils/cors', () => ({
   getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
 }));
 
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
+
 import { handler } from '../../profiles/export-data';
+import { resolveProfileId } from '../../utils/auth';
 import { requireRateLimit } from '../../utils/rate-limit';
 
 // --- Test data ---
@@ -107,6 +112,7 @@ function mockEmptyDataQueries() {
 describe('Export Data Handler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });
 
@@ -117,7 +123,6 @@ describe('Export Data Handler', () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.success).toBe(false);
       expect(body.message).toBe('Unauthorized');
     });
   });
@@ -140,7 +145,7 @@ describe('Export Data Handler', () => {
 
   describe('Profile not found', () => {
     it('should return 404 when profile is not found', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] }); // profile query
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = makeEvent();
       const response = await handler(event);

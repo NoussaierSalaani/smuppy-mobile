@@ -53,10 +53,15 @@ jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
 }));
 
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
+
 // ── Import handler AFTER all mocks are declared ──
 
 import { handler } from '../../live-streams/end';
 import { requireRateLimit } from '../../utils/rate-limit';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ──
 
@@ -104,6 +109,7 @@ describe('live-streams/end handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
   });
 
   describe('authentication', () => {
@@ -137,7 +143,7 @@ describe('live-streams/end handler', () => {
 
   describe('profile resolution', () => {
     it('should return 404 when profile not found', async () => {
-      mockDb.query.mockResolvedValueOnce({ rows: [] });
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = makeEvent();
       const result = await handler(event);
@@ -149,8 +155,7 @@ describe('live-streams/end handler', () => {
 
   describe('no active stream', () => {
     it('should return 404 when no active live stream found', async () => {
-      // Profile found
-      mockDb.query.mockResolvedValueOnce({ rows: [{ id: VALID_PROFILE_ID }] });
+      // Profile resolved via resolveProfileId mock (beforeEach)
 
       // Transaction: BEGIN, no active stream
       mockClient.query
@@ -171,8 +176,7 @@ describe('live-streams/end handler', () => {
       const startedAt = '2026-02-20T12:00:00Z';
       const endedAt = '2026-02-20T13:00:00Z';
 
-      // Profile found
-      mockDb.query.mockResolvedValueOnce({ rows: [{ id: VALID_PROFILE_ID }] });
+      // Profile resolved via resolveProfileId mock (beforeEach)
 
       // Transaction queries
       mockClient.query
@@ -206,7 +210,7 @@ describe('live-streams/end handler', () => {
     });
 
     it('should release client after successful transaction', async () => {
-      mockDb.query.mockResolvedValueOnce({ rows: [{ id: VALID_PROFILE_ID }] });
+      // Profile resolved via resolveProfileId mock (beforeEach)
       mockClient.query
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ id: STREAM_ID, channel_name: 'live_test', started_at: '2026-02-20T12:00:00Z' }] })
@@ -224,7 +228,7 @@ describe('live-streams/end handler', () => {
 
   describe('error handling', () => {
     it('should return 500 when database throws', async () => {
-      mockDb.query.mockRejectedValue(new Error('Connection refused'));
+      (resolveProfileId as jest.Mock).mockRejectedValueOnce(new Error('Connection refused'));
 
       const event = makeEvent();
       const result = await handler(event);
@@ -234,7 +238,7 @@ describe('live-streams/end handler', () => {
     });
 
     it('should ROLLBACK and release client on transaction error', async () => {
-      mockDb.query.mockResolvedValueOnce({ rows: [{ id: VALID_PROFILE_ID }] });
+      // Profile resolved via resolveProfileId mock (beforeEach)
       mockClient.query
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
         .mockRejectedValueOnce(new Error('query error')); // stream query fails

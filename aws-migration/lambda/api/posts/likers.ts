@@ -7,6 +7,7 @@ import { withAuthHandler } from '../utils/with-auth-handler';
 import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { blockExclusionSQL } from '../utils/block-filter';
 
 export const handler = withAuthHandler('posts-likers', async (event, { headers, cognitoSub, profileId, db }) => {
     // Rate limit: anti-scraping of social data
@@ -93,11 +94,7 @@ export const handler = withAuthHandler('posts-likers', async (event, { headers, 
     // Block filtering using profileId from withAuthHandler
     params.push(profileId);
     const blockParamIdx = params.length;
-    const blockClause = `AND NOT EXISTS (
-        SELECT 1 FROM blocked_users bu
-        WHERE (bu.blocker_id = $${blockParamIdx} AND bu.blocked_id = p.id)
-           OR (bu.blocker_id = p.id AND bu.blocked_id = $${blockParamIdx})
-      )`;
+    const blockClause = blockExclusionSQL(blockParamIdx, 'p.id');
 
     const likersResult = await db.query(
       `SELECT

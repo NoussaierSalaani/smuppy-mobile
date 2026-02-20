@@ -22,9 +22,13 @@ jest.mock('../../utils/security', () => ({
   ),
 }));
 jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 import { handler } from '../../media/video-status';
 import { requireRateLimit } from '../../utils/rate-limit';
+import { resolveProfileId } from '../../utils/auth';
 
 const TEST_SUB = 'cognito-sub-test123';
 const VALID_POST_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
@@ -60,6 +64,7 @@ describe('media/video-status handler', () => {
     jest.clearAllMocks();
     mockDb = { query: jest.fn() };
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });
 
@@ -84,14 +89,13 @@ describe('media/video-status handler', () => {
   });
 
   it('should return 404 when profile not found', async () => {
-    mockDb.query.mockResolvedValueOnce({ rows: [] }); // profile not found
+    (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
     const result = await handler(makeEvent());
     expect(result.statusCode).toBe(404);
   });
 
   it('should return 404 when post not found', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: VALID_PROFILE_ID }] }) // profile
       .mockResolvedValueOnce({ rows: [] }); // post not found
     const result = await handler(makeEvent());
     expect(result.statusCode).toBe(404);
@@ -99,7 +103,6 @@ describe('media/video-status handler', () => {
 
   it('should return 200 with video status', async () => {
     mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: VALID_PROFILE_ID }] })
       .mockResolvedValueOnce({ rows: [{
         video_status: 'ready',
         hls_url: 'https://cdn.example.com/hls/master.m3u8',

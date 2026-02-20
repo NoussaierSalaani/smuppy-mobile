@@ -10,6 +10,7 @@ import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
+import { blockExclusionSQL, muteExclusionSQL } from '../utils/block-filter';
 
 // Redis connection (reused across Lambda invocations)
 let redis: Redis | null = null;
@@ -228,7 +229,7 @@ export const handler = withErrorHandler('posts-list', async (event, { headers: b
         const requesterParamIdx = cursor ? 4 : 3;
         // Block filter uses the same requesterId param
         const blockFilter = requesterId
-          ? `AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${requesterParamIdx} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${requesterParamIdx}))`
+          ? blockExclusionSQL(requesterParamIdx, 'p.author_id')
           : '';
         query = `
           SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
@@ -268,9 +269,7 @@ export const handler = withErrorHandler('posts-list', async (event, { headers: b
       if (requesterId) {
         exploreParams.push(requesterId);
         const rIdx = exploreParams.length;
-        exploreBlockFilter = `
-          AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $${rIdx} AND blocked_id = p.author_id) OR (blocker_id = p.author_id AND blocked_id = $${rIdx}))
-          AND NOT EXISTS (SELECT 1 FROM muted_users WHERE muter_id = $${rIdx} AND muted_id = p.author_id)`;
+        exploreBlockFilter = blockExclusionSQL(rIdx, 'p.author_id') + muteExclusionSQL(rIdx, 'p.author_id');
       }
       query = `
         SELECT p.id, p.author_id as "authorId", p.content, p.media_urls as "mediaUrls", p.media_type as "mediaType", p.media_meta as "mediaMeta",
@@ -303,7 +302,7 @@ export const handler = withErrorHandler('posts-list', async (event, { headers: b
            FROM post_tags pt
            JOIN profiles pr ON pt.tagged_user_id = pr.id
            WHERE pt.post_id = ANY($1)
-             AND NOT EXISTS (SELECT 1 FROM blocked_users WHERE (blocker_id = $2 AND blocked_id = pt.tagged_user_id) OR (blocker_id = pt.tagged_user_id AND blocked_id = $2))`
+             ${blockExclusionSQL(2, 'pt.tagged_user_id')}`
         : `SELECT pt.post_id, pt.tagged_user_id AS id, pr.username, pr.full_name, pr.avatar_url
            FROM post_tags pt
            JOIN profiles pr ON pt.tagged_user_id = pr.id

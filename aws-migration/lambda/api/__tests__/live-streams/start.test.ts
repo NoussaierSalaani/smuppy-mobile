@@ -55,6 +55,10 @@ jest.mock('../../utils/constants', () => ({
   NOTIFICATION_BATCH_DELAY_MS: 100,
 }));
 
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
+
 jest.mock('../../utils/account-status', () => ({
   requireActiveAccount: jest.fn().mockResolvedValue({
     profileId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
@@ -85,6 +89,7 @@ jest.mock('../../../shared/moderation/textModeration', () => ({
 
 import { handler } from '../../live-streams/start';
 import { requireRateLimit } from '../../utils/rate-limit';
+import { resolveProfileId } from '../../utils/auth';
 import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
@@ -128,6 +133,7 @@ describe('live-streams/start handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
   });
 
   describe('authentication', () => {
@@ -176,7 +182,7 @@ describe('live-streams/start handler', () => {
 
   describe('profile checks', () => {
     it('should return 404 when profile not found', async () => {
-      mockDb.query.mockResolvedValueOnce({ rows: [] });
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = makeEvent();
       const result = await handler(event);
@@ -304,7 +310,7 @@ describe('live-streams/start handler', () => {
 
   describe('error handling', () => {
     it('should return 500 when database throws', async () => {
-      mockDb.query.mockRejectedValue(new Error('Connection refused'));
+      (resolveProfileId as jest.Mock).mockRejectedValueOnce(new Error('Connection refused'));
 
       const event = makeEvent();
       const result = await handler(event);

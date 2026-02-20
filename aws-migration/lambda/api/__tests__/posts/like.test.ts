@@ -44,11 +44,16 @@ jest.mock('../../utils/cors', () => ({
   getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
 }));
 
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
+
 jest.mock('../../services/push-notification', () => ({
   sendPushToUser: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { handler } from '../../posts/like';
+import { resolveProfileId } from '../../utils/auth';
 import { requireRateLimit } from '../../utils/rate-limit';
 import { sendPushToUser } from '../../services/push-notification';
 
@@ -107,6 +112,7 @@ describe('posts/like handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
   });
 
@@ -186,23 +192,20 @@ describe('posts/like handler', () => {
 
   describe('resource existence', () => {
     it('should return 404 when user profile is not found', async () => {
-      // db.query for profile lookup returns empty
-      mockDb.query.mockResolvedValueOnce({ rows: [] });
+      // withAuthHandler resolves profileId -> null means profile not found
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = buildEvent({});
 
       const result = await handler(event);
 
       expect(result.statusCode).toBe(404);
-      expect(JSON.parse(result.body).message).toBe('User profile not found');
+      expect(JSON.parse(result.body).message).toBe('Profile not found');
     });
 
     it('should return 404 when post is not found', async () => {
-      // First query: profile lookup succeeds
-      mockDb.query.mockResolvedValueOnce({
-        rows: [{ id: VALID_PROFILE_ID, username: 'testuser', full_name: 'Test User' }],
-      });
-      // Second query: post lookup returns empty
+      // withAuthHandler resolves profileId successfully
+      // First handler db.query: post lookup returns empty
       mockDb.query.mockResolvedValueOnce({ rows: [] });
 
       const event = buildEvent({});
@@ -218,10 +221,6 @@ describe('posts/like handler', () => {
 
   describe('block check', () => {
     it('should return 403 when a bidirectional block exists', async () => {
-      // Profile lookup
-      mockDb.query.mockResolvedValueOnce({
-        rows: [{ id: VALID_PROFILE_ID, username: 'testuser', full_name: 'Test User' }],
-      });
       // Post lookup
       mockDb.query.mockResolvedValueOnce({
         rows: [{ id: VALID_POST_ID, author_id: VALID_AUTHOR_ID, likes_count: 5 }],
@@ -242,16 +241,16 @@ describe('posts/like handler', () => {
 
   describe('successful like', () => {
     it('should insert a like and return liked=true with updated count', async () => {
-      // Profile lookup
-      mockDb.query.mockResolvedValueOnce({
-        rows: [{ id: VALID_PROFILE_ID, username: 'liker', full_name: 'Liker User' }],
-      });
       // Post lookup (different author so notification fires)
       mockDb.query.mockResolvedValueOnce({
         rows: [{ id: VALID_POST_ID, author_id: VALID_AUTHOR_ID, likes_count: 5 }],
       });
       // Block check: no block
       mockDb.query.mockResolvedValueOnce({ rows: [] });
+      // Liker name lookup
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ full_name: 'Liker User' }],
+      });
 
       // Transaction client queries:
       // 1. BEGIN
@@ -283,16 +282,16 @@ describe('posts/like handler', () => {
     });
 
     it('should NOT send notification or insert notification when liker is the post author', async () => {
-      // Profile lookup: same ID as author
-      mockDb.query.mockResolvedValueOnce({
-        rows: [{ id: VALID_PROFILE_ID, username: 'self', full_name: 'Self User' }],
-      });
-      // Post lookup: author_id === profileId
+      // Post lookup: author_id === profileId (VALID_PROFILE_ID)
       mockDb.query.mockResolvedValueOnce({
         rows: [{ id: VALID_POST_ID, author_id: VALID_PROFILE_ID, likes_count: 3 }],
       });
       // Block check: no block
       mockDb.query.mockResolvedValueOnce({ rows: [] });
+      // Liker name lookup
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ full_name: 'Self User' }],
+      });
 
       // Transaction client queries:
       // 1. BEGIN
@@ -332,16 +331,16 @@ describe('posts/like handler', () => {
 
   describe('unlike (toggle)', () => {
     it('should remove the like and return liked=false when already liked', async () => {
-      // Profile lookup
-      mockDb.query.mockResolvedValueOnce({
-        rows: [{ id: VALID_PROFILE_ID, username: 'user', full_name: 'Test User' }],
-      });
       // Post lookup
       mockDb.query.mockResolvedValueOnce({
         rows: [{ id: VALID_POST_ID, author_id: VALID_AUTHOR_ID, likes_count: 5 }],
       });
       // Block check: no block
       mockDb.query.mockResolvedValueOnce({ rows: [] });
+      // Liker name lookup
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ full_name: 'Test User' }],
+      });
 
       // Transaction client queries:
       // 1. BEGIN
@@ -378,16 +377,16 @@ describe('posts/like handler', () => {
 
   describe('idempotency', () => {
     it('should handle notification insert idempotently via ON CONFLICT DO NOTHING', async () => {
-      // Profile lookup
-      mockDb.query.mockResolvedValueOnce({
-        rows: [{ id: VALID_PROFILE_ID, username: 'user', full_name: 'Test User' }],
-      });
       // Post lookup (different author)
       mockDb.query.mockResolvedValueOnce({
         rows: [{ id: VALID_POST_ID, author_id: VALID_AUTHOR_ID, likes_count: 10 }],
       });
       // Block check: no block
       mockDb.query.mockResolvedValueOnce({ rows: [] });
+      // Liker name lookup
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ full_name: 'Test User' }],
+      });
 
       // Transaction: new like path with notification ON CONFLICT DO NOTHING
       mockClient.query
@@ -418,7 +417,8 @@ describe('posts/like handler', () => {
   // ── 9. Database error ──
 
   describe('error handling', () => {
-    it('should return 500 when a database error occurs during profile lookup', async () => {
+    it('should return 500 when a database error occurs during post lookup', async () => {
+      // Post lookup throws
       mockDb.query.mockRejectedValueOnce(new Error('Connection refused'));
 
       const event = buildEvent({});
@@ -430,16 +430,16 @@ describe('posts/like handler', () => {
     });
 
     it('should ROLLBACK and release client when transaction fails', async () => {
-      // Profile lookup
-      mockDb.query.mockResolvedValueOnce({
-        rows: [{ id: VALID_PROFILE_ID, username: 'user', full_name: 'Test User' }],
-      });
       // Post lookup
       mockDb.query.mockResolvedValueOnce({
         rows: [{ id: VALID_POST_ID, author_id: VALID_AUTHOR_ID, likes_count: 5 }],
       });
       // Block check: no block
       mockDb.query.mockResolvedValueOnce({ rows: [] });
+      // Liker name lookup
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ full_name: 'Test User' }],
+      });
 
       // Transaction: BEGIN succeeds, then SELECT fails
       mockClient.query

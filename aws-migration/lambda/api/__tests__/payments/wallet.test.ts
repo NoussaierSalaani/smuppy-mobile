@@ -107,10 +107,10 @@ describe('payments/wallet handler', () => {
     (getPool as jest.Mock).mockResolvedValue(mockPool);
   });
 
-  it('returns 200 for OPTIONS preflight', async () => {
-    const event = makeEvent({ httpMethod: 'OPTIONS' });
+  it('returns 401 for OPTIONS without auth (withAuthHandler enforces auth)', async () => {
+    const event = makeEvent({ httpMethod: 'OPTIONS', sub: null });
     const result = await handler(event);
-    expect(result.statusCode).toBe(200);
+    expect(result.statusCode).toBe(401);
   });
 
   it('returns 401 when unauthenticated', async () => {

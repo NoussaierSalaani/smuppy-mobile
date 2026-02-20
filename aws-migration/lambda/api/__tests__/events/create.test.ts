@@ -68,6 +68,10 @@ jest.mock('../../../shared/moderation/textModeration', () => ({
   }),
 }));
 
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
+
 // ── Import handler AFTER all mocks are declared ──
 
 import { handler as _handler } from '../../events/create';
@@ -76,6 +80,7 @@ import { requireRateLimit } from '../../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ──
 
@@ -142,10 +147,11 @@ describe('events/create handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockPool);
+    (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
 
     // Default: profile exists as personal account, category exists, insert succeeds
     mockClient.query.mockImplementation((sql: string) => {
-      if (typeof sql === 'string' && sql.includes('SELECT id, account_type FROM profiles')) {
+      if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
         return Promise.resolve({
           rows: [{ id: TEST_PROFILE_ID, account_type: 'personal' }],
         });
@@ -314,7 +320,7 @@ describe('events/create handler', () => {
 
     it('should return 400 when category is invalid', async () => {
       mockClient.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, account_type FROM profiles')) {
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
           return Promise.resolve({
             rows: [{ id: TEST_PROFILE_ID, account_type: 'personal' }],
           });
@@ -341,12 +347,7 @@ describe('events/create handler', () => {
 
   describe('not found', () => {
     it('should return 404 when profile is not found', async () => {
-      mockClient.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, account_type FROM profiles')) {
-          return Promise.resolve({ rows: [] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = makeEvent();
       const result = await handler(event);
@@ -360,7 +361,7 @@ describe('events/create handler', () => {
   describe('account limits', () => {
     it('should return 403 when personal account exceeds monthly limit', async () => {
       mockClient.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, account_type FROM profiles')) {
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
           return Promise.resolve({
             rows: [{ id: TEST_PROFILE_ID, account_type: 'personal' }],
           });
@@ -381,7 +382,7 @@ describe('events/create handler', () => {
 
     it('should return 403 when non-pro tries to create paid event', async () => {
       mockClient.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, account_type FROM profiles')) {
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
           return Promise.resolve({
             rows: [{ id: TEST_PROFILE_ID, account_type: 'personal' }],
           });
@@ -541,7 +542,7 @@ describe('events/create handler', () => {
   describe('database errors', () => {
     it('should return 500 when INSERT throws', async () => {
       mockClient.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, account_type FROM profiles')) {
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
           return Promise.resolve({
             rows: [{ id: TEST_PROFILE_ID, account_type: 'personal' }],
           });

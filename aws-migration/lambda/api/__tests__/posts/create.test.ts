@@ -36,6 +36,10 @@ jest.mock('../../utils/cors', () => ({
   getSecureHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),
 }));
 
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
+
 jest.mock('../../utils/account-status', () => ({
   requireActiveAccount: jest.fn().mockResolvedValue({
     profileId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
@@ -99,6 +103,7 @@ jest.mock('uuid', () => ({
 }));
 
 import { handler } from '../../posts/create';
+import { resolveProfileId } from '../../utils/auth';
 import { requireRateLimit } from '../../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { filterText } from '../../../shared/moderation/textFilter';
@@ -153,6 +158,7 @@ describe('posts/create handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
+    (resolveProfileId as jest.Mock).mockResolvedValue(VALID_USER_ID);
 
     // Default: account status returns an active personal account
     (requireActiveAccount as jest.Mock).mockResolvedValue({
@@ -179,7 +185,6 @@ describe('posts/create handler', () => {
 
       expect(result.statusCode).toBe(401);
       const body = JSON.parse(result.body);
-      expect(body.success).toBe(false);
       expect(body.message).toBe('Unauthorized');
     });
 

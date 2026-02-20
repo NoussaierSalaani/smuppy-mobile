@@ -44,11 +44,15 @@ jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
   RATE_WINDOW_5_MIN: 300,
 }));
+jest.mock('../../utils/auth', () => ({
+  resolveProfileId: jest.fn(),
+}));
 
 // ── Import handler AFTER all mocks are declared ──
 
 import { handler } from '../../follows/delete';
 import { requireRateLimit } from '../../utils/rate-limit';
+import { resolveProfileId } from '../../utils/auth';
 
 // ── Test constants ──
 
@@ -101,14 +105,7 @@ describe('follows/delete handler', () => {
     };
 
     (getPool as jest.Mock).mockResolvedValue(mockDb);
-
-    // Default: follower profile exists
-    mockDb.query.mockImplementation((sql: string) => {
-      if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-        return Promise.resolve({ rows: [{ id: FOLLOWER_ID }] });
-      }
-      return Promise.resolve({ rows: [] });
-    });
+    (resolveProfileId as jest.Mock).mockResolvedValue(FOLLOWER_ID);
 
     // Default: follow exists, delete + cooldown succeed
     mockClient.query.mockImplementation((sql: string) => {
@@ -186,18 +183,13 @@ describe('follows/delete handler', () => {
 
   describe('not found', () => {
     it('should return 404 when follower profile is not found', async () => {
-      mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles WHERE cognito_sub')) {
-          return Promise.resolve({ rows: [] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
 
       const event = makeEvent();
       const result = await handler(event);
 
       expect(result.statusCode).toBe(404);
-      expect(JSON.parse(result.body).message).toBe('Your profile not found');
+      expect(JSON.parse(result.body).message).toBe('Profile not found');
     });
   });
 

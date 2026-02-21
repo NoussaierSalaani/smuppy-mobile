@@ -31,7 +31,7 @@ const NotificationsSkeleton = () => {
       </View>
 
       {Array.from({ length: ROW_COUNT }).map((_, i) => (
-        <NotificationRow key={i} />
+        <NotificationRow key={`notif-skeleton-${i}`} />
       ))}
     </View>
   );

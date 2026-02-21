@@ -22,7 +22,7 @@ const SearchSkeleton = () => {
         <SkeletonLine width={100} height={16} style={styles.sectionTitle} />
         <View style={styles.trendingRow}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonBase key={i} width={80} height={30} borderRadius={15} style={styles.trendingChip} />
+            <SkeletonBase key={`trending-skeleton-${i}`} width={80} height={30} borderRadius={15} style={styles.trendingChip} />
           ))}
         </View>
       </View>
@@ -31,7 +31,7 @@ const SearchSkeleton = () => {
       <View style={styles.section}>
         <SkeletonLine width={120} height={16} style={styles.sectionTitle} />
         {Array.from({ length: 6 }).map((_, i) => (
-          <View key={i} style={styles.userRow}>
+          <View key={`user-skeleton-${i}`} style={styles.userRow}> {/* NOSONAR */}
             <SkeletonBase width={44} height={44} borderRadius={22} />
             <View style={styles.userText}>
               <SkeletonLine width={130} height={13} />

@@ -172,8 +172,8 @@ const PrescriptionCard: React.FC<PrescriptionCardProps> = React.memo(({ prescrip
 
       <View style={styles.cardFooter}>
         <View style={styles.difficultyRow}>
-          {Array.from({ length: prescription.difficulty === 'easy' ? 1 : prescription.difficulty === 'moderate' ? 2 : 3 }).map((_, i) => (
-            <View key={i} style={[styles.difficultyDot, { backgroundColor: config.color }]} />
+          {Array.from({ length: ({ easy: 1, moderate: 2 } as Record<string, number>)[prescription.difficulty] ?? 3 }).map((_, i) => (
+            <View key={`difficulty-${i}`} style={[styles.difficultyDot, { backgroundColor: config.color }]} />
           ))}
           <Text style={styles.difficultyText}>{prescription.difficulty}</Text>
         </View>

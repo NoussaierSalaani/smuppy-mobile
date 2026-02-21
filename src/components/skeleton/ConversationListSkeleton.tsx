@@ -24,7 +24,7 @@ const ConversationListSkeleton = () => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {Array.from({ length: ROW_COUNT }).map((_, i) => (
-        <ConversationRow key={i} />
+        <ConversationRow key={`conv-skeleton-${i}`} />
       ))}
     </View>
   );

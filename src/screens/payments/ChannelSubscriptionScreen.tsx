@@ -71,7 +71,7 @@ export default function ChannelSubscriptionScreen() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
-  const { purchaseSubscription, isReady: iapReady } = useIAPCheckout();
+  const { purchaseSubscription, isReady: _iapReady } = useIAPCheckout();
   const useIAP = shouldUseIAP('digital');
   const { formatAmount: formatCurrencyAmount } = useCurrency();
 

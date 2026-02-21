@@ -890,7 +890,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             <Text style={styles.businessText}>{sanitizeOptionalText(selectedMarker.hours)}</Text>
           </View>
           <View style={styles.expertiseTags}>
-            {selectedMarker.expertise?.map((tag, index) => (
+            {selectedMarker.expertise?.map((tag, _index) => (
               <View key={tag} style={styles.expertiseTag}>
                 <Text style={styles.expertiseTagText}>{sanitizeOptionalText(tag)}</Text>
               </View>

@@ -39,7 +39,7 @@ interface Transaction {
   fanAvatar?: string;
 }
 
-interface EarningsData {
+interface _EarningsData {
   totalEarnings: number;
   availableBalance: number;
   pendingBalance: number;

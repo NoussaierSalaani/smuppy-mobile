@@ -100,7 +100,6 @@ export default function BookSessionScreen(): React.JSX.Element {
   );
 
   const creator = bookingData?.creator ?? routeCreator ?? null;
-  const availableSlots = bookingData?.availableSlots ?? [];
   const packs = bookingData?.packs ?? [];
   const errorMessage = fetchError ? 'Failed to load booking data. Please try again.' : null;
 
@@ -127,6 +126,7 @@ export default function BookSessionScreen(): React.JSX.Element {
 
   // Generate dates with availability info from API
   const dates = useMemo((): DateItem[] => {
+    const availableSlots = bookingData?.availableSlots ?? [];
     const result: DateItem[] = [];
     const today = new Date();
 
@@ -156,7 +156,7 @@ export default function BookSessionScreen(): React.JSX.Element {
       });
     }
     return result;
-  }, [availableSlots]);
+  }, [bookingData?.availableSlots]);
 
   // Get time slots for selected date
   const timeSlots = useMemo(() => {
@@ -291,7 +291,7 @@ export default function BookSessionScreen(): React.JSX.Element {
               style={styles.datesContainer}
               contentContainerStyle={styles.datesContent}
             >
-              {dates.map((item, index) => {
+              {dates.map((item, _index) => {
                 const isSelected = selectedDate?.fullDate.getTime() === item.fullDate.getTime();
                 const isAvailable = item.isAvailable;
                 return (

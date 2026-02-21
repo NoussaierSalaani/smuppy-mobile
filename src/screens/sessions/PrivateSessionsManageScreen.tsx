@@ -1096,7 +1096,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
                   <Text style={styles.emptyStateText}>No slots available</Text>
                 </View>
               ) : null}
-              {availableSlots.map((slot, index) => (
+              {availableSlots.map((slot, _index) => (
                 <View key={slot.time} style={[styles.slotItem, slot.isBooked && styles.slotItemBooked]}>
                   <View style={styles.slotTimeContainer}>
                     <Ionicons name="time-outline" size={18} color={slot.isBooked ? '#8E8E93' : colors.primary} />

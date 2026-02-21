@@ -412,7 +412,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
             {/* Highlights */}
             {item.highlights && item.highlights.length > 0 && (
               <View style={styles.cardHighlights}>
-                {item.highlights.slice(0, 3).map((highlight, i) => (
+                {item.highlights.slice(0, 3).map((highlight, _i) => (
                   <View key={highlight} style={styles.highlightChip}>
                     <Text style={styles.highlightText}>{highlight}</Text>
                   </View>

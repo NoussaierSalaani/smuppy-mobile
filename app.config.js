@@ -1,4 +1,14 @@
+const { execSync } = require('child_process');
+
 const isDevBuild = (process.env.APP_ENV || 'dev') === 'dev' || process.env.EAS_BUILD_PROFILE === 'development';
+
+// Capture git commit SHA at build time for provenance tracking
+let gitCommitSha = 'unknown';
+try {
+  gitCommitSha = execSync('git rev-parse --short=7 HEAD', { encoding: 'utf8' }).trim();
+} catch {
+  // Fallback if git is not available (e.g. CI without git)
+}
 
 export default {
 expo: {
@@ -65,16 +75,14 @@ infoPlist: {
         NSExceptionRequiresForwardSecrecy: true,
         NSExceptionMinimumTLSVersion: 'TLSv1.2',
       },
-      // Dev only: Expo tunnel/dev client loads over exp.direct (HTTP).
-      // Keep scope narrow to avoid widening ATS.
-      'exp.direct': {
-        NSIncludesSubdomains: true,
-        NSExceptionAllowsInsecureHTTPLoads: true,
-        NSExceptionRequiresForwardSecrecy: false,
-        NSExceptionMinimumTLSVersion: 'TLSv1.0',
-      },
-      // DEV ONLY: Local dev server (Metro) over HTTP for simulator/dev-client
+      // DEV ONLY: Expo tunnel, Metro dev server over HTTP
       ...(isDevBuild && {
+        'exp.direct': {
+          NSIncludesSubdomains: true,
+          NSExceptionAllowsInsecureHTTPLoads: true,
+          NSExceptionRequiresForwardSecrecy: false,
+          NSExceptionMinimumTLSVersion: 'TLSv1.0',
+        },
         localhost: {
           NSIncludesSubdomains: true,
           NSExceptionAllowsInsecureHTTPLoads: true,
@@ -191,6 +199,9 @@ cloudfrontUrl: process.env.CLOUDFRONT_URL,
 sentryDsn: process.env.SENTRY_DSN,
 // Mapbox
 mapboxAccessToken: process.env.MAPBOX_ACCESS_TOKEN,
+// Build provenance (injected at build time)
+gitCommitSha,
+easBuildProfile: process.env.EAS_BUILD_PROFILE || 'local',
     },
   },
 };

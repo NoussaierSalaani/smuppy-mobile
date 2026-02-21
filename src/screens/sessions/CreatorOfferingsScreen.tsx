@@ -365,7 +365,7 @@ const CreatorOfferingsScreen = (): React.JSX.Element => {
             </View>
           </View>
           <View style={styles.tierPerks}>
-            {tier.perks.map((perk, index) => (
+            {tier.perks.map((perk, _index) => (
               <View key={perk} style={styles.perkRow}>
                 <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
                 <Text style={styles.perkText}>{perk}</Text>

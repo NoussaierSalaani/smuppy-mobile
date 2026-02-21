@@ -9,6 +9,7 @@ import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native
 import { Image, ImageContentFit, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { normalizeCdnUrl } from '../utils/cdnUrl';
+import { addBreadcrumb } from '../lib/sentry';
 
 // Blurhash placeholder for smooth loading
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
@@ -103,7 +104,17 @@ const OptimizedImage = memo<OptimizedImageProps>(({
       priority={priority}
       recyclingKey={recyclingKey}
       onLoad={onLoad}
-      onError={() => {
+      onError={(e) => {
+        const uri = typeof resolvedSource === 'object' ? resolvedSource.uri : String(resolvedSource);
+        const errorMsg = (e as { error?: string })?.error || 'unknown';
+        if (__DEV__) {
+          console.warn(`[MEDIA_ERROR] Image load failed: ${errorMsg} | URI: ${uri}`);
+        }
+        addBreadcrumb(
+          `Image load failed: ${errorMsg}`,
+          'media',
+          { uri: uri?.slice(0, 200), error: errorMsg },
+        );
         setHasError(true);
         onError?.();
       }}

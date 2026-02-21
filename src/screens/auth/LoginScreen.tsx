@@ -14,6 +14,7 @@ import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 import { getCurrentProfile } from '../../services/database';
 import { KEYBOARD_BEHAVIOR } from '../../config/platform';
+import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 
 type LoginScreenProps = Readonly<{
   navigation: {
@@ -92,6 +93,7 @@ const createLocalStyles = (colors: ThemeColors, authColors: ReturnType<typeof cr
 export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   const { colors, isDark } = useTheme();
+  const { onProfileCreated } = useAuthCallbacks();
   const authColors = useMemo(() => createAuthColors(colors, isDark), [colors, isDark]);
   const styles = useMemo(() => createLocalStyles(colors, authColors), [colors, authColors]);
 
@@ -187,10 +189,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       if (!isMountedRef.current) return;
 
       if (!profileResult.data) {
+        // New user — needs onboarding
         navigation.reset({
           index: 0,
           routes: [{ name: 'AccountType' }],
         });
+      } else {
+        // Existing user — signal AppNavigator to show main app
+        onProfileCreated();
       }
     } catch (error: unknown) {
       if (!isMountedRef.current) return;
@@ -217,7 +223,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email, password, rememberMe]);
+  }, [email, password, rememberMe, onProfileCreated]);
 
   const togglePassword = useCallback(() => {
     setShowPassword(prev => !prev);

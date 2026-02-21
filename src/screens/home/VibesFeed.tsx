@@ -1355,7 +1355,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                 <View style={styles.relatedSection}>
                   <Text style={styles.relatedTitle}>More like this</Text>
                   <View style={styles.relatedGrid}>
-                    {relatedPosts.map((post, index) => (
+                    {relatedPosts.map((post, _index) => (
                       <TouchableOpacity
                         key={`related-${post.id}`}
                         style={styles.relatedCard}

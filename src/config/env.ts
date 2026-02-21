@@ -50,6 +50,12 @@ export const ENV = {
   // App info
   APP_ENV: extra.appEnv || (__DEV__ ? 'development' : 'production'),
   APP_VERSION: Constants.expoConfig?.version || '1.0.0',
+  BUILD_NUMBER: Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode?.toString() || '1',
+  GIT_COMMIT_SHA: extra.gitCommitSha || 'unknown',
+  EAS_BUILD_PROFILE: extra.easBuildProfile || 'local',
+  RUNTIME_VERSION: typeof Constants.expoConfig?.runtimeVersion === 'string'
+    ? Constants.expoConfig.runtimeVersion
+    : Constants.expoConfig?.version || '1.0.0',
   isDev: __DEV__,
 
   // Legacy alias (for backwards compatibility)

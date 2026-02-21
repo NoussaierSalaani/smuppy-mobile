@@ -912,7 +912,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   }, [fetchPosts]);
 
   // Render suggestion item
-  const renderSuggestion = useCallback((suggestion: UISuggestion, index: number) => {
+  const renderSuggestion = useCallback((suggestion: UISuggestion, _index: number) => {
     const isTracking = trackingUserIds.has(suggestion.id);
     const firstName = suggestion.name.split(' ')[0] || suggestion.name;
     return (

@@ -147,7 +147,7 @@ const PostDetailVibesFeedScreen = () => {
   }, []);
 
   // Render modern grid post card
-  const renderGridPost = useCallback((post: { id: string; type?: string; thumbnail: string; title?: string; likes?: number; category?: string; height?: number; duration?: string; user?: { id?: string; name?: string; avatar?: string } }, index: number) => {
+  const renderGridPost = useCallback((post: { id: string; type?: string; thumbnail: string; title?: string; likes?: number; category?: string; height?: number; duration?: string; user?: { id?: string; name?: string; avatar?: string } }, _index: number) => {
     const scale = getCardScale(post.id);
 
     // Convert mock post to format expected by this screen

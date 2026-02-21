@@ -116,7 +116,7 @@ export default function PlatformSubscriptionScreen() {
   const user = useUserStore((state) => state.user);
   const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
-  const { purchaseSubscription, isReady: iapReady, subscriptions: iapProducts } = useIAPCheckout();
+  const { purchaseSubscription, isReady: iapReady, subscriptions: _iapProducts } = useIAPCheckout();
   const useIAP = shouldUseIAP('digital');
   const { colors, isDark } = useTheme();
   const { formatAmount } = useCurrency();

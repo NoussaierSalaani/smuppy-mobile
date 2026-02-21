@@ -511,7 +511,7 @@ const SearchScreen = (): React.JSX.Element => {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.dark }]}>Trending Hashtags</Text>
           <View style={styles.hashtagsGrid}>
-            {trendingHashtags.map((item, idx) => (
+            {trendingHashtags.map((item, _idx) => (
               <TouchableOpacity key={`tag-${item.tag}`} style={[styles.hashtagChip, { backgroundColor: colors.gray100 }]} onPress={() => handleHashtagPress(item.tag)}>
                 <Text style={[styles.hashtagText, { color: colors.dark }]}>#{item.tag}</Text>
                 <Text style={[styles.hashtagCount, { color: colors.gray }]}>{item.count}</Text>
@@ -616,7 +616,7 @@ const SearchScreen = (): React.JSX.Element => {
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.dark }]}>Trending</Text>
               <View style={styles.hashtagsGrid}>
-                {trendingHashtags.map((item, idx) => (
+                {trendingHashtags.map((item, _idx) => (
                   <TouchableOpacity key={`tag-${item.tag}`} style={[styles.hashtagChip, { backgroundColor: colors.gray100 }]} onPress={() => handleHashtagPress(item.tag)}>
                     <Text style={[styles.hashtagText, { color: colors.dark }]}>#{item.tag}</Text>
                     <Text style={[styles.hashtagCount, { color: colors.gray }]}>{item.count}</Text>

@@ -128,7 +128,7 @@ const SubscriptionSuccessScreen = (): React.JSX.Element => {
           <Text style={styles.tierPrice}>{formatCurrencyAmount(Math.round(tier.price * 100))}/mo</Text>
         </View>
         <View style={styles.perksContainer}>
-          {tier.perks.slice(0, 3).map((perk, index) => (
+          {tier.perks.slice(0, 3).map((perk, _index) => (
             <View key={perk} style={styles.perkRow}>
               <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
               <Text style={styles.perkText}>{perk}</Text>

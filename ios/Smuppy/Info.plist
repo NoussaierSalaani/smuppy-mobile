@@ -87,17 +87,7 @@
           <key>NSExceptionMinimumTLSVersion</key>
           <string>TLSv1.2</string>
         </dict>
-        <key>exp.direct</key>
-        <dict>
-          <key>NSIncludesSubdomains</key>
-          <true/>
-          <key>NSExceptionAllowsInsecureHTTPLoads</key>
-          <true/>
-          <key>NSExceptionRequiresForwardSecrecy</key>
-          <false/>
-          <key>NSExceptionMinimumTLSVersion</key>
-          <string>TLSv1.0</string>
-        </dict>
+        <!-- exp.direct removed: dev-only domain, injected via app.config.js isDevBuild -->
       </dict>
     </dict>
     <key>NSCalendarsFullAccessUsageDescription</key>

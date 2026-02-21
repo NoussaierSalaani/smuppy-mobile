@@ -28,6 +28,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { normalizeCdnUrl, getVideoPlaybackUrl } from '../../utils/cdnUrl';
 import * as MediaLibrary from 'expo-media-library';
 import OptimizedImage from '../../components/OptimizedImage';
+import { addBreadcrumb } from '../../lib/sentry';
 import { resolveDisplayName } from '../../types/profile';
 import PeakCarousel from '../../components/peaks/PeakCarousel';
 import TagFriendModal from '../../components/TagFriendModal';
@@ -1272,6 +1273,17 @@ const PeakViewScreen = (): React.JSX.Element => {
               shouldPlay
               isMuted={false}
               onPlaybackStatusUpdate={onVideoStatus}
+              onError={(error: string) => {
+                const uri = getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl) || '';
+                if (__DEV__) {
+                  console.warn(`[MEDIA_ERROR] Video load failed: ${error} | URI: ${uri}`);
+                }
+                addBreadcrumb(
+                  `Video load failed: ${error}`,
+                  'media',
+                  { uri: uri.slice(0, 200), peakId: currentPeak.id, error },
+                );
+              }}
               posterSource={{ uri: normalizeCdnUrl(currentPeak.thumbnail) || undefined }}
               usePoster
             />

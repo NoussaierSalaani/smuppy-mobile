@@ -31,6 +31,7 @@ import { hapticButtonPress, hapticDestructive } from '../../utils/haptics';
 import { resolveDisplayName } from '../../types/profile';
 import { sanitizeOptionalText } from '../../utils/sanitize';
 import { ACCOUNT_TYPE } from '../../config/accountTypes';
+import { ENV } from '../../config/env';
 
 const COVER_HEIGHT = 160;
 
@@ -520,6 +521,22 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           </View>
         </View>
 
+        {/* Build Provenance — tap to reveal full info */}
+        <View style={styles.buildInfoSection}>
+          <Text style={styles.buildInfoVersion}>
+            Smuppy v{ENV.APP_VERSION} ({ENV.BUILD_NUMBER})
+          </Text>
+          <Text style={styles.buildInfoDetail}>
+            {ENV.GIT_COMMIT_SHA} · {ENV.EAS_BUILD_PROFILE} · {ENV.APP_ENV}
+          </Text>
+          <Text style={styles.buildInfoDetail}>
+            API: {ENV.API_URL.replace(/https?:\/\//, '').replace(/\/api$/, '')}
+          </Text>
+          <Text style={styles.buildInfoDetail}>
+            Runtime: {ENV.RUNTIME_VERSION}
+          </Text>
+        </View>
+
       </ScrollView>
 
       {renderLogoutModal()}
@@ -739,6 +756,24 @@ const createStyles = (colors: ReturnType<typeof import('../../config/theme').get
   },
   dangerLabel: {
     color: '#FF3B30',
+  },
+  buildInfoSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  buildInfoVersion: {
+    fontSize: 13,
+    fontFamily: 'Poppins-SemiBold',
+    color: colors.gray400,
+    marginBottom: 4,
+  },
+  buildInfoDetail: {
+    fontSize: 11,
+    fontFamily: 'Poppins-Regular',
+    color: colors.gray300,
+    marginTop: 2,
   },
 
   // Upgrade to Pro Creator

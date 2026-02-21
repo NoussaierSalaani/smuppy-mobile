@@ -26,9 +26,9 @@ import {
   FILTER_IDS,
   OVERLAY_IDS,
   type FilterState,
-  type FilterAction,
+  type FilterAction as _FilterAction,
   type FilterCategory,
-  type OverlayType,
+  type OverlayType as _OverlayType,
 } from '../../filters/types';
 
 describe('FilterContext', () => {

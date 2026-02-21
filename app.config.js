@@ -2,6 +2,12 @@ const { execSync } = require('child_process');
 
 const isDevBuild = (process.env.APP_ENV || 'dev') === 'dev' || process.env.EAS_BUILD_PROFILE === 'development';
 
+// Google iOS reversed client ID — required for OAuth redirect in production builds
+const googleIosClientId = process.env.GOOGLE_IOS_CLIENT_ID || '';
+const googleReversedClientId = googleIosClientId
+  ? googleIosClientId.split('.').reverse().join('.')
+  : '';
+
 // Capture git commit SHA at build time for provenance tracking
 let gitCommitSha = 'unknown';
 try {
@@ -47,6 +53,10 @@ associatedDomains: [
   'applinks:app.smuppy.com',
 ],
 infoPlist: {
+  // Google OAuth redirect: reversed client ID must be a URL scheme for auth callback
+  ...(googleReversedClientId && {
+    CFBundleURLTypes: [{ CFBundleURLSchemes: [googleReversedClientId] }],
+  }),
   ITSAppUsesNonExemptEncryption: false,
   // ATS: restrict to specific domains instead of allowing all
   NSAppTransportSecurity: {

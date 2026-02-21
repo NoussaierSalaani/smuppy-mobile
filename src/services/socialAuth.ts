@@ -154,13 +154,25 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
 /**
  * Google OAuth configuration hook
  * Use this in your component: const [request, response, promptAsync] = useGoogleAuth();
+ *
+ * IMPORTANT: On iOS standalone builds, expo-auth-session defaults to using
+ * Application.applicationId (bundle ID) as the redirect URI scheme. But Google's
+ * iOS OAuth client expects the REVERSED client ID as the redirect scheme.
+ * We override redirectUri on iOS to match Google's expectation.
  */
 export const useGoogleAuth = () => {
+  // On iOS standalone builds, Google expects the reversed client ID as redirect scheme.
+  // expo-auth-session defaults to Application.applicationId (bundle ID) which doesn't match.
+  const redirectUri = Platform.OS === 'ios' && ENV.GOOGLE_IOS_CLIENT_ID
+    ? `com.googleusercontent.apps.${ENV.GOOGLE_IOS_CLIENT_ID.split('.apps.')[0]}:/oauthredirect`
+    : undefined;
+
   return Google.useAuthRequest({
     iosClientId: ENV.GOOGLE_IOS_CLIENT_ID,
     androidClientId: ENV.GOOGLE_ANDROID_CLIENT_ID,
     webClientId: ENV.GOOGLE_WEB_CLIENT_ID,
     scopes: ['openid', 'profile', 'email'],
+    redirectUri,
   });
 };
 

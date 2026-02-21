@@ -54,7 +54,10 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "roots": [
-      "<rootDir>/__tests__"
+      "<rootDir>/__tests__",
+      "<rootDir>/../shared",
+      "<rootDir>/../triggers",
+      "<rootDir>/../websocket"
     ],
     "testMatch": [
       "**/*.test.ts"
@@ -65,6 +68,9 @@
     },
     "collectCoverageFrom": [
       "**/*.ts",
+      "../shared/**/*.ts",
+      "../triggers/**/*.ts",
+      "../websocket/**/*.ts",
       "!**/*.d.ts",
       "!**/__tests__/**",
       "!**/node_modules/**"

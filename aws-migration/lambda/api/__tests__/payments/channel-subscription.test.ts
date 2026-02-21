@@ -71,6 +71,10 @@ jest.mock('../../utils/security', () => ({
   isValidUUID: jest.fn().mockReturnValue(true),
 }));
 
+jest.mock('../../utils/revenue-share', () => ({
+  calculatePlatformFeePercent: jest.fn().mockReturnValue(40),
+}));
+
 jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
   CognitoIdentityProviderClient: jest.fn().mockImplementation(() => ({
     send: jest.fn().mockResolvedValue({ Users: [{ Attributes: [{ Name: 'email', Value: 'test@test.com' }] }] }),
@@ -83,6 +87,7 @@ jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
 const TEST_SUB = 'cognito-sub-test123';
 const TEST_PROFILE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const TEST_CREATOR_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
+const TEST_SUBSCRIPTION_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
   return {
@@ -124,6 +129,8 @@ describe('payments/channel-subscription handler', () => {
     (getPool as jest.Mock).mockResolvedValue(mockPool);
   });
 
+  // ── Common handler tests ──────────────────────────────────────────
+
   it('returns 200 for OPTIONS preflight', async () => {
     const event = makeEvent({ httpMethod: 'OPTIONS' });
     const result = await handler(event);
@@ -163,11 +170,46 @@ describe('payments/channel-subscription handler', () => {
     expect(JSON.parse(result.body).message).toBe('Invalid creatorId format');
   });
 
+  it('returns 400 for invalid subscriptionId UUID format', async () => {
+    const { isValidUUID } = require('../../utils/security');
+    // First call is for creatorId (not present), second is for subscriptionId
+    (isValidUUID as jest.Mock).mockReturnValueOnce(false);
+    const event = makeEvent({ body: JSON.stringify({ action: 'cancel', subscriptionId: 'not-a-uuid' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).message).toBe('Invalid subscriptionId format');
+  });
+
   it('returns 400 for invalid action', async () => {
     const event = makeEvent({ body: JSON.stringify({ action: 'invalid' }) });
     const result = await handler(event);
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).message).toBe('Invalid action');
+  });
+
+  it('returns 400 for invalid action when body is null (fallback to empty object)', async () => {
+    const event = makeEvent({ body: null });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).message).toBe('Invalid action');
+  });
+
+  it('returns 400 when get-channel-info is called without creatorId', async () => {
+    const event = makeEvent({ body: JSON.stringify({ action: 'get-channel-info' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).message).toBe('creatorId is required');
+  });
+
+  it('returns 400 for invalid subscriptionId UUID format', async () => {
+    const { isValidUUID } = require('../../utils/security');
+    // subscriptionId check only fires when there's no creatorId in body
+    // isValidUUID is called once for subscriptionId only (no creatorId present)
+    (isValidUUID as jest.Mock).mockReturnValueOnce(false);
+    const event = makeEvent({ body: JSON.stringify({ action: 'cancel', subscriptionId: 'not-a-uuid' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).message).toBe('Invalid subscriptionId format');
   });
 
   it('subscribe returns 400 when creatorId missing', async () => {
@@ -183,6 +225,16 @@ describe('payments/channel-subscription handler', () => {
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).message).toBe('subscriptionId is required');
   });
+
+  it('returns 500 on unexpected error', async () => {
+    const { resolveProfileId } = require('../../utils/auth');
+    (resolveProfileId as jest.Mock).mockRejectedValueOnce(new Error('DB error'));
+    const event = makeEvent({ body: JSON.stringify({ action: 'list-subscriptions' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(500);
+  });
+
+  // ── list-subscriptions ────────────────────────────────────────────
 
   it('list-subscriptions returns 200 with subscriptions array', async () => {
     mockClient.query.mockResolvedValueOnce({
@@ -201,45 +253,876 @@ describe('payments/channel-subscription handler', () => {
     expect(body.subscriptions).toHaveLength(1);
   });
 
-  it('get-channel-info returns 404 when creator not found', async () => {
-    mockClient.query.mockResolvedValueOnce({ rows: [] });
-    const event = makeEvent({ body: JSON.stringify({ action: 'get-channel-info', creatorId: TEST_CREATOR_ID }) });
-    const result = await handler(event);
-    expect(result.statusCode).toBe(404);
+  // ── subscribe (full flow) ─────────────────────────────────────────
+
+  describe('subscribe', () => {
+    const subscribeEvent = () => makeEvent({
+      body: JSON.stringify({ action: 'subscribe', creatorId: TEST_CREATOR_ID }),
+    });
+
+    it('returns 400 when already subscribed to channel', async () => {
+      // validateSubscriptionEligibility: existing sub found
+      mockClient.query.mockResolvedValueOnce({ rows: [{ id: 'existing-sub' }] });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Already subscribed to this channel');
+    });
+
+    it('returns 404 when creator not found or not pro_creator', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator query returns nothing
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).message).toBe('Creator not found or not a Pro account');
+    });
+
+    it('returns 400 when creator has no stripe account', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found but no stripe_account_id
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: null,
+          channel_price_cents: 999,
+          username: 'creator',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Creator has not set up payments yet');
+    });
+
+    it('returns 400 when creator has no channel price set', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found but no channel_price_cents
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_test',
+          channel_price_cents: null,
+          username: 'creator',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Creator has not set a channel subscription price');
+    });
+
+    it('returns 400 when creator channel price is zero', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_test',
+          channel_price_cents: 0,
+          username: 'creator',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Creator has not set a channel subscription price');
+    });
+
+    it('returns 404 when fan profile not found', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_test',
+          channel_price_cents: 999,
+          username: 'creator',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: not found
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).message).toBe('User not found');
+    });
+
+    it('returns 200 with checkout session when fan has existing stripe customer', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: found with existing stripe_customer_id
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.checkoutUrl).toBe('https://checkout.stripe.com/test');
+      expect(body.sessionId).toBe('cs_test');
+      expect(body.pricePerMonth).toBe(999);
+      expect(body.platformFeePercent).toBe(40);
+      expect(body.creatorSharePercent).toBe(60);
+      expect(body.tier).toBe('Bronze');
+      // Fan had existing customer, so no customer create call
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('creates a new stripe customer when fan has none', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: found but no stripe_customer_id, has email
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: null,
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+      // UPDATE profiles SET stripe_customer_id (from getOrCreateStripeCustomer)
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+      const result = await handler(subscribeEvent());
+
+      expect(result.statusCode).toBe(200);
+      // stripe.customers.create was called
+      expect(stripe.customers.create).toHaveBeenCalledWith(expect.objectContaining({
+        email: 'fan@test.com',
+        name: 'Fan Name',
+      }));
+      // DB updated with new customer ID
+      expect(mockClient.query).toHaveBeenCalledWith(
+        'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
+        ['cus_test', TEST_PROFILE_ID]
+      );
+    });
+
+    it('syncs fan email from Cognito when email is null', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: found but no email, has cognito_sub
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: null,
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+      // UPDATE profiles SET email (from syncFanEmailFromCognito)
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // Cognito was queried to sync email, then profiles updated
+      expect(mockClient.query).toHaveBeenCalledWith(
+        'UPDATE profiles SET email = $1 WHERE id = $2',
+        ['test@test.com', TEST_PROFILE_ID]
+      );
+    });
+
+    it('continues without email when cognito returns no email attribute', async () => {
+      const { CognitoIdentityProviderClient } = require('@aws-sdk/client-cognito-identity-provider');
+      // Override Cognito to return user with no email attribute
+      (CognitoIdentityProviderClient as jest.Mock).mockImplementationOnce(() => ({
+        send: jest.fn().mockResolvedValue({
+          Users: [{ Attributes: [{ Name: 'phone_number', Value: '+1234567890' }] }],
+        }),
+      }));
+
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: no email, has cognito_sub
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: null,
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // Email was null from cognito (no email attr), so no UPDATE for email
+      const emailUpdateCalls = mockClient.query.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('UPDATE profiles SET email')
+      );
+      expect(emailUpdateCalls).toHaveLength(0);
+    });
+
+    it('handles cognito error gracefully and continues subscription flow', async () => {
+      const { CognitoIdentityProviderClient } = require('@aws-sdk/client-cognito-identity-provider');
+      // Override Cognito to throw an error
+      (CognitoIdentityProviderClient as jest.Mock).mockImplementationOnce(() => ({
+        send: jest.fn().mockRejectedValue(new Error('Cognito service unavailable')),
+      }));
+
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: no email, has cognito_sub (will trigger cognito sync attempt)
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: null,
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      // Should still succeed despite cognito error
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).success).toBe(true);
+    });
+
+    it('creates stripe customer with undefined email when fan email is null', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: no stripe customer, no email, no cognito_sub (skip cognito sync)
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: null,
+          email: null,
+          full_name: 'Fan Name',
+          cognito_sub: null,
+        }],
+      });
+      // UPDATE profiles SET stripe_customer_id
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+      const result = await handler(subscribeEvent());
+
+      expect(result.statusCode).toBe(200);
+      // stripe.customers.create was called with undefined email (not null)
+      expect(stripe.customers.create).toHaveBeenCalledWith(expect.objectContaining({
+        email: undefined,
+        name: 'Fan Name',
+      }));
+    });
+
+    it('handles null fan_count in subscribe flow (defaults to 0)', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found with null fan_count
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: null,
+        }],
+      });
+      // fan query
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      // With null fan_count, parseInt returns NaN, fallback to 0 -> Bronze tier, 40% fee
+      expect(body.tier).toBe('Bronze');
+      expect(body.platformFeePercent).toBe(40);
+      expect(body.creatorSharePercent).toBe(60);
+    });
+
+    it('skips cognito sync when fan has no cognito_sub', async () => {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: found but no email and no cognito_sub
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: null,
+          full_name: 'Fan Name',
+          cognito_sub: null,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // Should NOT have called UPDATE for email since cognito_sub is null
+      const emailUpdateCalls = mockClient.query.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('UPDATE profiles SET email')
+      );
+      expect(emailUpdateCalls).toHaveLength(0);
+    });
+
+    it('uses existing stripe product if found', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+      // Override products.search to return an existing product
+      (stripe.products.search as jest.Mock).mockResolvedValueOnce({
+        data: [{ id: 'prod_existing' }],
+      });
+
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: found with existing customer
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // products.create should NOT have been called since existing product found
+      expect(stripe.products.create).not.toHaveBeenCalled();
+    });
+
+    it('uses existing stripe price if matching amount found', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+      // Override prices.list to return a matching price
+      (stripe.prices.list as jest.Mock).mockResolvedValueOnce({
+        data: [{ id: 'price_existing', unit_amount: 999 }],
+      });
+
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // prices.create should NOT be called since matching price found
+      expect(stripe.prices.create).not.toHaveBeenCalled();
+    });
+
+    it('deactivates old prices when amount changes', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+      // Override prices.list to return a price with different amount
+      (stripe.prices.list as jest.Mock).mockResolvedValueOnce({
+        data: [{ id: 'price_old', unit_amount: 500 }],
+      });
+
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // Old price deactivated
+      expect(stripe.prices.update).toHaveBeenCalledWith('price_old', { active: false });
+      // New price created
+      expect(stripe.prices.create).toHaveBeenCalledWith(expect.objectContaining({
+        unit_amount: 999,
+        currency: 'usd',
+        recurring: { interval: 'month' },
+      }));
+    });
+
+    it('uses full_name as fallback when username is missing', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found, no username
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: '',
+          full_name: 'Creator Full Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // When username is falsy, full_name is used for product name
+      expect(stripe.products.create).toHaveBeenCalledWith(expect.objectContaining({
+        name: "Creator Full Name's Channel",
+      }));
+    });
   });
 
-  it('set-price returns 403 when not a pro_creator', async () => {
-    mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'personal' }] });
-    const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 999 }) });
-    const result = await handler(event);
-    expect(result.statusCode).toBe(403);
+  // ── cancel ────────────────────────────────────────────────────────
+
+  describe('cancel', () => {
+    const cancelEvent = () => makeEvent({
+      body: JSON.stringify({ action: 'cancel', subscriptionId: TEST_SUBSCRIPTION_ID }),
+    });
+
+    it('returns 404 when subscription not found', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await handler(cancelEvent());
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).message).toBe('Subscription not found');
+    });
+
+    it('returns 200 and cancels at period end on success', async () => {
+      // Query: find active subscription
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{ stripe_subscription_id: 'sub_stripe_123' }],
+      });
+      // Query: UPDATE channel_subscriptions SET status = 'canceling'
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+      const result = await handler(cancelEvent());
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.message).toBe('Subscription will be canceled at end of billing period');
+      expect(body.cancelAt).toBe(1234567890);
+
+      // Stripe subscription updated to cancel_at_period_end
+      expect(stripe.subscriptions.update).toHaveBeenCalledWith('sub_stripe_123', {
+        cancel_at_period_end: true,
+      });
+
+      // DB updated with canceling status
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining("SET status = 'canceling'"),
+        [1234567890, TEST_SUBSCRIPTION_ID]
+      );
+
+      expect(mockClient.release).toHaveBeenCalled();
+    });
   });
 
-  it('set-price returns 400 for price out of range', async () => {
-    mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_creator' }] });
-    const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 50 }) });
-    const result = await handler(event);
-    expect(result.statusCode).toBe(400);
-    expect(JSON.parse(result.body).message).toContain('between $1 and $999');
+  // ── get-channel-info ──────────────────────────────────────────────
+
+  describe('get-channel-info', () => {
+    const channelInfoEvent = () => makeEvent({
+      body: JSON.stringify({ action: 'get-channel-info', creatorId: TEST_CREATOR_ID }),
+    });
+
+    it('returns 404 when creator not found', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      const result = await handler(channelInfoEvent());
+      expect(result.statusCode).toBe(404);
+    });
+
+    it('returns 200 with channel info on success', async () => {
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          username: 'topcreator',
+          full_name: 'Top Creator',
+          avatar_url: 'https://cdn.smuppy.com/avatar.jpg',
+          is_verified: true,
+          channel_price_cents: 999,
+          channel_description: 'My awesome channel',
+          fan_count: '15000',
+          subscriber_count: '42',
+        }],
+      });
+
+      const result = await handler(channelInfoEvent());
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.channel.creatorId).toBe(TEST_CREATOR_ID);
+      expect(body.channel.username).toBe('topcreator');
+      expect(body.channel.fullName).toBe('Top Creator');
+      expect(body.channel.avatarUrl).toBe('https://cdn.smuppy.com/avatar.jpg');
+      expect(body.channel.isVerified).toBe(true);
+      expect(body.channel.pricePerMonth).toBe(999);
+      expect(body.channel.description).toBe('My awesome channel');
+      expect(body.channel.fanCount).toBe(15000);
+      expect(body.channel.subscriberCount).toBe(42);
+      expect(body.channel.tier).toBe('Gold');
+    });
+
+    it('returns Bronze tier for low fan count', async () => {
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          username: 'newcreator',
+          full_name: 'New Creator',
+          avatar_url: null,
+          is_verified: false,
+          channel_price_cents: 499,
+          channel_description: null,
+          fan_count: '50',
+          subscriber_count: '0',
+        }],
+      });
+
+      const result = await handler(channelInfoEvent());
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.channel.fanCount).toBe(50);
+      expect(body.channel.subscriberCount).toBe(0);
+      expect(body.channel.tier).toBe('Bronze');
+    });
+
+    it('handles null fan_count gracefully', async () => {
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          username: 'newcreator',
+          full_name: 'New Creator',
+          avatar_url: null,
+          is_verified: false,
+          channel_price_cents: 499,
+          channel_description: null,
+          fan_count: null,
+          subscriber_count: null,
+        }],
+      });
+
+      const result = await handler(channelInfoEvent());
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.channel.fanCount).toBe(0);
+      expect(body.channel.subscriberCount).toBe(0);
+      expect(body.channel.tier).toBe('Bronze');
+    });
   });
 
-  it('get-subscribers returns 200 with subscribers and earnings', async () => {
-    mockClient.query
-      .mockResolvedValueOnce({ rows: [] }) // subscribers
-      .mockResolvedValueOnce({ rows: [{ total_gross: '0', total_net: '0' }] }); // earnings
-    const event = makeEvent({ body: JSON.stringify({ action: 'get-subscribers' }) });
-    const result = await handler(event);
-    expect(result.statusCode).toBe(200);
-    const body = JSON.parse(result.body);
-    expect(body.success).toBe(true);
-    expect(body.subscriberCount).toBe(0);
+  // ── set-price ─────────────────────────────────────────────────────
+
+  describe('set-price', () => {
+    it('returns 403 when not a pro_creator', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'personal' }] });
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 999 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(403);
+    });
+
+    it('returns 404 when user not found', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 999 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).message).toBe('User not found');
+    });
+
+    it('returns 400 for price below minimum ($1 = 100 cents)', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_creator' }] });
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 50 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('between $1 and $999');
+    });
+
+    it('returns 400 for price above maximum ($999 = 99900 cents)', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_creator' }] });
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 100000 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('between $1 and $999');
+    });
+
+    it('returns 200 and updates price on success', async () => {
+      // First query: check account_type
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_creator' }] });
+      // Second query: UPDATE profiles SET channel_price_cents
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 1999 }) });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.pricePerMonth).toBe(1999);
+
+      // Verify the UPDATE query was called with correct params
+      expect(mockClient.query).toHaveBeenCalledWith(
+        'UPDATE profiles SET channel_price_cents = $1, updated_at = NOW() WHERE id = $2',
+        [1999, TEST_PROFILE_ID]
+      );
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('returns 200 for price at minimum boundary (100 cents)', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_creator' }] });
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 100 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).pricePerMonth).toBe(100);
+    });
+
+    it('returns 200 for price at maximum boundary (99900 cents)', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_creator' }] });
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 99900 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).pricePerMonth).toBe(99900);
+    });
   });
 
-  it('returns 500 on unexpected error', async () => {
-    const { resolveProfileId } = require('../../utils/auth');
-    (resolveProfileId as jest.Mock).mockRejectedValueOnce(new Error('DB error'));
-    const event = makeEvent({ body: JSON.stringify({ action: 'list-subscriptions' }) });
-    const result = await handler(event);
-    expect(result.statusCode).toBe(500);
+  // ── get-subscribers ───────────────────────────────────────────────
+
+  describe('get-subscribers', () => {
+    it('returns 200 with subscribers and earnings', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // subscribers
+        .mockResolvedValueOnce({ rows: [{ total_gross: '0', total_net: '0' }] }); // earnings
+      const event = makeEvent({ body: JSON.stringify({ action: 'get-subscribers' }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.subscriberCount).toBe(0);
+    });
+
+    it('returns 200 with populated subscribers and earnings data', async () => {
+      // subscribers query
+      mockClient.query.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'sub-1', fan_id: 'fan-uuid-1', status: 'active', price_cents: 999,
+            created_at: '2025-01-15', username: 'fan1', full_name: 'Fan One', avatar_url: 'https://cdn.smuppy.com/fan1.jpg',
+          },
+          {
+            id: 'sub-2', fan_id: 'fan-uuid-2', status: 'canceling', price_cents: 999,
+            created_at: '2025-02-01', username: 'fan2', full_name: 'Fan Two', avatar_url: null,
+          },
+        ],
+      });
+      // earnings query
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{ total_gross: '5994', total_net: '3596' }],
+      });
+
+      const event = makeEvent({ body: JSON.stringify({ action: 'get-subscribers' }) });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.subscriberCount).toBe(2);
+      expect(body.subscribers).toHaveLength(2);
+
+      // Verify first subscriber mapping
+      expect(body.subscribers[0].id).toBe('sub-1');
+      expect(body.subscribers[0].fanId).toBe('fan-uuid-1');
+      expect(body.subscribers[0].fan.username).toBe('fan1');
+      expect(body.subscribers[0].fan.fullName).toBe('Fan One');
+      expect(body.subscribers[0].fan.avatarUrl).toBe('https://cdn.smuppy.com/fan1.jpg');
+      expect(body.subscribers[0].status).toBe('active');
+      expect(body.subscribers[0].pricePerMonth).toBe(999);
+      expect(body.subscribers[0].subscribedAt).toBe('2025-01-15');
+
+      // Verify earnings
+      expect(body.earnings.totalGross).toBe(5994);
+      expect(body.earnings.totalNet).toBe(3596);
+
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+  });
+
+  // ── Tier name tests ───────────────────────────────────────────────
+
+  describe('tier names via get-channel-info', () => {
+    const channelInfoEvent = () => makeEvent({
+      body: JSON.stringify({ action: 'get-channel-info', creatorId: TEST_CREATOR_ID }),
+    });
+
+    function makeCreatorRow(fanCount: string) {
+      return {
+        id: TEST_CREATOR_ID,
+        username: 'creator',
+        full_name: 'Creator',
+        avatar_url: null,
+        is_verified: false,
+        channel_price_cents: 999,
+        channel_description: null,
+        fan_count: fanCount,
+        subscriber_count: '0',
+      };
+    }
+
+    it('returns Silver tier for 1000+ fans', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [makeCreatorRow('1000')] });
+      const result = await handler(channelInfoEvent());
+      expect(JSON.parse(result.body).channel.tier).toBe('Silver');
+    });
+
+    it('returns Gold tier for 10000+ fans', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [makeCreatorRow('10000')] });
+      const result = await handler(channelInfoEvent());
+      expect(JSON.parse(result.body).channel.tier).toBe('Gold');
+    });
+
+    it('returns Platinum tier for 100000+ fans', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [makeCreatorRow('100000')] });
+      const result = await handler(channelInfoEvent());
+      expect(JSON.parse(result.body).channel.tier).toBe('Platinum');
+    });
+
+    it('returns Diamond tier for 1000000+ fans', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [makeCreatorRow('1000000')] });
+      const result = await handler(channelInfoEvent());
+      expect(JSON.parse(result.body).channel.tier).toBe('Diamond');
+    });
   });
 });

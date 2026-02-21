@@ -400,10 +400,16 @@ jobs:
           # SonarCloud resolves from repo root, so prefix with the correct path
           # Note: working-directory is aws-migration/lambda/api, so coverage/lcov.info is correct
           if [ -f coverage/lcov.info ]; then
-            sed -i.bak 's|^SF:|SF:aws-migration/lambda/api/|' coverage/lcov.info
+            # Rewrite relative paths (../shared/, ../triggers/, ../websocket/) to absolute repo paths
+            sed -i.bak \
+              -e 's|^SF:\.\./shared/|SF:aws-migration/lambda/shared/|' \
+              -e 's|^SF:\.\./triggers/|SF:aws-migration/lambda/triggers/|' \
+              -e 's|^SF:\.\./websocket/|SF:aws-migration/lambda/websocket/|' \
+              -e 's|^SF:|SF:aws-migration/lambda/api/|' \
+              coverage/lcov.info
             rm -f coverage/lcov.info.bak
             echo "LCOV paths prefixed. Sample:"
-            head -5 coverage/lcov.info
+            head -10 coverage/lcov.info
           else
             echo "WARN: coverage/lcov.info not found in $(pwd)"
           fi

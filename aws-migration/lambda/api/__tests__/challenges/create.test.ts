@@ -420,4 +420,397 @@ describe('challenges/create handler', () => {
       expect(result.statusCode).toBe(201);
     });
   });
+
+  // 11. Challenge type resolution from slug
+  describe('challenge type slug resolution', () => {
+    it('should resolve challenge type from slug when no UUID provided', async () => {
+      const RESOLVED_TYPE_ID = 'f1f2f3f4-a5b6-7890-abcd-ef1234567890';
+
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id FROM challenge_types WHERE slug')) {
+          return Promise.resolve({ rows: [{ id: RESOLVED_TYPE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT id, author_id FROM peaks')) {
+          return Promise.resolve({ rows: [{ id: VALID_PEAK_ID, author_id: VALID_PROFILE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('INSERT INTO peak_challenges')) {
+          return Promise.resolve({
+            rows: [{
+              id: VALID_CHALLENGE_ID,
+              peak_id: VALID_PEAK_ID,
+              creator_id: VALID_PROFILE_ID,
+              challenge_type_id: RESOLVED_TYPE_ID,
+              title: 'Test Challenge',
+              description: null,
+              rules: null,
+              duration_seconds: null,
+              ends_at: null,
+              is_public: true,
+              allow_anyone: true,
+              max_participants: null,
+              has_prize: false,
+              prize_description: null,
+              prize_amount: null,
+              tips_enabled: false,
+              status: 'active',
+              created_at: '2026-02-20T12:00:00Z',
+            }],
+          });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT name, slug, icon, category FROM challenge_types')) {
+          return Promise.resolve({
+            rows: [{ name: 'Dance Off', slug: 'dance-off', icon: 'dance-icon', category: 'dance' }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          challengeTypeSlug: 'dance-off',
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.challenge.challengeType).toEqual({
+        name: 'Dance Off',
+        slug: 'dance-off',
+        icon: 'dance-icon',
+        category: 'dance',
+      });
+    });
+
+    it('should skip slug resolution when challengeTypeSlug is not a string', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          challengeTypeSlug: 123,
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+  });
+
+  // 12. Tips enabled validation
+  describe('tips enabled checks', () => {
+    it('should return 403 when tips enabled but user is not verified pro_creator', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id, author_id FROM peaks')) {
+          return Promise.resolve({ rows: [{ id: VALID_PEAK_ID, author_id: VALID_PROFILE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT account_type, is_verified FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'pro_creator', is_verified: false }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          tipsEnabled: true,
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(403);
+      expect(JSON.parse(result.body).message).toBe('Tips are only available for verified Pro Creators');
+    });
+
+    it('should return 403 when tips enabled but no active subscription tier', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id, author_id FROM peaks')) {
+          return Promise.resolve({ rows: [{ id: VALID_PEAK_ID, author_id: VALID_PROFILE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT account_type, is_verified FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'pro_creator', is_verified: true }] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT EXISTS')) {
+          return Promise.resolve({ rows: [{ has_tier: false }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          tipsEnabled: true,
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(403);
+      expect(JSON.parse(result.body).message).toBe('You must set up a subscription tier before enabling tips');
+    });
+
+    it('should allow tips when user is verified pro_creator with active tier', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id, author_id FROM peaks')) {
+          return Promise.resolve({ rows: [{ id: VALID_PEAK_ID, author_id: VALID_PROFILE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT account_type, is_verified FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'pro_creator', is_verified: true }] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT EXISTS')) {
+          return Promise.resolve({ rows: [{ has_tier: true }] });
+        }
+        if (typeof sql === 'string' && sql.includes('INSERT INTO peak_challenges')) {
+          return Promise.resolve({
+            rows: [{
+              id: VALID_CHALLENGE_ID,
+              peak_id: VALID_PEAK_ID,
+              creator_id: VALID_PROFILE_ID,
+              challenge_type_id: null,
+              title: 'Test Challenge',
+              description: null,
+              rules: null,
+              duration_seconds: null,
+              ends_at: null,
+              is_public: true,
+              allow_anyone: true,
+              max_participants: null,
+              has_prize: false,
+              prize_description: null,
+              prize_amount: null,
+              tips_enabled: true,
+              status: 'active',
+              created_at: '2026-02-20T12:00:00Z',
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          tipsEnabled: true,
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('should return 403 when tips enabled but user profile not found', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id, author_id FROM peaks')) {
+          return Promise.resolve({ rows: [{ id: VALID_PEAK_ID, author_id: VALID_PROFILE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT account_type, is_verified FROM profiles')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          tipsEnabled: true,
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(403);
+    });
+  });
+
+  // 13. Tagged users
+  describe('tagged users', () => {
+    it('should return 400 when more than 50 users are tagged', async () => {
+      const taggedUserIds = Array.from({ length: 51 }, (_, i) =>
+        `e5f6a7b8-c9d0-1234-efab-${String(i).padStart(12, '0')}`
+      );
+
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id, author_id FROM peaks')) {
+          return Promise.resolve({ rows: [{ id: VALID_PEAK_ID, author_id: VALID_PROFILE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('INSERT INTO peak_challenges')) {
+          return Promise.resolve({
+            rows: [{
+              id: VALID_CHALLENGE_ID,
+              peak_id: VALID_PEAK_ID,
+              creator_id: VALID_PROFILE_ID,
+              challenge_type_id: null,
+              title: 'Test Challenge',
+              description: null,
+              rules: null,
+              duration_seconds: null,
+              ends_at: null,
+              is_public: true,
+              allow_anyone: true,
+              max_participants: null,
+              has_prize: false,
+              prize_description: null,
+              prize_amount: null,
+              tips_enabled: false,
+              status: 'active',
+              created_at: '2026-02-20T12:00:00Z',
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          taggedUserIds,
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Cannot tag more than 50 users');
+    });
+
+    it('should insert tags and notifications for tagged users', async () => {
+      const taggedUserIds = [
+        'e5f6a7b8-c9d0-1234-efab-000000000001',
+        'e5f6a7b8-c9d0-1234-efab-000000000002',
+      ];
+
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id, author_id FROM peaks')) {
+          return Promise.resolve({ rows: [{ id: VALID_PEAK_ID, author_id: VALID_PROFILE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('INSERT INTO peak_challenges')) {
+          return Promise.resolve({
+            rows: [{
+              id: VALID_CHALLENGE_ID,
+              peak_id: VALID_PEAK_ID,
+              creator_id: VALID_PROFILE_ID,
+              challenge_type_id: null,
+              title: 'Test Challenge',
+              description: null,
+              rules: null,
+              duration_seconds: null,
+              ends_at: null,
+              is_public: true,
+              allow_anyone: true,
+              max_participants: null,
+              has_prize: false,
+              prize_description: null,
+              prize_amount: null,
+              tips_enabled: false,
+              status: 'active',
+              created_at: '2026-02-20T12:00:00Z',
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          taggedUserIds,
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.challenge.taggedUsers).toBe(2);
+
+      // Verify tag insert and notification insert were called
+      const calls = mockClient.query.mock.calls.map((c: unknown[]) => c[0] as string);
+      expect(calls.some(s => s.includes('INSERT INTO challenge_tags'))).toBe(true);
+      expect(calls.some(s => s.includes('INSERT INTO notifications'))).toBe(true);
+    });
+  });
+
+  // 14. Challenge type in response
+  describe('challenge type in response', () => {
+    it('should include challengeType in response when challenge has a type', async () => {
+      const typeId = 'f1f2f3f4-a5b6-7890-abcd-ef1234567890';
+
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('SELECT id, author_id FROM peaks')) {
+          return Promise.resolve({ rows: [{ id: VALID_PEAK_ID, author_id: VALID_PROFILE_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('INSERT INTO peak_challenges')) {
+          return Promise.resolve({
+            rows: [{
+              id: VALID_CHALLENGE_ID,
+              peak_id: VALID_PEAK_ID,
+              creator_id: VALID_PROFILE_ID,
+              challenge_type_id: typeId,
+              title: 'Test Challenge',
+              description: null,
+              rules: null,
+              duration_seconds: null,
+              ends_at: null,
+              is_public: true,
+              allow_anyone: true,
+              max_participants: null,
+              has_prize: false,
+              prize_description: null,
+              prize_amount: '10.50',
+              tips_enabled: false,
+              status: 'active',
+              created_at: '2026-02-20T12:00:00Z',
+            }],
+          });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT name, slug, icon, category FROM challenge_types')) {
+          return Promise.resolve({
+            rows: [{ name: 'Dance Off', slug: 'dance-off', icon: 'dance-icon', category: 'dance' }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          peakId: VALID_PEAK_ID,
+          title: 'Test Challenge',
+          challengeTypeId: typeId,
+        }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.challenge.challengeType).toEqual({
+        name: 'Dance Off',
+        slug: 'dance-off',
+        icon: 'dance-icon',
+        category: 'dance',
+      });
+      expect(body.challenge.prizeAmount).toBe(10.5);
+    });
+  });
+
+  // 15. Prize amount parsing
+  describe('prize amount', () => {
+    it('should return null prizeAmount when prize_amount is null', async () => {
+      const result = await invoke(makeEvent());
+
+      const body = JSON.parse(result.body);
+      expect(body.challenge.prizeAmount).toBeNull();
+    });
+  });
 });

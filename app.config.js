@@ -191,10 +191,27 @@ apiUrlProd: process.env.API_URL_PROD,
 appEnv: process.env.APP_ENV || 'dev',
 // Agora for live streaming
 agoraAppId: process.env.AGORA_APP_ID,
-// AWS S3 & CloudFront
+// AWS S3 & CloudFront (legacy keys — kept for env.ts backwards compat)
 awsRegion: process.env.AWS_REGION,
 s3BucketName: process.env.S3_BUCKET_NAME,
 cloudfrontUrl: process.env.CLOUDFRONT_URL,
+// AWS Config (EXPO_PUBLIC_* vars — used by aws-config.ts)
+// Baked into extra so they survive Expo's static env replacement at build time
+expoPublicAwsRegion: process.env.EXPO_PUBLIC_AWS_REGION,
+expoPublicCognitoUserPoolId: process.env.EXPO_PUBLIC_COGNITO_USER_POOL_ID,
+expoPublicCognitoClientId: process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID,
+expoPublicCognitoIdentityPoolId: process.env.EXPO_PUBLIC_COGNITO_IDENTITY_POOL_ID,
+expoPublicApiRestEndpoint: process.env.EXPO_PUBLIC_API_REST_ENDPOINT,
+expoPublicApiRestEndpoint2: process.env.EXPO_PUBLIC_API_REST_ENDPOINT_2,
+expoPublicApiRestEndpoint3: process.env.EXPO_PUBLIC_API_REST_ENDPOINT_3,
+expoPublicApiRestEndpointDisputes: process.env.EXPO_PUBLIC_API_REST_ENDPOINT_DISPUTES,
+expoPublicApiGraphqlEndpoint: process.env.EXPO_PUBLIC_API_GRAPHQL_ENDPOINT,
+expoPublicApiWebsocketEndpoint: process.env.EXPO_PUBLIC_API_WEBSOCKET_ENDPOINT,
+expoPublicS3Bucket: process.env.EXPO_PUBLIC_S3_BUCKET,
+expoPublicCdnDomain: process.env.EXPO_PUBLIC_CDN_DOMAIN,
+expoPublicDynamodbFeedTable: process.env.EXPO_PUBLIC_DYNAMODB_FEED_TABLE,
+expoPublicDynamodbLikesTable: process.env.EXPO_PUBLIC_DYNAMODB_LIKES_TABLE,
+expoPublicEnv: process.env.EXPO_PUBLIC_ENV,
 // Sentry
 sentryDsn: process.env.SENTRY_DSN,
 // Mapbox

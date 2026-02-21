@@ -2,35 +2,23 @@
 /**
  * AWS Configuration for Smuppy
  *
- * All config values are loaded from EXPO_PUBLIC_* environment variables.
+ * Config values are loaded from Constants.expoConfig.extra (populated by app.config.js
+ * at build time). This is MORE RELIABLE than process.env[key] because Expo's babel
+ * plugin only statically replaces `process.env.EXPO_PUBLIC_X` — dynamic access
+ * `process.env[key]` fails in release builds.
  *
  * SAFETY RULE: This module NEVER throws at import/startup time.
  * A crash here kills the app before ErrorBoundary mounts — instant death on iOS.
  *
- * Behavior:
- * - Production / Release builds: use env vars. If missing, fall back to staging
- *   defaults and log a single console.error (app stays alive).
- * - Dev with EXPO_PUBLIC_DEV_USE_STAGING=true in .env: silently use staging defaults for
- *   any missing EXPO_PUBLIC_* vars, log one consolidated warning.
- * - Dev WITHOUT EXPO_PUBLIC_DEV_USE_STAGING: log an error for each missing var so the
- *   developer knows their .env is incomplete, but still use staging defaults
- *   (never crash).
+ * Fallback chain: expoConfig.extra → staging defaults → app stays alive.
  */
 
+import Constants from 'expo-constants';
 import { captureMessage as sentryCaptureMessage } from '../lib/sentry';
 
-// Helper: read Expo env var (works with Expo's inline substitution).
-// Expo replaces missing EXPO_PUBLIC_* vars with `__MISSING_<NAME>__` at build time.
-// That string is truthy, so we must reject it explicitly.
-const env = (key: string): string | undefined => {
-  try {
-    const value = typeof process !== 'undefined' ? process.env?.[key] : undefined;
-    if (typeof value === 'string' && value.startsWith('__MISSING_')) return undefined;
-    return value;
-  } catch {
-    return undefined;
-  }
-};
+// Read extra config baked into the binary by app.config.js
+const extra: Record<string, string | undefined> =
+  (Constants.expoConfig?.extra as Record<string, string | undefined>) ?? {};
 
 export interface AWSConfig {
   region: string;
@@ -57,8 +45,8 @@ export interface AWSConfig {
   };
 }
 
-// SECURITY: Staging defaults — used ONLY as fallback when EXPO_PUBLIC_* vars are missing.
-// These IDs are for the staging environment only and have no access to production data.
+// SECURITY: Staging defaults — used ONLY as fallback when extra config is missing.
+// These MUST match actual staging infrastructure (SmuppyStack-staging).
 const STAGING_DEFAULTS = {
   region: 'us-east-1',
   userPoolId: 'us-east-1_mvBH1S3yX',
@@ -70,84 +58,72 @@ const STAGING_DEFAULTS = {
   restEndpointDisputes: 'https://wk7tymrgbg.execute-api.us-east-1.amazonaws.com/staging',
   graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
   websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
-  bucket: 'smuppy-media-staging-471112656108',
+  // Media: production CDN+bucket (all media lives here, staging bucket is empty)
+  bucket: 'smuppy-media',
   cdnDomain: 'https://dc8kq67t0asis.cloudfront.net',
   feedTable: 'smuppy-feeds-staging',
   likesTable: 'smuppy-likes-staging',
 } as const;
 
-// Environment detection
-const getEnvironment = (): 'staging' | 'production' => {
-  if (env('EXPO_PUBLIC_ENV') === 'production') return 'production';
-  if (env('APP_ENV') === 'production') return 'production';
-  if (env('REACT_APP_ENV') === 'production') return 'production';
-  return 'staging';
-};
-
-// Build config from env vars, always falling back to staging defaults (NEVER throw)
+// Build config from extra (app.config.js), falling back to staging defaults (NEVER throw)
 export const getAWSConfig = (): AWSConfig => {
-  const currentEnv = getEnvironment();
-  const isProduction = currentEnv === 'production';
+  const currentEnv = extra.expoPublicEnv || extra.appEnv || (__DEV__ ? 'staging' : 'production');
   const isReleaseBuild = typeof __DEV__ === 'undefined' ? process.env.NODE_ENV === 'production' : !__DEV__;
-  const devUsesStaging = __DEV__ && env('EXPO_PUBLIC_DEV_USE_STAGING') === 'true';
 
   // Track which vars fell back to staging defaults
   const fallbackVars: string[] = [];
 
-  const resolve = (envKey: string, stagingDefault: string): string => {
-    const value = env(envKey);
-    if (value) return value;
-    fallbackVars.push(envKey);
+  const resolve = (extraKey: string, stagingDefault: string, label: string): string => {
+    const value = extra[extraKey];
+    if (value && !value.startsWith('__MISSING_')) return value;
+    fallbackVars.push(label);
     return stagingDefault;
   };
 
   const config: AWSConfig = {
-    region: resolve('EXPO_PUBLIC_AWS_REGION', STAGING_DEFAULTS.region),
+    region: resolve('expoPublicAwsRegion', STAGING_DEFAULTS.region, 'AWS_REGION'),
     cognito: {
-      userPoolId: resolve('EXPO_PUBLIC_COGNITO_USER_POOL_ID', STAGING_DEFAULTS.userPoolId),
-      userPoolClientId: resolve('EXPO_PUBLIC_COGNITO_CLIENT_ID', STAGING_DEFAULTS.userPoolClientId),
-      identityPoolId: resolve('EXPO_PUBLIC_COGNITO_IDENTITY_POOL_ID', STAGING_DEFAULTS.identityPoolId),
+      userPoolId: resolve('expoPublicCognitoUserPoolId', STAGING_DEFAULTS.userPoolId, 'COGNITO_USER_POOL_ID'),
+      userPoolClientId: resolve('expoPublicCognitoClientId', STAGING_DEFAULTS.userPoolClientId, 'COGNITO_CLIENT_ID'),
+      identityPoolId: resolve('expoPublicCognitoIdentityPoolId', STAGING_DEFAULTS.identityPoolId, 'COGNITO_IDENTITY_POOL_ID'),
     },
     api: {
-      restEndpoint: resolve('EXPO_PUBLIC_API_REST_ENDPOINT', STAGING_DEFAULTS.restEndpoint),
-      restEndpoint2: resolve('EXPO_PUBLIC_API_REST_ENDPOINT_2', STAGING_DEFAULTS.restEndpoint2),
-      restEndpoint3: resolve('EXPO_PUBLIC_API_REST_ENDPOINT_3', STAGING_DEFAULTS.restEndpoint3),
-      restEndpointDisputes: resolve('EXPO_PUBLIC_API_REST_ENDPOINT_DISPUTES', STAGING_DEFAULTS.restEndpointDisputes),
-      graphqlEndpoint: resolve('EXPO_PUBLIC_API_GRAPHQL_ENDPOINT', STAGING_DEFAULTS.graphqlEndpoint),
-      websocketEndpoint: resolve('EXPO_PUBLIC_API_WEBSOCKET_ENDPOINT', STAGING_DEFAULTS.websocketEndpoint),
+      restEndpoint: resolve('expoPublicApiRestEndpoint', STAGING_DEFAULTS.restEndpoint, 'API_REST_ENDPOINT'),
+      restEndpoint2: resolve('expoPublicApiRestEndpoint2', STAGING_DEFAULTS.restEndpoint2, 'API_REST_ENDPOINT_2'),
+      restEndpoint3: resolve('expoPublicApiRestEndpoint3', STAGING_DEFAULTS.restEndpoint3, 'API_REST_ENDPOINT_3'),
+      restEndpointDisputes: resolve('expoPublicApiRestEndpointDisputes', STAGING_DEFAULTS.restEndpointDisputes, 'API_REST_ENDPOINT_DISPUTES'),
+      graphqlEndpoint: resolve('expoPublicApiGraphqlEndpoint', STAGING_DEFAULTS.graphqlEndpoint, 'API_GRAPHQL_ENDPOINT'),
+      websocketEndpoint: resolve('expoPublicApiWebsocketEndpoint', STAGING_DEFAULTS.websocketEndpoint, 'API_WEBSOCKET_ENDPOINT'),
     },
     storage: {
-      bucket: resolve('EXPO_PUBLIC_S3_BUCKET', STAGING_DEFAULTS.bucket),
-      cdnDomain: resolve('EXPO_PUBLIC_CDN_DOMAIN', STAGING_DEFAULTS.cdnDomain),
+      bucket: resolve('expoPublicS3Bucket', STAGING_DEFAULTS.bucket, 'S3_BUCKET'),
+      // CDN: try EXPO_PUBLIC_CDN_DOMAIN first, then CLOUDFRONT_URL (legacy), then default
+      cdnDomain: extra.expoPublicCdnDomain && !extra.expoPublicCdnDomain.startsWith('__MISSING_')
+        ? extra.expoPublicCdnDomain
+        : extra.cloudfrontUrl && !extra.cloudfrontUrl.startsWith('__MISSING_')
+          ? extra.cloudfrontUrl
+          : (() => { fallbackVars.push('CDN_DOMAIN'); return STAGING_DEFAULTS.cdnDomain; })(),
     },
     dynamodb: {
-      feedTable: resolve('EXPO_PUBLIC_DYNAMODB_FEED_TABLE', STAGING_DEFAULTS.feedTable),
-      likesTable: resolve('EXPO_PUBLIC_DYNAMODB_LIKES_TABLE', STAGING_DEFAULTS.likesTable),
+      feedTable: resolve('expoPublicDynamodbFeedTable', STAGING_DEFAULTS.feedTable, 'DYNAMODB_FEED_TABLE'),
+      likesTable: resolve('expoPublicDynamodbLikesTable', STAGING_DEFAULTS.likesTable, 'DYNAMODB_LIKES_TABLE'),
     },
   };
 
   // Consolidated logging — one message, never a throw
   if (fallbackVars.length > 0) {
-    if ((isProduction || isReleaseBuild) && !__DEV__) {
-      // PRODUCTION: log error but NEVER crash — app must start
+    if ((currentEnv === 'production' || isReleaseBuild) && !__DEV__) {
       const msg =
         `[AWS Config] PRODUCTION BUILD: ${fallbackVars.length} config value(s) missing, using staging fallbacks. ` +
         `Missing: ${fallbackVars.join(', ')}. ` +
-        'Ensure all EXPO_PUBLIC_* vars are set in EAS Secrets.';
+        'Ensure all EXPO_PUBLIC_* vars are set in EAS environment.';
       console.error(msg);
       try {
         sentryCaptureMessage(msg, 'fatal', { fallbackVars, environment: currentEnv });
       } catch { /* Expected: Sentry may not be initialized during early config loading */ }
-    } else if (devUsesStaging) {
-      // DEV with opt-in: single consolidated warning
-      console.warn(
-        `[AWS Config] DEV_USE_STAGING=true — ${fallbackVars.length} config value(s) using staging defaults.`
-      );
     } else if (__DEV__) {
-      // DEV without opt-in: clear error telling developer what to do
       console.error(
-        `[AWS Config] ${fallbackVars.length} EXPO_PUBLIC_* variable(s) missing: ${fallbackVars.join(', ')}. ` +
-        'Either set them in your .env file, or add EXPO_PUBLIC_DEV_USE_STAGING=true to your .env to acknowledge staging defaults.'
+        `[AWS Config] ${fallbackVars.length} config value(s) using staging defaults: ${fallbackVars.join(', ')}.`
       );
     }
   }

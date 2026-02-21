@@ -12,16 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { awsAPI } from './aws-api';
 import { captureException } from '../lib/sentry';
 
-// Helper: read env var, rejecting Expo's `__MISSING_<NAME>__` placeholders
-const safeEnv = (key: string): string | undefined => {
-  try {
-    const value = typeof process !== 'undefined' ? process.env?.[key] : undefined;
-    if (typeof value === 'string' && value.startsWith('__MISSING_')) return undefined;
-    return value;
-  } catch {
-    return undefined;
-  }
-};
+// Project ID from app.config.js extra (reliable in all build types)
+const PROJECT_ID = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
 
 // ============================================
 // TYPES
@@ -146,7 +138,7 @@ export const getNativePushToken = async (): Promise<{ token: string; platform: '
   // Dev fallback to Expo token to keep push working in Expo Go
   try {
     const expoToken = await Notifications.getExpoPushTokenAsync({
-      projectId: safeEnv('EXPO_PUBLIC_PROJECT_ID') || Constants.expoConfig?.extra?.eas?.projectId || undefined,
+      projectId: PROJECT_ID,
     });
     if (expoToken?.data) {
       const platform = Platform.OS === 'ios' ? 'ios' : 'android';
@@ -163,7 +155,7 @@ export const getNativePushToken = async (): Promise<{ token: string; platform: '
 export const getExpoPushToken = async (): Promise<string | null> => {
   try {
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: safeEnv('EXPO_PUBLIC_PROJECT_ID') || Constants.expoConfig?.extra?.eas?.projectId || undefined,
+      projectId: PROJECT_ID,
     });
     return tokenData?.data || null;
   } catch (error) {

@@ -34,6 +34,7 @@ import { filterContent } from '../../utils/contentFilters';
 import { sanitizeDisplayText } from '../../utils/sanitize';
 
 import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 interface Comment {
   id: string;
@@ -377,7 +378,7 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
 
       {/* Bottom Section */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
         style={styles.bottomSection}
       >
         {/* Comments List */}

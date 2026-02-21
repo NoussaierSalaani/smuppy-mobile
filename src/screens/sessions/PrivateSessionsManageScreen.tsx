@@ -27,6 +27,7 @@ import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { awsAPI, Session, SessionPack as APISessionPack } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 type TabType = 'calendar' | 'requests' | 'packs';
 type SessionMode = 'unique' | 'range';
@@ -803,7 +804,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
         <KeyboardAvoidingView
           style={styles.flex1}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={KEYBOARD_BEHAVIOR}
           keyboardVerticalOffset={0}
         >
         <SafeAreaView style={styles.modalContainer}>
@@ -956,7 +957,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
       <Modal visible={showAddPackModal} animationType="slide" presentationStyle="pageSheet">
         <KeyboardAvoidingView
           style={styles.flex1}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={KEYBOARD_BEHAVIOR}
           keyboardVerticalOffset={0}
         >
         <SafeAreaView style={styles.modalContainer}>

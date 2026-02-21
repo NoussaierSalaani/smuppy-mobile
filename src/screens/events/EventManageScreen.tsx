@@ -28,6 +28,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { ACCOUNT_TYPE, isPro } from '../../config/accountTypes';
 
 type EventManageScreenProps = Readonly<{
   route: { params: { eventId: string } };
@@ -66,7 +67,7 @@ export default function EventManageScreen({ route, navigation }: EventManageScre
   const { eventId } = route.params;
   const { formatAmount, currency } = useCurrency();
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const isProCreator = isPro(user?.accountType);
   const { colors, isDark } = useTheme();
 
   const [event, setEvent] = useState<EventData | null>(null);

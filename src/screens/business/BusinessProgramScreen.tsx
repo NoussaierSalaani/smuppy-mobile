@@ -26,6 +26,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { GRADIENTS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 interface Activity {
   id: string;
@@ -552,7 +553,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
       <Modal visible={showActivityModal} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.flexOne}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={KEYBOARD_BEHAVIOR}
           keyboardVerticalOffset={0}
         >
         <View style={styles.modalOverlay}>
@@ -674,7 +675,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
       <Modal visible={showScheduleModal} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.flexOne}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={KEYBOARD_BEHAVIOR}
           keyboardVerticalOffset={0}
         >
         <View style={styles.modalOverlay}>

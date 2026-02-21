@@ -30,6 +30,7 @@ import {
 } from '../../services/database';
 import { isValidUUID } from '../../utils/formatters';
 import { resolveDisplayName } from '../../types/profile';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 // Types
 interface User {
@@ -55,7 +56,7 @@ const profileToUser = (
 ): User => ({
   id: profile.id,
   name: resolveDisplayName(profile),
-  username: profile.account_type === 'pro_business' && profile.business_name ? profile.business_name : `@${profile.username || 'user'}`,
+  username: profile.account_type === ACCOUNT_TYPE.PRO_BUSINESS && profile.business_name ? profile.business_name : `@${profile.username || 'user'}`,
   avatar: profile.avatar_url || null,
   isVerified: !!profile.is_verified,
   accountType: profile.account_type || 'personal',

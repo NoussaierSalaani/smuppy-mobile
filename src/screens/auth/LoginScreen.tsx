@@ -13,6 +13,7 @@ import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 import { getCurrentProfile } from '../../services/database';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 type LoginScreenProps = Readonly<{
   navigation: {
@@ -235,7 +236,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container} testID="login-screen">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
             {/* Header - NO back arrow */}

@@ -66,6 +66,7 @@ import { preloadImages } from '../../hooks/useImagePreload';
 import ExpiredPeakModal from '../../components/peaks/ExpiredPeakModal';
 
 import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const GRID_PADDING = 8; // SPACING.sm
 const GRID_GAP = 10;
@@ -336,7 +337,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Account type and user ID (needed before useMoodAI to gate it)
   const accountType = useUserStore((state) => state.user?.accountType);
   const currentUserId = useUserStore((state) => state.user?.id);
-  const isBusiness = accountType === 'pro_business';
+  const isBusiness = accountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
   // Expired peaks modal
   const { expiredPeaks, savePeakToProfile, deletePeak, downloadPeak } = useExpiredPeaks();
@@ -479,7 +480,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         const { data: profile } = await getCurrentProfile();
 
         // Choose the right field based on account type
-        if (accountType === 'pro_business') {
+        if (accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
           // Business accounts: business_category + expertise combined
           const combined: string[] = [];
           if (profile?.business_category) {
@@ -491,7 +492,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
             });
           }
           setUserInterests(combined);
-        } else if (accountType === 'pro_creator') {
+        } else if (accountType === ACCOUNT_TYPE.PRO_CREATOR) {
           // Pro creators: expertise only
           setUserInterests(profile?.expertise?.length ? profile.expertise : []);
         } else {
@@ -968,9 +969,9 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
   // Add interest button handler (varies by account type)
   const handleAddInterestPress = useCallback(() => {
-    if (accountType === 'personal') {
+    if (accountType === ACCOUNT_TYPE.PERSONAL) {
       navigation.navigate('EditInterests', { returnTo: 'VibesFeed' });
-    } else if (accountType === 'pro_business') {
+    } else if (accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
       navigation.navigate('EditExpertise', { returnTo: 'VibesFeed', includeBusinessCategories: true });
     } else {
       navigation.navigate('EditExpertise', { returnTo: 'VibesFeed' });

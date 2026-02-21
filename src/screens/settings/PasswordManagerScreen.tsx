@@ -6,6 +6,7 @@ import { awsAuth } from '../../services/aws-auth';
 import { validatePassword, isPasswordValid, getPasswordStrengthLevel } from '../../utils/validation';
 import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 type PasswordManagerScreenProps = Readonly<{
   navigation: { goBack: () => void };
@@ -154,7 +155,7 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={styles.keyboardView} behavior={KEYBOARD_BEHAVIOR}>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.infoBanner}>
             <Ionicons name="information-circle" size={20} color="#0891B2" />

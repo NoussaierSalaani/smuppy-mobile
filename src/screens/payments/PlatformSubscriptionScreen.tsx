@@ -26,6 +26,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useDataFetch } from '../../hooks/useDataFetch';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -119,8 +120,8 @@ export default function PlatformSubscriptionScreen() {
   // Filter plans based on account type
   // pro_creator users can only subscribe to pro_creator premium, not pro_business
   // personal users can choose between both
-  const availablePlans = user?.accountType === 'pro_creator'
-    ? PLANS.filter(p => p.id === 'pro_creator')
+  const availablePlans = user?.accountType === ACCOUNT_TYPE.PRO_CREATOR
+    ? PLANS.filter(p => p.id === ACCOUNT_TYPE.PRO_CREATOR)
     : PLANS;
 
   const [selectedPlan, setSelectedPlan] = useState<'pro_creator' | 'pro_business'>('pro_creator');
@@ -206,10 +207,10 @@ export default function PlatformSubscriptionScreen() {
 
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>
-            {user?.accountType === 'pro_creator' ? 'Premium' : 'Go Pro'}
+            {user?.accountType === ACCOUNT_TYPE.PRO_CREATOR ? 'Premium' : 'Go Pro'}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {user?.accountType === 'pro_creator'
+            {user?.accountType === ACCOUNT_TYPE.PRO_CREATOR
               ? 'Unlock premium features'
               : 'Unlock your full potential'}
           </Text>
@@ -267,7 +268,7 @@ export default function PlatformSubscriptionScreen() {
                   style={styles.planIconContainer}
                 >
                   <Ionicons
-                    name={plan.id === 'pro_creator' ? 'star' : 'business'}
+                    name={plan.id === ACCOUNT_TYPE.PRO_CREATOR ? 'star' : 'business'}
                     size={24}
                     color="white"
                   />

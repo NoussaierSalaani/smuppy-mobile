@@ -7,6 +7,7 @@
  */
 
 import { MoodType } from './moodDetection';
+import { ACCOUNT_TYPE } from '../config/accountTypes';
 
 // ============================================================================
 // TYPES
@@ -60,7 +61,7 @@ export function buildVibeProfile(
   tags: string[] = [],
 ): VibeProfileConfig {
   // Pro business → disable everything
-  if (accountType === 'pro_business') {
+  if (accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
     return {
       vibeEnabled: false,
       guardianMinSessionMinutes: 0,
@@ -92,7 +93,7 @@ export function buildVibeProfile(
   const guardianAlertThreshold = hasCalm ? 0.6 : 0.7;
 
   // --- Positive moods ---
-  const isCreator = accountType === 'pro_creator';
+  const isCreator = accountType === ACCOUNT_TYPE.PRO_CREATOR;
   const positiveMoods: MoodType[] = ['energetic', 'social', 'creative'];
   if (isCreator) {
     positiveMoods.push('focused');

@@ -14,6 +14,7 @@ import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 type BusinessInfoScreenProps = Readonly<{
   navigation: {
@@ -141,7 +142,7 @@ export default function BusinessInfoScreen({ navigation, route }: BusinessInfoSc
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+      <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.flex}>
         {/* Header with Progress Bar - Pro Business flow step 2/4 */}
         <OnboardingHeader onBack={goBack} disabled={disabled} currentStep={2} totalSteps={3} />
 

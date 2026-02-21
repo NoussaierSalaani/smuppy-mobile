@@ -34,6 +34,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { filterContent } from '../../utils/contentFilters';
 import { awsAPI } from '../../services/aws-api';
 import { sanitizeDisplayText } from '../../utils/sanitize';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 const { width: _width, height: _height } = Dimensions.get('window');
 
@@ -383,7 +384,7 @@ export default function LiveStreamingScreen(): React.JSX.Element {
 
       {/* Bottom Controls */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
         style={[styles.bottomControls, { paddingBottom: insets.bottom + 10 }]}
       >
         <View style={styles.inputContainer}>

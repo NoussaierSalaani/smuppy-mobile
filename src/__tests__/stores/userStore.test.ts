@@ -16,6 +16,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ACCOUNT_TYPE, isPro } from '../../config/accountTypes';
 
 // ============================================
 // TYPE DEFINITIONS (same as stores/index.ts)
@@ -121,7 +122,7 @@ const useUserStore = create<UserState>()(
       getFullName: () => {
         const { user } = get();
         if (!user) return '';
-        if (user.accountType === 'pro_business' && user.businessName) return user.businessName;
+        if (user.accountType === ACCOUNT_TYPE.PRO_BUSINESS && user.businessName) return user.businessName;
         if (user.fullName) return user.fullName;
         if (user.displayName) return user.displayName;
         return `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'User';
@@ -129,14 +130,14 @@ const useUserStore = create<UserState>()(
 
       isPro: () => {
         const { user } = get();
-        return user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+        return isPro(user?.accountType);
       },
 
       isProfileComplete: () => {
         const { user } = get();
         if (!user) return false;
         const hasBasicInfo = !!(user.username && (user.fullName || user.displayName || (user.firstName && user.lastName)));
-        if (user.accountType === 'pro_business') {
+        if (user.accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
           return hasBasicInfo && !!(user.businessName && user.businessCategory);
         }
         return hasBasicInfo;

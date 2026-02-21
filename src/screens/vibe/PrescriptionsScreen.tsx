@@ -20,6 +20,7 @@ import { Prescription, PrescriptionCategory } from '../../services/prescriptionE
 import { SPACING, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -51,7 +52,7 @@ export default function PrescriptionsScreen({ navigation }: PrescriptionsScreenP
     refresh,
   } = useVibePrescriptions();
 
-  const isBusiness = accountType === 'pro_business';
+  const isBusiness = accountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
   const handleStart = useCallback(
     (rx: Prescription) => {

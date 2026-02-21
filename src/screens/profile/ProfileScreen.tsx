@@ -46,6 +46,7 @@ import { sanitizeOptionalText } from '../../utils/sanitize';
 import { HIT_SLOP } from '../../config/theme';
 import { ProfileSkeleton } from '../../components/skeleton';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -247,7 +248,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // Check if the VIEWED profile is business (not the logged-in user)
   const viewedAccountType = profileData?.account_type || (isOwnProfile ? storeUser?.accountType : null);
-  const isViewedBusiness = viewedAccountType === 'pro_business';
+  const isViewedBusiness = viewedAccountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
   useEffect(() => {
     if (!userId) return;
@@ -731,10 +732,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             <View style={styles.statGlassDivider} />
             <View style={styles.statGlassItem}>
               <Text style={styles.statGlassValue}>
-                {user.accountType === 'pro_business' ? (activitiesCount || 0) : (user.stats.peaks || 0)}
+                {user.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? (activitiesCount || 0) : (user.stats.peaks || 0)}
               </Text>
               <Text style={styles.statGlassLabel}>
-                {user.accountType === 'pro_business' ? 'Activities' : 'Peaks'}
+                {user.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? 'Activities' : 'Peaks'}
               </Text>
             </View>
             {user.accountType !== 'pro_business' && (
@@ -836,8 +837,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== RENDER TABS ====================
   // Dynamic tabs based on account type
-  const isProCreator = user?.accountType === 'pro_creator' || resolvedProfile?.accountType === 'pro_creator';
-  const isProBusiness = user?.accountType === 'pro_business' || resolvedProfile?.accountType === 'pro_business';
+  const isProCreator = user?.accountType === ACCOUNT_TYPE.PRO_CREATOR || resolvedProfile?.accountType === ACCOUNT_TYPE.PRO_CREATOR;
+  const isProBusiness = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS || resolvedProfile?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
   // Stable callback for LiquidTabsWithMore (memoized component)
   const handleMoreTabsPress = useCallback(() => {

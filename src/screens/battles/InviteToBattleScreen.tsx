@@ -26,6 +26,7 @@ import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { resolveDisplayName } from '../../types/profile';
 import { isValidUUID } from '../../utils/formatters';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 interface Creator {
   id: string;
@@ -83,7 +84,7 @@ export default function InviteToBattleScreen() {
       if (!error && data) {
         // Filter to only show creators (pro_creator or pro_business)
         const creatorFollowers = data.filter(
-          (f: Profile) => f.account_type === 'pro_creator' || f.account_type === 'pro_business'
+          (f: Profile) => f.account_type === ACCOUNT_TYPE.PRO_CREATOR || f.account_type === ACCOUNT_TYPE.PRO_BUSINESS
         ) as Creator[];
         setCreators(creatorFollowers);
       }
@@ -107,7 +108,7 @@ export default function InviteToBattleScreen() {
       if (!error && data) {
         // Filter to only show creators
         const creatorResults = data.filter(
-          (p: Profile) => p.account_type === 'pro_creator' || p.account_type === 'pro_business'
+          (p: Profile) => p.account_type === ACCOUNT_TYPE.PRO_CREATOR || p.account_type === ACCOUNT_TYPE.PRO_BUSINESS
         ) as Creator[];
         setCreators(creatorResults);
       }

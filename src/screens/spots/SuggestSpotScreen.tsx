@@ -34,6 +34,7 @@ import { filterContent } from '../../utils/contentFilters';
 import { sanitizeDisplayText } from '../../utils/sanitize';
 
 import { normalize, WIDTH_CAPPED } from '../../utils/responsive';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 // ============================================
 // SPOT CATEGORIES (aligned with XplorerFeed 8 filters)
@@ -193,7 +194,7 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_BEHAVIOR}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={goBack} style={styles.headerButton}>

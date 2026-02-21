@@ -49,6 +49,7 @@ import type { ShareContentData } from '../../hooks/useModalState';
 import { sanitizeContentText } from '../../utils/sanitize';
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 const COVER_HEIGHT = 282;
 const AVATAR_SIZE = 96;
 
@@ -416,7 +417,7 @@ const UserProfileScreen = () => {
     setRefreshing(true);
     await Promise.all([
       loadUserPosts(),
-      profile.accountType === 'pro_business' ? loadBusinessSchedule() : Promise.resolve(),
+      profile.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? loadBusinessSchedule() : Promise.resolve(),
     ]);
     setRefreshing(false);
   }, [loadUserPosts, loadBusinessSchedule, profile.accountType]);
@@ -869,7 +870,7 @@ const UserProfileScreen = () => {
   }, [navigation, profile, colors, styles]);
 
   // ==================== TABS (must be before early returns — React hooks rules) ====================
-  const isProBusiness = profile.accountType === 'pro_business';
+  const isProBusiness = profile.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
   const TABS = useMemo((): { key: string; label: string }[] => {
     if (isProBusiness) {
@@ -1211,10 +1212,10 @@ const UserProfileScreen = () => {
             <View style={styles.statGlassDivider} />
             <View style={styles.statGlassItem}>
               <Text style={styles.statGlassValue}>
-                {profile.accountType === 'pro_business' ? (businessActivities.length || 0) : profile.peakCount}
+                {profile.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? (businessActivities.length || 0) : profile.peakCount}
               </Text>
               <Text style={styles.statGlassLabel}>
-                {profile.accountType === 'pro_business' ? 'Activities' : 'Peaks'}
+                {profile.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? 'Activities' : 'Peaks'}
               </Text>
             </View>
           </BlurView>
@@ -1288,7 +1289,7 @@ const UserProfileScreen = () => {
       ) : null}
 
       {/* Action Buttons — only render when profile data loaded (avoids fan button flash on device) */}
-      {(isOwnProfile || (!effectiveIsFan && !!profileData) || profile.accountType === 'pro_creator') && (
+      {(isOwnProfile || (!effectiveIsFan && !!profileData) || profile.accountType === ACCOUNT_TYPE.PRO_CREATOR) && (
         <View style={styles.actionButtonsContainer}>
           {/* Row 1: Become a fan / Requested (hidden when already fan) — or Edit Profile if own */}
           {isOwnProfile ? (
@@ -1326,7 +1327,7 @@ const UserProfileScreen = () => {
           ) : null}
 
           {/* Row 2: Monetization buttons (pro_creator only, not own profile) */}
-          {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
+          {!isOwnProfile && profile.accountType === ACCOUNT_TYPE.PRO_CREATOR && (FEATURES.CHANNEL_SUBSCRIBE || FEATURES.PRIVATE_SESSIONS || FEATURES.TIPPING) && (
             <View style={styles.actionButtonsRow}>
               {FEATURES.CHANNEL_SUBSCRIBE && (
                 <LiquidButton
@@ -1372,7 +1373,7 @@ const UserProfileScreen = () => {
           )}
 
           {/* Row 3: Offerings button (pro_creator only, not own profile) */}
-          {!isOwnProfile && profile.accountType === 'pro_creator' && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
+          {!isOwnProfile && profile.accountType === ACCOUNT_TYPE.PRO_CREATOR && (FEATURES.PRIVATE_SESSIONS || FEATURES.CHANNEL_SUBSCRIBE) && (
             <View style={styles.actionButtonsRow}>
               <LiquidButton
                 label="View Offerings"
@@ -1390,7 +1391,7 @@ const UserProfileScreen = () => {
       )}
 
       {/* Pro Creator Live Section (not own profile) */}
-      {!isOwnProfile && FEATURES.VIEWER_LIVE_STREAM && profile.accountType === 'pro_creator' && (
+      {!isOwnProfile && FEATURES.VIEWER_LIVE_STREAM && profile.accountType === ACCOUNT_TYPE.PRO_CREATOR && (
         <>
           {/* LIVE NOW Section */}
           {creatorLiveStatus.isLive && (

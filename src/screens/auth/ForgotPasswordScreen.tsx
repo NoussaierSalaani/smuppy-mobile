@@ -8,6 +8,7 @@ import { GRADIENTS, FORM, HIT_SLOP } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); // NOSONAR
 
@@ -138,7 +139,7 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
             {/* Back Button */}

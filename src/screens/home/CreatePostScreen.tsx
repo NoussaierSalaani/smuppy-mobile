@@ -26,6 +26,7 @@ import { RouteProp } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 
 import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
+import { ACCOUNT_TYPE, isPro } from '../../config/accountTypes';
 
 const GRID_GAP = 2;
 const ITEM_SIZE = Math.floor((WIDTH_CAPPED - GRID_GAP * 4) / 3);
@@ -139,8 +140,8 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
   const fromProfile = _route?.params?.fromProfile ?? false;
   const { showError: errorAlert, showWarning: warningAlert } = useSmuppyAlert();
   const storeUser = useUserStore((state) => state.user);
-  const isPro = storeUser?.accountType === 'pro_creator' || storeUser?.accountType === 'pro_business';
-  const maxVideoDuration = isPro ? 300 : 60;
+  const isProAccount = isPro(storeUser?.accountType);
+  const maxVideoDuration = isProAccount ? 300 : 60;
   const [mediaAssets, setMediaAssets] = useState<MediaLibrary.Asset[]>([]);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
   const [selectedPreview, setSelectedPreview] = useState<MediaItem | MediaLibrary.Asset | null>(null);
@@ -320,7 +321,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           return;
         }
         if (item.duration > maxVideoDuration) {
-          warningAlert('Video Too Long', `Videos must be ${maxVideoDuration} seconds or less.${!isPro ? ' Upgrade to Pro for longer videos.' : ''}`);
+          warningAlert('Video Too Long', `Videos must be ${maxVideoDuration} seconds or less.${!isProAccount ? ' Upgrade to Pro for longer videos.' : ''}`);
           return;
         }
       }
@@ -328,7 +329,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
       setSelectedMedia([...current, mediaItem]);
       setSelectedPreview(item);
     }
-  }, [warningAlert, isPro, maxVideoDuration]);
+  }, [warningAlert, isProAccount, maxVideoDuration]);
 
   // Handle next - MEDIA IS REQUIRED
   const handleNext = () => {

@@ -20,6 +20,7 @@ import { useUserStore } from '../stores/userStore';
 import { useAppStore } from '../stores/appStore';
 import { LiquidTabs } from './LiquidTabs';
 import { HIT_SLOP } from '../config/theme';
+import { ACCOUNT_TYPE } from '../config/accountTypes';
 
 // Constants for tab bar calculations (kept for reference, LiquidTabs handles rendering now)
 
@@ -52,7 +53,7 @@ function HomeHeader({ activeTab = 'Vibes', onTabChange }: HomeHeaderProps): Reac
 
   // Check if user is pro_creator or pro_business for special styling
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator';
+  const isProCreator = user?.accountType === ACCOUNT_TYPE.PRO_CREATOR;
 
   const tabs: Tab[] = useMemo(() => [
     { id: 'Fan', label: 'Fan' },

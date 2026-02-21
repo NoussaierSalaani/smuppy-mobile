@@ -51,6 +51,8 @@ import { FEATURES } from '../../config/featureFlags';
 import { sanitizeDisplayText } from '../../utils/sanitize';
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
+import { ACCOUNT_TYPE, isPro } from '../../config/accountTypes';
 
 const SEGMENT_GAP = 6;
 
@@ -119,9 +121,9 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
   const { currency } = useCurrency();
   const { showError, showAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const isProCreator = isPro(user?.accountType);
   const isVerified = user?.isVerified === true;
-  const isBusinessNonPremium = user?.accountType === 'pro_business' && !user?.isPremium;
+  const isBusinessNonPremium = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS && !user?.isPremium;
   // Paid access: verified + not business non-premium
   const canUsePaid = isVerified && !isBusinessNonPremium;
 
@@ -1033,7 +1035,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
       {/* Progress segments */}
       <ProgressSegments current={step} total={TOTAL_STEPS} colors={colors} />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flexOne}>
+      <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.flexOne}>
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}

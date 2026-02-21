@@ -36,6 +36,8 @@ import SharePostModal from '../../components/SharePostModal';
 import type { ShareContentData } from '../../hooks/useModalState';
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
+import { ACCOUNT_TYPE, isPro } from '../../config/accountTypes';
 
 const TOTAL_STEPS = 5;
 
@@ -73,7 +75,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
   const { currency } = useCurrency();
   const { showError, showSuccess: _showSuccess, showConfirm: _showConfirm, showAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const isProCreator = isPro(user?.accountType);
   const rawLockedLocation = route?.params?.lockedLocation;
   const lockedLocation = rawLockedLocation ? { latitude: rawLockedLocation.lat, longitude: rawLockedLocation.lng } : undefined;
 
@@ -747,7 +749,7 @@ const CreateActivityScreen: React.FC<{ navigation: { navigate: (screen: string, 
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
         style={styles.flex}
       >
         <ScrollView

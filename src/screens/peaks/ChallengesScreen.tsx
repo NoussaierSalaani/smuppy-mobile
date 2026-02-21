@@ -23,6 +23,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import type { MainStackParamList } from '../../types';
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const COMPACT_CARD_WIDTH = (WIDTH_CAPPED - 48) / 2;
 
@@ -38,7 +39,7 @@ const ChallengesScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const user = useUserStore((state) => state.user);
-  const isBusiness = user?.accountType === 'pro_business';
+  const isBusiness = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
   const { showError: errorAlert } = useSmuppyAlert();
   const gradientColors = isDark ? DARK_GRADIENTS.button : GRADIENTS.button;
 

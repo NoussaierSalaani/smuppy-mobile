@@ -26,6 +26,7 @@ import { useSmuppyAlert } from '../context/SmuppyAlertContext';
 import QualityPicker from './QualityPicker';
 
 import { normalize, hp, wp, SCREEN_HEIGHT } from '../utils/responsive';
+import { KEYBOARD_BEHAVIOR } from '../config/platform';
 
 // ============================================
 // TYPES
@@ -103,7 +104,7 @@ export default function AddReviewSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={KEYBOARD_BEHAVIOR}
           style={styles.keyboardView}
         >
           <View

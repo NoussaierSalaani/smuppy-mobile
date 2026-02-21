@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ACCOUNT_TYPE, isPro } from '../config/accountTypes';
 
 export interface User {
   id: string;
@@ -123,7 +124,7 @@ export const useUserStore = create<UserState>()(
         const { user } = get();
         if (!user) return '';
         // Business accounts use businessName as their display name
-        if (user.accountType === 'pro_business' && user.businessName) return user.businessName;
+        if (user.accountType === ACCOUNT_TYPE.PRO_BUSINESS && user.businessName) return user.businessName;
         // Try fullName first, then construct from firstName + lastName
         if (user.fullName) return user.fullName;
         if (user.displayName) return user.displayName;
@@ -132,7 +133,7 @@ export const useUserStore = create<UserState>()(
 
       isPro: () => {
         const { user } = get();
-        return user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+        return isPro(user?.accountType);
       },
 
       isProfileComplete: () => {
@@ -140,7 +141,7 @@ export const useUserStore = create<UserState>()(
         if (!user) return false;
         // Check required fields based on account type
         const hasBasicInfo = !!(user.username && (user.fullName || user.displayName || (user.firstName && user.lastName)));
-        if (user.accountType === 'pro_business') {
+        if (user.accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
           return hasBasicInfo && !!(user.businessName && user.businessCategory);
         }
         return hasBasicInfo;

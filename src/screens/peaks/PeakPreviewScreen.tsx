@@ -31,6 +31,8 @@ import { useUserStore } from '../../stores/userStore';
 import { searchNominatim, isValidCoordinate, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 import { extractHashtags } from '../../utils/hashtags';
 import { filterContent } from '../../utils/contentFilters';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -170,7 +172,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
   // Publish
   const handlePublish = async (): Promise<void> => {
     // Business accounts cannot publish peaks
-    if (storeUser?.accountType === 'pro_business') {
+    if (storeUser?.accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
       alert.error('Unavailable', 'Peak creation is not available for business accounts.');
       return;
     }
@@ -395,7 +397,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
       {/* Content overlay */}
       <KeyboardAvoidingView
         style={styles.contentOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
         keyboardVerticalOffset={0}
         pointerEvents="box-none"
       >

@@ -17,6 +17,7 @@ import {
   createAuthColors,
   AUTH_FORM,
 } from '../../components/auth/authStyles';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 type SignupScreenProps = Readonly<{
   navigation: {
@@ -231,7 +232,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container} testID="signup-screen">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardView}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Spacer to replace Back button (same height as LoginScreen) */}
             <View style={styles.backBtnSpacer} />

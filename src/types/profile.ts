@@ -3,6 +3,8 @@
  * Shared type definitions for profile-related components
  */
 
+import { ACCOUNT_TYPE } from '../config/accountTypes';
+
 // Type for profile data from various sources (API, store, context)
 export interface ProfileDataSource {
   id?: string | null;
@@ -123,7 +125,7 @@ export const resolveProfile = (
   const email = fallback.email || base.email || '';
 
   // Business accounts: prioritize business_name
-  const isBusiness = (base.account_type || fallback.accountType) === 'pro_business';
+  const isBusiness = (base.account_type || fallback.accountType) === ACCOUNT_TYPE.PRO_BUSINESS;
   const bName = base.business_name || fallback.businessName;
   if (isBusiness && bName && bName.trim()) {
     displayName = bName;
@@ -188,7 +190,7 @@ export const resolveDisplayName = (user: {
   if (!user) return fallback;
 
   // Business accounts use business_name
-  const isBusiness = (user.account_type || user.accountType) === 'pro_business';
+  const isBusiness = (user.account_type || user.accountType) === ACCOUNT_TYPE.PRO_BUSINESS;
   const bName = user.business_name || user.businessName;
   if (isBusiness && bName && bName.trim()) return bName;
 

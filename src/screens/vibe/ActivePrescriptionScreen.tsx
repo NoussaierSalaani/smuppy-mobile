@@ -21,6 +21,7 @@ import { SPACING } from '../../config/theme';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useUserStore } from '../../stores/userStore';
 import { useVibeStore } from '../../stores/vibeStore';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -51,7 +52,7 @@ type Phase = 'prep' | 'countdown' | 'active' | 'complete';
 export default function ActivePrescriptionScreen({ navigation, route }: ActivePrescriptionScreenProps) {
   const { colors, isDark } = useTheme();
   const accountType = useUserStore((s) => s.user?.accountType);
-  const isBusiness = accountType === 'pro_business';
+  const isBusiness = accountType === ACCOUNT_TYPE.PRO_BUSINESS;
   const insets = useSafeAreaInsets();
   const { completePrescription } = useVibePrescriptions();
   const prescription = getPrescriptionById(route.params.prescriptionId);

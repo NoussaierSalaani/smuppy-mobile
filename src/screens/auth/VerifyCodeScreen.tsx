@@ -15,6 +15,7 @@ import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import * as backend from '../../services/backend';
 import { awsAuth } from '../../services/aws-auth';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 const CODE_LENGTH = 6;
 
@@ -270,7 +271,7 @@ export default function VerifyCodeScreen({ navigation, route }: VerifyCodeScreen
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+      <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.flex}>
         <OnboardingHeader onBack={goBack} disabled={disabled || isVerifying} currentStep={4} totalSteps={4} />
 
         <ScrollView

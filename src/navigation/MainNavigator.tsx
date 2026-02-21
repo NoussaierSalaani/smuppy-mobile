@@ -89,6 +89,7 @@ import PeakViewScreen from '../screens/peaks/PeakViewScreen';
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
 import BottomNav from '../components/BottomNav';
 import { resolveDisplayName } from '../types/profile';
+import { ACCOUNT_TYPE, isPro } from '../config/accountTypes';
 
 // ============================================
 // LAZY IMPORTS — Non-core / deep screens
@@ -236,7 +237,7 @@ type TabNavigatorProps = Readonly<{
 function TabNavigator({ navigation }: TabNavigatorProps) {
   const [showCreatePopup, setShowCreatePopup] = useState(false);
   const user = useUserStore((state) => state.user);
-  const isProCreator = user?.accountType === 'pro_creator' || user?.accountType === 'pro_business';
+  const isProCreator = isPro(user?.accountType);
 
   // Auto-trigger FindFriends popup ~30s after first mount
   useEffect(() => {
@@ -269,7 +270,7 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
           onClose={() => setShowCreatePopup(false)}
           onSelectPost={() => { setShowCreatePopup(false); navigation.navigate('CreatePost'); }}
           onSelectPeak={() => { setShowCreatePopup(false); navigation.navigate('CreatePeak'); }}
-          onSelectChallenge={FEATURES.CHALLENGES && user?.accountType === 'pro_creator' ? () => { setShowCreatePopup(false); navigation.navigate('Challenges'); } : undefined}
+          onSelectChallenge={FEATURES.CHALLENGES && user?.accountType === ACCOUNT_TYPE.PRO_CREATOR ? () => { setShowCreatePopup(false); navigation.navigate('Challenges'); } : undefined}
           onSelectEvent={FEATURES.CREATE_ACTIVITY && isProCreator ? () => { setShowCreatePopup(false); navigation.navigate('CreateActivity'); } : undefined}
         />
       </>

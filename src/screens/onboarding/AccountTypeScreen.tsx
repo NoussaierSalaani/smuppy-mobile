@@ -10,6 +10,7 @@ import Button from '../../components/Button';
 import OnboardingHeader from '../../components/OnboardingHeader';
 import { usePreventDoubleNavigation } from '../../hooks/usePreventDoubleClick';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 type AccountType = 'personal' | 'pro' | null;
 type ProType = 'creator' | 'business' | null;
@@ -48,12 +49,12 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
     setProType(type);
   }, []);
 
-  const isFormValid = selected === 'personal' || (selected === 'pro' && proType !== null);
+  const isFormValid = selected === ACCOUNT_TYPE.PERSONAL || (selected === 'pro' && proType !== null);
 
   const handleNext = useCallback(() => {
     if (!isFormValid) return;
 
-    if (selected === 'personal') {
+    if (selected === ACCOUNT_TYPE.PERSONAL) {
       navigate('TellUsAboutYou', { accountType: 'personal' });
     } else if (proType === 'creator') {
       navigate('CreatorInfo', { accountType: 'pro_creator' });
@@ -82,7 +83,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
         {/* Main Cards - Horizontal Rectangles */}
         <View style={styles.cardsContainer}>
           {/* Personal Card */}
-          {selected === 'personal' ? (
+          {selected === ACCOUNT_TYPE.PERSONAL ? (
             <LinearGradient
               colors={GRADIENTS.button}
               start={{ x: 0, y: 0 }}
@@ -155,7 +156,7 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
             <TouchableOpacity
               style={[
                 styles.card,
-                selected === 'personal' && styles.cardInactive,
+                selected === ACCOUNT_TYPE.PERSONAL && styles.cardInactive,
               ]}
               onPress={() => handleSelectMain('pro')}
               activeOpacity={0.7}
@@ -164,8 +165,8 @@ export default function AccountTypeScreen({ navigation, route: _route }: Account
                 <Ionicons name="briefcase-outline" size={26} color={colors.dark} />
               </View>
               <View style={styles.cardTextBox}>
-                <Text style={[styles.cardTitle, selected === 'personal' && styles.cardTextInactive]}>Professional</Text>
-                <Text style={[styles.cardDesc, selected === 'personal' && styles.cardTextInactive]}>For professionals & businesses</Text>
+                <Text style={[styles.cardTitle, selected === ACCOUNT_TYPE.PERSONAL && styles.cardTextInactive]}>Professional</Text>
+                <Text style={[styles.cardDesc, selected === ACCOUNT_TYPE.PERSONAL && styles.cardTextInactive]}>For professionals & businesses</Text>
               </View>
               <View style={styles.radio} />
             </TouchableOpacity>

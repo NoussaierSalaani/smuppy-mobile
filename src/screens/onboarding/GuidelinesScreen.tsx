@@ -13,6 +13,7 @@ import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 type GuidelinesScreenProps = Readonly<{
   navigation: {
@@ -36,7 +37,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
   const setZustandUser = useUserStore((state) => state.setUser);
 
   const { currentStep, totalSteps } = useMemo(() => {
-    if (accountType === 'pro_creator') return { currentStep: 4, totalSteps: 4 };
+    if (accountType === ACCOUNT_TYPE.PRO_CREATOR) return { currentStep: 4, totalSteps: 4 };
     // personal (3/3) and pro_business (3/3)
     return { currentStep: 3, totalSteps: 3 };
   }, [accountType]);

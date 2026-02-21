@@ -8,6 +8,7 @@ import CooldownModal, { useCooldown } from '../../components/CooldownModal';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 const CODE_LENGTH = 6; // AWS Cognito OTP is 6 digits
 
@@ -160,7 +161,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.flex}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             
             {/* Back Button */}

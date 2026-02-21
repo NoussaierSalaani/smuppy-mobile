@@ -26,6 +26,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { resolveDisplayName } from '../../types/profile';
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 const MIN_TIP_AMOUNT_CENTS = 100;
 const MAX_TIP_AMOUNT_CENTS = 50000;
@@ -208,7 +209,7 @@ const TipModal: React.FC<TipModalProps> = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
         style={styles.container}
       >
         <BlurView intensity={30} tint="dark" style={styles.blur}>

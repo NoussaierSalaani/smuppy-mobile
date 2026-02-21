@@ -26,6 +26,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 
 import { wp, sp, hp, normalize } from '../../utils/responsive';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 // ============================================
 // PIN COLORS BY CATEGORY
@@ -223,7 +224,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // Pre-fetch creation limits (non-blocking)
   const creationLimitsRef = useRef<{ canCreateEvent: boolean; canCreateGroup: boolean } | null>(null);
   useEffect(() => {
-    if (accountType === 'personal' && !isVerified) {
+    if (accountType === ACCOUNT_TYPE.PERSONAL && !isVerified) {
       awsAPI.checkCreationLimits()
         .then((limits) => { creationLimitsRef.current = limits; })
         .catch(() => { creationLimitsRef.current = { canCreateEvent: true, canCreateGroup: true }; });
@@ -396,7 +397,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       { label: 'Create Activity', icon: 'add-circle-outline', action: 'create_activity' },
     ];
     
-    if (accountType === 'pro_business') {
+    if (accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
       if (isPremium) {
         actions.push({ label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' });
       }
@@ -404,12 +405,12 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
 
     // Personal verified and creators
-    if (isVerified || accountType === 'pro_creator') {
+    if (isVerified || accountType === ACCOUNT_TYPE.PRO_CREATOR) {
       actions.push({ label: 'Suggest Spot', icon: 'pin-outline', action: 'suggest_spot' });
     }
     
     // Premium creators can go live
-    if (accountType === 'pro_creator' && isPremium && FEATURES.GO_LIVE) {
+    if (accountType === ACCOUNT_TYPE.PRO_CREATOR && isPremium && FEATURES.GO_LIVE) {
       actions.push({ label: 'Share Live', icon: 'videocam-outline', action: 'share_live' });
     }
     
@@ -665,7 +666,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     switch (action) {
       case 'create_activity': {
         // Personal non-verified: check pre-fetched limits (instant, no network wait)
-        if (accountType === 'personal' && !isVerified) {
+        if (accountType === ACCOUNT_TYPE.PERSONAL && !isVerified) {
           const limits = creationLimitsRef.current;
           if (limits && !limits.canCreateEvent) {
             showAlert({
@@ -681,7 +682,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           }
         }
 
-        if (accountType === 'pro_business' && businessLatitude != null && businessLongitude != null) {
+        if (accountType === ACCOUNT_TYPE.PRO_BUSINESS && businessLatitude != null && businessLongitude != null) {
           // Pro Business: locked to business address + business category
           navigation.navigate('CreateActivity', {
             lockedLocation: { lat: businessLatitude, lng: businessLongitude },

@@ -218,6 +218,7 @@ type ProfileIconProps = Readonly<{
 }>;
 
 import { normalizeCdnUrl } from '../utils/cdnUrl';
+import { ACCOUNT_TYPE } from '../config/accountTypes';
 
 const ProfileIcon = ({ imageUri, isActive, size = 26, activeColor }: ProfileIconProps): React.JSX.Element => {
   const normalizedUri = normalizeCdnUrl(imageUri);
@@ -283,8 +284,8 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
   // Separate checks: creator-only features vs shared pro styling
   const user = useUserStore((state) => state.user);
   const unreadMessages = useAppStore((state) => state.unreadMessages);
-  const isProCreator = user?.accountType === 'pro_creator';
-  const isPro = isProCreator || user?.accountType === 'pro_business';
+  const isProCreator = user?.accountType === ACCOUNT_TYPE.PRO_CREATOR;
+  const isPro = isProCreator || user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
   // Pro creator menu state
   const [showProMenu, setShowProMenu] = useState(false);
@@ -336,7 +337,7 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
     return null;
   }
 
-  const isBusiness = user?.accountType === 'pro_business';
+  const isBusiness = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
   const tabs: TabConfig[] = [
     { name: 'Home', iconFilled: HomeIconFilled, iconOutline: HomeIconOutline },

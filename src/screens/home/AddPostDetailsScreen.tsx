@@ -53,6 +53,8 @@ import { queryClient, queryKeys } from '../../lib/queryClient';
 import { useFeedStore } from '../../stores/feedStore';
 import { filterContent } from '../../utils/contentFilters';
 import { resolveDisplayName } from '../../types/profile';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const { width } = Dimensions.get('window');
 
@@ -140,9 +142,9 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // Dynamic visibility options based on account type
   // Pro creators can restrict content to paid subscribers
   // Business accounts can only post publicly
-  const VISIBILITY_OPTIONS = user?.accountType === 'pro_business'
+  const VISIBILITY_OPTIONS = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS
     ? [BASE_VISIBILITY_OPTIONS[0]] // public only
-    : user?.accountType === 'pro_creator'
+    : user?.accountType === ACCOUNT_TYPE.PRO_CREATOR
       ? [...BASE_VISIBILITY_OPTIONS.slice(0, 2), SUBSCRIBERS_OPTION, BASE_VISIBILITY_OPTIONS[2]]
       : BASE_VISIBILITY_OPTIONS;
 
@@ -1000,7 +1002,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={0}
     >
       {/* Header */}

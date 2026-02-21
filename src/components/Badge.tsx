@@ -3,6 +3,7 @@ import { View, StyleSheet, ViewStyle } from 'react-native';
 import Svg, { Path, Circle, G } from 'react-native-svg';
 import { useTheme, type ThemeColors } from '../hooks/useTheme';
 import { COLORS } from '../config/theme';
+import { ACCOUNT_TYPE } from '../config/accountTypes';
 
 type BadgeProps = Readonly<{
   size?: number;
@@ -145,7 +146,7 @@ export const AccountBadge: React.FC<AccountBadgeProps> = ({
 }) => {
   if (!isVerified) return null;
 
-  if (accountType === 'pro_business') {
+  if (accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
     return <ShutterBadge size={size} style={style} color={BADGE_COLORS.premium} />;
   }
 

@@ -29,6 +29,8 @@ import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { formatDateForDisplay } from '../../utils/dateFormatters';
 import { filterContent } from '../../utils/contentFilters';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 type EditProfileScreenProps = Readonly<{
   navigation: { goBack: () => void; navigate: (screen: string, params?: Record<string, unknown>) => void };
@@ -80,7 +82,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   const [gender, setGender] = useState(mergedProfile.gender || '');
 
   // Business address (pro_business only)
-  const isBusiness = user?.accountType === 'pro_business';
+  const isBusiness = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
   const [businessAddress, setBusinessAddress] = useState(user?.businessAddress || '');
   const [businessLatitude, setBusinessLatitude] = useState<number | undefined>(user?.businessLatitude);
   const [businessLongitude, setBusinessLongitude] = useState<number | undefined>(user?.businessLongitude);
@@ -352,7 +354,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
   return (
     <KeyboardAvoidingView
       style={containerStyle}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={0}
     >
       <StatusBar barStyle="dark-content" />

@@ -24,6 +24,7 @@ import { awsAPI } from '../../services/aws-api';
 import { resolveDisplayName } from '../../types/profile';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sanitizeOptionalText } from '../../utils/sanitize';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 interface PeakUser {
   id: string;
@@ -69,7 +70,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const user = useUserStore((state) => state.user);
-  const isBusiness = user?.accountType === 'pro_business';
+  const isBusiness = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
   const [refreshing, setRefreshing] = useState(false);
   const [peaks, setPeaks] = useState<Peak[]>([]);
   const deletedPeakIds = useFeedStore((s) => s.deletedPeakIds);

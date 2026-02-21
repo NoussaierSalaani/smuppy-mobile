@@ -27,6 +27,7 @@ import { useCurrentProfile } from '../../hooks/queries';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 
 import { useCurrency } from '../../hooks/useCurrency';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const { width: _width } = Dimensions.get('window');
 
@@ -197,7 +198,7 @@ export default function UpgradeToProScreen() {
       await refetchProfile();
       const updatedUser = useUserStore.getState().user;
 
-      if (updatedUser?.accountType === 'pro_creator' || checkoutResult.status === 'success') {
+      if (updatedUser?.accountType === ACCOUNT_TYPE.PRO_CREATOR || checkoutResult.status === 'success') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         showAlert({
           title: 'Welcome, Pro Creator!',

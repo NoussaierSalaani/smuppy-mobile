@@ -23,6 +23,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAPI } from '../../services/aws-api';
 import { sanitizeDisplayText } from '../../utils/sanitize';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 export default function GoLiveScreen(): React.JSX.Element {
   const { showAlert } = useSmuppyAlert();
@@ -256,7 +257,7 @@ export default function GoLiveScreen(): React.JSX.Element {
           onPress={() => setShowTitleInput(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={KEYBOARD_BEHAVIOR}
             style={styles.titleInputSheet}
           >
             <View style={styles.sheetHandle} />

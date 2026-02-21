@@ -10,6 +10,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { SelectChip } from '../../components/settings/SelectChip';
 import { createSelectListStyles } from '../../components/settings/selectListStyles';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 type EditExpertiseScreenProps = Readonly<{
   navigation: { goBack: () => void };
@@ -34,7 +35,7 @@ export default function EditExpertiseScreen({ navigation, route }: EditExpertise
   const updateLocalProfile = useUserStore((state) => state.updateProfile);
 
   const includeBusinessCategories = route?.params?.includeBusinessCategories === true;
-  const isBusiness = user?.accountType === 'pro_business';
+  const isBusiness = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
   const showBizCategories = includeBusinessCategories || isBusiness;
 
   // Load expertise from route params, profile data, or user context

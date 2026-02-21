@@ -26,6 +26,7 @@ import {
   Profile,
 } from '../services/database';
 import { resolveDisplayName } from '../types/profile';
+import { KEYBOARD_BEHAVIOR } from '../config/platform';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -220,7 +221,7 @@ const TagFriendModal: React.FC<TagFriendModalProps> = ({
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
         style={styles.overlay}
       >
         <TouchableOpacity style={styles.backdrop} onPress={handleClose} activeOpacity={1} />

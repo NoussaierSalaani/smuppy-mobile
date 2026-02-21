@@ -16,6 +16,7 @@ import type {
 import { filterContent } from '../utils/contentFilters';
 import { normalizeCdnUrl } from '../utils/cdnUrl';
 import { sanitizeDisplayText } from '../utils/sanitize';
+import { ACCOUNT_TYPE } from '../config/accountTypes';
 
 /** Extract message from an unknown error */
 const getErrorMessage = (error: unknown): string => {
@@ -197,7 +198,7 @@ interface DbResponseWithCreated<T> extends DbResponse<T> {
 const convertProfile = (p: AWSProfile | null): Profile | null => {
   if (!p) return null;
   // Business accounts use businessName as their display name
-  const isBusiness = p.accountType === 'pro_business';
+  const isBusiness = p.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
   const businessDisplayName = isBusiness && p.businessName ? p.businessName : null;
   // If fullName equals username, treat as empty (legacy data issue)
   const effectiveFullName = p.fullName && p.fullName !== p.username ? p.fullName : '';

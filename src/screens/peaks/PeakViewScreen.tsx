@@ -45,6 +45,7 @@ import { useContentStore } from '../../stores/contentStore';
 import { awsAPI, APIError } from '../../services/aws-api';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sanitizeDisplayText } from '../../utils/sanitize';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
@@ -280,7 +281,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [peaks, setPeaks] = useState<Peak[]>(initialPeaks);
   const [isLoadingPeak, setIsLoadingPeak] = useState(false);
   const currentUser = useUserStore((state) => state.user);
-  const isBusiness = currentUser?.accountType === 'pro_business';
+  const isBusiness = currentUser?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
   const { mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
 
   // If navigated with only peakId (no peaks array), fetch the peak from API

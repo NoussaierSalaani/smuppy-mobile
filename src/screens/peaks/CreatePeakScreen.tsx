@@ -21,6 +21,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores/userStore';
 import { isValidUUID } from '../../utils/formatters';
 import { captureException } from '../../lib/sentry';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 interface DurationOption {
   value: number;
@@ -69,7 +70,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
   const { showAlert: showSmuppyAlert } = useSmuppyAlert();
   const user = useUserStore((state) => state.user);
 
-  const isBusiness = user?.accountType === 'pro_business';
+  const isBusiness = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
   // Business accounts cannot create peaks — redirect back immediately
   useEffect(() => {

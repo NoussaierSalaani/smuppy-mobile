@@ -31,6 +31,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { isValidUUID } from '../../utils/formatters';
 
 import { normalize } from '../../utils/responsive';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   easy: COLORS.teal,
@@ -82,7 +83,7 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
   const accountType = useUserStore((s) => s.user?.accountType);
   const isVerified = useUserStore((s) => s.user?.isVerified);
   const isPremium = useUserStore((s) => s.user?.isPremium);
-  const canReview = isVerified || accountType === 'pro_creator' || (accountType === 'pro_business' && isPremium);
+  const canReview = isVerified || accountType === ACCOUNT_TYPE.PRO_CREATOR || (accountType === ACCOUNT_TYPE.PRO_BUSINESS && isPremium);
 
   const [spot, setSpot] = useState<SpotData | null>(null);
   const [reviews, setReviews] = useState<SpotReview[]>([]);

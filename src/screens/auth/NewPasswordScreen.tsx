@@ -10,6 +10,7 @@ import { PASSWORD_RULES, isPasswordValid, getPasswordStrengthLevel } from '../..
 import * as backend from '../../services/backend';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 type NewPasswordScreenProps = Readonly<{
   navigation: {
@@ -180,7 +181,7 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+      <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           {/* Back Button */}

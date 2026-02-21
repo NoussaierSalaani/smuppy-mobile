@@ -17,6 +17,7 @@ import { awsAuth } from '../../services/aws-auth';
 import { awsAPI } from '../../services/aws-api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 
 // Anti-spam: minimum 20 chars, max 3 reports per hour
@@ -141,7 +142,7 @@ const ReportProblemScreen = ({ navigation }: ReportProblemScreenProps) => {
 
       <KeyboardAvoidingView 
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
       >
         <View style={styles.content}>
           {/* Text Input */}

@@ -30,6 +30,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import type { IconName } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useDataFetch } from '../../hooks/useDataFetch';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 interface Props {
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
@@ -376,7 +377,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         {/* Add/Edit Modal */}
         <Modal visible={showModal} animationType="slide" transparent>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={KEYBOARD_BEHAVIOR}
             style={styles.modalContainer}
           >
             <View style={styles.modalOverlay}>

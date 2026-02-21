@@ -30,6 +30,7 @@ import { HIT_SLOP } from '../../config/theme';
 import { hapticButtonPress, hapticDestructive } from '../../utils/haptics';
 import { resolveDisplayName } from '../../types/profile';
 import { sanitizeOptionalText } from '../../utils/sanitize';
+import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
 const COVER_HEIGHT = 160;
 
@@ -139,8 +140,8 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   };
 
   // Separate checks for creator-only vs all pro features
-  const isProCreator = user?.accountType === 'pro_creator';
-  const isProBusiness = user?.accountType === 'pro_business';
+  const isProCreator = user?.accountType === ACCOUNT_TYPE.PRO_CREATOR;
+  const isProBusiness = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
   const isPro = isProCreator || isProBusiness;
 
   const ACCOUNT_ITEMS = [

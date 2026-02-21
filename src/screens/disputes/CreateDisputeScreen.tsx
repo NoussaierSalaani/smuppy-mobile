@@ -31,6 +31,7 @@ import { awsAPI } from '../../services/aws-api';
 import OptimizedImage from '../../components/OptimizedImage';
 import Button from '../../components/Button';
 import { formatShortDateTime } from '../../utils/dateFormatters';
+import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 
 interface EligibleSession {
   id: string;
@@ -503,7 +504,7 @@ export default function CreateDisputeScreen() {
 
       {/* Content */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
         style={styles.content}
       >
         {step === 'session' ? renderSessionStep() : renderDetailsStep()}

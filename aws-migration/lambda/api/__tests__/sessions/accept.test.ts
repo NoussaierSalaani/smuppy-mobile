@@ -19,7 +19,10 @@ jest.mock('../../utils/logger', () => ({
 }));
 jest.mock('../../utils/security', () => ({ isValidUUID: jest.fn().mockReturnValue(true) }));
 jest.mock('../../utils/rate-limit', () => ({ requireRateLimit: jest.fn().mockResolvedValue(null) }));
-jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60 }));
+jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
+}));
 jest.mock('../../utils/auth', () => ({ resolveProfileId: jest.fn() }));
 
 import { APIGatewayProxyEvent } from 'aws-lambda';

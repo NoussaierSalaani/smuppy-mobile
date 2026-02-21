@@ -71,6 +71,8 @@ jest.mock('../../utils/validators', () => {
 jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
   RATE_WINDOW_5_MIN: 300,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 jest.mock('@aws-sdk/client-s3', () => ({

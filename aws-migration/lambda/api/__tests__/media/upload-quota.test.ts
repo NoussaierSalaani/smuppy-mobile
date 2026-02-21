@@ -16,7 +16,10 @@ jest.mock('../../utils/logger', () => ({
 jest.mock('../../utils/cors', () => ({
   createHeaders: jest.fn(() => ({ 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })),
 }));
-jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60 }));
+jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
+}));
 jest.mock('../../utils/auth', () => ({
   resolveProfileId: jest.fn(),
 }));

@@ -21,6 +21,8 @@ jest.mock('../../utils/constants', () => ({
   MIN_SESSION_DURATION_MINUTES: 15,
   MAX_SESSION_DURATION_MINUTES: 480,
   MAX_SESSION_PRICE_CENTS: 10000,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 jest.mock('../../utils/cors', () => ({
   createHeaders: jest.fn(() => ({ 'Content-Type': 'application/json' })),

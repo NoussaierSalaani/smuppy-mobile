@@ -28,6 +28,8 @@ jest.mock('../../utils/constants', () => ({
   MAX_SEARCH_RADIUS_METERS: 50_000,
   DEFAULT_SEARCH_RADIUS_METERS: 5000,
   RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 import { handler } from '../../spots/nearby';

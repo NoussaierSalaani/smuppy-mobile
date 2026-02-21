@@ -198,8 +198,8 @@ describe('Suggested Profiles Handler', () => {
 
   describe('Pagination', () => {
     it('should return hasMore=true and nextCursor when more results exist', async () => {
-      // Default limit is 10, need 11 rows
-      const rows = Array.from({ length: 11 }, (_, i) =>
+      // Default limit is 20 (parseLimit default), need 21 rows
+      const rows = Array.from({ length: 21 }, (_, i) =>
         makeProfileRow({ id: `profile-${i}` })
       );
       mockQuery.mockResolvedValueOnce({ rows });
@@ -209,8 +209,8 @@ describe('Suggested Profiles Handler', () => {
 
       const body = JSON.parse(response.body);
       expect(body.hasMore).toBe(true);
-      expect(body.nextCursor).toBe('10');
-      expect(body.profiles).toHaveLength(10);
+      expect(body.nextCursor).toBe('20');
+      expect(body.profiles).toHaveLength(20);
     });
 
     it('should return hasMore=false and null nextCursor when no more results', async () => {

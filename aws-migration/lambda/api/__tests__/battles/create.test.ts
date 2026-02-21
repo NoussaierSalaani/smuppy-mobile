@@ -63,6 +63,8 @@ jest.mock('../../utils/constants', () => ({
   DEFAULT_BATTLE_DURATION_MINUTES: 10,
   MIN_BATTLE_DURATION_MINUTES: 1,
   MAX_BATTLE_DURATION_MINUTES: 120,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 jest.mock('../../../shared/moderation/textFilter', () => ({

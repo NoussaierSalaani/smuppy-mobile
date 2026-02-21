@@ -43,6 +43,8 @@ jest.mock('../../utils/security', () => ({
 jest.mock('../../utils/constants', () => ({
   CACHE_TTL_SHORT: 15,
   RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 jest.mock('ioredis', () => {
   return jest.fn().mockImplementation(() => ({

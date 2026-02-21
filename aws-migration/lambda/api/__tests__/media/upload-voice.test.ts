@@ -27,6 +27,8 @@ jest.mock('../../utils/constants', () => ({
   PRESIGNED_URL_EXPIRY_SECONDS: 300,
   MAX_VOICE_MESSAGE_SECONDS: 300,
   MAX_VOICE_SIZE_BYTES: 5 * 1024 * 1024,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn(() => ({ send: jest.fn().mockResolvedValue({}) })),

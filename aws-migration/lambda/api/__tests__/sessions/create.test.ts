@@ -35,6 +35,8 @@ jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
   MIN_SESSION_DURATION_MINUTES: 15,
   MAX_SESSION_DURATION_MINUTES: 480,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 import { handler } from '../../sessions/create';

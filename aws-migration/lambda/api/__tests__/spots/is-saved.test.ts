@@ -24,7 +24,10 @@ jest.mock('../../utils/cors', () => ({
 }));
 jest.mock('../../utils/auth', () => ({ resolveProfileId: jest.fn() }));
 jest.mock('../../utils/security', () => ({ isValidUUID: jest.fn().mockReturnValue(true) }));
-jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60 }));
+jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
+}));
 
 import { handler } from '../../spots/is-saved';
 import { resolveProfileId } from '../../utils/auth';

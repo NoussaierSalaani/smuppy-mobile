@@ -48,6 +48,8 @@ jest.mock('../../utils/auth', () => ({
 jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
   MAX_SEARCH_QUERY_LENGTH: 100,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 import { handler } from '../../posts/search';

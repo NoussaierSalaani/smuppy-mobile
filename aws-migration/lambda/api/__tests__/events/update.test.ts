@@ -65,6 +65,8 @@ jest.mock('../../utils/constants', () => ({
   MAX_EVENT_TITLE_LENGTH: 200,
   MIN_EVENT_PARTICIPANTS: 2,
   MAX_EVENT_PARTICIPANTS: 10000,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 jest.mock('../../../shared/moderation/textFilter', () => ({

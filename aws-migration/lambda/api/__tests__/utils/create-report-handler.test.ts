@@ -45,6 +45,8 @@ jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_5_MIN: 300,
   MAX_REPORT_REASON_LENGTH: 100,
   MAX_REPORT_DETAILS_LENGTH: 1000,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 import { APIGatewayProxyEvent } from 'aws-lambda';

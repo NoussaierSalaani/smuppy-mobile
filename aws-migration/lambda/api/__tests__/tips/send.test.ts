@@ -68,6 +68,8 @@ jest.mock('../../utils/constants', () => ({
   MAX_TIP_AMOUNT_CENTS: 50000,
   PLATFORM_FEE_PERCENT: 20,
   MIN_PAYMENT_CENTS: 100,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 jest.mock('../../../shared/moderation/textFilter', () => ({

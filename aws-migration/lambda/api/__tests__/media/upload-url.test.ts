@@ -21,6 +21,8 @@ jest.mock('../../utils/cors', () => ({
 jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
   PRESIGNED_URL_EXPIRY_SECONDS: 300,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 jest.mock('../../utils/upload-quota', () => ({
   checkQuota: jest.fn().mockResolvedValue({ allowed: true, remaining: 10, limit: 20 }),

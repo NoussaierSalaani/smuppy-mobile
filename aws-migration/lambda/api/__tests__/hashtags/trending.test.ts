@@ -54,6 +54,8 @@ jest.mock('../../utils/cors', () => ({
 
 jest.mock('../../utils/constants', () => ({
   CACHE_TTL_TRENDING: 300,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 // ── Import handler AFTER all mocks are declared ──

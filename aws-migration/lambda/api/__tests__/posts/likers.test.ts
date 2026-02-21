@@ -65,6 +65,8 @@ jest.mock('../../utils/validators', () => {
 
 jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 import { handler } from '../../posts/likers';
@@ -173,20 +175,21 @@ describe('posts/likers handler', () => {
       expect(JSON.parse(result.body).message).toContain('Invalid');
     });
 
-    it('should return 400 for invalid cursor parameter', async () => {
+    it('should ignore invalid cursor and return first page (tolerant policy)', async () => {
       // Post lookup needs to succeed first
       mockDb.query.mockResolvedValueOnce({
         rows: [{ id: TEST_POST_ID, author_id: AUTHOR_PROFILE_ID, is_private: false, author_cognito_sub: AUTHOR_SUB }],
       });
+      // Likers query returns empty
+      mockDb.query.mockResolvedValueOnce({ rows: [] });
 
       const event = makeEvent({
-        queryStringParameters: { cursor: '-1' },
+        queryStringParameters: { cursor: 'invalid-cursor' },
       });
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(400);
-      expect(JSON.parse(result.body).message).toBe('Invalid cursor parameter');
+      expect(result.statusCode).toBe(200);
     });
   });
 

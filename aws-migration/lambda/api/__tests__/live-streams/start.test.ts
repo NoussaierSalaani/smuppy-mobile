@@ -53,6 +53,8 @@ jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_HOUR: 3600,
   NOTIFICATION_BATCH_SIZE: 500,
   NOTIFICATION_BATCH_DELAY_MS: 100,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 jest.mock('../../utils/auth', () => ({

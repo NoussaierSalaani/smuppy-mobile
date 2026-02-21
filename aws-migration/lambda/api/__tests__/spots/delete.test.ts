@@ -36,7 +36,10 @@ jest.mock('../../utils/account-status', () => ({
   requireActiveAccount: jest.fn().mockResolvedValue({ profileId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', moderationStatus: 'active' }),
   isAccountError: jest.fn().mockReturnValue(false),
 }));
-jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60, RATE_WINDOW_5_MIN: 300 }));
+jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60, RATE_WINDOW_5_MIN: 300,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
+}));
 
 import { handler } from '../../spots/delete';
 import { resolveProfileId } from '../../utils/auth';

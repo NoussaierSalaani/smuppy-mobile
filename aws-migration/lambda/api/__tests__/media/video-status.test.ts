@@ -21,7 +21,10 @@ jest.mock('../../utils/security', () => ({
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)
   ),
 }));
-jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60 }));
+jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
+}));
 jest.mock('../../utils/auth', () => ({
   resolveProfileId: jest.fn(),
 }));

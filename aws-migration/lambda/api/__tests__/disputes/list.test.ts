@@ -17,7 +17,10 @@ jest.mock('../../utils/cors', () => ({
   createHeaders: jest.fn(() => ({ 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })),
 }));
 jest.mock('../../utils/auth', () => ({ getUserFromEvent: jest.fn() }));
-jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60 }));
+jest.mock('../../utils/constants', () => ({ RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
+}));
 jest.mock('../../utils/dispute-helpers', () => ({
   parseOffsetCursor: jest.fn().mockReturnValue({ offset: 0, parsedLimit: 20 }),
   deriveOffsetPage: jest.fn().mockImplementation((rows, limit) => ({

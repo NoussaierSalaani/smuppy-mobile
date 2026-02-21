@@ -591,17 +591,18 @@ describe('payments/identity handler', () => {
   it('create-subscription uses cached price from env var', async () => {
     process.env.STRIPE_VERIFICATION_PRICE_ID = 'price_env_cached';
     // Re-import to pick up the env var on a fresh module (cache is module-level)
-    jest.resetModules();
-    const { handler: freshHandler } = require('../../payments/identity');
-    // Re-wire mocks after resetModules
-    const { getPool: gp } = require('../../../shared/db');
-    (gp as jest.Mock).mockResolvedValue(mockPool);
-    const { getStripeClient: gsc } = require('../../../shared/stripe-client');
-    (gsc as jest.Mock).mockResolvedValue(s);
-    const { resolveProfileId: rp } = require('../../utils/auth');
-    (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
-    const { requireRateLimit: rrl } = require('../../utils/rate-limit');
-    (rrl as jest.Mock).mockResolvedValue(null);
+    let freshHandler: (event: unknown) => Promise<{ statusCode: number; body: string }>;
+    jest.isolateModules(() => {
+      freshHandler = require('../../payments/identity').handler;
+      const { getPool: gp } = require('../../../shared/db');
+      (gp as jest.Mock).mockResolvedValue(mockPool);
+      const { getStripeClient: gsc } = require('../../../shared/stripe-client');
+      (gsc as jest.Mock).mockResolvedValue(s);
+      const { resolveProfileId: rp } = require('../../utils/auth');
+      (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
+      const { requireRateLimit: rrl } = require('../../utils/rate-limit');
+      (rrl as jest.Mock).mockResolvedValue(null);
+    });
 
     mockClient.query
       .mockResolvedValueOnce({
@@ -610,7 +611,7 @@ describe('payments/identity handler', () => {
       .mockResolvedValueOnce({ rowCount: 1 });
 
     const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
-    const result = await freshHandler(event);
+    const result = await freshHandler!(event);
     expect(result.statusCode).toBe(200);
     // Should NOT call products.search or prices.create — used env var directly
     expect(s.products.search).not.toHaveBeenCalled();
@@ -626,16 +627,18 @@ describe('payments/identity handler', () => {
 
   // 2. create-subscription reuses existing active product from search
   it('create-subscription reuses existing active product from search', async () => {
-    jest.resetModules();
-    const { handler: freshHandler } = require('../../payments/identity');
-    const { getPool: gp } = require('../../../shared/db');
-    (gp as jest.Mock).mockResolvedValue(mockPool);
-    const { getStripeClient: gsc } = require('../../../shared/stripe-client');
-    (gsc as jest.Mock).mockResolvedValue(s);
-    const { resolveProfileId: rp } = require('../../utils/auth');
-    (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
-    const { requireRateLimit: rrl } = require('../../utils/rate-limit');
-    (rrl as jest.Mock).mockResolvedValue(null);
+    let freshHandler: (event: unknown) => Promise<{ statusCode: number; body: string }>;
+    jest.isolateModules(() => {
+      freshHandler = require('../../payments/identity').handler;
+      const { getPool: gp } = require('../../../shared/db');
+      (gp as jest.Mock).mockResolvedValue(mockPool);
+      const { getStripeClient: gsc } = require('../../../shared/stripe-client');
+      (gsc as jest.Mock).mockResolvedValue(s);
+      const { resolveProfileId: rp } = require('../../utils/auth');
+      (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
+      const { requireRateLimit: rrl } = require('../../utils/rate-limit');
+      (rrl as jest.Mock).mockResolvedValue(null);
+    });
 
     // products.search returns an existing active product
     s.products.search.mockResolvedValueOnce({ data: [{ id: 'prod_existing', active: true }] });
@@ -649,7 +652,7 @@ describe('payments/identity handler', () => {
       .mockResolvedValueOnce({ rowCount: 1 });
 
     const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
-    const result = await freshHandler(event);
+    const result = await freshHandler!(event);
     expect(result.statusCode).toBe(200);
     // Should NOT create a new product — reused existing
     expect(s.products.create).not.toHaveBeenCalled();
@@ -661,16 +664,18 @@ describe('payments/identity handler', () => {
 
   // 3. create-subscription reuses existing price from product
   it('create-subscription reuses existing price from product', async () => {
-    jest.resetModules();
-    const { handler: freshHandler } = require('../../payments/identity');
-    const { getPool: gp } = require('../../../shared/db');
-    (gp as jest.Mock).mockResolvedValue(mockPool);
-    const { getStripeClient: gsc } = require('../../../shared/stripe-client');
-    (gsc as jest.Mock).mockResolvedValue(s);
-    const { resolveProfileId: rp } = require('../../utils/auth');
-    (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
-    const { requireRateLimit: rrl } = require('../../utils/rate-limit');
-    (rrl as jest.Mock).mockResolvedValue(null);
+    let freshHandler: (event: unknown) => Promise<{ statusCode: number; body: string }>;
+    jest.isolateModules(() => {
+      freshHandler = require('../../payments/identity').handler;
+      const { getPool: gp } = require('../../../shared/db');
+      (gp as jest.Mock).mockResolvedValue(mockPool);
+      const { getStripeClient: gsc } = require('../../../shared/stripe-client');
+      (gsc as jest.Mock).mockResolvedValue(s);
+      const { resolveProfileId: rp } = require('../../utils/auth');
+      (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
+      const { requireRateLimit: rrl } = require('../../utils/rate-limit');
+      (rrl as jest.Mock).mockResolvedValue(null);
+    });
 
     // products.search returns existing active product
     s.products.search.mockResolvedValueOnce({ data: [{ id: 'prod_existing', active: true }] });
@@ -684,7 +689,7 @@ describe('payments/identity handler', () => {
       .mockResolvedValueOnce({ rowCount: 1 });
 
     const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
-    const result = await freshHandler(event);
+    const result = await freshHandler!(event);
     expect(result.statusCode).toBe(200);
     // Should NOT create a new product or price — reused both
     expect(s.products.create).not.toHaveBeenCalled();

@@ -15,6 +15,8 @@ import { isValidUUID } from './security';
 import { requireRateLimit } from './rate-limit';
 import { checkPrivacyAccess } from './auth';
 import { RATE_WINDOW_1_MIN } from './constants';
+import { parseLimit, applyHasMore } from './pagination';
+import { parseCursor, cursorToSql, generateCursor } from './cursor';
 
 interface FollowListConfig {
   /** Logger name and rate limit prefix (e.g. 'profiles-followers') */
@@ -80,7 +82,7 @@ export function createFollowListHandler(config: FollowListConfig) {
       if (rateLimitResponse) return rateLimitResponse;
 
       // Pagination params
-      const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
+      const limit = parseLimit(event.queryStringParameters?.limit);
       const cursor = event.queryStringParameters?.cursor;
 
       const db = await getPool();
@@ -141,10 +143,12 @@ export function createFollowListHandler(config: FollowListConfig) {
       let paramIndex = 2;
 
       // Cursor pagination
-      if (cursor) {
-        query += ` AND f.created_at < $${paramIndex}`;
-        params.push(new Date(Number.parseInt(cursor)));
-        paramIndex++;
+      const parsedCursor = parseCursor(cursor, 'timestamp-ms');
+      if (parsedCursor) {
+        const cursorSql = cursorToSql(parsedCursor, 'f.created_at', paramIndex);
+        query += cursorSql.condition;
+        params.push(...cursorSql.params);
+        paramIndex += cursorSql.params.length;
       }
 
       query += ` ORDER BY f.created_at DESC LIMIT $${paramIndex}`;
@@ -152,9 +156,7 @@ export function createFollowListHandler(config: FollowListConfig) {
 
       const result = await db.query(query, params);
 
-      // Check if there are more results
-      const hasMore = result.rows.length > limit;
-      const items = hasMore ? result.rows.slice(0, -1) : result.rows;
+      const { data: items, hasMore } = applyHasMore(result.rows, limit);
       const totalCount = result.rows.length > 0 ? Number.parseInt(result.rows[0].total_count as string, 10) : 0;
 
       // Format response
@@ -178,7 +180,7 @@ export function createFollowListHandler(config: FollowListConfig) {
 
       // Generate next cursor
       const nextCursor = hasMore && items.length > 0
-        ? new Date(items.at(-1)!.followed_at).getTime().toString()
+        ? generateCursor('timestamp-ms', items.at(-1)! as Record<string, unknown>, 'followed_at')
         : null;
 
       return {

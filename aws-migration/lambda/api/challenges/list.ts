@@ -9,6 +9,7 @@ import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { resolveProfileId } from '../utils/auth';
+import { parseLimit } from '../utils/pagination';
 
 export const handler = withErrorHandler('challenges-list', async (event, { headers, log }) => {
   // Rate limit: anti-scraping
@@ -58,7 +59,7 @@ export const handler = withErrorHandler('challenges-list', async (event, { heade
     }
     const category = event.queryStringParameters?.category;
     const status = event.queryStringParameters?.status || 'active';
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
     const cursor = event.queryStringParameters?.cursor || undefined;
 
     // Validate cursor as ISO date for non-trending filters (trending uses numeric offset)

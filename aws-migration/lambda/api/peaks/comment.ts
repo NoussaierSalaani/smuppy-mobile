@@ -16,6 +16,7 @@ import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { blockExclusionSQL, isBidirectionallyBlocked } from '../utils/block-filter';
 import { moderateText } from '../utils/text-moderation';
 import { createLogger } from '../utils/logger';
+import { parseLimit } from '../utils/pagination';
 
 type Logger = ReturnType<typeof createLogger>;
 
@@ -53,7 +54,7 @@ async function handleListComments(
   headers: Record<string, string>,
   peakId: string
 ): Promise<APIGatewayProxyResult> {
-  const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
+  const limit = parseLimit(event.queryStringParameters?.limit);
   const cursor = event.queryStringParameters?.cursor;
 
   const pool = await getPool();

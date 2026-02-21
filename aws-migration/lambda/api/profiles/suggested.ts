@@ -7,6 +7,7 @@ import { getPool, SqlParam } from '../../shared/db';
 import { resolveProfileId } from '../utils/auth';
 import { checkRateLimit } from '../utils/rate-limit';
 import { withErrorHandler } from '../utils/error-handler';
+import { parseLimit } from '../utils/pagination';
 
 // Rate limit: 30 requests per minute per IP
 const RATE_LIMIT = 30;
@@ -34,7 +35,7 @@ export const handler = withErrorHandler('profiles-suggested', async (event, { he
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
 
     // Get limit from query params
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '10'), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
 
     const db = await getPool();
 

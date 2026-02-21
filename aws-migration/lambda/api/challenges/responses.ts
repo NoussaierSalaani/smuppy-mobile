@@ -6,6 +6,7 @@
 import { getPool } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
+import { parseLimit } from '../utils/pagination';
 
 function mapResponse(r: Record<string, unknown>) {
   return {
@@ -50,7 +51,7 @@ export const handler = withErrorHandler('challenges-responses', async (event, { 
       };
     }
 
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
     const cursor = event.queryStringParameters?.cursor;
     const sortByParam = event.queryStringParameters?.sortBy || 'recent';
     const sortBy = sortByParam === 'popular' ? 'popular' : 'recent'; // whitelist valid values

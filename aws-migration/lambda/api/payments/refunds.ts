@@ -16,6 +16,7 @@ import { createHeaders } from '../utils/cors';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
 import { PLATFORM_NAME } from '../utils/constants';
+import { parseLimit } from '../utils/pagination';
 
 const log = createLogger('payments/refunds');
 
@@ -204,7 +205,7 @@ function buildRefundListQuery(
     }
   }
 
-  const parsedLimit = Math.min(Number.parseInt(limit), 50);
+  const parsedLimit = parseLimit(limit);
   query += ` ORDER BY r.created_at DESC LIMIT $${paramIndex}`;
   params.push(parsedLimit + 1);
 
@@ -251,7 +252,7 @@ async function listRefunds(
   const { query, params } = buildRefundListQuery(isAdmin, user.id, status, cursor, limit);
   const result = await db.query(query, params);
 
-  const parsedLimit = Math.min(Number.parseInt(limit), 50);
+  const parsedLimit = parseLimit(limit);
   const hasMore = result.rows.length > parsedLimit;
   const rows = result.rows.slice(0, parsedLimit);
   const nextCursor = hasMore && rows.length > 0

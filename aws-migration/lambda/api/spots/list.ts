@@ -6,9 +6,11 @@
 import { getPool, SqlParam } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
+import { parseLimit, applyHasMore } from '../utils/pagination';
+import { parseCursor, cursorToSql, generateCursor } from '../utils/cursor';
 
 export const handler = withErrorHandler('spots-list', async (event, { headers }) => {
-  const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10) || 20, 50);
+  const limit = parseLimit(event.queryStringParameters?.limit);
   const cursor = event.queryStringParameters?.cursor;
   const creatorId = event.queryStringParameters?.creatorId;
   const category = event.queryStringParameters?.category;
@@ -67,10 +69,12 @@ export const handler = withErrorHandler('spots-list', async (event, { headers })
     paramIndex++;
   }
 
-  if (cursor) {
-    query += ` AND s.created_at < $${paramIndex}`;
-    params.push(new Date(Number.parseInt(cursor, 10)));
-    paramIndex++;
+  const parsedCursor = parseCursor(cursor, 'timestamp-ms');
+  if (parsedCursor) {
+    const cursorSql = cursorToSql(parsedCursor, 's.created_at', paramIndex);
+    query += cursorSql.condition;
+    params.push(...cursorSql.params);
+    paramIndex += cursorSql.params.length;
   }
 
   query += ` ORDER BY s.created_at DESC LIMIT $${paramIndex}`;
@@ -78,8 +82,7 @@ export const handler = withErrorHandler('spots-list', async (event, { headers })
 
   const result = await db.query(query, params);
 
-  const hasMore = result.rows.length > limit;
-  const spots = hasMore ? result.rows.slice(0, -1) : result.rows;
+  const { data: spots, hasMore } = applyHasMore(result.rows, limit);
 
   const formattedSpots = spots.map((s: Record<string, unknown>) => ({
     id: s.id,
@@ -110,7 +113,7 @@ export const handler = withErrorHandler('spots-list', async (event, { headers })
   }));
 
   const nextCursor = hasMore && spots.length > 0
-    ? new Date(spots.at(-1)!.created_at).getTime().toString()
+    ? generateCursor('timestamp-ms', spots.at(-1)! as Record<string, unknown>)
     : null;
 
   return {

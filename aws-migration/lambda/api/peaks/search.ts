@@ -10,10 +10,9 @@ import { resolveProfileId } from '../utils/auth';
 import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';
+import { parseLimit } from '../utils/pagination';
 
 const log = createLogger('peaks-search');
-const MAX_LIMIT = 50;
-
 function sanitizeQuery(raw: string): string {
   const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g; // NOSONAR — intentional control char sanitization
   const sanitized = raw.replaceAll(/<[^>]*>/g, '').replaceAll(CONTROL_CHARS, '').trim().substring(0, MAX_SEARCH_QUERY_LENGTH); // NOSONAR
@@ -57,7 +56,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return response(400, { success: false, error: 'Search query is required' });
     }
 
-    const parsedLimit = Math.min(Math.max(Number.parseInt(limit) || 20, 1), MAX_LIMIT);
+    const parsedLimit = parseLimit(limit);
 
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const pool = await getPool();

@@ -7,6 +7,8 @@ import { SqlParam } from '../../shared/db';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { withAuthHandler } from '../utils/with-auth-handler';
+import { parseLimit, applyHasMore } from '../utils/pagination';
+import { parseCursor, cursorToSql, generateCursor } from '../utils/cursor';
 
 const VALID_TYPES = new Set(['post_like', 'peak_like', 'follow', 'comment', 'peak_comment']);
 
@@ -15,7 +17,7 @@ export const handler = withAuthHandler('activity-list', async (event, { headers,
     if (rateLimitResponse) return rateLimitResponse;
 
     // Pagination params
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
     const cursor = event.queryStringParameters?.cursor;
     const typeFilter = event.queryStringParameters?.type;
 
@@ -109,13 +111,15 @@ export const handler = withAuthHandler('activity-list', async (event, { headers,
     const params: SqlParam[] = [profileId];
     let paramIndex = 2;
 
-    let query = `SELECT activity_type, created_at, target_data, target_user FROM (${subqueries.join(' UNION ALL ')}) AS activity`;
+    let query = `SELECT activity_type, created_at, target_data, target_user FROM (${subqueries.join(' UNION ALL ')}) AS activity WHERE 1=1`;
 
     // Cursor pagination
-    if (cursor) {
-      query += ` WHERE created_at < $${paramIndex}`;
-      params.push(new Date(Number.parseInt(cursor, 10)));
-      paramIndex++;
+    const parsedCursor = parseCursor(cursor, 'timestamp-ms');
+    if (parsedCursor) {
+      const cursorSql = cursorToSql(parsedCursor, 'created_at', paramIndex);
+      query += cursorSql.condition;
+      params.push(...cursorSql.params);
+      paramIndex += cursorSql.params.length;
     }
 
     query += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
@@ -123,8 +127,7 @@ export const handler = withAuthHandler('activity-list', async (event, { headers,
 
     const result = await db.query(query, params);
 
-    const hasMore = result.rows.length > limit;
-    const activities = result.rows.slice(0, limit);
+    const { data: activities, hasMore } = applyHasMore(result.rows, limit);
 
     // Format response — map snake_case DB to camelCase API
     const formattedActivities = activities.map((row: Record<string, unknown>) => ({
@@ -135,7 +138,7 @@ export const handler = withAuthHandler('activity-list', async (event, { headers,
     }));
 
     const nextCursor = hasMore && activities.length > 0
-      ? new Date(activities.at(-1)!.created_at as string).getTime().toString()
+      ? generateCursor('timestamp-ms', activities.at(-1)! as Record<string, unknown>)
       : null;
 
     return {

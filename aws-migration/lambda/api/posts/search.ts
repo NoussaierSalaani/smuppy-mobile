@@ -10,8 +10,7 @@ import { requireRateLimit } from '../utils/rate-limit';
 import { MAX_SEARCH_QUERY_LENGTH, RATE_WINDOW_1_MIN } from '../utils/constants';
 import { withErrorHandler } from '../utils/error-handler';
 import { blockExclusionSQL, muteExclusionSQL } from '../utils/block-filter';
-
-const MAX_LIMIT = 50;
+import { parseLimit } from '../utils/pagination';
 
 function sanitizeQuery(raw: string): string {
   const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g; // NOSONAR — intentional control char sanitization
@@ -41,7 +40,7 @@ export const handler = withErrorHandler('posts-search', async (event, { headers,
       return { statusCode: 400, headers: { ...headers, 'Cache-Control': 'no-cache' }, body: JSON.stringify({ success: false, error: 'Search query is required' }) };
     }
 
-    const parsedLimit = Math.min(Math.max(Number.parseInt(limit) || 20, 1), MAX_LIMIT);
+    const parsedLimit = parseLimit(limit);
 
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
     const pool = await getPool();

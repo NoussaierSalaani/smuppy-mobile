@@ -8,6 +8,7 @@ import { createCorsResponse } from '../utils/cors';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
+import { parseLimit } from '../utils/pagination';
 
 export const handler = withAuthHandler('peaks-replies', async (event, { headers, log, cognitoSub, profileId, db }) => {
   const peakId = event.pathParameters?.id;
@@ -50,7 +51,7 @@ export const handler = withAuthHandler('peaks-replies', async (event, { headers,
     if (httpMethod === 'GET') {
       // Get all peak replies
       // Cap limit to 50 to prevent excessive queries
-      const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20') || 20, 50);
+      const limit = parseLimit(event.queryStringParameters?.limit);
       const cursor = event.queryStringParameters?.cursor;
 
       let query = `

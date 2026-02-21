@@ -7,6 +7,8 @@ import { SqlParam } from '../../shared/db';
 import { withNotificationContext } from '../utils/create-notification-handler';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { blockExclusionSQL, muteExclusionSQL } from '../utils/block-filter';
+import { parseLimit, applyHasMore } from '../utils/pagination';
+import { parseCursor, cursorToSql, generateCursor } from '../utils/cursor';
 
 export const handler = withNotificationContext(
   {
@@ -18,7 +20,7 @@ export const handler = withNotificationContext(
   },
   async ({ profileId, db, headers, event }) => {
     // Pagination params
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
     const cursor = event.queryStringParameters?.cursor;
     const unreadOnly = event.queryStringParameters?.unread === 'true';
 
@@ -97,10 +99,12 @@ export const handler = withNotificationContext(
     }
 
     // Cursor pagination
-    if (cursor) {
-      query += ` AND n.created_at < $${paramIndex}`;
-      params.push(new Date(Number.parseInt(cursor)));
-      paramIndex++;
+    const parsedCursor = parseCursor(cursor, 'timestamp-ms');
+    if (parsedCursor) {
+      const cursorSql = cursorToSql(parsedCursor, 'n.created_at', paramIndex);
+      query += cursorSql.condition;
+      params.push(...cursorSql.params);
+      paramIndex += cursorSql.params.length;
     }
 
     query += ` ORDER BY n.created_at DESC LIMIT $${paramIndex}`;
@@ -108,9 +112,7 @@ export const handler = withNotificationContext(
 
     const result = await db.query(query, params);
 
-    // Check if there are more results (fetched limit+1 to detect hasMore)
-    const hasMore = result.rows.length > limit;
-    const notifications = result.rows.slice(0, limit);
+    const { data: notifications, hasMore } = applyHasMore(result.rows, limit);
 
     // Format response with enriched user data (spread to avoid mutating DB row)
     const formattedNotifications = notifications.map((n: Record<string, unknown>) => {
@@ -144,7 +146,7 @@ export const handler = withNotificationContext(
 
     // Generate next cursor
     const nextCursor = hasMore && notifications.length > 0
-      ? new Date(notifications.at(-1)!.created_at).getTime().toString()
+      ? generateCursor('timestamp-ms', notifications.at(-1)! as Record<string, unknown>)
       : null;
 
     return {

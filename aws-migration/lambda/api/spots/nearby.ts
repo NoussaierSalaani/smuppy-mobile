@@ -7,6 +7,7 @@ import { getPool } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
 import { EARTH_RADIUS_METERS, MAX_SEARCH_RADIUS_METERS, DEFAULT_SEARCH_RADIUS_METERS, RATE_WINDOW_1_MIN } from '../utils/constants';
 import { requireRateLimit } from '../utils/rate-limit';
+import { parseLimit } from '../utils/pagination';
 
 export const handler = withErrorHandler('spots-nearby', async (event, { headers }) => {
   const latParam = event.queryStringParameters?.lat;
@@ -45,7 +46,7 @@ export const handler = withErrorHandler('spots-nearby', async (event, { headers 
     Math.max(Number.parseInt(radiusParam || String(DEFAULT_SEARCH_RADIUS_METERS), 10) || DEFAULT_SEARCH_RADIUS_METERS, 100),
     MAX_SEARCH_RADIUS_METERS
   );
-  const limit = Math.min(Number.parseInt(limitParam || '20', 10) || 20, 50);
+  const limit = parseLimit(limitParam);
 
   // Rate limit: anti-scraping — geo queries are expensive
   const rateLimitId = event.requestContext.authorizer?.claims?.sub

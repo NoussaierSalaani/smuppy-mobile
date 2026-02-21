@@ -9,10 +9,9 @@ import { createHeaders } from '../utils/cors';
 import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { CACHE_TTL_TRENDING } from '../utils/constants';
+import { parseLimit } from '../utils/pagination';
 
 const log = createLogger('hashtags-trending');
-
-const MAX_LIMIT = 50;
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   log.initFromEvent(event);
@@ -36,7 +35,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const { limit = '20' } = event.queryStringParameters || {};
 
-    const parsedLimit = Math.min(Math.max(Number.parseInt(limit) || 20, 1), MAX_LIMIT);
+    const parsedLimit = parseLimit(limit);
 
     const pool = await getPool();
 

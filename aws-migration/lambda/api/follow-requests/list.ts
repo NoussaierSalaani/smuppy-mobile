@@ -5,6 +5,8 @@
 
 import { getPool, SqlParam } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
+import { parseLimit, applyHasMore } from '../utils/pagination';
+import { parseCursor, cursorToSql, generateCursor } from '../utils/cursor';
 
 export const handler = withErrorHandler('follow-requests-list', async (event, { headers }) => {
   const userId = event.requestContext.authorizer?.claims?.sub;
@@ -17,7 +19,7 @@ export const handler = withErrorHandler('follow-requests-list', async (event, { 
   }
 
   // Pagination params
-  const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
+  const limit = parseLimit(event.queryStringParameters?.limit);
   const cursor = event.queryStringParameters?.cursor;
 
   const db = await getPool();
@@ -61,10 +63,12 @@ export const handler = withErrorHandler('follow-requests-list', async (event, { 
   let paramIndex = 2;
 
   // Cursor pagination
-  if (cursor) {
-    query += ` AND fr.created_at < $${paramIndex}`;
-    params.push(new Date(Number.parseInt(cursor)));
-    paramIndex++;
+  const parsedCursor = parseCursor(cursor, 'timestamp-ms');
+  if (parsedCursor) {
+    const cursorSql = cursorToSql(parsedCursor, 'fr.created_at', paramIndex);
+    query += cursorSql.condition;
+    params.push(...cursorSql.params);
+    paramIndex += cursorSql.params.length;
   }
 
   query += ` ORDER BY fr.created_at DESC LIMIT $${paramIndex}`;
@@ -72,9 +76,7 @@ export const handler = withErrorHandler('follow-requests-list', async (event, { 
 
   const result = await db.query(query, params);
 
-  // Check if there are more results
-  const hasMore = result.rows.length > limit;
-  const requests = hasMore ? result.rows.slice(0, -1) : result.rows;
+  const { data: requests, hasMore } = applyHasMore(result.rows, limit);
 
   // Format response
   const formattedRequests = requests.map((request: Record<string, unknown>) => ({
@@ -94,7 +96,7 @@ export const handler = withErrorHandler('follow-requests-list', async (event, { 
 
   // Generate next cursor
   const nextCursor = hasMore && requests.length > 0
-    ? new Date(requests.at(-1)!.created_at).getTime().toString()
+    ? generateCursor('timestamp-ms', requests.at(-1)! as Record<string, unknown>)
     : null;
 
   // Extract total from window function (no separate COUNT query needed)

@@ -14,6 +14,7 @@ import { CACHE_TTL_SHORT, RATE_WINDOW_1_MIN } from '../utils/constants';
 import { resolveProfileId } from '../utils/auth';
 import { withErrorHandler } from '../utils/error-handler';
 import { blockExclusionSQL } from '../utils/block-filter';
+import { parseLimit } from '../utils/pagination';
 
 let redis: Redis | null = null;
 
@@ -37,7 +38,7 @@ async function getRedis(): Promise<Redis | null> {
 
 export const handler = withErrorHandler('feed-get', async (event, { headers, log }) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
     const cursor = event.queryStringParameters?.cursor;
 
     if (!cognitoSub) {

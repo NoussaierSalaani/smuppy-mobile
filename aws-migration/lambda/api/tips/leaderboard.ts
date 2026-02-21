@@ -6,6 +6,7 @@
 import { getPool } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
+import { parseLimit } from '../utils/pagination';
 
 export const handler = withErrorHandler('tips-leaderboard', async (event, { headers }) => {
   const pool = await getPool();
@@ -14,7 +15,7 @@ export const handler = withErrorHandler('tips-leaderboard', async (event, { head
   try {
     const creatorId = event.pathParameters?.creatorId;
     const period = event.queryStringParameters?.period || 'all_time'; // all_time, monthly, weekly
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '10'), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
 
     if (!creatorId) {
       return {

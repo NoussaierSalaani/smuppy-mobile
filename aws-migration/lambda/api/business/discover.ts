@@ -10,9 +10,8 @@ import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { resolveProfileId } from '../utils/auth';
 import { blockExclusionSQL } from '../utils/block-filter';
+import { parseLimit } from '../utils/pagination';
 
-const MAX_LIMIT = 50;
-const DEFAULT_LIMIT = 20;
 const DEFAULT_RADIUS_KM = 10;
 
 export const handler = withErrorHandler('business-discover', async (event, { headers }) => {
@@ -38,7 +37,7 @@ export const handler = withErrorHandler('business-discover', async (event, { hea
   const lat = q.lat ? Number.parseFloat(q.lat) : undefined;
   const lng = q.lng ? Number.parseFloat(q.lng) : undefined;
   const radius = q.radius ? Math.min(Number.parseFloat(q.radius), 100) : DEFAULT_RADIUS_KM;
-  const limit = Math.min(Number.parseInt(q.limit || String(DEFAULT_LIMIT)), MAX_LIMIT);
+  const limit = parseLimit(q.limit);
   const cursor = q.cursor || undefined;
 
   const db = await getPool();

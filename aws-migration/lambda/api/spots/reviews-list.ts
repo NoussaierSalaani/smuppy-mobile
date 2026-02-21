@@ -6,6 +6,8 @@
 import { getPool, SqlParam } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID } from '../utils/security';
+import { parseLimit, applyHasMore } from '../utils/pagination';
+import { parseCursor, cursorToSql, generateCursor } from '../utils/cursor';
 
 export const handler = withErrorHandler('spots-reviews-list', async (event, { headers }) => {
   const spotId = event.pathParameters?.id;
@@ -17,7 +19,7 @@ export const handler = withErrorHandler('spots-reviews-list', async (event, { he
     };
   }
 
-  const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10) || 20, 50);
+  const limit = parseLimit(event.queryStringParameters?.limit);
   const cursor = event.queryStringParameters?.cursor;
 
   const db = await getPool();
@@ -46,10 +48,12 @@ export const handler = withErrorHandler('spots-reviews-list', async (event, { he
   const params: SqlParam[] = [spotId];
   let paramIndex = 2;
 
-  if (cursor) {
-    query += ` AND sr.created_at < $${paramIndex}`;
-    params.push(new Date(Number.parseInt(cursor, 10)));
-    paramIndex++;
+  const parsedCursor = parseCursor(cursor, 'timestamp-ms');
+  if (parsedCursor) {
+    const cursorSql = cursorToSql(parsedCursor, 'sr.created_at', paramIndex);
+    query += cursorSql.condition;
+    params.push(...cursorSql.params);
+    paramIndex += cursorSql.params.length;
   }
 
   query += ` ORDER BY sr.created_at DESC LIMIT $${paramIndex}`;
@@ -57,8 +61,7 @@ export const handler = withErrorHandler('spots-reviews-list', async (event, { he
 
   const result = await db.query(query, params);
 
-  const hasMore = result.rows.length > limit;
-  const reviews = hasMore ? result.rows.slice(0, -1) : result.rows;
+  const { data: reviews, hasMore } = applyHasMore(result.rows, limit);
 
   const formattedReviews = reviews.map((r: Record<string, unknown>) => ({
     id: r.id,
@@ -80,7 +83,7 @@ export const handler = withErrorHandler('spots-reviews-list', async (event, { he
   }));
 
   const nextCursor = hasMore && reviews.length > 0
-    ? new Date(reviews.at(-1)!.created_at).getTime().toString()
+    ? generateCursor('timestamp-ms', reviews.at(-1)! as Record<string, unknown>)
     : null;
 
   return {

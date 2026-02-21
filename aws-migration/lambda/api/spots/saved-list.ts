@@ -6,6 +6,8 @@
 import { getPool, SqlParam } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
 import { resolveProfileId } from '../utils/auth';
+import { parseLimit, applyHasMore } from '../utils/pagination';
+import { parseCursor, cursorToSql, generateCursor } from '../utils/cursor';
 
 export const handler = withErrorHandler('spots-saved-list', async (event, { headers }) => {
   const userId = event.requestContext.authorizer?.claims?.sub;
@@ -17,7 +19,7 @@ export const handler = withErrorHandler('spots-saved-list', async (event, { head
     };
   }
 
-  const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10) || 20, 50);
+  const limit = parseLimit(event.queryStringParameters?.limit);
   const cursor = event.queryStringParameters?.cursor;
 
   const db = await getPool();
@@ -67,10 +69,12 @@ export const handler = withErrorHandler('spots-saved-list', async (event, { head
   const params: SqlParam[] = [profileId];
   let paramIndex = 2;
 
-  if (cursor) {
-    query += ` AND ss.created_at < $${paramIndex}`;
-    params.push(new Date(Number.parseInt(cursor, 10)));
-    paramIndex++;
+  const parsedCursor = parseCursor(cursor, 'timestamp-ms');
+  if (parsedCursor) {
+    const cursorSql = cursorToSql(parsedCursor, 'ss.created_at', paramIndex);
+    query += cursorSql.condition;
+    params.push(...cursorSql.params);
+    paramIndex += cursorSql.params.length;
   }
 
   query += ` ORDER BY ss.created_at DESC LIMIT $${paramIndex}`;
@@ -78,8 +82,7 @@ export const handler = withErrorHandler('spots-saved-list', async (event, { head
 
   const result = await db.query(query, params);
 
-  const hasMore = result.rows.length > limit;
-  const spots = hasMore ? result.rows.slice(0, -1) : result.rows;
+  const { data: spots, hasMore } = applyHasMore(result.rows, limit);
 
   const formattedSpots = spots.map((s: Record<string, unknown>) => ({
     id: s.id,
@@ -111,7 +114,7 @@ export const handler = withErrorHandler('spots-saved-list', async (event, { head
   }));
 
   const nextCursor = hasMore && spots.length > 0
-    ? new Date(spots.at(-1)!.saved_at).getTime().toString()
+    ? generateCursor('timestamp-ms', spots.at(-1)! as Record<string, unknown>, 'saved_at')
     : null;
 
   return {

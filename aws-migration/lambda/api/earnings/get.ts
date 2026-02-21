@@ -10,6 +10,7 @@ import { createLogger } from '../utils/logger';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { resolveProfileId } from '../utils/auth';
+import { parseLimit } from '../utils/pagination';
 
 const log = createLogger('earnings-get');
 
@@ -76,7 +77,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const creatorShare = getCreatorSharePercent(fanCount) / 100; // e.g. 0.60 – 0.80
 
     const period = event.queryStringParameters?.period || 'month'; // 'week', 'month', 'year', 'all'
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
 
     // Calculate date range
     let startDate: Date;

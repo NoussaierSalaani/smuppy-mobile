@@ -17,6 +17,7 @@ import { PLATFORM_FEE_PERCENT, APPLE_FEE_PERCENT, GOOGLE_FEE_PERCENT, MIN_PAYMEN
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { Pool } from 'pg';
 import type { Logger } from '../utils/logger';
+import { getOrCreateStripeCustomer } from '../utils/stripe-customer';
 
 // SECURITY: Whitelist of allowed currencies
 const ALLOWED_CURRENCIES = ['eur', 'usd'];
@@ -164,43 +165,7 @@ function calculatePaymentAmounts(verifiedAmount: number, source: PurchaseSource)
   return { grossAmount: verifiedAmount, netAmount, platformFee, creatorAmount, appStoreFee };
 }
 
-/**
- * Create or retrieve a Stripe Customer for the buyer.
- */
-async function resolveOrCreateStripeCustomer(
-  db: Pool,
-  buyer: { id: string; email: string; full_name: string },
-  log: Logger,
-): Promise<string> {
-  const customerResult = await db.query(
-    'SELECT stripe_customer_id FROM profiles WHERE id = $1',
-    [buyer.id]
-  );
 
-  if (customerResult.rows[0]?.stripe_customer_id) {
-    return customerResult.rows[0].stripe_customer_id;
-  }
-
-  // Create new Stripe customer (wrapped in safeStripeCall for timeout + circuit breaker)
-  const stripeForCustomer = await getStripeClient();
-  const customer = await safeStripeCall(
-    () => stripeForCustomer.customers.create({
-      email: buyer.email,
-      name: buyer.full_name,
-      metadata: { smuppy_user_id: buyer.id },
-    }),
-    'customers.create',
-    log
-  );
-
-  // Save customer ID to database
-  await db.query(
-    'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
-    [customer.id, buyer.id]
-  );
-
-  return customer.id;
-}
 
 /**
  * Build the response for in-app purchases (iOS/Android).
@@ -439,7 +404,7 @@ export const handler = withAuthHandler('payments-create-intent', async (event, {
   const creator = creatorResult.rows[0];
 
   // Create or retrieve Stripe Customer for the buyer
-  const customerId = await resolveOrCreateStripeCustomer(db, buyer, log);
+  const customerId = await getOrCreateStripeCustomer({ db, profileId: buyer.id, email: buyer.email, fullName: buyer.full_name, log });
 
   // Calculate amounts considering app store fees
   const amounts = calculatePaymentAmounts(verifiedAmount, data.source);

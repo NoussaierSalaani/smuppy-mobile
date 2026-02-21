@@ -8,6 +8,8 @@ import { validateUUIDParam, isErrorResponse } from '../utils/validators';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN } from '../utils/constants';
 import { blockExclusionSQL } from '../utils/block-filter';
+import { parseLimit, applyHasMore } from '../utils/pagination';
+import { parseCursor, cursorToSql, generateCursor } from '../utils/cursor';
 
 export const handler = withAuthHandler('posts-likers', async (event, { headers, cognitoSub, profileId, db }) => {
     // Rate limit: anti-scraping of social data
@@ -26,19 +28,8 @@ export const handler = withAuthHandler('posts-likers', async (event, { headers, 
 
     // Parse pagination params
     const { limit: limitStr, cursor } = event.queryStringParameters || {};
-    const limit = Math.min(Math.max(Number.parseInt(limitStr || '20', 10) || 20, 1), 50);
-
-    // Validate cursor if provided
-    if (cursor) {
-      const parsed = Number.parseInt(cursor, 10);
-      if (Number.isNaN(parsed) || parsed < 0) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'Invalid cursor parameter' }),
-        };
-      }
-    }
+    const limit = parseLimit(limitStr);
+    const parsedCursor = parseCursor(cursor, 'timestamp-ms');
 
     // Verify post exists and check privacy
     const postResult = await db.query(
@@ -83,18 +74,24 @@ export const handler = withAuthHandler('posts-likers', async (event, { headers, 
     }
 
     // Build query for likers with cursor-based pagination
-    const params: (string | number | Date)[] = [postId, limit + 1];
-    let cursorClause = '';
+    const params: (string | number | Date)[] = [postId];
+    let paramIndex = 2;
+    let cursorCondition = '';
 
-    if (cursor) {
-      cursorClause = 'AND l.created_at < $3';
-      params.push(new Date(Number.parseInt(cursor, 10)));
+    if (parsedCursor) {
+      const sql = cursorToSql(parsedCursor, 'l.created_at', paramIndex);
+      cursorCondition = sql.condition;
+      params.push(...sql.params);
+      paramIndex += sql.params.length;
     }
 
     // Block filtering using profileId from withAuthHandler
     params.push(profileId);
-    const blockParamIdx = params.length;
+    const blockParamIdx = paramIndex;
+    paramIndex++;
     const blockClause = blockExclusionSQL(blockParamIdx, 'p.id');
+
+    params.push(limit + 1);
 
     const likersResult = await db.query(
       `SELECT
@@ -108,17 +105,16 @@ export const handler = withAuthHandler('posts-likers', async (event, { headers, 
         l.created_at as liked_at
       FROM likes l
       INNER JOIN profiles p ON p.id = l.user_id
-      WHERE l.post_id = $1 ${cursorClause} ${blockClause}
+      WHERE l.post_id = $1${cursorCondition} ${blockClause}
       ORDER BY l.created_at DESC
-      LIMIT $2`,
+      LIMIT $${paramIndex}`,
       params
     );
 
-    const hasMore = likersResult.rows.length > limit;
-    const likers = hasMore ? likersResult.rows.slice(0, limit) : likersResult.rows;
+    const { data: likers, hasMore } = applyHasMore(likersResult.rows, limit);
 
     const nextCursor = hasMore
-      ? new Date(likers.at(-1)!.liked_at).getTime().toString()
+      ? generateCursor('timestamp-ms', likers.at(-1)! as Record<string, unknown>, 'liked_at')
       : null;
 
     // Map to camelCase response

@@ -11,6 +11,7 @@ import { createLogger } from '../utils/logger';
 import { createHeaders } from '../utils/cors';
 import { resolveProfileId } from '../utils/auth';
 import { PLATFORM_NAME } from '../utils/constants';
+import { getOrCreateStripeCustomer } from '../utils/stripe-customer';
 
 const log = createLogger('payments-platform-subscription');
 
@@ -120,20 +121,7 @@ async function createPlatformSubscription(
       };
     }
 
-    // Create or get Stripe customer
-    let customerId = stripe_customer_id;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email,
-        name: full_name,
-        metadata: { userId, platform: PLATFORM_NAME },
-      });
-      customerId = customer.id;
-      await client.query(
-        'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
-        [customerId, userId]
-      );
-    }
+    const customerId = await getOrCreateStripeCustomer({ db: client, stripe, profileId: userId, email, fullName: full_name, log, existingCustomerId: stripe_customer_id });
 
     // Get or create the price for this plan
     const priceId = await getOrCreatePlatformPrice(planType);

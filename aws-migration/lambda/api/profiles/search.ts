@@ -9,6 +9,7 @@ import { extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
 import { withErrorHandler } from '../utils/error-handler';
 import { blockExclusionSQL } from '../utils/block-filter';
+import { parseLimit } from '../utils/pagination';
 
 // Rate limit: 60 requests per minute per IP (generous for search)
 const RATE_LIMIT = 60;
@@ -34,7 +35,7 @@ export const handler = withErrorHandler('profiles-search', async (event, { heade
       };
     }
     const rawQuery = event.queryStringParameters?.search || event.queryStringParameters?.q || '';
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
 
     // Cursor-based pagination (offset-encoded)
     const cursorParam = event.queryStringParameters?.cursor;

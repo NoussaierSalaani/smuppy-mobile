@@ -8,6 +8,7 @@ import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 import { blockExclusionSQL } from '../utils/block-filter';
+import { parseLimit } from '../utils/pagination';
 
 export const handler = withErrorHandler('events-list', async (event, { headers }) => {
   // Rate limit: 30 requests per minute per IP (unauthenticated) or user
@@ -36,7 +37,7 @@ export const handler = withErrorHandler('events-list', async (event, { headers }
     } = event.queryStringParameters || {};
 
     // NaN guard: parseInt can return NaN for non-numeric strings
-    const limitNum = Math.min(Number.parseInt(limit) || 20, 50);
+    const limitNum = parseLimit(limit);
 
     // Resolve profile ID for authenticated user
     let profileId: string | null = null;

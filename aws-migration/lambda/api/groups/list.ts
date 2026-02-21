@@ -8,6 +8,7 @@ import { withErrorHandler } from '../utils/error-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 import { blockExclusionSQL } from '../utils/block-filter';
+import { parseLimit } from '../utils/pagination';
 
 export const handler = withErrorHandler('groups-list', async (event, { headers }) => {
   // Rate limit: 30 requests per minute per IP (unauthenticated) or user
@@ -31,7 +32,7 @@ export const handler = withErrorHandler('groups-list', async (event, { headers }
       cursor,
     } = event.queryStringParameters || {};
 
-    const limitNum = Math.min(Number.parseInt(limit) || 20, 50);
+    const limitNum = parseLimit(limit);
 
     // Resolve profile if authenticated
     let profileId: string | null = null;

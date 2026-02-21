@@ -5,13 +5,14 @@
 
 import { SqlParam } from '../../shared/db';
 import { withAuthHandler } from '../utils/with-auth-handler';
+import { parseLimit } from '../utils/pagination';
 
 export const handler = withAuthHandler('tips-history', async (event, { headers, profileId, db }) => {
   const client = await db.connect();
 
   try {
     const type = event.queryStringParameters?.type || 'received'; // 'sent' or 'received'
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
+    const limit = parseLimit(event.queryStringParameters?.limit);
     const cursor = event.queryStringParameters?.cursor;
     const contextType = event.queryStringParameters?.contextType;
 

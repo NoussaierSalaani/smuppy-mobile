@@ -12,6 +12,7 @@ import { resolveProfileId } from '../utils/auth';
 import { createLogger } from '../utils/logger';
 import Stripe from 'stripe';
 import { getStripeClient } from '../../shared/stripe-client';
+import { getOrCreateStripeCustomer } from '../utils/stripe-customer';
 
 const log = createLogger('packs-purchase');
 
@@ -87,25 +88,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get user's Stripe customer ID
     const userResult = await pool.query(
-      `SELECT stripe_customer_id, email FROM profiles WHERE id = $1`,
+      `SELECT stripe_customer_id, email, full_name FROM profiles WHERE id = $1`,
       [profileId]
     );
 
-    let customerId = userResult.rows[0]?.stripe_customer_id;
-
-    // Create customer if doesn't exist
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: userResult.rows[0]?.email,
-        metadata: { userId: profileId },
-      });
-      customerId = customer.id;
-
-      await pool.query(
-        `UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2`,
-        [customerId, profileId]
-      );
-    }
+    const customerId = await getOrCreateStripeCustomer({ db: pool, stripe, profileId, email: userResult.rows[0]?.email, fullName: userResult.rows[0]?.full_name, log, existingCustomerId: userResult.rows[0]?.stripe_customer_id });
 
     // Calculate amounts (80% to creator, 20% platform fee)
     const totalAmount = Math.round(Number.parseFloat(pack.price) * 100); // cents

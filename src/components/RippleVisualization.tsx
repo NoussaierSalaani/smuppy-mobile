@@ -106,7 +106,7 @@ const RippleVisualization: React.FC<RippleVisualizationProps> = ({ size, childre
       >
         {ringAnims.map((anim, i) => (
           <Animated.View
-            key={`ring-${i}`}
+            key={`ring-${i}`} // NOSONAR — static animation ring array
             style={[
               styles.ring,
               {

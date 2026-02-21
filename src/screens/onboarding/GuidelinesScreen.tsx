@@ -126,7 +126,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
             profileCreated = true;
           }
         } catch {
-          // Profile truly not created
+          // Expected: profile verification may fail if API is unreachable — treat as not created
         }
       }
 
@@ -174,7 +174,7 @@ export default function GuidelinesScreen({ navigation, route }: GuidelinesScreen
             setZustandUser({ ...userData, avatar: url });
           }
         } catch {
-          // Don't block for image upload failure
+          // Expected: profile image upload is optional — user can add later from profile settings
         }
       }
 

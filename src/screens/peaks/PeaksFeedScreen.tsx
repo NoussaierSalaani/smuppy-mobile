@@ -201,7 +201,7 @@ const PeaksFeedScreen = (): React.JSX.Element => {
   const handleStoryPress = useCallback((group: { user: PeakUser; peaks: Peak[] }): void => {
     // Navigate to first peak of this author in the grouped list
     const index = groupedPeaks.findIndex(p => p.user.id === group.user.id);
-    const safeIndex = index >= 0 ? index : 0;
+    const safeIndex = Math.max(index, 0);
     navigation.navigate('PeakView', {
       peaks: groupedPeaks,
       initialIndex: safeIndex,

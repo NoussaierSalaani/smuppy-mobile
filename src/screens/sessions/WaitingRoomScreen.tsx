@@ -211,14 +211,14 @@ export default function WaitingRoomScreen(): React.JSX.Element {
 
         {/* Animated dots */}
         <View style={styles.dotsContainer}>
-          {[0, 1, 2].map((index) => (
+          {[0, 1, 2].map((dotIndex) => (
             <Animated.View
-              key={index}
+              key={`dot-${dotIndex}`} // NOSONAR — static 3-dot animation
               style={[
                 styles.dot,
                 {
                   opacity: dotAnim.interpolate({
-                    inputRange: [index, index + 0.5, index + 1, 3],
+                    inputRange: [dotIndex, dotIndex + 0.5, dotIndex + 1, 3],
                     outputRange: [0.3, 1, 0.3, 0.3],
                     extrapolate: 'clamp',
                   }),

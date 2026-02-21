@@ -181,7 +181,7 @@ export default function ResetCodeScreen({ navigation, route }: ResetCodeScreenPr
             <Animated.View style={[styles.codeRow, { transform: [{ translateX: shakeAnim }] }]}>
               {Array.from({ length: CODE_LENGTH }, (_, i) => (
                 <TextInput
-                  key={i}
+                  key={`code-box-${i}`} // NOSONAR — static array of CODE_LENGTH input boxes
                   ref={(ref) => { inputs.current[i] = ref; }}
                   style={getBoxStyle(i)}
                   maxLength={1}

@@ -112,7 +112,7 @@ export async function calculateRoute(
     try {
       const { captureMessage } = require('../lib/sentry');
       captureMessage('Mapbox access token not configured', 'error');
-    } catch { /* Sentry not available */ }
+    } catch { /* Expected: Sentry may not be available in all environments */ }
     throw new Error('Mapbox access token not configured');
   }
 
@@ -136,7 +136,7 @@ export async function calculateRoute(
     try {
       const { captureException } = require('../lib/sentry');
       captureException(error);
-    } catch { /* Sentry not available */ }
+    } catch { /* Expected: Sentry may not be available in all environments */ }
     throw new Error('Route calculation failed — check your connection');
   }
   clearTimeout(timeout);

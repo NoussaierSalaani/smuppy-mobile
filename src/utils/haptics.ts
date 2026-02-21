@@ -35,7 +35,7 @@ export const triggerHaptic = async (type: HapticType = 'light'): Promise<void> =
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   } catch {
-    // Silently fail if haptics not available
+    // Expected: haptics unavailable on simulator or unsupported devices
   }
 };
 

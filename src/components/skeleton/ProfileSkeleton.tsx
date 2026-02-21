@@ -61,7 +61,7 @@ const ProfileSkeleton = () => {
       <View style={styles.grid}>
         {Array.from({ length: 6 }).map((_, i) => (
           <SkeletonBase
-            key={i}
+            key={`profile-grid-skeleton-${i}`} // NOSONAR — static skeleton array
             width={GRID_ITEM_SIZE}
             height={GRID_ITEM_SIZE}
             borderRadius={0}

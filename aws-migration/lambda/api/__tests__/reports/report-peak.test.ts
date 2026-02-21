@@ -67,7 +67,9 @@ const VALID_REPORT_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
 const VALID_AUTHOR_ID = 'd4e5f6a7-b8c9-0123-defa-234567890123';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
-  const sub = overrides.sub === null ? null : (overrides.sub ?? TEST_SUB);
+  let sub: string | null = TEST_SUB;
+  if (overrides.sub === null) sub = null;
+  else if (overrides.sub !== undefined) sub = overrides.sub as string;
   const body = overrides.body === undefined
     ? { peakId: VALID_PEAK_ID, reason: 'spam', details: 'Spam peak' }
     : overrides.body;

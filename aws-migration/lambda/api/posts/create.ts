@@ -3,8 +3,10 @@
  * Creates a new post with media support
  */
 
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { v4 as uuidv4 } from 'uuid';
+import type { Pool, PoolClient } from 'pg';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { isValidUUID } from '../utils/security';
@@ -13,6 +15,7 @@ import { requireActiveAccount, isAccountError } from '../utils/account-status';
 import { checkQuota, deductQuota, getQuotaLimits, isPremiumAccount } from '../utils/upload-quota';
 import { moderateText } from '../utils/text-moderation';
 import { SYSTEM_MODERATOR_ID } from '../../shared/moderation/constants';
+import type { Logger } from '../utils/logger';
 
 const lambdaClient = new LambdaClient({});
 const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
@@ -21,6 +24,14 @@ const MAX_MEDIA_URLS = 10;
 const MAX_TAGGED_USERS = 20;
 const ALLOWED_VISIBILITIES = new Set(['public', 'fans', 'private', 'subscribers']);
 const ALLOWED_MEDIA_TYPES = new Set(['image', 'video', 'multiple']);
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g; // NOSONAR — intentional control char sanitization
+
+// SECURITY: Only allow media from our own S3/CDN domains
+const ALLOWED_MEDIA_DOMAINS = [
+  '.s3.amazonaws.com',
+  '.s3.us-east-1.amazonaws.com',
+  '.cloudfront.net',
+];
 
 interface CreatePostInput {
   content?: string;
@@ -31,6 +42,300 @@ interface CreatePostInput {
   taggedUsers?: string[];
   videoDuration?: number;
 }
+
+interface ModerationFlags {
+  contentFlagged: boolean;
+  flagCategory: string | null;
+  flagScore: number | null;
+}
+
+type Headers = Record<string, string>;
+
+// ── Helper: error response builder ───────────────────────────────────
+
+function errorResponse(statusCode: number, headers: Headers, message: string, extra?: Record<string, unknown>): APIGatewayProxyResult {
+  return {
+    statusCode,
+    headers,
+    body: JSON.stringify({ success: false, message, ...extra }),
+  };
+}
+
+// ── Step 1: Parse + validate input fields ────────────────────────────
+
+function validatePostInput(body: CreatePostInput, hasMedia: boolean, headers: Headers): APIGatewayProxyResult | null {
+  if (body.visibility && !ALLOWED_VISIBILITIES.has(body.visibility)) {
+    return errorResponse(400, headers, 'Invalid visibility value');
+  }
+
+  if (body.mediaType && !ALLOWED_MEDIA_TYPES.has(body.mediaType)) {
+    return errorResponse(400, headers, 'Invalid media type');
+  }
+
+  if (!hasMedia) return null;
+
+  return validateMediaUrls(body.mediaUrls!, headers);
+}
+
+// ── Step 2: Validate media URL array ─────────────────────────────────
+
+function validateMediaUrls(mediaUrls: string[], headers: Headers): APIGatewayProxyResult | null {
+  if (mediaUrls.length > MAX_MEDIA_URLS) {
+    return errorResponse(400, headers, `Maximum ${MAX_MEDIA_URLS} media files allowed`);
+  }
+
+  const hasInvalidUrl = mediaUrls.some(
+    (url) => typeof url !== 'string' || url.length === 0 || url.length > MAX_MEDIA_URL_LENGTH
+  );
+  if (hasInvalidUrl) {
+    return errorResponse(400, headers, 'Invalid media URL');
+  }
+
+  const hasUntrustedUrl = mediaUrls.some((url) => {
+    try {
+      const parsed = new URL(url);
+      return !ALLOWED_MEDIA_DOMAINS.some(domain => parsed.hostname.endsWith(domain));
+    } catch {
+      return true;
+    }
+  });
+  if (hasUntrustedUrl) {
+    return errorResponse(400, headers, 'Media URLs must point to our CDN');
+  }
+
+  return null;
+}
+
+// ── Step 3: Sanitize text fields ─────────────────────────────────────
+
+function sanitizeContent(raw: string | undefined): string {
+  return (raw || '')
+    .replaceAll(/<[^>]*>/g, '') // NOSONAR
+    .replaceAll(CONTROL_CHARS, '')
+    .trim()
+    .slice(0, MAX_POST_CONTENT_LENGTH);
+}
+
+function sanitizeLocation(raw: string | undefined): string | null {
+  if (!raw) return null;
+  return raw.replaceAll(/<[^>]*>/g, '').replaceAll(CONTROL_CHARS, '').trim().slice(0, 200); // NOSONAR
+}
+
+// ── Step 4: Quota enforcement (non-premium accounts only) ────────────
+
+async function enforceQuota(
+  body: CreatePostInput,
+  userId: string,
+  accountType: string,
+  headers: Headers,
+): Promise<APIGatewayProxyResult | null> {
+  if (isPremiumAccount(accountType)) return null;
+
+  const limits = getQuotaLimits(accountType);
+  const isVideoPost = body.mediaType === 'video';
+  const mediaCount = Array.isArray(body.mediaUrls) ? body.mediaUrls.length : 0;
+
+  if (isVideoPost) {
+    return enforceVideoQuota(body, userId, accountType, limits.maxVideoSeconds, headers);
+  }
+
+  if (mediaCount > 0 && (body.mediaType === 'image' || body.mediaType === 'multiple')) {
+    return enforcePhotoQuota(userId, accountType, mediaCount, headers);
+  }
+
+  return null;
+}
+
+async function enforceVideoQuota(
+  body: CreatePostInput,
+  userId: string,
+  accountType: string,
+  maxVideoSeconds: number,
+  headers: Headers,
+): Promise<APIGatewayProxyResult | null> {
+  const videoDuration = typeof body.videoDuration === 'number' ? Math.ceil(body.videoDuration) : 0;
+
+  if (videoDuration > maxVideoSeconds) {
+    return errorResponse(400, headers, `Video must be ${maxVideoSeconds} seconds or less`);
+  }
+
+  if (videoDuration <= 0) return null;
+
+  const videoQuota = await checkQuota(userId, accountType, 'video', videoDuration);
+  if (!videoQuota.allowed) {
+    return errorResponse(429, headers, 'Daily video upload limit reached. Upgrade to Pro for unlimited uploads.', {
+      quotaType: 'video_seconds',
+      remaining: videoQuota.remaining,
+      limit: videoQuota.limit,
+    });
+  }
+
+  return null;
+}
+
+async function enforcePhotoQuota(
+  userId: string,
+  accountType: string,
+  mediaCount: number,
+  headers: Headers,
+): Promise<APIGatewayProxyResult | null> {
+  const photoQuota = await checkQuota(userId, accountType, 'photo', mediaCount);
+  if (!photoQuota.allowed) {
+    return errorResponse(429, headers, 'Daily photo upload limit reached. Upgrade to Pro for unlimited uploads.', {
+      quotaType: 'photo_count',
+      remaining: photoQuota.remaining,
+      limit: photoQuota.limit,
+    });
+  }
+  return null;
+}
+
+// ── Step 5: Visibility permission checks ─────────────────────────────
+
+function checkVisibilityPermissions(
+  visibility: string | undefined,
+  accountType: string,
+  headers: Headers,
+): APIGatewayProxyResult | null {
+  if (visibility === 'subscribers' && accountType !== 'pro_creator') {
+    return errorResponse(403, headers, 'Subscribers visibility requires a creator account');
+  }
+  if (accountType === 'pro_business' && visibility && visibility !== 'public') {
+    return errorResponse(403, headers, 'Business accounts can only create public posts');
+  }
+  return null;
+}
+
+// ── Step 6: Process tagged users inside transaction ──────────────────
+
+async function processTaggedUsers(
+  client: PoolClient,
+  validTaggedIds: string[],
+  postId: string,
+  userId: string,
+): Promise<Set<string>> {
+  if (validTaggedIds.length === 0) return new Set<string>();
+
+  const placeholders = validTaggedIds.map((_: string, i: number) => `$${i + 1}`).join(', ');
+  const existsResult = await client.query(
+    `SELECT id FROM profiles WHERE id IN (${placeholders})`,
+    validTaggedIds
+  );
+  const existingTaggedIds = new Set(existsResult.rows.map((r: { id: string }) => r.id));
+  const tagsToInsert = validTaggedIds.filter((tid) => existingTaggedIds.has(tid));
+
+  if (tagsToInsert.length === 0) return existingTaggedIds;
+
+  // Batch insert post_tags: $1 = postId, $2 = userId, $3..N = tagged user IDs
+  const tagValues = tagsToInsert.map((_, i) => `($1, $${i + 3}, $2, NOW())`).join(', ');
+  await client.query(
+    `INSERT INTO post_tags (post_id, tagged_user_id, tagged_by_user_id, created_at)
+     VALUES ${tagValues}
+     ON CONFLICT (post_id, tagged_user_id) DO NOTHING`,
+    [postId, userId, ...tagsToInsert]
+  );
+
+  // Batch insert notifications: $1 = body text, $2 = data JSON, $3..N = user IDs
+  const notifData = JSON.stringify({ senderId: userId, postId });
+  const notifValues = tagsToInsert.map((_, i) => `($${i + 3}, 'post_tag', 'You were tagged', $1, $2, NOW())`).join(', ');
+  await client.query(
+    `INSERT INTO notifications (user_id, type, title, body, data, created_at)
+     VALUES ${notifValues}`,
+    ['tagged you in a post', notifData, ...tagsToInsert]
+  );
+
+  return existingTaggedIds;
+}
+
+// ── Step 7: Post-transaction side effects (all non-blocking) ─────────
+
+async function deductQuotaAfterInsert(
+  body: CreatePostInput,
+  userId: string,
+  accountType: string,
+  hasMedia: boolean,
+  log: Logger,
+): Promise<void> {
+  if (isPremiumAccount(accountType)) return;
+
+  try {
+    if (body.mediaType === 'video' && typeof body.videoDuration === 'number' && body.videoDuration > 0) {
+      await deductQuota(userId, 'video', Math.ceil(body.videoDuration));
+    } else if (hasMedia && (body.mediaType === 'image' || body.mediaType === 'multiple')) {
+      await deductQuota(userId, 'photo', body.mediaUrls!.length);
+    }
+  } catch (quotaErr) {
+    log.error('Failed to deduct quota (non-blocking)', quotaErr);
+  }
+}
+
+async function logFlaggedContent(
+  db: Pool,
+  userId: string,
+  postId: string,
+  flags: ModerationFlags,
+  log: Logger,
+): Promise<void> {
+  if (!flags.contentFlagged) return;
+
+  try {
+    await db.query(
+      `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, target_post_id, reason)
+       VALUES ($1, 'flag_content', $2, $3, $4)`,
+      [SYSTEM_MODERATOR_ID, userId, postId, `Comprehend toxicity: ${flags.flagCategory} score=${flags.flagScore} (under_review)`],
+    );
+  } catch (flagErr) {
+    log.error('Failed to log flagged content (non-blocking)', flagErr);
+  }
+}
+
+async function triggerVideoProcessing(
+  postId: string,
+  mediaUrls: string[],
+  log: Logger,
+): Promise<void> {
+  if (!START_VIDEO_PROCESSING_FN || mediaUrls.length === 0) return;
+
+  try {
+    const parsed = new URL(mediaUrls[0]);
+    const sourceKey = parsed.pathname.replace(/^\//, '');
+    await lambdaClient.send(new InvokeCommand({
+      FunctionName: START_VIDEO_PROCESSING_FN,
+      InvocationType: 'Event', // async — fire and forget
+      Payload: Buffer.from(JSON.stringify({
+        body: JSON.stringify({ entityType: 'post', entityId: postId, sourceKey }),
+      })),
+    }));
+    log.info('Video processing triggered', { postId: postId.substring(0, 8) + '...' });
+  } catch (vpErr) {
+    log.error('Failed to trigger video processing (non-blocking)', vpErr);
+  }
+}
+
+// ── Step 8: Build response ───────────────────────────────────────────
+
+async function fetchAuthor(db: Pool, userId: string): Promise<Record<string, unknown> | null> {
+  const authorResult = await db.query(
+    `SELECT id, username, full_name, avatar_url, is_verified, account_type, business_name
+     FROM profiles WHERE id = $1`,
+    [userId]
+  );
+
+  const row = authorResult.rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    username: row.username,
+    fullName: row.full_name,
+    avatarUrl: row.avatar_url,
+    isVerified: row.is_verified,
+    accountType: row.account_type,
+    businessName: row.business_name,
+  };
+}
+
+// ── Main handler ─────────────────────────────────────────────────────
 
 export const handler = withAuthHandler('posts-create', async (event, { headers, log, cognitoSub, db }) => {
     const rateLimitResponse = await requireRateLimit({
@@ -45,105 +350,30 @@ export const handler = withAuthHandler('posts-create', async (event, { headers, 
     try {
       body = JSON.parse(event.body || '{}');
     } catch {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Invalid request body' }),
-      };
+      return errorResponse(400, headers, 'Invalid request body');
     }
 
     const hasContent = typeof body.content === 'string' && body.content.trim().length > 0;
     const hasMedia = Array.isArray(body.mediaUrls) && body.mediaUrls.length > 0;
     if (!hasContent && !hasMedia) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Content or media is required' }),
-      };
+      return errorResponse(400, headers, 'Content or media is required');
     }
 
-    if (body.visibility && !ALLOWED_VISIBILITIES.has(body.visibility)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Invalid visibility value' }),
-      };
-    }
+    const inputError = validatePostInput(body, hasMedia, headers);
+    if (inputError) return inputError;
 
-    if (body.mediaType && !ALLOWED_MEDIA_TYPES.has(body.mediaType)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Invalid media type' }),
-      };
-    }
-
-    if (hasMedia) {
-      if (body.mediaUrls!.length > MAX_MEDIA_URLS) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: `Maximum ${MAX_MEDIA_URLS} media files allowed` }),
-        };
-      }
-      const hasInvalidUrl = body.mediaUrls!.some(
-        (url) => typeof url !== 'string' || url.length === 0 || url.length > MAX_MEDIA_URL_LENGTH
-      );
-      if (hasInvalidUrl) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Invalid media URL' }),
-        };
-      }
-
-      // SECURITY: Validate media URLs point to our S3/CDN domains
-      const ALLOWED_MEDIA_DOMAINS = [
-        '.s3.amazonaws.com',
-        '.s3.us-east-1.amazonaws.com',
-        '.cloudfront.net',
-      ];
-      const hasUntrustedUrl = body.mediaUrls!.some(
-        (url) => {
-          try {
-            const parsed = new URL(url);
-            return !ALLOWED_MEDIA_DOMAINS.some(domain => parsed.hostname.endsWith(domain));
-          } catch {
-            return true;
-          }
-        }
-      );
-      if (hasUntrustedUrl) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Media URLs must point to our CDN' }),
-        };
-      }
-    }
-
-    const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g; // NOSONAR — intentional control char sanitization
-    const sanitizedContent = (body.content || '')
-      .replaceAll(/<[^>]*>/g, '') // NOSONAR
-      .replaceAll(CONTROL_CHARS, '')
-      .trim()
-      .slice(0, MAX_POST_CONTENT_LENGTH);
-
-    const sanitizedLocation = body.location
-      ? body.location.replaceAll(/<[^>]*>/g, '').replaceAll(CONTROL_CHARS, '').trim().slice(0, 200) // NOSONAR
-      : null;
+    const sanitizedContent = sanitizeContent(body.content);
+    const sanitizedLocation = sanitizeLocation(body.location);
 
     // Backend content moderation check (keyword filter + Comprehend toxicity)
-    let contentFlagged = false;
-    let flagCategory: string | null = null;
-    let flagScore: number | null = null;
+    const flags: ModerationFlags = { contentFlagged: false, flagCategory: null, flagScore: null };
 
     if (sanitizedContent) {
       const modResult = await moderateText(sanitizedContent, headers, log, 'post');
       if (modResult.blocked) return modResult.blockResponse!;
-      contentFlagged = modResult.contentFlagged;
-      flagCategory = modResult.flagCategory;
-      flagScore = modResult.flagScore;
+      flags.contentFlagged = modResult.contentFlagged;
+      flags.flagCategory = modResult.flagCategory;
+      flags.flagScore = modResult.flagScore;
     }
 
     // Check account moderation status
@@ -161,100 +391,34 @@ export const handler = withAuthHandler('posts-create', async (event, { headers, 
         [userId, sanitizedContent]
       );
       if (dupCheck.rows.length > 0) {
-        return {
-          statusCode: 409,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Duplicate content detected. This post was already published.' }),
-        };
+        return errorResponse(409, headers, 'Duplicate content detected. This post was already published.');
       }
     }
 
-    // Get account_type for visibility check
+    // Get account_type for visibility + quota checks
     const userResult = await db.query(
       'SELECT account_type FROM profiles WHERE id = $1',
       [userId]
     );
     const accountType = userResult.rows[0]?.account_type || 'personal';
 
-    // Quota enforcement for non-premium accounts
-    if (!isPremiumAccount(accountType)) {
-      const limits = getQuotaLimits(accountType);
-      const isVideoPost = body.mediaType === 'video';
-      const mediaCount = Array.isArray(body.mediaUrls) ? body.mediaUrls.length : 0;
+    const quotaError = await enforceQuota(body, userId, accountType, headers);
+    if (quotaError) return quotaError;
 
-      if (isVideoPost) {
-        const videoDuration = typeof body.videoDuration === 'number' ? Math.ceil(body.videoDuration) : 0;
-        if (videoDuration > limits.maxVideoSeconds) {
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ success: false, message: `Video must be ${limits.maxVideoSeconds} seconds or less` }),
-          };
-        }
-        if (videoDuration > 0) {
-          const videoQuota = await checkQuota(userId, accountType, 'video', videoDuration);
-          if (!videoQuota.allowed) {
-            return {
-              statusCode: 429,
-              headers,
-              body: JSON.stringify({
-                success: false,
-                message: 'Daily video upload limit reached. Upgrade to Pro for unlimited uploads.',
-                quotaType: 'video_seconds',
-                remaining: videoQuota.remaining,
-                limit: videoQuota.limit,
-              }),
-            };
-          }
-        }
-      } else if (mediaCount > 0 && (body.mediaType === 'image' || body.mediaType === 'multiple')) {
-        const photoQuota = await checkQuota(userId, accountType, 'photo', mediaCount);
-        if (!photoQuota.allowed) {
-          return {
-            statusCode: 429,
-            headers,
-            body: JSON.stringify({
-              success: false,
-              message: 'Daily photo upload limit reached. Upgrade to Pro for unlimited uploads.',
-              quotaType: 'photo_count',
-              remaining: photoQuota.remaining,
-              limit: photoQuota.limit,
-            }),
-          };
-        }
-      }
-    }
-
-    // Only pro_creator accounts can use 'subscribers' visibility
-    if (body.visibility === 'subscribers' && accountType !== 'pro_creator') {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Subscribers visibility requires a creator account' }),
-      };
-    }
-
-    // Business accounts can only post publicly (per ACCOUNT_TYPES.md)
-    if (accountType === 'pro_business' && body.visibility && body.visibility !== 'public') {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Business accounts can only create public posts' }),
-      };
-    }
+    const visibilityError = checkVisibilityPermissions(body.visibility, accountType, headers);
+    if (visibilityError) return visibilityError;
 
     const postId = uuidv4();
+    const isVideoPost = body.mediaType === 'video';
 
     const validTaggedIds = (Array.isArray(body.taggedUsers) ? body.taggedUsers : [])
       .filter((tid): tid is string => typeof tid === 'string' && isValidUUID(tid) && tid !== userId)
       .slice(0, MAX_TAGGED_USERS);
 
-    // Set video_status for video posts so the pipeline can track them
-    const isVideoPost = body.mediaType === 'video';
-
+    // ── Transaction: insert post + tags + notifications ──────────────
     const client = await db.connect();
     let post: Record<string, unknown>;
-    let existingTaggedIds = new Set<string>();
+    let existingTaggedIds: Set<string>;
 
     try {
       await client.query('BEGIN');
@@ -271,45 +435,15 @@ export const handler = withAuthHandler('posts-create', async (event, { headers, 
           body.mediaType || null,
           body.visibility || 'public',
           sanitizedLocation,
-          contentFlagged ? 'flagged' : 'clean',
-          flagScore,
-          flagCategory,
+          flags.contentFlagged ? 'flagged' : 'clean',
+          flags.flagScore,
+          flags.flagCategory,
           isVideoPost ? 'uploaded' : null,
         ]
       );
 
       post = result.rows[0];
-
-      if (validTaggedIds.length > 0) {
-        const placeholders = validTaggedIds.map((_: string, i: number) => `$${i + 1}`).join(', ');
-        const existsResult = await client.query(
-          `SELECT id FROM profiles WHERE id IN (${placeholders})`,
-          validTaggedIds
-        );
-        existingTaggedIds = new Set(existsResult.rows.map((r: { id: string }) => r.id));
-
-        const tagsToInsert = validTaggedIds.filter((tid) => existingTaggedIds.has(tid));
-
-        if (tagsToInsert.length > 0) {
-          // Batch insert post_tags: $1 = postId, $2 = userId, $3..N = tagged user IDs
-          const tagValues = tagsToInsert.map((_, i) => `($1, $${i + 3}, $2, NOW())`).join(', ');
-          await client.query(
-            `INSERT INTO post_tags (post_id, tagged_user_id, tagged_by_user_id, created_at)
-             VALUES ${tagValues}
-             ON CONFLICT (post_id, tagged_user_id) DO NOTHING`,
-            [postId, userId, ...tagsToInsert]
-          );
-
-          // Batch insert notifications: $1 = body text, $2 = data JSON, $3..N = user IDs
-          const notifData = JSON.stringify({ senderId: userId, postId });
-          const notifValues = tagsToInsert.map((_, i) => `($${i + 3}, 'post_tag', 'You were tagged', $1, $2, NOW())`).join(', ');
-          await client.query(
-            `INSERT INTO notifications (user_id, type, title, body, data, created_at)
-             VALUES ${notifValues}`,
-            ['tagged you in a post', notifData, ...tagsToInsert]
-          );
-        }
-      }
+      existingTaggedIds = await processTaggedUsers(client, validTaggedIds, postId, userId);
 
       await client.query('COMMIT');
     } catch (txErr) {
@@ -319,72 +453,16 @@ export const handler = withAuthHandler('posts-create', async (event, { headers, 
       client.release();
     }
 
-    // Deduct quota after successful insert (non-blocking, personal accounts only)
-    if (!isPremiumAccount(accountType)) {
-      try {
-        const isVideoPost = body.mediaType === 'video';
-        if (isVideoPost && typeof body.videoDuration === 'number' && body.videoDuration > 0) {
-          await deductQuota(userId, 'video', Math.ceil(body.videoDuration));
-        } else if (hasMedia && (body.mediaType === 'image' || body.mediaType === 'multiple')) {
-          await deductQuota(userId, 'photo', body.mediaUrls!.length);
-        }
-      } catch (quotaErr) {
-        log.error('Failed to deduct quota (non-blocking)', quotaErr);
-      }
+    // ── Non-blocking side effects ────────────────────────────────────
+    await deductQuotaAfterInsert(body, userId, accountType, hasMedia, log);
+    await logFlaggedContent(db, userId, postId, flags, log);
+
+    if (isVideoPost && hasMedia) {
+      await triggerVideoProcessing(postId, body.mediaUrls!, log);
     }
 
-    // Log flagged content for moderator review (non-blocking)
-    if (contentFlagged) {
-      try {
-        await db.query(
-          `INSERT INTO moderation_log (moderator_id, action_type, target_user_id, target_post_id, reason)
-           VALUES ($1, 'flag_content', $2, $3, $4)`,
-          [SYSTEM_MODERATOR_ID, userId, postId, `Comprehend toxicity: ${flagCategory} score=${flagScore} (under_review)`],
-        );
-      } catch (flagErr) {
-        log.error('Failed to log flagged content (non-blocking)', flagErr);
-      }
-    }
-
-    // Trigger async video processing if this is a video post
-    if (isVideoPost && START_VIDEO_PROCESSING_FN && hasMedia) {
-      // Extract the S3 key from the first video URL
-      const videoUrl = body.mediaUrls![0];
-      try {
-        const parsed = new URL(videoUrl);
-        const sourceKey = parsed.pathname.replace(/^\//, '');
-        await lambdaClient.send(new InvokeCommand({
-          FunctionName: START_VIDEO_PROCESSING_FN,
-          InvocationType: 'Event', // async — fire and forget
-          Payload: Buffer.from(JSON.stringify({
-            body: JSON.stringify({ entityType: 'post', entityId: postId, sourceKey }),
-          })),
-        }));
-        log.info('Video processing triggered', { postId: postId.substring(0, 8) + '...' });
-      } catch (vpErr) {
-        log.error('Failed to trigger video processing (non-blocking)', vpErr);
-      }
-    }
-
-    const authorResult = await db.query(
-      `SELECT id, username, full_name, avatar_url, is_verified, account_type, business_name
-       FROM profiles WHERE id = $1`,
-      [userId]
-    );
-
-    const authorRow = authorResult.rows[0];
-    const author = authorRow
-      ? {
-          id: authorRow.id,
-          username: authorRow.username,
-          fullName: authorRow.full_name,
-          avatarUrl: authorRow.avatar_url,
-          isVerified: authorRow.is_verified,
-          accountType: authorRow.account_type,
-          businessName: authorRow.business_name,
-        }
-      : null;
-
+    // ── Build response ───────────────────────────────────────────────
+    const author = await fetchAuthor(db, userId);
     const taggedUserIds = validTaggedIds.filter((tid) => existingTaggedIds.has(tid));
 
     return {

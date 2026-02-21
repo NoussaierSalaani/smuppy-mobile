@@ -250,7 +250,7 @@ export const useAutoRegisterPushNotifications = (): void => {
             userId: user.id,
             attempts: RETRY_DELAYS.length,
           });
-        } catch { /* Sentry not available */ }
+        } catch { /* Expected: Sentry may not be available in all environments */ }
       }
     };
 

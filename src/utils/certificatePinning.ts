@@ -55,7 +55,7 @@ const TRUSTED_HOSTS = new Set([
     const host = new URL(url).host;
     if (host) TRUSTED_HOSTS.add(host);
   } catch {
-    // ignore malformed URLs
+    // Expected: URL may be malformed in config — skip without breaking trusted host setup
   }
 });
 

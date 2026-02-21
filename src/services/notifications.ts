@@ -190,7 +190,7 @@ export const registerPushToken = async (_userId: string): Promise<boolean> => {
     let cachedFingerprint: string | null = null;
     try {
       cachedFingerprint = await SecureStore.getItemAsync(LAST_TOKEN_KEY);
-    } catch { /* SecureStore read failed — continue with registration */ }
+    } catch { /* Expected: SecureStore may be unavailable on first launch — continue with registration */ }
 
     const native = await getNativePushToken();
     if (!native) {
@@ -217,7 +217,7 @@ export const registerPushToken = async (_userId: string): Promise<boolean> => {
     // Cache on success so subsequent calls skip the API
     try {
       await SecureStore.setItemAsync(LAST_TOKEN_KEY, tokenFingerprint);
-    } catch { /* non-critical */ }
+    } catch { /* Expected: SecureStore cache write failure is non-critical */ }
 
     if (__DEV__) console.log('[Push] Token registered with backend successfully');
     return true;
@@ -237,7 +237,7 @@ export const unregisterPushToken = async (_userId: string): Promise<void> => {
     const deviceId = await getDeviceId();
     await awsAPI.unregisterPushToken(deviceId);
     // Clear cached token so re-registration after login works
-    try { await SecureStore.deleteItemAsync(LAST_TOKEN_KEY); } catch { /* non-critical */ }
+    try { await SecureStore.deleteItemAsync(LAST_TOKEN_KEY); } catch { /* Expected: SecureStore cleanup is non-critical during logout */ }
     if (__DEV__) console.log('Push token unregistered');
   } catch (error) {
     captureException(error as Error, { context: 'unregisterPushToken' });

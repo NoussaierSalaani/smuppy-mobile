@@ -122,7 +122,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
     const end = new Date(endDate);
     const now = new Date();
     const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 0;
+    return Math.max(diff, 0);
   };
 
   const renderSubscriptionCard = (subscription: Subscription) => {
@@ -289,7 +289,7 @@ export default function MySubscriptionsScreen({ navigation }: { navigation: { na
                     subscriptions
                       .filter(s => s.status === 'active' && !s.cancel_at_period_end)
                       .reduce((sum, s) => {
-                        const multiplier = s.plan.period === 'yearly' ? 1/12 : s.plan.period === 'weekly' ? 4 : 1;
+                        const multiplier = ({ yearly: 1/12, weekly: 4 } as Record<string, number>)[s.plan.period] ?? 1;
                         return sum + (s.plan.price_cents * multiplier);
                       }, 0)
                   )}

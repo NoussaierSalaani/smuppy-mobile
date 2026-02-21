@@ -295,7 +295,7 @@ export default function BookSessionScreen(): React.JSX.Element {
                 const isAvailable = item.isAvailable;
                 return (
                   <TouchableOpacity
-                    key={index}
+                    key={item.fullDate.toISOString()}
                     style={[
                       styles.dateItem,
                       isSelected && styles.dateItemSelected,

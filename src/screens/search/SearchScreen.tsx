@@ -512,7 +512,7 @@ const SearchScreen = (): React.JSX.Element => {
           <Text style={[styles.sectionTitle, { color: colors.dark }]}>Trending Hashtags</Text>
           <View style={styles.hashtagsGrid}>
             {trendingHashtags.map((item, idx) => (
-              <TouchableOpacity key={`tag-${idx}`} style={[styles.hashtagChip, { backgroundColor: colors.gray100 }]} onPress={() => handleHashtagPress(item.tag)}>
+              <TouchableOpacity key={`tag-${item.tag}`} style={[styles.hashtagChip, { backgroundColor: colors.gray100 }]} onPress={() => handleHashtagPress(item.tag)}>
                 <Text style={[styles.hashtagText, { color: colors.dark }]}>#{item.tag}</Text>
                 <Text style={[styles.hashtagCount, { color: colors.gray }]}>{item.count}</Text>
               </TouchableOpacity>
@@ -617,7 +617,7 @@ const SearchScreen = (): React.JSX.Element => {
               <Text style={[styles.sectionTitle, { color: colors.dark }]}>Trending</Text>
               <View style={styles.hashtagsGrid}>
                 {trendingHashtags.map((item, idx) => (
-                  <TouchableOpacity key={`tag-${idx}`} style={[styles.hashtagChip, { backgroundColor: colors.gray100 }]} onPress={() => handleHashtagPress(item.tag)}>
+                  <TouchableOpacity key={`tag-${item.tag}`} style={[styles.hashtagChip, { backgroundColor: colors.gray100 }]} onPress={() => handleHashtagPress(item.tag)}>
                     <Text style={[styles.hashtagText, { color: colors.dark }]}>#{item.tag}</Text>
                     <Text style={[styles.hashtagCount, { color: colors.gray }]}>{item.count}</Text>
                   </TouchableOpacity>
@@ -736,8 +736,11 @@ const SearchScreen = (): React.JSX.Element => {
           onEndReached={loadMore} onEndReachedThreshold={0.3} />
       );
     }
-    const data = activeTab === 'posts' ? postResults : activeTab === 'peaks' ? peakResults : hashtagResults;
-    const renderItem = activeTab === 'posts' ? renderPostItem : activeTab === 'peaks' ? renderPeakItem : renderHashtagPost;
+    let data: typeof postResults;
+    let renderItem: (info: { item: Post; index: number }) => React.JSX.Element;
+    if (activeTab === 'posts') { data = postResults; renderItem = renderPostItem; }
+    else if (activeTab === 'peaks') { data = peakResults; renderItem = renderPeakItem; }
+    else { data = hashtagResults; renderItem = renderHashtagPost; }
     return (
       <FlatList data={data} keyExtractor={(item) => item.id} renderItem={renderItem} numColumns={3}
         showsVerticalScrollIndicator={false} contentContainerStyle={styles.gridContainer} removeClippedSubviews={true} maxToRenderPerBatch={12} windowSize={5} initialNumToRender={12}

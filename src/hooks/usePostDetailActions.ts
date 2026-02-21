@@ -184,7 +184,7 @@ export function usePostDetailActions({
         const { following } = await isFollowing(currentPost.user.id);
         if (!cancelled) setIsFan(!!following);
       } catch {
-        // Silently handle
+        // Expected: follow status check is non-critical — UI defaults to not following
       }
     };
     check();
@@ -200,11 +200,11 @@ export function usePostDetailActions({
       try {
         const { hasLiked } = await hasLikedPost(currentPost.id);
         if (!cancelled) setIsLiked(hasLiked);
-      } catch { /* silent */ }
+      } catch { /* Expected: like status check is non-critical, UI defaults to false */ }
       try {
         const { saved } = await hasSavedPost(currentPost.id);
         if (!cancelled) setIsBookmarked(saved);
-      } catch { /* silent */ }
+      } catch { /* Expected: save status check is non-critical, UI defaults to false */ }
     };
     check();
     return () => { cancelled = true; };
@@ -329,8 +329,8 @@ export function usePostDetailActions({
       if (!error) {
         setIsFan(true);
         showSuccess('Followed', `You are now a fan of ${post.user.name || 'this user'}.`);
-      } else {
-        if (__DEV__) console.warn(`[${logTag}] Follow error:`, error);
+      } else if (__DEV__) {
+        console.warn(`[${logTag}] Follow error:`, error);
       }
     } catch (error) {
       if (__DEV__) console.warn(`[${logTag}] Follow error:`, error);
@@ -350,10 +350,8 @@ export function usePostDetailActions({
       if (!isLiked) {
         toggleLike();
       }
-    } else {
-      if (postRef.current.type === 'video') {
-        setIsPaused(prev => !prev);
-      }
+    } else if (postRef.current.type === 'video') {
+      setIsPaused(prev => !prev);
     }
     lastTap.current = now;
   }, [isLiked, toggleLike]);

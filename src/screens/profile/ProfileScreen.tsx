@@ -373,7 +373,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         setBusinessSchedule([]);
       }
     } catch {
-      // silent — planning data is non-critical
+      // Expected: planning data fetch may fail — UI shows empty state gracefully
     } finally {
       setIsLoadingPlanning(false);
     }
@@ -873,8 +873,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       if (isOwnProfile) {
         if (FEATURES.PRIVATE_SESSIONS) tabs.push({ key: 'sessions', label: 'Sessions', icon: 'calendar-outline' });
         if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
-      } else {
-        if (FEATURES.GO_LIVE) tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
+      } else if (FEATURES.GO_LIVE) {
+        tabs.push({ key: 'lives', label: 'Lives', icon: 'radio-outline' });
       }
     }
 
@@ -1248,7 +1248,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               allMedia: allMedia.length > 1 ? allMedia : undefined,
               user: {
                 id: author?.id ?? '',
-                name: (author?.account_type === 'pro_business' && author?.business_name) ? author.business_name : (author?.full_name ?? author?.username ?? ''),
+                name: resolveDisplayName(author, author?.full_name ?? author?.username ?? ''),
                 avatar: author?.avatar_url ?? '',
               },
             };

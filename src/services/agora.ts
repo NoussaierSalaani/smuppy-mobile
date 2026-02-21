@@ -57,7 +57,7 @@ class AgoraService {
       try {
         const { captureMessage } = require('../lib/sentry');
         captureMessage('Agora App ID not configured', 'error');
-      } catch { /* Sentry not available */ }
+      } catch { /* Expected: Sentry may not be available in all environments */ }
       return false;
     }
 

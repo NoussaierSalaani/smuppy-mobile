@@ -3,31 +3,18 @@
  * Returns peaks (short videos) with pagination
  */
 
+import { Pool } from 'pg';
 import { getPool, SqlParam } from '../../shared/db';
 import { withErrorHandler } from '../utils/error-handler';
 import { isValidUUID, extractCognitoSub } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
+import { parseLimit, applyHasMore } from '../utils/pagination';
+import { parseCursor, cursorToSql, generateCursor } from '../utils/cursor';
+import { mapAuthor } from '../utils/mappers';
 
-export const handler = withErrorHandler('peaks-list', async (event, { headers }) => {
-    // Get current user if authenticated (for isLiked status)
-    const userId = extractCognitoSub(event);
+// ── Select columns (shared between authenticated & anonymous) ───────
 
-    // Pagination params
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20'), 50);
-    const cursor = event.queryStringParameters?.cursor;
-    const authorIdParam = event.queryStringParameters?.authorId || event.queryStringParameters?.author_id;
-    const usernameParam = event.queryStringParameters?.username;
-
-    const db = await getPool();
-
-    // Get current user's profile ID if authenticated
-    let currentProfileId: string | null = null;
-    if (userId) {
-      currentProfileId = await resolveProfileId(db, userId);
-    }
-
-    // Build query
-    let query = `
+const BASE_SELECT = `
       SELECT
         pk.id,
         pk.author_id,
@@ -58,12 +45,9 @@ export const handler = withErrorHandler('peaks-list', async (event, { headers })
         pc.title as challenge_title,
         pc.rules as challenge_rules,
         pc.status as challenge_status,
-        pc.response_count as challenge_response_count
-    `;
+        pc.response_count as challenge_response_count`;
 
-    // Add isLiked + isViewed subqueries if user is authenticated
-    if (currentProfileId) {
-      query += `,
+const AUTHENTICATED_SUBQUERIES = `,
         EXISTS(
           SELECT 1 FROM peak_likes pl
           WHERE pl.peak_id = pk.id AND pl.user_id = $1
@@ -71,137 +55,157 @@ export const handler = withErrorHandler('peaks-list', async (event, { headers })
         EXISTS(
           SELECT 1 FROM peak_views pv
           WHERE pv.peak_id = pk.id AND pv.user_id = $1
-        ) as is_viewed
-      `;
-    }
+        ) as is_viewed`;
 
-    query += `
+const FROM_CLAUSE = `
       FROM peaks pk
       JOIN profiles p ON pk.author_id = p.id
-      LEFT JOIN peak_challenges pc ON pc.peak_id = pk.id
-    `;
+      LEFT JOIN peak_challenges pc ON pc.peak_id = pk.id`;
 
-    const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];
-    let paramIndex = currentProfileId ? 2 : 1;
+// ── Query builder helpers ───────────────────────────────────────────
 
-    // Filter banned/shadow_banned authors — always show own peaks if authenticated
-    if (currentProfileId) {
-      query += ` WHERE (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pk.author_id = $1)`;
-    } else {
-      query += ` WHERE p.moderation_status NOT IN ('banned', 'shadow_banned')`;
-    }
+function buildModerationFilter(currentProfileId: string | null): string {
+  if (currentProfileId) {
+    return ` WHERE (p.moderation_status NOT IN ('banned', 'shadow_banned') OR pk.author_id = $1)`;
+  }
+  return ` WHERE p.moderation_status NOT IN ('banned', 'shadow_banned')`;
+}
 
-    // SECURITY: Exclude peaks from blocked/blocking users
-    if (currentProfileId) {
-      query += `
+function buildBlockExclusion(currentProfileId: string | null): string {
+  if (!currentProfileId) return '';
+  return `
         AND NOT EXISTS (
           SELECT 1 FROM blocked_users bu
           WHERE (bu.blocker_id = $1 AND bu.blocked_id = pk.author_id)
              OR (bu.blocker_id = pk.author_id AND bu.blocked_id = $1)
-        )
-      `;
-    }
+        )`;
+}
 
-    // Feed mode: only show active (non-expired) peaks
-    // Profile mode: show all peaks except explicitly dismissed (saved_to_profile = false)
-    // This ensures expired peaks with no decision (saved_to_profile IS NULL) remain
-    // visible on the profile so the author can still delete them.
-    if (!authorIdParam && !usernameParam) {
-      query += `
+function buildFeedModeFilter(isProfileMode: boolean, currentProfileId: string | null): string {
+  if (isProfileMode) {
+    return ` AND (pk.saved_to_profile IS DISTINCT FROM false)`;
+  }
+
+  // Feed mode: only active (non-expired) peaks
+  let filter = `
         AND (
           (pk.expires_at IS NOT NULL AND pk.expires_at > NOW())
           OR
           (pk.expires_at IS NULL AND pk.created_at > NOW() - INTERVAL '48 hours')
-        )
-      `;
-      // Exclude peaks the user has hidden ("not interested")
-      if (currentProfileId) {
-        query += ` AND NOT EXISTS (SELECT 1 FROM peak_hidden ph WHERE ph.peak_id = pk.id AND ph.user_id = $1)`;
-      }
-    } else {
-      query += ` AND (pk.saved_to_profile IS DISTINCT FROM false)`;
-    }
+        )`;
 
-    // Filter by author if provided
-    if (authorIdParam) {
-      if (isValidUUID(authorIdParam)) {
-        query += ` AND pk.author_id = $${paramIndex}`;
-        params.push(authorIdParam);
-        paramIndex++;
-      }
-    } else if (usernameParam) {
-      // Lookup author_id by username to support author filter by username
-      const userResult = await db.query(
-        'SELECT id FROM profiles WHERE username = $1',
-        [usernameParam]
-      );
-      const authorIdFromUsername = userResult.rows[0]?.id;
-      if (authorIdFromUsername) {
-        query += ` AND pk.author_id = $${paramIndex}`;
-        params.push(authorIdFromUsername);
-        paramIndex++;
-      }
-    }
+  // Exclude peaks the user has hidden ("not interested")
+  if (currentProfileId) {
+    filter += ` AND NOT EXISTS (SELECT 1 FROM peak_hidden ph WHERE ph.peak_id = pk.id AND ph.user_id = $1)`;
+  }
 
-    // Cursor pagination
-    if (cursor) {
-      query += ` AND pk.created_at < $${paramIndex}`;
-      params.push(new Date(Number.parseInt(cursor)));
+  return filter;
+}
+
+async function resolveAuthorId(
+  db: Pool,
+  authorIdParam: string | undefined,
+  usernameParam: string | undefined,
+): Promise<string | null> {
+  if (authorIdParam && isValidUUID(authorIdParam)) {
+    return authorIdParam;
+  }
+
+  if (usernameParam) {
+    const userResult = await db.query('SELECT id FROM profiles WHERE username = $1', [usernameParam]);
+    return userResult.rows[0]?.id || null;
+  }
+
+  return null;
+}
+
+// ── Row formatter ───────────────────────────────────────────────────
+
+function formatPeak(peak: Record<string, unknown>, isAuthenticated: boolean): Record<string, unknown> {
+  return {
+    id: peak.id,
+    videoUrl: peak.video_url,
+    thumbnailUrl: peak.thumbnail_url,
+    caption: peak.caption,
+    duration: peak.duration,
+    replyToPeakId: peak.reply_to_peak_id || null,
+    likesCount: peak.likes_count,
+    commentsCount: peak.comments_count,
+    viewsCount: peak.views_count,
+    createdAt: peak.created_at,
+    filterId: peak.filter_id || null,
+    filterIntensity: peak.filter_intensity ?? null,
+    overlays: peak.overlays || null,
+    expiresAt: peak.expires_at || null,
+    savedToProfile: peak.saved_to_profile ?? null,
+    videoStatus: peak.video_status || null,
+    hlsUrl: peak.hls_url || null,
+    videoVariants: peak.video_variants || null,
+    isLiked: isAuthenticated ? peak.is_liked : false,
+    isViewed: isAuthenticated ? peak.is_viewed : false,
+    author: mapAuthor(peak),
+    challenge: peak.challenge_id ? {
+      id: peak.challenge_id,
+      title: peak.challenge_title,
+      rules: peak.challenge_rules,
+      status: peak.challenge_status,
+      responseCount: peak.challenge_response_count,
+    } : null,
+  };
+}
+
+// ── Main Handler ────────────────────────────────────────────────────
+
+export const handler = withErrorHandler('peaks-list', async (event, { headers }) => {
+    const userId = extractCognitoSub(event);
+    const limit = parseLimit(event.queryStringParameters?.limit);
+    const parsedCursor = parseCursor(event.queryStringParameters?.cursor, 'timestamp-ms');
+    const authorIdParam = event.queryStringParameters?.authorId || event.queryStringParameters?.author_id;
+    const usernameParam = event.queryStringParameters?.username;
+
+    const db = await getPool();
+
+    const currentProfileId = userId ? await resolveProfileId(db, userId) : null;
+    const isAuthenticated = currentProfileId !== null;
+    const isProfileMode = !!(authorIdParam || usernameParam);
+
+    // ── Build query ─────────────────────────────────────────────────
+    let query = BASE_SELECT;
+    if (isAuthenticated) query += AUTHENTICATED_SUBQUERIES;
+    query += FROM_CLAUSE;
+    query += buildModerationFilter(currentProfileId);
+    query += buildBlockExclusion(currentProfileId);
+    query += buildFeedModeFilter(isProfileMode, currentProfileId);
+
+    const params: SqlParam[] = currentProfileId ? [currentProfileId] : [];
+    let paramIndex = currentProfileId ? 2 : 1;
+
+    // ── Author filter ───────────────────────────────────────────────
+    const resolvedAuthorId = await resolveAuthorId(db, authorIdParam, usernameParam);
+    if (resolvedAuthorId) {
+      query += ` AND pk.author_id = $${paramIndex}`;
+      params.push(resolvedAuthorId);
       paramIndex++;
+    }
+
+    // ── Cursor pagination (tolerant: invalid cursor -> first page) ─
+    if (parsedCursor) {
+      const cursorSqlResult = cursorToSql(parsedCursor, 'pk.created_at', paramIndex);
+      query += ` ${cursorSqlResult.condition}`;
+      params.push(...cursorSqlResult.params);
+      paramIndex += cursorSqlResult.params.length;
     }
 
     query += ` ORDER BY pk.created_at DESC LIMIT $${paramIndex}`;
     params.push(limit + 1);
 
     const result = await db.query(query, params);
+    const { data: peaks, hasMore } = applyHasMore(result.rows, limit);
 
-    // Check if there are more results
-    const hasMore = result.rows.length > limit;
-    const peaks = hasMore ? result.rows.slice(0, -1) : result.rows;
+    const formattedPeaks = peaks.map((peak: Record<string, unknown>) => formatPeak(peak, isAuthenticated));
 
-    // Format response
-    const formattedPeaks = peaks.map((peak: Record<string, unknown>) => ({
-      id: peak.id,
-      videoUrl: peak.video_url,
-      thumbnailUrl: peak.thumbnail_url,
-      caption: peak.caption,
-      duration: peak.duration,
-      replyToPeakId: peak.reply_to_peak_id || null,
-      likesCount: peak.likes_count,
-      commentsCount: peak.comments_count,
-      viewsCount: peak.views_count,
-      createdAt: peak.created_at,
-      filterId: peak.filter_id || null,
-      filterIntensity: peak.filter_intensity ?? null,
-      overlays: peak.overlays || null,
-      expiresAt: peak.expires_at || null,
-      savedToProfile: peak.saved_to_profile ?? null,
-      videoStatus: peak.video_status || null,
-      hlsUrl: peak.hls_url || null,
-      videoVariants: peak.video_variants || null,
-      isLiked: currentProfileId ? peak.is_liked : false,
-      isViewed: currentProfileId ? peak.is_viewed : false,
-      author: {
-        id: peak.author_id,
-        username: peak.author_username,
-        fullName: peak.author_full_name,
-        avatarUrl: peak.author_avatar_url,
-        isVerified: !!peak.author_is_verified,
-        accountType: peak.author_account_type,
-        businessName: peak.author_business_name,
-      },
-      challenge: peak.challenge_id ? {
-        id: peak.challenge_id,
-        title: peak.challenge_title,
-        rules: peak.challenge_rules,
-        status: peak.challenge_status,
-        responseCount: peak.challenge_response_count,
-      } : null,
-    }));
-
-    // Generate next cursor
     const nextCursor = hasMore && peaks.length > 0
-      ? new Date(peaks.at(-1)!.created_at).getTime().toString()
+      ? generateCursor('timestamp-ms', peaks.at(-1)!, 'created_at')
       : null;
 
     return {

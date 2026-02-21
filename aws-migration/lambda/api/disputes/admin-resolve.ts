@@ -9,7 +9,7 @@
  * - Notify both parties
  */
 
-import { APIGatewayProxyHandler } from 'aws-lambda';
+import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import { getPool } from '../../../lambda/shared/db';
 import type { PoolClient } from 'pg';
 import { createLogger } from '../../api/utils/logger';
@@ -21,12 +21,262 @@ import { PLATFORM_NAME } from '../../api/utils/constants';
 
 const log = createLogger('admin/disputes-resolve');
 
+const ALLOWED_RESOLUTIONS = ['full_refund', 'partial_refund', 'no_refund', 'rescheduled'] as const;
+type Resolution = typeof ALLOWED_RESOLUTIONS[number];
+
 interface ResolveBody {
-  resolution: 'full_refund' | 'partial_refund' | 'no_refund' | 'rescheduled';
+  resolution: Resolution;
   reason: string;
   refundAmount: number;
   processRefund: boolean;
 }
+
+interface DisputeRow {
+  id: string;
+  dispute_number: string;
+  status: string;
+  payment_id: string;
+  complainant_id: string;
+  respondent_id: string;
+  amount_cents: number;
+  currency: string;
+  stripe_payment_intent_id: string;
+  creator_stripe_account: string | null;
+}
+
+interface RefundResult {
+  id: string;
+  status: string | null;
+  amount: number;
+}
+
+// ── Validation ──────────────────────────────────────────────────────
+
+function validateDisputeId(
+  disputeId: string | undefined,
+  headers: Record<string, string>,
+): APIGatewayProxyResult | null {
+  if (!disputeId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(disputeId)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Valid dispute ID required' }),
+    };
+  }
+  return null;
+}
+
+function parseAndValidateBody(
+  rawBody: string | null,
+  headers: Record<string, string>,
+): { body: ResolveBody } | { error: APIGatewayProxyResult } {
+  let body: ResolveBody;
+  try {
+    body = JSON.parse(rawBody || '{}');
+  } catch {
+    return { error: { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) } };
+  }
+
+  const { resolution, reason, refundAmount, processRefund } = body;
+
+  if (!resolution || !reason) {
+    return {
+      error: {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, message: 'Resolution and reason are required' }),
+      },
+    };
+  }
+
+  if (!(ALLOWED_RESOLUTIONS as readonly string[]).includes(resolution)) {
+    return { error: { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid resolution type' }) } };
+  }
+
+  if (processRefund && (typeof refundAmount !== 'number' || !Number.isFinite(refundAmount) || refundAmount < 0)) {
+    return { error: { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid refund amount' }) } };
+  }
+
+  return { body };
+}
+
+// ── Stripe Refund Processing ────────────────────────────────────────
+
+async function processStripeRefund(
+  client: PoolClient,
+  dispute: DisputeRow,
+  disputeId: string,
+  refundAmountCents: number,
+  resolution: Resolution,
+  reason: string,
+  adminId: string,
+): Promise<RefundResult | null> {
+  const stripe = await getStripeClient();
+  const refundNotes = `Dispute #${dispute.dispute_number} - ${resolution}: ${reason}`;
+
+  try {
+    const stripeRefund = await stripe.refunds.create({
+      payment_intent: dispute.stripe_payment_intent_id,
+      amount: refundAmountCents,
+      reason: 'requested_by_customer',
+      metadata: {
+        dispute_id: disputeId,
+        admin_id: adminId,
+        resolution_reason: reason,
+        platform: PLATFORM_NAME,
+      },
+      ...(dispute.creator_stripe_account && { reverse_transfer: true }),
+    });
+
+    await recordSuccessfulRefund(client, disputeId, dispute.payment_id, stripeRefund, refundAmountCents, refundNotes, adminId);
+
+    log.info('Stripe refund processed', {
+      refundId: stripeRefund.id,
+      disputeId,
+      amountCents: refundAmountCents,
+    });
+
+    return {
+      id: stripeRefund.id,
+      status: stripeRefund.status,
+      amount: refundAmountCents / 100,
+    };
+  } catch (refundError) {
+    log.error('Stripe refund failed', refundError);
+    await recordFailedRefund(client, disputeId, dispute.payment_id, refundAmountCents, refundNotes, adminId);
+    return null;
+  }
+}
+
+async function recordSuccessfulRefund(
+  client: PoolClient,
+  disputeId: string,
+  paymentId: string,
+  stripeRefund: { id: string; status: string | null },
+  amountCents: number,
+  notes: string,
+  adminId: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO dispute_timeline (dispute_id, event_type, event_data, created_by, created_at)
+     VALUES ($1, 'refund_initiated', $2, $3, NOW())`,
+    [
+      disputeId,
+      JSON.stringify({ stripeRefundId: stripeRefund.id, amountCents, status: stripeRefund.status }),
+      adminId,
+    ]
+  );
+
+  await client.query(
+    `INSERT INTO refunds (
+      payment_id, stripe_refund_id, amount_cents, reason, notes, status, requested_by, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+    [
+      paymentId,
+      stripeRefund.id,
+      amountCents,
+      'requested_by_customer',
+      notes,
+      stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
+      adminId,
+    ]
+  );
+
+  await client.query(
+    `UPDATE session_disputes SET refund_id = (
+      SELECT id FROM refunds WHERE stripe_refund_id = $1 LIMIT 1
+    ) WHERE id = $2`,
+    [stripeRefund.id, disputeId]
+  );
+}
+
+async function recordFailedRefund(
+  client: PoolClient,
+  disputeId: string,
+  paymentId: string,
+  amountCents: number,
+  notes: string,
+  adminId: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO dispute_timeline (dispute_id, event_type, event_data, created_by, created_at)
+     VALUES ($1, 'refund_failed', $2, $3, NOW())`,
+    [
+      disputeId,
+      JSON.stringify({ amountCents, error: 'Refund processing failed — manual refund required' }),
+      adminId,
+    ]
+  );
+
+  await client.query(
+    `INSERT INTO refunds (
+      payment_id, amount_cents, reason, notes, status, requested_by, error_message, created_at
+    ) VALUES ($1, $2, $3, $4, 'failed', $5, $6, NOW())`,
+    [paymentId, amountCents, 'requested_by_customer', notes, adminId, 'Refund processing failed']
+  );
+}
+
+// ── Notification Builders ───────────────────────────────────────────
+
+function buildComplainantMessage(resolution: Resolution, amountFormatted: string, currency: string): string {
+  switch (resolution) {
+    case 'full_refund':
+      return `Votre litige a été résolu en votre faveur. Un remboursement complet de ${amountFormatted} ${currency} a été initié.`;
+    case 'partial_refund':
+      return `Votre litige a été résolu avec un remboursement partiel de ${amountFormatted} ${currency}.`;
+    case 'rescheduled':
+      return 'Votre litige a été résolu. Une nouvelle session va être programmée.';
+    case 'no_refund':
+      return 'Votre litige a été examiné et aucun remboursement n\'a été accordé.';
+  }
+}
+
+async function notifyBothParties(
+  client: PoolClient,
+  dispute: DisputeRow,
+  disputeId: string,
+  resolution: Resolution,
+  refundAmountCents: number,
+): Promise<void> {
+  const currency = (dispute.currency || 'eur').toUpperCase();
+  const amountFormatted = (refundAmountCents / 100).toFixed(2);
+  const complainantMessage = buildComplainantMessage(resolution, amountFormatted, currency);
+
+  await client.query(
+    `INSERT INTO notifications (user_id, type, title, body, data, created_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())`,
+    [
+      dispute.complainant_id,
+      'dispute_resolved',
+      'Litige résolu',
+      complainantMessage,
+      JSON.stringify({
+        disputeId,
+        disputeNumber: dispute.dispute_number,
+        resolution,
+        refundAmount: refundAmountCents / 100,
+      }),
+    ]
+  );
+
+  await client.query(
+    `INSERT INTO notifications (user_id, type, title, body, data, created_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())`,
+    [
+      dispute.respondent_id,
+      'dispute_resolved',
+      'Litige résolu',
+      `Le litige #${dispute.dispute_number} concernant votre session a été résolu par notre équipe.`,
+      JSON.stringify({
+        disputeId,
+        disputeNumber: dispute.dispute_number,
+        resolution,
+      }),
+    ]
+  );
+}
+
+// ── Main Handler ────────────────────────────────────────────────────
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const headers = createHeaders(event);
@@ -37,21 +287,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Method not allowed' }),
-    };
+    return { statusCode: 405, headers, body: JSON.stringify({ success: false, message: 'Method not allowed' }) };
   }
 
   const disputeId = event.pathParameters?.id;
-  if (!disputeId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(disputeId)) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Valid dispute ID required' }),
-    };
-  }
+  const idError = validateDisputeId(disputeId, headers);
+  if (idError) return idError;
 
   const db = await getPool();
   let client: PoolClient | null = null;
@@ -59,14 +300,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const user = await getUserFromEvent(event);
     if (!user) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Unauthorized' }),
-      };
+      return { statusCode: 401, headers, body: JSON.stringify({ success: false, message: 'Unauthorized' }) };
     }
 
-    // Rate limit: 10 resolves per minute
     const rateLimitResponse = await requireRateLimit({
       prefix: 'admin-disputes-resolve',
       identifier: user.id,
@@ -77,54 +313,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     client = await db.connect();
 
-    // Check admin role
-    const adminCheck = await client.query(
-      'SELECT account_type FROM profiles WHERE id = $1',
-      [user.id]
-    );
-
+    const adminCheck = await client.query('SELECT account_type FROM profiles WHERE id = $1', [user.id]);
     if (adminCheck.rows[0]?.account_type !== 'admin') {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Admin access required' }),
-      };
+      return { statusCode: 403, headers, body: JSON.stringify({ success: false, message: 'Admin access required' }) };
     }
 
-    // Parse body
-    let body: ResolveBody;
-    try {
-      body = JSON.parse(event.body || '{}');
-    } catch {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid JSON body' }) };
-    }
-    const { resolution, reason, refundAmount, processRefund } = body;
+    const parsed = parseAndValidateBody(event.body, headers);
+    if ('error' in parsed) return parsed.error;
 
-    if (!resolution || !reason) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: 'Resolution and reason are required',
-        }),
-      };
-    }
-
-    const ALLOWED_RESOLUTIONS = ['full_refund', 'partial_refund', 'no_refund', 'rescheduled'];
-    if (!ALLOWED_RESOLUTIONS.includes(resolution)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid resolution type' }) };
-    }
-
-    if (processRefund && (typeof refundAmount !== 'number' || !Number.isFinite(refundAmount) || refundAmount < 0)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid refund amount' }) };
-    }
-
-    const stripe = await getStripeClient();
+    const { resolution, reason, refundAmount, processRefund } = parsed.body;
 
     await client.query('BEGIN');
 
-    // Get dispute details
     const disputeResult = await client.query(
       `SELECT
         d.id,
@@ -145,31 +345,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     if (disputeResult.rows.length === 0) {
       await client.query('ROLLBACK');
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Dispute not found' }),
-      };
+      return { statusCode: 404, headers, body: JSON.stringify({ success: false, message: 'Dispute not found' }) };
     }
 
-    const dispute = disputeResult.rows[0];
+    const dispute: DisputeRow = disputeResult.rows[0];
 
-    // Check if already resolved
     if (dispute.status === 'resolved' || dispute.status === 'closed') {
       await client.query('ROLLBACK');
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: 'Dispute already resolved',
-        }),
-      };
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Dispute already resolved' }) };
     }
 
     const refundAmountCents = Math.round((refundAmount || 0) * 100);
 
-    // Update dispute status
     await client.query(
       `UPDATE session_disputes
        SET status = 'resolved',
@@ -180,175 +367,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
            resolved_by = $4,
            updated_at = NOW()
        WHERE id = $5`,
-      [resolution, reason, refundAmountCents, user.id, disputeId]
+      [resolution, reason, refundAmountCents, user.id, disputeId!]
     );
 
-    // Add timeline event
     await client.query(
       `INSERT INTO dispute_timeline (dispute_id, event_type, event_data, created_by, created_at)
        VALUES ($1, $2, $3, $4, NOW())`,
       [
         disputeId,
         'resolved',
-        JSON.stringify({
-          resolution,
-          reason,
-          refundAmountCents,
-          processedBy: user.id,
-        }),
+        JSON.stringify({ resolution, reason, refundAmountCents, processedBy: user.id }),
         user.id,
       ]
     );
 
-    // Process refund if applicable
-    let refundResult = null;
-    if (processRefund && resolution !== 'no_refund' && refundAmountCents > 0) {
-      try {
-        const stripeRefund = await stripe.refunds.create({
-          payment_intent: dispute.stripe_payment_intent_id,
-          amount: refundAmountCents,
-          reason: 'requested_by_customer',
-          metadata: {
-            dispute_id: disputeId,
-            admin_id: user.id,
-            resolution_reason: reason,
-            platform: PLATFORM_NAME,
-          },
-          ...(dispute.creator_stripe_account && {
-            reverse_transfer: true,
-          }),
-        });
-
-        // Add refund_initiated timeline event
-        await client.query(
-          `INSERT INTO dispute_timeline (dispute_id, event_type, event_data, created_by, created_at)
-           VALUES ($1, 'refund_initiated', $2, $3, NOW())`,
-          [
-            disputeId,
-            JSON.stringify({
-              stripeRefundId: stripeRefund.id,
-              amountCents: refundAmountCents,
-              status: stripeRefund.status,
-            }),
-            user.id,
-          ]
-        );
-
-        // Create refund record (matching refunds.ts column pattern)
-        await client.query(
-          `INSERT INTO refunds (
-            payment_id, stripe_refund_id, amount_cents, reason, notes, status, requested_by, created_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-          [
-            dispute.payment_id,
-            stripeRefund.id,
-            refundAmountCents,
-            'requested_by_customer',
-            `Dispute #${dispute.dispute_number} - ${resolution}: ${reason}`,
-            stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
-            user.id,
-          ]
-        );
-
-        // Link refund to dispute
-        await client.query(
-          `UPDATE session_disputes SET refund_id = (
-            SELECT id FROM refunds WHERE stripe_refund_id = $1 LIMIT 1
-          ) WHERE id = $2`,
-          [stripeRefund.id, disputeId]
-        );
-
-        refundResult = {
-          id: stripeRefund.id,
-          status: stripeRefund.status,
-          amount: refundAmountCents / 100,
-        };
-
-        log.info('Stripe refund processed', {
-          refundId: stripeRefund.id,
-          disputeId,
-          amountCents: refundAmountCents,
-        });
-      } catch (refundError) {
-        log.error('Stripe refund failed', refundError);
-
-        // Log refund failure in timeline (instead of non-existent admin_alerts table)
-        await client.query(
-          `INSERT INTO dispute_timeline (dispute_id, event_type, event_data, created_by, created_at)
-           VALUES ($1, 'refund_failed', $2, $3, NOW())`,
-          [
-            disputeId,
-            JSON.stringify({
-              amountCents: refundAmountCents,
-              error: 'Refund processing failed — manual refund required',
-            }),
-            user.id,
-          ]
-        );
-
-        // Store failed refund attempt (matching refunds.ts pattern)
-        await client.query(
-          `INSERT INTO refunds (
-            payment_id, amount_cents, reason, notes, status, requested_by, error_message, created_at
-          ) VALUES ($1, $2, $3, $4, 'failed', $5, $6, NOW())`,
-          [
-            dispute.payment_id,
-            refundAmountCents,
-            'requested_by_customer',
-            `Dispute #${dispute.dispute_number} - ${resolution}: ${reason}`,
-            user.id,
-            'Refund processing failed',
-          ]
-        );
-      }
+    let refundResult: RefundResult | null = null;
+    const shouldRefund = processRefund && resolution !== 'no_refund' && refundAmountCents > 0;
+    if (shouldRefund) {
+      refundResult = await processStripeRefund(
+        client, dispute, disputeId!, refundAmountCents, resolution, reason, user.id,
+      );
     }
 
-    // Notify complainant
-    const currency = (dispute.currency || 'eur').toUpperCase();
-    const amountFormatted = (refundAmountCents / 100).toFixed(2);
-
-    const refundMessage =
-      resolution === 'full_refund'
-        ? `Votre litige a été résolu en votre faveur. Un remboursement complet de ${amountFormatted} ${currency} a été initié.`
-        : resolution === 'partial_refund'
-          ? `Votre litige a été résolu avec un remboursement partiel de ${amountFormatted} ${currency}.`
-          : resolution === 'rescheduled'
-            ? 'Votre litige a été résolu. Une nouvelle session va être programmée.'
-            : 'Votre litige a été examiné et aucun remboursement n\'a été accordé.';
-
-    await client.query(
-      `INSERT INTO notifications (user_id, type, title, body, data, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [
-        dispute.complainant_id,
-        'dispute_resolved',
-        'Litige résolu',
-        refundMessage,
-        JSON.stringify({
-          disputeId,
-          disputeNumber: dispute.dispute_number,
-          resolution,
-          refundAmount: refundAmountCents / 100,
-        }),
-      ]
-    );
-
-    // Notify respondent
-    await client.query(
-      `INSERT INTO notifications (user_id, type, title, body, data, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [
-        dispute.respondent_id,
-        'dispute_resolved',
-        'Litige résolu',
-        `Le litige #${dispute.dispute_number} concernant votre session a été résolu par notre équipe.`,
-        JSON.stringify({
-          disputeId,
-          disputeNumber: dispute.dispute_number,
-          resolution,
-        }),
-      ]
-    );
+    await notifyBothParties(client, dispute, disputeId!, resolution, refundAmountCents);
 
     await client.query('COMMIT');
 
@@ -366,22 +407,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({
         success: true,
         message: 'Dispute resolved successfully',
-        resolution: {
-          type: resolution,
-          amount: refundAmountCents / 100,
-          reason,
-        },
+        resolution: { type: resolution, amount: refundAmountCents / 100, reason },
         refund: refundResult,
       }),
     };
   } catch (error) {
     if (client) await client.query('ROLLBACK');
     log.error('Resolve dispute error', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Internal server error' }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
   } finally {
     if (client) client.release();
   }

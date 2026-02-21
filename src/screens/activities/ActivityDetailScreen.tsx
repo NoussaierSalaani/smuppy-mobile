@@ -400,6 +400,14 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
   const isOrganizer = normalizedActivity.is_organizer || normalizedActivity.organizerId === user?.id;
   const categoryColor = normalizedActivity.category?.color || '#0EBF8A';
 
+  // Pre-compute join button icon and text to avoid nested ternaries (S3358)
+  let joinActionIcon: 'close-circle' | 'time' | 'add-circle' | 'card';
+  let joinActionText: string;
+  if (isFull) { joinActionIcon = 'close-circle'; joinActionText = 'Full'; }
+  else if (isPast) { joinActionIcon = 'time'; joinActionText = 'Activity Ended'; }
+  else if (normalizedActivity.is_free) { joinActionIcon = 'add-circle'; joinActionText = 'Join Activity'; }
+  else { joinActionIcon = 'card'; joinActionText = 'Pay & Join'; }
+
   // Build route GeoJSON if available
   const routeGeoJSON = normalizedActivity.routeGeojson ? {
     type: 'FeatureCollection' as const,
@@ -772,12 +780,12 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
                 ) : (
                   <>
                     <Ionicons
-                      name={isFull ? 'close-circle' : isPast ? 'time' : normalizedActivity.is_free ? 'add-circle' : 'card'}
+                      name={joinActionIcon}
                       size={20}
                       color="#fff"
                     />
                     <Text style={styles.joinButtonText}>
-                      {isFull ? 'Full' : isPast ? 'Activity Ended' : normalizedActivity.is_free ? 'Join Activity' : 'Pay & Join'}
+                      {joinActionText}
                     </Text>
                   </>
                 )}

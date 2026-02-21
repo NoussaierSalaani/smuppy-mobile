@@ -79,14 +79,14 @@ const PostDetailFanFeedScreen = () => {
   const { postId, fanFeedPosts = [] } = params;
   // Find the correct post index - findIndex returns -1 if not found
   const foundIndex = fanFeedPosts.findIndex(p => p.id === postId);
-  const initialIndex = foundIndex >= 0 ? foundIndex : 0;
+  const initialIndex = Math.max(foundIndex, 0);
 
   // States
-  const [currentIndex, setCurrentIndex] = useState(initialIndex >= 0 ? initialIndex : 0);
+  const [currentIndex, setCurrentIndex] = useState(Math.max(initialIndex, 0));
   const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({}); // Track carousel slide index per post
 
   // Minimum index (cannot scroll above the initial post)
-  const minIndex = initialIndex >= 0 ? initialIndex : 0;
+  const minIndex = Math.max(initialIndex, 0);
 
   // Current post - with bounds check to prevent crash on empty array
   const currentPost = fanFeedPosts.length > 0 && currentIndex < fanFeedPosts.length
@@ -264,8 +264,8 @@ const PostDetailFanFeedScreen = () => {
       const { error } = await followUser(userId);
       if (!error) {
         setFanStatus(prev => ({ ...prev, [userId]: true }));
-      } else {
-        if (__DEV__) console.warn('[PostDetailFanFeed] Follow error:', error);
+      } else if (__DEV__) {
+        console.warn('[PostDetailFanFeed] Follow error:', error);
       }
     } catch (error) {
       if (__DEV__) console.warn('[PostDetailFanFeed] Follow error:', error);
@@ -664,7 +664,7 @@ const PostDetailFanFeedScreen = () => {
         viewabilityConfig={viewabilityConfig}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
+        initialScrollIndex={Math.max(initialIndex, 0)}
         {...{ estimatedItemSize: height } as Record<string, number>}
       />
 

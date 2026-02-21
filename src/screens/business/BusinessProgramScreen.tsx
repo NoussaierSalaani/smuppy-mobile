@@ -405,7 +405,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
               onPress={() => setActiveTab(tab)}
             >
               <Ionicons
-                name={tab === 'activities' ? 'fitness' : tab === 'schedule' ? 'calendar' : 'pricetags'}
+                name={(({ activities: 'fitness', schedule: 'calendar' } as Record<string, string>)[tab] ?? 'pricetags') as keyof typeof Ionicons.glyphMap}
                 size={18}
                 color={activeTab === tab ? '#fff' : colors.gray}
               />
@@ -462,7 +462,7 @@ export default function BusinessProgramScreen({ navigation }: { navigation: { na
               >
                 {DAYS.map((day, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={day}
                     style={[styles.dayButton, selectedDay === index && styles.dayButtonActive]}
                     onPress={() => setSelectedDay(index)}
                   >

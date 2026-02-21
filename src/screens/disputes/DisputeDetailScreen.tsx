@@ -712,7 +712,7 @@ export default function DisputeDetailScreen() {
           <View style={[styles.timelineCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
             {dispute.timeline.map((event, index) => (
               <TimelineItem
-                key={index}
+                key={event.createdAt}
                 event={event}
                 colors={colors}
                 isLast={index === dispute.timeline.length - 1}

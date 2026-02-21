@@ -73,7 +73,9 @@ const VALID_USER_ID = 'd4e5f6a7-b8c9-0123-defa-234567890123';
 // ── Helpers ──
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
-  const sub = overrides.sub === null ? null : (overrides.sub ?? TEST_SUB);
+  let sub: string | null = TEST_SUB;
+  if (overrides.sub === null) sub = null;
+  else if (overrides.sub !== undefined) sub = overrides.sub as string;
   const body = overrides.body === undefined
     ? { commentId: VALID_COMMENT_ID, reason: 'spam', details: 'Spam comment' }
     : overrides.body;

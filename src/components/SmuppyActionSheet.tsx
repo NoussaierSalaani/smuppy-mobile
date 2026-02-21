@@ -76,7 +76,7 @@ const SmuppyActionSheet: React.FC<SmuppyActionSheetProps> = ({
               <View style={styles.optionsContainer}>
                 {options.map((option, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={option.label}
                     activeOpacity={0.7}
                     disabled={option.disabled}
                     onPress={() => handleOptionPress(option)}

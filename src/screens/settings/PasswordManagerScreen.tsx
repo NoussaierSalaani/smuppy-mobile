@@ -167,7 +167,7 @@ const PasswordManagerScreen = ({ navigation }: PasswordManagerScreenProps) => {
           {newPassword.length > 0 && (
             <View style={styles.strengthContainer}>
               <View style={styles.strengthBarBg}>
-                <View style={[styles.strengthBar, { width: strengthLevel.level === 'weak' ? '25%' : strengthLevel.level === 'medium' ? '50%' : strengthLevel.level === 'strong' ? '75%' : '100%', backgroundColor: strengthLevel.color }]} />
+                <View style={[styles.strengthBar, { width: ({ weak: '25%', medium: '50%', strong: '75%', 'very-strong': '100%' } as const)[strengthLevel.level], backgroundColor: strengthLevel.color }]} />
               </View>
               <Text style={[styles.strengthText, { color: strengthLevel.color }]}>{strengthLevel.label}</Text>
             </View>

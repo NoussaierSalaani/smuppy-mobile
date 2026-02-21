@@ -432,11 +432,9 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             setInitError('Failed to initialize conversation');
             setLoading(false);
           }
-        } else {
-          if (mounted) {
-            setInitError('No conversation or user specified');
-            setLoading(false);
-          }
+        } else if (mounted) {
+          setInitError('No conversation or user specified');
+          setLoading(false);
         }
       };
       initConversation();
@@ -875,7 +873,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const handleDiscardVoice = useCallback(async () => {
     setVoicePreviewVisible(false);
     if (voicePreview?.uri) {
-      try { await FileSystem.deleteAsync(voicePreview.uri, { idempotent: true }); } catch { /* cleanup best-effort */ }
+      try { await FileSystem.deleteAsync(voicePreview.uri, { idempotent: true }); } catch { /* Expected: file may already be deleted or inaccessible */ }
     }
     setVoicePreview(null);
   }, [voicePreview?.uri]);

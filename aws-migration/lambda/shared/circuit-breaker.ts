@@ -133,7 +133,7 @@ export class CircuitBreaker {
         await redis.del(this.failureCountKey);
       }
     } catch {
-      // Fail-open: ignore Redis errors
+      // Expected: fail-open design — Redis errors must not block request processing
     }
   }
 
@@ -178,7 +178,7 @@ export class CircuitBreaker {
         await pipeline.exec();
       }
     } catch {
-      // Fail-open: ignore Redis errors
+      // Expected: fail-open design — Redis errors must not block request processing
     }
   }
 

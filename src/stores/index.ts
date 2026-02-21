@@ -71,7 +71,8 @@ export const resetAllStores = async () => {
     const { clearVibesFeedCache } = await import('../screens/home/VibesFeed');
     clearVibesFeedCache();
   } catch {
-    // Best-effort cleanup
+    // Expected: VibesFeed module may not be loaded yet
+    if (__DEV__) console.warn('[resetAllStores] VibesFeed cache cleanup skipped');
   }
 
   // Clear React Query cache to prevent cross-user data leaks
@@ -79,7 +80,8 @@ export const resetAllStores = async () => {
     const { clearQueryCache } = await import('../lib/queryClient');
     await clearQueryCache();
   } catch {
-    // Best-effort cleanup
+    // Expected: queryClient may not be initialized
+    if (__DEV__) console.warn('[resetAllStores] Query cache cleanup skipped');
   }
 
   // Clear persisted AsyncStorage data to prevent cross-user data leaks
@@ -92,6 +94,7 @@ export const resetAllStores = async () => {
       '@smuppy_query_cache',
     ]);
   } catch {
-    // Best-effort cleanup
+    // Expected: AsyncStorage may be unavailable during shutdown
+    if (__DEV__) console.warn('[resetAllStores] AsyncStorage cleanup skipped');
   }
 };

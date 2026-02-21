@@ -312,7 +312,7 @@ export default function DisputeCenterScreen() {
                 { color: filter === f ? '#fff' : colors.graySecondary },
               ]}
             >
-              {f === 'all' ? 'Tous' : f === 'open' ? 'En cours' : 'Résolus'}
+              {({ all: 'Tous', open: 'En cours' } as Record<string, string>)[f] ?? 'Résolus'}
             </Text>
           </TouchableOpacity>
         ))}

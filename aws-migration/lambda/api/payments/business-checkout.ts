@@ -205,7 +205,8 @@ async function createBusinessCheckout(
   if (serviceType === 'subscription') {
     // Recurring subscription — need a Stripe Price
     const period = service.subscription_period || 'monthly';
-    const interval = period === 'weekly' ? 'week' : period === 'yearly' ? 'year' : 'month';
+    const intervalMap: Record<string, string> = { weekly: 'week', yearly: 'year' };
+    const interval = (intervalMap[period] ?? 'month') as Stripe.Price.Recurring.Interval;
 
     const product = await safeStripeCall(
       () => stripe.products.create({

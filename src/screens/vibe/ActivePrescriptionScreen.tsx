@@ -210,7 +210,7 @@ export default function ActivePrescriptionScreen({ navigation, route }: ActivePr
         <View style={styles.instructionsSection}>
           <Text style={styles.instructionsTitle}>How it works</Text>
           {prescription.instructions.map((step, i) => (
-            <View key={i} style={styles.instructionRow}>
+            <View key={`instruction-${step}`} style={styles.instructionRow}>
               <View style={styles.instructionBullet}>
                 <Text style={styles.instructionBulletText}>{i + 1}</Text>
               </View>

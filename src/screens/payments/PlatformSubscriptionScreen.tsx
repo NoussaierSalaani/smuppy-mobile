@@ -302,8 +302,8 @@ export default function PlatformSubscriptionScreen() {
           <Text style={styles.featuresTitle}>
             {`${selectedPlanData.name} includes`}
           </Text>
-          {selectedPlanData.features.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
+          {selectedPlanData.features.map((feature) => (
+            <View key={feature.text} style={styles.featureItem}>
               <LinearGradient
                 colors={selectedPlanData.gradient}
                 style={styles.featureIconContainer}

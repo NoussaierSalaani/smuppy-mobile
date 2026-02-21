@@ -249,7 +249,10 @@ class Logger {
    * Log API response
    */
   logResponse(statusCode: number, duration: number, data?: Record<string, unknown>): void {
-    const level = statusCode >= 500 ? 'ERROR' : statusCode >= 400 ? 'WARN' : 'INFO';
+    let level: 'ERROR' | 'WARN' | 'INFO';
+    if (statusCode >= 500) level = 'ERROR';
+    else if (statusCode >= 400) level = 'WARN';
+    else level = 'INFO';
     this.log(level, `Response ${statusCode}`, {
       type: 'RESPONSE',
       statusCode,

@@ -137,7 +137,7 @@ export const getAWSConfig = (): AWSConfig => {
       console.error(msg);
       try {
         sentryCaptureMessage(msg, 'fatal', { fallbackVars, environment: currentEnv });
-      } catch { /* Sentry not available — ignore */ }
+      } catch { /* Expected: Sentry may not be initialized during early config loading */ }
     } else if (devUsesStaging) {
       // DEV with opt-in: single consolidated warning
       console.warn(

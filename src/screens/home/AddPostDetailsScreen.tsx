@@ -204,7 +204,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           try {
             profile = await awsAPI.getProfile(user.id);
           } catch {
-            // Profile may not exist yet
+            // Expected: profile may not exist yet during onboarding — use fallback name
           }
 
           const email = user.email || '';
@@ -443,7 +443,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
         }
       }
     } catch {
-      // Location permission denied or unavailable
+      // Expected: location permission may be denied — post works without location
     }
   };
 

@@ -686,13 +686,11 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
           navigation.navigate('UserProfile', { userId });
         }
       }, 300);
+    } else if (userId === currentUserId) {
+      navigation.navigate('Tabs', { screen: 'Profile' });
     } else {
-      if (userId === currentUserId) {
-        navigation.navigate('Tabs', { screen: 'Profile' });
-      } else {
-        prefetchProfile(userId);
-        navigation.navigate('UserProfile', { userId });
-      }
+      prefetchProfile(userId);
+      navigation.navigate('UserProfile', { userId });
     }
   }, [navigation, modalVisible, selectedPost, trackPostExit, currentUserId, prefetchProfile]);
 
@@ -740,7 +738,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   // Navigate to Peak view — grouped by author for story navigation
   const goToStoryGroup = useCallback((group: { user: PeakCardData['user']; peaks: PeakCardData[] }) => {
     const index = groupedPeaks.findIndex(p => p.user.id === group.user.id);
-    const safeIndex = index >= 0 ? index : 0;
+    const safeIndex = Math.max(index, 0);
     navigation.navigate('PeakView', {
       peaks: groupedPeaks as unknown as Peak[],
       initialIndex: safeIndex,
@@ -1359,7 +1357,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
                   <View style={styles.relatedGrid}>
                     {relatedPosts.map((post, index) => (
                       <TouchableOpacity
-                        key={`related-${index}-${post.id}`}
+                        key={`related-${post.id}`}
                         style={styles.relatedCard}
                         onPress={() => {
                           // Switch to this post in the modal

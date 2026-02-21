@@ -270,8 +270,8 @@ export default function BusinessSubscriptionScreen({ route, navigation }: Busine
         )}
 
         <View style={styles.planFeatures}>
-          {plan.features.map((feature, index) => (
-            <View key={index} style={styles.featureRow}>
+          {plan.features.map((feature) => (
+            <View key={feature} style={styles.featureRow}>
               <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
               <Text style={styles.featureText}>{feature}</Text>
             </View>

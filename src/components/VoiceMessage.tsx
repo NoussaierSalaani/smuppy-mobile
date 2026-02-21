@@ -171,7 +171,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
   const waveformBars = useMemo(() =>
     barHeights.map((h, i) => (
       <View
-        key={i}
+        key={`bar-${i}`} // NOSONAR — static waveform array derived from URI seed, never reordered
         style={[
           styles.waveformBar,
           {
@@ -197,11 +197,11 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
         ]}
         onPress={togglePlayback}
         disabled={!isLoaded && !loadError}
-        accessibilityLabel={isPlaying ? "Pause voice message" : loadError ? "Tap to retry loading" : "Play voice message"}
+        accessibilityLabel={(() => { if (isPlaying) return "Pause voice message"; if (loadError) return "Tap to retry loading"; return "Play voice message"; })()}
         accessibilityRole="button"
       >
         <Ionicons
-          name={loadError ? "refresh" : isPlaying ? "pause" : "play"}
+          name={(() => { if (loadError) return "refresh" as const; if (isPlaying) return "pause" as const; return "play" as const; })()}
           size={20}
           color={isFromMe ? colors.primary : "#fff"}
         />

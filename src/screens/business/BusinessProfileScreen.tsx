@@ -287,13 +287,19 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
     return schedule.filter((a) => a.day_of_week === selectedDay);
   };
 
+  const getStarIcon = (star: number, r: number): 'star' | 'star-half' | 'star-outline' => {
+    if (star <= r) return 'star';
+    if (star - 0.5 <= r) return 'star-half';
+    return 'star-outline';
+  };
+
   const renderStars = (rating: number) => {
     return (
       <View style={styles.starsContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
           <Ionicons
             key={star}
-            name={star <= rating ? 'star' : star - 0.5 <= rating ? 'star-half' : 'star-outline'}
+            name={getStarIcon(star, rating)}
             size={14}
             color="#FFD700"
           />
@@ -318,7 +324,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
             <View style={styles.subscriptionBadge}>
               <Ionicons name="refresh" size={10} color="#fff" />
               <Text style={styles.subscriptionBadgeText}>
-                {item.subscription_period === 'monthly' ? '/mo' : item.subscription_period === 'yearly' ? '/yr' : '/wk'}
+                {({ monthly: '/mo', yearly: '/yr' } as Record<string, string>)[item.subscription_period ?? ''] ?? '/wk'}
               </Text>
             </View>
           )}
@@ -541,9 +547,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
-                {business.price_range === 'budget' ? '€' :
-                  business.price_range === 'moderate' ? '€€' :
-                  business.price_range === 'premium' ? '€€€' : '€€€€'}
+                {({ budget: '€', moderate: '€€', premium: '€€€' } as Record<string, string>)[business.price_range ?? ''] ?? '€€€€'}
               </Text>
               <Text style={styles.statLabel}>Price Range</Text>
             </View>
@@ -620,8 +624,8 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
                 <View style={styles.featuresSection}>
                   <Text style={styles.sectionTitle}>Amenities</Text>
                   <View style={styles.featuresGrid}>
-                    {business.features.map((feature, index) => (
-                      <View key={index} style={styles.featureItem}>
+                    {business.features.map((feature) => (
+                      <View key={feature} style={styles.featureItem}>
                         <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
                         <Text style={styles.featureText}>{feature}</Text>
                       </View>
@@ -665,8 +669,8 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
               {/* Opening Hours */}
               <View style={styles.hoursSection}>
                 <Text style={styles.sectionTitle}>Opening Hours</Text>
-                {business.hours.map((hour, index) => (
-                  <View key={index} style={styles.hourRow}>
+                {business.hours.map((hour) => (
+                  <View key={hour.day} style={styles.hourRow}>
                     <Text style={styles.hourDay}>{hour.day}</Text>
                     <Text style={[styles.hourTime, hour.is_closed && styles.hourClosed]}>
                       {hour.is_closed ? 'Closed' : `${hour.open} - ${hour.close}`}
@@ -704,7 +708,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
               >
                 {DAYS_SHORT.map((day, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={day}
                     style={[styles.dayButton, selectedDay === index && styles.dayButtonActive]}
                     onPress={() => setSelectedDay(index)}
                   >

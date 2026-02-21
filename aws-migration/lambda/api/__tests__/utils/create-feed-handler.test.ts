@@ -47,6 +47,8 @@ jest.mock('../../utils/security', () => ({
 jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
   RATE_WINDOW_5_MIN: 300,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
   MAX_REPORT_REASON_LENGTH: 500,
   MAX_REPORT_DETAILS_LENGTH: 2000,
 }));

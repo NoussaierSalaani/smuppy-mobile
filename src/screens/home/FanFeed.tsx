@@ -373,7 +373,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
 
   const listContentStyle = useMemo(() => ({
     ...styles.listContent,
-    paddingTop: headerHeight > 0 ? headerHeight : 0,
+    paddingTop: Math.max(headerHeight, 0),
   }), [headerHeight, styles]);
 
   // Fetch posts from tracked users
@@ -917,7 +917,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     const firstName = suggestion.name.split(' ')[0] || suggestion.name;
     return (
       <View
-        key={`suggestion-${index}-${suggestion.id}`}
+        key={`suggestion-${suggestion.id}`}
         style={styles.suggestionItem}
         accessible={true}
         accessibilityLabel={`${suggestion.name}${suggestion.isVerified ? ', verified' : ''}, suggested user`}

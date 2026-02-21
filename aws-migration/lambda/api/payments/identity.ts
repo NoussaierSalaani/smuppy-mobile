@@ -228,7 +228,7 @@ async function checkExistingSubscription(
       }
     }
   } catch {
-    // Subscription invalid, create new one
+    // Expected: existing subscription may be invalid or canceled — fall through to create new one
   }
 
   return null;
@@ -613,7 +613,7 @@ async function checkExistingVerificationSession(
       };
     }
   } catch {
-    // Session expired or invalid, create new one
+    // Expected: verification session may be expired or invalid — fall through to create new one
   }
 
   return null;

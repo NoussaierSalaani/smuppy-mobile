@@ -72,7 +72,7 @@ export function useVideoStatus(options: UseVideoStatusOptions): VideoStatus & { 
         }
       }
     } catch {
-      // Silently retry on network errors
+      // Expected: network errors during polling are retried automatically
     }
 
     // Continue polling if not at max attempts

@@ -119,7 +119,8 @@ export function useStripeCheckout(): UseStripeCheckoutReturn {
           await Linking.openURL(checkoutUrl);
         }
       } catch {
-        // Even fallback failed
+        // Expected: Linking fallback may fail on some devices — webhook handles payment status
+        if (__DEV__) console.warn('[useStripeCheckout] Both WebBrowser and Linking failed');
       }
 
       // With Linking.openURL we can't detect when user returns,

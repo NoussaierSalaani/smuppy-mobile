@@ -18,6 +18,7 @@ import { requireRateLimit } from './rate-limit';
 import { RATE_WINDOW_1_MIN } from './constants';
 import { resolveProfileId } from './auth';
 import { isValidUUID } from './security';
+import { parseLimit } from './pagination';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -58,6 +59,138 @@ interface FeedHandlerConfig {
 
 type Row = Record<string, unknown>;
 
+// ── Cursor Parsing ───────────────────────────────────────────────────
+
+interface CursorResult {
+  condition: string;
+  params: (string | number | Date | string[])[];
+}
+
+/**
+ * Parse a compound cursor (created_at|id) or legacy cursor (created_at only).
+ * Returns null if cursor is invalid (400 should be returned by caller).
+ * Returns { condition: '', params: [] } if no cursor is present.
+ */
+function parseCompoundCursor(
+  cursor: string | undefined,
+  existingParamsLength: number,
+): CursorResult | null {
+  if (!cursor) {
+    return { condition: '', params: [] };
+  }
+
+  const pipeIndex = cursor.indexOf('|');
+
+  if (pipeIndex !== -1) {
+    return parseCompoundCursorWithId(cursor, pipeIndex, existingParamsLength);
+  }
+
+  return parseLegacyCursor(cursor, existingParamsLength);
+}
+
+function parseCompoundCursorWithId(
+  cursor: string,
+  pipeIndex: number,
+  existingParamsLength: number,
+): CursorResult | null {
+  const cursorDate = cursor.substring(0, pipeIndex);
+  const cursorId = cursor.substring(pipeIndex + 1);
+
+  const parsedDate = new Date(cursorDate);
+  if (Number.isNaN(parsedDate.getTime())) return null;
+  if (!isValidUUID(cursorId)) return null;
+
+  return {
+    condition: `AND (p.created_at, p.id) < ($${existingParamsLength + 1}::timestamptz, $${existingParamsLength + 2}::uuid)`,
+    params: [parsedDate.toISOString(), cursorId],
+  };
+}
+
+function parseLegacyCursor(
+  cursor: string,
+  existingParamsLength: number,
+): CursorResult | null {
+  const parsedDate = new Date(cursor);
+  if (Number.isNaN(parsedDate.getTime())) return null;
+
+  return {
+    condition: `AND p.created_at < $${existingParamsLength + 1}::timestamptz`,
+    params: [parsedDate.toISOString()],
+  };
+}
+
+// ── Batch Interaction Fetch ──────────────────────────────────────────
+
+async function batchFetchInteractions(
+  db: Pool,
+  userId: string,
+  postIds: unknown[],
+): Promise<{ likedSet: Set<string>; savedSet: Set<string> }> {
+  if (postIds.length === 0) {
+    return { likedSet: new Set(), savedSet: new Set() };
+  }
+
+  const [likedRes, savedRes] = await Promise.all([
+    db.query(
+      'SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])',
+      [userId, postIds],
+    ),
+    db.query(
+      'SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])',
+      [userId, postIds],
+    ),
+  ]);
+
+  return {
+    likedSet: new Set(likedRes.rows.map((r: Row) => r.post_id as string)),
+    savedSet: new Set(savedRes.rows.map((r: Row) => r.post_id as string)),
+  };
+}
+
+// ── Row Transformation ───────────────────────────────────────────────
+
+function transformRow(
+  row: Row,
+  likedSet: Set<string>,
+  savedSet: Set<string>,
+  includeVideoFields: boolean,
+): Record<string, unknown> {
+  const post: Record<string, unknown> = {
+    id: row.id,
+    authorId: row.author_id,
+    content: row.content,
+    mediaUrls: row.media_urls || [],
+    mediaType: row.media_type,
+    mediaMeta: row.media_meta || {},
+    tags: row.tags || [],
+    likesCount: row.likes_count || 0,
+    commentsCount: row.comments_count || 0,
+    createdAt: row.created_at,
+    isLiked: likedSet.has(row.id as string),
+    isSaved: savedSet.has(row.id as string),
+    author: {
+      id: row.profile_id,
+      username: row.username,
+      fullName: row.full_name,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url,
+      isVerified: row.is_verified,
+      accountType: row.account_type,
+      businessName: row.business_name,
+    },
+  };
+
+  if (includeVideoFields) {
+    post.videoStatus = row.video_status || null;
+    post.hlsUrl = row.hls_url || null;
+    post.thumbnailUrl = row.thumbnail_url || null;
+    post.videoVariants = row.video_variants || null;
+    post.videoDuration = row.video_duration || null;
+  }
+
+  return post;
+}
+
 // ── Factory ──────────────────────────────────────────────────────────
 
 export function createFeedHandler(config: FeedHandlerConfig) {
@@ -80,11 +213,7 @@ export function createFeedHandler(config: FeedHandlerConfig) {
       // ── Auth ────────────────────────────────────────────────────
       const cognitoSub = event.requestContext.authorizer?.claims?.sub;
       if (!cognitoSub) {
-        return {
-          statusCode: 401,
-          headers,
-          body: JSON.stringify({ message: 'Unauthorized' }),
-        };
+        return { statusCode: 401, headers, body: JSON.stringify({ message: 'Unauthorized' }) };
       }
 
       // ── Rate limit (fail-open: WAF provides baseline protection) ─
@@ -98,10 +227,7 @@ export function createFeedHandler(config: FeedHandlerConfig) {
       if (rateLimitResponse) return rateLimitResponse;
 
       // ── Parse pagination params ────────────────────────────────
-      const limit = Math.min(
-        Number.parseInt(event.queryStringParameters?.limit || '20', 10),
-        50,
-      );
+      const limit = parseLimit(event.queryStringParameters?.limit);
       const cursor = event.queryStringParameters?.cursor;
 
       // ── DB + profile ───────────────────────────────────────────
@@ -109,59 +235,19 @@ export function createFeedHandler(config: FeedHandlerConfig) {
       const userId = await resolveProfileId(db, cognitoSub);
 
       if (!userId) {
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ data: [], nextCursor: null, hasMore: false }),
-        };
+        return { statusCode: 200, headers, body: JSON.stringify({ data: [], nextCursor: null, hasMore: false }) };
       }
 
       // ── Build compound cursor condition ────────────────────────
-      let cursorCondition = '';
       const params: (string | number | Date | string[])[] = [userId];
+      const cursorResult = parseCompoundCursor(cursor, params.length);
 
-      if (cursor) {
-        const pipeIndex = cursor.indexOf('|');
-        if (pipeIndex !== -1) {
-          // Compound cursor: created_at|id
-          const cursorDate = cursor.substring(0, pipeIndex);
-          const cursorId = cursor.substring(pipeIndex + 1);
-
-          const parsedDate = new Date(cursorDate);
-          if (Number.isNaN(parsedDate.getTime())) {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ message: 'Invalid cursor format' }),
-            };
-          }
-
-          // SECURITY: Validate cursor UUID to prevent SQL injection via ::uuid cast
-          if (!isValidUUID(cursorId)) {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ message: 'Invalid cursor format' }),
-            };
-          }
-
-          cursorCondition = `AND (p.created_at, p.id) < ($${params.length + 1}::timestamptz, $${params.length + 2}::uuid)`;
-          params.push(parsedDate.toISOString());
-          params.push(cursorId);
-        } else {
-          // Legacy cursor: created_at only (backward compatibility)
-          const parsedDate = new Date(cursor);
-          if (Number.isNaN(parsedDate.getTime())) {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ message: 'Invalid cursor format' }),
-            };
-          }
-          cursorCondition = `AND p.created_at < $${params.length + 1}::timestamptz`;
-          params.push(parsedDate.toISOString());
-        }
+      if (cursorResult === null) {
+        return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid cursor format' }) };
       }
+
+      const { condition: cursorCondition } = cursorResult;
+      params.push(...cursorResult.params);
 
       // Push limit+1 for hasMore detection
       params.push(limit + 1);
@@ -176,61 +262,10 @@ export function createFeedHandler(config: FeedHandlerConfig) {
 
       // ── Batch-fetch is_liked and is_saved ──────────────────────
       const postIds = rows.map((r: Row) => r.id);
-      let likedSet = new Set<string>();
-      let savedSet = new Set<string>();
-
-      if (postIds.length > 0) {
-        const [likedRes, savedRes] = await Promise.all([
-          db.query(
-            'SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])',
-            [userId, postIds],
-          ),
-          db.query(
-            'SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])',
-            [userId, postIds],
-          ),
-        ]);
-        likedSet = new Set(likedRes.rows.map((r: Row) => r.post_id as string));
-        savedSet = new Set(savedRes.rows.map((r: Row) => r.post_id as string));
-      }
+      const { likedSet, savedSet } = await batchFetchInteractions(db, userId, postIds);
 
       // ── Transform to camelCase ─────────────────────────────────
-      const data = rows.map((row: Row) => {
-        const post: Record<string, unknown> = {
-          id: row.id,
-          authorId: row.author_id,
-          content: row.content,
-          mediaUrls: row.media_urls || [],
-          mediaType: row.media_type,
-          mediaMeta: row.media_meta || {},
-          tags: row.tags || [],
-          likesCount: row.likes_count || 0,
-          commentsCount: row.comments_count || 0,
-          createdAt: row.created_at,
-          isLiked: likedSet.has(row.id as string),
-          isSaved: savedSet.has(row.id as string),
-          author: {
-            id: row.profile_id,
-            username: row.username,
-            fullName: row.full_name,
-            displayName: row.display_name,
-            avatarUrl: row.avatar_url,
-            isVerified: row.is_verified,
-            accountType: row.account_type,
-            businessName: row.business_name,
-          },
-        };
-
-        if (includeVideoFields) {
-          post.videoStatus = row.video_status || null;
-          post.hlsUrl = row.hls_url || null;
-          post.thumbnailUrl = row.thumbnail_url || null;
-          post.videoVariants = row.video_variants || null;
-          post.videoDuration = row.video_duration || null;
-        }
-
-        return post;
-      });
+      const data = rows.map((row: Row) => transformRow(row, likedSet, savedSet, includeVideoFields));
 
       // ── Build next cursor ──────────────────────────────────────
       const lastRow = rows.length > 0 ? rows.at(-1)! : null;
@@ -250,11 +285,7 @@ export function createFeedHandler(config: FeedHandlerConfig) {
       };
     } catch (error: unknown) {
       log.error(`Error getting ${loggerName}`, error);
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ message: 'Internal server error' }),
-      };
+      return { statusCode: 500, headers, body: JSON.stringify({ message: 'Internal server error' }) };
     }
   }
 

@@ -96,7 +96,7 @@ export async function getRedis(): Promise<Redis | Cluster | null> {
       try {
         await redis.quit();
       } catch {
-        // Ignore close errors
+        // Expected: Redis connection may already be closed or broken
       }
       redis = null;
     }
@@ -107,7 +107,7 @@ export async function getRedis(): Promise<Redis | Cluster | null> {
     try {
       await redis.quit();
     } catch {
-      // Ignore close errors
+      // Expected: Redis connection may already be closed or broken
     }
     redis = null;
   }

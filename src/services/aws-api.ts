@@ -196,8 +196,8 @@ class AWSAPIService {
       const token = await awsAuth.getIdToken();
       if (token) {
         requestHeaders['Authorization'] = `Bearer ${token}`;
-      } else {
-        if (__DEV__) console.warn('[AWS API] No ID token available for authenticated request');
+      } else if (__DEV__) {
+        console.warn('[AWS API] No ID token available for authenticated request');
       }
     }
 
@@ -290,7 +290,7 @@ class AWSAPIService {
               errorData.suspendedUntil,
             );
           } catch {
-            // Store not available — ignore
+            // Expected: moderation store may not be initialized during early API calls
           }
         }
 
@@ -370,7 +370,10 @@ class AWSAPIService {
     const response = await this.request<{ posts?: Post[]; data?: Post[]; nextCursor?: string | null; hasMore?: boolean; total?: number }>(endpoint);
 
     // Map API response (posts) to expected format (data)
-    const posts = Array.isArray(response.posts) ? response.posts : Array.isArray(response.data) ? response.data : [];
+    let posts: Post[];
+    if (Array.isArray(response.posts)) posts = response.posts;
+    else if (Array.isArray(response.data)) posts = response.data;
+    else posts = [];
     return {
       data: posts,
       nextCursor: response.nextCursor || null,

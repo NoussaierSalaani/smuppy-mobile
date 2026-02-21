@@ -359,7 +359,7 @@ export default function IdentityVerificationScreen() {
             <View style={styles.stepsSection}>
               <Text style={styles.sectionTitle}>How it works</Text>
               {steps.map((step, index) => (
-                <View key={index} style={styles.stepItem}>
+                <View key={step.title} style={styles.stepItem}>
                   <View style={styles.stepNumber}>
                     <Text style={styles.stepNumberText}>{index + 1}</Text>
                   </View>
@@ -383,8 +383,8 @@ export default function IdentityVerificationScreen() {
             {/* Benefits */}
             <View style={styles.benefitsSection}>
               <Text style={styles.sectionTitle}>Why verify?</Text>
-              {BENEFITS.map((benefit, index) => (
-                <View key={index} style={styles.benefitItem}>
+              {BENEFITS.map((benefit) => (
+                <View key={benefit.text} style={styles.benefitItem}>
                   <Ionicons name={benefit.icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.primary} />
                   <Text style={styles.benefitText}>{benefit.text}</Text>
                 </View>

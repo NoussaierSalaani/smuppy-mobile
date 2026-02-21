@@ -201,8 +201,8 @@ const ChannelSubscribeScreen = (): React.JSX.Element => {
 
           <Text style={styles.perksTitle}>What's included:</Text>
           <View style={styles.perksList}>
-            {tier.perks.map((perk, index) => (
-              <View key={index} style={styles.perkRow}>
+            {tier.perks.map((perk) => (
+              <View key={perk} style={styles.perkRow}>
                 <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                 <Text style={styles.perkText}>{perk}</Text>
               </View>

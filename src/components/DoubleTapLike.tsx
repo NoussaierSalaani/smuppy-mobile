@@ -221,7 +221,7 @@ const DoubleTapLike = memo(function DoubleTapLike({
             {/* Mini Hearts Burst */}
             {miniHearts.map((heart, index) => (
               <Animated.View
-                key={index}
+                key={`mini-heart-${index}`} // NOSONAR — static animation array, never reordered
                 style={[
                   styles.miniHeart,
                   {

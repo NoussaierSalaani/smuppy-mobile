@@ -67,7 +67,9 @@ const VALID_REPORT_ID = 'd4e5f6a7-b8c9-0123-defa-234567890123';
 const VALID_SENDER_ID = 'e5f6a7b8-c9d0-1234-efab-345678901234';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
-  const sub = overrides.sub === null ? null : (overrides.sub ?? TEST_SUB);
+  let sub: string | null = TEST_SUB;
+  if (overrides.sub === null) sub = null;
+  else if (overrides.sub !== undefined) sub = overrides.sub as string;
   const body = overrides.body === undefined
     ? { messageId: VALID_MESSAGE_ID, conversationId: VALID_CONV_ID, reason: 'harassment', details: 'Offensive message' }
     : overrides.body;

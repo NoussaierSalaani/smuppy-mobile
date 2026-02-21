@@ -284,12 +284,18 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
     navigation.navigate('BusinessProfile', { businessId: business.id });
   };
 
+  const getStarIcon = (star: number, r: number): 'star' | 'star-half' | 'star-outline' => {
+    if (star <= r) return 'star';
+    if (star - 0.5 <= r) return 'star-half';
+    return 'star-outline';
+  };
+
   const renderStars = (rating: number, size: number = 12) => (
     <View style={styles.starsContainer}>
       {[1, 2, 3, 4, 5].map((star) => (
         <Ionicons
           key={star}
-          name={star <= rating ? 'star' : star - 0.5 <= rating ? 'star-half' : 'star-outline'}
+          name={getStarIcon(star, rating)}
           size={size}
           color="#FFD700"
         />
@@ -380,9 +386,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
             <View style={styles.cardNameRow}>
               <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.cardPriceRange}>
-                {item.price_range === 'budget' ? '€' :
-                  item.price_range === 'moderate' ? '€€' :
-                  item.price_range === 'premium' ? '€€€' : '€€€€'}
+                {({ budget: '€', moderate: '€€', premium: '€€€' } as Record<string, string>)[item.price_range] ?? '€€€€'}
               </Text>
             </View>
 
@@ -409,7 +413,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
             {item.highlights && item.highlights.length > 0 && (
               <View style={styles.cardHighlights}>
                 {item.highlights.slice(0, 3).map((highlight, i) => (
-                  <View key={i} style={styles.highlightChip}>
+                  <View key={highlight} style={styles.highlightChip}>
                     <Text style={styles.highlightText}>{highlight}</Text>
                   </View>
                 ))}
@@ -673,7 +677,7 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
               Filters active: {[
                 filterOpen === true && 'Open Now',
                 filterRating > 0 && `${filterRating}+ stars`,
-                filterPriceRange.length > 0 && filterPriceRange.map(p => p === 'budget' ? '€' : p === 'moderate' ? '€€' : p === 'premium' ? '€€€' : '€€€€').join(', '),
+                filterPriceRange.length > 0 && filterPriceRange.map(p => ({ budget: '€', moderate: '€€', premium: '€€€' } as Record<string, string>)[p] ?? '€€€€').join(', '),
               ].filter(Boolean).join(' • ')}
             </Text>
             <TouchableOpacity onPress={handleClearActiveFilters}>

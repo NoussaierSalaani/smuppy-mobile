@@ -10,6 +10,7 @@ import * as database from '../../services/database';
 import type { Post, Profile } from '../../services/database';
 import { useUserStore } from '../../stores/userStore';
 import { useFeedStore } from '../../stores/feedStore';
+import { resolveDisplayName } from '../../types/profile';
 
 // ============================================
 // USER HOOKS
@@ -66,7 +67,7 @@ const convertProfileToUser = (profile: Profile) => ({
   id: profile.id,
   username: profile.username,
   fullName: profile.full_name,
-  displayName: (profile.account_type === 'pro_business' && profile.business_name) ? profile.business_name : (profile.display_name || profile.full_name),
+  displayName: resolveDisplayName(profile, profile.display_name || profile.full_name || ''),
   avatar: profile.avatar_url || null,
   coverImage: profile.cover_url || null,
   bio: profile.bio || '',

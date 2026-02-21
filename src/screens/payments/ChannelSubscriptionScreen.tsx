@@ -260,8 +260,8 @@ export default function ChannelSubscriptionScreen() {
           {/* Perks */}
           <View style={styles.perksContainer}>
             <Text style={styles.perksTitle}>Membership includes</Text>
-            {PERKS.map((perk, index) => (
-              <View key={index} style={styles.perkItem}>
+            {PERKS.map((perk) => (
+              <View key={perk.text} style={styles.perkItem}>
                 <LinearGradient
                   colors={GRADIENTS.primary}
                   style={styles.perkIcon}

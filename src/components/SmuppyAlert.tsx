@@ -131,7 +131,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
               if (isPrimary || isSingleDefault) {
                 return (
                   <TouchableOpacity
-                    key={index}
+                    key={button.text}
                     activeOpacity={0.8}
                     onPress={() => handleButtonPress(button)}
                     style={styles.buttonPrimary}
@@ -151,7 +151,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
               if (isDestructive) {
                 return (
                   <TouchableOpacity
-                    key={index}
+                    key={button.text}
                     activeOpacity={0.8}
                     onPress={() => handleButtonPress(button)}
                     style={styles.buttonPrimary}
@@ -170,7 +170,7 @@ const SmuppyAlert: React.FC<SmuppyAlertProps> = ({
 
               return (
                 <TouchableOpacity
-                  key={index}
+                  key={button.text}
                   activeOpacity={0.7}
                   onPress={() => handleButtonPress(button)}
                   style={styles.buttonSecondary}

@@ -658,7 +658,7 @@ async function insertDemoFollows(db: Pool, profileIds: { id: string; accountType
       try {
         await db.query(`INSERT INTO follows (follower_id, following_id, status, created_at) VALUES ($1, $2, 'accepted', NOW()) ON CONFLICT DO NOTHING`, [profileIds[i].id, profileIds[j].id]);
         totalFollows++;
-      } catch { /* ignore */ }
+      } catch { /* Expected: duplicate follow inserts are handled by ON CONFLICT DO NOTHING */ }
     }
   }
   return totalFollows;

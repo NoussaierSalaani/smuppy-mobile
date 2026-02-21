@@ -101,7 +101,7 @@ const PostDetailProfileScreen = () => {
   const [posts, setPosts] = useState<PostItem[]>(passedPosts);
   const [isLoadingPost, setIsLoadingPost] = useState(false);
   const initialIndex = posts.findIndex(p => p.id === postId) || 0;
-  const [currentIndex, setCurrentIndex] = useState(initialIndex >= 0 ? initialIndex : 0);
+  const [currentIndex, setCurrentIndex] = useState(Math.max(initialIndex, 0));
   const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({});
 
   // Current post
@@ -461,7 +461,7 @@ const PostDetailProfileScreen = () => {
         decelerationRate="fast"
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
+        initialScrollIndex={Math.max(initialIndex, 0)}
       />
 
       {/* Post Menu + Report Modal */}

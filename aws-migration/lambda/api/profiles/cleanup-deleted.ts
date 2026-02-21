@@ -99,7 +99,7 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
                 EndpointArn: row.sns_endpoint_arn,
               }));
             } catch {
-              // Endpoint may already be deleted — continue
+              // Expected: SNS endpoint may already be deleted by AWS or a previous cleanup run
             }
           }
         } catch (snsErr: unknown) {

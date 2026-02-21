@@ -361,7 +361,7 @@ export default function BattleLobbyScreen() {
   };
 
   const renderEmptySlot = (index: number) => (
-    <TouchableOpacity key={`empty-${index}`} style={styles.emptySlot} onPress={handleInvite}>
+    <TouchableOpacity key={`empty-slot-${index}`} style={styles.emptySlot} onPress={handleInvite}> {/* NOSONAR — static empty slot placeholder */}
       <View style={styles.emptySlotInner}>
         <View style={styles.emptyAvatar}>
           <Ionicons name="add" size={24} color="#666" />

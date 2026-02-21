@@ -98,7 +98,7 @@ const ActivitySkeleton = React.memo(function ActivitySkeleton() {
   return (
     <View style={skeletonStyles.container}>
       {Array.from({ length: 8 }).map((_, i) => (
-        <View key={i} style={skeletonStyles.row}>
+        <View key={`activity-skeleton-${i}`} style={skeletonStyles.row}> {/* NOSONAR — static skeleton array */}
           <SkeletonBase width={44} height={44} borderRadius={22} style={skeletonStyles.avatarMargin} />
           <View style={skeletonStyles.textCol}>
             <SkeletonLine width="75%" height={14} style={skeletonStyles.textGap} />

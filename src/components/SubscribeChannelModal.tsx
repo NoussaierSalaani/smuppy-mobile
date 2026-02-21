@@ -161,8 +161,8 @@ export default function SubscribeChannelModal({
                 </View>
 
                 <View style={styles.featuresContainer}>
-                  {tier.features.map((feature, index) => (
-                    <View key={index} style={styles.featureRow}>
+                  {tier.features.map((feature) => (
+                    <View key={feature} style={styles.featureRow}>
                       <Ionicons
                         name="checkmark-circle"
                         size={16}

@@ -213,7 +213,7 @@ export const useUserSafetyStore = create<UserSafetyState>()(
       try {
         const { clearVibesFeedCache } = require('../screens/home/VibesFeed');
         clearVibesFeedCache();
-      } catch { /* VibesFeed not loaded yet, nothing to clear */ }
+      } catch { /* Expected: VibesFeed module may not be loaded if user never visited the feed */ }
 
       return { error: null };
     },

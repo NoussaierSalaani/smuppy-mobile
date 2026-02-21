@@ -169,7 +169,7 @@ const PostDetailVibesFeedScreen = () => {
 
     return (
       <Animated.View
-        key={`grid-${index}-${post.id}`}
+        key={`grid-${post.id}`}
         style={[
           styles.gridCardWrapper,
           { height: post.height, transform: [{ scale }] }

@@ -208,7 +208,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
         setAvailabilityDates([]);
       }
     } catch {
-      // Non-critical: calendar shows no availability on error
+      // Expected: availability fetch may fail — calendar shows empty state gracefully
     }
   }, [user?.id, currentMonth]);
 
@@ -411,9 +411,10 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
           : await awsAPI.declineSession(id);
 
         if (response.success) {
-          setSessionRequests(prev => prev.map(r =>
-            r.id === id ? { ...r, status: action === 'accept' ? 'confirmed' : 'rejected' } : r
-          ));
+          setSessionRequests(prev => prev.map(r => {
+            if (r.id !== id) return r;
+            return { ...r, status: action === 'accept' ? 'confirmed' : 'rejected' };
+          }));
           showSuccess('Success', `Request ${action === 'accept' ? 'accepted' : 'rejected'}`);
         } else {
           showError('Error', response.message || `Failed to ${action} request`);
@@ -574,7 +575,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
           const isBooked = day && bookedDaysSet.has(day);
           return (
             <TouchableOpacity
-              key={index}
+              key={day ? `day-${day}` : `empty-${index}`}
               style={styles.calendarDayCell}
               onPress={() => day && isAvailable && handleDateClick(day)}
               disabled={!day || !isAvailable}
@@ -1096,7 +1097,7 @@ export default function PrivateSessionsManageScreen(): React.JSX.Element {
                 </View>
               ) : null}
               {availableSlots.map((slot, index) => (
-                <View key={index} style={[styles.slotItem, slot.isBooked && styles.slotItemBooked]}>
+                <View key={slot.time} style={[styles.slotItem, slot.isBooked && styles.slotItemBooked]}>
                   <View style={styles.slotTimeContainer}>
                     <Ionicons name="time-outline" size={18} color={slot.isBooked ? '#8E8E93' : colors.primary} />
                     <Text style={[styles.slotTime, slot.isBooked && styles.slotTimeBooked]}>{slot.time}</Text>

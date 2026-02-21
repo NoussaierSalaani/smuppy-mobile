@@ -50,6 +50,8 @@ jest.mock('../../utils/auth', () => ({
 
 jest.mock('../../utils/constants', () => ({
   RATE_WINDOW_1_MIN: 60,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
 }));
 
 jest.mock('ioredis', () => {

@@ -4,14 +4,122 @@
  * Optionally filtered by interests/hashtags
  */
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { Pool } from 'pg';
 import { getPool, SqlParam } from '../../shared/db';
 import { requireRateLimit } from '../utils/rate-limit';
 import { resolveProfileId } from '../utils/auth';
 import { withErrorHandler } from '../utils/error-handler';
 import { blockExclusionSQL, muteExclusionSQL } from '../utils/block-filter';
+import { parseLimit } from '../utils/pagination';
 
 const MAX_INTERESTS = 10;
+const MAX_OFFSET = 500;
+
+// ── Query builder ───────────────────────────────────────────────────
+
+interface WhereClauseResult {
+  whereClause: string;
+  params: SqlParam[];
+  nextParamIndex: number;
+}
+
+function buildWhereClauses(
+  userId: string | null,
+  interests: string[],
+): WhereClauseResult {
+  const params: SqlParam[] = [];
+  let paramIndex = 1;
+  const clauses: string[] = [];
+
+  if (userId) {
+    params.push(userId);
+    clauses.push(
+      `p.author_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $${paramIndex} AND status = 'accepted')`
+    );
+    clauses.push(`p.author_id != $${paramIndex}`);
+    clauses.push(
+      blockExclusionSQL(paramIndex, 'p.author_id').trimStart().replace(/^AND /, '')
+    );
+    clauses.push(
+      muteExclusionSQL(paramIndex, 'p.author_id').trimStart().replace(/^AND /, '')
+    );
+    paramIndex++;
+  }
+
+  clauses.push(`p.visibility = 'public'`);
+  clauses.push(`pr.moderation_status NOT IN ('banned', 'shadow_banned')`);
+
+  if (interests.length > 0) {
+    params.push(interests);
+    clauses.push(`p.tags && $${paramIndex}::text[]`);
+    paramIndex++;
+  }
+
+  const whereClause = clauses.length > 0 ? 'WHERE ' + clauses.join(' AND ') : '';
+  return { whereClause, params, nextParamIndex: paramIndex };
+}
+
+// ── Batch interaction lookup ────────────────────────────────────────
+
+async function batchFetchInteractions(
+  db: Pool,
+  userId: string | null,
+  postIds: unknown[],
+): Promise<{ likedSet: Set<string>; savedSet: Set<string> }> {
+  if (!userId || postIds.length === 0) {
+    return { likedSet: new Set(), savedSet: new Set() };
+  }
+
+  const [likedRes, savedRes] = await Promise.all([
+    db.query('SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
+    db.query('SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
+  ]);
+
+  return {
+    likedSet: new Set(likedRes.rows.map((r: Record<string, unknown>) => r.post_id as string)),
+    savedSet: new Set(savedRes.rows.map((r: Record<string, unknown>) => r.post_id as string)),
+  };
+}
+
+// ── Row formatter ───────────────────────────────────────────────────
+
+function formatDiscoverPost(
+  row: Record<string, unknown>,
+  likedSet: Set<string>,
+  savedSet: Set<string>,
+): Record<string, unknown> {
+  return {
+    id: row.id,
+    authorId: row.author_id,
+    content: row.content,
+    mediaUrls: row.media_urls || [],
+    mediaType: row.media_type,
+    mediaMeta: row.media_meta || {},
+    tags: row.tags || [],
+    likesCount: row.likes_count || 0,
+    commentsCount: row.comments_count || 0,
+    createdAt: row.created_at,
+    videoStatus: row.video_status || null,
+    hlsUrl: row.hls_url || null,
+    thumbnailUrl: row.thumbnail_url || null,
+    videoVariants: row.video_variants || null,
+    videoDuration: row.video_duration || null,
+    isLiked: likedSet.has(row.id as string),
+    isSaved: savedSet.has(row.id as string),
+    author: {
+      id: row.profile_id,
+      username: row.username,
+      fullName: row.full_name,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url,
+      isVerified: row.is_verified,
+      accountType: row.account_type,
+      businessName: row.business_name,
+    },
+  };
+}
+
+// ── Main Handler ────────────────────────────────────────────────────
 
 export const handler = withErrorHandler('feed-discover', async (event, { headers }) => {
     const cognitoSub = event.requestContext.authorizer?.claims?.sub;
@@ -21,11 +129,7 @@ export const handler = withErrorHandler('feed-discover', async (event, { headers
       if (rateLimitResponse) return rateLimitResponse;
     }
 
-    const limit = Math.min(Number.parseInt(event.queryStringParameters?.limit || '20', 10), 50);
-    // Engagement-ranked feeds can't use keyset cursor (scores change between requests).
-    // Use offset-based pagination with LIMIT N+1 for proper hasMore detection.
-    // Cap offset to prevent deep scanning (O(n) cost in Postgres).
-    const MAX_OFFSET = 500;
+    const limit = parseLimit(event.queryStringParameters?.limit);
     const cursorParam = event.queryStringParameters?.cursor;
     const offset = cursorParam ? Math.min(Number.parseInt(cursorParam, 10) || 0, MAX_OFFSET) : 0;
 
@@ -36,45 +140,13 @@ export const handler = withErrorHandler('feed-discover', async (event, { headers
 
     const db = await getPool();
 
-    let userId: string | null = null;
+    const userId = cognitoSub ? await resolveProfileId(db, cognitoSub) : null;
 
-    if (cognitoSub) {
-      userId = await resolveProfileId(db, cognitoSub);
-    }
+    // Build WHERE clause
+    const { whereClause, params, nextParamIndex } = buildWhereClauses(userId, interests);
 
-    const params: SqlParam[] = [];
-    let paramIndex = 1;
-    // Build WHERE clauses
-    const whereClauses: string[] = [];
-
-    if (userId) {
-      params.push(userId);
-      whereClauses.push(
-        `p.author_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $${paramIndex} AND status = 'accepted')`
-      );
-      whereClauses.push(`p.author_id != $${paramIndex}`);
-      // Exclude posts from users the current user has blocked (bidirectional) or muted
-      whereClauses.push(
-        blockExclusionSQL(paramIndex, 'p.author_id').trimStart().replace(/^AND /, '')
-      );
-      whereClauses.push(
-        muteExclusionSQL(paramIndex, 'p.author_id').trimStart().replace(/^AND /, '')
-      );
-      paramIndex++;
-    }
-
-    whereClauses.push(`p.visibility = 'public'`);
-    whereClauses.push(`pr.moderation_status NOT IN ('banned', 'shadow_banned')`);
-
-    if (interests.length > 0) {
-      params.push(interests);
-      whereClauses.push(`p.tags && $${paramIndex}::text[]`);
-      paramIndex++;
-    }
-
-    const whereClause = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
-
-    params.push(limit + 1); // Fetch one extra to check hasMore
+    let paramIndex = nextParamIndex;
+    params.push(limit + 1);
     const limitParam = paramIndex;
     paramIndex++;
 
@@ -97,50 +169,11 @@ export const handler = withErrorHandler('feed-discover', async (event, { headers
     const hasMore = result.rows.length > limit;
     const rows = result.rows.slice(0, limit);
 
-    // Batch fetch is_liked / is_saved (2 queries instead of 2 per-row EXISTS subqueries)
     const postIds = rows.map((r: Record<string, unknown>) => r.id);
-    let likedSet = new Set<string>();
-    let savedSet = new Set<string>();
-    if (userId && postIds.length > 0) {
-      const [likedRes, savedRes] = await Promise.all([
-        db.query('SELECT post_id FROM likes WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
-        db.query('SELECT post_id FROM saved_posts WHERE user_id = $1 AND post_id = ANY($2::uuid[])', [userId, postIds]),
-      ]);
-      likedSet = new Set(likedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
-      savedSet = new Set(savedRes.rows.map((r: Record<string, unknown>) => r.post_id as string));
-    }
+    const { likedSet, savedSet } = await batchFetchInteractions(db, userId, postIds);
 
-    const data = rows.map((row: Record<string, unknown>) => ({
-      id: row.id,
-      authorId: row.author_id,
-      content: row.content,
-      mediaUrls: row.media_urls || [],
-      mediaType: row.media_type,
-      mediaMeta: row.media_meta || {},
-      tags: row.tags || [],
-      likesCount: row.likes_count || 0,
-      commentsCount: row.comments_count || 0,
-      createdAt: row.created_at,
-      videoStatus: row.video_status || null,
-      hlsUrl: row.hls_url || null,
-      thumbnailUrl: row.thumbnail_url || null,
-      videoVariants: row.video_variants || null,
-      videoDuration: row.video_duration || null,
-      isLiked: likedSet.has(row.id as string),
-      isSaved: savedSet.has(row.id as string),
-      author: {
-        id: row.profile_id,
-        username: row.username,
-        fullName: row.full_name,
-        displayName: row.display_name,
-        avatarUrl: row.avatar_url,
-        isVerified: row.is_verified,
-        accountType: row.account_type,
-        businessName: row.business_name,
-      },
-    }));
+    const data = rows.map((row: Record<string, unknown>) => formatDiscoverPost(row, likedSet, savedSet));
 
-    // nextCursor is the offset for the next page (encoded as string)
     const nextCursor = hasMore ? String(offset + limit) : null;
 
     return {

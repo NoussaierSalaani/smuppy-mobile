@@ -567,7 +567,7 @@ export default function RouteMapPicker({
 
           {/* Waypoints */}
           {waypoints.map((wp, index) => (
-            <MarkerView key={`wp-${index}`} coordinate={[wp.lng, wp.lat]}>
+            <MarkerView key={`wp-${wp.lat}-${wp.lng}`} coordinate={[wp.lng, wp.lat]}>
               <View style={styles.routePinContainer}>
                 <View style={[styles.routePin, { backgroundColor: colors.primary }]}>
                   <Text style={styles.routePinText}>{index + 1}</Text>

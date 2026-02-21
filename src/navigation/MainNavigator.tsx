@@ -88,6 +88,7 @@ import PeakViewScreen from '../screens/peaks/PeakViewScreen';
 // Components
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
 import BottomNav from '../components/BottomNav';
+import { resolveDisplayName } from '../types/profile';
 
 // ============================================
 // LAZY IMPORTS — Non-core / deep screens
@@ -246,7 +247,7 @@ function TabNavigator({ navigation }: TabNavigatorProps) {
           navigation.navigate('FindFriends');
         }
       } catch {
-        // Silent fail
+        // Expected: storage read may fail on first launch — FindFriends prompt is non-critical
       }
     }, 30000);
     return () => clearTimeout(timer);
@@ -300,7 +301,7 @@ export default function MainNavigator() {
             id: data.id,
             username: data.username,
             fullName: data.full_name || '',
-            displayName: (data.account_type === 'pro_business' && data.business_name) ? data.business_name : (data.display_name || data.full_name || ''),
+            displayName: resolveDisplayName(data, data.display_name || data.full_name || ''),
             avatar: data.avatar_url || null,
             coverImage: data.cover_url || null,
             bio: data.bio || '',

@@ -1390,7 +1390,7 @@ const PeakViewScreen = (): React.JSX.Element => {
             const isCurrentSegment = idx === currentUserPeakIndex;
             const isPastSegment = idx < currentUserPeakIndex;
             return (
-              <View key={idx} style={styles.progressSegment}>
+              <View key={`progress-${idx}`} style={styles.progressSegment}> {/* NOSONAR — static segment count per user */}
                 <View style={[
                   styles.progressSegmentFill,
                   isPastSegment && styles.progressSegmentComplete,
@@ -1594,7 +1594,7 @@ const PeakViewScreen = (): React.JSX.Element => {
           {/* Particles */}
           {heartParticles.map((particle, index) => (
             <Animated.View
-              key={index}
+              key={`heart-particle-${index}`} // NOSONAR — static animation array, never reordered
               style={[
                 styles.heartParticle,
                 {

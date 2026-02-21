@@ -247,7 +247,10 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
 const convertPost = (p: AWSPost): Post => {
   const pRec = p as unknown as Record<string, unknown>;
   const rawMedia = p.mediaUrls || pRec?.media_urls || pRec?.mediaUrl || pRec?.media_url || [];
-  const mediaArray = Array.isArray(rawMedia) ? rawMedia : rawMedia ? [rawMedia] : [];
+  let mediaArray: string[];
+  if (Array.isArray(rawMedia)) mediaArray = rawMedia as string[];
+  else if (rawMedia) mediaArray = [rawMedia as string];
+  else mediaArray = [];
 
   return {
     id: p.id,

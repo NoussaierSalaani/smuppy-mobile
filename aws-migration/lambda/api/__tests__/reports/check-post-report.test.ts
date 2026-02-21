@@ -47,7 +47,9 @@ const VALID_POST_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const VALID_PROFILE_ID = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}): APIGatewayProxyEvent {
-  const sub = overrides.sub === null ? null : (overrides.sub ?? TEST_SUB);
+  let sub: string | null = TEST_SUB;
+  if (overrides.sub === null) sub = null;
+  else if (overrides.sub !== undefined) sub = overrides.sub as string;
   return {
     httpMethod: 'GET',
     headers: {},

@@ -890,7 +890,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
           </View>
           <View style={styles.expertiseTags}>
             {selectedMarker.expertise?.map((tag, index) => (
-              <View key={index} style={styles.expertiseTag}>
+              <View key={tag} style={styles.expertiseTag}>
                 <Text style={styles.expertiseTagText}>{sanitizeOptionalText(tag)}</Text>
               </View>
             ))}

@@ -118,8 +118,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Admin disputes use multi-CASE ORDER BY — use offset-encoded cursor
     const { offset, parsedLimit } = parseOffsetCursor(cursor, limit);
 
-    params.push(parsedLimit + 1);
-    params.push(offset);
+    params.push(parsedLimit + 1, offset);
     query += ` ORDER BY
       ${DISPUTE_STATUS_ORDER_SQL},
       CASE d.priority

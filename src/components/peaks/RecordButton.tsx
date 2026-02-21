@@ -142,10 +142,8 @@ const RecordButton = ({
       if (onRecordCancel) {
         onRecordCancel(`Minimum ${minDuration} seconds required`);
       }
-    } else {
-      if (onRecordEnd) {
-        onRecordEnd(finalDuration);
-      }
+    } else if (onRecordEnd) {
+      onRecordEnd(finalDuration);
     }
   };
 

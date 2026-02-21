@@ -496,7 +496,8 @@ class AWSAuthService {
         await client.send(command).catch(() => {});
       }
     } catch {
-      // Ignore signout errors
+      // Expected: signout may fail if token is already expired or network is unavailable
+      if (__DEV__) console.warn('[AWS Auth] Signout failed (non-critical)');
     }
 
     await this.clearSession();
@@ -506,13 +507,15 @@ class AWSAuthService {
       const { useFeedStore } = require('../stores/feedStore');
       useFeedStore.getState().clearFeed();
     } catch {
-      // Store may not be initialized yet
+      // Expected: store may not be initialized yet during early logout
+      if (__DEV__) console.warn('[AWS Auth] Feed store not available for cleanup');
     }
     try {
       const { clearVibesFeedCache } = require('../screens/home/VibesFeed');
       clearVibesFeedCache();
     } catch {
-      // Module may not be loaded yet
+      // Expected: module may not be loaded yet if VibesFeed was never visited
+      if (__DEV__) console.warn('[AWS Auth] VibesFeed cache not available for cleanup');
     }
 
     this.notifyAuthStateChange(null);

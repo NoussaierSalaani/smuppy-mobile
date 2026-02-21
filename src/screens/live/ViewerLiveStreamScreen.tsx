@@ -441,9 +441,9 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
         {/* Reactions Popup */}
         {showReactions && (
           <Animated.View style={styles.reactionsPopup}>
-            {REACTIONS.map((emoji, index) => (
+            {REACTIONS.map((emoji) => (
               <TouchableOpacity
-                key={index}
+                key={emoji}
                 style={styles.reactionButton}
                 onPress={() => handleReaction(emoji)}
               >
@@ -507,9 +507,9 @@ export default function ViewerLiveStreamScreen(): React.JSX.Element {
                 { emoji: '💎', name: 'Diamond', price: 19.99 },
                 { emoji: '🏆', name: 'Trophy', price: 49.99 },
                 { emoji: '🚀', name: 'Rocket', price: 99.99 },
-              ].map((gift, index) => (
+              ].map((gift) => (
                 <TouchableOpacity
-                  key={index}
+                  key={gift.name}
                   style={styles.giftItem}
                   onPress={() => {
                     setShowGiftModal(false);

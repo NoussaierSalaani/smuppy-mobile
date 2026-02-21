@@ -226,7 +226,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     if (cameraRef.current) {
       try {
         cameraRef.current.stopRecording();
-      } catch { /* Ignore stop errors */ }
+      } catch { /* Expected: camera/video may already be stopped or released */ }
     }
 
     showToastMessage(message);
@@ -238,12 +238,12 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     if (cameraRef.current && isRecording) {
       try {
         cameraRef.current.stopRecording();
-      } catch { /* Ignore stop errors */ }
+      } catch { /* Expected: camera/video may already be stopped or released */ }
     }
     if (videoPreviewRef.current) {
       try {
         await videoPreviewRef.current.stopAsync();
-      } catch { /* Ignore stop errors */ }
+      } catch { /* Expected: camera/video may already be stopped or released */ }
     }
     navigation.goBack();
   };
@@ -254,7 +254,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     if (videoPreviewRef.current) {
       try {
         await videoPreviewRef.current.stopAsync();
-      } catch { /* Ignore stop errors */ }
+      } catch { /* Expected: camera/video may already be stopped or released */ }
     }
     resetCamera();
   };
@@ -265,7 +265,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
     if (videoPreviewRef.current) {
       try {
         await videoPreviewRef.current.stopAsync();
-      } catch { /* Ignore stop errors */ }
+      } catch { /* Expected: camera/video may already be stopped or released */ }
     }
 
     if (recordedVideo) {
@@ -362,7 +362,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             </TouchableOpacity>
 
             <Text style={styles.headerTitle}>
-              {challengeId ? 'Challenge Response' : replyTo ? 'Reply' : 'Peak'}
+              {(() => { if (challengeId) return 'Challenge Response'; if (replyTo) return 'Reply'; return 'Peak'; })()}
             </Text>
 
             <View style={{ width: 44 }} />

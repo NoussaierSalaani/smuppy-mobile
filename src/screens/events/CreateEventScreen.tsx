@@ -102,7 +102,7 @@ const ProgressSegments: React.FC<{ current: number; total: number; colors: Theme
     <View style={{ flexDirection: 'row', gap: SEGMENT_GAP, paddingHorizontal: 16, marginBottom: 8 }}>
       {Array.from({ length: total }).map((_, i) => (
         <View
-          key={i}
+          key={`segment-${i}`} // NOSONAR — static progress segment array
           style={[
             { height: 4, borderRadius: 2, width: segmentWidth },
             { backgroundColor: i < current ? colors.primary : colors.gray200 },
@@ -822,12 +822,12 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
                 </ShapeSource>
               )}
               {hasRoute && routePoints.map((point, index) => (
-                <MarkerView key={index} coordinate={[point.longitude, point.latitude]}>
+                <MarkerView key={`route-${point.latitude}-${point.longitude}`} coordinate={[point.longitude, point.latitude]}>
                   <View style={[styles.routeMarker, {
-                    backgroundColor: index === 0 ? '#4CAF50' : index === routePoints.length - 1 ? '#F44336' : selectedCategory?.color || colors.primary,
+                    backgroundColor: (() => { if (index === 0) return '#4CAF50'; if (index === routePoints.length - 1) return '#F44336'; return selectedCategory?.color || colors.primary; })(),
                   }]}>
                     <Text style={styles.routeMarkerText}>
-                      {index === 0 ? 'S' : index === routePoints.length - 1 ? 'E' : index}
+                      {(() => { if (index === 0) return 'S'; if (index === routePoints.length - 1) return 'E'; return index; })()}
                     </Text>
                   </View>
                 </MarkerView>

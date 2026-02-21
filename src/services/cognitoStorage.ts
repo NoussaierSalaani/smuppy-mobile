@@ -40,7 +40,7 @@ async function addKeyToIndex(key: string): Promise<void> {
       await AsyncStorage.setItem(COGNITO_KEYS_INDEX, JSON.stringify(keys));
     }
   } catch {
-    // Non-critical: key tracking failed
+    // Expected: key index tracking is non-critical — Cognito auth works without it
   }
 }
 
@@ -51,7 +51,7 @@ async function removeKeyFromIndex(key: string): Promise<void> {
     const filtered = keys.filter((k) => k !== key);
     await AsyncStorage.setItem(COGNITO_KEYS_INDEX, JSON.stringify(filtered));
   } catch {
-    // Non-critical
+    // Expected: key index cleanup is non-critical — stale keys are harmless
   }
 }
 

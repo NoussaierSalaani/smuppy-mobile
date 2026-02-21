@@ -124,7 +124,7 @@ const UserProfileScreen = () => {
     return {
       id: data.id || userId || DEFAULT_PROFILE.id,
       username: data.username || DEFAULT_PROFILE.username,
-      displayName: (data.account_type === 'pro_business' && data.business_name) ? data.business_name : (data.full_name || data.display_name || data.username || DEFAULT_PROFILE.displayName),
+      displayName: resolveDisplayName(data, data.full_name || data.display_name || data.username || DEFAULT_PROFILE.displayName),
       avatar: data.avatar_url || DEFAULT_PROFILE.avatar,
       coverImage: data.cover_url || getCoverImage(interests),
       bio: data.bio || DEFAULT_PROFILE.bio,
@@ -255,7 +255,7 @@ const UserProfileScreen = () => {
         setBusinessActivities([]);
       }
     } catch {
-      // silent — planning data is non-critical
+      // Expected: planning data fetch may fail — UI shows empty state gracefully
     } finally {
       setIsLoadingPlanning(false);
     }
@@ -946,27 +946,30 @@ const UserProfileScreen = () => {
   );
 
   // ==================== RENDER EMPTY STATE ====================
-  const renderEmpty = (type: string) => (
-    <View style={styles.emptyContainer}>
-      <Ionicons
-        name={type === 'posts' ? 'images-outline' : type === 'peaks' ? 'videocam-outline' : 'bookmark-outline'}
-        size={48}
-        color={colors.gray}
-        style={styles.emptyIconMargin}
-      />
-      <Text style={styles.emptyTitle}>
-        {type === 'posts' ? 'No posts yet' : type === 'peaks' ? 'No peaks yet' : 'Private'}
-      </Text>
-      <Text style={styles.emptyDesc}>
-        {type === 'posts'
-          ? "This user hasn't shared any posts yet"
-          : type === 'peaks'
-          ? "This user hasn't shared any peaks yet"
-          : 'Collections are only visible to the account owner'
-        }
-      </Text>
-    </View>
-  );
+  const renderEmpty = (type: string) => {
+    const EMPTY_ICONS: Record<string, string> = { posts: 'images-outline', peaks: 'videocam-outline' };
+    const EMPTY_TITLES: Record<string, string> = { posts: 'No posts yet', peaks: 'No peaks yet' };
+    const EMPTY_DESCS: Record<string, string> = {
+      posts: "This user hasn't shared any posts yet",
+      peaks: "This user hasn't shared any peaks yet",
+    };
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons
+          name={(EMPTY_ICONS[type] ?? 'bookmark-outline') as keyof typeof Ionicons.glyphMap}
+          size={48}
+          color={colors.gray}
+          style={styles.emptyIconMargin}
+        />
+        <Text style={styles.emptyTitle}>
+          {EMPTY_TITLES[type] ?? 'Private'}
+        </Text>
+        <Text style={styles.emptyDesc}>
+          {EMPTY_DESCS[type] ?? 'Collections are only visible to the account owner'}
+        </Text>
+      </View>
+    );
+  };
 
   // ==================== RENDER TAB CONTENT ====================
   const renderTabContent = () => {

@@ -415,4 +415,55 @@ describe('tips/send handler', () => {
     });
   });
 
+  // 10. Additional coverage - sender/receiver edge cases
+  describe('additional coverage - sender not found', () => {
+    it('should return 404 when sender profile not found in DB', async () => {
+      mockClient.query.mockImplementation((sql: string, params?: unknown[]) => {
+        if (typeof sql === 'string' && sql.includes('stripe_customer_id') && params?.[0] === VALID_PROFILE_ID) {
+          return Promise.resolve({ rows: [] }); // sender not found
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const result = await invoke(makeEvent());
+
+      expect(result.statusCode).toBe(404);
+    });
+
+    it('should return 404 when receiver profile not found in DB', async () => {
+      mockClient.query.mockImplementation((sql: string, params?: unknown[]) => {
+        if (typeof sql === 'string' && sql.includes('stripe_customer_id') && params?.[0] === VALID_PROFILE_ID) {
+          return Promise.resolve({
+            rows: [{ id: VALID_PROFILE_ID, username: 'sender', display_name: 'Sender', stripe_customer_id: 'cus_existing' }],
+          });
+        }
+        if (typeof sql === 'string' && sql.includes('stripe_account_id') && params?.[0] === RECEIVER_ID) {
+          return Promise.resolve({ rows: [] }); // receiver not found
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const result = await invoke(makeEvent());
+
+      expect(result.statusCode).toBe(404);
+    });
+
+    it('should return 400 when amount is not a number', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({ receiverId: RECEIVER_ID, amount: 'abc', contextType: 'profile' }),
+      });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(400);
+    });
+
+    it('should return 400 when body is null', async () => {
+      const event = makeEvent({ body: null });
+
+      const result = await invoke(event);
+
+      expect(result.statusCode).toBe(400);
+    });
+  });
 });

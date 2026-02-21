@@ -100,3 +100,62 @@ export async function getAdminKey(): Promise<string> {
   }
   return getSecret(arn);
 }
+
+// ────────────────────────────────────────────
+// IAP Secrets (Apple App Store & Google Play)
+// ────────────────────────────────────────────
+
+export interface AppleIAPSecrets {
+  keyId: string;       // App Store Connect API Key ID
+  issuerId: string;    // App Store Connect Issuer ID
+  privateKey: string;  // P8 private key (PEM format)
+  bundleId: string;    // com.nou09.Smuppy
+}
+
+export interface GooglePlaySecrets {
+  packageName: string; // com.nou09.Smuppy (Android package)
+  serviceAccount: {    // Google Cloud service account credentials
+    client_email: string;
+    private_key: string;
+    [key: string]: unknown;
+  };
+}
+
+let appleIAPSecrets: AppleIAPSecrets | null = null;
+let appleIAPExpiresAt = 0;
+
+let googlePlaySecrets: GooglePlaySecrets | null = null;
+let googlePlayExpiresAt = 0;
+
+export async function getAppleIAPSecrets(): Promise<AppleIAPSecrets> {
+  if (appleIAPSecrets && Date.now() < appleIAPExpiresAt) return appleIAPSecrets;
+  const arn = process.env.APPLE_IAP_SECRET_ARN;
+  if (!arn) {
+    throw new Error('APPLE_IAP_SECRET_ARN environment variable is not set');
+  }
+  const raw = await getSecret(arn);
+  appleIAPSecrets = JSON.parse(raw) as AppleIAPSecrets;
+  appleIAPExpiresAt = Date.now() + CACHE_TTL_MS;
+  return appleIAPSecrets;
+}
+
+export async function getGooglePlaySecrets(): Promise<GooglePlaySecrets> {
+  if (googlePlaySecrets && Date.now() < googlePlayExpiresAt) return googlePlaySecrets;
+  const arn = process.env.GOOGLE_PLAY_SECRET_ARN;
+  if (!arn) {
+    throw new Error('GOOGLE_PLAY_SECRET_ARN environment variable is not set');
+  }
+  const raw = await getSecret(arn);
+  googlePlaySecrets = JSON.parse(raw) as GooglePlaySecrets;
+  googlePlayExpiresAt = Date.now() + CACHE_TTL_MS;
+  return googlePlaySecrets;
+}
+
+/**
+ * Get IAP secrets for the specified platform.
+ * Returns AppleIAPSecrets for 'ios' or GooglePlaySecrets for 'android'.
+ */
+export async function getIAPSecrets(platform: string): Promise<AppleIAPSecrets | GooglePlaySecrets> {
+  if (platform === 'ios') return getAppleIAPSecrets();
+  return getGooglePlaySecrets();
+}

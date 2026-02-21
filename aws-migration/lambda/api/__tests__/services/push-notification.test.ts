@@ -1210,6 +1210,71 @@ describe('push-notification service (isolated module tests)', () => {
     });
   });
 
+  describe('sendPushToUser edge cases', () => {
+    it('should handle multiple push tokens with mixed success/failure', async () => {
+      // One token succeeds via Expo, one fails via SNS
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [{ status: 'ok' }] }),
+        text: () => Promise.resolve(''),
+      });
+      const genericError = new Error('SNS throttle');
+      (genericError as Error & { name: string }).name = 'ThrottlingException';
+      mockSnsSend.mockRejectedValueOnce(genericError);
+
+      let sendPushToUserFn: typeof sendPushToUser;
+      jest.isolateModules(() => {
+        const mod = require('../../services/push-notification');
+        sendPushToUserFn = mod.sendPushToUser;
+      });
+
+      const mockDb = createMockDb();
+      (mockDb.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [] }) // no block
+        .mockResolvedValueOnce({ rows: [] }) // no preference row
+        .mockResolvedValueOnce({
+          rows: [
+            { token: 'ExponentPushToken[device1]', platform: 'ios', sns_endpoint_arn: null },
+            { token: 'native-ios-token', platform: 'ios', sns_endpoint_arn: 'arn:aws:sns:us-east-1:123:endpoint/fail' },
+          ],
+        });
+
+      const result = await sendPushToUserFn!(mockDb, VALID_USER_ID, PAYLOAD, VALID_ACTOR_ID);
+
+      expect(result.success).toBe(1);
+      expect(result.failed).toBe(1);
+    });
+
+    it('should propagate database error during block check', async () => {
+      const mockDb = createMockDb();
+      (mockDb.query as jest.Mock).mockRejectedValueOnce(new Error('Connection reset'));
+
+      // sendPushToUser does not catch block check errors — they propagate
+      await expect(
+        sendPushToUser(mockDb, VALID_USER_ID, PAYLOAD, VALID_ACTOR_ID)
+      ).rejects.toThrow('Connection reset');
+    });
+
+    it('should skip preference check for "tip" notification type (no mapped column)', async () => {
+      const mockDb = createMockDb();
+      (mockDb.query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [] }) // no block
+        .mockResolvedValueOnce({ rows: [] }); // no tokens found
+
+      // 'tip' maps to null in getPreferenceColumn (default case), so preference check is skipped
+      const result = await sendPushToUser(
+        mockDb,
+        VALID_USER_ID,
+        { ...PAYLOAD, data: { type: 'tip' } },
+        VALID_ACTOR_ID,
+      );
+
+      // No tokens found, so success=0, failed=0
+      expect(result.success).toBe(0);
+      expect(result.failed).toBe(0);
+    });
+  });
+
   describe('initializeFirebase', () => {
     it('should permanently disable Firebase when FCM_SECRET_ARN is not set', async () => {
       delete process.env.FCM_SECRET_ARN;

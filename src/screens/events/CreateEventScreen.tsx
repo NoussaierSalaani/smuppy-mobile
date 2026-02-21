@@ -652,7 +652,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
           style={[styles.radioChip, !isPublic && styles.radioChipActive]}
           onPress={handleSetPublicFalse}
         >
-          <Ionicons name="lock-closed-outline" size={18} color={!isPublic ? colors.primary : colors.gray} />
+          <Ionicons name="lock-closed-outline" size={18} color={isPublic ? colors.gray : colors.primary} />
           <Text style={[styles.radioChipText, !isPublic && styles.radioChipTextActive]}>Private</Text>
           <View style={[styles.radioCircle, !isPublic && styles.radioCircleFilled]}>
             {!isPublic && <View style={styles.radioInner} />}

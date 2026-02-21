@@ -141,8 +141,8 @@ async function processStripeRefund(
       status: stripeRefund.status,
       amount: refundAmountCents / 100,
     };
-  } catch (refundError) {
-    log.error('Stripe refund failed', refundError);
+  } catch (error_) {
+    log.error('Stripe refund failed', error_);
     await recordFailedRefund(client, disputeId, dispute.payment_id, refundAmountCents, refundNotes, adminId);
     return null;
   }
@@ -411,9 +411,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         refund: refundResult,
       }),
     };
-  } catch (error) {
+  } catch (error_) {
     if (client) await client.query('ROLLBACK');
-    log.error('Resolve dispute error', error);
+    log.error('Resolve dispute error', error_);
     return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Internal server error' }) };
   } finally {
     if (client) client.release();

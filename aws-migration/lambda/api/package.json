@@ -59,6 +59,10 @@
       "<rootDir>/../triggers",
       "<rootDir>/../websocket"
     ],
+    "modulePaths": [
+      "<rootDir>/../websocket/node_modules",
+      "<rootDir>/../shared/node_modules"
+    ],
     "testMatch": [
       "**/*.test.ts"
     ],
@@ -77,10 +81,10 @@
     ],
     "coverageThreshold": {
       "global": {
-        "branches": 53,
-        "functions": 67,
-        "lines": 72,
-        "statements": 71
+        "branches": 85,
+        "functions": 93,
+        "lines": 95,
+        "statements": 94
       }
     }
   }

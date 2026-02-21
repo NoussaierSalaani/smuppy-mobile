@@ -367,4 +367,78 @@ describe('notifications/list handler', () => {
       expect(JSON.parse(result.body).message).toContain('Too many requests');
     });
   });
+
+  // ── 6. Additional coverage ───────────────────────────────────────────
+
+  describe('additional coverage - notification types', () => {
+    it('should handle follow_request notification type with actor data', async () => {
+      const notifRow = makeNotificationRow({
+        type: 'follow_request',
+        title: 'New follow request',
+        body: 'Someone wants to follow you',
+        data: { type: 'follow_request' },
+      });
+
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: TEST_PROFILE_ID }],
+      });
+      mockDb.query.mockResolvedValueOnce({
+        rows: [notifRow],
+      });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data[0].type).toBe('follow_request');
+      expect(body.data[0].data.user).toBeDefined();
+    });
+
+    it('should handle read notification correctly', async () => {
+      const notifRow = makeNotificationRow({ read: true });
+
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: TEST_PROFILE_ID }],
+      });
+      mockDb.query.mockResolvedValueOnce({
+        rows: [notifRow],
+      });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.data[0].read).toBe(true);
+    });
+
+    it('should handle limit less than 1 by using default', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: TEST_PROFILE_ID }],
+      });
+      mockDb.query.mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent({
+        queryStringParameters: { limit: '0' },
+      });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+    });
+
+    it('should handle non-numeric limit by using default', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: TEST_PROFILE_ID }],
+      });
+      mockDb.query.mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent({
+        queryStringParameters: { limit: 'abc' },
+      });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+    });
+  });
 });

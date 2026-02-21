@@ -228,9 +228,9 @@ export const handler = withAuthHandler('follows-create', async (event, { headers
     }
 
     await client.query('COMMIT');
-  } catch (txErr) {
+  } catch (error_) {
     await client.query('ROLLBACK');
-    throw txErr;
+    throw error_;
   } finally {
     client.release();
   }
@@ -251,7 +251,7 @@ export const handler = withAuthHandler('follows-create', async (event, { headers
       type: isPrivate ? 'follow_request' : 'new_follower',
       userId: followerId,
     },
-  }, followerId).catch(err => log.error('Push notification failed', err));
+  }, followerId).catch(error_ => log.error('Push notification failed', error_));
 
   return {
     statusCode: 201,

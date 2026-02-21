@@ -184,4 +184,157 @@ describe('disputes/submit-evidence handler', () => {
     const result = await handler(makeEvent(), {} as never, {} as never);
     expect(result!.statusCode).toBe(500);
   });
+
+  // ── Additional Coverage (Batch 7B-7D) ──
+
+  it('should return 400 when dispute is closed', async () => {
+    mockClient.query.mockResolvedValueOnce({ rows: [{
+      id: VALID_DISPUTE_ID,
+      status: 'closed',
+      evidence_deadline: new Date(Date.now() + 86400000).toISOString(),
+      complainant_id: VALID_PROFILE_ID,
+      respondent_id: 'other-2',
+      complainant_username: 'user1',
+      respondent_username: 'user2',
+    }] });
+    const result = await handler(makeEvent(), {} as never, {} as never);
+    expect(result!.statusCode).toBe(400);
+    expect(JSON.parse(result!.body).message).toContain('resolved');
+  });
+
+  it('should return 400 when evidence deadline has passed', async () => {
+    mockClient.query.mockResolvedValueOnce({ rows: [{
+      id: VALID_DISPUTE_ID,
+      status: 'open',
+      evidence_deadline: new Date(Date.now() - 86400000).toISOString(), // expired
+      complainant_id: VALID_PROFILE_ID,
+      respondent_id: 'other-2',
+      complainant_username: 'user1',
+      respondent_username: 'user2',
+    }] });
+    const result = await handler(makeEvent(), {} as never, {} as never);
+    expect(result!.statusCode).toBe(400);
+    expect(JSON.parse(result!.body).message).toContain('deadline has passed');
+  });
+
+  it('should return 400 when max evidence limit (10) is reached', async () => {
+    mockClient.query
+      .mockResolvedValueOnce({ rows: [{
+        id: VALID_DISPUTE_ID,
+        status: 'open',
+        evidence_deadline: new Date(Date.now() + 86400000).toISOString(),
+        complainant_id: VALID_PROFILE_ID,
+        respondent_id: 'other-2',
+        complainant_username: 'user1',
+        respondent_username: 'user2',
+      }] })
+      .mockResolvedValueOnce({ rows: [{ count: '10' }] }); // 10 evidence items
+    const result = await handler(makeEvent(), {} as never, {} as never);
+    expect(result!.statusCode).toBe(400);
+    expect(JSON.parse(result!.body).message).toContain('Maximum 10 evidence');
+  });
+
+  it('should return 201 on successful evidence submission', async () => {
+    mockClient.query
+      .mockResolvedValueOnce({ rows: [{
+        id: VALID_DISPUTE_ID,
+        status: 'open',
+        evidence_deadline: new Date(Date.now() + 86400000).toISOString(),
+        complainant_id: VALID_PROFILE_ID,
+        respondent_id: 'other-2',
+        complainant_username: 'user1',
+        respondent_username: 'user2',
+      }] })
+      .mockResolvedValueOnce({ rows: [{ count: '3' }] }) // under limit
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [{ id: 'ev-1', uploaded_at: new Date().toISOString() }] }) // INSERT evidence
+      .mockResolvedValueOnce({ rows: [] }) // INSERT timeline
+      .mockResolvedValueOnce({ rows: [] }) // INSERT notification
+      .mockResolvedValueOnce({ rows: [] }) // UPDATE dispute status
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+    const result = await handler(makeEvent(), {} as never, {} as never);
+    expect(result!.statusCode).toBe(201);
+    const body = JSON.parse(result!.body);
+    expect(body.success).toBe(true);
+    expect(body.evidence.id).toBe('ev-1');
+    expect(body.message).toBe('Evidence submitted successfully');
+  });
+
+  it('should return 400 when description is too long (over 1000 chars)', async () => {
+    const result = await handler(makeEvent({
+      body: JSON.stringify({
+        type: 'screenshot',
+        url: 'https://example.com/file.png',
+        description: 'x'.repeat(1001),
+      }),
+    }), {} as never, {} as never);
+    expect(result!.statusCode).toBe(400);
+    expect(JSON.parse(result!.body).message).toContain('Description must be between');
+  });
+
+  it('should return 429 when rate limited', async () => {
+    (requireRateLimit as jest.Mock).mockResolvedValueOnce({
+      statusCode: 429,
+      headers: {},
+      body: JSON.stringify({ message: 'Rate limited' }),
+    });
+    const result = await handler(makeEvent(), {} as never, {} as never);
+    expect(result!.statusCode).toBe(429);
+  });
+
+  it('should accept text evidence with textContent field', async () => {
+    mockClient.query
+      .mockResolvedValueOnce({ rows: [{
+        id: VALID_DISPUTE_ID,
+        status: 'open',
+        evidence_deadline: new Date(Date.now() + 86400000).toISOString(),
+        complainant_id: VALID_PROFILE_ID,
+        respondent_id: 'other-2',
+        complainant_username: 'user1',
+        respondent_username: 'user2',
+      }] })
+      .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [{ id: 'ev-2', uploaded_at: new Date().toISOString() }] })
+      .mockResolvedValueOnce({ rows: [] }) // timeline
+      .mockResolvedValueOnce({ rows: [] }) // notification
+      .mockResolvedValueOnce({ rows: [] }) // update status
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+    const result = await handler(makeEvent({
+      body: JSON.stringify({
+        type: 'text',
+        description: 'Text evidence with conversation logs',
+        textContent: 'Full conversation log here...',
+      }),
+    }), {} as never, {} as never);
+    expect(result!.statusCode).toBe(201);
+  });
+
+  it('should notify respondent when complainant submits evidence', async () => {
+    const respondentId = 'other-2';
+    mockClient.query
+      .mockResolvedValueOnce({ rows: [{
+        id: VALID_DISPUTE_ID,
+        status: 'open',
+        evidence_deadline: new Date(Date.now() + 86400000).toISOString(),
+        complainant_id: VALID_PROFILE_ID,
+        respondent_id: respondentId,
+        complainant_username: 'user1',
+        respondent_username: 'user2',
+      }] })
+      .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [{ id: 'ev-3', uploaded_at: new Date().toISOString() }] })
+      .mockResolvedValueOnce({ rows: [] }) // timeline
+      .mockResolvedValueOnce({ rows: [] }) // notification
+      .mockResolvedValueOnce({ rows: [] }) // update status
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+    await handler(makeEvent(), {} as never, {} as never);
+    const notifCall = mockClient.query.mock.calls.find(
+      (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('INSERT INTO notifications')
+    );
+    expect(notifCall).toBeDefined();
+    // Other party (respondent) should be notified
+    expect(notifCall![1][0]).toBe(respondentId);
+  });
 });

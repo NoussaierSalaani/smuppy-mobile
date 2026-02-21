@@ -160,4 +160,113 @@ describe('business/discover handler', () => {
     const result = await handler(event);
     expect(result.statusCode).toBe(500);
   });
+
+  // ── Additional Coverage (Batch 7B-7D) ──
+
+  it('returns hasMore true and nextCursor when more results than limit', async () => {
+    // Provide limit+1 rows so hasMore = true
+    const rows = Array.from({ length: 21 }, (_, i) => ({
+      id: `id-${i}`, full_name: `Biz ${i}`, username: `biz${i}`, avatar_url: null,
+      bio: null, business_category: 'fitness', business_address: null,
+      is_verified: false, latitude: null, longitude: null, created_at: `2025-01-${String(20 - i).padStart(2, '0')}`,
+    }));
+    mockPool.query.mockResolvedValueOnce({ rows });
+    const event = makeEvent({ queryStringParameters: { limit: '20' } });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.hasMore).toBe(true);
+    expect(body.nextCursor).toBeTruthy();
+    expect(body.businesses).toHaveLength(20);
+  });
+
+  it('returns businesses with search filter', async () => {
+    mockPool.query.mockResolvedValueOnce({
+      rows: [{
+        id: 'b-search', full_name: 'Yoga Studio', username: 'yogastudio', avatar_url: null,
+        bio: 'Best yoga in town', business_category: 'wellness', business_address: '456 Ave',
+        is_verified: true, latitude: null, longitude: null, created_at: '2025-02-01',
+      }],
+    });
+    const event = makeEvent({ queryStringParameters: { search: 'yoga' } });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.businesses).toHaveLength(1);
+    expect(body.businesses[0].name).toBe('Yoga Studio');
+  });
+
+  it('returns nextCursor as numeric offset for geo-sorted results', async () => {
+    const rows = Array.from({ length: 21 }, (_, i) => ({
+      id: `id-${i}`, full_name: `Nearby ${i}`, username: `nearby${i}`, avatar_url: null,
+      bio: null, business_category: 'fitness', business_address: null,
+      is_verified: false, latitude: 48.85, longitude: 2.35, created_at: '2025-01-01',
+      distance_km: i * 0.5,
+    }));
+    mockPool.query.mockResolvedValueOnce({ rows });
+    const event = makeEvent({
+      queryStringParameters: { lat: '48.85', lng: '2.35', radius: '50', limit: '20' },
+    });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.hasMore).toBe(true);
+    // Geo sort cursor is offset-based: "0 + 20 = 20"
+    expect(body.nextCursor).toBe('20');
+  });
+
+  it('accepts valid keyset cursor for non-geo pagination', async () => {
+    const cursorDate = '2025-01-15T12:00:00.000Z';
+    const cursorId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+    mockPool.query.mockResolvedValueOnce({
+      rows: [{
+        id: 'b-after', full_name: 'After Cursor', username: 'aftercursor', avatar_url: null,
+        bio: null, business_category: 'fitness', business_address: null,
+        is_verified: false, latitude: null, longitude: null, created_at: '2025-01-10',
+      }],
+    });
+    const event = makeEvent({
+      queryStringParameters: { cursor: `${cursorDate}|${cursorId}` },
+    });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.businesses).toHaveLength(1);
+  });
+
+  it('caps radius to 100 km max', async () => {
+    mockPool.query.mockResolvedValueOnce({ rows: [] });
+    const event = makeEvent({
+      queryStringParameters: { lat: '48.85', lng: '2.35', radius: '999' },
+    });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    // Verify the radius param passed is 100 (capped), not 999
+    const queryCall = mockPool.query.mock.calls[0];
+    expect(queryCall[1]).toContain(100);
+  });
+
+  it('maps row fields to camelCase response shape', async () => {
+    mockPool.query.mockResolvedValueOnce({
+      rows: [{
+        id: 'b-map', full_name: 'Mapped Biz', username: 'mapped', avatar_url: 'https://img.example.com/a.png',
+        bio: 'Some bio', business_category: 'beauty', business_address: '789 Blvd',
+        is_verified: true, latitude: 48.8, longitude: 2.3, created_at: '2025-01-01',
+      }],
+    });
+    const event = makeEvent();
+    const result = await handler(event);
+    const body = JSON.parse(result.body);
+    const biz = body.businesses[0];
+    expect(biz.name).toBe('Mapped Biz');
+    expect(biz.username).toBe('mapped');
+    expect(biz.avatarUrl).toBe('https://img.example.com/a.png');
+    expect(biz.category).toBe('beauty');
+    expect(biz.address).toBe('789 Blvd');
+    expect(biz.isVerified).toBe(true);
+    expect(biz.latitude).toBe(48.8);
+    expect(biz.longitude).toBe(2.3);
+    // distanceKm should be undefined when no geo query
+    expect(biz.distanceKm).toBeUndefined();
+  });
 });

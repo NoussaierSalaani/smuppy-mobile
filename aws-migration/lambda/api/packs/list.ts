@@ -119,8 +119,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers: headers,
       body: JSON.stringify({ success: false, message: 'Specify creatorId or owned=true' }),
     };
-  } catch (error) {
-    log.error('List packs error', error);
+  } catch (error_) {
+    log.error('List packs error', error_);
     return {
       statusCode: 500,
       headers: headers,

@@ -176,8 +176,8 @@ export const handler = withErrorHandler('settings-currency', async (event, { hea
       headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
-  } catch (error: unknown) {
-    throw error;
+  } catch (error_: unknown) {
+    throw error_;
   } finally {
     client.release();
   }

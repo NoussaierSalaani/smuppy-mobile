@@ -472,16 +472,16 @@ export const handler = withErrorHandler('profiles-update', async (event, { heade
           values
         );
       }
-    } catch (error: unknown) {
+    } catch (error_: unknown) {
       // Handle unique constraint violations without leaking schema details
-      if (hasErrorCode(error) && error.code === '23505') {
+      if (hasErrorCode(error_) && error_.code === '23505') {
         return {
           statusCode: 409,
           headers,
           body: JSON.stringify({ message: 'This value is already taken.' }),
         };
       }
-      throw error;
+      throw error_;
     }
 
     if (result.rows.length === 0) {

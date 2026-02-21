@@ -70,7 +70,7 @@ export const handler = withAuthHandler('live-streams-start', async (event, { hea
   const stream = insertResult.rows[0];
 
   // Notify fans (followers with status = 'accepted') — fire and forget
-  notifyFans(db, profile, stream.id, log).catch(err => log.error('Failed to notify fans', err));
+  notifyFans(db, profile, stream.id, log).catch(error_ => log.error('Failed to notify fans', error_));
 
   return {
     statusCode: 201,

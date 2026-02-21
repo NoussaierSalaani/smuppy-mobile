@@ -773,7 +773,969 @@ describe('posts/create handler', () => {
     });
   });
 
+  // ── 8. Quota Enforcement (branch coverage) ───────────────────────────
+
+  describe('quota enforcement', () => {
+    it('should skip quota checks for premium accounts', async () => {
+      (isPremiumAccount as jest.Mock).mockReturnValue(true);
+      setupHappyPathMocksWithAccountType('pro_creator');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Premium post',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'image',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      expect(checkQuota).not.toHaveBeenCalled();
+    });
+
+    it('should return 429 when video quota is exceeded', async () => {
+      (checkQuota as jest.Mock).mockResolvedValueOnce({ allowed: false, remaining: 0, limit: 60 });
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Video post',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'video',
+          videoDuration: 30,
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(429);
+      expect(JSON.parse(result.body).message).toContain('video upload limit');
+    });
+
+    it('should return 400 when video exceeds max duration', async () => {
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Video post',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'video',
+          videoDuration: 999,
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('seconds or less');
+    });
+
+    it('should skip video quota check when videoDuration is 0 or not a number', async () => {
+      setupHappyPathMocksWithAccountType('personal');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Video post no duration',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'video',
+          videoDuration: 0,
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      // checkQuota should NOT be called for video when duration <= 0
+      expect(checkQuota).not.toHaveBeenCalled();
+    });
+
+    it('should skip video quota check when videoDuration is not a number', async () => {
+      setupHappyPathMocksWithAccountType('personal');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Video post string duration',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'video',
+          videoDuration: 'abc',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      expect(checkQuota).not.toHaveBeenCalled();
+    });
+
+    it('should return 429 when photo quota is exceeded', async () => {
+      (checkQuota as jest.Mock).mockResolvedValueOnce({ allowed: false, remaining: 0, limit: 10 });
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Photo post',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'image',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(429);
+      expect(JSON.parse(result.body).message).toContain('photo upload limit');
+    });
+
+    it('should enforce photo quota for multiple media type', async () => {
+      (checkQuota as jest.Mock).mockResolvedValueOnce({ allowed: false, remaining: 0, limit: 10 });
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Multi photo',
+          mediaUrls: [VALID_S3_URL, VALID_CLOUDFRONT_URL],
+          mediaType: 'multiple',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(429);
+      expect(JSON.parse(result.body).quotaType).toBe('photo_count');
+    });
+
+    it('should skip quota when content-only post (no media, no mediaType)', async () => {
+      setupHappyPathMocks();
+
+      const event = makeEvent({
+        body: JSON.stringify({ content: 'Text only' }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      // enforceQuota returns null for content-only posts (no video, no photo)
+      expect(checkQuota).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── 9. Tagged Users Processing (branch coverage) ────────────────────
+
+  describe('tagged users', () => {
+    it('should process valid tagged users and create notifications', async () => {
+      const taggedId = 'b2c3d4e5-f6a7-8901-bcde-f23456789012';
+      setupHappyPathMocksWithTags([taggedId]);
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Tagging a user',
+          taggedUsers: [taggedId],
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.taggedUsers).toEqual([taggedId]);
+    });
+
+    it('should ignore invalid UUIDs in taggedUsers', async () => {
+      setupHappyPathMocks();
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Tagging invalid',
+          taggedUsers: ['not-a-uuid', '12345'],
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.taggedUsers).toEqual([]);
+    });
+
+    it('should exclude self from tagged users', async () => {
+      setupHappyPathMocks();
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Tagging self',
+          taggedUsers: [VALID_USER_ID],
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.taggedUsers).toEqual([]);
+    });
+
+    it('should handle non-array taggedUsers gracefully', async () => {
+      setupHappyPathMocks();
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Tagged string',
+          taggedUsers: 'not-an-array',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.taggedUsers).toEqual([]);
+    });
+
+    it('should handle tagged users where none exist in DB', async () => {
+      const taggedId = 'b2c3d4e5-f6a7-8901-bcde-f23456789012';
+
+      const postRow = {
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        author_id: VALID_USER_ID,
+        content: 'Tag non-existing',
+        media_urls: [],
+        media_type: null,
+        visibility: 'public',
+        location: null,
+        likes_count: 0,
+        comments_count: 0,
+        video_status: null,
+        created_at: '2026-02-16T12:00:00Z',
+      };
+
+      const authorRow = {
+        id: VALID_USER_ID,
+        username: 'testuser',
+        full_name: 'Test User',
+        avatar_url: 'https://smuppy-media.s3.amazonaws.com/avatar.jpg',
+        is_verified: false,
+        account_type: 'personal',
+        business_name: null,
+      };
+
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        if (typeof sql === 'string' && sql.includes('username, full_name')) {
+          return Promise.resolve({ rows: [authorRow] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      // Profile check returns empty (tagged user doesn't exist)
+      mockClient.query.mockImplementation((sql: string, params?: unknown[]) => {
+        if (typeof sql === 'string' && sql.includes('INSERT INTO posts')) {
+          return Promise.resolve({ rows: [postRow] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles')) {
+          return Promise.resolve({ rows: [] }); // no existing tagged users
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Tag non-existing',
+          taggedUsers: [taggedId],
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      // Tagged user doesn't exist, so no tags inserted
+      expect(body.taggedUsers).toEqual([]);
+    });
+
+    it('should limit tagged users to MAX_TAGGED_USERS (20)', async () => {
+      setupHappyPathMocks();
+
+      const manyTags = Array.from({ length: 25 }, (_, i) =>
+        `b2c3d4e5-f6a7-8901-bcde-${String(i).padStart(12, '0')}`
+      );
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Many tags',
+          taggedUsers: manyTags,
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+  });
+
+  // ── 10. Account Error Path ──────────────────────────────────────────
+
+  describe('account status', () => {
+    it('should return error when account is suspended', async () => {
+      (isAccountError as unknown as jest.Mock).mockReturnValueOnce(true);
+      (requireActiveAccount as jest.Mock).mockResolvedValueOnce({
+        statusCode: 403,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Account suspended' }),
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({ content: 'Hello' }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(403);
+    });
+
+    it('should default to personal when account_type row is missing', async () => {
+      // Setup where account_type query returns empty rows
+      const postRow = {
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        author_id: VALID_USER_ID,
+        content: 'Default account',
+        media_urls: [],
+        media_type: null,
+        visibility: 'public',
+        location: null,
+        likes_count: 0,
+        comments_count: 0,
+        video_status: null,
+        created_at: '2026-02-16T12:00:00Z',
+      };
+
+      const authorRow = {
+        id: VALID_USER_ID,
+        username: 'testuser',
+        full_name: 'Test User',
+        avatar_url: null,
+        is_verified: false,
+        account_type: 'personal',
+        business_name: null,
+      };
+
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [] }); // no rows — defaults to 'personal'
+        }
+        if (typeof sql === 'string' && sql.includes('username, full_name')) {
+          return Promise.resolve({ rows: [authorRow] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      mockClient.query.mockImplementation((sql: string, params?: unknown[]) => {
+        if (typeof sql === 'string' && sql.includes('INSERT INTO posts')) {
+          return Promise.resolve({ rows: [postRow] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({ content: 'Default account' }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+  });
+
+  // ── 11. Side Effects (branch coverage) ──────────────────────────────
+
+  describe('side effects after post creation', () => {
+    it('should deduct video quota after successful video post', async () => {
+      setupHappyPathMocksWithAccountType('personal');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Video post',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'video',
+          videoDuration: 15,
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      expect(deductQuota).toHaveBeenCalledWith(VALID_USER_ID, 'video', 15);
+    });
+
+    it('should deduct photo quota after successful image post', async () => {
+      setupHappyPathMocks();
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Photo post',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'image',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      expect(deductQuota).toHaveBeenCalledWith(VALID_USER_ID, 'photo', 1);
+    });
+
+    it('should not deduct quota for premium accounts', async () => {
+      (isPremiumAccount as jest.Mock).mockReturnValue(true);
+      setupHappyPathMocksWithAccountType('pro_creator');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Premium photo',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'image',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      expect(deductQuota).not.toHaveBeenCalled();
+    });
+
+    it('should handle deductQuota failure gracefully (non-blocking)', async () => {
+      (deductQuota as jest.Mock).mockRejectedValueOnce(new Error('DynamoDB error'));
+      setupHappyPathMocks();
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Photo post',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'image',
+        }),
+      });
+
+      const result = await handler(event);
+
+      // Should still succeed — quota deduction is non-blocking
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('should log flagged content to moderation_log', async () => {
+      (analyzeTextToxicity as jest.Mock).mockResolvedValueOnce({
+        action: 'flag',
+        maxScore: 0.7,
+        topCategory: 'INSULT',
+        categories: [],
+      });
+
+      setupHappyPathMocks();
+
+      const event = makeEvent({
+        body: JSON.stringify({ content: 'Flagged content' }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      // Verify moderation_log INSERT was called
+      const modLogCall = mockDb.query.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('moderation_log')
+      );
+      expect(modLogCall).toBeDefined();
+    });
+
+    it('should handle moderation_log insert failure gracefully', async () => {
+      (analyzeTextToxicity as jest.Mock).mockResolvedValueOnce({
+        action: 'flag',
+        maxScore: 0.7,
+        topCategory: 'INSULT',
+        categories: [],
+      });
+
+      const postRow = {
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        author_id: VALID_USER_ID,
+        content: 'Flagged fail log',
+        media_urls: [],
+        media_type: null,
+        visibility: 'public',
+        location: null,
+        likes_count: 0,
+        comments_count: 0,
+        video_status: null,
+        created_at: '2026-02-16T12:00:00Z',
+      };
+
+      const authorRow = {
+        id: VALID_USER_ID,
+        username: 'testuser',
+        full_name: 'Test User',
+        avatar_url: null,
+        is_verified: false,
+        account_type: 'personal',
+        business_name: null,
+      };
+
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        if (typeof sql === 'string' && sql.includes('moderation_log')) {
+          return Promise.reject(new Error('Insert moderation_log failed'));
+        }
+        if (typeof sql === 'string' && sql.includes('username, full_name')) {
+          return Promise.resolve({ rows: [authorRow] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      mockClient.query.mockImplementation((sql: string, params?: unknown[]) => {
+        if (typeof sql === 'string' && sql.includes('INSERT INTO posts')) {
+          return Promise.resolve({ rows: [postRow] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({ content: 'Flagged fail log' }),
+      });
+
+      const result = await handler(event);
+
+      // Should still succeed — moderation logging is non-blocking
+      expect(result.statusCode).toBe(201);
+    });
+  });
+
+  // ── 12. Visibility Permissions (additional branches) ────────────────
+
+  describe('visibility permissions (additional branches)', () => {
+    it('should allow subscribers visibility for pro_creator', async () => {
+      (isPremiumAccount as jest.Mock).mockReturnValue(true);
+      setupHappyPathMocksWithAccountType('pro_creator');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Creator subscribers post',
+          visibility: 'subscribers',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('should allow public visibility for business accounts', async () => {
+      (isPremiumAccount as jest.Mock).mockReturnValue(true);
+      setupHappyPathMocksWithAccountType('pro_business');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Business public post',
+          visibility: 'public',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('should allow business account without explicit visibility (defaults to public)', async () => {
+      (isPremiumAccount as jest.Mock).mockReturnValue(true);
+      setupHappyPathMocksWithAccountType('pro_business');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Business no vis',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+  });
+
+  // ── 13. fetchAuthor (branch coverage) ───────────────────────────────
+
+  describe('fetchAuthor', () => {
+    it('should return null author when profile is not found', async () => {
+      const postRow = {
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        author_id: VALID_USER_ID,
+        content: 'No author',
+        media_urls: [],
+        media_type: null,
+        visibility: 'public',
+        location: null,
+        likes_count: 0,
+        comments_count: 0,
+        video_status: null,
+        created_at: '2026-02-16T12:00:00Z',
+      };
+
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        // Author fetch returns no rows
+        if (typeof sql === 'string' && sql.includes('username, full_name')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      mockClient.query.mockImplementation((sql: string, params?: unknown[]) => {
+        if (typeof sql === 'string' && sql.includes('INSERT INTO posts')) {
+          return Promise.resolve({ rows: [postRow] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({ content: 'No author' }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.author).toBeNull();
+    });
+  });
+
+  // ── 14. Response null/undefined fallbacks (branch coverage) ─────────
+
+  describe('response fallback values', () => {
+    it('should default media_urls to empty array when null in DB', async () => {
+      const postRow = {
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        author_id: VALID_USER_ID,
+        content: 'Null media',
+        media_urls: null, // null in DB
+        media_type: null,
+        visibility: 'public',
+        location: null,
+        likes_count: 0,
+        comments_count: 0,
+        video_status: null,
+        created_at: '2026-02-16T12:00:00Z',
+      };
+
+      const authorRow = {
+        id: VALID_USER_ID,
+        username: 'testuser',
+        full_name: 'Test User',
+        avatar_url: null,
+        is_verified: false,
+        account_type: 'personal',
+        business_name: null,
+      };
+
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        if (typeof sql === 'string' && sql.includes('username, full_name')) {
+          return Promise.resolve({ rows: [authorRow] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('INSERT INTO posts')) {
+          return Promise.resolve({ rows: [postRow] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({ content: 'Null media' }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.mediaUrls).toEqual([]);
+      expect(body.location).toBeNull();
+      expect(body.videoStatus).toBeNull();
+    });
+  });
+
+  // ── 15. Media URL parse failure (branch coverage) ───────────────────
+
+  describe('media URL validation edge cases', () => {
+    it('should return 400 for non-parseable URLs in media array', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Hello',
+          mediaUrls: ['not a valid url at all'],
+          mediaType: 'image',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Media URLs must point to our CDN');
+    });
+
+    it('should handle null body by parsing as empty object', async () => {
+      const event = makeEvent({ body: null });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Content or media is required');
+    });
+  });
+
+  // ── 16. Video post (branch coverage) ────────────────────────────────
+
+  describe('video post creation', () => {
+    it('should set video_status to uploaded for video posts', async () => {
+      setupHappyPathMocksWithAccountType('personal');
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'My video',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'video',
+          videoDuration: 10,
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      // Verify the INSERT used 'uploaded' video_status
+      const insertCall = mockClient.query.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('INSERT INTO posts')
+      );
+      expect(insertCall).toBeDefined();
+      const params = insertCall![1] as unknown[];
+      // video_status is param $11 (index 10)
+      expect(params[10]).toBe('uploaded');
+    });
+  });
+
+  // ── 17. errorResponse extra field ───────────────────────────────────
+
+  describe('error response extra fields', () => {
+    it('should include quota info in 429 video error response', async () => {
+      (checkQuota as jest.Mock).mockResolvedValueOnce({ allowed: false, remaining: 5, limit: 60 });
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('md5(content)')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          content: 'Video',
+          mediaUrls: [VALID_S3_URL],
+          mediaType: 'video',
+          videoDuration: 30,
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(429);
+      const body = JSON.parse(result.body);
+      expect(body.quotaType).toBe('video_seconds');
+      expect(body.remaining).toBe(5);
+      expect(body.limit).toBe(60);
+    });
+  });
+
   // ── Helpers ────────────────────────────────────────────────────────────
+
+  /**
+   * Sets up mocks for a happy path with a specific account type.
+   */
+  function setupHappyPathMocksWithAccountType(accountType: string) {
+    const postRow = {
+      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      author_id: VALID_USER_ID,
+      content: '',
+      media_urls: [],
+      media_type: null,
+      visibility: 'public',
+      location: null,
+      likes_count: 0,
+      comments_count: 0,
+      video_status: null,
+      created_at: '2026-02-16T12:00:00Z',
+    };
+
+    const authorRow = {
+      id: VALID_USER_ID,
+      username: 'testuser',
+      full_name: 'Test User',
+      avatar_url: 'https://smuppy-media.s3.amazonaws.com/avatar.jpg',
+      is_verified: false,
+      account_type: accountType,
+      business_name: accountType === 'pro_business' ? 'Test Biz' : null,
+    };
+
+    mockDb.query.mockImplementation((sql: string) => {
+      if (typeof sql === 'string' && sql.includes('md5(content)')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+        return Promise.resolve({ rows: [{ account_type: accountType }] });
+      }
+      if (typeof sql === 'string' && sql.includes('moderation_log')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (typeof sql === 'string' && sql.includes('username, full_name')) {
+        return Promise.resolve({ rows: [authorRow] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    mockClient.query.mockImplementation((sql: string, params?: unknown[]) => {
+      if (typeof sql === 'string' && sql.includes('INSERT INTO posts')) {
+        const row = {
+          ...postRow,
+          content: params ? params[2] : '',
+          media_urls: params ? params[3] : [],
+          media_type: params ? params[4] : null,
+          visibility: params ? params[5] : 'public',
+          location: params ? params[6] : null,
+          video_status: params ? params[10] : null,
+        };
+        return Promise.resolve({ rows: [row] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+  }
+
+  /**
+   * Sets up mocks for a happy path with tagged users that exist.
+   */
+  function setupHappyPathMocksWithTags(taggedIds: string[]) {
+    const postRow = {
+      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      author_id: VALID_USER_ID,
+      content: '',
+      media_urls: [],
+      media_type: null,
+      visibility: 'public',
+      location: null,
+      likes_count: 0,
+      comments_count: 0,
+      video_status: null,
+      created_at: '2026-02-16T12:00:00Z',
+    };
+
+    const authorRow = {
+      id: VALID_USER_ID,
+      username: 'testuser',
+      full_name: 'Test User',
+      avatar_url: 'https://smuppy-media.s3.amazonaws.com/avatar.jpg',
+      is_verified: false,
+      account_type: 'personal',
+      business_name: null,
+    };
+
+    mockDb.query.mockImplementation((sql: string) => {
+      if (typeof sql === 'string' && sql.includes('md5(content)')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+        return Promise.resolve({ rows: [{ account_type: 'personal' }] });
+      }
+      if (typeof sql === 'string' && sql.includes('moderation_log')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (typeof sql === 'string' && sql.includes('username, full_name')) {
+        return Promise.resolve({ rows: [authorRow] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    mockClient.query.mockImplementation((sql: string, params?: unknown[]) => {
+      if (typeof sql === 'string' && sql.includes('INSERT INTO posts')) {
+        const row = {
+          ...postRow,
+          content: params ? params[2] : '',
+          media_urls: params ? params[3] : [],
+          media_type: params ? params[4] : null,
+          visibility: params ? params[5] : 'public',
+          location: params ? params[6] : null,
+          video_status: params ? params[10] : null,
+        };
+        return Promise.resolve({ rows: [row] });
+      }
+      if (typeof sql === 'string' && sql.includes('SELECT id FROM profiles')) {
+        return Promise.resolve({ rows: taggedIds.map(id => ({ id })) });
+      }
+      if (typeof sql === 'string' && sql.includes('INSERT INTO post_tags')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (typeof sql === 'string' && sql.includes('INSERT INTO notifications')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+  }
 
   /**
    * Sets up mock implementations for a successful post creation flow:

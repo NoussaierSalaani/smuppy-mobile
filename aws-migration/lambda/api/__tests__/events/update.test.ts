@@ -427,7 +427,506 @@ describe('events/update handler', () => {
     });
   });
 
-  // ── 9. Database errors ──
+  // ── 9. All optional field branches ──
+
+  describe('optional field branches', () => {
+    it('should update description field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ description: 'New description' }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('description');
+    });
+
+    it('should update locationName field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ locationName: 'New Park' }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('location_name');
+    });
+
+    it('should update address field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ address: '123 Main St' }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('address');
+    });
+
+    it('should update latitude and longitude fields', async () => {
+      const event = makeEvent({ body: JSON.stringify({ latitude: 48.8566, longitude: 2.3522 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('latitude');
+      expect(updateCall[0]).toContain('longitude');
+    });
+
+    it('should update startsAt field with future date', async () => {
+      const event = makeEvent({ body: JSON.stringify({ startsAt: futureDate }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('starts_at');
+    });
+
+    it('should update endsAt with a valid date value', async () => {
+      const endDate = new Date(Date.now() + 172800000).toISOString();
+      const event = makeEvent({ body: JSON.stringify({ endsAt: endDate }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('ends_at');
+    });
+
+    it('should update endsAt with null value (clear end date)', async () => {
+      const event = makeEvent({ body: JSON.stringify({ endsAt: null }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('ends_at');
+      // The param should be null (the ternary: body.endsAt ? new Date(body.endsAt) : null)
+      expect(updateCall[1]).toContain(null);
+    });
+
+    it('should update timezone field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ timezone: 'America/New_York' }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('timezone');
+    });
+
+    it('should update maxParticipants field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ maxParticipants: 50 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('max_participants');
+    });
+
+    it('should update isFree field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ isFree: false }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('is_free');
+    });
+
+    it('should update price field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ price: 19.99 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('price');
+    });
+
+    it('should update currency field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ currency: 'USD' }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('currency');
+    });
+
+    it('should update isPublic field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ isPublic: false }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('is_public');
+    });
+
+    it('should update isFansOnly field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ isFansOnly: true }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('is_fans_only');
+    });
+
+    it('should update coverImageUrl field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ coverImageUrl: 'https://example.com/img.jpg' }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('cover_image_url');
+    });
+
+    it('should update images field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ images: ['img1.jpg', 'img2.jpg'] }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('images');
+    });
+
+    it('should update hasRoute field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ hasRoute: true }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('has_route');
+    });
+
+    it('should update routeDistanceKm field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ routeDistanceKm: 15.5 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('route_distance_km');
+    });
+
+    it('should update routeDifficulty field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ routeDifficulty: 'hard' }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('route_difficulty');
+    });
+
+    it('should update routePolyline field', async () => {
+      const event = makeEvent({ body: JSON.stringify({ routePolyline: 'encoded_polyline_string' }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('route_polyline');
+    });
+
+    it('should update routeWaypoints with value (JSON stringified)', async () => {
+      const waypoints = [{ lat: 48.8566, lng: 2.3522, name: 'Paris' }];
+      const event = makeEvent({ body: JSON.stringify({ routeWaypoints: waypoints }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('route_waypoints');
+      // The param should be a JSON string
+      expect(updateCall[1]).toContain(JSON.stringify(waypoints));
+    });
+
+    it('should update routeWaypoints with null value', async () => {
+      const event = makeEvent({ body: JSON.stringify({ routeWaypoints: null }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('route_waypoints');
+      // The param should contain null for waypoints
+      expect(updateCall[1]).toContain(null);
+    });
+
+    it('should update multiple fields at once', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Multi update',
+          description: 'Updated desc',
+          isFree: true,
+          maxParticipants: 100,
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const updateCall = mockClient.query.mock.calls.find(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE events SET')
+      );
+      expect(updateCall[0]).toContain('title');
+      expect(updateCall[0]).toContain('description');
+      expect(updateCall[0]).toContain('is_free');
+      expect(updateCall[0]).toContain('max_participants');
+    });
+  });
+
+  // ── 10. Input validation edge cases ──
+
+  describe('input validation edge cases', () => {
+    it('should return 400 when title is a non-string type', async () => {
+      const event = makeEvent({ body: JSON.stringify({ title: 123 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      const body = JSON.parse(result?.body as string);
+      expect(body.message).toContain('Title cannot be empty');
+    });
+
+    it('should return 400 when eventId path parameter is missing', async () => {
+      const event = makeEvent({ pathParameters: {} });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      const body = JSON.parse(result?.body as string);
+      expect(body.message).toContain('Invalid ID format');
+    });
+
+    it('should handle null body (default to empty object)', async () => {
+      // Construct event directly to bypass makeEvent default body
+      const event = {
+        httpMethod: 'PUT',
+        headers: {},
+        body: null,
+        queryStringParameters: null,
+        pathParameters: { eventId: EVENT_ID },
+        multiValueHeaders: {},
+        multiValueQueryStringParameters: null,
+        isBase64Encoded: false,
+        path: '/',
+        resource: '/',
+        stageVariables: null,
+        requestContext: {
+          requestId: 'test-request-id',
+          authorizer: { claims: { sub: TEST_SUB } },
+          identity: { sourceIp: '127.0.0.1' },
+        },
+      } as unknown as APIGatewayProxyEvent;
+
+      const result = await handler(event);
+
+      // With null body, JSON.parse('{}') returns empty object, no fields to update => 400
+      expect(result?.statusCode).toBe(400);
+      const body = JSON.parse(result?.body as string);
+      expect(body.message).toContain('No fields to update');
+    });
+
+    it('should return 400 when maxParticipants exceeds maximum', async () => {
+      const event = makeEvent({ body: JSON.stringify({ maxParticipants: 20000 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      const body = JSON.parse(result?.body as string);
+      expect(body.message).toContain('Max participants');
+    });
+
+    it('should return 400 when only latitude is provided (triggers NaN check)', async () => {
+      const event = makeEvent({ body: JSON.stringify({ latitude: 45 }) });
+      const result = await handler(event);
+
+      // longitude is undefined => Number(undefined) = NaN => invalid coordinates
+      expect(result?.statusCode).toBe(400);
+      const body = JSON.parse(result?.body as string);
+      expect(body.message).toContain('Invalid coordinates');
+    });
+
+    it('should return 400 when only longitude is provided (triggers NaN check)', async () => {
+      const event = makeEvent({ body: JSON.stringify({ longitude: 90 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      const body = JSON.parse(result?.body as string);
+      expect(body.message).toContain('Invalid coordinates');
+    });
+
+    it('should return 400 when latitude is out of range (> 90)', async () => {
+      const event = makeEvent({ body: JSON.stringify({ latitude: 91, longitude: 0 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+    });
+
+    it('should return 400 when longitude is out of range (< -180)', async () => {
+      const event = makeEvent({ body: JSON.stringify({ latitude: 0, longitude: -181 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+    });
+
+    it('should return 400 when longitude is out of range (> 180)', async () => {
+      const event = makeEvent({ body: JSON.stringify({ latitude: 0, longitude: 181 }) });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+    });
+  });
+
+  // ── 11. Response mapping branches ──
+
+  describe('response mapping', () => {
+    it('should map price as float when price is present', async () => {
+      const rowWithPrice = { ...updatedEventRow, price: '29.99', is_free: false };
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('UPDATE events SET')) {
+          return Promise.resolve({ rows: [rowWithPrice] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT username, display_name')) {
+          return Promise.resolve({
+            rows: [{ username: 'testuser', display_name: 'Test User', avatar_url: null, is_verified: false }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const body = JSON.parse(result?.body as string);
+      expect(body.event.price).toBe(29.99);
+    });
+
+    it('should map price as null when price is not present', async () => {
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const body = JSON.parse(result?.body as string);
+      expect(body.event.price).toBeNull();
+    });
+
+    it('should map route data when has_route is true', async () => {
+      const rowWithRoute = {
+        ...updatedEventRow,
+        has_route: true,
+        route_distance_km: '25.5',
+        route_difficulty: 'hard',
+        route_polyline: 'encoded_polyline',
+        route_waypoints: [{ lat: 48.8, lng: 2.35 }],
+      };
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('UPDATE events SET')) {
+          return Promise.resolve({ rows: [rowWithRoute] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT username, display_name')) {
+          return Promise.resolve({
+            rows: [{ username: 'testuser', display_name: 'Test User', avatar_url: null, is_verified: false }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const body = JSON.parse(result?.body as string);
+      expect(body.event.route).toBeDefined();
+      expect(body.event.route.distanceKm).toBe(25.5);
+      expect(body.event.route.difficulty).toBe('hard');
+      expect(body.event.route.polyline).toBe('encoded_polyline');
+      expect(body.event.route.waypoints).toBeDefined();
+    });
+
+    it('should map route as null when has_route is false', async () => {
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const body = JSON.parse(result?.body as string);
+      expect(body.event.route).toBeNull();
+    });
+
+    it('should map route.distanceKm as null when route_distance_km is null', async () => {
+      const rowWithRouteNoDistance = {
+        ...updatedEventRow,
+        has_route: true,
+        route_distance_km: null,
+        route_difficulty: 'easy',
+        route_polyline: null,
+        route_waypoints: null,
+      };
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('UPDATE events SET')) {
+          return Promise.resolve({ rows: [rowWithRouteNoDistance] });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT username, display_name')) {
+          return Promise.resolve({
+            rows: [{ username: 'testuser', display_name: 'Test User', avatar_url: null, is_verified: false }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(200);
+      const body = JSON.parse(result?.body as string);
+      expect(body.event.route).toBeDefined();
+      expect(body.event.route.distanceKm).toBeNull();
+    });
+
+    it('should return 404 when UPDATE returns 0 rows after transaction', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('UPDATE events SET')) {
+          return Promise.resolve({ rows: [] }); // 0 rows returned
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(404);
+      const body = JSON.parse(result?.body as string);
+      expect(body.message).toContain('Event not found');
+    });
+  });
+
+  // ── 12. Database errors ──
 
   describe('database errors', () => {
     it('should return 500 when UPDATE throws', async () => {
@@ -442,6 +941,22 @@ describe('events/update handler', () => {
       const result = await handler(event);
 
       expect(result?.statusCode).toBe(500);
+      expect(mockClient.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('should ROLLBACK and release client when transaction fails', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('UPDATE events SET')) {
+          return Promise.reject(new Error('Transaction error'));
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent();
+      await handler(event);
+
+      const clientCalls = mockClient.query.mock.calls.map((c: unknown[]) => c[0]);
+      expect(clientCalls).toContain('ROLLBACK');
       expect(mockClient.release).toHaveBeenCalledTimes(1);
     });
   });

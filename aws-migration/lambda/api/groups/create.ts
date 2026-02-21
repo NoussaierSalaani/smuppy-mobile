@@ -357,9 +357,9 @@ export const handler = withAuthHandler('groups-create', async (event, { headers,
         },
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw error;
+    throw error_;
   } finally {
     client.release();
   }

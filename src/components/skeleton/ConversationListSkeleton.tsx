@@ -23,6 +23,7 @@ const ConversationListSkeleton = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* NOSONAR — static skeleton array, index keys are safe */}
       {Array.from({ length: ROW_COUNT }).map((_, i) => (
         <ConversationRow key={`conv-skeleton-${i}`} />
       ))}

@@ -47,14 +47,14 @@ export function useVideoStatus(options: UseVideoStatusOptions): VideoStatus & { 
 
     try {
       const { awsAPI } = await import('../services/aws-api');
-      const response = await awsAPI.request(`/media/video-status?type=${entityType}&id=${entityId}`) as {
+      const response = await awsAPI.request<{
         success?: boolean;
         videoStatus?: VideoStatus['videoStatus'];
         hlsUrl?: string;
         thumbnailUrl?: string;
         videoVariants?: VideoStatus['videoVariants'];
         videoDuration?: number;
-      };
+      }>(`/media/video-status?type=${entityType}&id=${entityId}`);
 
       if (response.success) {
         setStatus({

@@ -603,4 +603,78 @@ describe('comments/create handler', () => {
       expect(JSON.parse(result.body).message).toBe('Invalid parent comment ID format');
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Additional coverage: text length, moderation flag, HTML sanitization
+  // ─────────────────────────────────────────────────────────────────────
+  describe('additional coverage - text sanitization', () => {
+    it('should strip HTML tags from comment text', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({ text: '<script>alert("xss")</script>Nice post!' }),
+      });
+
+      const result = await handler(event);
+
+      // Should succeed but text should be sanitized (filterText is called)
+      expect(result.statusCode).toBe(201);
+      expect(filterText).toHaveBeenCalled();
+    });
+
+    it('should return 400 when text filter detects high severity content', async () => {
+      (filterText as jest.Mock).mockResolvedValueOnce({
+        clean: false,
+        violations: ['harassment'],
+        severity: 'high',
+      });
+
+      const event = makeEvent();
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Content policy violation');
+    });
+
+    it('should allow flagged content (creates comment but flags it)', async () => {
+      (analyzeTextToxicity as jest.Mock).mockResolvedValueOnce({
+        action: 'flag',
+        maxScore: 0.65,
+        topCategory: 'INSULT',
+        categories: [],
+      });
+
+      const event = makeEvent();
+
+      const result = await handler(event);
+
+      // Flagged content should still be created (201)
+      expect(result.statusCode).toBe(201);
+    });
+  });
+
+  describe('additional coverage - account status', () => {
+    it('should return 404 when profile is not found', async () => {
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
+
+      const event = makeEvent();
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).message).toBe('Profile not found');
+    });
+  });
+
+  describe('additional coverage - invalid body JSON', () => {
+    it('should return 500 for malformed JSON body (caught by top-level handler)', async () => {
+      const event = makeEvent({
+        body: 'not-valid-json{{{',
+      });
+
+      const result = await handler(event);
+
+      // JSON.parse throws, caught by withErrorHandler -> 500
+      expect(result.statusCode).toBe(500);
+    });
+  });
 });

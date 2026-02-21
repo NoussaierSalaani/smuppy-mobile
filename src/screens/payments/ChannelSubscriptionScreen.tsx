@@ -23,6 +23,8 @@ import { GRADIENTS, SHADOWS } from '../../config/theme';
 import { awsAPI } from '../../services/aws-api';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
+import { useIAPCheckout } from '../../hooks/useIAPCheckout';
+import { shouldUseIAP, getSubscriptionProductId } from '../../config/iap-products';
 import { formatNumber, isValidUUID } from '../../utils/formatters';
 import { useCurrency } from '../../hooks/useCurrency';
 
@@ -69,6 +71,8 @@ export default function ChannelSubscriptionScreen() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
+  const { purchaseSubscription, isReady: iapReady } = useIAPCheckout();
+  const useIAP = shouldUseIAP('digital');
   const { formatAmount: formatCurrencyAmount } = useCurrency();
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -126,29 +130,49 @@ export default function ChannelSubscriptionScreen() {
 
     setSubscribing(true);
     try {
-      const response = await awsAPI.request<{ success: boolean; checkoutUrl?: string; sessionId?: string; error?: string }>('/payments/channel-subscription', {
-        method: 'POST',
-        body: { action: 'subscribe', creatorId: params.creatorId },
-      });
+      // Route: IAP (iOS/Android digital goods) vs Stripe (web)
+      if (useIAP) {
+        const sku = getSubscriptionProductId('CHANNEL_SUB');
+        if (!sku) {
+          showError('Error', 'Product not available on this platform');
+          return;
+        }
 
-      if (response.success && response.checkoutUrl && response.sessionId) {
-        const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
+        const result = await purchaseSubscription(sku);
 
-        if (checkoutResult.status === 'success') {
+        if (result.status === 'success') {
           showSuccess('Subscribed!', 'You are now subscribed to this channel');
           await checkSubscription();
-        } else if (checkoutResult.status === 'pending') {
-          showWarning('Processing', checkoutResult.message);
-        } else if (checkoutResult.status === 'failed') {
-          showError('Payment Failed', checkoutResult.message);
+        } else if (result.status === 'pending') {
+          showWarning('Processing', result.message);
+        } else if (result.status === 'failed') {
+          showError('Payment Failed', result.message);
         }
         // cancelled — do nothing
-      } else if (response.success && response.checkoutUrl) {
-        // Fallback if no sessionId returned
-        navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Channel Subscription' });
       } else {
-        // Generic error message per CLAUDE.md - never expose response.error to client
-        showError('Error', 'Failed to start subscription. Please try again.');
+        // Stripe web checkout flow
+        const response = await awsAPI.request<{ success: boolean; checkoutUrl?: string; sessionId?: string; error?: string }>('/payments/channel-subscription', {
+          method: 'POST',
+          body: { action: 'subscribe', creatorId: params.creatorId },
+        });
+
+        if (response.success && response.checkoutUrl && response.sessionId) {
+          const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
+
+          if (checkoutResult.status === 'success') {
+            showSuccess('Subscribed!', 'You are now subscribed to this channel');
+            await checkSubscription();
+          } else if (checkoutResult.status === 'pending') {
+            showWarning('Processing', checkoutResult.message);
+          } else if (checkoutResult.status === 'failed') {
+            showError('Payment Failed', checkoutResult.message);
+          }
+          // cancelled — do nothing
+        } else if (response.success && response.checkoutUrl) {
+          navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Channel Subscription' });
+        } else {
+          showError('Error', 'Failed to start subscription. Please try again.');
+        }
       }
     } catch (_error: unknown) {
       showError('Error', 'Something went wrong. Please try again.');

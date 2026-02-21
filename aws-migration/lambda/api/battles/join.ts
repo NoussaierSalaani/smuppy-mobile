@@ -290,9 +290,9 @@ export const handler = withErrorHandler('battles-join', async (event, { headers,
       headers,
       body: JSON.stringify(response),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    log.error('Join battle error', error);
+    log.error('Join battle error', error_);
     return {
       statusCode: 500,
       headers,

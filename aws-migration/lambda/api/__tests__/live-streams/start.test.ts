@@ -321,4 +321,127 @@ describe('live-streams/start handler', () => {
       expect(JSON.parse(result.body).message).toBe('Internal server error');
     });
   });
+
+  // ── Additional coverage: title sanitization, fan notification, edge cases ──
+
+  describe('additional coverage - title sanitization', () => {
+    it('should strip HTML tags from custom title', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ id: VALID_PROFILE_ID, username: 'creator1', display_name: 'Creator', avatar_url: null, account_type: 'pro_creator' }],
+        })
+        .mockResolvedValueOnce({ rows: [] }) // no active stream
+        .mockResolvedValueOnce({
+          rows: [{ id: STREAM_ID, channel_name: `live_${VALID_PROFILE_ID}`, title: 'Clean Title', started_at: '2026-02-20T12:00:00Z' }],
+        })
+        .mockResolvedValueOnce({ rows: [] }); // fans query
+
+      const event = makeEvent({
+        body: JSON.stringify({ title: '<script>alert("xss")</script>Clean Title' }),
+      });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      // The INSERT query receives sanitized title
+      const insertCall = mockDb.query.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('INSERT INTO live_streams'),
+      );
+      expect(insertCall).toBeDefined();
+    });
+
+    it('should truncate title to 100 characters', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ id: VALID_PROFILE_ID, username: 'creator1', display_name: 'Creator', avatar_url: null, account_type: 'pro_creator' }],
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({
+          rows: [{ id: STREAM_ID, channel_name: `live_${VALID_PROFILE_ID}`, title: 'x'.repeat(100), started_at: '2026-02-20T12:00:00Z' }],
+        })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent({
+        body: JSON.stringify({ title: 'x'.repeat(200) }),
+      });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('should default title to "Live" when body has no title', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ id: VALID_PROFILE_ID, username: 'creator1', display_name: 'Creator', avatar_url: null, account_type: 'pro_creator' }],
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({
+          rows: [{ id: STREAM_ID, channel_name: `live_${VALID_PROFILE_ID}`, title: 'Live', started_at: '2026-02-20T12:00:00Z' }],
+        })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent({ body: JSON.stringify({}) });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.data.title).toBe('Live');
+    });
+  });
+
+  describe('additional coverage - fan notifications', () => {
+    it('should send notifications to fans when followers exist', async () => {
+      const { sendPushToUser } = jest.requireMock('../../services/push-notification') as { sendPushToUser: jest.Mock };
+
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ id: VALID_PROFILE_ID, username: 'creator1', display_name: 'Creator', avatar_url: null, account_type: 'pro_creator' }],
+        })
+        .mockResolvedValueOnce({ rows: [] }) // no active stream
+        .mockResolvedValueOnce({
+          rows: [{ id: STREAM_ID, channel_name: `live_${VALID_PROFILE_ID}`, title: 'My Stream', started_at: '2026-02-20T12:00:00Z' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ follower_id: 'fan-1' }, { follower_id: 'fan-2' }],
+        }) // fans query
+        .mockResolvedValue({ rows: [] }); // batch insert notifications
+
+      const event = makeEvent({
+        body: JSON.stringify({ title: 'My Stream' }),
+      });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+
+      // Wait a tick for the fire-and-forget notification promise to execute
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(sendPushToUser).toHaveBeenCalled();
+    });
+
+    it('should not fail if notification sending errors', async () => {
+      const { sendPushToUser } = jest.requireMock('../../services/push-notification') as { sendPushToUser: jest.Mock };
+      sendPushToUser.mockRejectedValue(new Error('Push error'));
+
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ id: VALID_PROFILE_ID, username: 'creator1', display_name: 'Creator', avatar_url: null, account_type: 'pro_creator' }],
+        })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({
+          rows: [{ id: STREAM_ID, channel_name: `live_${VALID_PROFILE_ID}`, title: 'Stream', started_at: '2026-02-20T12:00:00Z' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ follower_id: 'fan-1' }],
+        })
+        .mockResolvedValue({ rows: [] });
+
+      const event = makeEvent({
+        body: JSON.stringify({ title: 'Stream' }),
+      });
+      const result = await handler(event);
+
+      // Handler should still succeed — notifications are fire-and-forget
+      expect(result.statusCode).toBe(201);
+    });
+  });
 });

@@ -72,8 +72,8 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
             'UPDATE payments SET creator_id = NULL WHERE creator_id = $1',
             [profileId]
           );
-        } catch (payErr: unknown) {
-          log.error('Payment anonymization failed', payErr, { profileId: maskedId });
+        } catch (error_: unknown) {
+          log.error('Payment anonymization failed', error_, { profileId: maskedId });
         }
 
         // Step 2: Delete Stripe customer (remove PII from Stripe)
@@ -81,9 +81,9 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
           try {
             const stripe = await getStripeClient();
             await stripe.customers.del(profile.stripe_customer_id);
-          } catch (stripeErr: unknown) {
+          } catch (error_: unknown) {
             // Customer may already be deleted — log and continue
-            log.error('Stripe customer deletion failed', stripeErr, { profileId: maskedId });
+            log.error('Stripe customer deletion failed', error_, { profileId: maskedId });
           }
         }
 
@@ -102,8 +102,8 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
               // Expected: SNS endpoint may already be deleted by AWS or a previous cleanup run
             }
           }
-        } catch (snsErr: unknown) {
-          log.error('SNS cleanup failed', snsErr, { profileId: maskedId });
+        } catch (error_: unknown) {
+          log.error('SNS cleanup failed', error_, { profileId: maskedId });
         }
 
         // Step 4: Delete S3 media (all files under user's prefix)
@@ -136,8 +136,8 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
                 }
               }
             }
-          } catch (s3Err: unknown) {
-            log.error('S3 cleanup failed for account', s3Err, { profileId: maskedId });
+          } catch (error_: unknown) {
+            log.error('S3 cleanup failed for account', error_, { profileId: maskedId });
           }
         }
 
@@ -151,16 +151,16 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
               UserPoolId: USER_POOL_ID,
               Username: cognitoSub,
             }));
-          } catch (cognitoErr: unknown) {
-            log.error('Cognito user deletion failed', cognitoErr, { profileId: maskedId });
+          } catch (error_: unknown) {
+            log.error('Cognito user deletion failed', error_, { profileId: maskedId });
           }
         }
 
         totalDeleted++;
         log.info('Account hard-deleted', { profileId: maskedId });
-      } catch (accountErr: unknown) {
+      } catch (error_: unknown) {
         totalErrors++;
-        log.error('Failed to hard-delete account', accountErr, {
+        log.error('Failed to hard-delete account', error_, {
           profileId: maskedId,
         });
       }
@@ -168,8 +168,8 @@ export async function handler(): Promise<{ deleted: number; errors: number }> {
 
     log.warn('Account cleanup complete', { deleted: totalDeleted, errors: totalErrors });
     return { deleted: totalDeleted, errors: totalErrors };
-  } catch (error: unknown) {
-    log.error('Account cleanup failed', error);
+  } catch (error_: unknown) {
+    log.error('Account cleanup failed', error_);
     return { deleted: totalDeleted, errors: totalErrors + 1 };
   }
 }

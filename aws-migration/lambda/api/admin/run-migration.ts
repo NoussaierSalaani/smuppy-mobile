@@ -5,7 +5,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { timingSafeEqual, randomInt } from 'node:crypto';
+import { timingSafeEqual, randomInt, createHash } from 'node:crypto';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { getPool } from '../../shared/db';
 import type { Pool } from 'pg';
@@ -16,6 +16,33 @@ const log = createLogger('admin-run-migration');
 let cachedAdminKey: string | null = null;
 
 const secretsClient = new SecretsManagerClient({});
+
+// Escape regex metacharacters in a string, then compile word-boundary patterns once
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function compileBlocklist(keywords: string[]): RegExp[] {
+  return keywords.map(kw => new RegExp(`\\b${escapeRegex(kw)}\\b`));
+}
+function matchesBlocklist(text: string, patterns: RegExp[]): boolean {
+  return patterns.some(re => re.test(text));
+}
+
+// Precompiled blocklists (evaluated once at cold start)
+const BLOCKED_DDL = compileBlocklist([
+  'DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP FUNCTION', 'DROP TRIGGER',
+  'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE', 'INSERT', 'UPDATE', 'COPY', 'SELECT INTO',
+]);
+const BLOCKED_READ_ONLY = compileBlocklist([
+  'DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'INTO', 'COPY', 'SET', 'DO', 'EXECUTE',
+  'PG_READ_FILE', 'PG_WRITE_FILE', 'PG_SHADOW', 'PG_AUTHID', 'PG_ROLES', 'PG_USER', 'CURRENT_SETTING', 'PG_SLEEP', 'PG_STAT_ACTIVITY',
+  'PG_CATALOG', 'INFORMATION_SCHEMA', 'PG_TERMINATE_BACKEND', 'PG_CANCEL_BACKEND', 'LO_IMPORT', 'LO_EXPORT',
+]);
+const BLOCKED_MIGRATION = compileBlocklist([
+  'DROP DATABASE', 'DROP SCHEMA', 'DROP TABLE', 'DROP FUNCTION', 'DROP TRIGGER',
+  'TRUNCATE', 'ALTER ROLE', 'CREATE ROLE', 'CREATE EXTENSION',
+  'GRANT', 'REVOKE',
+]);
 
 // SECURITY: Get admin key from Secrets Manager (not env variable)
 async function getAdminKey(): Promise<string> {
@@ -694,9 +721,7 @@ async function handleRunDdl(
   }
   // SECURITY: Block destructive and DML keywords (defense-in-depth)
   const normalizedDdl = sql.toUpperCase().replaceAll(/\s+/g, ' ').trim();
-  const blockedDdl = ['DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP FUNCTION', 'DROP TRIGGER',
-    'TRUNCATE', 'DELETE FROM', 'GRANT', 'REVOKE', 'INSERT', 'UPDATE', 'COPY', 'SELECT INTO'];
-  if (blockedDdl.some(kw => normalizedDdl.includes(kw))) {
+  if (matchesBlocklist(normalizedDdl, BLOCKED_DDL)) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: `Blocked: DDL contains restricted keyword` }) };
   }
   log.info('Running DDL migration...');
@@ -721,10 +746,7 @@ function validateReadOnlySql(
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Only SELECT queries are allowed via run-sql' }) };
   }
   // Block dangerous keywords even in SELECT (including system catalog/function access)
-  const blocked = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'TRUNCATE', 'CREATE', 'GRANT', 'REVOKE', 'INTO', 'COPY', 'SET', 'DO', 'EXECUTE',
-    'PG_READ_FILE', 'PG_WRITE_FILE', 'PG_SHADOW', 'PG_AUTHID', 'PG_ROLES', 'PG_USER', 'CURRENT_SETTING', 'PG_SLEEP', 'PG_STAT_ACTIVITY',
-    'PG_CATALOG', 'INFORMATION_SCHEMA', 'PG_TERMINATE_BACKEND', 'PG_CANCEL_BACKEND', 'LO_IMPORT', 'LO_EXPORT'];
-  if (blocked.some(kw => normalizedSql.includes(kw))) {
+  if (matchesBlocklist(normalizedSql, BLOCKED_READ_ONLY)) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Query contains blocked keywords' }) };
   }
   return null;
@@ -897,6 +919,109 @@ async function routeAction(
 
   if (action === 'fix-constraint') {
     return handleFixConstraint(db, headers);
+  }
+
+  if (action === 'list-migrations') {
+    try {
+      await db.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+        version INTEGER PRIMARY KEY,
+        filename VARCHAR(255) NOT NULL,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        checksum VARCHAR(64)
+      )`);
+      const result = await db.query('SELECT version, filename, applied_at, checksum FROM schema_migrations ORDER BY version ASC');
+      return { statusCode: 200, headers, body: JSON.stringify({ migrations: result.rows, count: result.rowCount }) };
+    } catch (listErr: unknown) {
+      log.error('list-migrations failed', listErr);
+      return { statusCode: 500, headers, body: JSON.stringify({ message: 'Failed to list migrations' }) };
+    }
+  }
+
+  // Execute raw migration SQL — admin-key protected, non-production only
+  if (action === 'execute-migration') {
+    if (process.env.ENVIRONMENT === 'production') {
+      return { statusCode: 403, headers, body: JSON.stringify({ message: 'execute-migration is disabled in production' }) };
+    }
+    const sql = (body.sql as string)?.trim();
+    if (!sql || typeof sql !== 'string') {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'SQL query required' }) };
+    }
+    // Block destructive and privilege-escalation operations (word-boundary matching)
+    const normalizedMigration = sql.toUpperCase().replaceAll(/\s+/g, ' ').trim();
+    if (matchesBlocklist(normalizedMigration, BLOCKED_MIGRATION)) {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Blocked: migration contains restricted keyword' }) };
+    }
+    const sqlHash = createHash('sha256').update(sql).digest('hex');
+    const shortHash = sqlHash.slice(0, 16);
+    const requestId = getRequestId(event);
+    log.info(`[${requestId}] execute-migration requested (hash=${shortHash})`);
+
+    // Migration tracking: if version provided, check if already applied
+    const migrationVersion = typeof body.migration_version === 'number' ? body.migration_version : null;
+    const migrationFilename = typeof body.migration_filename === 'string' ? body.migration_filename : null;
+    if (migrationVersion !== null) {
+      try {
+        await db.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+          version INTEGER PRIMARY KEY,
+          filename VARCHAR(255) NOT NULL,
+          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          checksum VARCHAR(64)
+        )`);
+        const existing = await db.query('SELECT version, checksum, filename FROM schema_migrations WHERE version = $1', [migrationVersion]);
+        if (existing.rowCount && existing.rowCount > 0) {
+          const prev = existing.rows[0] as { checksum: string | null; filename: string };
+          if (prev.checksum && prev.checksum !== sqlHash) {
+            log.warn(`[${requestId}] checksum drift for migration v${migrationVersion}: stored=${prev.checksum.slice(0, 16)} new=${shortHash}`);
+            return { statusCode: 409, headers, body: JSON.stringify({
+              message: 'Migration version already applied with different SQL',
+              version: migrationVersion,
+              existingChecksum: prev.checksum,
+              newChecksum: sqlHash,
+              existingFilename: prev.filename,
+            }) };
+          }
+          return { statusCode: 200, headers, body: JSON.stringify({ message: 'Migration already applied', version: migrationVersion, skipped: true }) };
+        }
+      } catch (trackErr: unknown) {
+        log.warn('Migration tracking check failed, proceeding with execution', { error: String(trackErr) });
+      }
+    }
+
+    try {
+      // Split on semicolons and execute each statement
+      const statements = sql.split(';').filter(s => s.trim().length > 0);
+      let okCount = 0;
+      let errCount = 0;
+      for (const stmt of statements) {
+        try {
+          await db.query(stmt);
+          okCount++;
+        } catch (stmtErr: unknown) {
+          errCount++;
+          log.warn(`[${requestId}] statement failed (hash=${shortHash})`, { error: String(stmtErr) });
+        }
+      }
+      if (errCount > 0) {
+        log.warn(`[${requestId}] execute-migration completed with errors: ${okCount} ok, ${errCount} errors (hash=${shortHash})`);
+      }
+
+      // Record migration if version was provided and execution had no errors
+      if (migrationVersion !== null && errCount === 0) {
+        try {
+          await db.query(
+            'INSERT INTO schema_migrations (version, filename, checksum) VALUES ($1, $2, $3) ON CONFLICT (version) DO NOTHING',
+            [migrationVersion, migrationFilename || 'unnamed', sqlHash],
+          );
+        } catch (recordErr: unknown) {
+          log.warn('Failed to record migration in schema_migrations', { error: String(recordErr) });
+        }
+      }
+
+      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Migration executed', ok: okCount, errors: errCount }) };
+    } catch (execError: unknown) {
+      log.error('Execute-migration failed', execError);
+      return { statusCode: 500, headers, body: JSON.stringify({ message: 'Execute-migration failed' }) };
+    }
   }
 
   // Default: migration

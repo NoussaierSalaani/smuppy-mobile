@@ -43,6 +43,12 @@
 | **[docs/AUDIT_MESSAGING_V2.md](./docs/AUDIT_MESSAGING_V2.md)** | Messaging system audit — security, performance, quality |
 | **[docs/AUDIT_MOOD_AI.md](./docs/AUDIT_MOOD_AI.md)** | AI Mood system audit — detection, prescriptions, store |
 
+### Payments & Monetization
+
+| Document | Purpose |
+|----------|---------|
+| **[docs/PAYMENT_ARCHITECTURE.md](./docs/PAYMENT_ARCHITECTURE.md)** | Payment classification (12 types), IAP vs Stripe per platform, revenue splits, execution plan |
+
 ### Legal & Compliance
 
 | Document | Purpose |

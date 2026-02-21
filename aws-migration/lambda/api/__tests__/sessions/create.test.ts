@@ -521,4 +521,334 @@ describe('sessions/create handler', () => {
       expect(result.statusCode).toBe(500);
     });
   });
+
+  // ── Extended Coverage (Batch 7B) ──
+
+  describe('extended — DB error / transaction rollback paths', () => {
+    it('should ROLLBACK and release client when advisory lock query fails', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] }) // creator found
+        .mockRejectedValueOnce(new Error('Advisory lock failed')); // pg_advisory_xact_lock
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('should ROLLBACK and release client when notification insert fails', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] }) // creator
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session created
+        .mockRejectedValueOnce(new Error('Notification insert failed')); // notification fails
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('should ROLLBACK when sessions_enabled check fails and release client', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow({ sessions_enabled: false })] }); // creator does not accept
+      const event = makeEvent();
+      await handler(event, {} as never, () => {});
+      const rollbackCalls = mockClientQuery.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0] === 'ROLLBACK'
+      );
+      expect(rollbackCalls.length).toBe(1);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('should ROLLBACK when pack decrement query fails mid-transaction', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] }) // creator
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [{ id: PACK_ID, sessions_remaining: 3 }] }) // pack found
+        .mockRejectedValueOnce(new Error('Decrement DB error')); // decrement fails with DB error
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: futureDate(), duration: 30, fromPackId: PACK_ID }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('extended — validation edge cases', () => {
+    it('should return 400 when body is null (empty body)', async () => {
+      const event = { ...makeEvent(), body: null } as unknown as APIGatewayProxyEvent;
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Missing required fields');
+    });
+
+    it('should return 400 when duration is 0 (falsy)', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: futureDate(), duration: 0 }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Missing required fields');
+    });
+
+    it('should handle scheduledAt at exactly the current time (boundary — not in the future)', async () => {
+      const now = new Date().toISOString();
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: now, duration: 30 }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Invalid or past scheduled date');
+    });
+
+    it('should clamp negative duration to MIN_SESSION_DURATION_MINUTES and succeed', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: futureDate(), duration: -100 }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('should return 400 for both creatorId and fromPackId invalid UUIDs', async () => {
+      (isValidUUID as jest.Mock).mockReturnValue(false);
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: 'bad', scheduledAt: futureDate(), duration: 30, fromPackId: 'also-bad' }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Invalid ID format');
+    });
+  });
+
+  describe('extended — pack edge cases', () => {
+    it('should ROLLBACK when pack is not found and release client', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [] }); // pack not found
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: futureDate(), duration: 30, fromPackId: PACK_ID }),
+      });
+      await handler(event, {} as never, () => {});
+      const rollbackCalls = mockClientQuery.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0] === 'ROLLBACK'
+      );
+      expect(rollbackCalls.length).toBe(1);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('should pass fromPackId to session insert when pack is used', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [{ id: PACK_ID, sessions_remaining: 5 }] }) // pack found
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ sessions_remaining: 4 }] }) // decrement ok
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session created
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: futureDate(), duration: 30, fromPackId: PACK_ID }),
+      });
+      await handler(event, {} as never, () => {});
+      const insertCall = mockClientQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('INSERT INTO private_sessions')
+      );
+      expect(insertCall![1][7]).toBe(PACK_ID); // pack_id = fromPackId
+    });
+  });
+
+  describe('extended — response shape validation', () => {
+    it('should include price as a number (not string) in response', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      const body = JSON.parse(result.body);
+      expect(typeof body.session.price).toBe('number');
+    });
+  });
+
+  // ── Additional Coverage (Batch 7B-7D) ──
+
+  describe('additional — NaN duration after coercion', () => {
+    it('should return 400 when duration is NaN (non-numeric string)', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: futureDate(), duration: 'abc' }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      // Number('abc') is NaN, Math.round(NaN) is NaN, Math.max(NaN, 15) is NaN
+      // so safeDuration is NaN → triggers "Invalid duration" branch
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Invalid duration');
+    });
+  });
+
+  describe('additional — COMMIT query failure', () => {
+    it('should return 500 when COMMIT itself throws', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockRejectedValueOnce(new Error('COMMIT failed')); // COMMIT fails
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — conflict detection ROLLBACK and release', () => {
+    it('should release client after schedule conflict ROLLBACK', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [{ id: 'existing-session' }] }); // conflict
+      const event = makeEvent();
+      await handler(event, {} as never, () => {});
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — pack used with COMMIT succeeds', () => {
+    it('should COMMIT transaction when pack session is created successfully', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [{ id: PACK_ID, sessions_remaining: 5 }] }) // pack found
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ sessions_remaining: 4 }] }) // decrement ok
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session created
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: futureDate(), duration: 30, fromPackId: PACK_ID }),
+      });
+      await handler(event, {} as never, () => {});
+      const commitCalls = mockClientQuery.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0] === 'COMMIT'
+      );
+      expect(commitCalls.length).toBe(1);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — conflict query failure', () => {
+    it('should ROLLBACK and release when conflict check query fails', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockRejectedValueOnce(new Error('Conflict query failed')); // conflict check throws
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — session insert failure', () => {
+    it('should ROLLBACK when session INSERT fails after pack decrement', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [{ id: PACK_ID, sessions_remaining: 5 }] }) // pack found
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ sessions_remaining: 4 }] }) // decrement ok
+        .mockRejectedValueOnce(new Error('Insert session failed')); // session INSERT fails
+      const event = makeEvent({
+        body: JSON.stringify({ creatorId: CREATOR_ID, scheduledAt: futureDate(), duration: 30, fromPackId: PACK_ID }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — response includes all expected fields', () => {
+    it('should include scheduledAt and duration in 201 response', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      const body = JSON.parse(result.body);
+      expect(body.session).toHaveProperty('scheduledAt');
+      expect(body.session).toHaveProperty('duration');
+      expect(body.session).toHaveProperty('price');
+      expect(body.session).toHaveProperty('creatorId');
+      expect(body.session).toHaveProperty('creatorName');
+    });
+  });
+
+  describe('additional — notification data shape', () => {
+    it('should include sessionId, fanId, and scheduledAt in notification data', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // advisory lock
+        .mockResolvedValueOnce({ rows: [] }) // no conflicts
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const event = makeEvent();
+      await handler(event, {} as never, () => {});
+      const notifCall = mockClientQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('INSERT INTO notifications')
+      );
+      expect(notifCall).toBeDefined();
+      const data = JSON.parse(notifCall![1][2] as string);
+      expect(data).toHaveProperty('sessionId');
+      expect(data).toHaveProperty('fanId');
+      expect(data).toHaveProperty('scheduledAt');
+    });
+  });
 });

@@ -546,5 +546,61 @@ describe('follows/create handler', () => {
       expect(result.statusCode).toBe(403);
       expect(JSON.parse(result.body).message).toBe('Cannot follow this user');
     });
+
+    it('should return 403 when target user is suspended', async () => {
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE cognito_sub')) {
+          return Promise.resolve({ rows: [{ id: FOLLOWER_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('is_private')) {
+          return Promise.resolve({
+            rows: [{ id: TARGET_ID, is_private: false, moderation_status: 'suspended' }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({});
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(403);
+      expect(JSON.parse(result.body).message).toBe('Cannot follow this user');
+    });
+
+    it('should return 400 when body is null', async () => {
+      const event = makeEvent({ body: null });
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+    });
+
+    it('should return 429 when follow cooldown is active', async () => {
+      // cooldown_until must be a future date to trigger the 429
+      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      mockDb.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE cognito_sub')) {
+          return Promise.resolve({ rows: [{ id: FOLLOWER_ID }] });
+        }
+        if (typeof sql === 'string' && sql.includes('is_private')) {
+          return Promise.resolve({
+            rows: [{ id: TARGET_ID, is_private: false, moderation_status: 'active' }],
+          });
+        }
+        if (typeof sql === 'string' && sql.includes('blocked_users')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (typeof sql === 'string' && sql.includes('follow_cooldowns')) {
+          return Promise.resolve({
+            rows: [{ unfollow_count: 3, cooldown_until: futureDate }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const event = makeEvent({});
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(429);
+    });
   });
 });

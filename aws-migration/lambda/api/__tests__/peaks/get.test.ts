@@ -256,4 +256,70 @@ describe('peaks/get handler', () => {
       expect(result.statusCode).toBe(404);
     });
   });
+
+  describe('additional coverage - expired peak', () => {
+    it('should return peak data for expired peak when saved_to_profile is true', async () => {
+      const savedExpiredPeak = {
+        ...PEAK_ROW,
+        expires_at: '2025-01-01T00:00:00Z', // in the past
+        saved_to_profile: true,
+      };
+      mockDb.query.mockResolvedValueOnce({ rows: [savedExpiredPeak] });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      // Handler returns the peak because saved_to_profile=true bypasses expiration
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.peak.id).toBe(TEST_PEAK_ID);
+    });
+
+    it('should include filter data when peak has filter applied', async () => {
+      const filteredPeak = {
+        ...PEAK_ROW,
+        filter_id: 'sunset-glow',
+        filter_intensity: 0.8,
+        overlays: JSON.stringify([{ type: 'text', content: 'Hello' }]),
+      };
+      mockDb.query.mockResolvedValueOnce({ rows: [filteredPeak] });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.peak.filterId).toBe('sunset-glow');
+      expect(body.peak.filterIntensity).toBe(0.8);
+    });
+
+    it('should return 400 when pathParameters has no id key', async () => {
+      const event = makeEvent({ pathParameters: {} });
+      const result = await handler(event);
+
+      // pathParameters?.id is undefined, handler returns 400 "Peak ID is required"
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Peak ID is required');
+    });
+  });
+
+  describe('additional coverage - video variants', () => {
+    it('should include HLS URL and video variants when present', async () => {
+      const hlsPeak = {
+        ...PEAK_ROW,
+        hls_url: 'https://cdn.example.com/video/master.m3u8',
+        video_variants: JSON.stringify([
+          { width: 1080, url: 'https://cdn.example.com/video/1080.mp4' },
+        ]),
+      };
+      mockDb.query.mockResolvedValueOnce({ rows: [hlsPeak] });
+
+      const event = makeEvent();
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.peak.hlsUrl).toBe('https://cdn.example.com/video/master.m3u8');
+    });
+  });
 });

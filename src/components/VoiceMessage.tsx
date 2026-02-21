@@ -202,7 +202,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
         accessibilityRole="button"
       >
         <Ionicons
-          name={(() => { if (loadError) return "refresh" as const; if (isPlaying) return "pause" as const; return "play" as const; })()}
+          name={(() => { if (loadError) { return "refresh" as const; } if (isPlaying) { return "pause" as const; } return "play" as const; })()}
           size={20}
           color={isFromMe ? colors.primary : "#fff"}
         />

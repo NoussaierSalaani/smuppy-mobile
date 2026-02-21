@@ -101,8 +101,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         nextResetDate: nextMonth,
       }),
     };
-  } catch (error: unknown) {
-    log.error('Creation limits error', error);
+  } catch (error_: unknown) {
+    log.error('Creation limits error', error_);
     return {
       statusCode: 500,
       headers,

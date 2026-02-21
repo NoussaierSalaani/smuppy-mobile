@@ -20,6 +20,7 @@ const SearchSkeleton = () => {
       {/* Trending section */}
       <View style={styles.section}>
         <SkeletonLine width={100} height={16} style={styles.sectionTitle} />
+        {/* NOSONAR — static skeleton array, index keys are safe */}
         <View style={styles.trendingRow}>
           {Array.from({ length: 4 }).map((_, i) => (
             <SkeletonBase key={`trending-skeleton-${i}`} width={80} height={30} borderRadius={15} style={styles.trendingChip} />

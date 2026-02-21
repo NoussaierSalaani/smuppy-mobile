@@ -414,4 +414,67 @@ describe('feed/get handler', () => {
     expect(feedSql).toContain('blocked_users');
     expect(feedSql).toContain('ORDER BY p.created_at DESC');
   });
+
+  // ---------------------------------------------------------------
+  // 15. Additional coverage - isSaved detection
+  // ---------------------------------------------------------------
+  it('should detect isSaved posts in batch lookup', async () => {
+    const postRow = makePostRow();
+
+    mockDb.query
+      .mockResolvedValueOnce({ rows: [{ following_id: TEST_FOLLOWING_ID }] })   // following
+      .mockResolvedValueOnce({ rows: [] })                                       // subscriptions
+      .mockResolvedValueOnce({ rows: [postRow] })                                // feed query
+      .mockResolvedValueOnce({ rows: [] })                                       // liked
+      .mockResolvedValueOnce({ rows: [{ post_id: TEST_POST_ID_1 }] });          // saved
+
+    const event = makeEvent();
+    const result = await handler(event);
+
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.data[0].isSaved).toBe(true);
+    expect(body.data[0].isLiked).toBe(false);
+  });
+
+  // ---------------------------------------------------------------
+  // 16. Additional coverage - valid compound cursor parsing
+  // ---------------------------------------------------------------
+  it('should accept valid compound cursor with pipe separator', async () => {
+    mockedIsValidUUID.mockReturnValue(true);
+
+    mockDb.query
+      .mockResolvedValueOnce({ rows: [] })   // following
+      .mockResolvedValueOnce({ rows: [] })   // subscriptions
+      .mockResolvedValueOnce({ rows: [] });  // feed
+
+    const event = makeEvent({
+      queryStringParameters: { cursor: '2026-02-15T12:00:00Z|' + TEST_POST_ID_1 },
+    });
+    const result = await handler(event);
+
+    expect(result.statusCode).toBe(200);
+  });
+
+  // ---------------------------------------------------------------
+  // 17. Additional coverage - limit=1 (minimum)
+  // ---------------------------------------------------------------
+  it('should handle limit=1 correctly', async () => {
+    const postRow = makePostRow();
+
+    mockDb.query
+      .mockResolvedValueOnce({ rows: [] })           // following
+      .mockResolvedValueOnce({ rows: [] })           // subscriptions
+      .mockResolvedValueOnce({ rows: [postRow, makePostRow({ id: 'extra-id' })] }) // feed (2 rows = hasMore)
+      .mockResolvedValueOnce({ rows: [] })           // liked
+      .mockResolvedValueOnce({ rows: [] });          // saved
+
+    const event = makeEvent({ queryStringParameters: { limit: '1' } });
+    const result = await handler(event);
+
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.data).toHaveLength(1);
+    expect(body.hasMore).toBe(true);
+  });
 });

@@ -88,5 +88,44 @@ describe('moderationStore', () => {
       expect(state.reason).toBeNull();
       expect(state.suspendedUntil).toBeNull();
     });
+
+    it('is safe to call when already cleared', () => {
+      useModerationStore.getState().clearModeration();
+      const state = useModerationStore.getState();
+      expect(state.status).toBeNull();
+      expect(state.reason).toBeNull();
+      expect(state.suspendedUntil).toBeNull();
+    });
+
+    it('is safe to call multiple times', () => {
+      useModerationStore.getState().setModeration('banned', 'Test');
+      useModerationStore.getState().clearModeration();
+      useModerationStore.getState().clearModeration();
+      useModerationStore.getState().clearModeration();
+      expect(useModerationStore.getState().status).toBeNull();
+    });
+  });
+
+  describe('Lifecycle: set -> clear -> set', () => {
+    it('should support full moderation lifecycle', () => {
+      // 1. Set suspended
+      useModerationStore.getState().setModeration('suspended', 'Warning', '2026-06-01T00:00:00Z');
+      expect(useModerationStore.getState().status).toBe('suspended');
+
+      // 2. Clear (appeal success)
+      useModerationStore.getState().clearModeration();
+      expect(useModerationStore.getState().status).toBeNull();
+
+      // 3. New violation -> banned
+      useModerationStore.getState().setModeration('banned', 'Repeated offense');
+      expect(useModerationStore.getState().status).toBe('banned');
+      expect(useModerationStore.getState().suspendedUntil).toBeNull();
+    });
+
+    it('should handle empty string suspendedUntil as falsy (falls back to null)', () => {
+      useModerationStore.getState().setModeration('suspended', 'Test', '');
+      // Empty string is falsy, so || null gives null
+      expect(useModerationStore.getState().suspendedUntil).toBeNull();
+    });
   });
 });

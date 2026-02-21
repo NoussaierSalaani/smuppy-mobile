@@ -614,7 +614,73 @@ describe('Get Profile Handler', () => {
   });
 
   // ----------------------------------------------------------------
-  // 10. Business coordinates parsing
+  // 10. Additional edge cases
+  // ----------------------------------------------------------------
+  describe('Additional edge cases', () => {
+    it('should return isFollowing=pending when follow request is pending', async () => {
+      const profileRow = makeProfileRow();
+      mockQuery
+        .mockResolvedValueOnce({ rows: [profileRow] })
+        .mockResolvedValueOnce({ rows: [{ id: VIEWER_PROFILE_ID }] })
+        .mockResolvedValueOnce({ rows: [] })   // block check
+        .mockResolvedValueOnce({               // follow query — pending request
+          rows: [
+            {
+              status: 'pending',
+              follower_id: VIEWER_PROFILE_ID,
+              following_id: TARGET_PROFILE_ID,
+            },
+          ],
+        });
+
+      const event = createMockEvent({
+        pathId: TARGET_PROFILE_ID,
+        cognitoSub: VIEWER_COGNITO_SUB,
+      });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      // Pending follows should still show isFollowing as false (not accepted yet)
+      expect(body.isFollowing).toBe(false);
+    });
+
+    it('should handle viewer profile not found gracefully (treat as unauthenticated)', async () => {
+      const profileRow = makeProfileRow();
+      mockQuery
+        .mockResolvedValueOnce({ rows: [profileRow] })  // profile query
+        .mockResolvedValueOnce({ rows: [] });            // resolve viewer — not found
+
+      const event = createMockEvent({
+        pathId: TARGET_PROFILE_ID,
+        cognitoSub: VIEWER_COGNITO_SUB,
+      });
+      const response = await handler(event);
+
+      // Should still return 200 (treat as unauthenticated)
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.isFollowing).toBe(false);
+      expect(body.isFollowedBy).toBe(false);
+    });
+
+    it('should return null for interests and expertise when they are null', async () => {
+      const profileRow = makeProfileRow({ interests: null, expertise: null });
+      mockQuery.mockResolvedValueOnce({ rows: [profileRow] });
+
+      const event = createMockEvent({ pathId: TARGET_PROFILE_ID });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      // Handler passes through null values from DB directly
+      expect(body.interests).toBeNull();
+      expect(body.expertise).toBeNull();
+    });
+  });
+
+  // ----------------------------------------------------------------
+  // 11. Business coordinates parsing
   // ----------------------------------------------------------------
   describe('Business coordinates', () => {
     it('should parse business latitude and longitude as floats', async () => {

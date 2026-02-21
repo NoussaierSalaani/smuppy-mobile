@@ -450,4 +450,36 @@ describe('conversations/create handler', () => {
       expect(JSON.parse(result.body).message).toBe('Internal server error');
     });
   });
+
+  // 10. Additional edge cases
+  describe('additional edge cases', () => {
+    it('should return 400 when body is null', async () => {
+      const event = makeEvent({ body: null });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('participantId is required');
+    });
+
+    it('should return 500 when body is invalid JSON (caught by top-level handler)', async () => {
+      const event = makeEvent({ body: 'not-json{{{' });
+
+      const result = await handler(event);
+
+      // JSON.parse throws, caught by withErrorHandler -> 500
+      expect(result.statusCode).toBe(500);
+    });
+
+    it('should return 404 when resolveProfileId returns null', async () => {
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
+
+      const event = makeEvent();
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).message).toBe('Profile not found');
+    });
+  });
 });

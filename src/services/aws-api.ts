@@ -109,7 +109,7 @@ class AWSAPIService {
 
   private async _requestWithRetry<T>(endpoint: string, options: RequestOptions): Promise<T> {
     const MAX_RETRIES = 2;
-    const RETRYABLE_STATUSES = [408, 429, 500, 502, 503, 504];
+    const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -129,7 +129,7 @@ class AWSAPIService {
           error_.name === 'TypeError' ||
           error_.name === 'AbortError'
         );
-        const isRetryable = isNetworkError || (status ? RETRYABLE_STATUSES.includes(status) : false);
+        const isRetryable = isNetworkError || (status ? RETRYABLE_STATUSES.has(status) : false);
 
         if (!isRetryable || attempt === MAX_RETRIES) {
           if (attempt > 0 && error_ instanceof Error) {
@@ -166,7 +166,7 @@ class AWSAPIService {
     // 2. Disputes API: /disputes and /admin/disputes prefixes
     // 3. API 2: all other secondary prefixes
     // 4. API 1: default
-    const isApi3Endpoint = API3_ENDPOINTS.some(ep => endpoint === ep) ||
+    const isApi3Endpoint = (API3_ENDPOINTS as readonly string[]).includes(endpoint) ||
       API3_PREFIXES.some(prefix => endpoint.startsWith(prefix));
 
     const isDisputesEndpoint = DISPUTES_PREFIXES.some(prefix => endpoint.startsWith(prefix));
@@ -2238,6 +2238,31 @@ class AWSAPIService {
     message?: string;
   }> {
     return this.request(`/payments/web-checkout/status/${sessionId}`);
+  }
+
+  // ==========================================
+  // IAP (In-App Purchase) Verification
+  // ==========================================
+
+  /**
+   * Verify an IAP receipt with the backend.
+   * Called by useIAPCheckout after a successful store purchase.
+   */
+  async verifyIAPReceipt(data: {
+    platform: 'ios' | 'android';
+    productId: string;
+    transactionId: string;
+    receipt?: string;        // iOS: transaction receipt
+    purchaseToken?: string;  // Android: purchase token
+  }): Promise<{
+    success: boolean;
+    productType?: string;
+    message?: string;
+  }> {
+    return this.request('/payments/iap/verify', {
+      method: 'POST',
+      body: data,
+    });
   }
 
   // ==========================================

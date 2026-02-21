@@ -129,4 +129,494 @@ describe('sessions/decline handler', () => {
     const result = res as { statusCode: number };
     expect(result.statusCode).toBe(500);
   });
+
+  // ── Extended Coverage (Batch 7B) ──
+
+  describe('extended — OPTIONS handling', () => {
+    it('should return 200 for OPTIONS request', async () => {
+      const event = makeEvent({ httpMethod: 'OPTIONS' });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(result.body).toBe('');
+    });
+  });
+
+  describe('extended — validation edge cases', () => {
+    it('should return 400 when session ID is missing from pathParameters', async () => {
+      const event = makeEvent({ pathParameters: {} });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Valid session ID required');
+    });
+
+    it('should return 400 when pathParameters is null', async () => {
+      const event = makeEvent();
+      (event as Record<string, unknown>).pathParameters = null;
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(400);
+    });
+  });
+
+  describe('extended — creator decline flow', () => {
+    it('should return 200 with "Session declined" for creator declining pending session', async () => {
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: TEST_PROFILE_ID,
+          fan_id: 'some-fan-id',
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan Name',
+          creator_name: 'Creator Name',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification to fan
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.message).toBe('Session declined');
+    });
+
+    it('should return 400 when creator tries to decline a confirmed session', async () => {
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: TEST_PROFILE_ID,
+          fan_id: 'some-fan-id',
+          status: 'confirmed',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan Name',
+          creator_name: 'Creator Name',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // ROLLBACK
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Only pending sessions can be declined by creator');
+    });
+  });
+
+  describe('extended — fan cancellation flow', () => {
+    it('should return 200 with "Session cancelled" for fan cancelling a session', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan Name',
+          creator_name: 'Creator Name',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification to creator
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.message).toBe('Session cancelled');
+    });
+
+    it('should allow fan to cancel a confirmed session', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'confirmed',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan Name',
+          creator_name: 'Creator Name',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification to creator
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).message).toBe('Session cancelled');
+    });
+  });
+
+  describe('extended — pack refund on cancel', () => {
+    it('should refund pack session when cancelled session has a pack_id', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      const packId = 'pack-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: packId,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session status
+      mockQuery.mockResolvedValueOnce({}); // UPDATE user_session_packs (refund)
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(200);
+      // Verify the pack refund query was called
+      const packRefundCall = mockQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('user_session_packs')
+      );
+      expect(packRefundCall).toBeDefined();
+      expect(packRefundCall![1][0]).toBe(packId);
+    });
+  });
+
+  describe('extended — reason sanitization', () => {
+    it('should sanitize HTML tags from user-provided reason', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent({
+        body: JSON.stringify({ reason: '<script>alert("xss")</script>I changed my mind' }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      expect((res as { statusCode: number }).statusCode).toBe(200);
+      // Check the UPDATE session call used sanitized reason
+      const updateCall = mockQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('UPDATE private_sessions')
+      );
+      expect(updateCall).toBeDefined();
+      const reason = updateCall![1][0] as string;
+      expect(reason).not.toContain('<script>');
+      expect(reason).toContain('I changed my mind');
+    });
+
+    it('should use default reason when reason is not a string', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent({
+        body: JSON.stringify({ reason: 12345 }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      expect((res as { statusCode: number }).statusCode).toBe(200);
+      const updateCall = mockQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('UPDATE private_sessions')
+      );
+      const reason = updateCall![1][0] as string;
+      expect(reason).toBe('Cancelled by fan');
+    });
+
+    it('should truncate reason to 500 characters', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const longReason = 'a'.repeat(1000);
+      const event = makeEvent({
+        body: JSON.stringify({ reason: longReason }),
+      });
+      const res = await handler(event, {} as never, () => {});
+      expect((res as { statusCode: number }).statusCode).toBe(200);
+      const updateCall = mockQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('UPDATE private_sessions')
+      );
+      const reason = updateCall![1][0] as string;
+      expect(reason.length).toBeLessThanOrEqual(500);
+    });
+  });
+
+  describe('extended — DB error / transaction rollback paths', () => {
+    it('should ROLLBACK and release client when session UPDATE fails', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockRejectedValueOnce(new Error('Update session failed')); // UPDATE throws
+      mockQuery.mockResolvedValueOnce({}); // ROLLBACK
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('should ROLLBACK and release client when notification insert fails', async () => {
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: TEST_PROFILE_ID,
+          fan_id: 'some-fan-id',
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session OK
+      mockQuery.mockRejectedValueOnce(new Error('Notification failed')); // INSERT notification throws
+      mockQuery.mockResolvedValueOnce({}); // ROLLBACK
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not leak internal error details in 500 response', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('SENSITIVE: password=abc123'));
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(500);
+      expect(result.body).not.toContain('SENSITIVE');
+      expect(result.body).not.toContain('password');
+    });
+
+    it('should handle malformed JSON body gracefully', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      // Body parse will throw, caught by try/catch → 500
+      const event = makeEvent({ body: '{invalid-json' });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+    });
+  });
+
+  // ── Additional Coverage (Batch 7B-7D) ──
+  // Note: mockQuery.mockReset() is needed to flush any unconsumed mockResolvedValueOnce
+  // values left by earlier tests (e.g. the malformed JSON test consumes fewer mocks than queued).
+  // jest.clearAllMocks() does NOT clear the once-values queue—only mockReset() does.
+
+  describe('additional — pack refund on creator decline', () => {
+    beforeEach(() => { mockQuery.mockReset(); });
+    it('should refund pack session when creator declines a session with pack_id', async () => {
+      const packId = 'pack-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: TEST_PROFILE_ID,
+          fan_id: 'some-fan-id',
+          status: 'pending',
+          pack_id: packId,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session status
+      mockQuery.mockResolvedValueOnce({}); // UPDATE user_session_packs (refund)
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification to fan
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(200);
+      const packRefundCall = mockQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('user_session_packs')
+      );
+      expect(packRefundCall).toBeDefined();
+      expect(packRefundCall![1][0]).toBe(packId);
+    });
+  });
+
+  describe('additional — empty reason with null body', () => {
+    beforeEach(() => { mockQuery.mockReset(); });
+    it('should use default reason when body is null', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent({ body: null as unknown as string });
+      const res = await handler(event, {} as never, () => {});
+      expect((res as { statusCode: number }).statusCode).toBe(200);
+      const updateCall = mockQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('UPDATE private_sessions')
+      );
+      const reason = updateCall![1][0] as string;
+      expect(reason).toBe('Cancelled by fan');
+    });
+  });
+
+  describe('additional — creator notification data shape', () => {
+    beforeEach(() => { mockQuery.mockReset(); });
+    it('should include creatorId in notification data when creator declines', async () => {
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: TEST_PROFILE_ID,
+          fan_id: 'some-fan-id',
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent();
+      await handler(event, {} as never, () => {});
+      const notifCall = mockQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('INSERT INTO notifications')
+      );
+      expect(notifCall).toBeDefined();
+      const data = JSON.parse(notifCall![1][2] as string);
+      expect(data).toHaveProperty('sessionId');
+      expect(data).toHaveProperty('scheduledAt');
+      expect(data).toHaveProperty('creatorId');
+    });
+  });
+
+  describe('additional — fan notification data shape', () => {
+    beforeEach(() => { mockQuery.mockReset(); });
+    it('should include fanId in notification data when fan cancels', async () => {
+      const fanId = TEST_PROFILE_ID;
+      const creatorId = 'creator-uuid-1234-5678-abcdef123456';
+      mockQuery.mockResolvedValueOnce({}); // BEGIN
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: SESSION_ID,
+          creator_id: creatorId,
+          fan_id: fanId,
+          status: 'pending',
+          pack_id: null,
+          scheduled_at: new Date().toISOString(),
+          fan_name: 'Fan',
+          creator_name: 'Creator',
+        }],
+      });
+      mockQuery.mockResolvedValueOnce({}); // UPDATE session
+      mockQuery.mockResolvedValueOnce({}); // INSERT notification
+      mockQuery.mockResolvedValueOnce({}); // COMMIT
+      const event = makeEvent();
+      await handler(event, {} as never, () => {});
+      const notifCall = mockQuery.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('INSERT INTO notifications')
+      );
+      expect(notifCall).toBeDefined();
+      const data = JSON.parse(notifCall![1][2] as string);
+      expect(data).toHaveProperty('sessionId');
+      expect(data).toHaveProperty('scheduledAt');
+      expect(data).toHaveProperty('fanId');
+    });
+  });
 });

@@ -307,9 +307,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         message: 'Evidence submitted successfully',
       }),
     };
-  } catch (error) {
+  } catch (error_) {
     if (client) await client.query('ROLLBACK');
-    log.error('Submit evidence error', error);
+    log.error('Submit evidence error', error_);
     return {
       statusCode: 500,
       headers,

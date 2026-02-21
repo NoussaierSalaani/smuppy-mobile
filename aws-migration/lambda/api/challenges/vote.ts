@@ -126,9 +126,9 @@ export const handler = withErrorHandler('challenges-vote', async (event, { heade
         voteCount: updatedResult.rows[0]?.vote_count || 0,
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    log.error('Vote challenge response error', error);
+    log.error('Vote challenge response error', error_);
     return {
       statusCode: 500,
       headers,

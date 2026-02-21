@@ -852,4 +852,401 @@ describe('disputes/create handler', () => {
       expect(sanitizedDesc).not.toContain('</script>');
     });
   });
+
+  // ── Extended Coverage (Batch 7C) ──
+
+  describe('DB error / transaction rollback paths', () => {
+    it('should ROLLBACK when dispute INSERT fails', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session found
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance (auto-verification)
+        .mockRejectedValueOnce(new Error('INSERT failed')); // dispute INSERT fails
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Internal server error');
+      expect(mockClient.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('should ROLLBACK when notification INSERT fails', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-ERR1' }] }) // insert dispute
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockRejectedValueOnce(new Error('Notification INSERT failed')); // notification fails
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(500);
+      expect(mockClient.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 500 when getPool rejects', async () => {
+      (getPool as jest.Mock).mockRejectedValueOnce(new Error('Connection pool exhausted'));
+      await expect(handler(makeEvent())).rejects.toThrow('Connection pool exhausted');
+    });
+
+    it('should return 500 when client.connect rejects', async () => {
+      mockDb.connect.mockRejectedValueOnce(new Error('Cannot connect'));
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(500);
+    });
+  });
+
+  describe('validation edge cases', () => {
+    it('should return 400 when body is empty JSON object', async () => {
+      const result = await handler(makeEvent({ body: '{}' }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('sessionId, type, and description are required');
+    });
+
+    it('should return 400 when description is exactly 19 characters (below min)', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({
+          sessionId: VALID_SESSION_ID,
+          type: 'no_show',
+          description: '1234567890123456789', // 19 chars
+        }),
+      }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Description must be between');
+    });
+
+    it('should accept description exactly at 20 characters (min boundary)', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session found
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-EDGE' }] }) // insert
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const result = await handler(makeEvent({
+        body: JSON.stringify({
+          sessionId: VALID_SESSION_ID,
+          type: 'no_show',
+          description: '12345678901234567890', // exactly 20 chars
+          refundRequested: 'none',
+        }),
+      }));
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('should default refundAmount to 0 when refundRequested is not provided', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow({ amount_cents: 8000 })] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-DEF' }] }) // insert
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      await handler(makeEvent({
+        body: JSON.stringify({
+          sessionId: VALID_SESSION_ID,
+          type: 'quality',
+          description: 'The session quality was very poor throughout',
+          // refundRequested is omitted
+        }),
+      }));
+      const insertCall = mockClient.query.mock.calls[4];
+      expect(insertCall[1][9]).toBe(0); // refund_amount_cents defaults to 0
+    });
+  });
+
+  describe('auto-verification edge cases', () => {
+    it('should recommend approve_refund when overlap < 50% of expectedDuration', async () => {
+      const expectedDuration = 30 * 60; // 1800 seconds
+      const now = Date.now();
+      // Both present (duration > 60s) but overlap < 50% of expected
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              user_id: TEST_USER_ID,
+              joined_at: new Date(now - 5000).toISOString(),
+              left_at: new Date(now - 4500).toISOString(), // 500ms window
+              duration_seconds: 120, // present (> 60s)
+              network_quality_avg: 5,
+              reconnect_count: 0,
+            },
+            {
+              user_id: VALID_CREATOR_ID,
+              joined_at: new Date(now - 4600).toISOString(), // overlap: ~100ms
+              left_at: new Date(now - 4000).toISOString(),
+              duration_seconds: 120, // present (> 60s)
+              network_quality_avg: 5,
+              reconnect_count: 0,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-OV1' }] }) // insert
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        // auto-approve queries (because recommendation = approve_refund)
+        .mockResolvedValueOnce({ rows: [] }) // update dispute
+        .mockResolvedValueOnce({ rows: [] }) // insert refund
+        .mockResolvedValueOnce({ rows: [] }) // update session
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.dispute.autoVerification.recommendation).toBe('approve_refund');
+      expect(body.dispute.priority).toBe('high');
+    });
+
+    it('should use Date.now() when left_at is null for user', async () => {
+      const now = Date.now();
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              user_id: TEST_USER_ID,
+              joined_at: new Date(now - 1800 * 1000).toISOString(),
+              left_at: null, // still in session
+              duration_seconds: 1800,
+              network_quality_avg: 5,
+              reconnect_count: 0,
+            },
+            {
+              user_id: VALID_CREATOR_ID,
+              joined_at: new Date(now - 1800 * 1000).toISOString(),
+              left_at: null, // still in session
+              duration_seconds: 1800,
+              network_quality_avg: 5,
+              reconnect_count: 0,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-NULL' }] })
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      // With both still in session (left_at null), overlap should be large => reject
+      expect(body.dispute.autoVerification.recommendation).toBe('reject');
+    });
+
+    it('should keep quality as good when network_quality_avg is null', async () => {
+      const now = Date.now();
+      const expectedDuration = 30 * 60;
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              user_id: TEST_USER_ID,
+              joined_at: new Date(now - expectedDuration * 1000).toISOString(),
+              left_at: new Date(now).toISOString(),
+              duration_seconds: expectedDuration,
+              network_quality_avg: null, // null quality
+              reconnect_count: 0,
+            },
+            {
+              user_id: VALID_CREATOR_ID,
+              joined_at: new Date(now - expectedDuration * 1000).toISOString(),
+              left_at: new Date(now).toISOString(),
+              duration_seconds: expectedDuration,
+              network_quality_avg: 5,
+              reconnect_count: 0,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-NQ' }] })
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const result = await handler(makeEvent());
+      const body = JSON.parse(result.body);
+      expect(body.dispute.autoVerification.quality).toBe('good');
+    });
+  });
+
+  describe('sanitization edge cases', () => {
+    it('should strip control characters from description', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-CTRL' }] }) // insert
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      await handler(makeEvent({
+        body: JSON.stringify({
+          sessionId: VALID_SESSION_ID,
+          type: 'other',
+          description: 'Creator\x00 did not\x01 show\x0E up to the session',
+          refundRequested: 'none',
+        }),
+      }));
+      const insertCall = mockClient.query.mock.calls[4];
+      const sanitizedDesc = insertCall[1][7];
+      expect(sanitizedDesc).not.toMatch(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/);
+    });
+  });
+
+  // ── Additional Coverage (Batch 7B-7D) ──
+
+  describe('additional — dispute window boundary', () => {
+    it('should accept dispute at exactly 23 hours after session (within 24h window)', async () => {
+      const almostExpired = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow({ scheduled_at: almostExpired })] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-BNDRY' }] }) // insert
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(201);
+    });
+  });
+
+  describe('additional — ROLLBACK when buyer check fails', () => {
+    it('should ROLLBACK and release client when user is not the buyer', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow({ buyer_id: 'other-user-id' })] });
+      await handler(makeEvent());
+      const rollbackCalls = mockClient.query.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0] === 'ROLLBACK'
+      );
+      expect(rollbackCalls.length).toBe(1);
+      expect(mockClient.release).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — ROLLBACK when dispute window closed', () => {
+    it('should ROLLBACK and release client when dispute window expired', async () => {
+      const expired = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow({ scheduled_at: expired })] });
+      await handler(makeEvent());
+      const rollbackCalls = mockClient.query.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0] === 'ROLLBACK'
+      );
+      expect(rollbackCalls.length).toBe(1);
+      expect(mockClient.release).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — ROLLBACK when existing dispute found', () => {
+    it('should ROLLBACK and release client when existing dispute found', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session found
+        .mockResolvedValueOnce({ rows: [{ id: 'existing-dispute-id' }] }); // existing dispute
+      await handler(makeEvent());
+      const rollbackCalls = mockClient.query.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0] === 'ROLLBACK'
+      );
+      expect(rollbackCalls.length).toBe(1);
+      expect(mockClient.release).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — verification log insert failure', () => {
+    it('should ROLLBACK when verification log INSERT fails', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-VL' }] }) // insert dispute
+        .mockRejectedValueOnce(new Error('Verification log INSERT failed')); // verification log fails
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(500);
+      expect(mockClient.release).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('additional — partial refund floor calculation', () => {
+    it('should floor partial refund to nearest cent for odd amounts', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow({ amount_cents: 9999 })] }) // odd amount
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-PART' }] }) // insert
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      await handler(makeEvent({
+        body: JSON.stringify({
+          sessionId: VALID_SESSION_ID, type: 'quality',
+          description: 'Session quality was really poor throughout',
+          refundRequested: 'partial',
+        }),
+      }));
+      const insertCall = mockClient.query.mock.calls[4];
+      // Math.floor(9999 * 0.5) = 4999
+      expect(insertCall[1][9]).toBe(4999);
+    });
+  });
+
+  describe('additional — description exactly at max boundary (2000 chars)', () => {
+    it('should accept description at exactly 2000 characters (max boundary)', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session found
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-MAX' }] }) // insert
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const result = await handler(makeEvent({
+        body: JSON.stringify({
+          sessionId: VALID_SESSION_ID,
+          type: 'no_show',
+          description: 'a'.repeat(2000), // exactly 2000 chars
+          refundRequested: 'none',
+        }),
+      }));
+      expect(result.statusCode).toBe(201);
+    });
+  });
+
+  describe('additional — evidence_deadline in dispute INSERT', () => {
+    it('should set evidence_deadline to 48 hours from now in dispute creation', async () => {
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] }) // session
+        .mockResolvedValueOnce({ rows: [] }) // no existing dispute
+        .mockResolvedValueOnce({ rows: [] }) // attendance
+        .mockResolvedValueOnce({ rows: [{ id: VALID_DISPUTE_ID, dispute_number: 'D-DL' }] }) // insert
+        .mockResolvedValueOnce({ rows: [] }) // verification log
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(201);
+      const body = JSON.parse(result.body);
+      expect(body.dispute.evidenceDeadline).toBeDefined();
+      const deadline = new Date(body.dispute.evidenceDeadline);
+      const now = new Date();
+      const diffHours = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+      // Should be approximately 48 hours
+      expect(diffHours).toBeGreaterThan(47);
+      expect(diffHours).toBeLessThan(49);
+    });
+  });
 });

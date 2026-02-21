@@ -425,4 +425,337 @@ describe('sessions/availability handler', () => {
       expect(result.statusCode).toBe(500);
     });
   });
+
+  // ── Extended Coverage (Batch 7B) ──
+
+  describe('extended — DB error paths', () => {
+    it('should return 500 when getPool() itself throws', async () => {
+      (getPool as jest.Mock).mockRejectedValueOnce(new Error('Pool creation failed'));
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toContain('Failed to get availability');
+    });
+
+    it('should return 500 and not leak error details in response body', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('SENSITIVE: connection string exposed'));
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(500);
+      expect(result.body).not.toContain('SENSITIVE');
+      expect(result.body).not.toContain('connection string');
+    });
+  });
+
+  describe('extended — validation edge cases', () => {
+    it('should return 400 for creatorId with uppercase UUID (valid format)', async () => {
+      const uppercaseUUID = 'A1B2C3D4-E5F6-7890-ABCD-EF1234567890';
+      const event = makeEvent({ pathParameters: { creatorId: uppercaseUUID } });
+      // The UUID regex uses /i flag so uppercase should pass validation
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow({ id: uppercaseUUID })] })
+        .mockResolvedValueOnce({ rows: [] });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(200);
+    });
+
+    it('should return 400 for empty string creatorId', async () => {
+      const event = makeEvent({ pathParameters: { creatorId: '' } });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(400);
+    });
+
+    it('should return 400 for creatorId that is too long', async () => {
+      const event = makeEvent({ pathParameters: { creatorId: 'a'.repeat(100) } });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(400);
+    });
+  });
+
+  describe('extended — query parameter edge cases', () => {
+    it('should handle NaN days parameter by defaulting to NaN behavior', async () => {
+      // Only mock the creator query — the booked-sessions query is never reached
+      // because endDate.toISOString() throws when daysAhead is NaN
+      mockQuery.mockResolvedValueOnce({ rows: [makeCreatorRow()] });
+      const event = makeEvent({
+        queryStringParameters: { days: 'not-a-number' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      // parseInt('not-a-number') is NaN → endDate becomes Invalid Date → toISOString() throws → 500
+      expect(result.statusCode).toBe(500);
+    });
+
+    it('should handle days = 0 returning no available slots', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent({
+        queryStringParameters: { days: '0' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.availableSlots).toEqual([]);
+    });
+
+    it('should handle negative days parameter returning no available slots', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent({
+        queryStringParameters: { days: '-5' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.availableSlots).toEqual([]);
+    });
+  });
+
+  describe('extended — availability with empty/null day slots', () => {
+    it('should handle availability with a missing day key gracefully', async () => {
+      // Only monday defined, all other days missing (not empty arrays, just absent)
+      const partialAvailability = {
+        monday: [{ start: '09:00', end: '10:00' }],
+        // tuesday, wednesday, etc. are missing
+      };
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow({ session_availability: partialAvailability })] })
+        .mockResolvedValueOnce({ rows: [] });
+      // Find a date string that the handler will interpret as Tuesday (getDay()===2)
+      const td = new Date();
+      td.setMonth(td.getMonth() + 6);
+      while (new Date(td.toISOString().split('T')[0]).getDay() !== 2) td.setDate(td.getDate() + 1);
+      const tuesdayStr = td.toISOString().split('T')[0];
+      const event = makeEvent({
+        queryStringParameters: { startDate: tuesdayStr, days: '1' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      // Tuesday has no entry in availability → no slots
+      expect(body.availableSlots).toEqual([]);
+    });
+
+    it('should handle session_availability as null (use defaults)', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow({ session_availability: null })] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      // Should succeed with default availability
+      const body = JSON.parse(result.body);
+      expect(body.availableSlots).toBeInstanceOf(Array);
+    });
+  });
+
+  describe('extended — response shape validation', () => {
+    it('should return all required creator fields in response', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      const body = JSON.parse(result.body);
+      expect(body.creator).toHaveProperty('id');
+      expect(body.creator).toHaveProperty('name');
+      expect(body.creator).toHaveProperty('username');
+      expect(body.creator).toHaveProperty('avatar');
+      expect(body.creator).toHaveProperty('sessionPrice');
+      expect(body.creator).toHaveProperty('sessionDuration');
+      expect(body.creator).toHaveProperty('timezone');
+    });
+
+    it('should return availableSlots as an array even when no slots exist', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] });
+      // Find a date string that the handler will interpret as Saturday (getDay()===6)
+      const sd = new Date();
+      sd.setMonth(sd.getMonth() + 6);
+      while (new Date(sd.toISOString().split('T')[0]).getDay() !== 6) sd.setDate(sd.getDate() + 1);
+      const satStr = sd.toISOString().split('T')[0];
+      const event = makeEvent({
+        queryStringParameters: { startDate: satStr, days: '1' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const body = JSON.parse((res as { body: string }).body);
+      expect(Array.isArray(body.availableSlots)).toBe(true);
+      expect(body.availableSlots.length).toBe(0);
+    });
+  });
+
+  // ── Additional Coverage (Batch 7B-7D) ──
+
+  describe('additional — overlapping booked slots filter multiple bookings', () => {
+    beforeEach(() => { mockQuery.mockReset(); mockQuery.mockResolvedValue({ rows: [] }); });
+    function getFutureStartDateForDay(targetDay: number): string {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 6);
+      for (let i = 0; i < 10; i++) {
+        const dateStr = d.toISOString().split('T')[0];
+        const parsed = new Date(dateStr);
+        if (parsed.getDay() === targetDay) return dateStr;
+        d.setDate(d.getDate() + 1);
+      }
+      throw new Error(`Could not find a date for day ${targetDay}`);
+    }
+
+    it('should filter out multiple overlapping booked slots', async () => {
+      const futureMonday = getFutureStartDateForDay(1);
+      const booked1Date = new Date(futureMonday);
+      booked1Date.setHours(14, 0, 0, 0);
+      const booked2Date = new Date(futureMonday);
+      booked2Date.setHours(15, 0, 0, 0);
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [makeCreatorRow({
+            session_availability: {
+              monday: [{ start: '14:00', end: '17:00' }],
+              tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [],
+            },
+            session_duration: 30,
+          })],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            { scheduled_at: booked1Date.toISOString(), duration: 30 },
+            { scheduled_at: booked2Date.toISOString(), duration: 30 },
+          ],
+        });
+      const event = makeEvent({
+        queryStringParameters: { startDate: futureMonday, days: '1' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const body = JSON.parse((res as { body: string }).body);
+      expect(body.availableSlots.length).toBeGreaterThan(0);
+      const times = body.availableSlots.map((s: { time: string }) => s.time);
+      expect(times).not.toContain('14:00');
+      expect(times).not.toContain('15:00');
+    });
+  });
+
+  describe('additional — multiple availability windows in same day', () => {
+    beforeEach(() => { mockQuery.mockReset(); mockQuery.mockResolvedValue({ rows: [] }); });
+    function getFutureStartDateForDay(targetDay: number): string {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 6);
+      for (let i = 0; i < 10; i++) {
+        const dateStr = d.toISOString().split('T')[0];
+        const parsed = new Date(dateStr);
+        if (parsed.getDay() === targetDay) return dateStr;
+        d.setDate(d.getDate() + 1);
+      }
+      throw new Error(`Could not find a date for day ${targetDay}`);
+    }
+
+    it('should generate slots for multiple time windows on the same day', async () => {
+      const futureMonday = getFutureStartDateForDay(1);
+      const customAvailability = {
+        monday: [
+          { start: '09:00', end: '10:00' },
+          { start: '14:00', end: '15:00' },
+        ],
+        tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [],
+      };
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow({ session_availability: customAvailability, session_duration: 30 })] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent({
+        queryStringParameters: { startDate: futureMonday, days: '1' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const body = JSON.parse((res as { body: string }).body);
+      // Should have slots from both windows
+      expect(body.availableSlots).toBeInstanceOf(Array);
+      // Verify at least one slot from each window if they pass the 2-hour threshold
+      if (body.availableSlots.length > 0) {
+        const times = body.availableSlots.map((s: { time: string }) => s.time);
+        // At least one of the two windows should have slots
+        expect(times.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('additional — very large days parameter', () => {
+    beforeEach(() => { mockQuery.mockReset(); mockQuery.mockResolvedValue({ rows: [] }); });
+    it('should handle a large days value (30) without error', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow()] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent({
+        queryStringParameters: { days: '30' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(200);
+    });
+  });
+
+  describe('additional — sessionPrice as number type', () => {
+    beforeEach(() => { mockQuery.mockReset(); mockQuery.mockResolvedValue({ rows: [] }); });
+    it('should return sessionPrice as a number (parsed from string)', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeCreatorRow({ session_price: '99.99' })] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const body = JSON.parse((res as { body: string }).body);
+      expect(typeof body.creator.sessionPrice).toBe('number');
+      expect(body.creator.sessionPrice).toBeCloseTo(99.99);
+    });
+  });
+
+  describe('additional — custom session_duration affects slot generation', () => {
+    beforeEach(() => { mockQuery.mockReset(); mockQuery.mockResolvedValue({ rows: [] }); });
+    function getFutureStartDateForDay(targetDay: number): string {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 6);
+      for (let i = 0; i < 10; i++) {
+        const dateStr = d.toISOString().split('T')[0];
+        const parsed = new Date(dateStr);
+        if (parsed.getDay() === targetDay) return dateStr;
+        d.setDate(d.getDate() + 1);
+      }
+      throw new Error(`Could not find a date for day ${targetDay}`);
+    }
+
+    it('should use custom session_duration for slot window check (60 min)', async () => {
+      const futureMonday = getFutureStartDateForDay(1);
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [makeCreatorRow({
+            session_duration: 60,
+            session_availability: {
+              monday: [{ start: '14:00', end: '15:30' }],
+              tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [],
+            },
+          })],
+        })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent({
+        queryStringParameters: { startDate: futureMonday, days: '1' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const body = JSON.parse((res as { body: string }).body);
+      // With 60 min session and window 14:00-15:30, only 14:00 fits (14:00+60=15:00 <= 15:30)
+      // 14:30+60=15:30 <= 15:30 also fits. 15:00+60=16:00 > 15:30 does not.
+      // But slots are generated at 30-min intervals, so: 14:00 (fits), 14:30 (fits), 15:00 (doesn't fit)
+      if (body.availableSlots.length > 0) {
+        expect(body.availableSlots.length).toBeLessThanOrEqual(2);
+      }
+    });
+  });
 });

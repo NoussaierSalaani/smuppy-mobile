@@ -23,6 +23,8 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   adminApiKeySecret: secretsmanager.ISecret;
   stripeSecret: secretsmanager.ISecret;
   redisAuthSecret?: secretsmanager.ISecret; // Optional: Redis auth token secret
+  appleIAPSecret?: secretsmanager.ISecret;  // Optional: Apple IAP API credentials
+  googlePlaySecret?: secretsmanager.ISecret; // Optional: Google Play service account
   mediaBucket: s3.IBucket;
   userPool: cognito.IUserPool;
   userPoolClientId: string;
@@ -121,6 +123,10 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly paymentRefundsFn: NodejsFunction;
   public readonly paymentMethodsFn: NodejsFunction;
   public readonly paymentWebCheckoutFn: NodejsFunction;
+
+  // IAP (In-App Purchase) Functions
+  public readonly iapVerifyFn: NodejsFunction;
+  public readonly iapNotificationsFn: NodejsFunction;
 
   // Admin Functions
   public readonly adminMigrationFn: NodejsFunction;
@@ -1072,6 +1078,64 @@ export class LambdaStack extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.paymentWebCheckoutFn);
 
+    // ========================================
+    // IAP (In-App Purchase) Lambda Functions
+    // ========================================
+
+    // IAP Verify Lambda - Validates receipts from App Store / Google Play
+    this.iapVerifyFn = new NodejsFunction(this, 'IAPVerifyFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/iap-verify.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        ...(props.appleIAPSecret ? { APPLE_IAP_SECRET_ARN: props.appleIAPSecret.secretArn } : {}),
+        ...(props.googlePlaySecret ? { GOOGLE_PLAY_SECRET_ARN: props.googlePlaySecret.secretArn } : {}),
+      },
+      reservedConcurrentExecutions: 20,
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.iapVerifyFn);
+    if (props.appleIAPSecret) props.appleIAPSecret.grantRead(this.iapVerifyFn);
+    if (props.googlePlaySecret) props.googlePlaySecret.grantRead(this.iapVerifyFn);
+
+    // IAP Notifications Lambda - App Store Server Notifications v2 + Google RTDN
+    this.iapNotificationsFn = new NodejsFunction(this, 'IAPNotificationsFunction', {
+      entry: path.join(__dirname, '../../lambda/api/payments/iap-notifications.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaSecurityGroup],
+      environment: {
+        ...lambdaEnvironment,
+        ...(props.appleIAPSecret ? { APPLE_IAP_SECRET_ARN: props.appleIAPSecret.secretArn } : {}),
+        ...(props.googlePlaySecret ? { GOOGLE_PLAY_SECRET_ARN: props.googlePlaySecret.secretArn } : {}),
+      },
+      deadLetterQueue: criticalDlq,
+      retryAttempts: 2,
+      reservedConcurrentExecutions: 10,
+      bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: apiLogGroup,
+      depsLockFilePath: path.join(__dirname, '../../lambda/api/package-lock.json'),
+      projectRoot: path.join(__dirname, '../../lambda/api'),
+    });
+    dbCredentials.grantRead(this.iapNotificationsFn);
+    if (props.appleIAPSecret) props.appleIAPSecret.grantRead(this.iapNotificationsFn);
+    if (props.googlePlaySecret) props.googlePlaySecret.grantRead(this.iapNotificationsFn);
+
     // SECURITY: Apply DLQ, Stripe secret access, and reserved concurrency to all payment lambdas
     const allPaymentLambdas = [
       this.paymentCreateIntentFn,
@@ -1086,6 +1150,8 @@ export class LambdaStack extends cdk.NestedStack {
       this.paymentMethodsFn,
       this.paymentWebCheckoutFn,
       this.businessCheckoutFn,
+      this.iapVerifyFn,
+      this.iapNotificationsFn,
     ];
     for (const fn of allPaymentLambdas) {
       stripeSecret.grantRead(fn);

@@ -134,8 +134,8 @@ async function updateStripeSubscription(
     await stripeClient.subscriptions.update(stripeSubscriptionId, {
       cancel_at_period_end: cancelAtPeriodEnd,
     });
-  } catch (stripeError) {
-    log.error(`Stripe ${operationName} failed`, stripeError);
+  } catch (error_) {
+    log.error(`Stripe ${operationName} failed`, error_);
   }
 }
 

@@ -153,9 +153,9 @@ export const handler = withErrorHandler('spots-reviews-create', async (event, { 
         },
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw error;
+    throw error_;
   } finally {
     client.release();
   }

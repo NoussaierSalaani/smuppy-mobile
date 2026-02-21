@@ -150,8 +150,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     };
-  } catch (error) {
-    log.error('Purchase pack error', error);
+  } catch (error_) {
+    log.error('Purchase pack error', error_);
     return {
       statusCode: 500,
       headers: headers,

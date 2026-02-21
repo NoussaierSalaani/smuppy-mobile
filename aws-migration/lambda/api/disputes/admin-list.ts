@@ -172,8 +172,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     };
-  } catch (error) {
-    log.error('Admin disputes list error', error);
+  } catch (error_) {
+    log.error('Admin disputes list error', error_);
     return {
       statusCode: 500,
       headers,

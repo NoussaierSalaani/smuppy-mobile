@@ -143,4 +143,123 @@ describe('media/upload-voice handler', () => {
     const result = await handler(makeEvent());
     expect(result.statusCode).toBe(500);
   });
+
+  // ── Additional coverage: file size validation, invalid JSON, duration edge cases ──
+
+  describe('additional coverage - file size validation', () => {
+    it('should return 400 when fileSize is zero', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, fileSize: 0 }),
+      }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('fileSize must be a positive number');
+    });
+
+    it('should return 400 when fileSize is negative', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, fileSize: -100 }),
+      }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('fileSize must be a positive number');
+    });
+
+    it('should return 400 when fileSize is not a number', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, fileSize: 'large' }),
+      }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('fileSize must be a positive number');
+    });
+
+    it('should return 400 when fileSize exceeds max (5MB)', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, fileSize: 6 * 1024 * 1024 }),
+      }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('too large');
+    });
+
+    it('should accept valid fileSize within limits', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, fileSize: 1024 * 1024 }),
+      }));
+      expect(result.statusCode).toBe(200);
+    });
+  });
+
+  describe('additional coverage - invalid JSON body', () => {
+    it('should return 400 when body is invalid JSON', async () => {
+      const result = await handler(makeEvent({ body: '{invalid json' }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Invalid JSON body');
+    });
+  });
+
+  describe('additional coverage - duration edge cases', () => {
+    it('should return 400 when duration is negative', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, duration: -1 }),
+      }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Invalid duration');
+    });
+
+    it('should return 400 when duration is not a number', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, duration: 'long' }),
+      }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Invalid duration');
+    });
+
+    it('should accept duration of 0', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, duration: 0 }),
+      }));
+      expect(result.statusCode).toBe(200);
+    });
+
+    it('should accept duration at boundary (300 seconds)', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID, duration: 300 }),
+      }));
+      expect(result.statusCode).toBe(200);
+    });
+
+    it('should accept request without duration (optional)', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: VALID_CONV_ID }),
+      }));
+      expect(result.statusCode).toBe(200);
+    });
+  });
+
+  describe('additional coverage - conversationId validation', () => {
+    it('should return 400 when conversationId is not a string', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: 123 }),
+      }));
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('conversationId is required');
+    });
+
+    it('should return 400 when conversationId is empty string', async () => {
+      const result = await handler(makeEvent({
+        body: JSON.stringify({ conversationId: '' }),
+      }));
+      expect(result.statusCode).toBe(400);
+    });
+  });
+
+  describe('additional coverage - rate limiting', () => {
+    it('should return 429 when rate limited', async () => {
+      (requireRateLimit as jest.Mock).mockResolvedValueOnce({
+        statusCode: 429,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Too many requests' }),
+      });
+      const result = await handler(makeEvent());
+      expect(result.statusCode).toBe(429);
+    });
+  });
 });

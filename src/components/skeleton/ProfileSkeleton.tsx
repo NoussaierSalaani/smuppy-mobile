@@ -65,7 +65,7 @@ const ProfileSkeleton = () => {
             width={GRID_ITEM_SIZE}
             height={GRID_ITEM_SIZE}
             borderRadius={0}
-            style={i % GRID_COLS !== 0 ? styles.gridGap : undefined}
+            style={i % GRID_COLS === 0 ? undefined : styles.gridGap}
           />
         ))}
       </View>

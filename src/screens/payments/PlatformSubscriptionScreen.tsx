@@ -24,6 +24,8 @@ import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
+import { useIAPCheckout } from '../../hooks/useIAPCheckout';
+import { shouldUseIAP, getSubscriptionProductId } from '../../config/iap-products';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useDataFetch } from '../../hooks/useDataFetch';
 import { ACCOUNT_TYPE } from '../../config/accountTypes';
@@ -114,6 +116,8 @@ export default function PlatformSubscriptionScreen() {
   const user = useUserStore((state) => state.user);
   const { showError, showSuccess, showWarning } = useSmuppyAlert();
   const { openCheckout } = useStripeCheckout();
+  const { purchaseSubscription, isReady: iapReady, subscriptions: iapProducts } = useIAPCheckout();
+  const useIAP = shouldUseIAP('digital');
   const { colors, isDark } = useTheme();
   const { formatAmount } = useCurrency();
 
@@ -157,28 +161,48 @@ export default function PlatformSubscriptionScreen() {
 
     setLoading(true);
     try {
-      const response = await awsAPI.request<{ success?: boolean; checkoutUrl?: string; sessionId?: string; error?: string }>('/payments/platform-subscription', {
-        method: 'POST',
-        body: { action: 'subscribe', planType: selectedPlan },
-      });
+      // Route: IAP (iOS/Android digital goods) vs Stripe (web)
+      if (useIAP) {
+        const iapKey = selectedPlan === 'pro_creator' ? 'PRO_CREATOR' : 'PRO_BUSINESS';
+        const sku = getSubscriptionProductId(iapKey);
+        if (!sku) {
+          showError('Error', 'Product not available on this platform');
+          return;
+        }
 
-      if (response.success && response.checkoutUrl && response.sessionId) {
-        const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
+        const result = await purchaseSubscription(sku);
 
-        if (checkoutResult.status === 'success') {
+        if (result.status === 'success') {
           showSuccess('Subscribed!', 'Your subscription is now active');
-        } else if (checkoutResult.status === 'pending') {
-          showWarning('Processing', checkoutResult.message);
-        } else if (checkoutResult.status === 'failed') {
-          showError('Payment Failed', checkoutResult.message);
+        } else if (result.status === 'pending') {
+          showWarning('Processing', result.message);
+        } else if (result.status === 'failed') {
+          showError('Payment Failed', result.message);
         }
         // cancelled — do nothing
-      } else if (response.success && response.checkoutUrl) {
-        // Fallback if no sessionId returned
-        navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Payment' });
       } else {
-        // Generic error message per CLAUDE.md - never expose response.error to client
-        showError('Error', 'Failed to start subscription. Please try again.');
+        // Stripe web checkout flow
+        const response = await awsAPI.request<{ success?: boolean; checkoutUrl?: string; sessionId?: string; error?: string }>('/payments/platform-subscription', {
+          method: 'POST',
+          body: { action: 'subscribe', planType: selectedPlan },
+        });
+
+        if (response.success && response.checkoutUrl && response.sessionId) {
+          const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
+
+          if (checkoutResult.status === 'success') {
+            showSuccess('Subscribed!', 'Your subscription is now active');
+          } else if (checkoutResult.status === 'pending') {
+            showWarning('Processing', checkoutResult.message);
+          } else if (checkoutResult.status === 'failed') {
+            showError('Payment Failed', checkoutResult.message);
+          }
+          // cancelled — do nothing
+        } else if (response.success && response.checkoutUrl) {
+          navigation.navigate('WebView', { url: response.checkoutUrl, title: 'Complete Payment' });
+        } else {
+          showError('Error', 'Failed to start subscription. Please try again.');
+        }
       }
     } catch (_error: unknown) {
       showError('Error', 'Something went wrong. Please try again.');
@@ -326,7 +350,7 @@ export default function PlatformSubscriptionScreen() {
         <TouchableOpacity
           style={styles.subscribeButton}
           onPress={handleSubscribe}
-          disabled={loading || currentPlan === selectedPlan}
+          disabled={loading || currentPlan === selectedPlan || (useIAP && !iapReady)}
           activeOpacity={0.9}
         >
           <LinearGradient

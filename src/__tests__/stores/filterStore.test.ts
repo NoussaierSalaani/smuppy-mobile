@@ -210,5 +210,89 @@ describe('FilterStore', () => {
       expect(state.activeOverlays).toEqual([]);
       expect(state.isBodyTrackingEnabled).toBe(false);
     });
+
+    it('should return empty array for category with no filters', () => {
+      const overlayFilters = useFilterStore.getState().getFiltersByCategory('overlays');
+      expect(overlayFilters).toEqual([]);
+    });
+
+    it('should get effects filters by category', () => {
+      const effectsFilters = useFilterStore.getState().getFiltersByCategory('effects');
+      expect(effectsFilters.length).toBeGreaterThan(0);
+      effectsFilters.forEach((f) => expect(f.category).toBe('effects'));
+    });
+
+    it('should get lighting filters by category', () => {
+      const lightingFilters = useFilterStore.getState().getFiltersByCategory('lighting');
+      expect(lightingFilters.length).toBeGreaterThan(0);
+      lightingFilters.forEach((f) => expect(f.category).toBe('lighting'));
+    });
+  });
+
+  describe('Overlay Default Params', () => {
+    it('should set default params for day_challenge overlay', () => {
+      useFilterStore.getState().addOverlay('day_challenge');
+      const overlay = useFilterStore.getState().activeOverlays[0];
+
+      expect(overlay.type).toBe('day_challenge');
+      expect(overlay.params).toHaveProperty('currentDay');
+      expect(overlay.params).toHaveProperty('totalDays');
+      expect(overlay.params).toHaveProperty('challengeName');
+    });
+
+    it('should set default params for calorie_burn overlay', () => {
+      useFilterStore.getState().addOverlay('calorie_burn');
+      const overlay = useFilterStore.getState().activeOverlays[0];
+
+      expect(overlay.type).toBe('calorie_burn');
+      expect(overlay.params).toHaveProperty('calories');
+      expect(overlay.params).toHaveProperty('targetCalories');
+      expect(overlay.params).toHaveProperty('color');
+    });
+
+    it('should set default params for heart_rate_pulse overlay', () => {
+      useFilterStore.getState().addOverlay('heart_rate_pulse');
+      const overlay = useFilterStore.getState().activeOverlays[0];
+
+      expect(overlay.type).toBe('heart_rate_pulse');
+      expect(overlay.params).toHaveProperty('bpm');
+      expect(overlay.params).toHaveProperty('isAnimating');
+      expect(overlay.params).toHaveProperty('color');
+    });
+  });
+
+  describe('Overlay Update', () => {
+    it('should update overlay properties', () => {
+      const id = useFilterStore.getState().addOverlay('workout_timer');
+      useFilterStore.getState().updateOverlay(id, { isVisible: false });
+
+      const overlay = useFilterStore.getState().activeOverlays[0];
+      expect(overlay.isVisible).toBe(false);
+    });
+
+    it('should not crash when updating non-existent overlay', () => {
+      expect(() => {
+        useFilterStore.getState().updateOverlay('non-existent', { isVisible: false });
+      }).not.toThrow();
+    });
+
+    it('should not crash when removing non-existent overlay', () => {
+      expect(() => {
+        useFilterStore.getState().removeOverlay('non-existent');
+      }).not.toThrow();
+    });
+
+    it('should not crash when updating params for non-existent overlay', () => {
+      expect(() => {
+        useFilterStore.getState().updateOverlayParams('non-existent', { bpm: 100 });
+      }).not.toThrow();
+    });
+  });
+
+  describe('Static Helpers', () => {
+    it('getBodyPose should return null initially', () => {
+      useFilterStore.getState().reset();
+      expect(getBodyPose()).toBeNull();
+    });
   });
 });

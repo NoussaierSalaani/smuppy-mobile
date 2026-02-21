@@ -63,7 +63,7 @@ export const handler = withAuthHandler('messages-delete', async (event, { header
           const s3Key = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath;
           if (s3Key.startsWith('voice-messages/')) {
             s3Client.send(new DeleteObjectCommand({ Bucket: MEDIA_BUCKET, Key: s3Key }))
-              .catch(err => log.error('Failed to delete S3 voice file', err, { key: s3Key }));
+              .catch(error_ => log.error('Failed to delete S3 voice file', error_, { key: s3Key }));
           }
         } catch {
           // URL parsing failed — not critical, just log

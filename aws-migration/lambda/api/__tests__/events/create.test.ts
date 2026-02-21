@@ -575,4 +575,250 @@ describe('events/create handler', () => {
       expect(mockClient.release).toHaveBeenCalledTimes(1);
     });
   });
+
+  // ── Additional coverage: image validation, price validation, edge cases ──
+
+  describe('additional coverage - image URL validation', () => {
+    it('should return 400 when cover image URL is not from allowed domain', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Test Event',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -73.0,
+          startsAt: futureDate,
+          coverImageUrl: 'https://evil.com/image.jpg',
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      expect(JSON.parse(result?.body as string).message).toBe('Invalid cover image URL');
+    });
+
+    it('should return 400 when images array contains invalid URL', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Test Event',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -73.0,
+          startsAt: futureDate,
+          images: ['https://evil.com/img.jpg'],
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      expect(JSON.parse(result?.body as string).message).toBe('Invalid image URL');
+    });
+
+    it('should accept valid S3/CloudFront image URLs', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Test Event',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -73.0,
+          startsAt: futureDate,
+          coverImageUrl: 'https://mybucket.s3.amazonaws.com/image.jpg',
+          images: ['https://d123.cloudfront.net/img.jpg'],
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(201);
+    });
+  });
+
+  describe('additional coverage - paid event price validation', () => {
+    function setupProCreator() {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('account_type FROM profiles')) {
+          return Promise.resolve({
+            rows: [{ id: TEST_PROFILE_ID, account_type: 'pro_creator' }],
+          });
+        }
+        if (typeof sql === 'string' && sql.includes('event_categories WHERE slug')) {
+          return Promise.resolve({
+            rows: [{ id: CATEGORY_ID, name: 'Running', icon: 'run', color: '#FF0000' }],
+          });
+        }
+        if (typeof sql === 'string' && sql.includes('INSERT INTO events')) {
+          return Promise.resolve({
+            rows: [{
+              id: EVENT_ID,
+              title: 'Paid Event',
+              description: null,
+              category_id: CATEGORY_ID,
+              location_name: 'Park',
+              address: null,
+              latitude: '40.0',
+              longitude: '-73.0',
+              starts_at: futureDate,
+              ends_at: null,
+              timezone: 'UTC',
+              max_participants: null,
+              min_participants: 1,
+              is_free: false,
+              price: '25.00',
+              currency: 'EUR',
+              is_public: true,
+              is_fans_only: false,
+              cover_image_url: null,
+              images: [],
+              has_route: false,
+              route_distance_km: null,
+              route_elevation_gain_m: null,
+              route_difficulty: null,
+              route_polyline: null,
+              route_waypoints: null,
+              status: 'upcoming',
+              created_at: new Date().toISOString(),
+            }],
+          });
+        }
+        if (typeof sql === 'string' && sql.includes('SELECT username, display_name')) {
+          return Promise.resolve({
+            rows: [{ username: 'testuser', display_name: 'Test User', avatar_url: null, is_verified: false }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+    }
+
+    it('should return 400 when paid event has no price', async () => {
+      setupProCreator();
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Paid Event',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -73.0,
+          startsAt: futureDate,
+          isFree: false,
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      expect(JSON.parse(result?.body as string).message).toContain('Price is required for paid events');
+    });
+
+    it('should return 400 when paid event price exceeds 50000', async () => {
+      setupProCreator();
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Expensive Event',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -73.0,
+          startsAt: futureDate,
+          isFree: false,
+          price: 50001,
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      expect(JSON.parse(result?.body as string).message).toContain('Maximum price is 50,000');
+    });
+
+    it('should allow pro_creator to create paid event with valid price', async () => {
+      setupProCreator();
+
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Paid Event',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -73.0,
+          startsAt: futureDate,
+          isFree: false,
+          price: 25,
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(201);
+      const body = JSON.parse(result?.body as string);
+      expect(body.event.isFree).toBe(false);
+    });
+  });
+
+  describe('additional coverage - missing required fields', () => {
+    it('should return 400 when locationName is missing', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Test Event',
+          categorySlug: 'running',
+          latitude: 40.0,
+          longitude: -73.0,
+          startsAt: futureDate,
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      expect(JSON.parse(result?.body as string).message).toContain('required');
+    });
+
+    it('should return 400 when startsAt is missing', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Test Event',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -73.0,
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+    });
+
+    it('should return 400 when title is empty string', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: '',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -73.0,
+          startsAt: futureDate,
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+    });
+  });
+
+  describe('additional coverage - invalid longitude', () => {
+    it('should return 400 when longitude is out of range', async () => {
+      const event = makeEvent({
+        body: JSON.stringify({
+          title: 'Test Event',
+          categorySlug: 'running',
+          locationName: 'Park',
+          latitude: 40.0,
+          longitude: -200,
+          startsAt: futureDate,
+        }),
+      });
+      const result = await handler(event);
+
+      expect(result?.statusCode).toBe(400);
+      expect(JSON.parse(result?.body as string).message).toContain('Invalid coordinates');
+    });
+  });
 });

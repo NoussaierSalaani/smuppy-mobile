@@ -308,4 +308,163 @@ describe('groups/list handler', () => {
 
     expect(body.groups[0].spotsLeft).toBeNull();
   });
+
+  // ── Additional coverage: filters, response mapping, edge cases ──
+
+  describe('additional coverage - category filter', () => {
+    it('should filter groups by category when provided', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockGroupRow, category: 'yoga' }] });
+
+      const event = makeEvent({
+        queryStringParameters: { category: 'yoga' },
+      });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.groups[0].category).toBe('yoga');
+    });
+  });
+
+  describe('additional coverage - my-groups filter', () => {
+    it('should return 200 with groups for my-groups filter when authenticated', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockGroupRow] });
+
+      const event = makeEvent({
+        queryStringParameters: { filter: 'my-groups' },
+      });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).groups).toHaveLength(1);
+    });
+  });
+
+  describe('additional coverage - joined filter', () => {
+    it('should return 200 with joined groups when authenticated', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockGroupRow] });
+
+      const event = makeEvent({
+        queryStringParameters: { filter: 'joined' },
+      });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).success).toBe(true);
+    });
+
+    it('should return 401 for joined filter when profile not found', async () => {
+      (resolveProfileId as jest.Mock).mockResolvedValueOnce(null);
+
+      const event = makeEvent({
+        sub: null,
+        queryStringParameters: { filter: 'joined' },
+      });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(401);
+    });
+  });
+
+  describe('additional coverage - nearby filter', () => {
+    it('should return groups with distance when coordinates are provided', async () => {
+      const rowWithDistance = { ...mockGroupRow, distance_km: 5.3 };
+      mockQuery.mockResolvedValueOnce({ rows: [rowWithDistance] });
+
+      const event = makeEvent({
+        queryStringParameters: {
+          filter: 'nearby',
+          latitude: '48.8566',
+          longitude: '2.3522',
+        },
+      });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.groups[0].distance).toBe(5.3);
+    });
+
+    it('should accept numeric cursor for nearby filter (offset)', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent({
+        queryStringParameters: {
+          filter: 'nearby',
+          latitude: '48.8566',
+          longitude: '2.3522',
+          cursor: '20',
+        },
+      });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+    });
+  });
+
+  describe('additional coverage - response field mapping', () => {
+    it('should parse price as float when present', async () => {
+      const rowWithPrice = { ...mockGroupRow, price: '15.99', is_free: false };
+      mockQuery.mockResolvedValueOnce({ rows: [rowWithPrice] });
+
+      const event = makeEvent();
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).groups[0].price).toBe(15.99);
+    });
+
+    it('should return null price when price is null', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockGroupRow] });
+
+      const event = makeEvent();
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).groups[0].price).toBeNull();
+    });
+
+    it('should return null distance when no coordinates provided', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockGroupRow] });
+
+      const event = makeEvent();
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).groups[0].distance).toBeNull();
+    });
+
+    it('should map route fields correctly when present', async () => {
+      const routeRow = {
+        ...mockGroupRow,
+        is_route: true,
+        route_distance_km: '21.1',
+        route_duration_min: 90,
+        route_elevation_gain: 350,
+        route_profile: 'running',
+      };
+      mockQuery.mockResolvedValueOnce({ rows: [routeRow] });
+
+      const event = makeEvent();
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const group = JSON.parse(result.body).groups[0];
+      expect(group.isRoute).toBe(true);
+      expect(group.routeDistanceKm).toBe(21.1);
+      expect(group.routeProfile).toBe('running');
+    });
+  });
+
+  describe('additional coverage - limit defaults', () => {
+    it('should default limit to 20 when not specified', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent();
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).pagination.limit).toBe(20);
+    });
+  });
 });

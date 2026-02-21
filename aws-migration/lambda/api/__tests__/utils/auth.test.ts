@@ -7,7 +7,7 @@
  */
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { getUserFromEvent, requireUser } from '../../utils/auth';
+import { getUserFromEvent, requireUser, resolveProfileId, checkPrivacyAccess } from '../../utils/auth';
 
 // Helper to create a mock API Gateway event with optional auth claims
 function createMockEvent(claims?: Record<string, string>): APIGatewayProxyEvent {
@@ -122,6 +122,109 @@ describe('Auth Utils', () => {
 
       expect(user.id).toBe('550e8400-e29b-41d4-a716-446655440000');
       expect(user.email).toBe('valid@example.com');
+    });
+  });
+
+  describe('resolveProfileId', () => {
+    let mockDb: { query: jest.Mock };
+
+    beforeEach(() => {
+      mockDb = { query: jest.fn() };
+    });
+
+    it('should return profile ID when found', async () => {
+      mockDb.query.mockResolvedValue({
+        rows: [{ id: 'profile-uuid-123' }],
+      });
+
+      const result = await resolveProfileId(mockDb as never, 'cognito-sub-abc');
+
+      expect(result).toBe('profile-uuid-123');
+      expect(mockDb.query).toHaveBeenCalledWith(
+        'SELECT id FROM profiles WHERE cognito_sub = $1',
+        ['cognito-sub-abc'],
+      );
+    });
+
+    it('should return null when profile not found', async () => {
+      mockDb.query.mockResolvedValue({ rows: [] });
+
+      const result = await resolveProfileId(mockDb as never, 'nonexistent-sub');
+
+      expect(result).toBeNull();
+    });
+
+    it('should propagate database errors', async () => {
+      mockDb.query.mockRejectedValue(new Error('Connection refused'));
+
+      await expect(resolveProfileId(mockDb as never, 'sub-123'))
+        .rejects.toThrow('Connection refused');
+    });
+  });
+
+  describe('checkPrivacyAccess', () => {
+    let mockDb: { query: jest.Mock };
+
+    beforeEach(() => {
+      mockDb = { query: jest.fn() };
+    });
+
+    it('should return false when cognitoSub is undefined', async () => {
+      const result = await checkPrivacyAccess(mockDb as never, 'profile-1', undefined);
+
+      expect(result).toBe(false);
+      expect(mockDb.query).not.toHaveBeenCalled();
+    });
+
+    it('should return false when requester profile not found', async () => {
+      mockDb.query.mockResolvedValue({ rows: [] });
+
+      const result = await checkPrivacyAccess(mockDb as never, 'profile-1', 'unknown-sub');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return true when requester is the profile owner', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: 'profile-owner-id' }],
+      });
+
+      const result = await checkPrivacyAccess(mockDb as never, 'profile-owner-id', 'owner-sub');
+
+      expect(result).toBe(true);
+      // Should only call resolveProfileId, not the follow check
+      expect(mockDb.query).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return true when requester is an accepted follower', async () => {
+      // First call: resolveProfileId
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: 'requester-id' }],
+      });
+      // Second call: follow check
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ is_follower: true }],
+      });
+
+      const result = await checkPrivacyAccess(mockDb as never, 'target-profile-id', 'requester-sub');
+
+      expect(result).toBe(true);
+      expect(mockDb.query).toHaveBeenCalledTimes(2);
+    });
+
+    it('should return false when requester is not a follower', async () => {
+      // First call: resolveProfileId
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: 'requester-id' }],
+      });
+      // Second call: follow check
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ is_follower: false }],
+      });
+
+      const result = await checkPrivacyAccess(mockDb as never, 'target-profile-id', 'requester-sub');
+
+      expect(result).toBe(false);
     });
   });
 });

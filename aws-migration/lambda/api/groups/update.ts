@@ -303,9 +303,9 @@ export const handler = withAuthHandler('groups-update', async (event, { headers,
         },
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw error;
+    throw error_;
   } finally {
     client.release();
   }

@@ -85,9 +85,9 @@ export const handler = withErrorHandler('profiles-delete', async (event, { heade
           subscriptionId: sub.id.substring(0, 8) + '***',
         });
       }
-    } catch (stripeErr: unknown) {
+    } catch (error_: unknown) {
       // Log but don't block deletion — Stripe cleanup can be retried
-      log.error('Failed to cancel Stripe subscriptions during account deletion', stripeErr);
+      log.error('Failed to cancel Stripe subscriptions during account deletion', error_);
     }
   }
 
@@ -144,9 +144,9 @@ export const handler = withErrorHandler('profiles-delete', async (event, { heade
     );
 
     await client.query('COMMIT');
-  } catch (txErr: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw txErr;
+    throw error_;
   } finally {
     client.release();
   }
@@ -158,9 +158,9 @@ export const handler = withErrorHandler('profiles-delete', async (event, { heade
         UserPoolId: USER_POOL_ID,
         Username: profile.cognito_sub,
       }));
-    } catch (cognitoErr: unknown) {
+    } catch (error_: unknown) {
       // Log but don't block — account is already marked deleted in DB
-      log.error('Failed to disable Cognito user during account deletion', cognitoErr);
+      log.error('Failed to disable Cognito user during account deletion', error_);
     }
   }
 

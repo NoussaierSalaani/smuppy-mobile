@@ -60,11 +60,11 @@ async function createOrUpdateEndpoint(
     }
 
     return endpointArn || null;
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     // If endpoint already exists, update it
-    if (isNamedError(error) && error.name === 'InvalidParameterException' && error.message?.includes('already exists')) {
+    if (isNamedError(error_) && error_.name === 'InvalidParameterException' && error_.message?.includes('already exists')) {
       // Extract the endpoint ARN from the error message
-      const match = error.message.match(/Endpoint (arn:aws:sns:[^:]+:\d+:endpoint\/[^\s]+)/);
+      const match = error_.message.match(/Endpoint (arn:aws:sns:[^:]+:\d+:endpoint\/[^\s]+)/);
       if (match) {
         const existingArn = match[1];
 
@@ -80,13 +80,13 @@ async function createOrUpdateEndpoint(
             })
           );
           return existingArn;
-        } catch (updateError) {
-          log.error('Error updating existing endpoint', updateError);
+        } catch (error_) {
+          log.error('Error updating existing endpoint', error_);
         }
       }
     }
 
-    log.error('Error creating SNS endpoint', error);
+    log.error('Error creating SNS endpoint', error_);
     return null;
   }
 }
@@ -131,8 +131,8 @@ export const handler = withAuthHandler('notifications-push-token', async (event,
               EndpointArn: tokenResult.rows[0].sns_endpoint_arn,
             })
           );
-        } catch (error) {
-          log.error('Error deleting SNS endpoint', error);
+        } catch (error_) {
+          log.error('Error deleting SNS endpoint', error_);
         }
       }
 

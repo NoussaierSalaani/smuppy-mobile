@@ -170,4 +170,54 @@ describe('appStore', () => {
       expect(useAppStore.getState().unreadMessages).toBe(5);
     });
   });
+
+  describe('State Isolation', () => {
+    it('setTabBarVisible should not affect other state', () => {
+      useAppStore.getState().setGlobalLoading(true);
+      useAppStore.getState().setOnline(false);
+      useAppStore.getState().setUnreadNotifications(5);
+
+      useAppStore.getState().setTabBarVisible(false);
+
+      const state = useAppStore.getState();
+      expect(state.isTabBarVisible).toBe(false);
+      expect(state.globalLoading).toBe(true);
+      expect(state.isOnline).toBe(false);
+      expect(state.unreadNotifications).toBe(5);
+    });
+
+    it('showError should not affect badge counts', () => {
+      useAppStore.getState().setUnreadNotifications(3);
+      useAppStore.getState().setUnreadMessages(7);
+
+      useAppStore.getState().showError('Test', 'Error');
+
+      expect(useAppStore.getState().unreadNotifications).toBe(3);
+      expect(useAppStore.getState().unreadMessages).toBe(7);
+    });
+
+    it('setOnline should not affect loading state', () => {
+      useAppStore.getState().setGlobalLoading(true);
+      useAppStore.getState().setOnline(false);
+
+      expect(useAppStore.getState().globalLoading).toBe(true);
+      expect(useAppStore.getState().isOnline).toBe(false);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('showError with empty strings', () => {
+      useAppStore.getState().showError('', '');
+      const modal = useAppStore.getState().errorModal;
+      expect(modal.visible).toBe(true);
+      expect(modal.title).toBe('');
+      expect(modal.message).toBe('');
+    });
+
+    it('setUnreadNotifications updater that returns 0', () => {
+      useAppStore.getState().setUnreadNotifications(10);
+      useAppStore.getState().setUnreadNotifications(() => 0);
+      expect(useAppStore.getState().unreadNotifications).toBe(0);
+    });
+  });
 });

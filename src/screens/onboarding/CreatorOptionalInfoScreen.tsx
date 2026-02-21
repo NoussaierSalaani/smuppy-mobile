@@ -177,13 +177,13 @@ export default function CreatorOptionalInfoScreen({ navigation, route }: Creator
           {/* Website */}
           <Text style={styles.label}>Website</Text>
           <LinearGradient
-            colors={(() => { if (websiteError) return [colors.error, colors.error]; if (website.length > 0 || focusedField === 'website') return GRADIENTS.button; return GRADIENTS.buttonDisabled; })()}
+            colors={(() => { if (websiteError) { return [colors.error, colors.error]; } if (website.length > 0 || focusedField === 'website') { return GRADIENTS.button; } return GRADIENTS.buttonDisabled; })()}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.inputGradientBorder}
           >
             <View style={[styles.inputInner, website.length > 0 && !websiteError && styles.inputInnerValid]}>
-              <Ionicons name="globe-outline" size={18} color={(() => { if (websiteError) return colors.error; if (website.length > 0 || focusedField === 'website') return colors.primary; return colors.grayMuted; })()} />
+              <Ionicons name="globe-outline" size={18} color={(() => { if (websiteError) { return colors.error; } if (website.length > 0 || focusedField === 'website') { return colors.primary; } return colors.grayMuted; })()} />
               <TextInput
                 style={styles.input}
                 placeholder="https://yourwebsite.com"

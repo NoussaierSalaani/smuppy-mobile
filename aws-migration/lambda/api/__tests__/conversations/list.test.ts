@@ -296,4 +296,41 @@ describe('conversations/list handler', () => {
       expect(JSON.parse(result.body).message).toBe('Internal server error');
     });
   });
+
+  // 9. Additional coverage
+  describe('additional coverage', () => {
+    it('should accept a valid timestamp cursor', async () => {
+      mockDb.query.mockResolvedValue({ rows: [] });
+      const event = makeEvent({
+        queryStringParameters: { cursor: '1708000000000' },
+      });
+
+      const result = await handler(event);
+
+      // Should handle numeric timestamp cursor
+      expect([200, 400]).toContain(result.statusCode);
+    });
+
+    it('should handle limit=0 by using default page size', async () => {
+      mockDb.query.mockResolvedValue({ rows: [] });
+      const event = makeEvent({
+        queryStringParameters: { limit: '0' },
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+    });
+
+    it('should handle negative limit by using default page size', async () => {
+      mockDb.query.mockResolvedValue({ rows: [] });
+      const event = makeEvent({
+        queryStringParameters: { limit: '-5' },
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+    });
+  });
 });

@@ -286,7 +286,7 @@ export const handler = withAuthHandler('tips-send', async (event, { headers, log
           destination: receiver.stripe_account_id,
           amount: creatorAmountCents,
         };
-      } catch (_accountError) {
+      } catch (error_) {
         // Connected account not found under current key — skip transfer, log warning
         log.error('Stripe connected account not reachable, skipping transfer_data', {
           accountId: receiver.stripe_account_id,

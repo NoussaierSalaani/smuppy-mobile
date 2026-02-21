@@ -90,14 +90,14 @@ export default function CreatorWalletScreen() {
 
   const { data: walletData, isLoading: loading, isRefreshing: refreshing, refresh } = useDataFetch(
     () => Promise.all([
-      awsAPI.request('/payments/wallet', {
+      awsAPI.request<{ success?: boolean; dashboard?: DashboardData }>('/payments/wallet', {
         method: 'POST',
         body: { action: 'get-dashboard' },
-      }) as Promise<{ success?: boolean; dashboard?: DashboardData }>,
-      awsAPI.request('/payments/wallet', {
+      }),
+      awsAPI.request<{ success?: boolean; transactions?: Transaction[] }>('/payments/wallet', {
         method: 'POST',
         body: { action: 'get-transactions', limit: 20 },
-      }) as Promise<{ success?: boolean; transactions?: Transaction[] }>,
+      }),
     ]).then(([dashRes, txRes]) => ({
       success: true as const,
       dashboard: dashRes.success && dashRes.dashboard ? dashRes.dashboard : null,
@@ -253,22 +253,27 @@ export default function CreatorWalletScreen() {
     </View>
   );
 
+  const getItemBg = (type: string) => ({ channel: '#E8F5E9', session: '#E3F2FD' } as Record<string, string>)[type] || '#FFF3E0';
+  const getItemIcon = (type: string) => (({ channel: 'videocam', session: 'calendar' } as Record<string, string>)[type] || 'cube') as keyof typeof Ionicons.glyphMap;
+  const getItemColor = (type: string) => ({ channel: '#4CAF50', session: '#2196F3' } as Record<string, string>)[type] || '#FF9800';
+  const getItemLabel = (type: string) => ({ channel: 'Channel Subscriptions', session: 'Sessions' } as Record<string, string>)[type] || 'Packs';
+
   const renderOverview = () => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Revenue Breakdown</Text>
       {dashboard?.earnings.breakdown.map((item) => (
         <View key={item.type} style={styles.breakdownItem}>
           <View style={styles.breakdownLeft}>
-            <View style={[styles.breakdownIcon, { backgroundColor: item.type === 'channel' ? '#E8F5E9' : item.type === 'session' ? '#E3F2FD' : '#FFF3E0' }]}>
+            <View style={[styles.breakdownIcon, { backgroundColor: getItemBg(item.type) }]}>
               <Ionicons
-                name={item.type === 'channel' ? 'videocam' : item.type === 'session' ? 'calendar' : 'cube'}
+                name={getItemIcon(item.type)}
                 size={18}
-                color={item.type === 'channel' ? '#4CAF50' : item.type === 'session' ? '#2196F3' : '#FF9800'}
+                color={getItemColor(item.type)}
               />
             </View>
             <View>
               <Text style={styles.breakdownType}>
-                {item.type === 'channel' ? 'Channel Subscriptions' : item.type === 'session' ? 'Sessions' : 'Packs'}
+                {getItemLabel(item.type)}
               </Text>
               <Text style={styles.breakdownCount}>{item.count} transactions</Text>
             </View>

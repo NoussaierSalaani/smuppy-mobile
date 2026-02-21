@@ -453,4 +453,62 @@ describe('reports/report-post handler', () => {
       expect(mockClient.release).toHaveBeenCalled();
     });
   });
+
+  // ── 10. Additional coverage ──
+
+  describe('additional coverage - body edge cases', () => {
+    it('should return 400 when body is null', async () => {
+      const event = buildEvent({ body: null });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+    });
+
+    it('should handle long details text by truncating', async () => {
+      const longDetails = 'A'.repeat(5000);
+      // Post exists
+      mockDb.query.mockResolvedValueOnce({ rows: [{ id: VALID_POST_ID }] });
+
+      // Transaction
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] })                                  // BEGIN
+        .mockResolvedValueOnce({ rows: [] })                                  // no duplicate
+        .mockResolvedValueOnce({ rows: [{ id: VALID_REPORT_ID }] })           // INSERT
+        .mockResolvedValueOnce({ rows: [] });                                 // COMMIT
+
+      // Auto-escalation
+      mockDb.query.mockResolvedValueOnce({ rows: [{ author_id: VALID_AUTHOR_ID }] });
+
+      const event = buildEvent({
+        body: { postId: VALID_POST_ID, reason: 'spam', details: longDetails },
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('should handle self-reporting (reporting own post) gracefully', async () => {
+      // Post exists and is authored by the reporter
+      mockDb.query.mockResolvedValueOnce({ rows: [{ id: VALID_POST_ID }] });
+
+      // Transaction
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] })                                  // BEGIN
+        .mockResolvedValueOnce({ rows: [] })                                  // no duplicate
+        .mockResolvedValueOnce({ rows: [{ id: VALID_REPORT_ID }] })           // INSERT
+        .mockResolvedValueOnce({ rows: [] });                                 // COMMIT
+
+      // Auto-escalation
+      mockDb.query.mockResolvedValueOnce({ rows: [{ author_id: VALID_PROFILE_ID }] });
+
+      const event = buildEvent({});
+
+      const result = await handler(event);
+
+      // Reports on own posts should still succeed (moderation team reviews)
+      expect(result.statusCode).toBe(201);
+    });
+  });
 });

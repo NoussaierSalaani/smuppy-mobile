@@ -31,8 +31,8 @@ export const handler = withErrorHandler('challenges-list', async (event, { heade
       `UPDATE peak_challenges SET status = 'ended', updated_at = NOW()
        WHERE status = 'active' AND ends_at IS NOT NULL AND ends_at < NOW()`
     );
-  } catch (expireErr) {
-    log.error('Auto-expire failed (non-fatal)', expireErr);
+  } catch (error_) {
+    log.error('Auto-expire failed (non-fatal)', error_);
   }
 
   const pool = await getPool();

@@ -358,4 +358,236 @@ describe('groups/update handler', () => {
     expect(result.statusCode).toBe(500);
     expect(JSON.parse(result.body).message).toBe('Internal server error');
   });
+
+  // ── Additional coverage: field type branches, edge cases ──
+
+  describe('additional coverage - field type branches', () => {
+    it('should update boolean fields (isFree, isPublic)', async () => {
+      // BEGIN
+      mockQuery.mockResolvedValueOnce({});
+      // UPDATE RETURNING
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockUpdatedRow, is_free: false, is_public: false }] });
+      // COMMIT
+      mockQuery.mockResolvedValueOnce({});
+      // SELECT creator info
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ isFree: false, isPublic: false }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.group.isFree).toBe(false);
+      expect(body.group.isPublic).toBe(false);
+    });
+
+    it('should update date field (startsAt) with valid ISO date', async () => {
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockUpdatedRow, starts_at: '2026-06-15T14:00:00Z' }] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ startsAt: '2026-06-15T14:00:00Z' }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).group.startsAt).toBe('2026-06-15T14:00:00Z');
+    });
+
+    it('should update jsonb field (routeStart) with object', async () => {
+      const routeStart = { lat: 48.8566, lng: 2.3522, name: 'Eiffel Tower' };
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockUpdatedRow, route_start: routeStart }] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ routeStart }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).group.routeStart).toEqual(routeStart);
+    });
+
+    it('should set jsonb field to null when value is null', async () => {
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockUpdatedRow, route_geojson: null }] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ routeGeojson: null }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).group.routeGeojson).toBeNull();
+    });
+
+    it('should update number field (routeDistanceKm)', async () => {
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockUpdatedRow, route_distance_km: '12.5' }] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ routeDistanceKm: 12.5 }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).group.routeDistanceKm).toBe(12.5);
+    });
+
+    it('should set date field to null', async () => {
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockUpdatedRow, starts_at: null }] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ startsAt: null }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+    });
+  });
+
+  describe('additional coverage - validation edge cases', () => {
+    it('should return 400 for NaN maxParticipants', async () => {
+      const event = makeEvent({ body: JSON.stringify({ maxParticipants: 'abc' }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Max participants must be between 2 and 10000');
+    });
+
+    it('should return 400 for maxParticipants exceeding 10000', async () => {
+      const event = makeEvent({ body: JSON.stringify({ maxParticipants: 10001 }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Max participants must be between 2 and 10000');
+    });
+
+    it('should accept valid difficulty values (easy, moderate, hard, expert)', async () => {
+      for (const diff of ['easy', 'moderate', 'hard', 'expert']) {
+        jest.clearAllMocks();
+        (getPool as jest.Mock).mockResolvedValue({ query: mockQuery, connect: mockConnect });
+        (isValidUUID as jest.Mock).mockReturnValue(true);
+        (resolveProfileId as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
+        (requireRateLimit as jest.Mock).mockResolvedValue(null);
+        (requireActiveAccount as jest.Mock).mockResolvedValue({ profileId: TEST_PROFILE_ID, accountType: 'personal' });
+        (isAccountError as unknown as jest.Mock).mockReturnValue(false);
+        (filterText as jest.Mock).mockResolvedValue({ clean: true });
+        (analyzeTextToxicity as jest.Mock).mockResolvedValue({ action: 'allow' });
+
+        mockQuery.mockResolvedValueOnce({});
+        mockQuery.mockResolvedValueOnce({ rows: [{ ...mockUpdatedRow, difficulty: diff }] });
+        mockQuery.mockResolvedValueOnce({});
+        mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+        const event = makeEvent({ body: JSON.stringify({ difficulty: diff }) });
+        const res = await handler(event);
+        const result = res as { statusCode: number; body: string };
+        expect(result.statusCode).toBe(200);
+      }
+    });
+
+    it('should return 400 for NaN latitude', async () => {
+      const event = makeEvent({ body: JSON.stringify({ latitude: 'not-a-number' }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Invalid latitude');
+    });
+
+    it('should return 400 for NaN longitude', async () => {
+      const event = makeEvent({ body: JSON.stringify({ longitude: 'not-a-number' }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Invalid longitude');
+    });
+
+    it('should skip non-string text fields without error', async () => {
+      // If a text field receives a non-string non-null value, the field-building loop skips it
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockUpdatedRow] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ name: 'Valid', category: 123 }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      // category is skipped because it's not a string; name is still updated
+      expect(result.statusCode).toBe(200);
+    });
+  });
+
+  describe('additional coverage - response mapping', () => {
+    it('should parse price as float in response when present', async () => {
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockUpdatedRow, price: '25.50', is_free: false }] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ name: 'Updated' }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).group.price).toBe(25.5);
+    });
+
+    it('should return null price when not set', async () => {
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockUpdatedRow] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ name: 'Updated' }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).group.price).toBeNull();
+    });
+
+    it('should return null routeDistanceKm when not set', async () => {
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockUpdatedRow] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ name: 'Updated' }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body).group.routeDistanceKm).toBeNull();
+    });
+
+    it('should include all route fields in response', async () => {
+      const routeData = {
+        ...mockUpdatedRow,
+        is_route: true,
+        route_start: { lat: 48.8, lng: 2.3 },
+        route_end: { lat: 48.9, lng: 2.4 },
+        route_waypoints: [{ lat: 48.85, lng: 2.35 }],
+        route_geojson: { type: 'LineString', coordinates: [] },
+        route_profile: 'cycling',
+        route_distance_km: '42.2',
+        route_duration_min: 120,
+        route_elevation_gain: 500,
+      };
+
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [routeData] });
+      mockQuery.mockResolvedValueOnce({});
+      mockQuery.mockResolvedValueOnce({ rows: [mockCreatorRow] });
+
+      const event = makeEvent({ body: JSON.stringify({ name: 'Route Group' }) });
+      const res = await handler(event);
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const group = JSON.parse(result.body).group;
+      expect(group.isRoute).toBe(true);
+      expect(group.routeProfile).toBe('cycling');
+      expect(group.routeDistanceKm).toBe(42.2);
+      expect(group.routeDurationMin).toBe(120);
+      expect(group.routeElevationGain).toBe(500);
+    });
+  });
 });

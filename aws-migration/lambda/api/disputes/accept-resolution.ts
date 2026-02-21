@@ -170,9 +170,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         message: 'Resolution accepted — dispute closed',
       }),
     };
-  } catch (error) {
+  } catch (error_) {
     if (client) await client.query('ROLLBACK');
-    log.error('Accept resolution error', error);
+    log.error('Accept resolution error', error_);
     return {
       statusCode: 500,
       headers,

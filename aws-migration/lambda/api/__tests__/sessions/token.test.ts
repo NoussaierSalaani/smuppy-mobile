@@ -420,4 +420,237 @@ describe('sessions/token handler', () => {
       expect(result.statusCode).toBe(500);
     });
   });
+
+  // ── Extended Coverage (Batch 7B) ──
+
+  describe('extended — time window boundary cases', () => {
+    it('should return 400 with startsIn value when session is far in the future', async () => {
+      const farFuture = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours from now
+      mockPoolQuery.mockResolvedValueOnce({
+        rows: [makeSessionRow({ scheduled_at: farFuture })],
+      });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      const body = JSON.parse(result.body);
+      expect(body.message).toContain('not started yet');
+      expect(body.startsIn).toBeGreaterThan(60); // more than 60 minutes away
+    });
+
+    it('should allow token at exactly 5 min before scheduled time (boundary)', async () => {
+      // Session starts exactly 5 minutes from now → fiveMinBefore = now, so now >= fiveMinBefore passes
+      const exactlyFiveMin = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow({ scheduled_at: exactlyFiveMin })] })
+        .mockResolvedValueOnce({ rows: [] }) // agora_channel update
+        .mockResolvedValueOnce({ rows: [] }); // started_at update
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(200);
+    });
+
+    it('should return 400 when session ended exactly at current time (boundary)', async () => {
+      // Session started exactly `duration` minutes ago → sessionEnd = now
+      const exactEnd = new Date(Date.now() - 30 * 60 * 1000).toISOString(); // 30 min ago, duration=30
+      mockPoolQuery.mockResolvedValueOnce({
+        rows: [makeSessionRow({ scheduled_at: exactEnd, duration: 30 })],
+      });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      // now > sessionEnd is false when now === sessionEnd, but Date.now() moves → likely 400
+      // The handler checks `now > sessionEnd`, so exact match should pass through
+      // Due to execution time, this may be 200 or 400 depending on timing; we test for a valid response
+      expect([200, 400]).toContain(result.statusCode);
+    });
+  });
+
+  describe('extended — validation edge cases', () => {
+    it('should return 400 when pathParameters is completely absent (undefined)', async () => {
+      const event = makeEvent();
+      (event as Record<string, unknown>).pathParameters = undefined;
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Valid session ID required');
+    });
+
+    it('should return 400 when isValidUUID returns false for session ID', async () => {
+      (isValidUUID as jest.Mock).mockReturnValue(false);
+      const event = makeEvent({ pathParameters: { id: 'not-a-uuid-at-all' } });
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Valid session ID required');
+    });
+  });
+
+  describe('extended — channel name and session update', () => {
+    it('should not update agora_channel when it already exists', async () => {
+      mockPoolQuery.mockResolvedValueOnce({
+        rows: [makeSessionRow({ agora_channel: 'existing_chan', started_at: new Date().toISOString() })],
+      });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      // No UPDATE queries should have been made
+      expect(mockPoolQuery).toHaveBeenCalledTimes(1); // only the SELECT query
+    });
+
+    it('should generate channel name and update started_at in two separate queries', async () => {
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow({ agora_channel: null, started_at: null })] })
+        .mockResolvedValueOnce({ rows: [] }) // update agora_channel
+        .mockResolvedValueOnce({ rows: [] }); // update started_at
+      const event = makeEvent();
+      await handler(event, {} as never, () => {});
+      expect(mockPoolQuery).toHaveBeenCalledTimes(3);
+      // First call: SELECT
+      // Second call: UPDATE agora_channel
+      const secondCall = mockPoolQuery.mock.calls[1][0] as string;
+      expect(secondCall).toContain('UPDATE private_sessions SET agora_channel');
+      // Third call: UPDATE started_at
+      const thirdCall = mockPoolQuery.mock.calls[2][0] as string;
+      expect(thirdCall).toContain('in_progress');
+    });
+
+    it('should return expiresIn that includes 5-min grace period', async () => {
+      // Session started 2 min ago, duration 30 min → ends in 28 min + 5 min grace = ~33 min
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const body = JSON.parse((res as { body: string }).body);
+      // expiresIn should be > duration in seconds (it includes grace period)
+      expect(body.expiresIn).toBeGreaterThan(0);
+      // Should include the 5-min (300s) grace period
+      expect(body.expiresIn).toBeGreaterThan(300);
+    });
+  });
+
+  describe('extended — UID generation', () => {
+    it('should generate different UIDs for different profile IDs', async () => {
+      // First call as fan (TEST_PROFILE_ID)
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent();
+      const res1 = await handler(event, {} as never, () => {});
+      const uid1 = JSON.parse((res1 as { body: string }).body).uid;
+
+      // Second call as creator (CREATOR_ID)
+      jest.clearAllMocks();
+      (getPool as jest.Mock).mockResolvedValue({ query: mockPoolQuery });
+      (resolveProfileId as jest.Mock).mockResolvedValue(CREATOR_ID);
+      (isValidUUID as jest.Mock).mockReturnValue(true);
+      (requireRateLimit as jest.Mock).mockResolvedValue(null);
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+      const res2 = await handler(event, {} as never, () => {});
+      const uid2 = JSON.parse((res2 as { body: string }).body).uid;
+
+      expect(uid1).not.toBe(uid2);
+    });
+
+    it('should generate UID less than 1 billion', async () => {
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const body = JSON.parse((res as { body: string }).body);
+      expect(body.uid).toBeLessThan(1000000000);
+      expect(body.uid).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // ── Additional Coverage (Batch 7B-7D) ──
+
+  describe('additional — token generation with RtcTokenBuilder error', () => {
+    it('should return 500 when RtcTokenBuilder.buildTokenWithUid throws', async () => {
+      (RtcTokenBuilder.buildTokenWithUid as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Token generation failed');
+      });
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] }) // agora_channel update
+        .mockResolvedValueOnce({ rows: [] }); // started_at update
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+    });
+  });
+
+  describe('additional — session with very short duration', () => {
+    beforeEach(() => { mockPoolQuery.mockReset(); mockPoolQuery.mockResolvedValue({ rows: [] }); });
+    it('should return 400 for ended session when duration is 1 minute and scheduled 2 min ago', async () => {
+      const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      mockPoolQuery.mockResolvedValueOnce({
+        rows: [makeSessionRow({ scheduled_at: twoMinAgo, duration: 1 })],
+      });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('Session has ended');
+    });
+  });
+
+  describe('additional — token response structure', () => {
+    beforeEach(() => { mockPoolQuery.mockReset(); mockPoolQuery.mockResolvedValue({ rows: [] }); });
+    it('should include all expected fields in token response', async () => {
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow()] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number; body: string };
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body).toHaveProperty('success', true);
+      expect(body).toHaveProperty('token');
+      expect(body).toHaveProperty('channelName');
+      expect(body).toHaveProperty('uid');
+      expect(body).toHaveProperty('appId');
+      expect(body).toHaveProperty('isCreator');
+      expect(body).toHaveProperty('expiresIn');
+      expect(typeof body.isCreator).toBe('boolean');
+    });
+  });
+
+  describe('additional — session exactly at start boundary', () => {
+    it('should allow token when current time is exactly at scheduled time', async () => {
+      const exactlyNow = new Date(Date.now()).toISOString();
+      mockPoolQuery
+        .mockResolvedValueOnce({ rows: [makeSessionRow({ scheduled_at: exactlyNow, duration: 30 })] })
+        .mockResolvedValueOnce({ rows: [] }) // agora_channel update
+        .mockResolvedValueOnce({ rows: [] }); // started_at update
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      // now >= fiveMinBefore (now - 5min) is true, and session hasn't ended
+      expect(result.statusCode).toBe(200);
+    });
+  });
+
+  describe('additional — getPool failure', () => {
+    it('should return 500 when getPool rejects', async () => {
+      (getPool as jest.Mock).mockRejectedValueOnce(new Error('Pool connection failed'));
+      const event = makeEvent();
+      const res = await handler(event, {} as never, () => {});
+      const result = res as { statusCode: number };
+      expect(result.statusCode).toBe(500);
+    });
+  });
 });

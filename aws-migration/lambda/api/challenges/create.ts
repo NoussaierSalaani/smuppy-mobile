@@ -317,9 +317,9 @@ export const handler = withErrorHandler('challenges-create', async (event, { hea
         },
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw error;
+    throw error_;
   } finally {
     client.release();
   }

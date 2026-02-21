@@ -178,8 +178,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         hasMore,
       }),
     };
-  } catch (error) {
-    log.error('List disputes error', error);
+  } catch (error_) {
+    log.error('List disputes error', error_);
     return {
       statusCode: 500,
       headers,

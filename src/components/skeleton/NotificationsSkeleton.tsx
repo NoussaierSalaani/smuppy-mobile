@@ -30,6 +30,7 @@ const NotificationsSkeleton = () => {
         <SkeletonBase width={60} height={28} borderRadius={14} style={styles.filterGap} />
       </View>
 
+      {/* NOSONAR — static skeleton array, index keys are safe */}
       {Array.from({ length: ROW_COUNT }).map((_, i) => (
         <NotificationRow key={`notif-skeleton-${i}`} />
       ))}

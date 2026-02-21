@@ -332,9 +332,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         message: 'Dispute created successfully',
       }),
     };
-  } catch (error) {
+  } catch (error_) {
     if (client) await client.query('ROLLBACK');
-    log.error('Create dispute error', error);
+    log.error('Create dispute error', error_);
     return {
       statusCode: 500,
       headers,
@@ -445,8 +445,8 @@ async function runAutoVerification(
       recommendation,
       evidence,
     };
-  } catch (error) {
-    log.error('Auto verification failed', error);
+  } catch (error_) {
+    log.error('Auto verification failed', error_);
     // Return conservative result on error
     return {
       userPresent: true,
@@ -510,8 +510,8 @@ async function autoApproveRefund(
     );
 
     log.info('Auto-approved refund for dispute', { disputeId });
-  } catch (error) {
-    log.error('Auto-approve refund failed', error);
+  } catch (error_) {
+    log.error('Auto-approve refund failed', error_);
     // Don't throw - let manual review handle it
   }
 }

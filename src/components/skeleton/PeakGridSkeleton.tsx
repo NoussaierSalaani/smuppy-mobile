@@ -14,6 +14,7 @@ const PeakGridSkeleton = () => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.masonryContainer}>
+        {/* NOSONAR — static skeleton arrays, index keys are safe */}
         <View style={styles.column}>
           {CARD_HEIGHTS.filter((_, i) => i % 2 === 0).map((h, i) => (
             <SkeletonBase key={`l${i}`} width={COLUMN_WIDTH} height={h} borderRadius={16} style={styles.card} />

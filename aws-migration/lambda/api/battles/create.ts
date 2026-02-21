@@ -303,9 +303,9 @@ export const handler = withErrorHandler('battles-create', async (event, { header
         },
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    log.error('Create battle error:', error);
+    log.error('Create battle error:', error_);
     return {
       statusCode: 500,
       headers,

@@ -251,5 +251,67 @@ describe('ContentStore', () => {
       expect(state.reportedUsers).toEqual([]);
       expect(state.contentStatus).toEqual({});
     });
+
+    it('should be safe to call when already empty', () => {
+      useContentStore.getState().reset();
+      useContentStore.getState().reset();
+
+      const state = useContentStore.getState();
+      expect(state.reportedPosts).toEqual([]);
+      expect(state.reportedUsers).toEqual([]);
+      expect(state.contentStatus).toEqual({});
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('submitPostReport should propagate rejection from server', async () => {
+      (mockReportPost as jest.Mock).mockRejectedValue(new Error('Network error'));
+
+      await expect(
+        useContentStore.getState().submitPostReport('post-123', 'spam')
+      ).rejects.toThrow('Network error');
+    });
+
+    it('submitUserReport should propagate rejection from server', async () => {
+      (mockReportUser as jest.Mock).mockRejectedValue(new Error('Timeout'));
+
+      await expect(
+        useContentStore.getState().submitUserReport('user-123', 'harassment')
+      ).rejects.toThrow('Timeout');
+    });
+
+    it('checkPostReportedStatus should propagate rejection from server', async () => {
+      (mockHasReportedPost as jest.Mock).mockRejectedValue(new Error('Server error'));
+
+      await expect(
+        useContentStore.getState().checkPostReportedStatus('post-123')
+      ).rejects.toThrow('Server error');
+    });
+
+    it('checkUserReportedStatus should propagate rejection from server', async () => {
+      (mockHasReportedUser as jest.Mock).mockRejectedValue(new Error('Server error'));
+
+      await expect(
+        useContentStore.getState().checkUserReportedStatus('user-123')
+      ).rejects.toThrow('Server error');
+    });
+
+    it('submitPostReport rollback should work on server error', async () => {
+      (mockReportPost as jest.Mock).mockResolvedValue({ error: 'rate_limited' });
+
+      const result = await useContentStore.getState().submitPostReport('post-rollback', 'spam');
+      expect(result.success).toBe(false);
+      // Optimistic add should have been rolled back
+      expect(useContentStore.getState().reportedPosts).not.toContain('post-rollback');
+    });
+
+    it('submitUserReport rollback should work on server error', async () => {
+      (mockReportUser as jest.Mock).mockResolvedValue({ error: 'rate_limited' });
+
+      const result = await useContentStore.getState().submitUserReport('user-rollback', 'harassment');
+      expect(result.success).toBe(false);
+      // Optimistic add should have been rolled back
+      expect(useContentStore.getState().reportedUsers).not.toContain('user-rollback');
+    });
   });
 });

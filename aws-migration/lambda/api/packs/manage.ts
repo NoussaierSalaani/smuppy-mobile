@@ -288,8 +288,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers: headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
-  } catch (error) {
-    log.error('Pack management error', error);
+  } catch (error_) {
+    log.error('Pack management error', error_);
     return {
       statusCode: 500,
       headers: headers,

@@ -68,9 +68,9 @@ export const handler = withAuthHandler('profiles-block', async (event, { headers
     );
 
     await client.query('COMMIT');
-  } catch (txErr: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw txErr;
+    throw error_;
   } finally {
     client.release();
   }

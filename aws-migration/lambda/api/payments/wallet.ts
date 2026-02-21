@@ -44,8 +44,10 @@ interface TierInfo {
 }
 
 interface AnalyticsPeriodConfig {
-  periodFilter: string;
-  groupBy: string;
+  /** PostgreSQL interval value (e.g. '24 hours', '7 days') — null means all-time */
+  interval: string | null;
+  /** date_trunc precision: 'hour', 'day', or 'month' */
+  truncation: 'hour' | 'day' | 'month';
   dateFormat: string;
 }
 
@@ -401,49 +403,35 @@ async function getTransactions(userId: string, options: WalletBody, headers: Rec
 function getAnalyticsPeriodConfig(period: string): AnalyticsPeriodConfig {
   switch (period) {
     case 'day':
-      return {
-        periodFilter: "AND created_at >= NOW() - INTERVAL '24 hours'",
-        groupBy: "date_trunc('hour', created_at)",
-        dateFormat: 'hour',
-      };
+      return { interval: '24 hours', truncation: 'hour', dateFormat: 'hour' };
     case 'week':
-      return {
-        periodFilter: "AND created_at >= NOW() - INTERVAL '7 days'",
-        groupBy: "date_trunc('day', created_at)",
-        dateFormat: 'day',
-      };
+      return { interval: '7 days', truncation: 'day', dateFormat: 'day' };
     case 'month':
-      return {
-        periodFilter: "AND created_at >= NOW() - INTERVAL '30 days'",
-        groupBy: "date_trunc('day', created_at)",
-        dateFormat: 'day',
-      };
+      return { interval: '30 days', truncation: 'day', dateFormat: 'day' };
     case 'year':
-      return {
-        periodFilter: "AND created_at >= NOW() - INTERVAL '12 months'",
-        groupBy: "date_trunc('month', created_at)",
-        dateFormat: 'month',
-      };
+      return { interval: '12 months', truncation: 'month', dateFormat: 'month' };
     default:
-      return {
-        periodFilter: '',
-        groupBy: "date_trunc('month', created_at)",
-        dateFormat: 'month',
-      };
+      return { interval: null, truncation: 'month', dateFormat: 'month' };
   }
 }
 
 async function fetchEarningsTimeline(client: PoolClient, userId: string, config: AnalyticsPeriodConfig) {
+  const params: SqlParam[] = [userId, config.truncation];
+  let periodClause = '';
+  if (config.interval !== null) {
+    params.push(config.interval);
+    periodClause = `AND created_at >= NOW() - $${params.length}::interval`;
+  }
   const result = await client.query(
     `SELECT
-       ${config.groupBy} as period,
+       date_trunc($2, created_at) as period,
        COALESCE(SUM(creator_amount), 0) as earnings,
        COUNT(1) as transactions
      FROM payments
-     WHERE creator_id = $1 AND status = 'succeeded' ${config.periodFilter}
-     GROUP BY ${config.groupBy}
-     ORDER BY ${config.groupBy}`,
-    [userId]
+     WHERE creator_id = $1 AND status = 'succeeded' ${periodClause}
+     GROUP BY date_trunc($2, created_at)
+     ORDER BY date_trunc($2, created_at)`,
+    params
   );
   return result.rows.map((row: Record<string, unknown>) => ({
     period: row.period,
@@ -452,7 +440,13 @@ async function fetchEarningsTimeline(client: PoolClient, userId: string, config:
   }));
 }
 
-async function fetchTopBuyers(client: PoolClient, userId: string, periodFilter: string) {
+async function fetchTopBuyers(client: PoolClient, userId: string, interval: string | null) {
+  const params: SqlParam[] = [userId];
+  let periodClause = '';
+  if (interval !== null) {
+    params.push(interval);
+    periodClause = `AND p.created_at >= NOW() - $${params.length}::interval`;
+  }
   const result = await client.query(
     `SELECT
        buyer.id,
@@ -463,11 +457,11 @@ async function fetchTopBuyers(client: PoolClient, userId: string, periodFilter: 
        COUNT(1) as transaction_count
      FROM payments p
      JOIN profiles buyer ON p.buyer_id = buyer.id
-     WHERE p.creator_id = $1 AND p.status = 'succeeded' ${periodFilter}
+     WHERE p.creator_id = $1 AND p.status = 'succeeded' ${periodClause}
      GROUP BY buyer.id, buyer.username, buyer.full_name, buyer.avatar_url
      ORDER BY total_spent DESC
      LIMIT 10`,
-    [userId]
+    params
   );
   return result.rows.map((row: Record<string, unknown>) => ({
     id: row.id,
@@ -479,16 +473,22 @@ async function fetchTopBuyers(client: PoolClient, userId: string, periodFilter: 
   }));
 }
 
-async function fetchEarningsBySource(client: PoolClient, userId: string, periodFilter: string) {
+async function fetchEarningsBySource(client: PoolClient, userId: string, interval: string | null) {
+  const params: SqlParam[] = [userId];
+  let periodClause = '';
+  if (interval !== null) {
+    params.push(interval);
+    periodClause = `AND created_at >= NOW() - $${params.length}::interval`;
+  }
   const result = await client.query(
     `SELECT
        source,
        COALESCE(SUM(creator_amount), 0) as earnings,
        COUNT(1) as count
      FROM payments
-     WHERE creator_id = $1 AND status = 'succeeded' ${periodFilter}
+     WHERE creator_id = $1 AND status = 'succeeded' ${periodClause}
      GROUP BY source`,
-    [userId]
+    params
   );
   return result.rows.map((row: Record<string, unknown>) => ({
     source: row.source,
@@ -510,8 +510,8 @@ async function getAnalytics(userId: string, period: string, headers: Record<stri
 
     const [timeline, topBuyers, bySource] = await Promise.all([
       fetchEarningsTimeline(client, userId, config),
-      fetchTopBuyers(client, userId, config.periodFilter),
-      fetchEarningsBySource(client, userId, config.periodFilter),
+      fetchTopBuyers(client, userId, config.interval),
+      fetchEarningsBySource(client, userId, config.interval),
     ]);
 
     return {

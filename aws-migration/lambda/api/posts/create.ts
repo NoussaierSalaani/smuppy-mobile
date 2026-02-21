@@ -216,32 +216,29 @@ async function processTaggedUsers(
 ): Promise<Set<string>> {
   if (validTaggedIds.length === 0) return new Set<string>();
 
-  const placeholders = validTaggedIds.map((_: string, i: number) => `$${i + 1}`).join(', ');
   const existsResult = await client.query(
-    `SELECT id FROM profiles WHERE id IN (${placeholders})`,
-    validTaggedIds
+    `SELECT id FROM profiles WHERE id = ANY($1::uuid[])`,
+    [validTaggedIds]
   );
   const existingTaggedIds = new Set(existsResult.rows.map((r: { id: string }) => r.id));
   const tagsToInsert = validTaggedIds.filter((tid) => existingTaggedIds.has(tid));
 
   if (tagsToInsert.length === 0) return existingTaggedIds;
 
-  // Batch insert post_tags: $1 = postId, $2 = userId, $3..N = tagged user IDs
-  const tagValues = tagsToInsert.map((_, i) => `($1, $${i + 3}, $2, NOW())`).join(', ');
+  // Batch insert post_tags using UNNEST
   await client.query(
     `INSERT INTO post_tags (post_id, tagged_user_id, tagged_by_user_id, created_at)
-     VALUES ${tagValues}
+     SELECT $1, unnest($3::uuid[]), $2, NOW()
      ON CONFLICT (post_id, tagged_user_id) DO NOTHING`,
-    [postId, userId, ...tagsToInsert]
+    [postId, userId, tagsToInsert]
   );
 
-  // Batch insert notifications: $1 = body text, $2 = data JSON, $3..N = user IDs
+  // Batch insert notifications using UNNEST
   const notifData = JSON.stringify({ senderId: userId, postId });
-  const notifValues = tagsToInsert.map((_, i) => `($${i + 3}, 'post_tag', 'You were tagged', $1, $2, NOW())`).join(', ');
   await client.query(
     `INSERT INTO notifications (user_id, type, title, body, data, created_at)
-     VALUES ${notifValues}`,
-    ['tagged you in a post', notifData, ...tagsToInsert]
+     SELECT unnest($3::uuid[]), 'post_tag', 'You were tagged', $1, $2, NOW()`,
+    ['tagged you in a post', notifData, tagsToInsert]
   );
 
   return existingTaggedIds;

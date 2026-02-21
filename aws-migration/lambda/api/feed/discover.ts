@@ -17,16 +17,17 @@ const MAX_OFFSET = 500;
 
 // ── Query builder ───────────────────────────────────────────────────
 
-interface WhereClauseResult {
-  whereClause: string;
+interface BuiltQuery {
+  query: string;
   params: SqlParam[];
-  nextParamIndex: number;
 }
 
-function buildWhereClauses(
+function buildDiscoverQuery(
   userId: string | null,
   interests: string[],
-): WhereClauseResult {
+  fetchLimit: number,
+  offset: number,
+): BuiltQuery {
   const params: SqlParam[] = [];
   let paramIndex = 1;
   const clauses: string[] = [];
@@ -56,7 +57,27 @@ function buildWhereClauses(
   }
 
   const whereClause = clauses.length > 0 ? 'WHERE ' + clauses.join(' AND ') : '';
-  return { whereClause, params, nextParamIndex: paramIndex };
+
+  params.push(fetchLimit);
+  const limitParam = paramIndex;
+  paramIndex++;
+
+  params.push(offset);
+  const offsetParam = paramIndex;
+
+  const query = [
+    `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.media_meta, p.tags,`,
+    `       p.likes_count, p.comments_count, p.created_at,`,
+    `       p.video_status, p.hls_url, p.thumbnail_url, p.video_variants, p.video_duration,`,
+    `       pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name`,
+    `FROM posts p`,
+    `JOIN profiles pr ON p.author_id = pr.id`,
+    whereClause,
+    `ORDER BY (p.likes_count * 2 + p.comments_count) DESC, p.created_at DESC, p.id DESC`,
+    `LIMIT $${limitParam} OFFSET $${offsetParam}`,
+  ].join('\n');
+
+  return { query, params };
 }
 
 // ── Batch interaction lookup ────────────────────────────────────────
@@ -142,29 +163,9 @@ export const handler = withErrorHandler('feed-discover', async (event, { headers
 
     const userId = cognitoSub ? await resolveProfileId(db, cognitoSub) : null;
 
-    // Build WHERE clause
-    const { whereClause, params, nextParamIndex } = buildWhereClauses(userId, interests);
-
-    let paramIndex = nextParamIndex;
-    params.push(limit + 1);
-    const limitParam = paramIndex;
-    paramIndex++;
-
-    params.push(offset);
-    const offsetParam = paramIndex;
-
-    const result = await db.query(
-      `SELECT p.id, p.author_id, p.content, p.media_urls, p.media_type, p.media_meta, p.tags,
-              p.likes_count, p.comments_count, p.created_at,
-              p.video_status, p.hls_url, p.thumbnail_url, p.video_variants, p.video_duration,
-              pr.id as profile_id, pr.username, pr.full_name, pr.display_name, pr.avatar_url, pr.is_verified, pr.account_type, pr.business_name
-       FROM posts p
-       JOIN profiles pr ON p.author_id = pr.id
-       ${whereClause}
-       ORDER BY (p.likes_count * 2 + p.comments_count) DESC, p.created_at DESC, p.id DESC
-       LIMIT $${limitParam} OFFSET $${offsetParam}`,
-      params
-    );
+    // Build full parameterized query
+    const { query, params } = buildDiscoverQuery(userId, interests, limit + 1, offset);
+    const result = await db.query(query, params);
 
     const hasMore = result.rows.length > limit;
     const rows = result.rows.slice(0, limit);

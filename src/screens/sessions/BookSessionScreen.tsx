@@ -1,5 +1,5 @@
 // src/screens/sessions/BookSessionScreen.tsx
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import OptimizedImage from '../../components/OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { ScreenSkeleton } from '../../components/skeleton';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useDataFetch } from '../../hooks/useDataFetch';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -64,12 +65,51 @@ export default function BookSessionScreen(): React.JSX.Element {
   const [selectedDuration, setSelectedDuration] = useState<number>(30);
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
 
-  // API state
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [creator, setCreator] = useState<CreatorInfo | null>(routeCreator || null);
-  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
-  const [packs, setPacks] = useState<SessionPack[]>([]);
+  interface BookingData {
+    creator: CreatorInfo | null;
+    availableSlots: AvailableSlot[];
+    packs: SessionPack[];
+  }
+
+  const targetCreatorId = creatorId || routeCreator?.id;
+
+  const { data: bookingData, isLoading: loading, error: fetchError } = useDataFetch(
+    async () => {
+      if (!targetCreatorId) return { success: true, creator: routeCreator || null, availableSlots: [], packs: [] };
+
+      const [availabilityRes, packsRes] = await Promise.all([
+        awsAPI.getCreatorAvailability(targetCreatorId, { days: 14 }),
+        awsAPI.listCreatorPacks(targetCreatorId),
+      ]);
+
+      return {
+        success: true,
+        creator: availabilityRes.success && availabilityRes.creator ? availabilityRes.creator : routeCreator || null,
+        availableSlots: availabilityRes.success ? availabilityRes.availableSlots || [] : [],
+        packs: packsRes.success ? packsRes.packs || [] : [],
+      };
+    },
+    {
+      extractData: (r): BookingData => ({
+        creator: r.creator as CreatorInfo | null,
+        availableSlots: r.availableSlots as AvailableSlot[],
+        packs: r.packs as SessionPack[],
+      }),
+      defaultValue: { creator: routeCreator || null, availableSlots: [], packs: [] },
+    },
+  );
+
+  const creator = bookingData?.creator ?? routeCreator ?? null;
+  const availableSlots = bookingData?.availableSlots ?? [];
+  const packs = bookingData?.packs ?? [];
+  const errorMessage = fetchError ? 'Failed to load booking data. Please try again.' : null;
+
+  // Sync selectedDuration when creator data loads
+  useEffect(() => {
+    if (creator?.sessionDuration) {
+      setSelectedDuration(creator.sessionDuration);
+    }
+  }, [creator?.sessionDuration]);
 
   // Duration options with calculated prices
   const durations = useMemo(() => {
@@ -84,45 +124,6 @@ export default function BookSessionScreen(): React.JSX.Element {
       { value: 90, label: '90 min', price: Math.round(pricePerMin * 90) },
     ];
   }, [creator]);
-
-  // Fetch availability and packs
-  const fetchData = useCallback(async () => {
-    if (!creatorId && !routeCreator?.id) return;
-
-    const targetCreatorId = creatorId || routeCreator?.id;
-    if (!targetCreatorId) return;
-    setLoading(true);
-
-    try {
-      // Fetch availability and packs in parallel
-      const [availabilityRes, packsRes] = await Promise.all([
-        awsAPI.getCreatorAvailability(targetCreatorId, { days: 14 }),
-        awsAPI.listCreatorPacks(targetCreatorId),
-      ]);
-
-      if (availabilityRes.success && availabilityRes.creator) {
-        setCreator(availabilityRes.creator);
-        setAvailableSlots(availabilityRes.availableSlots || []);
-        if (availabilityRes.creator.sessionDuration) {
-          setSelectedDuration(availabilityRes.creator.sessionDuration);
-        }
-      }
-
-      if (packsRes.success) {
-        setPacks(packsRes.packs || []);
-      }
-    } catch (error: unknown) {
-      if (__DEV__) console.warn('Error fetching booking data:', error);
-      // SECURITY: Never expose raw error to users
-      setErrorMessage('Failed to load booking data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [creatorId, routeCreator]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   // Generate dates with availability info from API
   const dates = useMemo((): DateItem[] => {

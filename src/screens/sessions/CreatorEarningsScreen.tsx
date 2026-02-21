@@ -3,7 +3,7 @@
  * Dashboard for Pro Creators to view their earnings from sessions, packs, and tips
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useDataFetch } from '../../hooks/useDataFetch';
 import { awsAPI } from '../../services/aws-api';
 import { formatRelativeTime } from '../../utils/dateFormatters';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -65,33 +66,18 @@ const CreatorEarningsScreen = (): React.JSX.Element => {
   const { colors, isDark } = useTheme();
   const { formatAmount: formatCurrencyAmount } = useCurrency();
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('month');
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [earningsData, setEarningsData] = useState<EarningsData | null>(null);
 
-  // Fetch earnings data
-  const fetchEarnings = useCallback(async () => {
-    try {
-      const response = await awsAPI.getEarnings({ period: selectedPeriod, limit: 20 });
-      if (response.success && response.earnings) {
-        setEarningsData(response.earnings);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Failed to fetch earnings:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedPeriod]);
+  const { data: earningsData, isLoading: loading, isRefreshing: refreshing, refresh: onRefresh, reload } = useDataFetch(
+    () => awsAPI.getEarnings({ period: selectedPeriod, limit: 20 }),
+    { extractData: (r) => r.earnings ?? null, defaultValue: null },
+  );
 
+  // Re-fetch when period changes (skip initial mount — fetchOnMount handles it)
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    fetchEarnings();
-  }, [fetchEarnings]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchEarnings();
-    setRefreshing(false);
-  }, [fetchEarnings]);
+    if (isFirstMount.current) { isFirstMount.current = false; return; }
+    reload();
+  }, [selectedPeriod, reload]);
 
   // Transform API transactions to local format
   const transactions: Transaction[] = earningsData?.transactions.map(t => ({

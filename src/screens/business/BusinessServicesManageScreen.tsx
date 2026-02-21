@@ -3,7 +3,7 @@
  * CRUD for services and products with pricing
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useCurrency } from '../../hooks/useCurrency';
 import type { IconName } from '../../types';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
+import { useDataFetch } from '../../hooks/useDataFetch';
 
 interface Props {
   navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
@@ -76,9 +77,19 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
   const { formatAmount, currency } = useCurrency();
   const { colors, isDark } = useTheme();
 
-  const [services, setServices] = useState<Service[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    data: fetchedServices,
+    isLoading,
+    isRefreshing,
+    refresh: handleRefresh,
+    reload: reloadServices,
+  } = useDataFetch(
+    () => awsAPI.getBusinessServices('current'),
+    { extractData: (r) => (r.services || []) as unknown as Service[], defaultValue: [] as Service[] },
+  );
+
+  const services = fetchedServices ?? [];
+
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -96,32 +107,6 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
   const [formTrialDays, setFormTrialDays] = useState('');
   const [formMaxCapacity, setFormMaxCapacity] = useState('');
   const [formIsActive, setFormIsActive] = useState(true);
-
-  useEffect(() => {
-    loadServices();
-  }, []);
-
-  const loadServices = async () => {
-    try {
-      const response = await awsAPI.getBusinessServices('current');
-
-      if (response.success) {
-        setServices((response.services || []) as unknown as Service[]);
-      } else {
-        setServices([]);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Load services error:', error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadServices();
-  }, []);
 
   const resetForm = () => {
     setFormName('');
@@ -167,7 +152,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         try {
           await awsAPI.deleteBusinessService(service.id);
-          setServices((prev) => prev.filter((s) => s.id !== service.id));
+          reloadServices();
         } catch (_error) {
           showError('Error', 'Failed to delete service');
         }
@@ -207,14 +192,12 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
       if (editingService) {
         const response = await awsAPI.updateBusinessService(editingService.id, serviceData);
         if (response.success) {
-          setServices((prev) =>
-            prev.map((s) => (s.id === editingService.id ? { ...s, ...serviceData } : s))
-          );
+          reloadServices();
         }
       } else {
         const response = await awsAPI.createBusinessService(serviceData);
-        if (response.success && response.service) {
-          setServices((prev) => [...prev, response.service as unknown as Service]);
+        if (response.success) {
+          reloadServices();
         }
       }
 
@@ -233,9 +216,7 @@ export default function BusinessServicesManageScreen({ navigation }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await awsAPI.updateBusinessService(service.id, { is_active: !service.is_active });
-      setServices((prev) =>
-        prev.map((s) => (s.id === service.id ? { ...s, is_active: !s.is_active } : s))
-      );
+      reloadServices();
     } catch (error) {
       if (__DEV__) console.warn('Toggle active error:', error);
     }

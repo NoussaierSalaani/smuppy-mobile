@@ -3,7 +3,7 @@
  * Inspired by Revolut, Cash App, and modern fintech apps
  * Features: Earnings overview, transactions, analytics, payouts
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useDataFetch } from '../../hooks/useDataFetch';
 import { formatNumber } from '../../utils/formatters';
 import { triggerHaptic } from '../../utils/haptics';
 
@@ -85,57 +86,33 @@ export default function CreatorWalletScreen() {
   const { colors, isDark } = useTheme();
   const { formatAmount } = useCurrency();
   const { showAlert } = useSmuppyAlert();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analytics'>('overview');
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  const fetchDashboard = useCallback(async () => {
-    try {
-      const response = await awsAPI.request('/payments/wallet', {
+  const { data: walletData, isLoading: loading, isRefreshing: refreshing, refresh } = useDataFetch(
+    () => Promise.all([
+      awsAPI.request('/payments/wallet', {
         method: 'POST',
         body: { action: 'get-dashboard' },
-      }) as { success?: boolean; dashboard?: typeof dashboard };
-      if (response.success && response.dashboard) {
-        setDashboard(response.dashboard);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Failed to fetch dashboard:', (error as Error).message);
-    }
-  }, []);
-
-  const fetchTransactions = useCallback(async () => {
-    try {
-      const response = await awsAPI.request('/payments/wallet', {
+      }) as Promise<{ success?: boolean; dashboard?: DashboardData }>,
+      awsAPI.request('/payments/wallet', {
         method: 'POST',
         body: { action: 'get-transactions', limit: 20 },
-      }) as { success?: boolean; transactions?: typeof transactions };
-      if (response.success && response.transactions) {
-        setTransactions(response.transactions);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Failed to fetch transactions:', (error as Error).message);
-    }
-  }, []);
+      }) as Promise<{ success?: boolean; transactions?: Transaction[] }>,
+    ]).then(([dashRes, txRes]) => ({
+      success: true as const,
+      dashboard: dashRes.success && dashRes.dashboard ? dashRes.dashboard : null,
+      transactions: txRes.success && txRes.transactions ? txRes.transactions : [],
+    })),
+    {
+      extractData: (r) => ({ dashboard: r.dashboard, transactions: r.transactions }),
+      defaultValue: { dashboard: null, transactions: [] as Transaction[] },
+    },
+  );
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    await Promise.all([fetchDashboard(), fetchTransactions()]);
-    setLoading(false);
-  }, [fetchDashboard, fetchTransactions]);
+  const dashboard = walletData?.dashboard ?? null;
+  const transactions = walletData?.transactions ?? [];
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  }, [loadData]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
 
   const tierColors = useMemo(() =>
@@ -394,7 +371,7 @@ export default function CreatorWalletScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />
         }
         scrollEventThrottle={16}
       >

@@ -5,7 +5,7 @@ import { AvatarImage } from '../../components/OptimizedImage';
  * Shows user's upcoming and past sessions (Fan perspective)
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { SessionListSkeleton } from '../../components/skeleton';
 import { awsAPI, Session } from '../../services/aws-api';
 import { formatDateRelative, formatTime } from '../../utils/dateFormatters';
+import { useDataFetch } from '../../hooks/useDataFetch';
 
 type TabType = 'upcoming' | 'past';
 
@@ -30,40 +31,33 @@ const MySessionsScreen = (): React.JSX.Element => {
   const navigation = useNavigation<{ navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void }>();
   const { colors, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([]);
-  const [pastSessions, setPastSessions] = useState<Session[]>([]);
 
-  const fetchSessions = useCallback(async () => {
-    try {
+  interface SessionsData {
+    upcoming: Session[];
+    past: Session[];
+  }
+
+  const { data: sessionsData, isLoading: loading, isRefreshing: refreshing, refresh: onRefresh } = useDataFetch(
+    async () => {
       const [upcomingRes, pastRes] = await Promise.all([
         awsAPI.listSessions({ status: 'upcoming', role: 'fan' }),
         awsAPI.listSessions({ status: 'past', role: 'fan' }),
       ]);
 
-      if (upcomingRes.success) {
-        setUpcomingSessions(upcomingRes.sessions || []);
-      }
-      if (pastRes.success) {
-        setPastSessions(pastRes.sessions || []);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Error fetching sessions:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return {
+        success: true,
+        upcoming: upcomingRes.success ? upcomingRes.sessions || [] : [],
+        past: pastRes.success ? pastRes.sessions || [] : [],
+      };
+    },
+    {
+      extractData: (r): SessionsData => ({ upcoming: r.upcoming as Session[], past: r.past as Session[] }),
+      defaultValue: { upcoming: [], past: [] },
+    },
+  );
 
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchSessions();
-    setRefreshing(false);
-  }, [fetchSessions]);
+  const upcomingSessions = sessionsData?.upcoming ?? [];
+  const pastSessions = sessionsData?.past ?? [];
 
   const sessions = activeTab === 'upcoming' ? upcomingSessions : pastSessions;
 

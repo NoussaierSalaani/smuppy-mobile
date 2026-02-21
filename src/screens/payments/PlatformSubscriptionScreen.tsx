@@ -3,7 +3,7 @@
  * Premium subscription selection for Pro Creator ($99) and Pro Business ($49)
  * Inspired by Spotify Premium, YouTube Premium selection screens
  */
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import { useUserStore } from '../../stores/userStore';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useDataFetch } from '../../hooks/useDataFetch';
 
 const { width: _SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -124,28 +125,20 @@ export default function PlatformSubscriptionScreen() {
 
   const [selectedPlan, setSelectedPlan] = useState<'pro_creator' | 'pro_business'>('pro_creator');
   const [loading, setLoading] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  useEffect(() => {
-    fetchCurrentSubscription();
-  }, []);
-
-  const fetchCurrentSubscription = async () => {
-    try {
-      const response = await awsAPI.request('/payments/platform-subscription', {
-        method: 'POST',
-        body: { action: 'get-status' },
-      }) as { success?: boolean; hasSubscription?: boolean; subscription?: { planType: string } };
-      if (response.success && response.hasSubscription) {
-        setCurrentPlan(response.subscription?.planType || null);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Failed to fetch subscription:', error);
-    }
-  };
+  const { data: currentPlan } = useDataFetch(
+    () => awsAPI.request('/payments/platform-subscription', {
+      method: 'POST',
+      body: { action: 'get-status' },
+    }) as Promise<{ success?: boolean; hasSubscription?: boolean; subscription?: { planType: string } }>,
+    {
+      extractData: (r) => (r.success && r.hasSubscription && r.subscription?.planType) ? r.subscription.planType : null,
+      defaultValue: null,
+    },
+  );
 
   const handleSelectPlan = (planId: 'pro_creator' | 'pro_business') => {
     Animated.sequence([

@@ -3,7 +3,7 @@
  * Checkout screen for buying a monthly session pack
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useDataFetch } from '../../hooks/useDataFetch';
 import { isValidUUID } from '../../utils/formatters';
 
 interface Pack {
@@ -70,40 +71,35 @@ const PackPurchaseScreen = (): React.JSX.Element => {
     }
   }, [creatorId, showError, navigation]);
 
-  const [creator, setCreator] = useState<Creator | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
 
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  // Fetch creator profile
-  const fetchCreator = useCallback(async () => {
-    try {
+  const { data: creator, isLoading } = useDataFetch(
+    async () => {
       const profile = await awsAPI.getProfile(creatorId);
-      if (profile) {
-        setCreator({
+      return {
+        success: true as const,
+        creator: {
           id: profile.id,
           name: resolveDisplayName(profile),
           username: profile.username,
           avatar: profile.avatarUrl || null,
           verified: profile.isVerified,
-        });
-      }
-    } catch (error: unknown) {
-      if (__DEV__) console.warn('Failed to fetch creator:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [creatorId]);
+        } as Creator,
+      };
+    },
+    {
+      extractData: (r) => r.creator,
+      defaultValue: null,
+    },
+  );
 
-  useEffect(() => {
-    fetchCreator();
-  }, [fetchCreator]);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const handlePurchase = async () => {
-    if (loading) return;
+    if (purchasing || isLoading) return;
 
     try {
-      setLoading(true);
+      setPurchasing(true);
 
       // Create payment intent
       const response = await awsAPI.createPaymentIntent({
@@ -121,7 +117,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);
 
       if (checkoutResult.status === 'cancelled') {
-        setLoading(false);
+        setPurchasing(false);
         return;
       }
 
@@ -143,7 +139,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
       if (__DEV__) console.warn('Payment error:', error);
       showError('Error', 'Payment failed. Please try again.');
     } finally {
-      setLoading(false);
+      setPurchasing(false);
     }
   };
 
@@ -278,9 +274,9 @@ const PackPurchaseScreen = (): React.JSX.Element => {
           <Text style={styles.priceValue}>{formatCurrencyAmount(Math.round(pack.price * 100))}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.payButton, loading && styles.payButtonDisabled]}
+          style={[styles.payButton, purchasing && styles.payButtonDisabled]}
           onPress={handlePurchase}
-          disabled={loading}
+          disabled={purchasing}
         >
           <LinearGradient
             colors={[colors.primary, colors.primaryDark]}
@@ -288,7 +284,7 @@ const PackPurchaseScreen = (): React.JSX.Element => {
             end={{ x: 1, y: 0 }}
             style={styles.payGradient}
           >
-            {loading ? (
+            {purchasing ? (
               <ActivityIndicator color={colors.white} />
             ) : (
               <>

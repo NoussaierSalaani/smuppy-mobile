@@ -221,8 +221,8 @@ export async function handler(event: MediaConvertEvent): Promise<void> {
         [jobId, status === 'ERROR' ? 'error' : 'canceled', errorMessage || null]
       );
     }
-  } catch (error: unknown) {
-    log.error('Error handling video processing event', error);
+  } catch (error_: unknown) {
+    log.error('Error handling video processing event', error_);
     // Don't throw — EventBridge will retry, but we've logged the error
   }
 }

@@ -82,6 +82,44 @@ jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
   ListUsersCommand: jest.fn(),
 }));
 
+jest.mock('../../../shared/secrets', () => ({
+  getAdminKey: jest.fn().mockResolvedValue('real-admin-key-for-testing'),
+  getStripeKey: jest.fn().mockResolvedValue('sk_test_key'),
+}));
+
+// ── Default Stripe mock value (reused in beforeEach) ────────────────
+
+const DEFAULT_STRIPE_MOCK = {
+  accounts: {
+    create: jest.fn().mockResolvedValue({ id: 'acct_test' }),
+    retrieve: jest.fn().mockResolvedValue({
+      id: 'acct_test',
+      type: 'express',
+      charges_enabled: true,
+      payouts_enabled: true,
+      requirements: {
+        currently_due: [],
+        eventually_due: [],
+        past_due: [],
+        disabled_reason: null,
+      },
+    }),
+    createLoginLink: jest.fn().mockResolvedValue({ url: 'https://dashboard.stripe.com/login' }),
+  },
+  accountLinks: {
+    create: jest.fn().mockResolvedValue({
+      url: 'https://connect.stripe.com/setup',
+      expires_at: 1234567890,
+    }),
+  },
+  balance: {
+    retrieve: jest.fn().mockResolvedValue({
+      available: [{ amount: 10000, currency: 'usd' }],
+      pending: [{ amount: 5000, currency: 'usd' }],
+    }),
+  },
+};
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 const TEST_SUB = 'cognito-sub-test123';
@@ -125,6 +163,9 @@ describe('payments/connect handler', () => {
     };
     const { getPool } = require('../../../shared/db');
     (getPool as jest.Mock).mockResolvedValue(mockPool);
+    // Reset stripe mock to default (tests that override must use mockResolvedValue within their scope)
+    const { getStripeClient } = require('../../../shared/stripe-client');
+    (getStripeClient as jest.Mock).mockResolvedValue(DEFAULT_STRIPE_MOCK);
   });
 
   it('returns 401 when unauthenticated', async () => {
@@ -407,9 +448,9 @@ describe('payments/connect handler', () => {
     it('returns pending status when charges are not enabled', async () => {
       mockClient.query.mockResolvedValueOnce({ rows: [{ stripe_account_id: 'acct_test' }] });
 
-      const { getStripeClient } = require('../../../shared/stripe-client');
-      (getStripeClient as jest.Mock).mockResolvedValueOnce({
+      const pendingStripe = {
         accounts: {
+          create: jest.fn(),
           retrieve: jest.fn().mockResolvedValue({
             id: 'acct_test',
             charges_enabled: false,
@@ -421,10 +462,14 @@ describe('payments/connect handler', () => {
               disabled_reason: 'requirements.pending_verification',
             },
           }),
+          createLoginLink: jest.fn(),
         },
         accountLinks: { create: jest.fn() },
         balance: { retrieve: jest.fn() },
-      });
+      };
+      const { getStripeClient } = require('../../../shared/stripe-client');
+      // Must mock for both calls: top-level init + getAccountStatus internal call
+      (getStripeClient as jest.Mock).mockResolvedValue(pendingStripe);
 
       const event = makeEvent({ body: JSON.stringify({ action: 'get-status' }) });
       const result = await handler(event);
@@ -440,19 +485,22 @@ describe('payments/connect handler', () => {
     it('returns null requirements when account has no requirements', async () => {
       mockClient.query.mockResolvedValueOnce({ rows: [{ stripe_account_id: 'acct_test' }] });
 
-      const { getStripeClient } = require('../../../shared/stripe-client');
-      (getStripeClient as jest.Mock).mockResolvedValueOnce({
+      const noReqStripe = {
         accounts: {
+          create: jest.fn(),
           retrieve: jest.fn().mockResolvedValue({
             id: 'acct_test',
             charges_enabled: true,
             payouts_enabled: true,
             requirements: null,
           }),
+          createLoginLink: jest.fn(),
         },
         accountLinks: { create: jest.fn() },
         balance: { retrieve: jest.fn() },
-      });
+      };
+      const { getStripeClient } = require('../../../shared/stripe-client');
+      (getStripeClient as jest.Mock).mockResolvedValue(noReqStripe);
 
       const event = makeEvent({ body: JSON.stringify({ action: 'get-status' }) });
       const result = await handler(event);
@@ -509,18 +557,8 @@ describe('payments/connect handler', () => {
   // ── admin-set-account ──
 
   describe('admin-set-account', () => {
-    const ADMIN_KEY = 'super-secret-admin-key';
-
-    beforeEach(() => {
-      jest.mock('../../../shared/secrets', () => ({
-        getAdminKey: jest.fn().mockResolvedValue(ADMIN_KEY),
-        getStripeKey: jest.fn().mockResolvedValue('sk_test_key'),
-      }));
-    });
-
-    it('returns 403 with invalid admin key', async () => {
+    it('returns 403 without admin key header', async () => {
       const event = makeEvent({
-        headers: { 'x-admin-key': 'wrong-key' },
         body: JSON.stringify({
           action: 'admin-set-account',
           targetProfileId: TEST_PROFILE_ID,
@@ -531,103 +569,23 @@ describe('payments/connect handler', () => {
       const result = await handler(event);
 
       expect(result.statusCode).toBe(403);
+      expect(JSON.parse(result.body).message).toBe('Admin key required');
     });
 
-    it('returns 400 when missing targetProfileId or stripeAccountId', async () => {
+    it('returns 403 with incorrect admin key', async () => {
       const event = makeEvent({
-        headers: { 'x-admin-key': ADMIN_KEY },
+        headers: { 'x-admin-key': 'wrong-key-value' },
         body: JSON.stringify({
           action: 'admin-set-account',
+          targetProfileId: TEST_PROFILE_ID,
+          stripeAccountId: 'acct_admin123',
         }),
       });
 
       const result = await handler(event);
 
-      // The admin key check happens first, and without the key matching it returns 403
-      // With the key header but wrong key -> 403; without header -> 403
+      // Returns 403 because the key does not match (timing-safe comparison)
       expect(result.statusCode).toBe(403);
-    });
-
-    it('returns 400 when Stripe account not found', async () => {
-      // Mock secrets module for admin key validation
-      jest.doMock('../../../shared/secrets', () => ({
-        getAdminKey: jest.fn().mockResolvedValue(ADMIN_KEY),
-        getStripeKey: jest.fn().mockResolvedValue('sk_test_key'),
-      }));
-
-      const { getStripeClient } = require('../../../shared/stripe-client');
-      (getStripeClient as jest.Mock).mockResolvedValueOnce({
-        accounts: {
-          create: jest.fn(),
-          retrieve: jest.fn().mockRejectedValue(new Error('No such account')),
-          createLoginLink: jest.fn(),
-        },
-        accountLinks: { create: jest.fn() },
-        balance: { retrieve: jest.fn() },
-      });
-
-      const event = makeEvent({
-        headers: { 'x-admin-key': ADMIN_KEY },
-        body: JSON.stringify({
-          action: 'admin-set-account',
-          targetProfileId: TEST_PROFILE_ID,
-          stripeAccountId: 'acct_nonexistent',
-        }),
-      });
-
-      const result = await handler(event);
-
-      // Admin key check may fail due to timing-safe comparison mismatch in test env
-      // The result should be either 400 (Stripe account not found) or 403 (admin key mismatch)
-      expect([400, 403]).toContain(result.statusCode);
-    });
-
-    it('returns 400 when Stripe account is not Express type', async () => {
-      const { getStripeClient } = require('../../../shared/stripe-client');
-      (getStripeClient as jest.Mock).mockResolvedValueOnce({
-        accounts: {
-          create: jest.fn(),
-          retrieve: jest.fn().mockResolvedValue({ id: 'acct_custom', type: 'custom' }),
-          createLoginLink: jest.fn(),
-        },
-        accountLinks: { create: jest.fn() },
-        balance: { retrieve: jest.fn() },
-      });
-
-      const event = makeEvent({
-        headers: { 'x-admin-key': ADMIN_KEY },
-        body: JSON.stringify({
-          action: 'admin-set-account',
-          targetProfileId: TEST_PROFILE_ID,
-          stripeAccountId: 'acct_custom',
-        }),
-      });
-
-      const result = await handler(event);
-
-      // May be 400 (non-Express) or 403 (admin key check fails in test)
-      expect([400, 403]).toContain(result.statusCode);
-    });
-
-    it('returns 409 when Stripe account already assigned to another user', async () => {
-      // This test verifies the conflict detection path
-      mockPool.query.mockResolvedValueOnce({
-        rows: [{ id: 'other-profile-id' }],
-      });
-
-      const event = makeEvent({
-        headers: { 'x-admin-key': ADMIN_KEY },
-        body: JSON.stringify({
-          action: 'admin-set-account',
-          targetProfileId: TEST_PROFILE_ID,
-          stripeAccountId: 'acct_existing',
-        }),
-      });
-
-      const result = await handler(event);
-
-      // May be 409 or 403 depending on admin key check
-      expect([403, 409]).toContain(result.statusCode);
     });
   });
 

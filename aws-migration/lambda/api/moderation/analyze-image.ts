@@ -112,8 +112,8 @@ async function handleVideo(bucketName: string, objectKey: string, fileSize: numb
       }),
     );
     log.info('Video moderation job started', { objectKey, jobId: response.JobId });
-  } catch (error) {
-    log.error('Failed to start video moderation', { objectKey, error });
+  } catch (error_) {
+    log.error('Failed to start video moderation', { objectKey, error: error_ });
     await tagObject(bucketName, objectKey, 'video_scan_error');
   }
 }

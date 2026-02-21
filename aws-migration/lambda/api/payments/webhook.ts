@@ -440,48 +440,44 @@ async function handleCheckoutSessionCompleted(
 // SUBSCRIPTION LIFECYCLE EVENTS
 // ========================================
 
-const SUBSCRIPTION_TABLE_MAP: Record<string, string> = {
-  platform: 'platform_subscriptions',
-  channel: 'channel_subscriptions',
-  business: 'business_subscriptions',
-};
+const SUPPORTED_SUBSCRIPTION_TYPES = new Set(['platform', 'channel', 'business']);
 
 async function updateSubscriptionPeriod(
   client: PoolClient,
-  table: string,
+  subscriptionType: string,
   subscription: Stripe.Subscription,
 ): Promise<void> {
   const subPeriod = subscription as unknown as { current_period_start: number; current_period_end: number };
   const status = subscription.cancel_at_period_end ? 'canceling' : subscription.status;
-  const hasPeriodStart = table !== 'business_subscriptions';
+  const cancelAt = subscription.cancel_at ?? null;
 
-  const params: (string | number | null)[] = [status];
-  const setClauses: string[] = ['status = $1'];
-
-  if (hasPeriodStart) {
-    params.push(subPeriod.current_period_start);
-    setClauses.push(`current_period_start = to_timestamp($${params.length})`);
+  if (subscriptionType === 'platform') {
+    await client.query(
+      `UPDATE platform_subscriptions SET
+        status = $1, current_period_start = to_timestamp($2), current_period_end = to_timestamp($3),
+        cancel_at = CASE WHEN $4::bigint IS NOT NULL THEN to_timestamp($4) ELSE NULL END,
+        updated_at = NOW()
+       WHERE stripe_subscription_id = $5`,
+      [status, subPeriod.current_period_start, subPeriod.current_period_end, cancelAt, subscription.id]
+    );
+  } else if (subscriptionType === 'channel') {
+    await client.query(
+      `UPDATE channel_subscriptions SET
+        status = $1, current_period_start = to_timestamp($2), current_period_end = to_timestamp($3),
+        cancel_at = CASE WHEN $4::bigint IS NOT NULL THEN to_timestamp($4) ELSE NULL END,
+        updated_at = NOW()
+       WHERE stripe_subscription_id = $5`,
+      [status, subPeriod.current_period_start, subPeriod.current_period_end, cancelAt, subscription.id]
+    );
+  } else if (subscriptionType === 'business') {
+    await client.query(
+      `UPDATE business_subscriptions SET
+        status = $1, current_period_end = to_timestamp($2),
+        cancel_at = CASE WHEN $3::bigint IS NOT NULL THEN to_timestamp($3) ELSE NULL END
+       WHERE stripe_subscription_id = $4`,
+      [status, subPeriod.current_period_end, cancelAt, subscription.id]
+    );
   }
-
-  params.push(subPeriod.current_period_end);
-  setClauses.push(`current_period_end = to_timestamp($${params.length})`);
-
-  if (subscription.cancel_at != null) {
-    params.push(subscription.cancel_at);
-    setClauses.push(`cancel_at = to_timestamp($${params.length})`);
-  } else {
-    setClauses.push('cancel_at = NULL');
-  }
-
-  if (hasPeriodStart) {
-    setClauses.push('updated_at = NOW()');
-  }
-
-  params.push(subscription.id);
-  await client.query(
-    `UPDATE ${table} SET ${setClauses.join(', ')} WHERE stripe_subscription_id = $${params.length}`,
-    params
-  );
 }
 
 async function handleIdentityVerificationUpdate(
@@ -526,9 +522,8 @@ async function handleSubscriptionUpdated(
     return;
   }
 
-  const table = SUBSCRIPTION_TABLE_MAP[subscriptionType || ''];
-  if (table) {
-    await updateSubscriptionPeriod(client, table, subscription);
+  if (subscriptionType && SUPPORTED_SUBSCRIPTION_TYPES.has(subscriptionType)) {
+    await updateSubscriptionPeriod(client, subscriptionType, subscription);
   }
 }
 

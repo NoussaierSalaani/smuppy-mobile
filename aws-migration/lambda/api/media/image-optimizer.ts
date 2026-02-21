@@ -228,8 +228,8 @@ export async function handler(event: EventBridgeS3Event): Promise<void> {
       blurhash: blurhashString.substring(0, 10) + '...',
       originalDimensions: `${originalWidth}x${originalHeight}`,
     });
-  } catch (error) {
-    log.error('Error optimizing image', { objectKey, error });
+  } catch (error_) {
+    log.error('Error optimizing image', { objectKey, error: error_ });
     // Don't throw — we don't want to retry and reprocess on transient errors
   }
 }

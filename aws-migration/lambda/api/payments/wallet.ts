@@ -416,22 +416,17 @@ function getAnalyticsPeriodConfig(period: string): AnalyticsPeriodConfig {
 }
 
 async function fetchEarningsTimeline(client: PoolClient, userId: string, config: AnalyticsPeriodConfig) {
-  const params: SqlParam[] = [userId, config.truncation];
-  let periodClause = '';
-  if (config.interval !== null) {
-    params.push(config.interval);
-    periodClause = `AND created_at >= NOW() - $${params.length}::interval`;
-  }
   const result = await client.query(
     `SELECT
        date_trunc($2, created_at) as period,
        COALESCE(SUM(creator_amount), 0) as earnings,
        COUNT(1) as transactions
      FROM payments
-     WHERE creator_id = $1 AND status = 'succeeded' ${periodClause}
+     WHERE creator_id = $1 AND status = 'succeeded'
+       AND ($3::interval IS NULL OR created_at >= NOW() - $3::interval)
      GROUP BY date_trunc($2, created_at)
      ORDER BY date_trunc($2, created_at)`,
-    params
+    [userId, config.truncation, config.interval]
   );
   return result.rows.map((row: Record<string, unknown>) => ({
     period: row.period,
@@ -441,12 +436,6 @@ async function fetchEarningsTimeline(client: PoolClient, userId: string, config:
 }
 
 async function fetchTopBuyers(client: PoolClient, userId: string, interval: string | null) {
-  const params: SqlParam[] = [userId];
-  let periodClause = '';
-  if (interval !== null) {
-    params.push(interval);
-    periodClause = `AND p.created_at >= NOW() - $${params.length}::interval`;
-  }
   const result = await client.query(
     `SELECT
        buyer.id,
@@ -457,11 +446,12 @@ async function fetchTopBuyers(client: PoolClient, userId: string, interval: stri
        COUNT(1) as transaction_count
      FROM payments p
      JOIN profiles buyer ON p.buyer_id = buyer.id
-     WHERE p.creator_id = $1 AND p.status = 'succeeded' ${periodClause}
+     WHERE p.creator_id = $1 AND p.status = 'succeeded'
+       AND ($2::interval IS NULL OR p.created_at >= NOW() - $2::interval)
      GROUP BY buyer.id, buyer.username, buyer.full_name, buyer.avatar_url
      ORDER BY total_spent DESC
      LIMIT 10`,
-    params
+    [userId, interval]
   );
   return result.rows.map((row: Record<string, unknown>) => ({
     id: row.id,
@@ -474,21 +464,16 @@ async function fetchTopBuyers(client: PoolClient, userId: string, interval: stri
 }
 
 async function fetchEarningsBySource(client: PoolClient, userId: string, interval: string | null) {
-  const params: SqlParam[] = [userId];
-  let periodClause = '';
-  if (interval !== null) {
-    params.push(interval);
-    periodClause = `AND created_at >= NOW() - $${params.length}::interval`;
-  }
   const result = await client.query(
     `SELECT
        source,
        COALESCE(SUM(creator_amount), 0) as earnings,
        COUNT(1) as count
      FROM payments
-     WHERE creator_id = $1 AND status = 'succeeded' ${periodClause}
+     WHERE creator_id = $1 AND status = 'succeeded'
+       AND ($2::interval IS NULL OR created_at >= NOW() - $2::interval)
      GROUP BY source`,
-    params
+    [userId, interval]
   );
   return result.rows.map((row: Record<string, unknown>) => ({
     source: row.source,

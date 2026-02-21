@@ -30,7 +30,7 @@ jest.mock('aws-jwt-verify', () => ({
       verify: mockVerify,
     })),
   },
-}));
+}), { virtual: true });
 
 import { handler } from '../../../websocket/connect';
 

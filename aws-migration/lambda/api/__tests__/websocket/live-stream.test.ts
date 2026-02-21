@@ -36,7 +36,7 @@ jest.mock('@aws-sdk/client-apigatewaymanagementapi', () => ({
     send: mockSend,
   })),
   PostToConnectionCommand: jest.fn((params: unknown) => params),
-}));
+}), { virtual: true });
 
 const mockFilterText = jest.fn();
 const mockAnalyzeTextToxicity = jest.fn();

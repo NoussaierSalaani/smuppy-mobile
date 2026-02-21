@@ -16,8 +16,11 @@
  * - Authenticated via Cognito (withAuthHandler)
  * - Rate limited (10 req/min per user)
  * - Receipt validated server-side with Apple/Google
+ * - Apple JWS signature verified via x5c certificate chain
  * - Transaction deduplication via UNIQUE constraint
  * - Sandbox/production environment isolation
+ * - URL-safe encoding on all external API calls
+ * - Input length validation on all fields
  */
 
 import { APIGatewayProxyResult } from 'aws-lambda';
@@ -25,7 +28,18 @@ import jwt from 'jsonwebtoken';
 import { GoogleAuth } from 'google-auth-library';
 import { withAuthHandler, AuthContext } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
+import { verifyAppleJWS } from '../utils/apple-jws';
 import { getIAPSecrets, type AppleIAPSecrets, type GooglePlaySecrets } from '../../shared/secrets';
+
+// ────────────────────────────────────────────
+// Input validation constants
+// ────────────────────────────────────────────
+
+const MAX_TRANSACTION_ID_LEN = 500;
+const MAX_PRODUCT_ID_LEN = 200;
+const MAX_RECEIPT_LEN = 100_000;    // 100 KB
+const MAX_PURCHASE_TOKEN_LEN = 5_000;
+const FETCH_TIMEOUT_MS = 10_000;     // 10 seconds
 
 // ────────────────────────────────────────────
 // Product ID → product type mapping
@@ -98,21 +112,26 @@ async function validateAppleReceipt(
 ): Promise<AppleValidationResult> {
   const token = await createAppleJWT(secrets);
 
-  // Try production first, fall back to sandbox
-  for (const baseUrl of [APPLE_API_BASE, APPLE_SANDBOX_API_BASE]) {
-    const url = `${baseUrl}/inApps/v1/transactions/${transactionId}`;
+  // Environment-aware: only query the correct Apple environment
+  const isProduction = process.env.ENVIRONMENT === 'production';
+  const apiUrls = isProduction ? [APPLE_API_BASE] : [APPLE_SANDBOX_API_BASE, APPLE_API_BASE];
+
+  for (const baseUrl of apiUrls) {
+    // URL-encode transactionId to prevent path injection
+    const url = `${baseUrl}/inApps/v1/transactions/${encodeURIComponent(transactionId)}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
 
-    if (response.status === 404) continue; // Not found on this environment
+    if (response.status === 404) continue;
 
     if (!response.ok) {
-      continue; // Try sandbox if production fails
+      continue;
     }
 
     const data = await response.json() as { signedTransactionInfo?: string };
@@ -122,12 +141,11 @@ async function validateAppleReceipt(
       return { valid: false };
     }
 
-    // Decode JWS payload (middle part) — signature verification happens via Apple's server
-    const parts = signedTransaction.split('.');
-    if (parts.length !== 3) return { valid: false };
-
-    const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf-8');
-    const txInfo = JSON.parse(payloadJson);
+    // Verify JWS signature using x5c certificate chain
+    const txInfo = verifyAppleJWS(signedTransaction);
+    if (!txInfo) {
+      return { valid: false };
+    }
 
     // Verify bundle ID matches our app
     if (txInfo.bundleId !== secrets.bundleId) {
@@ -138,9 +156,9 @@ async function validateAppleReceipt(
 
     return {
       valid: true,
-      originalTransactionId: txInfo.originalTransactionId,
-      purchaseDate: txInfo.purchaseDate,
-      expiresDate: txInfo.expiresDate,
+      originalTransactionId: txInfo.originalTransactionId as string | undefined,
+      purchaseDate: txInfo.purchaseDate as number | undefined,
+      expiresDate: txInfo.expiresDate as number | undefined,
       isTrial: txInfo.offerType === 1, // 1 = introductory offer (free trial)
       environment,
     };
@@ -180,13 +198,15 @@ async function validateGoogleReceipt(
     return { valid: false };
   }
 
-  const packageName = secrets.packageName;
+  const packageName = encodeURIComponent(secrets.packageName);
+  const encodedToken = encodeURIComponent(purchaseToken);
+  const encodedProductId = encodeURIComponent(productId);
 
   let url: string;
   if (isSubscription) {
-    url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptionsv2/tokens/${purchaseToken}`;
+    url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptionsv2/tokens/${encodedToken}`;
   } else {
-    url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
+    url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/products/${encodedProductId}/tokens/${encodedToken}`;
   }
 
   const response = await fetch(url, {
@@ -194,6 +214,7 @@ async function validateGoogleReceipt(
     headers: {
       Authorization: `Bearer ${accessToken.token}`,
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -207,16 +228,19 @@ async function validateGoogleReceipt(
     const isActive = data.subscriptionState === 'SUBSCRIPTION_STATE_ACTIVE'
       || data.subscriptionState === 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD';
 
+    // Only accept active or grace period subscriptions
+    if (!isActive) {
+      return { valid: false };
+    }
+
     // Find the latest line item
     const lineItems = data.lineItems as Array<{ expiryTime?: string; offerDetails?: { basePlanId?: string } }> | undefined;
     const lineItem = lineItems?.[0];
 
     return {
-      valid: isActive || data.subscriptionState === 'SUBSCRIPTION_STATE_EXPIRED',
+      valid: true,
       originalTransactionId: data.latestOrderId as string | undefined,
-      purchaseDate: lineItem?.expiryTime
-        ? Date.now() // Google doesn't directly expose original purchase time in v2
-        : Date.now(),
+      purchaseDate: Date.now(),
       expiresDate: lineItem?.expiryTime ? new Date(lineItem.expiryTime).getTime() : undefined,
       isTrial: lineItem?.offerDetails?.basePlanId?.includes('trial') ?? false,
       environment: data.testPurchase != null ? 'sandbox' : 'production',
@@ -279,9 +303,25 @@ export const handler = withAuthHandler('iap-verify', async (event, ctx: AuthCont
   );
   if (rateLimitResult) return rateLimitResult;
 
-  // Parse and validate input
-  const body = JSON.parse(event.body || '{}');
-  const { platform, productId, transactionId, receipt, purchaseToken } = body;
+  // Parse body with error handling
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(event.body || '{}');
+  } catch {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Invalid JSON body' }),
+    };
+  }
+
+  const { platform, productId, transactionId, receipt, purchaseToken } = body as {
+    platform?: string;
+    productId?: string;
+    transactionId?: string;
+    receipt?: string;
+    purchaseToken?: string;
+  };
 
   if (!platform || !productId || !transactionId) {
     return {
@@ -299,20 +339,24 @@ export const handler = withAuthHandler('iap-verify', async (event, ctx: AuthCont
     };
   }
 
-  if (platform === 'ios' && !receipt) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Missing receipt for iOS' }),
-    };
+  // Input length validation
+  if (typeof transactionId !== 'string' || transactionId.length > MAX_TRANSACTION_ID_LEN) {
+    return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid transactionId' }) };
+  }
+  if (typeof productId !== 'string' || productId.length > MAX_PRODUCT_ID_LEN) {
+    return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid productId' }) };
   }
 
-  if (platform === 'android' && !purchaseToken) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ success: false, message: 'Missing purchaseToken for Android' }),
-    };
+  if (platform === 'ios') {
+    if (!receipt || typeof receipt !== 'string' || receipt.length > MAX_RECEIPT_LEN) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing or invalid receipt for iOS' }) };
+    }
+  }
+
+  if (platform === 'android') {
+    if (!purchaseToken || typeof purchaseToken !== 'string' || purchaseToken.length > MAX_PURCHASE_TOKEN_LEN) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing or invalid purchaseToken for Android' }) };
+    }
   }
 
   // Resolve product type
@@ -371,7 +415,7 @@ export const handler = withAuthHandler('iap-verify', async (event, ctx: AuthCont
     );
   } else {
     validationResult = await validateGoogleReceipt(
-      purchaseToken,
+      purchaseToken!,
       productId,
       SUBSCRIPTION_TYPES.has(productType),
       iapSecrets as GooglePlaySecrets,
@@ -411,6 +455,11 @@ export const handler = withAuthHandler('iap-verify', async (event, ctx: AuthCont
   try {
     await client.query('BEGIN');
 
+    // Truncate raw_receipt to prevent storage abuse
+    const rawReceipt = platform === 'ios'
+      ? (receipt ?? '').substring(0, MAX_RECEIPT_LEN)
+      : (purchaseToken ?? '').substring(0, MAX_PURCHASE_TOKEN_LEN);
+
     await client.query(
       `INSERT INTO user_entitlements (
         profile_id, product_type, platform, store_transaction_id,
@@ -430,7 +479,7 @@ export const handler = withAuthHandler('iap-verify', async (event, ctx: AuthCont
         true,
         validationResult.isTrial ?? false,
         validationResult.environment ?? 'production',
-        platform === 'ios' ? receipt : purchaseToken,
+        rawReceipt,
       ],
     );
 

@@ -139,6 +139,66 @@ interface IdentityBody {
 }
 
 // ============================================
+// ACTION DISPATCH MAP
+// ============================================
+
+interface ActionConfig {
+  requiredFields?: (keyof IdentityBody)[];
+  requiredFieldsMessage?: string;
+  handler: (params: {
+    stripe: Stripe;
+    profileId: string;
+    body: IdentityBody;
+    headers: Record<string, string>;
+  }) => Promise<APIGatewayProxyResult>;
+}
+
+const ACTION_DISPATCH: Record<string, ActionConfig> = {
+  'create-subscription': {
+    handler: ({ stripe, profileId, headers }) =>
+      createVerificationSubscription(stripe, profileId, headers),
+  },
+  'confirm-subscription': {
+    requiredFields: ['returnUrl'],
+    requiredFieldsMessage: 'returnUrl is required',
+    handler: ({ stripe, profileId, body, headers }) =>
+      confirmSubscriptionAndStartVerification(stripe, profileId, body.returnUrl!, headers),
+  },
+  'cancel-subscription': {
+    handler: ({ stripe, profileId, headers }) =>
+      cancelVerificationSubscription(stripe, profileId, headers),
+  },
+  'get-config': {
+    handler: ({ stripe, headers }) =>
+      getVerificationConfig(stripe, headers),
+  },
+  'create-payment-intent': {
+    handler: ({ profileId, headers }) =>
+      createVerificationPaymentIntent(profileId, headers),
+  },
+  'confirm-payment': {
+    requiredFields: ['paymentIntentId', 'returnUrl'],
+    requiredFieldsMessage: 'paymentIntentId and returnUrl are required',
+    handler: ({ profileId, body, headers }) =>
+      confirmPaymentAndStartVerification(profileId, body.paymentIntentId!, body.returnUrl!, headers),
+  },
+  'create-session': {
+    requiredFields: ['returnUrl'],
+    requiredFieldsMessage: 'returnUrl is required',
+    handler: ({ profileId, body, headers }) =>
+      createVerificationSession(profileId, body.returnUrl!, headers),
+  },
+  'get-status': {
+    handler: ({ profileId, headers }) =>
+      getVerificationStatus(profileId, headers),
+  },
+  'get-report': {
+    handler: ({ profileId, headers }) =>
+      getVerificationReport(profileId, headers),
+  },
+};
+
+// ============================================
 // HANDLER
 // ============================================
 
@@ -156,42 +216,16 @@ export const handler = withAuthHandler('payments-identity', async (event, { head
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid return URL' }) };
     }
 
-    switch (body.action) {
-      case 'create-subscription':
-        return await createVerificationSubscription(stripe, profileId, headers);
-      case 'confirm-subscription':
-        if (!body.returnUrl) {
-          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'returnUrl is required' }) };
-        }
-        return await confirmSubscriptionAndStartVerification(stripe, profileId, body.returnUrl, headers);
-      case 'cancel-subscription':
-        return await cancelVerificationSubscription(stripe, profileId, headers);
-      case 'get-config':
-        return await getVerificationConfig(stripe, headers);
-      // Legacy one-time payment (backward compat)
-      case 'create-payment-intent':
-        return await createVerificationPaymentIntent(profileId, headers);
-      case 'confirm-payment':
-        if (!body.paymentIntentId || !body.returnUrl) {
-          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'paymentIntentId and returnUrl are required' }) };
-        }
-        return await confirmPaymentAndStartVerification(profileId, body.paymentIntentId, body.returnUrl, headers);
-      case 'create-session':
-        if (!body.returnUrl) {
-          return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'returnUrl is required' }) };
-        }
-        return await createVerificationSession(profileId, body.returnUrl, headers);
-      case 'get-status':
-        return await getVerificationStatus(profileId, headers);
-      case 'get-report':
-        return await getVerificationReport(profileId, headers);
-      default:
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, message: 'Invalid action' }),
-        };
+    const actionConfig = ACTION_DISPATCH[body.action];
+    if (!actionConfig) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Invalid action' }) };
     }
+
+    if (actionConfig.requiredFields?.some(field => !body[field])) {
+      return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: actionConfig.requiredFieldsMessage ?? 'Missing required fields' }) };
+    }
+
+    return await actionConfig.handler({ stripe, profileId, body, headers });
 });
 
 // ============================================
@@ -228,7 +262,7 @@ async function checkExistingSubscription(
       }
     }
   } catch {
-    // Expected: existing subscription may be invalid or canceled — fall through to create new one
+    // Subscription invalid, create new one
   }
 
   return null;
@@ -613,7 +647,7 @@ async function checkExistingVerificationSession(
       };
     }
   } catch {
-    // Expected: verification session may be expired or invalid — fall through to create new one
+    // Session expired or invalid, create new one
   }
 
   return null;

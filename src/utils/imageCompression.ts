@@ -3,7 +3,8 @@
  * Compresses and resizes images before upload to reduce bandwidth and storage costs
  */
 
-import * as ImageManipulator from 'expo-image-manipulator';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import type { SaveOptions } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // ============================================
@@ -163,48 +164,39 @@ export const compressImage = async (
   } = options;
 
   try {
-    // Use provided dimensions (from ImagePicker) or read them via manipulateAsync
+    // Use provided dimensions (from ImagePicker) or read them via manipulate API
     let origWidth: number;
     let origHeight: number;
     if (sourceWidth && sourceHeight) {
       origWidth = sourceWidth;
       origHeight = sourceHeight;
     } else {
-      const originalInfo = await ImageManipulator.manipulateAsync(
-        imageUri,
-        [],
-        { format: ImageManipulator.SaveFormat.JPEG }
-      );
-      origWidth = originalInfo.width;
-      origHeight = originalInfo.height;
+      const origRef = await ImageManipulator.manipulate(imageUri).renderAsync();
+      origWidth = origRef.width;
+      origHeight = origRef.height;
     }
 
     // Calculate new dimensions
     const { width, height } = calculateDimensions(origWidth, origHeight, maxWidth, maxHeight);
 
-    // Apply compression and resize
-    const actions: ImageManipulator.Action[] = [];
-
-    // Only resize if needed
+    // Build manipulation context with optional resize
+    let context = ImageManipulator.manipulate(imageUri);
     if (width !== origWidth || height !== origHeight) {
-      actions.push({ resize: { width, height } });
+      context = context.resize({ width, height });
     }
 
-    // Process the image
-    let saveFormat: ImageManipulator.SaveFormat;
+    // Determine save format
+    let imgSaveFormat: SaveFormat;
     if (format === 'png') {
-      saveFormat = ImageManipulator.SaveFormat.PNG;
+      imgSaveFormat = SaveFormat.PNG;
     } else if (format === 'webp') {
-      saveFormat = ImageManipulator.SaveFormat.WEBP;
+      imgSaveFormat = SaveFormat.WEBP;
     } else {
-      saveFormat = ImageManipulator.SaveFormat.JPEG;
+      imgSaveFormat = SaveFormat.JPEG;
     }
 
-    const result = await ImageManipulator.manipulateAsync(
-      imageUri,
-      actions,
-      { compress: quality, format: saveFormat },
-    );
+    const imageRef = await context.renderAsync();
+    const result = await imageRef.saveAsync({ compress: quality, format: imgSaveFormat } as SaveOptions);
 
     // Get final file size
     const fileSize = await getFileSize(result.uri);
@@ -324,18 +316,14 @@ export const smartCompress = async (
  * Get image info without compressing
  */
 export const getImageInfo = async (imageUri: string): Promise<ImageInfo> => {
-  const result = await ImageManipulator.manipulateAsync(
-    imageUri,
-    [],
-    { format: ImageManipulator.SaveFormat.JPEG }
-  );
+  const imageRef = await ImageManipulator.manipulate(imageUri).renderAsync();
 
   const fileSize = await getFileSize(imageUri);
 
   return {
     uri: imageUri,
-    width: result.width,
-    height: result.height,
+    width: imageRef.width,
+    height: imageRef.height,
     fileSize,
   };
 };

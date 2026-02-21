@@ -99,6 +99,13 @@ describe('payments/refunds handler', () => {
     };
     const { getPool } = require('../../../shared/db');
     (getPool as jest.Mock).mockResolvedValue(mockPool);
+    const { getStripeClient } = require('../../../shared/stripe-client');
+    (getStripeClient as jest.Mock).mockResolvedValue({
+      refunds: {
+        create: jest.fn().mockResolvedValue({ id: 're_test', status: 'succeeded', amount: 5000, currency: 'usd', created: 1234567890 }),
+        retrieve: jest.fn().mockResolvedValue({ id: 're_test', status: 'succeeded', amount: 5000, currency: 'usd', created: 1234567890 }),
+      },
+    });
   });
 
   // ── Preflight / Auth / Rate Limit / Profile ─────────────────────────
@@ -343,8 +350,8 @@ describe('payments/refunds handler', () => {
       const result = await handler(event);
       expect(result!.statusCode).toBe(200);
       const queryCall = mockPool.query.mock.calls[1];
-      // Admin: no buyer/creator filter; status present; cursor present
-      expect(queryCall[0]).not.toContain('buyer_id =');
+      // Admin: no buyer/creator filter in WHERE clause; status present; cursor present
+      expect(queryCall[0]).not.toContain('AND (p.buyer_id = $');
       expect(queryCall[0]).toContain('r.status =');
       expect(queryCall[0]).toContain('r.created_at <');
     });
@@ -508,10 +515,10 @@ describe('payments/refunds handler', () => {
 
     it('returns null stripeDetails when Stripe retrieve fails', async () => {
       const { getStripeClient } = require('../../../shared/stripe-client');
-      (getStripeClient as jest.Mock).mockResolvedValueOnce({
+      (getStripeClient as jest.Mock).mockResolvedValue({
         refunds: {
           create: jest.fn(),
-          retrieve: jest.fn().mockRejectedValueOnce(new Error('Stripe API error')),
+          retrieve: jest.fn().mockRejectedValue(new Error('Stripe API error')),
         },
       });
       const refundRow = {

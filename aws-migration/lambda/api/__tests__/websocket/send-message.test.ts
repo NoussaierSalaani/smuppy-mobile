@@ -2,10 +2,30 @@
 jest.mock('@aws-sdk/client-apigatewaymanagementapi', () => ({
   ApiGatewayManagementApiClient: jest.fn(),
   PostToConnectionCommand: jest.fn(),
-}));
+}), { virtual: true });
 
 jest.mock('../../../shared/db', () => ({
   getPool: jest.fn(),
+}));
+
+jest.mock('../../utils/logger', () => ({
+  createLogger: jest.fn(() => ({
+    info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(),
+    initFromEvent: jest.fn(), setRequestId: jest.fn(), setUserId: jest.fn(),
+    child: jest.fn().mockReturnThis(),
+  })),
+}));
+
+jest.mock('../../utils/error-handler', () => ({
+  hasStatusCode: jest.fn(),
+}));
+
+jest.mock('../../../shared/moderation/textFilter', () => ({
+  filterText: jest.fn().mockReturnValue({ filtered: false }),
+}));
+
+jest.mock('../../../shared/moderation/textModeration', () => ({
+  analyzeTextToxicity: jest.fn().mockResolvedValue({ toxic: false }),
 }));
 
 import { sanitizeMessageContent, stripHtmlTagsLinear, MAX_MESSAGE_LENGTH } from '../../../websocket/send-message';

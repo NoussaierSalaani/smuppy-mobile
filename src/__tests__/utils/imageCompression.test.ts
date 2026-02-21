@@ -7,15 +7,29 @@
 // Define __DEV__ before imports
 (global as Record<string, unknown>).__DEV__ = true;
 
-jest.mock('expo-image-manipulator', () => ({
-  manipulateAsync: jest.fn(),
-  SaveFormat: { JPEG: 'jpeg', PNG: 'png', WEBP: 'webp' },
-}));
+// Track mock calls for the chained ImageManipulator API
+const mockSaveAsync = jest.fn();
+const mockRenderAsync = jest.fn();
+const mockResize = jest.fn();
+const mockManipulate = jest.fn();
+
+jest.mock('expo-image-manipulator', () => {
+  const createContext = (): Record<string, unknown> => ({
+    resize: (...args: unknown[]) => { mockResize(...args); return createContext(); },
+    renderAsync: () => mockRenderAsync(),
+  });
+
+  return {
+    ImageManipulator: {
+      manipulate: (uri: string) => { mockManipulate(uri); return createContext(); },
+    },
+    SaveFormat: { JPEG: 'jpeg', PNG: 'png', WEBP: 'webp' },
+  };
+});
 jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: jest.fn(),
 }));
 
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   COMPRESSION_PRESETS,
@@ -31,6 +45,51 @@ import {
   smartCompress,
   getImageInfo,
 } from '../../utils/imageCompression';
+
+/** Helper: set up the standard mock chain for a successful compression */
+const setupCompressMock = (opts: {
+  renderWidth?: number;
+  renderHeight?: number;
+  saveUri?: string;
+  saveWidth?: number;
+  saveHeight?: number;
+  fileSize?: number;
+} = {}) => {
+  const {
+    renderWidth = 800, renderHeight = 600,
+    saveUri = 'file:///compressed.jpg',
+    saveWidth = 800, saveHeight = 600,
+    fileSize = 50000,
+  } = opts;
+  mockSaveAsync.mockResolvedValue({ uri: saveUri, width: saveWidth, height: saveHeight });
+  mockRenderAsync.mockResolvedValue({ width: renderWidth, height: renderHeight, saveAsync: mockSaveAsync });
+  (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: fileSize });
+};
+
+/**
+ * Helper: set up mock for a flow that first reads dimensions, then compresses.
+ * renderAsync is called twice: first for dimension reading, second for compression.
+ */
+const setupDimReadThenCompress = (opts: {
+  origWidth?: number;
+  origHeight?: number;
+  compressWidth?: number;
+  compressHeight?: number;
+  saveUri?: string;
+  fileSize?: number;
+} = {}) => {
+  const {
+    origWidth = 3000, origHeight = 2000,
+    compressWidth = 1080, compressHeight = 720,
+    saveUri = 'file:///compressed.jpg',
+    fileSize = 50000,
+  } = opts;
+  mockSaveAsync.mockResolvedValue({ uri: saveUri, width: compressWidth, height: compressHeight });
+  mockRenderAsync
+    .mockResolvedValueOnce({ width: origWidth, height: origHeight }) // dim read (no saveAsync needed)
+    .mockResolvedValueOnce({ width: compressWidth, height: compressHeight, saveAsync: mockSaveAsync });
+  (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: fileSize });
+};
 
 describe('Image Compression Utils', () => {
   describe('COMPRESSION_PRESETS validation (BUG-2026-02-05 regression)', () => {
@@ -91,7 +150,6 @@ describe('Image Compression Utils', () => {
     });
 
     it('should handle fractional MB', () => {
-      // 2.5 MB = 2621440 bytes
       expect(formatFileSize(2621440)).toBe('2.5 MB');
     });
   });
@@ -99,12 +157,7 @@ describe('Image Compression Utils', () => {
   describe('compressImage', () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
-        uri: 'file:///compressed.jpg',
-        width: 800,
-        height: 600,
-      });
-      (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: 50000 });
+      setupCompressMock();
     });
 
     it('should compress image with default options', async () => {
@@ -124,18 +177,17 @@ describe('Image Compression Utils', () => {
         maxWidth: 1080,
         maxHeight: 1350,
       });
-      // Should only call manipulateAsync once (for the actual compress, not for dimension reading)
-      expect(ImageManipulator.manipulateAsync).toHaveBeenCalledTimes(1);
+      // manipulate called once (for compression only, not for dimension reading)
+      expect(mockManipulate).toHaveBeenCalledTimes(1);
     });
 
     it('should read dimensions when sourceWidth/sourceHeight not provided', async () => {
-      // First call returns dimensions, second call does the actual compression
-      (ImageManipulator.manipulateAsync as jest.Mock)
-        .mockResolvedValueOnce({ uri: 'file:///temp.jpg', width: 3000, height: 2000 })
-        .mockResolvedValueOnce({ uri: 'file:///compressed.jpg', width: 1080, height: 720 });
+      setupDimReadThenCompress();
 
       await compressImage('file:///original.jpg');
-      expect(ImageManipulator.manipulateAsync).toHaveBeenCalledTimes(2);
+      // manipulate called twice: once to read dimensions, once to compress
+      expect(mockManipulate).toHaveBeenCalledTimes(2);
+      expect(mockRenderAsync).toHaveBeenCalledTimes(2);
     });
 
     it('should not resize when image is smaller than max dimensions', async () => {
@@ -145,10 +197,8 @@ describe('Image Compression Utils', () => {
         maxWidth: 1080,
         maxHeight: 1350,
       });
-      // Actions array should be empty (no resize needed)
-      const callArgs = (ImageManipulator.manipulateAsync as jest.Mock).mock.calls[0];
-      const actions = callArgs[1];
-      expect(actions).toEqual([]);
+      // resize should NOT be called since image is already small
+      expect(mockResize).not.toHaveBeenCalled();
     });
 
     it('should resize when image is larger than max dimensions', async () => {
@@ -158,10 +208,8 @@ describe('Image Compression Utils', () => {
         maxWidth: 1080,
         maxHeight: 1350,
       });
-      const callArgs = (ImageManipulator.manipulateAsync as jest.Mock).mock.calls[0];
-      const actions = callArgs[1];
-      expect(actions.length).toBe(1);
-      expect(actions[0]).toHaveProperty('resize');
+      expect(mockResize).toHaveBeenCalledTimes(1);
+      expect(mockResize).toHaveBeenCalledWith(expect.objectContaining({ width: expect.any(Number) }));
     });
 
     it('should use PNG format when specified', async () => {
@@ -170,9 +218,9 @@ describe('Image Compression Utils', () => {
         sourceHeight: 400,
         format: 'png',
       });
-      const callArgs = (ImageManipulator.manipulateAsync as jest.Mock).mock.calls[0];
-      const options = callArgs[2];
-      expect(options.format).toBe(ImageManipulator.SaveFormat.PNG);
+      expect(mockSaveAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ format: 'png' })
+      );
     });
 
     it('should use WEBP format when specified', async () => {
@@ -181,9 +229,9 @@ describe('Image Compression Utils', () => {
         sourceHeight: 400,
         format: 'webp',
       });
-      const callArgs = (ImageManipulator.manipulateAsync as jest.Mock).mock.calls[0];
-      const options = callArgs[2];
-      expect(options.format).toBe(ImageManipulator.SaveFormat.WEBP);
+      expect(mockSaveAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ format: 'webp' })
+      );
     });
 
     it('should return correct MIME type for png', async () => {
@@ -204,10 +252,8 @@ describe('Image Compression Utils', () => {
       expect(result.mimeType).toBe('image/webp');
     });
 
-    it('should throw when manipulateAsync fails', async () => {
-      (ImageManipulator.manipulateAsync as jest.Mock).mockRejectedValue(
-        new Error('Manipulation failed')
-      );
+    it('should throw when renderAsync fails', async () => {
+      mockRenderAsync.mockRejectedValue(new Error('Manipulation failed'));
       await expect(
         compressImage('file:///original.jpg', { sourceWidth: 100, sourceHeight: 100 })
       ).rejects.toThrow('Manipulation failed');
@@ -217,12 +263,12 @@ describe('Image Compression Utils', () => {
   describe('compressWithPreset', () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
-        uri: 'file:///compressed.webp',
-        width: 400,
-        height: 400,
+      setupCompressMock({
+        saveUri: 'file:///compressed.webp',
+        renderWidth: 400, renderHeight: 400,
+        saveWidth: 400, saveHeight: 400,
+        fileSize: 30000,
       });
-      (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: 30000 });
     });
 
     it('should use avatar preset options', async () => {
@@ -242,9 +288,12 @@ describe('Image Compression Utils', () => {
     });
 
     it('should work without sourceDimensions', async () => {
-      (ImageManipulator.manipulateAsync as jest.Mock)
-        .mockResolvedValueOnce({ uri: 'file:///temp.jpg', width: 1000, height: 1000 })
-        .mockResolvedValueOnce({ uri: 'file:///compressed.webp', width: 400, height: 400 });
+      setupDimReadThenCompress({
+        origWidth: 1000, origHeight: 1000,
+        compressWidth: 400, compressHeight: 400,
+        saveUri: 'file:///compressed.webp',
+        fileSize: 30000,
+      });
 
       const result = await compressWithPreset('file:///photo.jpg', 'avatar');
       expect(result).toBeDefined();
@@ -254,20 +303,13 @@ describe('Image Compression Utils', () => {
   describe('compressImages', () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
-        uri: 'file:///compressed.jpg',
-        width: 800,
-        height: 600,
-      });
-      (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: 50000 });
     });
 
     it('should compress multiple images in parallel', async () => {
-      (ImageManipulator.manipulateAsync as jest.Mock)
-        .mockResolvedValueOnce({ uri: 'file:///temp1.jpg', width: 1000, height: 800 })
-        .mockResolvedValueOnce({ uri: 'file:///c1.jpg', width: 800, height: 640 })
-        .mockResolvedValueOnce({ uri: 'file:///temp2.jpg', width: 1000, height: 800 })
-        .mockResolvedValueOnce({ uri: 'file:///c2.jpg', width: 800, height: 640 });
+      // Use mockResolvedValue (not Once) since concurrent calls race unpredictably
+      mockSaveAsync.mockResolvedValue({ uri: 'file:///c.jpg', width: 800, height: 640 });
+      mockRenderAsync.mockResolvedValue({ width: 1000, height: 800, saveAsync: mockSaveAsync });
+      (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: 50000 });
 
       const results = await compressImages(['file:///img1.jpg', 'file:///img2.jpg']);
       expect(results).toHaveLength(2);
@@ -277,12 +319,12 @@ describe('Image Compression Utils', () => {
   describe('convenience compress functions', () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
-        uri: 'file:///compressed.webp',
-        width: 400,
-        height: 400,
+      setupCompressMock({
+        saveUri: 'file:///compressed.webp',
+        renderWidth: 400, renderHeight: 400,
+        saveWidth: 400, saveHeight: 400,
+        fileSize: 30000,
       });
-      (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: 30000 });
     });
 
     it('compressAvatar should use avatar preset', async () => {
@@ -315,21 +357,17 @@ describe('Image Compression Utils', () => {
   describe('smartCompress', () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
-        uri: 'file:///compressed.jpg',
-        width: 1080,
-        height: 810,
-      });
     });
 
     it('should use high quality when file is already small enough', async () => {
-      // File is 400KB, target is 500KB
-      (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: 400 * 1024 });
-
-      // Need two manipulateAsync calls: one for reading dimensions, one for compressing
-      (ImageManipulator.manipulateAsync as jest.Mock)
-        .mockResolvedValueOnce({ uri: 'file:///temp.jpg', width: 1000, height: 750 })
-        .mockResolvedValueOnce({ uri: 'file:///compressed.jpg', width: 1000, height: 750 });
+      // File is 400KB, target is 500KB — already small enough
+      mockSaveAsync.mockResolvedValue({ uri: 'file:///compressed.jpg', width: 1000, height: 750 });
+      mockRenderAsync
+        .mockResolvedValueOnce({ width: 1000, height: 750 }) // dim read
+        .mockResolvedValueOnce({ width: 1000, height: 750, saveAsync: mockSaveAsync }); // compress
+      (FileSystem.getInfoAsync as jest.Mock)
+        .mockResolvedValueOnce({ size: 400 * 1024 }) // original size check
+        .mockResolvedValueOnce({ size: 400 * 1024 }); // after compression size
 
       const result = await smartCompress('file:///photo.jpg', 500);
       expect(result).toBeDefined();
@@ -337,13 +375,13 @@ describe('Image Compression Utils', () => {
 
     it('should reduce quality for large files', async () => {
       // File is 2MB, target is 500KB
+      mockSaveAsync.mockResolvedValue({ uri: 'file:///compressed.jpg', width: 1080, height: 810 });
+      mockRenderAsync
+        .mockResolvedValueOnce({ width: 2000, height: 1500 }) // dim read
+        .mockResolvedValueOnce({ width: 1080, height: 810, saveAsync: mockSaveAsync }); // compress
       (FileSystem.getInfoAsync as jest.Mock)
         .mockResolvedValueOnce({ size: 2 * 1024 * 1024 }) // original size check
         .mockResolvedValueOnce({ size: 300 * 1024 }); // after compression
-
-      (ImageManipulator.manipulateAsync as jest.Mock)
-        .mockResolvedValueOnce({ uri: 'file:///temp.jpg', width: 2000, height: 1500 })
-        .mockResolvedValueOnce({ uri: 'file:///compressed.jpg', width: 1080, height: 810 });
 
       const result = await smartCompress('file:///photo.jpg', 500);
       expect(result).toBeDefined();
@@ -352,11 +390,8 @@ describe('Image Compression Utils', () => {
 
   describe('getImageInfo', () => {
     it('should return image info without compressing', async () => {
-      (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
-        uri: 'file:///photo.jpg',
-        width: 3000,
-        height: 2000,
-      });
+      jest.clearAllMocks();
+      mockRenderAsync.mockResolvedValue({ width: 3000, height: 2000 });
       (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ size: 5000000 });
 
       const result = await getImageInfo('file:///photo.jpg');
@@ -364,6 +399,8 @@ describe('Image Compression Utils', () => {
       expect(result.width).toBe(3000);
       expect(result.height).toBe(2000);
       expect(result.fileSize).toBe(5000000);
+      // Should NOT call saveAsync — getImageInfo only reads
+      expect(mockSaveAsync).not.toHaveBeenCalled();
     });
   });
 });

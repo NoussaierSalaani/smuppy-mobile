@@ -192,17 +192,17 @@ export const resolveDisplayName = (user: {
   // Business accounts use business_name
   const isBusiness = (user.account_type || user.accountType) === ACCOUNT_TYPE.PRO_BUSINESS;
   const bName = user.business_name || user.businessName;
-  if (isBusiness && bName && bName.trim()) return bName;
+  if (isBusiness && bName?.trim()) return bName;
 
   // Check each field explicitly, treating empty/whitespace strings as falsy
   const fullName = user.full_name || user.fullName;
-  if (fullName && fullName.trim()) return fullName;
+  if (fullName?.trim()) return fullName;
 
   const displayName = user.display_name || user.displayName;
-  if (displayName && displayName.trim()) return displayName;
+  if (displayName?.trim()) return displayName;
 
   // Fallback to username
-  if (user.username && user.username.trim()) return user.username;
+  if (user.username?.trim()) return user.username;
 
   return fallback;
 };

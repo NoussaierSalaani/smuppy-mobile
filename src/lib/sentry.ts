@@ -21,9 +21,9 @@ import { ENV } from '../config/env';
 // CONSTANTS
 // =============================================
 
-const TRACES_SAMPLE_RATE_DEV = 1.0;
+const TRACES_SAMPLE_RATE_DEV = 1;
 const TRACES_SAMPLE_RATE_PROD = 0.2;
-const PROFILES_SAMPLE_RATE_DEV = 1.0;
+const PROFILES_SAMPLE_RATE_DEV = 1;
 const PROFILES_SAMPLE_RATE_PROD = 0.1;
 
 // =============================================
@@ -127,7 +127,7 @@ const pendingExceptions: Array<{ error: Error; context?: Record<string, unknown>
 const flushPendingCaptures = (): void => {
   for (const m of pendingMessages) {
     Sentry.captureMessage(scrubValue(m.message) as string, {
-      level: (m.level as Sentry.SeverityLevel) || 'info',
+      level: m.level || 'info',
       extra: m.context ? scrubObject(m.context) : undefined,
     });
   }

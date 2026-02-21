@@ -424,9 +424,9 @@ export const handler = withAuthHandler('payments-create-intent', async (event, {
   // Wrap Stripe calls in try-catch to return 400 for Stripe errors instead of 500
   try {
     return await createStripePaymentIntent(stripe, db, log, buyer, creator, data, amounts, customerId, defaultDescription, headers);
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     // Handle Stripe-specific errors — don't leak internal details
-    if (error instanceof Stripe.errors.StripeError) {
+    if (error_ instanceof Stripe.errors.StripeError) {
       log.error('Stripe error processing payment');
       return {
         statusCode: 400,
@@ -438,6 +438,6 @@ export const handler = withAuthHandler('payments-create-intent', async (event, {
     }
 
     // Re-throw non-Stripe errors for withErrorHandler to catch
-    throw error;
+    throw error_;
   }
 });

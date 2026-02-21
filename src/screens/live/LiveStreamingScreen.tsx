@@ -15,7 +15,6 @@ import {
   StatusBar,
   Image,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { resolveDisplayName } from '../../types/profile';

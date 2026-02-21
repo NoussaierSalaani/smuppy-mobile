@@ -13,7 +13,6 @@ import {
   TextInput,
   Animated,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';

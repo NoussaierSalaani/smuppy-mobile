@@ -77,8 +77,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
-  } catch (error) {
-    log.error('Platform subscription error', error);
+  } catch (error_) {
+    log.error('Platform subscription error', error_);
     return {
       statusCode: 500,
       headers: headers,

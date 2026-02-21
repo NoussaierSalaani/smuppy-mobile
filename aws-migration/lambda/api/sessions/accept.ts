@@ -117,9 +117,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     };
-  } catch (error) {
+  } catch (error_) {
     await client.query('ROLLBACK');
-    log.error('Accept session error', error);
+    log.error('Accept session error', error_);
     return {
       statusCode: 500,
       headers: headers,

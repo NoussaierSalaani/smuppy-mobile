@@ -364,9 +364,9 @@ export const handler = withAuthHandler('events-create', async (event, { headers,
         },
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw error;
+    throw error_;
   } finally {
     client.release();
   }

@@ -363,7 +363,7 @@ const CreatePeakScreenInner = (): React.JSX.Element => {
             </TouchableOpacity>
 
             <Text style={styles.headerTitle}>
-              {(() => { if (challengeId) return 'Challenge Response'; if (replyTo) return 'Reply'; return 'Peak'; })()}
+              {(() => { if (challengeId) { return 'Challenge Response'; } if (replyTo) { return 'Reply'; } return 'Peak'; })()}
             </Text>
 
             <View style={{ width: 44 }} />

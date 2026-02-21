@@ -584,4 +584,288 @@ describe('payments/identity handler', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).sessionId).toBe('vs_test');
   });
+
+  // ── Extended Coverage (Batch 7A) ────────────────────────────────
+
+  // 1. create-subscription uses cached price when STRIPE_VERIFICATION_PRICE_ID is set
+  it('create-subscription uses cached price from env var', async () => {
+    process.env.STRIPE_VERIFICATION_PRICE_ID = 'price_env_cached';
+    // Re-import to pick up the env var on a fresh module (cache is module-level)
+    jest.resetModules();
+    const { handler: freshHandler } = require('../../payments/identity');
+    // Re-wire mocks after resetModules
+    const { getPool: gp } = require('../../../shared/db');
+    (gp as jest.Mock).mockResolvedValue(mockPool);
+    const { getStripeClient: gsc } = require('../../../shared/stripe-client');
+    (gsc as jest.Mock).mockResolvedValue(s);
+    const { resolveProfileId: rp } = require('../../utils/auth');
+    (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
+    const { requireRateLimit: rrl } = require('../../utils/rate-limit');
+    (rrl as jest.Mock).mockResolvedValue(null);
+
+    mockClient.query
+      .mockResolvedValueOnce({
+        rows: [{ id: TEST_PROFILE_ID, email: 't@t.com', full_name: 'T', stripe_customer_id: 'cus_x', is_verified: false, verification_subscription_id: null }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 });
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
+    const result = await freshHandler(event);
+    expect(result.statusCode).toBe(200);
+    // Should NOT call products.search or prices.create — used env var directly
+    expect(s.products.search).not.toHaveBeenCalled();
+    expect(s.prices.create).not.toHaveBeenCalled();
+    // Subscription create should use the env-cached price
+    expect(s.subscriptions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [{ price: 'price_env_cached' }],
+      }),
+    );
+    delete process.env.STRIPE_VERIFICATION_PRICE_ID;
+  });
+
+  // 2. create-subscription reuses existing active product from search
+  it('create-subscription reuses existing active product from search', async () => {
+    jest.resetModules();
+    const { handler: freshHandler } = require('../../payments/identity');
+    const { getPool: gp } = require('../../../shared/db');
+    (gp as jest.Mock).mockResolvedValue(mockPool);
+    const { getStripeClient: gsc } = require('../../../shared/stripe-client');
+    (gsc as jest.Mock).mockResolvedValue(s);
+    const { resolveProfileId: rp } = require('../../utils/auth');
+    (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
+    const { requireRateLimit: rrl } = require('../../utils/rate-limit');
+    (rrl as jest.Mock).mockResolvedValue(null);
+
+    // products.search returns an existing active product
+    s.products.search.mockResolvedValueOnce({ data: [{ id: 'prod_existing', active: true }] });
+    // prices.list returns empty → will create new price
+    s.prices.list.mockResolvedValueOnce({ data: [] });
+
+    mockClient.query
+      .mockResolvedValueOnce({
+        rows: [{ id: TEST_PROFILE_ID, email: 't@t.com', full_name: 'T', stripe_customer_id: 'cus_x', is_verified: false, verification_subscription_id: null }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 });
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
+    const result = await freshHandler(event);
+    expect(result.statusCode).toBe(200);
+    // Should NOT create a new product — reused existing
+    expect(s.products.create).not.toHaveBeenCalled();
+    // Should create a price on the existing product
+    expect(s.prices.create).toHaveBeenCalledWith(
+      expect.objectContaining({ product: 'prod_existing' }),
+    );
+  });
+
+  // 3. create-subscription reuses existing price from product
+  it('create-subscription reuses existing price from product', async () => {
+    jest.resetModules();
+    const { handler: freshHandler } = require('../../payments/identity');
+    const { getPool: gp } = require('../../../shared/db');
+    (gp as jest.Mock).mockResolvedValue(mockPool);
+    const { getStripeClient: gsc } = require('../../../shared/stripe-client');
+    (gsc as jest.Mock).mockResolvedValue(s);
+    const { resolveProfileId: rp } = require('../../utils/auth');
+    (rp as jest.Mock).mockResolvedValue(TEST_PROFILE_ID);
+    const { requireRateLimit: rrl } = require('../../utils/rate-limit');
+    (rrl as jest.Mock).mockResolvedValue(null);
+
+    // products.search returns existing active product
+    s.products.search.mockResolvedValueOnce({ data: [{ id: 'prod_existing', active: true }] });
+    // prices.list returns existing price
+    s.prices.list.mockResolvedValueOnce({ data: [{ id: 'price_reused' }] });
+
+    mockClient.query
+      .mockResolvedValueOnce({
+        rows: [{ id: TEST_PROFILE_ID, email: 't@t.com', full_name: 'T', stripe_customer_id: 'cus_x', is_verified: false, verification_subscription_id: null }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 });
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
+    const result = await freshHandler(event);
+    expect(result.statusCode).toBe(200);
+    // Should NOT create a new product or price — reused both
+    expect(s.products.create).not.toHaveBeenCalled();
+    expect(s.prices.create).not.toHaveBeenCalled();
+    // Subscription create should use the reused price
+    expect(s.subscriptions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [{ price: 'price_reused' }],
+      }),
+    );
+  });
+
+  // 4. create-subscription handles trialing subscription status
+  it('create-subscription handles trialing subscription status', async () => {
+    mockClient.query.mockResolvedValueOnce({
+      rows: [{ id: TEST_PROFILE_ID, email: 't@t.com', full_name: 'T', stripe_customer_id: 'cus_x', is_verified: false, verification_subscription_id: 'sub_trial' }],
+    });
+    s.subscriptions.retrieve.mockResolvedValueOnce({ id: 'sub_trial', status: 'trialing' });
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).subscriptionActive).toBe(true);
+  });
+
+  // 5. confirm-subscription accepts trialing subscription status
+  it('confirm-subscription accepts trialing subscription status', async () => {
+    s.subscriptions.retrieve.mockResolvedValueOnce({ id: 'sub_trial', status: 'trialing' });
+    mockClient.query
+      .mockResolvedValueOnce({ rows: [{ verification_subscription_id: 'sub_trial' }] })
+      .mockResolvedValueOnce({ rowCount: 1 }) // update payment status
+      .mockResolvedValueOnce({ rows: [{ email: 't@t.com', identity_verification_session_id: null, verification_payment_status: 'paid' }] })
+      .mockResolvedValueOnce({ rowCount: 1 }); // update session id
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'confirm-subscription', returnUrl: 'smuppy://v' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).sessionId).toBe('vs_test');
+  });
+
+  // 6. create-subscription handles incomplete sub with no payment_intent
+  it('create-subscription handles incomplete sub with no payment_intent → creates new', async () => {
+    mockClient.query.mockResolvedValueOnce({
+      rows: [{ id: TEST_PROFILE_ID, email: 't@t.com', full_name: 'T', stripe_customer_id: 'cus_x', is_verified: false, verification_subscription_id: 'sub_inc' }],
+    });
+    // Existing sub is incomplete with a latest_invoice but no payment_intent on it
+    s.subscriptions.retrieve.mockResolvedValueOnce({ id: 'sub_inc', status: 'incomplete', latest_invoice: 'inv_no_pi' });
+    s.invoices.retrieve.mockResolvedValueOnce({ payment_intent: null });
+    // Falls through to create new subscription
+    mockClient.query.mockResolvedValueOnce({ rowCount: 1 });
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).subscriptionId).toBe('sub_new');
+    expect(s.subscriptions.create).toHaveBeenCalled();
+  });
+
+  // 7. create-subscription returns 500 when Stripe subscription.create fails
+  it('create-subscription returns 500 when Stripe subscription.create fails', async () => {
+    mockClient.query.mockResolvedValueOnce({
+      rows: [{ id: TEST_PROFILE_ID, email: 't@t.com', full_name: 'T', stripe_customer_id: 'cus_x', is_verified: false, verification_subscription_id: null }],
+    });
+    s.subscriptions.create.mockRejectedValueOnce(new Error('Stripe API error'));
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-subscription' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(500);
+  });
+
+  // 8. confirm-subscription returns 500 when Stripe subscription.retrieve fails
+  it('confirm-subscription returns 500 when Stripe subscription.retrieve fails', async () => {
+    mockClient.query.mockResolvedValueOnce({ rows: [{ verification_subscription_id: 'sub_err' }] });
+    s.subscriptions.retrieve.mockRejectedValueOnce(new Error('Stripe retrieve error'));
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'confirm-subscription', returnUrl: 'smuppy://v' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(500);
+  });
+
+  // 9. create-payment-intent returns 500 when Stripe paymentIntents.create fails
+  it('create-payment-intent returns 500 when Stripe paymentIntents.create fails', async () => {
+    mockClient.query.mockResolvedValueOnce({
+      rows: [{ id: TEST_PROFILE_ID, email: 't@t.com', full_name: 'T', stripe_customer_id: 'cus_x', is_verified: false, verification_payment_id: null }],
+    });
+    s.paymentIntents.create.mockRejectedValueOnce(new Error('Stripe PI create error'));
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-payment-intent' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(500);
+  });
+
+  // 10. create-session returns 500 when Stripe verificationSessions.create fails
+  it('create-session returns 500 when Stripe verificationSessions.create fails', async () => {
+    mockClient.query.mockResolvedValueOnce({ rows: [{ email: 't@t.com', identity_verification_session_id: null, verification_payment_status: 'paid' }] });
+    s.identity.verificationSessions.create.mockRejectedValueOnce(new Error('Stripe session create error'));
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-session', returnUrl: 'smuppy://v' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(500);
+  });
+
+  // 11. get-status handles Stripe retrieve failure gracefully
+  it('get-status handles Stripe retrieve failure gracefully', async () => {
+    mockClient.query.mockResolvedValueOnce({
+      rows: [{ identity_verification_session_id: 'vs_broken', is_verified: false }],
+    });
+    s.identity.verificationSessions.retrieve.mockRejectedValueOnce(new Error('Stripe retrieve error'));
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'get-status' }) });
+    const result = await handler(event);
+    // The handler does NOT catch this error — it propagates to the top-level error handler → 500
+    expect(result.statusCode).toBe(500);
+  });
+
+  // 12. create-session reuses existing session that already verified → returns null (creates new)
+  it('create-session creates new session when existing is already verified', async () => {
+    mockClient.query.mockResolvedValueOnce({ rows: [{ email: 't@t.com', identity_verification_session_id: 'vs_done', verification_payment_status: 'paid' }] });
+    // Existing session is verified (not requires_input) → checkExistingVerificationSession returns null
+    s.identity.verificationSessions.retrieve.mockResolvedValueOnce({ id: 'vs_done', status: 'verified', url: null });
+    // New session is created
+    mockClient.query.mockResolvedValueOnce({ rowCount: 1 });
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-session', returnUrl: 'smuppy://v' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    // Should create a NEW session, not reuse the verified one
+    expect(s.identity.verificationSessions.create).toHaveBeenCalled();
+    expect(JSON.parse(result.body).sessionId).toBe('vs_test');
+  });
+
+  // 13. create-session creates new session when existing is canceled
+  it('create-session creates new session when existing is canceled', async () => {
+    mockClient.query.mockResolvedValueOnce({ rows: [{ email: 't@t.com', identity_verification_session_id: 'vs_cancel', verification_payment_status: 'paid' }] });
+    // Existing session is canceled → not requires_input → checkExistingVerificationSession returns null
+    s.identity.verificationSessions.retrieve.mockResolvedValueOnce({ id: 'vs_cancel', status: 'canceled', url: null });
+    // New session is created
+    mockClient.query.mockResolvedValueOnce({ rowCount: 1 });
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'create-session', returnUrl: 'smuppy://v' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    expect(s.identity.verificationSessions.create).toHaveBeenCalled();
+    expect(JSON.parse(result.body).sessionId).toBe('vs_test');
+  });
+
+  // 14. confirm-payment creates session and updates DB in correct order
+  it('confirm-payment creates session and updates DB in correct order', async () => {
+    s.paymentIntents.retrieve.mockResolvedValueOnce({ id: 'pi_ok', status: 'succeeded', metadata: { userId: TEST_PROFILE_ID } });
+    mockClient.query
+      .mockResolvedValueOnce({ rowCount: 1 }) // UPDATE payment status to 'paid'
+      .mockResolvedValueOnce({ rows: [{ email: 't@t.com', identity_verification_session_id: null, verification_payment_status: 'paid' }] }) // SELECT in createVerificationSession
+      .mockResolvedValueOnce({ rowCount: 1 }); // UPDATE session id
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'confirm-payment', paymentIntentId: 'pi_ok', returnUrl: 'smuppy://v' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).sessionId).toBe('vs_test');
+
+    // Verify DB writes happened in order: payment status first, then session id
+    const calls = mockClient.query.mock.calls;
+    expect(calls[0][0]).toContain('verification_payment_status');
+    expect(calls[2][0]).toContain('identity_verification_session_id');
+  });
+
+  // 15. get-status returns already verified user without updating DB again
+  it('get-status returns already verified user without extra DB update', async () => {
+    mockClient.query.mockResolvedValueOnce({
+      rows: [{ identity_verification_session_id: 'vs_done', is_verified: true }],
+    });
+    s.identity.verificationSessions.retrieve.mockResolvedValueOnce({
+      id: 'vs_done', status: 'verified', last_error: null,
+    });
+
+    const event = makeEvent({ body: JSON.stringify({ action: 'get-status' }) });
+    const result = await handler(event);
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.isVerified).toBe(true);
+    expect(body.status).toBe('verified');
+    // Should NOT run the UPDATE since is_verified is already true
+    expect(mockClient.query).toHaveBeenCalledTimes(1);
+  });
 });

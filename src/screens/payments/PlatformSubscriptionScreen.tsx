@@ -131,10 +131,10 @@ export default function PlatformSubscriptionScreen() {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const { data: currentPlan } = useDataFetch(
-    () => awsAPI.request('/payments/platform-subscription', {
+    () => awsAPI.request<{ success?: boolean; hasSubscription?: boolean; subscription?: { planType: string } }>('/payments/platform-subscription', {
       method: 'POST',
       body: { action: 'get-status' },
-    }) as Promise<{ success?: boolean; hasSubscription?: boolean; subscription?: { planType: string } }>,
+    }),
     {
       extractData: (r) => (r.success && r.hasSubscription && r.subscription?.planType) ? r.subscription.planType : null,
       defaultValue: null,
@@ -157,10 +157,10 @@ export default function PlatformSubscriptionScreen() {
 
     setLoading(true);
     try {
-      const response = await awsAPI.request('/payments/platform-subscription', {
+      const response = await awsAPI.request<{ success?: boolean; checkoutUrl?: string; sessionId?: string; error?: string }>('/payments/platform-subscription', {
         method: 'POST',
         body: { action: 'subscribe', planType: selectedPlan },
-      }) as { success?: boolean; checkoutUrl?: string; sessionId?: string; error?: string };
+      });
 
       if (response.success && response.checkoutUrl && response.sessionId) {
         const checkoutResult = await openCheckout(response.checkoutUrl, response.sessionId);

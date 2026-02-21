@@ -65,8 +65,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         expiresIn: 300,
       }),
     };
-  } catch (error) {
-    log.error('Failed to create WebSocket token', error);
+  } catch (error_) {
+    log.error('Failed to create WebSocket token', error_);
     return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'An unexpected error occurred' }) };
   }
 };

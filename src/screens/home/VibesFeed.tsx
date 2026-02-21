@@ -25,7 +25,7 @@ import OptimizedImage, { AvatarImage, ThumbnailImage } from '../../components/Op
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
-import type { MainStackParamList } from '../../types';
+import type { MainStackParamList, Peak } from '../../types';
 import * as Haptics from 'expo-haptics';
 import { SIZES, SPACING, GRADIENTS } from '../../config/theme';
 import { useTabBar } from '../../context/TabBarContext';
@@ -55,7 +55,6 @@ import SessionRecapModal from '../../components/SessionRecapModal';
 import { useVibeGuardian } from '../../hooks/useVibeGuardian';
 import { useVibeStore } from '../../stores/vibeStore';
 import { getCurrentProfile, getDiscoveryFeed, hasLikedPostsBatch, hasSavedPostsBatch, followUser, isFollowing, deletePost } from '../../services/database';
-import type { Peak } from '../../types';
 import { resolveDisplayName } from '../../types/profile';
 import { sanitizeOptionalText } from '../../utils/sanitize';
 import { awsAPI } from '../../services/aws-api';

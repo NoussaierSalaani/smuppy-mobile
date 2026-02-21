@@ -65,9 +65,11 @@ export function usePostInteractions<T extends InteractablePost>({
       const { error } = await likePost(postId);
       if (error) {
         // Revert optimistic update in both local state and feed store atomically
-        setPosts(prev => prev.map(p =>
-          p.id === postId ? { ...p, isLiked: wasLiked, likes: wasLiked ? p.likes + 1 : Math.max(0, p.likes - 1) } : p
-        ));
+        setPosts(prev => prev.map(p => {
+          if (p.id !== postId) return p;
+          const revertedLikes = wasLiked ? p.likes + 1 : Math.max(0, p.likes - 1);
+          return { ...p, isLiked: wasLiked, likes: revertedLikes };
+        }));
         useFeedStore.getState().toggleLikeOptimistic(postId, wasLiked);
         onError?.('like', postId);
       } else {

@@ -1125,4 +1125,394 @@ describe('payments/channel-subscription handler', () => {
       expect(JSON.parse(result.body).channel.tier).toBe('Diamond');
     });
   });
+
+  // ── Extended Coverage (Batch 7A) ────────────────────────────────
+
+  describe('subscribe — error propagation and client.release', () => {
+    const subscribeEvent = () => makeEvent({
+      body: JSON.stringify({ action: 'subscribe', creatorId: TEST_CREATOR_ID }),
+    });
+
+    it('releases DB client when subscribe throws mid-flow (Stripe customer creation failure)', async () => {
+      const { safeStripeCall } = require('../../../shared/stripe-resilience');
+
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: no stripe_customer_id (triggers customer creation)
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: null,
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      // Make safeStripeCall throw on the customers.create call
+      (safeStripeCall as jest.Mock).mockRejectedValueOnce(new Error('Stripe customer creation failed'));
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Internal server error');
+      // client.release must still be called via finally block
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('releases DB client when checkout session creation fails', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: has existing stripe_customer_id
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+
+      // checkout.sessions.create throws
+      (stripe.checkout.sessions.create as jest.Mock).mockRejectedValueOnce(
+        new Error('Checkout session creation failed')
+      );
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Internal server error');
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('returns 500 when pool.connect itself fails', async () => {
+      const { getPool } = require('../../../shared/db');
+      const failingPool = { connect: jest.fn().mockRejectedValue(new Error('Connection pool exhausted')) };
+      // First call for resolveProfileId uses pool.query, second getPool() for subscribe uses pool.connect
+      (getPool as jest.Mock)
+        .mockResolvedValueOnce(mockPool)   // for resolveProfileId
+        .mockResolvedValueOnce(failingPool); // for subscribeToChannel
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Internal server error');
+    });
+  });
+
+  describe('cancel — Stripe rejection and edge cases', () => {
+    const cancelEvent = () => makeEvent({
+      body: JSON.stringify({ action: 'cancel', subscriptionId: TEST_SUBSCRIPTION_ID }),
+    });
+
+    it('returns 500 when Stripe rejects the cancellation (subscription already ended)', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+
+      // Query: find active subscription with a stripe_subscription_id
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{ stripe_subscription_id: 'sub_already_ended' }],
+      });
+
+      // Stripe rejects: subscription is already canceled/ended
+      (stripe.subscriptions.update as jest.Mock).mockRejectedValueOnce(
+        new Error('No such subscription: sub_already_ended')
+      );
+
+      const result = await handler(cancelEvent());
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Internal server error');
+      // client.release still called via finally
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('returns 404 for an already-canceled subscription (status is no longer active)', async () => {
+      // The SQL filters status = 'active', so a subscription with status = 'canceled'
+      // or 'canceling' will not be returned → 404
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await handler(cancelEvent());
+      expect(result.statusCode).toBe(404);
+      expect(JSON.parse(result.body).message).toBe('Subscription not found');
+    });
+
+    it('passes stripe_subscription_id to Stripe even when it is null (DB allows null)', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+
+      // Query: subscription found but stripe_subscription_id is null
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{ stripe_subscription_id: null }],
+      });
+
+      // Stripe will reject null subscription ID
+      (stripe.subscriptions.update as jest.Mock).mockRejectedValueOnce(
+        new Error('Missing required param: subscription')
+      );
+
+      const result = await handler(cancelEvent());
+      // The error propagates to the top-level catch → 500
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Internal server error');
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('releases DB client even when DB update after Stripe cancel fails', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+
+      // Query: find active subscription
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{ stripe_subscription_id: 'sub_stripe_456' }],
+      });
+
+      // Stripe cancel succeeds
+      (stripe.subscriptions.update as jest.Mock).mockResolvedValueOnce({
+        id: 'sub_stripe_456', cancel_at: 9999999999,
+      });
+
+      // DB UPDATE fails
+      mockClient.query.mockRejectedValueOnce(new Error('DB write timeout'));
+
+      const result = await handler(cancelEvent());
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Internal server error');
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+  });
+
+  describe('subscribe — Stripe product search branches', () => {
+    const subscribeEvent = () => makeEvent({
+      body: JSON.stringify({ action: 'subscribe', creatorId: TEST_CREATOR_ID }),
+    });
+
+    function setupValidSubscribeFlow() {
+      // validateSubscriptionEligibility: no existing sub
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // validateSubscriptionEligibility: creator found and valid
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          stripe_account_id: 'acct_creator',
+          channel_price_cents: 999,
+          username: 'creatoruser',
+          full_name: 'Creator Name',
+          fan_count: '500',
+        }],
+      });
+      // fan query: has existing stripe_customer_id
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          stripe_customer_id: 'cus_existing',
+          email: 'fan@test.com',
+          full_name: 'Fan Name',
+          cognito_sub: TEST_SUB,
+        }],
+      });
+    }
+
+    it('reuses existing active product from Stripe search and does not create new one', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+
+      // products.search returns an active product
+      (stripe.products.search as jest.Mock).mockResolvedValueOnce({
+        data: [{ id: 'prod_reused_123' }],
+      });
+      // prices.list returns a matching price for the existing product
+      (stripe.prices.list as jest.Mock).mockResolvedValueOnce({
+        data: [{ id: 'price_reused_456', unit_amount: 999 }],
+      });
+
+      setupValidSubscribeFlow();
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // Product was reused, not created
+      expect(stripe.products.create).not.toHaveBeenCalled();
+      // Price was also reused
+      expect(stripe.prices.create).not.toHaveBeenCalled();
+      // Checkout session was called with the reused price
+      expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [{ price: 'price_reused_456', quantity: 1 }],
+        })
+      );
+    });
+
+    it('creates new product when search returns empty (inactive products are filtered by query)', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+
+      // products.search returns empty (all products are inactive or none exist)
+      (stripe.products.search as jest.Mock).mockResolvedValueOnce({ data: [] });
+      // products.create returns new product
+      (stripe.products.create as jest.Mock).mockResolvedValueOnce({ id: 'prod_new_789' });
+
+      setupValidSubscribeFlow();
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // New product was created since search returned empty
+      expect(stripe.products.create).toHaveBeenCalledWith(expect.objectContaining({
+        name: "creatoruser's Channel",
+        metadata: { creatorId: TEST_CREATOR_ID, type: 'channel_subscription' },
+      }));
+    });
+
+    it('deactivates multiple old prices when price amount changes', async () => {
+      const stripe = await require('../../../shared/stripe-client').getStripeClient();
+
+      // prices.list returns multiple prices with different amounts (none matching 999)
+      (stripe.prices.list as jest.Mock).mockResolvedValueOnce({
+        data: [
+          { id: 'price_old_a', unit_amount: 500 },
+          { id: 'price_old_b', unit_amount: 799 },
+          { id: 'price_old_c', unit_amount: 1200 },
+        ],
+      });
+
+      setupValidSubscribeFlow();
+
+      const result = await handler(subscribeEvent());
+      expect(result.statusCode).toBe(200);
+      // All three old prices should be deactivated
+      expect(stripe.prices.update).toHaveBeenCalledTimes(3);
+      expect(stripe.prices.update).toHaveBeenCalledWith('price_old_a', { active: false });
+      expect(stripe.prices.update).toHaveBeenCalledWith('price_old_b', { active: false });
+      expect(stripe.prices.update).toHaveBeenCalledWith('price_old_c', { active: false });
+      // New price created at 999 cents
+      expect(stripe.prices.create).toHaveBeenCalledWith(expect.objectContaining({
+        unit_amount: 999,
+      }));
+    });
+  });
+
+  describe('list-subscriptions — empty result', () => {
+    it('returns 200 with empty subscriptions array when user has no active subscriptions', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      const event = makeEvent({ body: JSON.stringify({ action: 'list-subscriptions' }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.subscriptions).toEqual([]);
+      expect(body.subscriptions).toHaveLength(0);
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+  });
+
+  describe('get-subscribers — edge cases', () => {
+    it('returns empty subscribers list with zero earnings when no subscriptions exist', async () => {
+      // subscribers query: empty
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      // earnings query: COALESCE returns '0'
+      mockClient.query.mockResolvedValueOnce({ rows: [{ total_gross: '0', total_net: '0' }] });
+
+      const event = makeEvent({ body: JSON.stringify({ action: 'get-subscribers' }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.subscriberCount).toBe(0);
+      expect(body.subscribers).toEqual([]);
+      expect(body.earnings.totalGross).toBe(0);
+      expect(body.earnings.totalNet).toBe(0);
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('handles null earnings values gracefully (parseInt fallback to 0)', async () => {
+      // subscribers query: one subscriber
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: 'sub-1', fan_id: 'fan-uuid-1', status: 'active', price_cents: 499,
+          created_at: '2025-03-01', username: 'fan1', full_name: 'Fan One', avatar_url: null,
+        }],
+      });
+      // earnings query: null values (edge case if COALESCE somehow not applied)
+      mockClient.query.mockResolvedValueOnce({ rows: [{ total_gross: null, total_net: null }] });
+
+      const event = makeEvent({ body: JSON.stringify({ action: 'get-subscribers' }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.subscriberCount).toBe(1);
+      // parseInt(null) returns NaN, || 0 fallback applies
+      expect(body.earnings.totalGross).toBe(0);
+      expect(body.earnings.totalNet).toBe(0);
+    });
+  });
+
+  describe('set-price — boundary edge cases', () => {
+    it('returns 400 for price of 99 cents (one below minimum)', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_creator' }] });
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 99 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('between $1 and $999');
+    });
+
+    it('returns 400 for price of 99901 cents (one above maximum)', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_creator' }] });
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 99901 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toContain('between $1 and $999');
+    });
+
+    it('returns 403 for pro_business account (only pro_creator allowed)', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ account_type: 'pro_business' }] });
+      const event = makeEvent({ body: JSON.stringify({ action: 'set-price', pricePerMonth: 999 }) });
+      const result = await handler(event);
+      expect(result.statusCode).toBe(403);
+      expect(JSON.parse(result.body).message).toBe('Only Pro Creators can set channel prices');
+    });
+  });
+
+  describe('get-channel-info — additional edge cases', () => {
+    const channelInfoEvent = () => makeEvent({
+      body: JSON.stringify({ action: 'get-channel-info', creatorId: TEST_CREATOR_ID }),
+    });
+
+    it('returns channel info even when creator has no stripe_account_id (not checked in this action)', async () => {
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_CREATOR_ID,
+          username: 'newcreator',
+          full_name: 'New Creator',
+          avatar_url: null,
+          is_verified: false,
+          channel_price_cents: null,
+          channel_description: null,
+          fan_count: null,
+          subscriber_count: '0',
+        }],
+      });
+
+      const result = await handler(channelInfoEvent());
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.channel.pricePerMonth).toBeNull();
+      expect(body.channel.fanCount).toBe(0);
+      expect(body.channel.tier).toBe('Bronze');
+      expect(body.channel.description).toBeNull();
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+  });
 });

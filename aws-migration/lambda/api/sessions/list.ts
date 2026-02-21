@@ -124,8 +124,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         sessions,
       }),
     };
-  } catch (error) {
-    log.error('List sessions error', error);
+  } catch (error_) {
+    log.error('List sessions error', error_);
     return {
       statusCode: 500,
       headers: headers,

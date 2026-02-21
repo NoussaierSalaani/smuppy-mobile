@@ -9,7 +9,6 @@ import {
   StatusBar,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
   FlatList,
   Animated,
   Modal,

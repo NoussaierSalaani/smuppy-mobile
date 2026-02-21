@@ -129,8 +129,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
-  } catch (error: unknown) {
-    log.error('Refunds error', error);
+  } catch (error_: unknown) {
+    log.error('Refunds error', error_);
     return {
       statusCode: 500,
       headers,
@@ -288,8 +288,8 @@ async function fetchStripeRefundDetails(stripeRefundId: string | null) {
       currency: details.currency,
       created: new Date(details.created * 1000).toISOString(),
     };
-  } catch (e: unknown) {
-    log.warn('Failed to fetch Stripe refund details', { error: String(e) });
+  } catch (error_: unknown) {
+    log.warn('Failed to fetch Stripe refund details', { error: String(error_) });
     return null;
   }
 }
@@ -699,9 +699,9 @@ async function createRefund(
           },
         }),
       };
-    } catch (error: unknown) {
+    } catch (error_: unknown) {
       await client.query('ROLLBACK');
-      log.error('Stripe refund failed', error);
+      log.error('Stripe refund failed', error_);
 
       // Store failed refund attempt (outside transaction)
       await recordFailedRefund(db, paymentId, refundAmountCents, reason, notes, user.id);

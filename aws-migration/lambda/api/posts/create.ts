@@ -261,8 +261,8 @@ async function deductQuotaAfterInsert(
     } else if (hasMedia && (body.mediaType === 'image' || body.mediaType === 'multiple')) {
       await deductQuota(userId, 'photo', body.mediaUrls!.length);
     }
-  } catch (quotaErr) {
-    log.error('Failed to deduct quota (non-blocking)', quotaErr);
+  } catch (error_) {
+    log.error('Failed to deduct quota (non-blocking)', error_);
   }
 }
 
@@ -281,8 +281,8 @@ async function logFlaggedContent(
        VALUES ($1, 'flag_content', $2, $3, $4)`,
       [SYSTEM_MODERATOR_ID, userId, postId, `Comprehend toxicity: ${flags.flagCategory} score=${flags.flagScore} (under_review)`],
     );
-  } catch (flagErr) {
-    log.error('Failed to log flagged content (non-blocking)', flagErr);
+  } catch (error_) {
+    log.error('Failed to log flagged content (non-blocking)', error_);
   }
 }
 
@@ -304,8 +304,8 @@ async function triggerVideoProcessing(
       })),
     }));
     log.info('Video processing triggered', { postId: postId.substring(0, 8) + '...' });
-  } catch (vpErr) {
-    log.error('Failed to trigger video processing (non-blocking)', vpErr);
+  } catch (error_) {
+    log.error('Failed to trigger video processing (non-blocking)', error_);
   }
 }
 
@@ -443,9 +443,9 @@ export const handler = withAuthHandler('posts-create', async (event, { headers, 
       existingTaggedIds = await processTaggedUsers(client, validTaggedIds, postId, userId);
 
       await client.query('COMMIT');
-    } catch (txErr) {
+    } catch (error_) {
       await client.query('ROLLBACK');
-      throw txErr;
+      throw error_;
     } finally {
       client.release();
     }

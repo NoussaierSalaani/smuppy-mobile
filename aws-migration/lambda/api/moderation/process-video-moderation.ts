@@ -132,8 +132,8 @@ export async function handler(event: SNSEvent): Promise<void> {
         await tagObject(bucketName, objectKey, 'passed_low_signal');
         log.info('Video passed with low signal (<70%)', { objectKey });
       }
-    } catch (error) {
-      log.error('Error processing video moderation results', { objectKey, error });
+    } catch (error_) {
+      log.error('Error processing video moderation results', { objectKey, error: error_ });
       await tagObject(bucketName, objectKey, 'video_scan_error').catch(() => {});
     }
   }
@@ -203,7 +203,7 @@ async function sendAlert(
         }),
       }),
     );
-  } catch (err) {
-    log.error('Failed to send video moderation alert', err);
+  } catch (error_) {
+    log.error('Failed to send video moderation alert', error_);
   }
 }

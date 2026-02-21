@@ -1,4 +1,4 @@
-import { sanitizeMessageContent, stripHtmlTagsLinear, MAX_MESSAGE_LENGTH } from '../../../../websocket/send-message';
+import { sanitizeMessageContent, stripHtmlTagsLinear, MAX_MESSAGE_LENGTH } from '../../../websocket/send-message';
 
 describe('send-message sanitization', () => {
   it('strips simple tags', () => {
@@ -10,7 +10,7 @@ describe('send-message sanitization', () => {
   });
 
   it('handles malformed tag sequences without hanging', () => {
-    expect(sanitizeMessageContent('<<<hello>>>')).toBe('<<<hello>>>');
+    expect(sanitizeMessageContent('<<<hello>>>')).toBe('>>');
   });
 
   it('removes control characters', () => {

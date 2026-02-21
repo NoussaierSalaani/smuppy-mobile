@@ -268,11 +268,11 @@ const convertPost = (p: AWSPost): Post => {
     views_count: (p.viewsCount || pRec?.views_count || 0) as number,
     tags: p.tags || [],
     created_at: p.createdAt,
-    author: p.author
-      ? convertProfile(p.author) || undefined
-      : pRec?.author_profile
-        ? convertProfile(pRec.author_profile as AWSProfile) || undefined
-        : undefined,
+    author: (() => {
+      if (p.author) return convertProfile(p.author) || undefined;
+      if (pRec?.author_profile) return convertProfile(pRec.author_profile as AWSProfile) || undefined;
+      return undefined;
+    })(),
   };
 };
 
@@ -1458,11 +1458,12 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
         participants: otherUser ? [otherUser] : [],
         other_user: otherUser,
         last_message_at: c.last_message?.created_at ?? c.created_at,
-        last_message_preview: c.last_message?.media_type === 'audio' || c.last_message?.media_type === 'voice'
-          ? 'Voice message'
-          : c.last_message?.content?.match(/^\[shared_post:[0-9a-f-]+\]$/i) ? 'Shared a post'
-          : c.last_message?.content?.match(/^\[shared_peak:[0-9a-f-]+\]$/i) ? 'Shared a peak'
-          : c.last_message?.content,
+        last_message_preview: (() => {
+          if (c.last_message?.media_type === 'audio' || c.last_message?.media_type === 'voice') return 'Voice message';
+          if (c.last_message?.content?.match(/^\[shared_post:[0-9a-f-]+\]$/i)) return 'Shared a post';
+          if (c.last_message?.content?.match(/^\[shared_peak:[0-9a-f-]+\]$/i)) return 'Shared a peak';
+          return c.last_message?.content;
+        })(),
         updated_at: c.created_at,
         unread_count: c.unread_count ?? 0,
       };

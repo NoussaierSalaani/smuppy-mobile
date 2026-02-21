@@ -145,8 +145,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     };
-  } catch (error) {
-    log.error('Update session settings error', error);
+  } catch (error_) {
+    log.error('Update session settings error', error_);
     return {
       statusCode: 500,
       headers: headers,

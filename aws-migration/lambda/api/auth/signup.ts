@@ -61,11 +61,11 @@ const checkUserStatus = async (username: string): Promise<{
     const isConfirmed = user.UserStatus === 'CONFIRMED';
 
     return { exists: true, confirmed: isConfirmed };
-  } catch (error) {
-    if (error instanceof UserNotFoundException) {
+  } catch (error_) {
+    if (error_ instanceof UserNotFoundException) {
       return { exists: false, confirmed: false };
     }
-    throw error;
+    throw error_;
   }
 };
 
@@ -168,8 +168,8 @@ export const handler = async (
       }
 
       parsedBody = JSON.parse(bodyStr) as SignupRequest;
-    } catch (parseError: unknown) {
-      log.error('JSON parse error', parseError, {
+    } catch (error_: unknown) {
+      log.error('JSON parse error', error_, {
         bodyLength: event.body?.length,
         isBase64: event.isBase64Encoded,
         bodyPreview: event.body?.substring(0, 50)
@@ -287,11 +287,11 @@ export const handler = async (
       }),
     };
 
-  } catch (error: unknown) {
-    log.error('Signup error', error);
+  } catch (error_: unknown) {
+    log.error('Signup error', error_);
 
     // Handle specific Cognito errors
-    if (error instanceof UsernameExistsException) {
+    if (error_ instanceof UsernameExistsException) {
       // This shouldn't happen if our logic is correct, but handle it anyway
       return {
         statusCode: 409,
@@ -303,7 +303,7 @@ export const handler = async (
       };
     }
 
-    if (isNamedError(error) && (error.name === 'InvalidPasswordException' || error.message?.includes('Password'))) {
+    if (isNamedError(error_) && (error_.name === 'InvalidPasswordException' || error_.message?.includes('Password'))) {
       return {
         statusCode: 400,
         headers,
@@ -314,7 +314,7 @@ export const handler = async (
       };
     }
 
-    if (isNamedError(error) && error.name === 'InvalidParameterException') {
+    if (isNamedError(error_) && error_.name === 'InvalidParameterException') {
       return {
         statusCode: 400,
         headers,

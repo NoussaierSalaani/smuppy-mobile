@@ -175,10 +175,10 @@ describe('autoEscalation', () => {
       const dbError = new Error('DB connection lost');
 
       mockClient.query.mockImplementation((sql: string) => {
-        if (sql === 'BEGIN') return { rows: [] };
-        if (sql === 'ROLLBACK') return { rows: [] };
+        if (sql === 'BEGIN') return Promise.resolve({ rows: [] });
+        if (sql === 'ROLLBACK') return Promise.resolve({ rows: [] });
         if (sql.includes('COUNT(*)')) throw dbError;
-        return { rows: [] };
+        return Promise.resolve({ rows: [] });
       });
 
       await expect(checkPostEscalation(mockDb, POST_ID)).rejects.toThrow('DB connection lost');
@@ -350,10 +350,10 @@ describe('autoEscalation', () => {
       const dbError = new Error('Unexpected DB failure');
 
       mockClient.query.mockImplementation((sql: string) => {
-        if (sql === 'BEGIN') return { rows: [] };
-        if (sql === 'ROLLBACK') return { rows: [] };
+        if (sql === 'BEGIN') return Promise.resolve({ rows: [] });
+        if (sql === 'ROLLBACK') return Promise.resolve({ rows: [] });
         if (sql.includes('COUNT(DISTINCT reporter_id)')) throw dbError;
-        return { rows: [] };
+        return Promise.resolve({ rows: [] });
       });
 
       await expect(checkUserEscalation(mockDb, USER_ID)).rejects.toThrow(

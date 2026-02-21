@@ -826,10 +826,10 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
               {hasRoute && routePoints.map((point, index) => (
                 <MarkerView key={`route-${point.latitude}-${point.longitude}`} coordinate={[point.longitude, point.latitude]}>
                   <View style={[styles.routeMarker, {
-                    backgroundColor: (() => { if (index === 0) return '#4CAF50'; if (index === routePoints.length - 1) return '#F44336'; return selectedCategory?.color || colors.primary; })(),
+                    backgroundColor: (() => { if (index === 0) { return '#4CAF50'; } if (index === routePoints.length - 1) { return '#F44336'; } return selectedCategory?.color || colors.primary; })(),
                   }]}>
                     <Text style={styles.routeMarkerText}>
-                      {(() => { if (index === 0) return 'S'; if (index === routePoints.length - 1) return 'E'; return index; })()}
+                      {(() => { if (index === 0) { return 'S'; } if (index === routePoints.length - 1) { return 'E'; } return index; })()}
                     </Text>
                   </View>
                 </MarkerView>

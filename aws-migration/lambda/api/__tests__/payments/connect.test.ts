@@ -557,6 +557,8 @@ describe('payments/connect handler', () => {
   // ── admin-set-account ──
 
   describe('admin-set-account', () => {
+    const ADMIN_KEY = 'real-admin-key-for-testing';
+
     it('returns 403 without admin key header', async () => {
       const event = makeEvent({
         body: JSON.stringify({
@@ -584,8 +586,142 @@ describe('payments/connect handler', () => {
 
       const result = await handler(event);
 
-      // Returns 403 because the key does not match (timing-safe comparison)
       expect(result.statusCode).toBe(403);
+      expect(JSON.parse(result.body).message).toBe('Invalid admin key');
+    });
+
+    it('returns 400 when missing targetProfileId or stripeAccountId', async () => {
+      const event = makeEvent({
+        headers: { 'x-admin-key': ADMIN_KEY },
+        body: JSON.stringify({
+          action: 'admin-set-account',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Missing targetProfileId or stripeAccountId');
+    });
+
+    it('returns 400 when Stripe account is not found', async () => {
+      const failStripe = {
+        accounts: {
+          create: jest.fn(),
+          retrieve: jest.fn().mockRejectedValue(new Error('No such account')),
+          createLoginLink: jest.fn(),
+        },
+        accountLinks: { create: jest.fn() },
+        balance: { retrieve: jest.fn() },
+      };
+      const { getStripeClient } = require('../../../shared/stripe-client');
+      (getStripeClient as jest.Mock).mockResolvedValue(failStripe);
+
+      const event = makeEvent({
+        headers: { 'x-admin-key': ADMIN_KEY },
+        body: JSON.stringify({
+          action: 'admin-set-account',
+          targetProfileId: TEST_PROFILE_ID,
+          stripeAccountId: 'acct_nonexistent',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Stripe account not found');
+    });
+
+    it('returns 400 when Stripe account is not Express type', async () => {
+      const customStripe = {
+        accounts: {
+          create: jest.fn(),
+          retrieve: jest.fn().mockResolvedValue({ id: 'acct_custom', type: 'custom' }),
+          createLoginLink: jest.fn(),
+        },
+        accountLinks: { create: jest.fn() },
+        balance: { retrieve: jest.fn() },
+      };
+      const { getStripeClient } = require('../../../shared/stripe-client');
+      (getStripeClient as jest.Mock).mockResolvedValue(customStripe);
+
+      const event = makeEvent({
+        headers: { 'x-admin-key': ADMIN_KEY },
+        body: JSON.stringify({
+          action: 'admin-set-account',
+          targetProfileId: TEST_PROFILE_ID,
+          stripeAccountId: 'acct_custom',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(400);
+      expect(JSON.parse(result.body).message).toBe('Only Express accounts are supported');
+    });
+
+    it('returns 409 when Stripe account already assigned to another user', async () => {
+      // db.query is the pool-level query (not client-level)
+      mockPool.query.mockResolvedValueOnce({
+        rows: [{ id: 'other-profile-id' }],
+      });
+
+      const event = makeEvent({
+        headers: { 'x-admin-key': ADMIN_KEY },
+        body: JSON.stringify({
+          action: 'admin-set-account',
+          targetProfileId: TEST_PROFILE_ID,
+          stripeAccountId: 'acct_express',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(409);
+      expect(JSON.parse(result.body).message).toBe('Stripe account already assigned to another user');
+    });
+
+    it('returns 200 and updates profile on success', async () => {
+      // No existing assignment
+      mockPool.query
+        .mockResolvedValueOnce({ rows: [] }) // existing assignment check
+        .mockResolvedValueOnce({ rows: [] }); // UPDATE profiles
+
+      const event = makeEvent({
+        headers: { 'x-admin-key': ADMIN_KEY },
+        body: JSON.stringify({
+          action: 'admin-set-account',
+          targetProfileId: TEST_PROFILE_ID,
+          stripeAccountId: 'acct_express_new',
+        }),
+      });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.success).toBe(true);
+      expect(body.targetProfileId).toBe(TEST_PROFILE_ID);
+      expect(body.stripeAccountId).toBe('acct_express_new');
+    });
+
+    it('reads admin key from X-Admin-Key header (uppercase)', async () => {
+      const event = makeEvent({
+        headers: { 'X-Admin-Key': ADMIN_KEY },
+        body: JSON.stringify({
+          action: 'admin-set-account',
+          targetProfileId: TEST_PROFILE_ID,
+          stripeAccountId: 'acct_test',
+        }),
+      });
+
+      mockPool.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const result = await handler(event);
+
+      expect(result.statusCode).toBe(200);
     });
   });
 

@@ -342,7 +342,7 @@ export const uploadToS3 = async (
     });
 
     if (!response.ok) {
-      const body = await response.text().catch((e) => { if (__DEV__) console.log('[uploadToS3] Failed to read response body:', e); return ''; });
+      const body = await response.text().catch((e) => { if (__DEV__) { console.log('[uploadToS3] Failed to read response body:', e); } return ''; });
       if (__DEV__) console.log('[uploadToS3] S3 returned', response.status, body.substring(0, 300));
       throw new Error(`Upload failed: ${response.status}`);
     }

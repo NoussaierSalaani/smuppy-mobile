@@ -372,7 +372,10 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
     }
   };
 
-  const bottomPadding = isBusiness ? 0 : (insets.bottom > 0 ? insets.bottom : 20);
+  const bottomPadding = (() => {
+    if (isBusiness) return 0;
+    return insets.bottom > 0 ? insets.bottom : 20;
+  })();
   const businessBottomInset = isBusiness ? insets.bottom : 0;
 
   return (
@@ -388,17 +391,29 @@ const BottomNav = memo(function BottomNav({ state, navigation, onCreatePress }: 
       ]}
     >
       {/* Green border wrapper — pro gets gradient, business gets none, personal gets solid green outline */}
-      {isBusiness ? null : isPro ? (
-        <LinearGradient
-          colors={gradients.primary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.proBorderWrapper}
-        />
-      ) : (
-        <View style={styles.personalBorderWrapper} />
-      )}
-      <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={[styles.blurContainer, isBusiness ? styles.businessBlurContainer : styles.proBlurContainer, { backgroundColor: isDark ? colors.overlay : colors.overlayLight, paddingBottom: businessBottomInset }]}>
+      {(() => {
+        if (isBusiness) return null;
+        if (isPro) {
+          return (
+            <LinearGradient
+              colors={gradients.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.proBorderWrapper}
+            />
+          );
+        }
+        return <View style={styles.personalBorderWrapper} />;
+      })()}
+      <BlurView
+        intensity={80}
+        tint={isDark ? "dark" : "light"}
+        style={[
+          styles.blurContainer,
+          isBusiness ? styles.businessBlurContainer : styles.proBlurContainer,
+          { backgroundColor: isDark ? colors.overlay : colors.overlayLight, paddingBottom: businessBottomInset },
+        ]}
+      >
         <View style={styles.tabsContainer}>
           {tabs.map((tab, index) => {
             const isActive = state.index === index;

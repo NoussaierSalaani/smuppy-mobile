@@ -453,9 +453,10 @@ export default function BookSessionScreen(): React.JSX.Element {
         <View style={styles.priceInfo}>
           <Text style={styles.priceLabel}>Total</Text>
           <Text style={styles.priceValue}>
-            {formatCurrencyAmount((bookingMode === 'single'
-              ? (selectedDurationInfo?.price || 25)
-              : (packs.find(p => p.id === selectedPack)?.price || 0)) * 100)}
+            {formatCurrencyAmount((() => {
+              if (bookingMode === 'single') return (selectedDurationInfo?.price || 25) * 100;
+              return (packs.find(p => p.id === selectedPack)?.price || 0) * 100;
+            })())}
           </Text>
         </View>
         <TouchableOpacity

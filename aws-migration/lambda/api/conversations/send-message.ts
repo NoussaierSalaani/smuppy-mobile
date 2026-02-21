@@ -281,9 +281,9 @@ export const handler = withAuthHandler('conversations-send-message', async (even
 
     await client.query('COMMIT');
     message = messageResult.rows[0];
-  } catch (txError) {
+  } catch (error_) {
     await client.query('ROLLBACK');
-    throw txError;
+    throw error_;
   } finally {
     client.release();
   }
@@ -300,7 +300,7 @@ export const handler = withAuthHandler('conversations-send-message', async (even
     title: displayName,
     body: pushBody,
     data: { type: 'message', conversationId, senderId: profile.id },
-  }, profile.id).catch(err => log.error('Push notification failed', err));
+  }, profile.id).catch(error_ => log.error('Push notification failed', error_));
 
   return {
     statusCode: 201,

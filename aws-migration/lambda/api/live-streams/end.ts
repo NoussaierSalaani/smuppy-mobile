@@ -79,9 +79,9 @@ export const handler = withAuthHandler('live-streams-end', async (event, { heade
         },
       }),
     };
-  } catch (txError) {
+  } catch (error_) {
     await client.query('ROLLBACK');
-    throw txError;
+    throw error_;
   } finally {
     client.release();
   }

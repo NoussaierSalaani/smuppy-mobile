@@ -91,15 +91,27 @@ function Button({
         gradient: null,
         backgroundColor: isDark ? colors.cardBg : colors.white,
         textColor: disabled ? colors.grayMuted : colors.dark,
-        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
-        borderColor: isDark ? colors.buttonBorder : (disabled ? colors.grayBorder : 'transparent'),
+        borderWidth: (() => {
+          if (isDark) return 1;
+          return disabled ? 2 : 0;
+        })(),
+        borderColor: (() => {
+          if (isDark) return colors.buttonBorder;
+          return disabled ? colors.grayBorder : 'transparent';
+        })(),
       },
       tertiary: {
         gradient: null,
         backgroundColor: isDark ? colors.cardBg : colors.white,
         textColor: disabled ? colors.grayMuted : colors.dark,
-        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
-        borderColor: isDark ? colors.buttonBorderLight : (disabled ? colors.grayLight : 'transparent'),
+        borderWidth: (() => {
+          if (isDark) return 1;
+          return disabled ? 2 : 0;
+        })(),
+        borderColor: (() => {
+          if (isDark) return colors.buttonBorderLight;
+          return disabled ? colors.grayLight : 'transparent';
+        })(),
       },
       ghost: {
         gradient: null,
@@ -111,9 +123,18 @@ function Button({
       danger: {
         gradient: null,
         backgroundColor: isDark ? colors.cardBg : colors.white,
-        textColor: disabled ? (isDark ? 'rgba(239,68,68,0.5)' : '#FFB3B3') : colors.error,
-        borderWidth: isDark ? 1 : (disabled ? 2 : 0),
-        borderColor: isDark ? 'rgba(239,68,68,0.3)' : (disabled ? '#FFB3B3' : 'transparent'),
+        textColor: (() => {
+          if (!disabled) return colors.error;
+          return isDark ? 'rgba(239,68,68,0.5)' : '#FFB3B3';
+        })(),
+        borderWidth: (() => {
+          if (isDark) return 1;
+          return disabled ? 2 : 0;
+        })(),
+        borderColor: (() => {
+          if (isDark) return 'rgba(239,68,68,0.3)';
+          return disabled ? '#FFB3B3' : 'transparent';
+        })(),
       },
       live: {
         gradient: disabled ? GRADIENTS.liveDisabled : GRADIENTS.live,

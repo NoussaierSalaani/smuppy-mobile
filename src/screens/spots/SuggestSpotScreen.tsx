@@ -14,7 +14,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
@@ -347,7 +346,10 @@ const SuggestSpotScreen: React.FC<{ navigation: { navigate: (screen: string, par
               <Text style={styles.stepSubtitle}>What makes this spot great?</Text>
 
               <QualityPicker
-                category={isRouteSpot ? (subcategory.toLowerCase().includes('cycling') ? 'cycling' : 'hiking') : selectedCategory?.key || 'general'}
+                category={(() => {
+                  if (!isRouteSpot) return selectedCategory?.key || 'general';
+                  return subcategory.toLowerCase().includes('cycling') ? 'cycling' : 'hiking';
+                })()}
                 selected={qualities}
                 onSelectionChange={setQualities}
               />

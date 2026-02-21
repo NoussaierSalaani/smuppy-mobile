@@ -157,7 +157,10 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
         ? { lat: activity.latitude, lng: activity.longitude }
         : null),
       participantCount: activity.participant_count ?? activity.current_participants ?? 0,
-      priceAmount: activity.price_cents ?? (activity.price ? activity.price * 100 : 0),
+      priceAmount: (() => {
+        if (activity.price_cents != null) return activity.price_cents;
+        return activity.price ? activity.price * 100 : 0;
+      })(),
       difficulty: activity.routeDifficulty || activity.difficulty,
     };
   }, [activity]);

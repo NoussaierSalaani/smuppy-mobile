@@ -1724,4 +1724,445 @@ describe('Stripe Webhook Handler', () => {
       expect(JSON.parse(result.body).message).toBe('Webhook handler failed');
     });
   });
+
+  // ── Extended Coverage (Batch 7A) ────────────────────────────────
+
+  // ================================================================
+  // EVENT DATA VALIDATION
+  // ================================================================
+
+  describe('Event data validation', () => {
+    it('payment_intent.succeeded with missing metadata handles gracefully', async () => {
+      const evt = stripeEvent('payment_intent.succeeded', {
+        id: 'pi_no_meta',
+        latest_charge: 'ch_no_meta',
+        amount: 1000,
+        metadata: undefined,
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery.mockResolvedValue({ rows: [] });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // Should still update payments (no crash on undefined metadata)
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE payments'),
+        expect.arrayContaining(['pi_no_meta']),
+      );
+      // Should NOT insert notifications (no creator_id/buyer_id)
+      expect(mockClientQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO notifications'),
+        expect.anything(),
+      );
+    });
+
+    it('payment_intent.succeeded with metadata but no "type" key falls through to session/pack path', async () => {
+      const evt = stripeEvent('payment_intent.succeeded', {
+        id: 'pi_notype',
+        latest_charge: 'ch_notype',
+        amount: 2000,
+        metadata: { creator_id: UUID_2, buyer_id: UUID_3 },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE payments
+        .mockResolvedValueOnce({ rows: [{ full_name: 'Buyer', username: 'buyer' }] }) // buyer lookup
+        .mockResolvedValueOnce({ rows: [] }) // INSERT notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // Should update payments (falls through identity_verification check)
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE payments'),
+        expect.arrayContaining(['pi_notype']),
+      );
+      // No session update (no session_id)
+      expect(mockClientQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE private_sessions'),
+        expect.anything(),
+      );
+      // Notification uses default type (session_booked since type != 'pack')
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO notifications'),
+        expect.arrayContaining(['session_booked']),
+      );
+    });
+
+    it('checkout.session.completed with null metadata handles gracefully', async () => {
+      const evt = stripeEvent('checkout.session.completed', {
+        id: 'cs_null_meta',
+        metadata: null,
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery.mockResolvedValue({ rows: [] });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // Should not crash — no product handler or subscription handler matched
+      expect(mockClientQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO business_bookings'),
+        expect.anything(),
+      );
+    });
+
+    it('checkout.session.completed with unknown productType is handled gracefully', async () => {
+      const evt = stripeEvent('checkout.session.completed', {
+        id: 'cs_unknown_product',
+        metadata: { productType: 'nonexistent_product' },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery.mockResolvedValue({ rows: [] });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // No product handler matched, no subscription handler matched
+      expect(mockClientQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO'),
+        expect.anything(),
+      );
+    });
+  });
+
+  // ================================================================
+  // DB TRANSACTION ERRORS
+  // ================================================================
+
+  describe('DB transaction errors', () => {
+    it('payment_intent.succeeded session handler: DB query failure returns 500', async () => {
+      const evt = stripeEvent('payment_intent.succeeded', {
+        id: 'pi_dbfail',
+        latest_charge: 'ch_dbfail',
+        amount: 5000,
+        metadata: {
+          type: 'session',
+          session_id: UUID_1,
+          creator_id: UUID_2,
+          buyer_id: UUID_3,
+          creator_amount: '4000',
+        },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockRejectedValueOnce(new Error('relation "payments" does not exist')); // UPDATE payments fails
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Webhook handler failed');
+    });
+
+    it('checkout.session.completed: DB INSERT fails with constraint violation returns 500', async () => {
+      const evt = stripeEvent('checkout.session.completed', {
+        id: 'cs_constraint',
+        amount_total: 2000,
+        metadata: {
+          productType: 'business_drop_in',
+          userId: UUID_1,
+          businessId: UUID_2,
+          serviceId: UUID_3,
+          date: '2026-04-01',
+          slotId: '14:00',
+        },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockRejectedValueOnce(new Error('violates foreign key constraint')); // INSERT fails
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(500);
+      expect(JSON.parse(result.body).message).toBe('Webhook handler failed');
+    });
+
+    it('Transaction ROLLBACK path is executed on error and client is released', async () => {
+      const evt = stripeEvent('payment_intent.succeeded', {
+        id: 'pi_rollback',
+        metadata: { type: 'session', creator_id: UUID_2, buyer_id: UUID_3 },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+
+      const rollbackClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // BEGIN
+          .mockRejectedValueOnce(new Error('deadlock detected')), // UPDATE payments
+        release: jest.fn(),
+      };
+      mockPoolConnect.mockResolvedValue(rollbackClient);
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(500);
+      // Verify ROLLBACK was called after the error
+      expect(rollbackClient.query).toHaveBeenCalledWith('ROLLBACK');
+      // Verify client was released in finally block
+      expect(rollbackClient.release).toHaveBeenCalled();
+    });
+  });
+
+  // ================================================================
+  // SUBSCRIPTION EVENT EDGE CASES
+  // ================================================================
+
+  describe('Subscription event edge cases', () => {
+    it('customer.subscription.updated with status "trialing" updates correctly', async () => {
+      const evt = stripeEvent('customer.subscription.updated', {
+        id: 'sub_trialing',
+        status: 'trialing',
+        cancel_at_period_end: false,
+        cancel_at: null,
+        current_period_start: Math.floor(Date.now() / 1000),
+        current_period_end: Math.floor(Date.now() / 1000) + 2592000,
+        metadata: { subscriptionType: 'platform' },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery.mockResolvedValue({ rows: [] });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // Status is 'trialing' since cancel_at_period_end is false
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE platform_subscriptions SET'),
+        expect.arrayContaining(['trialing']),
+      );
+    });
+
+    it('customer.subscription.updated with null current_period_end still updates', async () => {
+      const evt = stripeEvent('customer.subscription.updated', {
+        id: 'sub_null_period',
+        status: 'active',
+        cancel_at_period_end: false,
+        cancel_at: null,
+        current_period_start: null,
+        current_period_end: null,
+        metadata: { subscriptionType: 'channel' },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery.mockResolvedValue({ rows: [] });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE channel_subscriptions SET'),
+        expect.arrayContaining(['active', null, null]),
+      );
+    });
+
+    it('customer.subscription.deleted with user not found in DB skips downgrade gracefully', async () => {
+      const evt = stripeEvent('customer.subscription.deleted', {
+        id: 'sub_del_nouser',
+        metadata: { subscriptionType: 'identity_verification', userId: UUID_1 },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      // DB returns 0 rows affected (user not found) — still succeeds gracefully
+      mockClientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // The queries still execute but affect 0 rows
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('is_verified = false'),
+        [UUID_1],
+      );
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('verification_expired'),
+        expect.arrayContaining([UUID_1]),
+      );
+    });
+  });
+
+  // ================================================================
+  // INVOICE EVENT EDGE CASES
+  // ================================================================
+
+  describe('Invoice event edge cases', () => {
+    it('invoice.payment_failed with very long error message is handled (notification body is fixed)', async () => {
+      const evt = stripeEvent('invoice.payment_failed', {
+        id: 'in_fail_long',
+        subscription_details: {
+          metadata: { subscriptionType: 'platform', userId: UUID_1 },
+        },
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery.mockResolvedValue({ rows: [] });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // The notification body is a fixed string from INVOICE_FAILED_NOTIFICATIONS, not from Stripe error
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO notifications'),
+        expect.arrayContaining([
+          UUID_1,
+          'subscription_payment_failed',
+          'Pro Subscription Payment Failed',
+          'Your Pro subscription payment failed. Please update your payment method to keep your Pro features.',
+        ]),
+      );
+    });
+
+    it('invoice.paid with missing subscription_details is handled gracefully', async () => {
+      const evt = stripeEvent('invoice.paid', {
+        id: 'in_paid_nosub',
+        amount_paid: 999,
+        subscription_details: undefined,
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery.mockResolvedValue({ rows: [] });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // No channel payment recorded since subscription_details is undefined
+      expect(mockClientQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO channel_subscription_payments'),
+        expect.anything(),
+      );
+    });
+  });
+
+  // ================================================================
+  // DISPUTE EVENT EDGE CASES
+  // ================================================================
+
+  describe('Dispute event edge cases', () => {
+    it('charge.dispute.created where creator not found by charge skips notification gracefully', async () => {
+      const evt = stripeEvent('charge.dispute.created', {
+        id: 'dp_nopay',
+        charge: 'ch_nopay',
+        amount: 3000,
+        currency: 'eur',
+        reason: 'product_unacceptable',
+        status: 'needs_response',
+        payment_intent: 'pi_nopay',
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // INSERT disputes
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE payments
+        .mockResolvedValueOnce({ rows: [] }) // SELECT payments (no rows)
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // Dispute and payment update still happen
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO disputes'),
+        expect.arrayContaining(['dp_nopay', 'ch_nopay']),
+      );
+      // But no notification since payment lookup returned no rows
+      expect(mockClientQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('dispute_created'),
+        expect.anything(),
+      );
+      // And no SNS alert
+      expect(mockSNSSend).not.toHaveBeenCalled();
+    });
+
+    it('charge.dispute.created with null reason field stores null', async () => {
+      const evt = stripeEvent('charge.dispute.created', {
+        id: 'dp_null_reason',
+        charge: 'ch_null_reason',
+        amount: 2000,
+        currency: 'eur',
+        reason: null,
+        status: 'needs_response',
+        payment_intent: 'pi_null_reason',
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // INSERT disputes
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE payments
+        .mockResolvedValueOnce({ rows: [{ creator_id: UUID_2, buyer_id: UUID_1, amount_cents: 2000 }] }) // payment
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // Dispute inserted with null reason
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO disputes'),
+        expect.arrayContaining(['dp_null_reason', 'ch_null_reason', 2000, null, 'needs_response']),
+      );
+      // Notification body uses 'unknown' fallback for reason
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('dispute_created'),
+        expect.arrayContaining([UUID_2]),
+      );
+    });
+  });
+
+  // ================================================================
+  // PAYOUT EVENT EDGE CASES
+  // ================================================================
+
+  describe('Payout event edge cases', () => {
+    it('payout.paid with creator not found by stripe_account_id skips notification', async () => {
+      const evt = stripeEvent('payout.paid', {
+        id: 'po_notfound',
+        amount: 7500,
+        currency: 'usd',
+      }, { account: 'acct_orphan' });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // creator lookup (no rows)
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // Creator not found, so no notification inserted
+      expect(mockClientQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('payout_received'),
+        expect.anything(),
+      );
+    });
+
+    it('payout.failed with null failure_code and failure_message handles gracefully', async () => {
+      const evt = stripeEvent('payout.failed', {
+        id: 'po_null_codes',
+        amount: 5000,
+        currency: 'eur',
+        failure_code: null,
+        failure_message: null,
+      }, { account: 'acct_null_fail' });
+      mockConstructEvent.mockReturnValue(evt);
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: UUID_2 }] }) // creator lookup
+        .mockResolvedValueOnce({ rows: [] }) // notification
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // Notification is still created with null failure fields sanitized
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('payout_failed'),
+        expect.arrayContaining([UUID_2]),
+      );
+    });
+  });
+
+  // ================================================================
+  // REFUND EVENT EDGE CASES
+  // ================================================================
+
+  describe('Refund event edge cases', () => {
+    it('charge.refunded with payment record not found updates 0 rows gracefully', async () => {
+      const evt = stripeEvent('charge.refunded', {
+        id: 'ch_orphan_refund',
+      });
+      mockConstructEvent.mockReturnValue(evt);
+      // UPDATE affects 0 rows — payment not found
+      mockClientQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+
+      const result = await handler(createMockEvent());
+      expect(result.statusCode).toBe(200);
+      // The query still runs but affects 0 rows
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining("SET status = 'refunded'"),
+        ['ch_orphan_refund'],
+      );
+    });
+  });
 });

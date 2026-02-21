@@ -37,7 +37,7 @@ import type { ShareContentData } from '../../hooks/useModalState';
 
 import { WIDTH_CAPPED } from '../../utils/responsive';
 import { KEYBOARD_BEHAVIOR } from '../../config/platform';
-import { ACCOUNT_TYPE, isPro } from '../../config/accountTypes';
+import { isPro } from '../../config/accountTypes';
 
 const TOTAL_STEPS = 5;
 

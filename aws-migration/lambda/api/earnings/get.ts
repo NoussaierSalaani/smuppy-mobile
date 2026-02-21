@@ -226,8 +226,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
       }),
     };
-  } catch (error) {
-    log.error('Get earnings error', error);
+  } catch (error_) {
+    log.error('Get earnings error', error_);
     return {
       statusCode: 500,
       headers: headers,

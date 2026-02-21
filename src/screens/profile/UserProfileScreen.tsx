@@ -826,7 +826,10 @@ const UserProfileScreen = () => {
       const pAllMedia = p.media_urls?.filter(Boolean) || [p.media_url].filter(Boolean);
       return {
         id: p.id,
-        type: p.media_type === 'video' ? 'video' : pAllMedia.length > 1 ? 'carousel' : 'image',
+        type: (() => {
+          if (p.media_type === 'video') return 'video' as const;
+          return pAllMedia.length > 1 ? 'carousel' as const : 'image' as const;
+        })(),
         media: pAllMedia[0] || '',
         thumbnail: pAllMedia[0] || '',
         description: p.content || p.caption || '',
@@ -1037,7 +1040,11 @@ const UserProfileScreen = () => {
           .sort((a, b) => b.key.localeCompare(a.key))
           .map(g => ({
             ...g,
-            label: g.key === today ? 'Today' : g.key === yesterday ? 'Yesterday' : g.key.slice(5),
+            label: (() => {
+              if (g.key === today) return 'Today';
+              if (g.key === yesterday) return 'Yesterday';
+              return g.key.slice(5);
+            })(),
             latestThumbnail: g.peaks[0]?.media_urls?.[0],
             peakCount: g.peaks.length,
           }));

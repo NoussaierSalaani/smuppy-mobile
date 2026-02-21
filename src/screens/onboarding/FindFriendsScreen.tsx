@@ -127,9 +127,11 @@ export default function FindFriendsScreen({ navigation }: FindFriendsScreenProps
               color={friendsFound > 0 ? colors.success : colors.primary}
             />
             <Text style={styles.resultText}>
-              {friendsFound > 0
-                ? `${friendsFound} friend${friendsFound > 1 ? 's' : ''} found on Smuppy!`
-                : "Contacts saved! We'll notify you when friends join."}
+              {(() => {
+                if (friendsFound <= 0) return "Contacts saved! We'll notify you when friends join.";
+                const plural = friendsFound > 1 ? 's' : '';
+                return `${friendsFound} friend${plural} found on Smuppy!`;
+              })()}
             </Text>
           </View>
         )}

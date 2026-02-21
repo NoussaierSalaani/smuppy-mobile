@@ -156,7 +156,7 @@ export const handler = withErrorHandler('peaks-get', async (event, { headers, lo
         if (result.rowCount && result.rowCount > 0) {
           return db.query('UPDATE peaks SET views_count = views_count + 1 WHERE id = $1', [peakId]);
         }
-      }).catch((err: unknown) => log.error('Error incrementing view count', err));
+      }).catch((error_: unknown) => log.error('Error incrementing view count', error_));
     }
 
     return {

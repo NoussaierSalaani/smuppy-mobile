@@ -169,8 +169,8 @@ async function handlePendingScanImage(bucketName: string, objectKey: string, fil
     }
 
     await coordinateAndFinalize(bucketName, objectKey, verdict, expectedScans);
-  } catch (error) {
-    log.error('Error analyzing pending-scan image', { objectKey, error });
+  } catch (error_) {
+    log.error('Error analyzing pending-scan image', { objectKey, error: error_ });
     // Record error verdict — don't block uploads on transient failures
     await coordinateAndFinalize(bucketName, objectKey, 'error', expectedScans);
   }
@@ -259,8 +259,8 @@ async function handleDirectImage(bucketName: string, objectKey: string, fileSize
       await tagObject(bucketName, objectKey, 'passed_low_signal');
       log.info('Image passed with low signal (<70%)', { objectKey, topLabel: topLabel?.Name });
     }
-  } catch (error) {
-    log.error('Error analyzing image', { objectKey, error });
+  } catch (error_) {
+    log.error('Error analyzing image', { objectKey, error: error_ });
     await tagObject(bucketName, objectKey, 'scan_error').catch(() => {});
   }
 }
@@ -329,7 +329,7 @@ async function sendAlert(
         }),
       }),
     );
-  } catch (err) {
-    log.error('Failed to send moderation alert', err);
+  } catch (error_) {
+    log.error('Failed to send moderation alert', error_);
   }
 }

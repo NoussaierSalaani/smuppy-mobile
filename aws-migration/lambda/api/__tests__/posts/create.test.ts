@@ -108,7 +108,7 @@ import { requireRateLimit } from '../../utils/rate-limit';
 import { requireActiveAccount, isAccountError } from '../../utils/account-status';
 import { filterText } from '../../../shared/moderation/textFilter';
 import { analyzeTextToxicity } from '../../../shared/moderation/textModeration';
-import { isPremiumAccount, checkQuota } from '../../utils/upload-quota';
+import { isPremiumAccount, checkQuota, deductQuota } from '../../utils/upload-quota';
 
 // ── Helpers ──
 

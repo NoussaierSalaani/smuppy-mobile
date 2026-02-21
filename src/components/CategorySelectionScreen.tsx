@@ -210,9 +210,12 @@ const createStyles = (colors: ThemeColors, isDark: boolean, variant: 'interests'
   const isExpertise = variant === 'expertise';
   const borderColor = isExpertise ? colors.grayLight : colors.border;
   const chipBg = isExpertise ? colors.background : colors.cardBg;
-  const selectedBg = isExpertise
-    ? (isDark ? colors.primaryDark : '#E8FAF7')
-    : (isDark ? colors.backgroundFocus : '#E8FAF7');
+  let selectedBg: string;
+  if (isExpertise) {
+    selectedBg = isDark ? colors.primaryDark : '#E8FAF7';
+  } else {
+    selectedBg = isDark ? colors.backgroundFocus : '#E8FAF7';
+  }
 
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },

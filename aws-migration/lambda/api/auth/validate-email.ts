@@ -295,8 +295,8 @@ export const handler = async (
       }),
     };
 
-  } catch (error: unknown) {
-    log.error('ValidateEmail error', error);
+  } catch (error_: unknown) {
+    log.error('ValidateEmail error', error_);
 
     return {
       statusCode: 500,

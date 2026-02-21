@@ -176,9 +176,10 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
           styles.waveformBar,
           {
             height: h,
-            backgroundColor: isFromMe
-              ? `rgba(255,255,255,${i / BAR_COUNT < progress ? 1 : 0.4})`
-              : `rgba(14,191,138,${i / BAR_COUNT < progress ? 1 : 0.4})`,
+            backgroundColor: (() => {
+              const opacity = i / BAR_COUNT < progress ? 1 : 0.4;
+              return isFromMe ? `rgba(255,255,255,${opacity})` : `rgba(14,191,138,${opacity})`;
+            })(),
           },
         ]}
       />
@@ -197,7 +198,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
         ]}
         onPress={togglePlayback}
         disabled={!isLoaded && !loadError}
-        accessibilityLabel={(() => { if (isPlaying) return "Pause voice message"; if (loadError) return "Tap to retry loading"; return "Play voice message"; })()}
+        accessibilityLabel={(() => { if (isPlaying) { return "Pause voice message"; } if (loadError) { return "Tap to retry loading"; } return "Play voice message"; })()}
         accessibilityRole="button"
       >
         <Ionicons

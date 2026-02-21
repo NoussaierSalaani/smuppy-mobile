@@ -94,9 +94,9 @@ export const handler = withAuthHandler('peaks-save-decision', async (event, { he
           savedToProfile: savedValue,
         }),
       };
-    } catch (txError: unknown) {
+    } catch (error_: unknown) {
       await client.query('ROLLBACK');
-      throw txError;
+      throw error_;
     } finally {
       client.release();
     }

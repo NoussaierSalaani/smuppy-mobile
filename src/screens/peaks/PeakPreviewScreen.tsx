@@ -11,7 +11,6 @@ import {
   Switch,
   Dimensions,
   KeyboardAvoidingView,
-  Platform,
   Keyboard,
   ActivityIndicator,
   EmitterSubscription,
@@ -692,11 +691,11 @@ const PeakPreviewScreen = (): React.JSX.Element => {
               {challengeId ? 'Challenge Response Published!' : 'Peak Published!'} 🎉
             </Text>
             <Text style={styles.successDesc}>
-              {challengeId
-                ? 'Your challenge response is now live!'
-                : replyTo
-                ? 'Your reply has been posted'
-                : 'Your Peak is now live and ready to go viral!'}
+              {(() => {
+                if (challengeId) return 'Your challenge response is now live!';
+                if (replyTo) return 'Your reply has been posted';
+                return 'Your Peak is now live and ready to go viral!';
+              })()}
             </Text>
             <TouchableOpacity
               style={styles.successButton}

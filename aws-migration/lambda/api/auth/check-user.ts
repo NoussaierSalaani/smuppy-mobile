@@ -48,8 +48,8 @@ export const { handler } = createAuthHandler({
             })
           );
           isConfirmed = user.UserStatus === 'CONFIRMED';
-        } catch (error) {
-          if (!(error instanceof UserNotFoundException)) throw error;
+        } catch (error_) {
+          if (!(error_ instanceof UserNotFoundException)) throw error_;
         }
       }
 
@@ -69,9 +69,9 @@ export const { handler } = createAuthHandler({
           message: canSignup ? 'OK' : 'Unable to proceed.',
         }),
       };
-    } catch (error: unknown) {
-      log.error('CheckUser error', error, {
-        errorName: error instanceof Error ? error.name : String(error),
+    } catch (error_: unknown) {
+      log.error('CheckUser error', error_, {
+        errorName: error_ instanceof Error ? error_.name : String(error_),
       });
 
       // Generic error -- allow signup to continue (will fail later if needed)

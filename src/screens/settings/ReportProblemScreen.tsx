@@ -8,7 +8,6 @@ import {
   StatusBar,
   Modal,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

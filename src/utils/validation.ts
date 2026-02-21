@@ -216,7 +216,7 @@ const DISPOSABLE_EMAIL_DOMAINS = [
  * @returns {boolean} True if disposable (should be blocked)
  */
 export const isDisposableEmail = (email: string | undefined | null): boolean => {
-  if (!email || !email.includes('@')) return false;
+  if (!email?.includes('@')) return false;
   const domain = email.toLowerCase().split('@')[1];
   return DISPOSABLE_EMAIL_DOMAINS.includes(domain);
 };

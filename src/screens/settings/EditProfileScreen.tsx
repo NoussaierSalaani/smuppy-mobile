@@ -8,7 +8,6 @@ import {
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
   Keyboard,
 } from 'react-native';

@@ -63,8 +63,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     const db = await getPool();
     return await createBusinessCheckout(db, user, event, headers);
-  } catch (error) {
-    log.error('Business checkout error', error);
+  } catch (error_) {
+    log.error('Business checkout error', error_);
     return {
       statusCode: 500,
       headers,

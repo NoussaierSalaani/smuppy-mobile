@@ -183,8 +183,18 @@ describe('sessions/availability handler', () => {
 
     it('should return empty slots on weekends with default availability', async () => {
       // Default availability has empty arrays for saturday and sunday
-      // Use a Saturday as startDate (2026-03-08 is a Saturday, getDay() === 6)
-      const saturday = new Date('2026-03-08');
+      // Use a far-future Saturday where new Date(str).getDay() === 6
+      const satStr = (() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() + 6);
+        for (let i = 0; i < 10; i++) {
+          const s = d.toISOString().split('T')[0];
+          if (new Date(s).getDay() === 6) return s;
+          d.setDate(d.getDate() + 1);
+        }
+        throw new Error('Could not find a Saturday');
+      })();
+      const saturday = new Date(satStr);
       mockQuery
         .mockResolvedValueOnce({ rows: [makeCreatorRow()] }) // creator
         .mockResolvedValueOnce({ rows: [] }); // no booked sessions
@@ -309,21 +319,46 @@ describe('sessions/availability handler', () => {
   });
 
   describe('booked slot filtering', () => {
+    /**
+     * Helper to get a far-future start date string (YYYY-MM-DD) where
+     * new Date(str).getDay() returns the target day.
+     * We must match how the handler interprets the date: `new Date(startDate)`
+     * which treats YYYY-MM-DD as UTC midnight, then getDay() in local time.
+     */
+    function getFutureStartDateForDay(targetDay: number): string {
+      // Brute-force: try dates 6+ months from now until getDay() matches
+      const d = new Date();
+      d.setMonth(d.getMonth() + 6);
+      for (let i = 0; i < 10; i++) {
+        const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+        const parsed = new Date(dateStr); // Same as handler does
+        if (parsed.getDay() === targetDay) {
+          return dateStr;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      throw new Error(`Could not find a date for day ${targetDay}`);
+    }
+
     it('should filter out slots that conflict with booked sessions', async () => {
-      // Use a far-future Monday to ensure slots are valid (> 2h from now)
-      const futureMonday = '2026-06-01'; // A Monday
-      const bookedAt = `${futureMonday}T10:00:00.000Z`;
+      // Find a date where new Date('YYYY-MM-DD').getDay() === 1 (Monday)
+      const futureMonday = getFutureStartDateForDay(1);
+      // Create a booked session at 14:00 on that day (use same Date logic as handler)
+      const bookedDate = new Date(futureMonday);
+      bookedDate.setHours(14, 0, 0, 0); // local 14:00
+      const bookedAt = bookedDate.toISOString();
       mockQuery
         .mockResolvedValueOnce({
           rows: [makeCreatorRow({
             session_availability: {
-              monday: [{ start: '10:00', end: '12:00' }],
+              monday: [{ start: '14:00', end: '16:00' }],
               tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [],
             },
+            session_duration: 30,
           })],
         })
         .mockResolvedValueOnce({
-          rows: [{ scheduled_at: bookedAt, duration: 30 }], // 10:00-10:30 is booked
+          rows: [{ scheduled_at: bookedAt, duration: 30 }], // 14:00-14:30 is booked
         });
       const event = makeEvent({
         queryStringParameters: { startDate: futureMonday, days: '1' },
@@ -332,9 +367,41 @@ describe('sessions/availability handler', () => {
       const result = res as { statusCode: number; body: string };
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
-      // The 10:00 slot should be filtered out
-      const tenAm = body.availableSlots.find((s: { time: string }) => s.time === '10:00');
-      expect(tenAm).toBeUndefined();
+      // Some slots should exist (14:30, 15:00, 15:30 but NOT 14:00)
+      expect(body.availableSlots.length).toBeGreaterThan(0);
+      const fourteenHundred = body.availableSlots.find((s: { time: string }) => s.time === '14:00');
+      expect(fourteenHundred).toBeUndefined();
+    });
+
+    it('should include non-conflicting slots when booked sessions exist', async () => {
+      const futureMonday = getFutureStartDateForDay(1);
+      const bookedDate = new Date(futureMonday);
+      bookedDate.setHours(14, 0, 0, 0);
+      const bookedAt = bookedDate.toISOString();
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [makeCreatorRow({
+            session_availability: {
+              monday: [{ start: '14:00', end: '16:00' }],
+              tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [],
+            },
+            session_duration: 30,
+          })],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ scheduled_at: bookedAt, duration: 30 }],
+        });
+      const event = makeEvent({
+        queryStringParameters: { startDate: futureMonday, days: '1' },
+      });
+      const res = await handler(event, {} as never, () => {});
+      const body = JSON.parse((res as { body: string }).body);
+      // 14:30, 15:00, 15:30 should be available (not 14:00)
+      const availableTimes = body.availableSlots.map((s: { time: string }) => s.time);
+      expect(availableTimes).toContain('14:30');
+      expect(availableTimes).toContain('15:00');
+      expect(availableTimes).toContain('15:30');
+      expect(availableTimes).not.toContain('14:00');
     });
   });
 

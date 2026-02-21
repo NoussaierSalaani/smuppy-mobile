@@ -70,9 +70,9 @@ export const handler = withAuthHandler('posts-unlike', async (event, { headers, 
         likesCount: updatedPost.rows[0]?.likes_count || 0,
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw error;
+    throw error_;
   } finally {
     client.release();
   }

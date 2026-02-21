@@ -65,8 +65,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       success: true,
       data,
     });
-  } catch (error: unknown) {
-    log.error('Error fetching trending hashtags', error);
+  } catch (error_: unknown) {
+    log.error('Error fetching trending hashtags', error_);
     return response(500, { success: false, error: 'Internal server error' });
   }
 };

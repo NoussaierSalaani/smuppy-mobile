@@ -276,7 +276,7 @@ async function handleCreateComment(
         title: 'New Comment',
         body: `${profile.full_name || 'Someone'} commented on your peak`,
         data: { type: 'peak_comment', peakId },
-      }, profile.id).catch(err => log.error('Push notification failed', err));
+      }, profile.id).catch(error_ => log.error('Push notification failed', error_));
     }
 
     return {
@@ -300,9 +300,9 @@ async function handleCreateComment(
         },
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw error;
+    throw error_;
   } finally {
     client.release();
   }

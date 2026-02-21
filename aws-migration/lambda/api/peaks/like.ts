@@ -78,7 +78,7 @@ export const { handler } = createPeakActionHandler({
         title: 'New Like',
         body: `${fullName || 'Someone'} liked your peak`,
         data: { type: 'peak_like', peakId },
-      }, profileId).catch(err => log.error('Push notification failed', err));
+      }, profileId).catch(error_ => log.error('Push notification failed', error_));
     }
 
     return {

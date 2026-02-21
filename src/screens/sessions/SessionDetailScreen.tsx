@@ -212,11 +212,14 @@ const SessionDetailScreen = (): React.JSX.Element => {
         {/* Status Banner */}
         <View style={[styles.statusBanner, { backgroundColor: getStatusColor(session.status) + '20' }]}>
           <Ionicons
-            name={
-              session.status === 'confirmed' ? 'checkmark-circle' :
-              session.status === 'pending' ? 'time' :
-              session.status === 'completed' ? 'checkbox' : 'close-circle'
-            }
+            name={(() => {
+              const statusIconMap: Record<string, string> = {
+                confirmed: 'checkmark-circle',
+                pending: 'time',
+                completed: 'checkbox',
+              };
+              return (statusIconMap[session.status] || 'close-circle') as keyof typeof Ionicons.glyphMap;
+            })()}
             size={24}
             color={getStatusColor(session.status)}
           />

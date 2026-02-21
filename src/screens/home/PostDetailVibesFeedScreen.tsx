@@ -263,47 +263,53 @@ const PostDetailVibesFeedScreen = () => {
           <TouchableWithoutFeedback onPress={actions.handleDoubleTap}>
             <View style={[styles.fullscreenContainer, styles.fullscreenHeight]}>
               {/* Media */}
-              {currentPost.type === 'video' ? (
-                <Video
-                  ref={videoRef}
-                  source={{ uri: normalizeCdnUrl(currentPost.media) || '' }}
-                  style={styles.fullscreenMedia}
-                  resizeMode={ResizeMode.COVER}
-                  isLooping
-                  isMuted={actions.isAudioMuted}
-                  shouldPlay={!actions.isPaused}
-                  posterSource={{ uri: normalizeCdnUrl(currentPost.thumbnail) || '' }}
-                  usePoster
-                />
-              ) : currentPost.allMedia && currentPost.allMedia.length > 1 ? (
-                <View style={styles.scrollView}>
-                  <FlatList
-                    horizontal
-                    pagingEnabled
-                    data={currentPost.allMedia}
-                    keyExtractor={(_, mediaIndex) => `${currentPost.id}-media-${mediaIndex}`}
-                    renderItem={({ item: mediaUrl }) => (
-                      <OptimizedImage source={mediaUrl} style={styles.carouselImage} />
-                    )}
-                    showsHorizontalScrollIndicator={false}
-                    getItemLayout={(_, layoutIndex) => ({ length: width, offset: width * layoutIndex, index: layoutIndex })}
-                    onMomentumScrollEnd={handleCarouselScroll}
-                  />
-                  <View style={styles.carouselPagination}>
-                    {currentPost.allMedia.map((_, dotIndex) => (
-                      <View
-                        key={`dot-${dotIndex}`}
-                        style={[
-                          styles.carouselDot,
-                          carouselIndex === dotIndex && styles.carouselDotActive,
-                        ]}
+              {(() => {
+                if (currentPost.type === 'video') {
+                  return (
+                    <Video
+                      ref={videoRef}
+                      source={{ uri: normalizeCdnUrl(currentPost.media) || '' }}
+                      style={styles.fullscreenMedia}
+                      resizeMode={ResizeMode.COVER}
+                      isLooping
+                      isMuted={actions.isAudioMuted}
+                      shouldPlay={!actions.isPaused}
+                      posterSource={{ uri: normalizeCdnUrl(currentPost.thumbnail) || '' }}
+                      usePoster
+                    />
+                  );
+                }
+                if (currentPost.allMedia && currentPost.allMedia.length > 1) {
+                  return (
+                    <View style={styles.scrollView}>
+                      <FlatList
+                        horizontal
+                        pagingEnabled
+                        data={currentPost.allMedia}
+                        keyExtractor={(_, mediaIndex) => `${currentPost.id}-media-${mediaIndex}`}
+                        renderItem={({ item: mediaUrl }) => (
+                          <OptimizedImage source={mediaUrl} style={styles.carouselImage} />
+                        )}
+                        showsHorizontalScrollIndicator={false}
+                        getItemLayout={(_, layoutIndex) => ({ length: width, offset: width * layoutIndex, index: layoutIndex })}
+                        onMomentumScrollEnd={handleCarouselScroll}
                       />
-                    ))}
-                  </View>
-                </View>
-              ) : (
-                <OptimizedImage source={currentPost.media || currentPost.thumbnail} style={styles.fullscreenMedia} />
-              )}
+                      <View style={styles.carouselPagination}>
+                        {currentPost.allMedia.map((_, dotIndex) => (
+                          <View
+                            key={`dot-${dotIndex}`}
+                            style={[
+                              styles.carouselDot,
+                              carouselIndex === dotIndex && styles.carouselDotActive,
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  );
+                }
+                return <OptimizedImage source={currentPost.media || currentPost.thumbnail} style={styles.fullscreenMedia} />;
+              })()}
 
               {/* Gradient overlay */}
               <LinearGradient

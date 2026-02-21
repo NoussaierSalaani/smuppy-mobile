@@ -164,9 +164,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         message: isCreator ? 'Session declined' : 'Session cancelled',
       }),
     };
-  } catch (error) {
+  } catch (error_) {
     await client.query('ROLLBACK');
-    log.error('Decline session error', error);
+    log.error('Decline session error', error_);
     return {
       statusCode: 500,
       headers: headers,

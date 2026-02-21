@@ -210,8 +210,8 @@ export async function quarantineFromPending(
           timestamp: new Date().toISOString(),
         }),
       }));
-    } catch (err) {
-      log.error('Failed to send quarantine alert', err);
+    } catch (error_) {
+      log.error('Failed to send quarantine alert', error_);
     }
   }
 
@@ -226,7 +226,7 @@ async function cleanupEntry(objectKey: string): Promise<void> {
       TableName: SCAN_TABLE,
       Key: { objectKey: { S: objectKey } },
     }));
-  } catch (err) {
-    log.warn('Failed to cleanup DynamoDB entry', { objectKey, err });
+  } catch (error_) {
+    log.warn('Failed to cleanup DynamoDB entry', { objectKey, error: error_ });
   }
 }

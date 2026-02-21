@@ -75,7 +75,7 @@ export const handler = createFollowRequestHandler({
       title: 'Follow Request Accepted',
       body: `${accepterName} accepted your follow request`,
       data: { type: 'follow_accepted', userId: profileId },
-    }, profileId).catch(err => log.error('Push notification failed', err));
+    }, profileId).catch(error_ => log.error('Push notification failed', error_));
 
     return {
       statusCode: 200,

@@ -374,52 +374,58 @@ const PostDetailFanFeedScreen = () => {
           )}
 
           {/* Media */}
-          {item.type === 'video' ? (
-            <Video
-              ref={index === currentIndex ? videoRef : null}
-              source={{ uri: normalizeCdnUrl(item.media) || '' }}
-              style={styles.media}
-              resizeMode={ResizeMode.COVER}
-              isLooping
-              isMuted={actions.isAudioMuted}
-              shouldPlay={index === currentIndex && !actions.isPaused}
-              posterSource={{ uri: normalizeCdnUrl(item.thumbnail) || '' }}
-              usePoster
-            />
-          ) : item.allMedia && item.allMedia.length > 1 ? (
-            // Carousel with FlatList (lazy rendering, better perf than ScrollView)
-            <View style={styles.carouselContainer}>
-              <FlatList
-                horizontal
-                pagingEnabled
-                data={item.allMedia}
-                keyExtractor={(mediaUrl, mediaIndex) => `${item.id}-media-${mediaIndex}`}
-                renderItem={({ item: mediaUrl }) => (
-                  <OptimizedImage source={mediaUrl} style={styles.carouselImage} />
-                )}
-                showsHorizontalScrollIndicator={false}
-                getItemLayout={(_, layoutIndex) => ({ length: width, offset: width * layoutIndex, index: layoutIndex })}
-                onMomentumScrollEnd={(e) => {
-                  const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
-                  setCarouselIndexes(prev => ({ ...prev, [item.id]: slideIndex }));
-                }}
-              />
-              {/* Carousel pagination dots */}
-              <View style={styles.carouselPagination}>
-                {item.allMedia.map((_, dotIndex) => (
-                  <View
-                    key={`dot-${dotIndex}`}
-                    style={[
-                      styles.carouselDot,
-                      (carouselIndexes[item.id] || 0) === dotIndex && styles.carouselDotActive,
-                    ]}
+          {(() => {
+            if (item.type === 'video') {
+              return (
+                <Video
+                  ref={index === currentIndex ? videoRef : null}
+                  source={{ uri: normalizeCdnUrl(item.media) || '' }}
+                  style={styles.media}
+                  resizeMode={ResizeMode.COVER}
+                  isLooping
+                  isMuted={actions.isAudioMuted}
+                  shouldPlay={index === currentIndex && !actions.isPaused}
+                  posterSource={{ uri: normalizeCdnUrl(item.thumbnail) || '' }}
+                  usePoster
+                />
+              );
+            }
+            if (item.allMedia && item.allMedia.length > 1) {
+              return (
+                // Carousel with FlatList (lazy rendering, better perf than ScrollView)
+                <View style={styles.carouselContainer}>
+                  <FlatList
+                    horizontal
+                    pagingEnabled
+                    data={item.allMedia}
+                    keyExtractor={(mediaUrl, mediaIndex) => `${item.id}-media-${mediaIndex}`}
+                    renderItem={({ item: mediaUrl }) => (
+                      <OptimizedImage source={mediaUrl} style={styles.carouselImage} />
+                    )}
+                    showsHorizontalScrollIndicator={false}
+                    getItemLayout={(_, layoutIndex) => ({ length: width, offset: width * layoutIndex, index: layoutIndex })}
+                    onMomentumScrollEnd={(e) => {
+                      const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                      setCarouselIndexes(prev => ({ ...prev, [item.id]: slideIndex }));
+                    }}
                   />
-                ))}
-              </View>
-            </View>
-          ) : (
-            <OptimizedImage source={item.media} style={styles.media} />
-          )}
+                  {/* Carousel pagination dots */}
+                  <View style={styles.carouselPagination}>
+                    {item.allMedia.map((_, dotIndex) => (
+                      <View
+                        key={`dot-${dotIndex}`}
+                        style={[
+                          styles.carouselDot,
+                          (carouselIndexes[item.id] || 0) === dotIndex && styles.carouselDotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
+              );
+            }
+            return <OptimizedImage source={item.media} style={styles.media} />;
+          })()}
 
           {/* Gradient overlay bottom */}
           <LinearGradient

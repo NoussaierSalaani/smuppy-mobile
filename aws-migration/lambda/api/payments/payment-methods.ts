@@ -80,8 +80,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
-  } catch (error) {
-    log.error('Payment methods error', error);
+  } catch (error_) {
+    log.error('Payment methods error', error_);
     return {
       statusCode: 500,
       headers,

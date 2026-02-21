@@ -103,8 +103,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
-  } catch (error) {
-    log.error('Web checkout error', error);
+  } catch (error_) {
+    log.error('Web checkout error', error_);
     return {
       statusCode: 500,
       headers,

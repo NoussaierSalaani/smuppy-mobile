@@ -479,6 +479,28 @@ describe('push-notification service', () => {
   });
 
   describe('sendPushToUser', () => {
+    // BUG-2026-02-21: muted_users query used wrong column names (user_id, muted_user_id)
+    // instead of actual columns (muter_id, muted_id) from migration-020
+    it('should use correct muted_users column names (muter_id, muted_id) in block/mute check', async () => {
+      const mockDb = createMockDb();
+      (mockDb.query as jest.Mock).mockResolvedValueOnce({ rows: [] }); // no block/mute found
+
+      await sendPushToUser(mockDb, VALID_USER_ID, PAYLOAD, VALID_ACTOR_ID);
+
+      const blockCheckCall = (mockDb.query as jest.Mock).mock.calls[0];
+      const sql = blockCheckCall[0] as string;
+
+      // Verify correct blocked_users column names
+      expect(sql).toContain('blocker_id');
+      expect(sql).toContain('blocked_id');
+
+      // Verify correct muted_users column names (the bug was using user_id / muted_user_id)
+      expect(sql).toContain('muter_id');
+      expect(sql).toContain('muted_id');
+      expect(sql).not.toContain('user_id');
+      expect(sql).not.toContain('muted_user_id');
+    });
+
     it('should skip push when recipient has blocked the actor', async () => {
       const mockDb = createMockDb();
       (mockDb.query as jest.Mock).mockResolvedValueOnce({

@@ -72,24 +72,24 @@ export async function handler(): Promise<{ cleaned: number; errors: number }> {
               Bucket: MEDIA_BUCKET,
               Delete: { Objects: s3Keys, Quiet: true },
             }));
-          } catch (s3Err: unknown) {
-            log.error('S3 cleanup failed for peak', s3Err, { peakId: peak.id.substring(0, 8) + '***' });
+          } catch (error_: unknown) {
+            log.error('S3 cleanup failed for peak', error_, { peakId: peak.id.substring(0, 8) + '***' });
           }
         }
 
         // Hard-delete peak record (CASCADE handles likes, comments, views)
         await db.query('DELETE FROM peaks WHERE id = $1', [peak.id]);
         totalCleaned++;
-      } catch (peakErr: unknown) {
+      } catch (error_: unknown) {
         totalErrors++;
-        log.error('Failed to clean up peak', peakErr, { peakId: peak.id.substring(0, 8) + '***' });
+        log.error('Failed to clean up peak', error_, { peakId: peak.id.substring(0, 8) + '***' });
       }
     }
 
     log.warn('Peaks cleanup complete', { cleaned: totalCleaned, errors: totalErrors });
     return { cleaned: totalCleaned, errors: totalErrors };
-  } catch (error: unknown) {
-    log.error('Peaks cleanup failed', error);
+  } catch (error_: unknown) {
+    log.error('Peaks cleanup failed', error_);
     return { cleaned: totalCleaned, errors: totalErrors + 1 };
   }
 }

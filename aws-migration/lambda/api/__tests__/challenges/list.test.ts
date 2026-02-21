@@ -579,9 +579,17 @@ describe('challenges/list handler', () => {
 
   // 15. creatorId filter (public profiles)
   describe('creatorId filter', () => {
-    it('should query public challenges by creatorId', async () => {
+    it('should query public challenges by creatorId when filter requires userId but userId is absent', async () => {
+      // To hit the creatorId branch, we need: filter that requires userId but userId is null + creatorId present
+      (resolveProfileId as jest.Mock).mockReset().mockResolvedValue(null);
+
       const event = makeEvent({
-        queryStringParameters: { creatorId: 'e5f6a7b8-c9d0-1234-efab-345678901234' },
+        requestContext: {
+          requestId: 'test-request-id',
+          authorizer: { claims: { sub: VALID_USER_ID } },
+          identity: { sourceIp: '127.0.0.1' },
+        },
+        queryStringParameters: { filter: 'created', creatorId: 'e5f6a7b8-c9d0-1234-efab-345678901234' },
       });
 
       const result = await invoke(event);
@@ -590,8 +598,16 @@ describe('challenges/list handler', () => {
     });
 
     it('should apply cursor in creatorId filter', async () => {
+      (resolveProfileId as jest.Mock).mockReset().mockResolvedValue(null);
+
       const event = makeEvent({
+        requestContext: {
+          requestId: 'test-request-id',
+          authorizer: { claims: { sub: VALID_USER_ID } },
+          identity: { sourceIp: '127.0.0.1' },
+        },
         queryStringParameters: {
+          filter: 'tagged',
           creatorId: 'e5f6a7b8-c9d0-1234-efab-345678901234',
           cursor: '2026-02-20T12:00:00Z',
         },

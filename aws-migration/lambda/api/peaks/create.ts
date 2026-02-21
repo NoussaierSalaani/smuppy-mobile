@@ -226,9 +226,9 @@ export const handler = withAuthHandler('peaks-create', async (event, { headers, 
       }
 
       await peakClient.query('COMMIT');
-    } catch (txErr) {
+    } catch (error_) {
       await peakClient.query('ROLLBACK').catch(() => {});
-      throw txErr;
+      throw error_;
     } finally {
       peakClient.release();
     }
@@ -240,8 +240,8 @@ export const handler = withAuthHandler('peaks-create', async (event, { headers, 
         if (videoDuration && videoDuration > 0) {
           await deductQuota(profile.id, 'video', Math.ceil(videoDuration));
         }
-      } catch (quotaErr) {
-        log.error('Failed to deduct quota (non-blocking)', quotaErr);
+      } catch (error_) {
+        log.error('Failed to deduct quota (non-blocking)', error_);
       }
     }
 
@@ -261,9 +261,9 @@ export const handler = withAuthHandler('peaks-create', async (event, { headers, 
           title: 'New Peak Reply',
           body: `${profile.full_name || 'Someone'} replied to your Peak`,
           data: { type: 'peak_reply', peakId: peak.id as string },
-        }, profile.id).catch(err => log.error('Push peak_reply failed', err));
-      } catch (notifErr) {
-        log.error('Failed to send reply notification', notifErr);
+        }, profile.id).catch(error_ => log.error('Push peak_reply failed', error_));
+      } catch (error_) {
+        log.error('Failed to send reply notification', error_);
       }
     }
 
@@ -289,9 +289,9 @@ export const handler = withAuthHandler('peaks-create', async (event, { headers, 
         ]
       );
       await notifClient.query('COMMIT');
-    } catch (notifErr) {
+    } catch (error_) {
       await notifClient.query('ROLLBACK').catch(() => {});
-      log.error('Failed to send follower notifications', notifErr);
+      log.error('Failed to send follower notifications', error_);
     } finally {
       notifClient.release();
     }
@@ -309,8 +309,8 @@ export const handler = withAuthHandler('peaks-create', async (event, { headers, 
           })),
         }));
         log.info('Video processing triggered for peak', { peakId: (peak.id as string).substring(0, 8) + '...' });
-      } catch (vpErr) {
-        log.error('Failed to trigger video processing (non-blocking)', vpErr);
+      } catch (error_) {
+        log.error('Failed to trigger video processing (non-blocking)', error_);
       }
     }
 

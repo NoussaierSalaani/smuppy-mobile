@@ -134,7 +134,7 @@ export const handler = withAuthHandler('posts-like', async (event, { headers, lo
         title: 'New Like',
         body: `${likerName} liked your post`,
         data: { type: 'like', postId },
-      }, profileId).catch(err => log.error('Push notification failed', err));
+      }, profileId).catch(error_ => log.error('Push notification failed', error_));
     }
 
     return {
@@ -146,9 +146,9 @@ export const handler = withAuthHandler('posts-like', async (event, { headers, lo
         likesCount: updatedPost.rows[0].likes_count,
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw error;
+    throw error_;
   } finally {
     client.release();
   }

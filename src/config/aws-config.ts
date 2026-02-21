@@ -88,7 +88,7 @@ const getEnvironment = (): 'staging' | 'production' => {
 export const getAWSConfig = (): AWSConfig => {
   const currentEnv = getEnvironment();
   const isProduction = currentEnv === 'production';
-  const isReleaseBuild = typeof __DEV__ !== 'undefined' ? !__DEV__ : process.env.NODE_ENV === 'production';
+  const isReleaseBuild = typeof __DEV__ === 'undefined' ? process.env.NODE_ENV === 'production' : !__DEV__;
   const devUsesStaging = __DEV__ && env('EXPO_PUBLIC_DEV_USE_STAGING') === 'true';
 
   // Track which vars fell back to staging defaults

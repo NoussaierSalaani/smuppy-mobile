@@ -123,9 +123,9 @@ export const handler = withAuthHandler('follows-create', async (event, { headers
         };
       }
     }
-  } catch (cooldownErr) {
+  } catch (error_) {
     // Table might not exist yet - continue without cooldown check
-    log.warn('Cooldown check failed (table may not exist)', { error: String(cooldownErr) });
+    log.warn('Cooldown check failed (table may not exist)', { error: String(error_) });
   }
 
   // Check if already following, pending, or recently unfollowed (anti-spam)

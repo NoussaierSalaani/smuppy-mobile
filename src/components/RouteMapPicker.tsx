@@ -195,9 +195,14 @@ export default function RouteMapPicker({
       return;
     }
 
-    const setSearching = field === 'departure' ? setSearchingDeparture
-      : field === 'arrival' ? setSearchingArrival
-      : setSearchingLocation;
+    let setSearching: typeof setSearchingDeparture;
+    if (field === 'departure') {
+      setSearching = setSearchingDeparture;
+    } else if (field === 'arrival') {
+      setSearching = setSearchingArrival;
+    } else {
+      setSearching = setSearchingLocation;
+    }
 
     setSearching(true);
 

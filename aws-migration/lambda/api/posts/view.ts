@@ -63,9 +63,9 @@ export const handler = withAuthHandler('posts-view', async (event, { headers, co
       }
 
       await client.query('COMMIT');
-    } catch (txErr) {
+    } catch (error_) {
       await client.query('ROLLBACK');
-      throw txErr;
+      throw error_;
     } finally {
       client.release();
     }

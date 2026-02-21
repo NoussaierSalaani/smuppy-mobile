@@ -979,7 +979,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       const allMedia = p.media_urls?.filter(Boolean) || [];
       return {
         id: p.id,
-        type: p.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
+        type: (() => {
+          if (p.media_type === 'video') return 'video' as const;
+          return allMedia.length > 1 ? 'carousel' as const : 'image' as const;
+        })(),
         media: allMedia[0] || '',
         thumbnail: allMedia[0] || '',
         description: p.content || '',
@@ -1054,7 +1057,11 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       .sort((a, b) => b.key.localeCompare(a.key))
       .map(g => ({
         ...g,
-        label: g.key === today ? 'Today' : g.key === yesterday ? 'Yesterday' : g.key.slice(5),
+        label: (() => {
+          if (g.key === today) return 'Today';
+          if (g.key === yesterday) return 'Yesterday';
+          return g.key.slice(5);
+        })(),
         latestThumbnail: g.peaks[0]?.media_urls?.[0],
         peakCount: g.peaks.length,
       }));
@@ -1238,7 +1245,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             const author = p.author ?? (p['user'] as typeof p.author) ?? undefined;
             return {
               id: p.id,
-              type: p.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
+              type: (() => {
+                if (p.media_type === 'video') return 'video' as const;
+                return allMedia.length > 1 ? 'carousel' as const : 'image' as const;
+              })(),
               media: allMedia[0] || '',
               thumbnail: allMedia[0] || '',
               description: p.content || '',

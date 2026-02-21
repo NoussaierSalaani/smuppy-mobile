@@ -198,8 +198,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       nextCursor,
       hasMore,
     });
-  } catch (error: unknown) {
-    log.error('Error searching peaks', error);
+  } catch (error_: unknown) {
+    log.error('Error searching peaks', error_);
     return response(500, { success: false, error: 'Internal server error' });
   }
 };

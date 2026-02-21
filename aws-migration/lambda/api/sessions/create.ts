@@ -206,9 +206,9 @@ export const handler = withAuthHandler('sessions-create', async (event, { header
           },
         }),
       };
-    } catch (txError) {
+    } catch (error_) {
       await client.query('ROLLBACK');
-      throw txError;
+      throw error_;
     } finally {
       client.release();
     }

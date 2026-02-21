@@ -179,8 +179,8 @@ export const handler = withAuthHandler('comments-create', async (event, { header
              VALUES ($1, 'flag_content', $2, $3)`,
             [SYSTEM_MODERATOR_ID, profile.id, `Comprehend toxicity on comment ${comment.id}: ${flagCategory} score=${flagScore}`],
           );
-        } catch (flagErr) {
-          log.error('Failed to log flagged comment (non-blocking)', flagErr);
+        } catch (error_) {
+          log.error('Failed to log flagged comment (non-blocking)', error_);
         }
       }
 
@@ -190,7 +190,7 @@ export const handler = withAuthHandler('comments-create', async (event, { header
           title: 'New Comment',
           body: `${profile.full_name || 'Someone'} commented on your post`,
           data: { type: 'comment', postId },
-        }, profile.id).catch(err => log.error('Push notification failed', err));
+        }, profile.id).catch(error_ => log.error('Push notification failed', error_));
       }
 
       return {
@@ -216,9 +216,9 @@ export const handler = withAuthHandler('comments-create', async (event, { header
           },
         }),
       };
-    } catch (error: unknown) {
+    } catch (error_: unknown) {
       await client.query('ROLLBACK');
-      throw error;
+      throw error_;
     } finally {
       client.release();
     }

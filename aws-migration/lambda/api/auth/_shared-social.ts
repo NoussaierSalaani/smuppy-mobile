@@ -80,9 +80,9 @@ export const getOrCreateCognitoUser = async (
       })
     );
     return { userId: username, isNewUser: false, password: newPassword };
-  } catch (error) {
-    if (!(error instanceof UserNotFoundException)) {
-      throw error;
+  } catch (error_) {
+    if (!(error_ instanceof UserNotFoundException)) {
+      throw error_;
     }
   }
 

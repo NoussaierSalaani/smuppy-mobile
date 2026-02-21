@@ -112,8 +112,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ success: false, message: 'Invalid action' }),
         };
     }
-  } catch (error: unknown) {
-    log.error('Channel subscription error', error);
+  } catch (error_: unknown) {
+    log.error('Channel subscription error', error_);
     return {
       statusCode: 500,
       headers,
@@ -223,8 +223,8 @@ async function syncFanEmailFromCognito(
     if (fan.email) {
       await client.query('UPDATE profiles SET email = $1 WHERE id = $2', [fan.email, fanUserId]);
     }
-  } catch (cognitoErr) {
-    log.warn('Failed to fetch email from Cognito, continuing with null email', { error: String(cognitoErr) });
+  } catch (error_) {
+    log.warn('Failed to fetch email from Cognito, continuing with null email', { error: String(error_) });
   }
 }
 

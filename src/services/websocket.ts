@@ -160,7 +160,7 @@ class WebSocketService {
    * Send a message through WebSocket
    */
   sendMessage(payload: SendMessagePayload): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
       if (__DEV__) console.warn('[WebSocket] Cannot send message - not connected');
       throw new Error('WebSocket is not connected');
     }
@@ -174,7 +174,7 @@ class WebSocketService {
    * Send typing indicator
    */
   sendTypingIndicator(conversationId: string, isTyping: boolean): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
       return;
     }
 
@@ -191,7 +191,7 @@ class WebSocketService {
    * Mark messages as read
    */
   sendReadReceipt(conversationId: string, messageId: string): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
       return;
     }
 
@@ -208,7 +208,7 @@ class WebSocketService {
    * Send raw JSON payload through WebSocket
    */
   send(payload: Record<string, unknown>): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
       return;
     }
     this.socket.send(JSON.stringify(payload));

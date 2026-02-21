@@ -7,8 +7,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { AvatarImage } from '../OptimizedImage';
-import OptimizedImage from '../OptimizedImage';
+import OptimizedImage, { AvatarImage } from '../OptimizedImage';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { GRADIENTS, DARK_GRADIENTS, SHADOWS } from '../../config/theme';
 import { resolveDisplayName } from '../../types/profile';

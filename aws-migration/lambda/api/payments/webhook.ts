@@ -921,7 +921,7 @@ async function handleChargeDisputeCreated(
           creatorId: payment.creator_id.substring(0, 8) + '***',
           timestamp: new Date().toISOString(),
         }),
-      })).catch(snsErr => logger.error('Failed to send dispute admin alert', snsErr));
+      })).catch(error_ => logger.error('Failed to send dispute admin alert', error_));
     }
   }
 }
@@ -1139,8 +1139,8 @@ function verifyWebhookSignature(
 ): Stripe.Event | null {
   try {
     return stripe.webhooks.constructEvent(body, signature, secret);
-  } catch (verifyError: unknown) {
-    logger.error('Webhook signature verification failed', verifyError);
+  } catch (error_: unknown) {
+    logger.error('Webhook signature verification failed', error_);
     return null;
   }
 }
@@ -1156,8 +1156,8 @@ async function insertDedupRecord(
       `INSERT INTO processed_webhook_events (event_id, created_at) VALUES ($1, NOW())`,
       [eventId]
     );
-  } catch (dedupError: unknown) {
-    const errCode = (dedupError as { code?: string }).code;
+  } catch (error_: unknown) {
+    const errCode = (error_ as { code?: string }).code;
     if (errCode === '23505') { // unique_violation
       logger.info('Duplicate event (DB)', { eventId });
       processedEvents.set(eventId, Date.now());
@@ -1173,7 +1173,7 @@ async function insertDedupRecord(
     // For transient DB errors (connection issues, timeouts), allow in-memory dedup
     // as fallback. Cross-instance duplicates are possible but the handlers below
     // use idempotent operations (ON CONFLICT, status checks) to mitigate.
-    logger.error('Webhook dedup insert failed (using in-memory fallback)', dedupError);
+    logger.error('Webhook dedup insert failed (using in-memory fallback)', error_);
   }
   return null;
 }
@@ -1187,9 +1187,9 @@ async function executeInTransaction(
     await client.query('BEGIN');
     await fn(client);
     await client.query('COMMIT');
-  } catch (txError: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw txError;
+    throw error_;
   } finally {
     client.release();
   }
@@ -1261,8 +1261,8 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers,
       body: JSON.stringify({ received: true }),
     };
-  } catch (handlerError: unknown) {
-    log.error('Webhook error', handlerError);
+  } catch (error_: unknown) {
+    log.error('Webhook error', error_);
     return {
       statusCode: 500,
       headers,

@@ -69,7 +69,10 @@ const convertToPostItem = (post: RawPost): PostItem => {
 
   return {
     id: post.id,
-    type: post.media_type === 'video' ? 'video' : allMedia.length > 1 ? 'carousel' : 'image',
+    type: (() => {
+      if (post.media_type === 'video') return 'video' as const;
+      return allMedia.length > 1 ? 'carousel' as const : 'image' as const;
+    })(),
     media: allMedia[0] || '',
     thumbnail: allMedia[0] || '',
     description: post.content || '',

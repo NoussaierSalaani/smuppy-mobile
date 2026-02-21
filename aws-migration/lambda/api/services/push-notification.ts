@@ -435,7 +435,7 @@ export async function sendPushToUser(
     const blockCheck = await db.query(
       `SELECT 1 FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2
        UNION ALL
-       SELECT 1 FROM muted_users WHERE user_id = $1 AND muted_user_id = $2
+       SELECT 1 FROM muted_users WHERE muter_id = $1 AND muted_id = $2
        LIMIT 1`,
       [userId, actorId]
     );

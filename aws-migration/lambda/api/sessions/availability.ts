@@ -178,8 +178,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         availableSlots,
       }),
     };
-  } catch (error) {
-    log.error('Get availability error', error);
+  } catch (error_) {
+    log.error('Get availability error', error_);
     return {
       statusCode: 500,
       headers: headers,

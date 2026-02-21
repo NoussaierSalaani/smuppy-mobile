@@ -224,9 +224,9 @@ export const handler = withAuthHandler('peaks-replies', async (event, { headers,
         }
 
         await client.query('COMMIT');
-      } catch (txError: unknown) {
+      } catch (error_: unknown) {
         await client.query('ROLLBACK');
-        throw txError;
+        throw error_;
       } finally {
         client.release();
       }

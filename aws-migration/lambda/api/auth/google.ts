@@ -139,9 +139,9 @@ export const handler = async (
         isNewUser,
       }),
     };
-  } catch (error: unknown) {
+  } catch (error_: unknown) {
     // SECURITY: Log full error server-side, return generic message to client
-    log.error('Authentication failed', error);
+    log.error('Authentication failed', error_);
     log.logResponse(401, Date.now() - startTime);
 
     return {

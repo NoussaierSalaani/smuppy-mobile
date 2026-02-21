@@ -204,7 +204,10 @@ export const LiquidTabs: React.FC<LiquidTabsProps> = React.memo(({
                 style={[
                   styles.tabLabel,
                   { fontSize: config.fontSize },
-                  isActive ? styles.tabLabelActive : (isDark ? styles.tabLabelInactiveDark : styles.tabLabelInactive),
+                  (() => {
+                    if (isActive) return styles.tabLabelActive;
+                    return isDark ? styles.tabLabelInactiveDark : styles.tabLabelInactive;
+                  })(),
                 ]}
               >
                 {tab.label}

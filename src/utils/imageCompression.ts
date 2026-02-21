@@ -191,11 +191,14 @@ export const compressImage = async (
     }
 
     // Process the image
-    const saveFormat = format === 'png'
-      ? ImageManipulator.SaveFormat.PNG
-      : format === 'webp'
-        ? ImageManipulator.SaveFormat.WEBP
-        : ImageManipulator.SaveFormat.JPEG;
+    let saveFormat: ImageManipulator.SaveFormat;
+    if (format === 'png') {
+      saveFormat = ImageManipulator.SaveFormat.PNG;
+    } else if (format === 'webp') {
+      saveFormat = ImageManipulator.SaveFormat.WEBP;
+    } else {
+      saveFormat = ImageManipulator.SaveFormat.JPEG;
+    }
 
     const result = await ImageManipulator.manipulateAsync(
       imageUri,

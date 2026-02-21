@@ -13,7 +13,6 @@ import {
   TextInput,
   Modal,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -135,11 +134,10 @@ export default function AddReviewSheet({
                 ))}
               </View>
               <Text style={styles.ratingLabel}>
-                {rating === 0 ? 'Tap to rate' :
-                 rating === 1 ? 'Poor' :
-                 rating === 2 ? 'Fair' :
-                 rating === 3 ? 'Good' :
-                 rating === 4 ? 'Very Good' : 'Excellent'}
+                {(() => {
+                  const ratingLabels: Record<number, string> = { 0: 'Tap to rate', 1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good' };
+                  return ratingLabels[rating] || 'Excellent';
+                })()}
               </Text>
 
               {/* Comment */}

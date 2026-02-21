@@ -26,7 +26,7 @@ import { RouteProp } from '@react-navigation/native';
 import { useTheme } from '../../hooks/useTheme';
 
 import { SCREEN_WIDTH, WIDTH_CAPPED } from '../../utils/responsive';
-import { ACCOUNT_TYPE, isPro } from '../../config/accountTypes';
+import { isPro } from '../../config/accountTypes';
 
 const GRID_GAP = 2;
 const ITEM_SIZE = Math.floor((WIDTH_CAPPED - GRID_GAP * 4) / 3);
@@ -321,7 +321,7 @@ export default function CreatePostScreen({ navigation, route: _route }: CreatePo
           return;
         }
         if (item.duration > maxVideoDuration) {
-          warningAlert('Video Too Long', `Videos must be ${maxVideoDuration} seconds or less.${!isProAccount ? ' Upgrade to Pro for longer videos.' : ''}`);
+          warningAlert('Video Too Long', `Videos must be ${maxVideoDuration} seconds or less.${isProAccount ? '' : ' Upgrade to Pro for longer videos.'}`);
           return;
         }
       }

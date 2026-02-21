@@ -992,11 +992,11 @@ const PeakViewScreen = (): React.JSX.Element => {
       else next.add(responseId);
       return next;
     });
-    setChallengeResponses(prev => prev.map(r =>
-      r.id === responseId
-        ? { ...r, voteCount: (r.voteCount ?? 0) + (wasVoted ? -1 : 1) }
-        : r
-    ));
+    setChallengeResponses(prev => prev.map(r => {
+      if (r.id !== responseId) return r;
+      const voteDelta = wasVoted ? -1 : 1;
+      return { ...r, voteCount: (r.voteCount ?? 0) + voteDelta };
+    }));
     try {
       await awsAPI.voteChallengeResponse(challengeId, responseId);
     } catch (error) {
@@ -1007,11 +1007,11 @@ const PeakViewScreen = (): React.JSX.Element => {
         else next.delete(responseId);
         return next;
       });
-      setChallengeResponses(prev => prev.map(r =>
-        r.id === responseId
-          ? { ...r, voteCount: (r.voteCount ?? 0) + (wasVoted ? 1 : -1) }
-          : r
-      ));
+      setChallengeResponses(prev => prev.map(r => {
+        if (r.id !== responseId) return r;
+        const revertDelta = wasVoted ? 1 : -1;
+        return { ...r, voteCount: (r.voteCount ?? 0) + revertDelta };
+      }));
       if (__DEV__) console.warn('Failed to vote on response:', error);
     }
   }, [votedResponses]);
@@ -1427,14 +1427,16 @@ const PeakViewScreen = (): React.JSX.Element => {
           {currentPeak.overlays.map((overlay) => (
             <View key={overlay.id} style={styles.overlayIndicator}>
               <Ionicons
-                name={
-                  overlay.type === 'workout_timer' ? 'timer-outline' :
-                  overlay.type === 'rep_counter' ? 'fitness-outline' :
-                  overlay.type === 'day_challenge' ? 'calendar-outline' :
-                  overlay.type === 'calorie_burn' ? 'flame-outline' :
-                  overlay.type === 'heart_rate_pulse' ? 'heart-outline' :
-                  'layers-outline'
-                }
+                name={(() => {
+                  const overlayIconMap: Record<string, string> = {
+                    workout_timer: 'timer-outline',
+                    rep_counter: 'fitness-outline',
+                    day_challenge: 'calendar-outline',
+                    calorie_burn: 'flame-outline',
+                    heart_rate_pulse: 'heart-outline',
+                  };
+                  return (overlayIconMap[overlay.type] || 'layers-outline') as keyof typeof Ionicons.glyphMap;
+                })()}
                 size={14}
                 color={colors.white}
               />

@@ -28,7 +28,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useUserStore } from '../../stores/userStore';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { ACCOUNT_TYPE, isPro } from '../../config/accountTypes';
+import { isPro } from '../../config/accountTypes';
 
 type EventManageScreenProps = Readonly<{
   route: { params: { eventId: string } };

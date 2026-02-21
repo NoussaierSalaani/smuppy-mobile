@@ -286,9 +286,9 @@ export const handler = withAuthHandler('events-update', async (event, { headers,
         },
       }),
     };
-  } catch (txError: unknown) {
+  } catch (error_: unknown) {
     await client.query('ROLLBACK');
-    throw txError;
+    throw error_;
   } finally {
     client.release();
   }

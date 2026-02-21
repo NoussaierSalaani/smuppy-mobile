@@ -15,7 +15,6 @@ import {
   Modal,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -142,11 +141,14 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // Dynamic visibility options based on account type
   // Pro creators can restrict content to paid subscribers
   // Business accounts can only post publicly
-  const VISIBILITY_OPTIONS = user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS
-    ? [BASE_VISIBILITY_OPTIONS[0]] // public only
-    : user?.accountType === ACCOUNT_TYPE.PRO_CREATOR
-      ? [...BASE_VISIBILITY_OPTIONS.slice(0, 2), SUBSCRIBERS_OPTION, BASE_VISIBILITY_OPTIONS[2]]
-      : BASE_VISIBILITY_OPTIONS;
+  let VISIBILITY_OPTIONS;
+  if (user?.accountType === ACCOUNT_TYPE.PRO_BUSINESS) {
+    VISIBILITY_OPTIONS = [BASE_VISIBILITY_OPTIONS[0]]; // public only
+  } else if (user?.accountType === ACCOUNT_TYPE.PRO_CREATOR) {
+    VISIBILITY_OPTIONS = [...BASE_VISIBILITY_OPTIONS.slice(0, 2), SUBSCRIBERS_OPTION, BASE_VISIBILITY_OPTIONS[2]];
+  } else {
+    VISIBILITY_OPTIONS = BASE_VISIBILITY_OPTIONS;
+  }
 
   // State
   const [description, setDescription] = useState('');
@@ -404,7 +406,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
 
   // Handle map press to select location
   const handleMapPress = async (feature: Feature) => {
-    if (!feature.geometry || feature.geometry.type !== 'Point') return;
+    if (feature.geometry?.type !== 'Point') return;
     const [longitude, latitude] = (feature.geometry as Point).coordinates;
     const coords = { latitude, longitude };
     setSelectedCoords(coords);
@@ -538,9 +540,14 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       setUploadProgress(85);
 
       // Create post in database
-      const mediaType = media.length === 1
-        ? (media[0].mediaType === 'video' ? 'video' : 'image')
-        : 'multiple';
+      let mediaType: 'image' | 'video' | 'multiple';
+      if (media.length !== 1) {
+        mediaType = 'multiple';
+      } else if (media[0].mediaType === 'video') {
+        mediaType = 'video';
+      } else {
+        mediaType = 'image';
+      }
 
       const postData = {
         content: description,
@@ -747,7 +754,7 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
             style={[styles.viewToggleButton, !showMapView && styles.viewToggleButtonActive]}
             onPress={handleHideMapView}
           >
-            <Ionicons name="search" size={18} color={!showMapView ? colors.white : colors.dark} />
+            <Ionicons name="search" size={18} color={showMapView ? colors.dark : colors.white} />
             <Text style={[styles.viewToggleText, !showMapView && styles.viewToggleTextActive]}>Search</Text>
           </TouchableOpacity>
           <TouchableOpacity

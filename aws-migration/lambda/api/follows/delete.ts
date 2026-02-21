@@ -91,9 +91,9 @@ export const handler = withAuthHandler('follows-delete', async (event, { headers
         [followerId, followingId, COOLDOWN_THRESHOLD]
       );
       cooldownInfo = cooldownResult.rows[0];
-    } catch (cooldownErr) {
+    } catch (error_) {
       // Table might not exist - continue without cooldown tracking
-      log.warn('Cooldown tracking failed (table may not exist)', { error: String(cooldownErr) });
+      log.warn('Cooldown tracking failed (table may not exist)', { error: String(error_) });
     }
 
     const isNowBlocked = cooldownInfo && cooldownInfo.unfollow_count >= COOLDOWN_THRESHOLD;
@@ -116,9 +116,9 @@ export const handler = withAuthHandler('follows-delete', async (event, { headers
         }),
       };
     }
-  } catch (txError) {
+  } catch (error_) {
     await client.query('ROLLBACK');
-    throw txError;
+    throw error_;
   } finally {
     client.release();
   }

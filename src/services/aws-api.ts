@@ -171,13 +171,16 @@ class AWSAPIService {
 
     const isDisputesEndpoint = DISPUTES_PREFIXES.some(prefix => endpoint.startsWith(prefix));
 
-    const baseUrl = isApi3Endpoint
-      ? API_BASE_URL_3
-      : isDisputesEndpoint
-        ? API_BASE_URL_DISPUTES
-        : API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))
-          ? API_BASE_URL_2
-          : API_BASE_URL;
+    let baseUrl: string;
+    if (isApi3Endpoint) {
+      baseUrl = API_BASE_URL_3;
+    } else if (isDisputesEndpoint) {
+      baseUrl = API_BASE_URL_DISPUTES;
+    } else if (API2_PREFIXES.some(prefix => endpoint.startsWith(prefix))) {
+      baseUrl = API_BASE_URL_2;
+    } else {
+      baseUrl = API_BASE_URL;
+    }
     const url = `${baseUrl}${endpoint}`;
 
     const isFormData = body instanceof FormData;
@@ -207,7 +210,14 @@ class AWSAPIService {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const serializedBody = body ? (isFormData ? body as unknown as BodyInit : JSON.stringify(body)) : undefined;
+      let serializedBody: BodyInit | undefined;
+      if (!body) {
+        serializedBody = undefined;
+      } else if (isFormData) {
+        serializedBody = body as unknown as BodyInit;
+      } else {
+        serializedBody = JSON.stringify(body);
+      }
       const response = await secureFetch(url, {
         method,
         headers: requestHeaders,

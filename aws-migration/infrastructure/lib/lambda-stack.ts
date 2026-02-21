@@ -1164,6 +1164,14 @@ export class LambdaStack extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.adminMigrationFn);
     adminApiKeySecret.grantRead(this.adminMigrationFn);
+    // Grant RDS Proxy IAM authentication for admin migration
+    if (props.rdsProxyArn) {
+      this.adminMigrationFn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['rds-db:connect'],
+        resources: [props.rdsProxyArn],
+      }));
+    }
 
     this.dataMigrationFn = new NodejsFunction(this, 'DataMigrationFunction', {
       entry: path.join(__dirname, '../../lambda/api/admin/migrate-data.ts'),
@@ -1187,6 +1195,14 @@ export class LambdaStack extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.dataMigrationFn);
     adminApiKeySecret.grantRead(this.dataMigrationFn);
+    // Grant RDS Proxy IAM authentication for data migration
+    if (props.rdsProxyArn) {
+      this.dataMigrationFn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['rds-db:connect'],
+        resources: [props.rdsProxyArn],
+      }));
+    }
 
     this.checkProfilesFn = new NodejsFunction(this, 'CheckProfilesFunction', {
       entry: path.join(__dirname, '../../lambda/api/admin/check-profiles.ts'),
@@ -1204,6 +1220,13 @@ export class LambdaStack extends cdk.NestedStack {
     });
     dbCredentials.grantRead(this.checkProfilesFn);
     adminApiKeySecret.grantRead(this.checkProfilesFn);
+    if (props.rdsProxyArn) {
+      this.checkProfilesFn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['rds-db:connect'],
+        resources: [props.rdsProxyArn],
+      }));
+    }
 
     this.userMigrationFn = new NodejsFunction(this, 'UserMigrationFunction', {
       entry: path.join(__dirname, '../../lambda/api/admin/migrate-users.ts'),
@@ -1236,6 +1259,13 @@ export class LambdaStack extends cdk.NestedStack {
       ],
       resources: [userPool.userPoolArn],
     }));
+    if (props.rdsProxyArn) {
+      this.userMigrationFn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['rds-db:connect'],
+        resources: [props.rdsProxyArn],
+      }));
+    }
 
     // ========================================
     // Scheduled: Refresh Bot Peaks (every 24h)

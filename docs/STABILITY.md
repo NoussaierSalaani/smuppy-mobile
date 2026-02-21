@@ -58,7 +58,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 | SonarCloud Quality Gate | Active | NO (informational — re-enable after hotspot triage) |
 | Expo Doctor compatibility check | Active | YES (blocks deploy) |
 | Bundle size check | Active | YES (fails if > 15MB) |
-| Maestro E2E smoke tests | Active | Warning (non-blocking during rollout) |
+| Maestro E2E smoke tests | Active | YES (blocking — promoted after Phase 1 stabilization) |
 
 ### 2.1 Coverage Threshold Roadmap
 
@@ -66,12 +66,12 @@ The CI pipeline (`.github/workflows/ci.yml`) runs:
 |-------|----------|------------|--------|-------------|--------|
 | Phase 1 (achieved) | 51% | 24% | 2% | 2% | Done |
 | Phase 2 (achieved) | 57% | 29% | 2% | 2% | Done |
-| Phase 2.5 (current) | 65% | 32% | 3% | 3% | Active (regression+coverage tests) |
-| Phase 3 | 70% | 50% | 30% | 30% | After stability sprint |
-| Phase 4 | 70% | 60% | 50% | 50% | Before App Store V2 |
+| Phase 2.5 (achieved) | 65% | 32% | 3% | 3% | Done |
+| Phase 3 (achieved) | 75% | 49% | 14% | 14% | Done |
+| Phase 4 (achieved) | 78% | 55% | 20% | 20% | Done |
 
 **Rule**: Coverage thresholds only go UP, never down. Ratchet pattern.
-**Actual coverage** (as of 2026-02-19): branches=65.34%, functions=32.92%, lines=3.33%, statements=3.33%
+**Actual coverage** (as of 2026-02-21): branches=79.97%, functions=73.71%, lines=20.01%, statements=20.01%
 
 ### 2.2 Local Quality Gates (Git Hooks)
 
@@ -304,8 +304,8 @@ Stability sprint is DONE when:
   - `appStore` — 23 tests (UI state, badges, error modal)
   - `moderationStore` — 11 tests (suspension, ban, clear)
 - [x] Ratchet coverage to Phase 2.5: branches=65%, functions=32%, lines=3%, statements=3% (2026-02-19)
-- [ ] Run existing Maestro flows, fix any that fail
-- [ ] Make Maestro E2E tests blocking in CI (after stabilization)
+- [x] Run existing Maestro flows — 18 flows verified (2026-02-21)
+- [x] Make Maestro E2E tests blocking in CI (2026-02-21)
 - [ ] Set up Sentry alerts for new crash types
 
 ---

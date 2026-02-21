@@ -468,7 +468,7 @@ jobs:
     name: Maestro E2E Smoke Tests
     runs-on: macos-15
     needs: [lint, test]
-    continue-on-error: true  # Non-blocking during rollout (see STABILITY.md)
+    # E2E is now a blocking gate (Phase 1 stabilization complete — see STABILITY.md)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

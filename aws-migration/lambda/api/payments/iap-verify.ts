@@ -115,7 +115,7 @@ async function validateAppleReceipt(
       continue; // Try sandbox if production fails
     }
 
-    const data = await response.json();
+    const data = await response.json() as { signedTransactionInfo?: string };
     const signedTransaction = data.signedTransactionInfo;
 
     if (!signedTransaction) {
@@ -200,7 +200,7 @@ async function validateGoogleReceipt(
     return { valid: false };
   }
 
-  const data = await response.json();
+  const data = await response.json() as Record<string, unknown>;
 
   if (isSubscription) {
     // Subscriptions v2 API response
@@ -208,11 +208,12 @@ async function validateGoogleReceipt(
       || data.subscriptionState === 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD';
 
     // Find the latest line item
-    const lineItem = data.lineItems?.[0];
+    const lineItems = data.lineItems as Array<{ expiryTime?: string; offerDetails?: { basePlanId?: string } }> | undefined;
+    const lineItem = lineItems?.[0];
 
     return {
       valid: isActive || data.subscriptionState === 'SUBSCRIPTION_STATE_EXPIRED',
-      originalTransactionId: data.latestOrderId,
+      originalTransactionId: data.latestOrderId as string | undefined,
       purchaseDate: lineItem?.expiryTime
         ? Date.now() // Google doesn't directly expose original purchase time in v2
         : Date.now(),

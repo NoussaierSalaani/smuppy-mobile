@@ -436,13 +436,13 @@ export class ApiGateway2Stack extends cdk.NestedStack {
     const iap = payments.addResource('iap');
 
     const iapVerify = iap.addResource('verify');
-    iapVerify.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.iapVerifyFn), authMethodOptions);
+    iapVerify.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.iapVerifyFn), authMethodOptions);
 
     const iapNotifications = iap.addResource('notifications');
     const iapNotificationsApple = iapNotifications.addResource('apple');
-    iapNotificationsApple.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.iapNotificationsFn));
+    iapNotificationsApple.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.iapNotificationsFn));
     const iapNotificationsGoogle = iapNotifications.addResource('google');
-    iapNotificationsGoogle.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack.iapNotificationsFn));
+    iapNotificationsGoogle.addMethod('POST', new apigateway.LambdaIntegration(lambdaStack2.iapNotificationsFn));
 
     // ========================================
     // Live Streams Endpoints

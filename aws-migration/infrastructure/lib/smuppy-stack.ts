@@ -1025,10 +1025,14 @@ export class SmuppyStack extends cdk.Stack {
       lambdaSecurityGroup,
       dbCredentials,
       stripeSecret,
+      redisAuthSecret: redisAuthToken,
       lambdaEnvironment,
       environment,
       isProduction,
       apiLogGroup,
+      rdsProxyArn: cdk.Fn.sub('arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${ProxyId}/*', {
+        ProxyId: cdk.Fn.select(6, cdk.Fn.split(':', rdsProxy.dbProxyArn)),
+      }),
     });
 
     // ========================================

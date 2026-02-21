@@ -397,7 +397,7 @@ async function fetchGoogleSubscription(
 
     if (!response.ok) return null;
 
-    const data = await response.json();
+    const data = await response.json() as { lineItems?: Array<{ expiryTime?: string }> };
     const lineItem = data.lineItems?.[0];
 
     return {

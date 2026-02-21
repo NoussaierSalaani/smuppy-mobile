@@ -1,3 +1,13 @@
+// Mock AWS SDK module imported by the source file (not used by these utility tests)
+jest.mock('@aws-sdk/client-apigatewaymanagementapi', () => ({
+  ApiGatewayManagementApiClient: jest.fn(),
+  PostToConnectionCommand: jest.fn(),
+}));
+
+jest.mock('../../../shared/db', () => ({
+  getPool: jest.fn(),
+}));
+
 import { sanitizeMessageContent, stripHtmlTagsLinear, MAX_MESSAGE_LENGTH } from '../../../websocket/send-message';
 
 describe('send-message sanitization', () => {

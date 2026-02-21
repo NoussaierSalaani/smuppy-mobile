@@ -14,9 +14,13 @@ jest.mock('../../../api/utils/logger', () => ({
   })),
 }));
 
+import { CustomMessageTriggerEvent, Context, Callback } from 'aws-lambda';
 import { handler } from '../../../triggers/custom-message';
 
-function makeCustomMessageEvent(triggerSource: string, email?: string) {
+const mockContext = {} as Context;
+const mockCallback: Callback<CustomMessageTriggerEvent> = () => { /* noop */ };
+
+function makeCustomMessageEvent(triggerSource: string, email?: string): CustomMessageTriggerEvent {
   return {
     version: '1',
     triggerSource,
@@ -36,7 +40,7 @@ function makeCustomMessageEvent(triggerSource: string, email?: string) {
       emailMessage: '',
       emailSubject: '',
     },
-  } as any;
+  } as CustomMessageTriggerEvent;
 }
 
 describe('Custom Message Trigger', () => {
@@ -44,7 +48,7 @@ describe('Custom Message Trigger', () => {
 
   it('CustomMessage_SignUp — sets subject and message correctly', async () => {
     const event = makeCustomMessageEvent('CustomMessage_SignUp');
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
 
     expect(result!.response.emailSubject).toBe(
       'Welcome to Smuppy - Verify Your Email'
@@ -55,7 +59,7 @@ describe('Custom Message Trigger', () => {
 
   it('CustomMessage_ResendCode — sets subject and message correctly', async () => {
     const event = makeCustomMessageEvent('CustomMessage_ResendCode');
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
 
     expect(result!.response.emailSubject).toBe(
       'Smuppy - Your New Verification Code'
@@ -65,7 +69,7 @@ describe('Custom Message Trigger', () => {
 
   it('CustomMessage_ForgotPassword — sets subject and message correctly', async () => {
     const event = makeCustomMessageEvent('CustomMessage_ForgotPassword');
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
 
     expect(result!.response.emailSubject).toBe(
       'Smuppy - Reset Your Password'
@@ -75,7 +79,7 @@ describe('Custom Message Trigger', () => {
 
   it('CustomMessage_AdminCreateUser — sets subject and message correctly', async () => {
     const event = makeCustomMessageEvent('CustomMessage_AdminCreateUser');
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
 
     expect(result!.response.emailSubject).toBe(
       'Welcome to Smuppy - Your Account is Ready'
@@ -85,7 +89,7 @@ describe('Custom Message Trigger', () => {
 
   it('CustomMessage_UpdateUserAttribute — sets subject and message correctly', async () => {
     const event = makeCustomMessageEvent('CustomMessage_UpdateUserAttribute');
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
 
     expect(result!.response.emailSubject).toBe(
       'Smuppy - Verify Your New Email'
@@ -95,7 +99,7 @@ describe('Custom Message Trigger', () => {
 
   it('CustomMessage_VerifyUserAttribute — sets subject and message correctly', async () => {
     const event = makeCustomMessageEvent('CustomMessage_VerifyUserAttribute');
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
 
     expect(result!.response.emailSubject).toBe(
       'Smuppy - Verification Code'
@@ -105,7 +109,7 @@ describe('Custom Message Trigger', () => {
 
   it('unknown trigger source — falls back to default verification template', async () => {
     const event = makeCustomMessageEvent('CustomMessage_Unknown');
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
 
     expect(result!.response.emailSubject).toBe(
       'Smuppy - Verification Code'
@@ -127,7 +131,7 @@ describe('Custom Message Trigger', () => {
 
     for (const source of triggerSources) {
       const event = makeCustomMessageEvent(source);
-      const result = await handler(event, {} as any, () => {});
+      const result = await handler(event, mockContext, mockCallback);
       expect(result!.response.emailMessage).toContain('Never share this code');
     }
   });
@@ -144,7 +148,7 @@ describe('Custom Message Trigger', () => {
 
     for (const source of triggerSources) {
       const event = makeCustomMessageEvent(source);
-      const result = await handler(event, {} as any, () => {});
+      const result = await handler(event, mockContext, mockCallback);
       expect(result!.response.emailMessage).toContain('Smuppy');
     }
   });
@@ -161,7 +165,7 @@ describe('Custom Message Trigger', () => {
 
     for (const source of triggerSources) {
       const event = makeCustomMessageEvent(source);
-      const result = await handler(event, {} as any, () => {});
+      const result = await handler(event, mockContext, mockCallback);
       expect(result!.response.emailMessage).toContain('{####}');
     }
   });
@@ -170,7 +174,7 @@ describe('Custom Message Trigger', () => {
 
   it('handler returns the event (passthrough pattern)', async () => {
     const event = makeCustomMessageEvent('CustomMessage_SignUp');
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
 
     expect(result).toBe(event);
   });
@@ -180,7 +184,7 @@ describe('Custom Message Trigger', () => {
     event.request.userAttributes = {};
 
     // Should not throw
-    const result = await handler(event, {} as any, () => {});
+    const result = await handler(event, mockContext, mockCallback);
     expect(result).toBe(event);
     expect(result!.response.emailSubject).toBe(
       'Welcome to Smuppy - Verify Your Email'

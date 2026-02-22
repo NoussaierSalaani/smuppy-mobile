@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Platform } from 'react-native';
 import {
   isAppleSignInAvailable,
   signInWithApple,
@@ -12,6 +13,7 @@ import {
   handleGoogleSignIn,
 } from '../services/socialAuth';
 import { awsAPI } from '../services/aws-api';
+import { addBreadcrumb } from '../lib/sentry';
 
 const SOCIAL_AUTH_COOLDOWN_MS = 3000;
 
@@ -53,11 +55,24 @@ export function useSocialAuth({ errorPrefix, onError }: UseSocialAuthOptions): U
     return () => { isMountedRef.current = false; };
   }, []);
 
+  // Diagnostic: log Google request readiness
+  useEffect(() => {
+    addBreadcrumb('Google request state', 'auth', {
+      ready: String(!!googleRequest),
+      platform: Platform.OS,
+    });
+    if (__DEV__) console.log('[SocialAuth] Google request ready:', !!googleRequest);
+  }, [googleRequest]);
+
   // Check Apple Sign-In availability (iOS only)
   useEffect(() => {
     let cancelled = false;
     isAppleSignInAvailable().then((available) => {
-      if (!cancelled) setAppleAvailable(available);
+      if (!cancelled) {
+        setAppleAvailable(available);
+        addBreadcrumb('Apple availability check', 'auth', { available: String(available) });
+        if (__DEV__) console.log('[SocialAuth] Apple available:', available);
+      }
     }).catch(() => {
       if (__DEV__) console.warn(`[SocialAuth] Apple Sign-In check failed`);
     });

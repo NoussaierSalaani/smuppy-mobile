@@ -4,12 +4,20 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
+import * as WebBrowser from 'expo-web-browser';
 import * as backend from '../services/backend';
 import { awsAuth } from '../services/aws-auth';
 import { storage, STORAGE_KEYS } from '../utils/secureStorage';
 import { getCurrentProfile } from '../services/database';
 import { registerDeviceSession } from '../services/deviceSession';
 import MainNavigator from './MainNavigator';
+
+// CRITICAL: Must run at module load in a non-lazy-loaded file.
+// Handles the OAuth redirect callback when the app is (re)opened via a
+// custom URL scheme (e.g. Google Sign-In reverse-client-ID redirect).
+// Previously lived in socialAuth.ts (imported by AuthNavigator) which is
+// lazy-loaded — too late if the app restarts via the OAuth redirect URL.
+WebBrowser.maybeCompleteAuthSession();
 
 // Lazy-load AuthNavigator to avoid evaluating 20 auth screen modules for logged-in users (~100-400ms saved)
 const AuthNavigator = React.lazy(() => import('./AuthNavigator'));

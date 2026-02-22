@@ -6,6 +6,17 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (global as any).__DEV__ = false;
 
+// Mock react-native Platform (must be before hook import)
+jest.mock('react-native', () => ({
+  Platform: { OS: 'ios', select: jest.fn() },
+}));
+
+// Mock Sentry
+jest.mock('../../lib/sentry', () => ({
+  addBreadcrumb: jest.fn(),
+  captureException: jest.fn(),
+}));
+
 // Mock dependencies
 const mockIsAppleSignInAvailable = jest.fn();
 const mockSignInWithApple = jest.fn();

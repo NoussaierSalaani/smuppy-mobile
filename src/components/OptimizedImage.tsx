@@ -4,8 +4,8 @@
  * Features: caching, blurhash placeholders, lazy loading
  */
 
-import React, { memo, useState, ReactNode } from 'react';
-import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp } from 'react-native';
+import React, { memo, useState, useCallback, ReactNode } from 'react';
+import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp, Pressable } from 'react-native';
 import { Image, ImageContentFit, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { normalizeCdnUrl } from '../utils/cdnUrl';
@@ -86,9 +86,12 @@ const OptimizedImage = memo<OptimizedImageProps>(({
   // Skip rendering if no valid source or image failed to load
   if (hasError || !resolvedSource || (typeof resolvedSource === 'object' && !resolvedSource.uri)) {
     return (
-      <View style={[styles.placeholder, styles.errorPlaceholder, style as StyleProp<ViewStyle>]}>
-        <Ionicons name="image-outline" size={24} color="#9CA3AF" />
-      </View>
+      <Pressable
+        style={[styles.placeholder, styles.errorPlaceholder, style as StyleProp<ViewStyle>]}
+        onPress={hasError ? () => setHasError(false) : undefined}
+      >
+        <Ionicons name={hasError ? 'refresh-outline' : 'image-outline'} size={24} color="#9CA3AF" />
+      </Pressable>
     );
   }
 

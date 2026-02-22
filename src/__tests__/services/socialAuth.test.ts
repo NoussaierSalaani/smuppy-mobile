@@ -53,7 +53,13 @@ jest.mock('../../config/env', () => ({
     GOOGLE_IOS_CLIENT_ID: 'ios-client-id',
     GOOGLE_ANDROID_CLIENT_ID: 'android-client-id',
     GOOGLE_WEB_CLIENT_ID: 'web-client-id',
+    BUILD_NUMBER: '81',
   },
+}));
+
+jest.mock('../../lib/sentry', () => ({
+  addBreadcrumb: jest.fn(),
+  captureException: jest.fn(),
 }));
 
 const mockStorageSet = jest.fn();
@@ -220,7 +226,7 @@ describe('socialAuth', () => {
     it('should handle non-success response', async () => {
       const result = await handleGoogleSignIn({ type: 'error' } as never);
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Google Sign-In failed');
+      expect(result.error).toBe('Google Sign-In failed (error)');
     });
 
     it('should return error when no id_token', async () => {

@@ -65,7 +65,7 @@ type RootStackParamList = {
 
 const PeaksFeedScreen = (): React.JSX.Element => {
   // Use a lightweight remote placeholder to avoid require path issues in prod builds
-  const placeholder = 'https://dummyimage.com/600x800/0b0b0b/ffffff&text=Peak';
+  const placeholder = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();

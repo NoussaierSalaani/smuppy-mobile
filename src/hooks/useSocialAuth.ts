@@ -88,9 +88,11 @@ export function useSocialAuth({ errorPrefix, onError }: UseSocialAuthOptions): U
           setSocialLoading(null);
         }
       }
-    })().catch(() => {
+    })().catch((err) => {
       if (isMountedRef.current && !cancelled) {
         setSocialLoading(null);
+        onError(`Google ${errorPrefix} Failed`, 'Something went wrong. Please try again.');
+        if (__DEV__) console.warn('[SocialAuth] Google auth error:', err);
       }
     });
 

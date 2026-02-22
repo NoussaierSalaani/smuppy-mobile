@@ -354,6 +354,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
   const [showReactions, setShowReactions] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
   const [showResponsesModal, setShowResponsesModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -436,7 +437,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   }, [currentPeak.expiresAt, currentPeak.isOwnPeak, navigation, showWarning]);
 
   // Keep refs in sync for panResponder closure
-  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+  useEffect(() => { currentIndexRef.current = currentIndex; setVideoError(null); }, [currentIndex]);
   useEffect(() => { peaksRef.current = peaks; }, [peaks]);
 
   // Reset progress and play when peak changes
@@ -1265,6 +1266,22 @@ const PeakViewScreen = (): React.JSX.Element => {
       >
         <View style={styles.mediaContainer} {...panResponder.panHandlers}>
           {(currentPeak.hlsUrl || currentPeak.videoUrl) ? (
+            videoError ? (
+              <TouchableOpacity
+                style={styles.media}
+                activeOpacity={0.8}
+                onPress={() => setVideoError(null)}
+              >
+                <OptimizedImage
+                  source={currentPeak.thumbnail || placeholder}
+                  style={styles.media}
+                />
+                <View style={styles.videoErrorOverlay}>
+                  <Ionicons name="refresh-circle" size={48} color="rgba(255,255,255,0.9)" />
+                  <Text style={styles.videoErrorText}>Tap to retry</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
             <Video
               ref={(r) => { videoRef.current = r; }}
               source={{ uri: getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl) || '' }}
@@ -1283,10 +1300,12 @@ const PeakViewScreen = (): React.JSX.Element => {
                   'media',
                   { uri: uri.slice(0, 200), peakId: currentPeak.id, error },
                 );
+                setVideoError(error);
               }}
               posterSource={{ uri: normalizeCdnUrl(currentPeak.thumbnail) || undefined }}
               usePoster
             />
+            )
           ) : (
             <OptimizedImage
               source={currentPeak.thumbnail || placeholder}
@@ -1908,6 +1927,18 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   media: {
     width: '100%',
     height: '100%',
+  },
+  videoErrorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  videoErrorText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
   },
   // Top Header with Avatar Carousel
   topHeader: {

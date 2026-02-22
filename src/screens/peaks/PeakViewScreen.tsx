@@ -1265,53 +1265,59 @@ const PeakViewScreen = (): React.JSX.Element => {
         delayLongPress={300}
       >
         <View style={styles.mediaContainer} {...panResponder.panHandlers}>
-          {(currentPeak.hlsUrl || currentPeak.videoUrl) ? (
-            videoError ? (
-              <TouchableOpacity
-                style={styles.media}
-                activeOpacity={0.8}
-                onPress={() => setVideoError(null)}
-              >
+          {(() => {
+            const resolvedVideoUrl = getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl);
+            if (!resolvedVideoUrl) {
+              return (
                 <OptimizedImage
                   source={currentPeak.thumbnail || placeholder}
                   style={styles.media}
                 />
-                <View style={styles.videoErrorOverlay}>
-                  <Ionicons name="refresh-circle" size={48} color="rgba(255,255,255,0.9)" />
-                  <Text style={styles.videoErrorText}>Tap to retry</Text>
-                </View>
-              </TouchableOpacity>
-            ) : (
-            <Video
-              ref={(r) => { videoRef.current = r; }}
-              source={{ uri: getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl) || '' }}
-              style={styles.media}
-              resizeMode={ResizeMode.COVER}
-              shouldPlay
-              isMuted={false}
-              onPlaybackStatusUpdate={onVideoStatus}
-              onError={(error: string) => {
-                const uri = getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl) || '';
-                if (__DEV__) {
-                  console.warn(`[MEDIA_ERROR] Video load failed: ${error} | URI: ${uri}`);
-                }
-                addBreadcrumb(
-                  `Video load failed: ${error}`,
-                  'media',
-                  { uri: uri.slice(0, 200), peakId: currentPeak.id, error },
-                );
-                setVideoError(error);
-              }}
-              posterSource={{ uri: normalizeCdnUrl(currentPeak.thumbnail) || undefined }}
-              usePoster
-            />
-            )
-          ) : (
-            <OptimizedImage
-              source={currentPeak.thumbnail || placeholder}
-              style={styles.media}
-            />
-          )}
+              );
+            }
+            if (videoError) {
+              return (
+                <TouchableOpacity
+                  style={styles.media}
+                  activeOpacity={0.8}
+                  onPress={() => setVideoError(null)}
+                >
+                  <OptimizedImage
+                    source={currentPeak.thumbnail || placeholder}
+                    style={styles.media}
+                  />
+                  <View style={styles.videoErrorOverlay}>
+                    <Ionicons name="refresh-circle" size={48} color="rgba(255,255,255,0.9)" />
+                    <Text style={styles.videoErrorText}>Tap to retry</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }
+            return (
+              <Video
+                ref={(r) => { videoRef.current = r; }}
+                source={{ uri: resolvedVideoUrl }}
+                style={styles.media}
+                resizeMode={ResizeMode.COVER}
+                shouldPlay
+                isMuted={false}
+                onPlaybackStatusUpdate={onVideoStatus}
+                onError={(error: string) => {
+                  if (__DEV__) {
+                    console.warn(`[MEDIA_ERROR] Video load failed: ${error} | URI: ${resolvedVideoUrl.slice(0, 200)}`);
+                  }
+                  addBreadcrumb(
+                    `Video load failed: ${error}`,
+                    'media',
+                    { uri: resolvedVideoUrl.slice(0, 200), peakId: currentPeak.id, error },
+                  );
+                  setVideoError(error);
+                }}
+                posterSource={{ uri: normalizeCdnUrl(currentPeak.thumbnail) || undefined }}
+                usePoster
+              />
+            );
+          })()}
 
           {/* Filter color overlay — approximates GPU shader effect on video */}
           {currentPeak.filterId && FILTER_COLOR_MAP[currentPeak.filterId] && (

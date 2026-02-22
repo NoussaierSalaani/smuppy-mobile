@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ComponentType } from 'react';
-import { AppState } from 'react-native';
+import { AppState, InteractionManager } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserStore } from '../stores/userStore';
@@ -226,6 +226,8 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const AUTH_RETRY_DELAY_MS = 3000;
+const PROFILE_STALE_MS = 60000; // 60s — skip re-fetch if profile was synced recently
+let lastProfileSyncAt = 0;
 
 const screenWithBackSwipe = { gestureEnabled: true, gestureDirection: 'horizontal' as const };
 
@@ -284,55 +286,58 @@ export default function MainNavigator() {
   const isAuthenticated = useUserStore((state) => state.isAuthenticated);
 
   // Sync profile from database to Zustand store on mount
-  // Skip fetch if user is already loaded from persistence (avoid double fetch)
+  // Deferred via InteractionManager so the first screen renders immediately
   useEffect(() => {
-    const syncProfile = async () => {
-      // Skip if user already exists in store (loaded from AsyncStorage)
-      // AppNavigator already fetched fresh data, no need to duplicate
-      if (currentUserId && isAuthenticated) {
-        if (__DEV__) console.log('[MainNavigator] User already in store, skipping fetch');
-        return;
-      }
-
-      try {
-        const { data, error } = await getCurrentProfile();
-        if (data && !error && data.id && data.username) {
-          // Update Zustand with fresh profile data
-          setUser({
-            id: data.id,
-            username: data.username,
-            fullName: data.full_name || '',
-            displayName: resolveDisplayName(data, data.display_name || data.full_name || ''),
-            avatar: data.avatar_url || null,
-            coverImage: data.cover_url || null,
-            bio: data.bio || '',
-            accountType: (data.account_type as 'personal' | 'pro_creator' | 'pro_business') || 'personal',
-            isVerified: !!data.is_verified,
-            isPremium: !!data.is_premium,
-            interests: data.interests || [],
-            expertise: data.expertise || [],
-            businessName: data.business_name || '',
-            businessCategory: data.business_category || '',
-            businessAddress: data.business_address || '',
-            businessLatitude: data.business_latitude,
-            businessLongitude: data.business_longitude,
-            stats: {
-              fans: data.fan_count ?? 0,
-              posts: data.post_count ?? 0,
-            },
-          });
+    const handle = InteractionManager.runAfterInteractions(() => {
+      const syncProfile = async () => {
+        // Skip if profile was synced recently (within 60s) or already in store
+        const now = Date.now();
+        if (currentUserId && isAuthenticated && (now - lastProfileSyncAt < PROFILE_STALE_MS)) {
+          if (__DEV__) console.log('[MainNavigator] Profile fresh, skipping fetch');
+          return;
         }
-      } catch (err) {
-        if (__DEV__) console.warn('[MainNavigator] Error syncing profile:', err);
-      }
-    };
 
-    void syncProfile();
+        try {
+          const { data, error } = await getCurrentProfile();
+          if (data && !error && data.id && data.username) {
+            lastProfileSyncAt = Date.now();
+            setUser({
+              id: data.id,
+              username: data.username,
+              fullName: data.full_name || '',
+              displayName: resolveDisplayName(data, data.display_name || data.full_name || ''),
+              avatar: data.avatar_url || null,
+              coverImage: data.cover_url || null,
+              bio: data.bio || '',
+              accountType: (data.account_type as 'personal' | 'pro_creator' | 'pro_business') || 'personal',
+              isVerified: !!data.is_verified,
+              isPremium: !!data.is_premium,
+              interests: data.interests || [],
+              expertise: data.expertise || [],
+              businessName: data.business_name || '',
+              businessCategory: data.business_category || '',
+              businessAddress: data.business_address || '',
+              businessLatitude: data.business_latitude,
+              businessLongitude: data.business_longitude,
+              stats: {
+                fans: data.fan_count ?? 0,
+                posts: data.post_count ?? 0,
+              },
+            });
+          }
+        } catch (err) {
+          if (__DEV__) console.warn('[MainNavigator] Error syncing profile:', err);
+        }
+      };
 
-    // Fetch initial unread counts (retry in case auth token wasn't ready)
-    fetchBadgeCounts();
+      void syncProfile();
+
+      // Fetch initial unread counts (retry in case auth token wasn't ready)
+      fetchBadgeCounts();
+    });
+
     const retryTimer = setTimeout(fetchBadgeCounts, AUTH_RETRY_DELAY_MS);
-    return () => clearTimeout(retryTimer);
+    return () => { handle.cancel(); clearTimeout(retryTimer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

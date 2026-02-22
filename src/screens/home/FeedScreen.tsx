@@ -7,9 +7,9 @@ import { useTabBar } from '../../context/TabBarContext';
 import { useTheme } from '../../hooks/useTheme';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import FanFeed from './FanFeed';
-import VibesFeed from './VibesFeed';
 
-// Lazy-load XplorerFeed to defer @rnmapbox/maps module evaluation (~100-300ms saved)
+// Lazy-load VibesFeed and XplorerFeed — defers module evaluation until tab is visited
+const VibesFeed = React.lazy(() => import('./VibesFeed'));
 const XplorerFeed = React.lazy(() => import('./XplorerFeed'));
 
 const { width } = Dimensions.get('window');
@@ -110,11 +110,13 @@ export default function FeedScreen() {
           </ErrorBoundary>
         </View>
 
-        {/* Vibes - lazy loaded when visited */}
+        {/* Vibes - lazy loaded when visited (defers module evaluation) */}
         <View style={styles.page}>
           {visitedTabs.has(1) ? (
             <ErrorBoundary name="VibesFeed" minimal>
-              <VibesFeed ref={vibesFeedRef} headerHeight={totalHeaderHeight} />
+              <Suspense fallback={<View style={[styles.placeholder, { backgroundColor: colors.background }]}><ActivityIndicator color={colors.primary} /></View>}>
+                <VibesFeed ref={vibesFeedRef} headerHeight={totalHeaderHeight} />
+              </Suspense>
             </ErrorBoundary>
           ) : (
             <View style={[styles.placeholder, { backgroundColor: colors.background }]} />

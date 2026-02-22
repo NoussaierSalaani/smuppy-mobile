@@ -198,7 +198,7 @@ function transformNotification(apiNotif: ApiNotification): Notification {
     user: {
       id: userData.id || apiNotif.data?.actorId || '',
       name: userName || 'User',
-      avatar: userData.avatar || userData.avatarUrl || null,
+      avatar: userData.avatar || userData.avatarUrl || (userData as Record<string, unknown>).avatar_url as string || null,
       isVerified: !!userData.isVerified,
     },
     message: dynamicMessage,

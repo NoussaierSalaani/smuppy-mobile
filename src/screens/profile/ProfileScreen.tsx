@@ -10,6 +10,7 @@ import {
   ScrollView,
   InteractionManager,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 // FlashList import removed - not used
 import OptimizedImage, { AvatarImage } from '../../components/OptimizedImage';
@@ -433,6 +434,15 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       setRefreshing(false);
     }
   }, [refetchProfile, refetchPosts, refetchSavedPosts, refreshEventsGroups, userId, isOwnProfile, loadBusinessProgram]);
+
+  // Refetch profile on screen focus — prevents stale data after editing
+  useFocusEffect(
+    useCallback(() => {
+      if (isOwnProfile) {
+        refetchProfile?.();
+      }
+    }, [isOwnProfile, refetchProfile])
+  );
 
   // ==================== IMAGE PICKER ====================
   const showImageOptions = useCallback((type: 'avatar' | 'cover') => {

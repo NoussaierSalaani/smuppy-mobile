@@ -441,11 +441,14 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   }, []);
 
   const updateImage = useCallback(async (type: 'avatar' | 'cover', uri: string | null) => {
-    // Optimistically update UI
-    setUser(prev => ({
-      ...prev,
-      [type === 'avatar' ? 'avatar' : 'coverImage']: uri,
-    }));
+    const key = type === 'avatar' ? 'avatar' : 'coverImage';
+
+    // Capture previous value via setter, then apply optimistic update
+    let prevValue: string | null = null;
+    setUser(prev => {
+      prevValue = type === 'avatar' ? prev.avatar : prev.coverImage;
+      return { ...prev, [key]: uri };
+    });
 
     if (!uri || uri.startsWith('http')) return;
 
@@ -456,6 +459,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       if (type === 'avatar') {
         const { url, error } = await uploadProfileImage(uri, currentUserId);
         if (error || !url) {
+          setUser(prev => ({ ...prev, avatar: prevValue }));
           showError('Upload Failed', 'Could not upload avatar');
           return;
         }
@@ -465,6 +469,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       } else {
         const result = await uploadCoverImage(currentUserId, uri);
         if (!result.success || !result.cdnUrl) {
+          setUser(prev => ({ ...prev, coverImage: prevValue }));
           showError('Upload Failed', 'Could not upload cover image');
           return;
         }
@@ -475,6 +480,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
       }
       refetchProfile();
     } catch {
+      setUser(prev => ({ ...prev, [key]: prevValue }));
       showError('Upload Failed', 'Something went wrong');
     }
   }, [profileData?.id, storeUser?.id, showError, refetchProfile, updateStoreProfile]);

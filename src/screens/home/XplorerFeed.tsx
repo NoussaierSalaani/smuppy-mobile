@@ -105,6 +105,97 @@ interface MapMarker {
 const DEFAULT_CENTER: [number, number] = [-73.5673, 45.5017];
 
 // ============================================
+// TRANSFORM HELPERS (reduce cognitive complexity)
+// ============================================
+
+/** Convert a raw event record from the API into a MapMarker, or null if invalid coords. */
+const eventToMarker = (evt: Record<string, unknown>): MapMarker | null => {
+  const evtLat = evt.latitude as number | undefined;
+  const evtLng = evt.longitude as number | undefined;
+  if (evtLat == null || evtLng == null || !isValidCoordinate(evtLat, evtLng)) return null;
+  return {
+    id: `event_${evt.id as string}`,
+    type: 'events',
+    subcategory: (evt.category_slug || evt.categorySlug || 'Other') as string,
+    category: 'event',
+    name: evt.title as string,
+    avatar: (evt.cover_image_url || evt.coverImageUrl || '') as string,
+    bio: evt.description as string | undefined,
+    fans: (evt.current_participants || evt.currentParticipants || 0) as number,
+    posts: (evt.max_participants || evt.maxParticipants || 0) as number,
+    coordinate: { latitude: evtLat, longitude: evtLng },
+    coverImage: (evt.cover_image_url || evt.coverImageUrl) as string | undefined,
+    address: (evt.location_name || evt.locationName) as string | undefined,
+  };
+};
+
+/** Convert a raw group record from the API into a MapMarker, or null if invalid coords. */
+const groupToMarker = (grp: { id: string; latitude?: number | null; longitude?: number | null; sport_type?: string; category?: string; name: string; cover_image_url?: string; description?: string; current_participants?: number; max_participants?: number; address?: string }): MapMarker | null => {
+  if (grp.latitude == null || grp.longitude == null || !isValidCoordinate(grp.latitude, grp.longitude)) return null;
+  return {
+    id: `group_${grp.id}`,
+    type: 'groups',
+    subcategory: grp.sport_type || grp.category || 'Other',
+    category: 'group',
+    name: grp.name,
+    avatar: grp.cover_image_url || '',
+    bio: grp.description,
+    fans: grp.current_participants || 0,
+    posts: grp.max_participants || 0,
+    coordinate: { latitude: grp.latitude, longitude: grp.longitude },
+    coverImage: grp.cover_image_url,
+    address: grp.address,
+  };
+};
+
+/** Convert a raw spot record from the API into a MapMarker, or null if invalid coords. */
+const spotToMarker = (spot: { id: string; latitude?: number | null; longitude?: number | null; category?: string; name: string; images?: string[]; description?: string; address?: string }): MapMarker | null => {
+  const spotLat = spot.latitude as number | undefined;
+  const spotLng = spot.longitude as number | undefined;
+  if (spotLat == null || spotLng == null || !isValidCoordinate(spotLat, spotLng)) return null;
+  return {
+    id: `spot_${spot.id}`,
+    type: 'spots',
+    subcategory: (spot as unknown as Record<string, unknown>).subcategory as string || spot.category || 'Other',
+    category: 'spot',
+    name: spot.name,
+    avatar: spot.images?.[0] || '',
+    bio: spot.description,
+    fans: 0,
+    coordinate: { latitude: spotLat, longitude: spotLng },
+    address: spot.address,
+  };
+};
+
+/** Fetch event detail and update state if the request is still current. */
+const fetchEventDetail = (
+  eventId: string,
+  signal: AbortSignal,
+  fetchId: number,
+  counterRef: React.MutableRefObject<number>,
+  setData: (data: Record<string, unknown>) => void,
+) => {
+  awsAPI.getEventDetail(eventId).then(res => {
+    if (signal.aborted || fetchId !== counterRef.current) return;
+    if (res.success && res.event) setData(res.event as unknown as Record<string, unknown>);
+  }).catch((err) => { if (!signal.aborted && __DEV__) console.warn('[XplorerFeed]', err); });
+};
+
+/** Fetch group detail and update state if the request is still current. */
+const fetchGroupDetail = (
+  groupId: string,
+  signal: AbortSignal,
+  fetchId: number,
+  counterRef: React.MutableRefObject<number>,
+  setData: (data: Record<string, unknown>) => void,
+) => {
+  awsAPI.getGroup(groupId).then(res => {
+    if (signal.aborted || fetchId !== counterRef.current) return;
+    if (res.success && res.group) setData(res.group as unknown as Record<string, unknown>);
+  }).catch((err) => { if (!signal.aborted && __DEV__) console.warn('[XplorerFeed]', err); });
+};
+
+// ============================================
 // COMPONENT
 // ============================================
 
@@ -237,80 +328,29 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // Fetch events/groups when location is available
   useEffect(() => {
     if (!hasLocation) return;
-    // Validate coordinates before API call
     const lat = userCoords[1];
     const lng = userCoords[0];
     if (!isValidCoordinate(lat, lng)) return;
+
     const fetchEventsGroups = async () => {
       try {
+        const nearbyParams = { filter: 'nearby' as const, latitude: lat, longitude: lng, radiusKm: filterDistance, limit: 50 };
         const [eventsResult, groupsResult] = await Promise.allSettled([
-          awsAPI.getEvents({
-            filter: 'nearby',
-            latitude: lat,
-            longitude: lng,
-            radiusKm: filterDistance,
-            limit: 50,
-          }),
-          awsAPI.getGroups({
-            filter: 'nearby',
-            latitude: lat,
-            longitude: lng,
-            radiusKm: filterDistance,
-            limit: 50,
-          }),
+          awsAPI.getEvents(nearbyParams),
+          awsAPI.getGroups(nearbyParams),
         ]);
 
         const eventsRes = eventsResult.status === 'fulfilled' ? eventsResult.value : null;
         const groupsRes = groupsResult.status === 'fulfilled' ? groupsResult.value : null;
 
-        const markers: MapMarker[] = [];
+        const eventMarkers = (eventsRes?.success && eventsRes.events)
+          ? eventsRes.events.map(raw => eventToMarker(raw as unknown as Record<string, unknown>)).filter((m): m is MapMarker => m !== null)
+          : [];
+        const groupMarkers = (groupsRes?.success && groupsRes.groups)
+          ? groupsRes.groups.map(groupToMarker).filter((m): m is MapMarker => m !== null)
+          : [];
 
-        if (eventsRes?.success && eventsRes.events) {
-          for (const rawEvt of eventsRes.events) {
-            const evt = rawEvt as unknown as Record<string, unknown>;
-            const evtLat = evt.latitude as number | undefined;
-            const evtLng = evt.longitude as number | undefined;
-            if (evtLat != null && evtLng != null && isValidCoordinate(evtLat, evtLng)) {
-              markers.push({
-                id: `event_${evt.id as string}`,
-                type: 'events',
-                subcategory: (evt.category_slug || evt.categorySlug || 'Other') as string,
-                category: 'event',
-                name: evt.title as string,
-                avatar: (evt.cover_image_url || evt.coverImageUrl || '') as string,
-                bio: evt.description as string | undefined,
-                fans: (evt.current_participants || evt.currentParticipants || 0) as number,
-                posts: (evt.max_participants || evt.maxParticipants || 0) as number,
-                coordinate: { latitude: evtLat, longitude: evtLng },
-                coverImage: (evt.cover_image_url || evt.coverImageUrl) as string | undefined,
-                address: (evt.location_name || evt.locationName) as string | undefined,
-              });
-            }
-          }
-        }
-
-        if (groupsRes?.success && groupsRes.groups) {
-          for (const grp of groupsRes.groups) {
-            if (grp.latitude != null && grp.longitude != null && isValidCoordinate(grp.latitude, grp.longitude)) {
-              markers.push({
-                id: `group_${grp.id}`,
-                type: 'groups',
-                subcategory: grp.sport_type || grp.category || 'Other',
-                category: 'group',
-                name: grp.name,
-                avatar: grp.cover_image_url || '',
-                bio: grp.description,
-                fans: grp.current_participants || 0,
-                posts: grp.max_participants || 0,
-                coordinate: { latitude: grp.latitude, longitude: grp.longitude },
-                coverImage: grp.cover_image_url,
-                address: grp.address,
-              });
-            }
-          }
-        }
-
-        setEventGroupMarkers(markers);
+        setEventGroupMarkers([...eventMarkers, ...groupMarkers]);
       } catch (error) {
         if (__DEV__) console.warn('[XplorerFeed] Failed to fetch events/groups:', error);
       }
@@ -324,36 +364,12 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     const lat = userCoords[1];
     const lng = userCoords[0];
     if (!isValidCoordinate(lat, lng)) return;
+
     const fetchSpots = async () => {
       try {
-        const res = await awsAPI.getNearbySpots({
-          latitude: lat,
-          longitude: lng,
-          radiusKm: filterDistance,
-          limit: 50,
-        });
-        if (res.success && res.data) {
-          const markers: MapMarker[] = [];
-          for (const spot of res.data) {
-            const spotLat = spot.latitude as number | undefined;
-            const spotLng = spot.longitude as number | undefined;
-            if (spotLat != null && spotLng != null && isValidCoordinate(spotLat, spotLng)) {
-              markers.push({
-                id: `spot_${spot.id}`,
-                type: 'spots',
-                subcategory: (spot as unknown as Record<string, unknown>).subcategory as string || spot.category || 'Other',
-                category: 'spot',
-                name: spot.name,
-                avatar: spot.images?.[0] || '',
-                bio: spot.description,
-                fans: 0,
-                coordinate: { latitude: spotLat, longitude: spotLng },
-                address: spot.address,
-              });
-            }
-          }
-          setSpotMarkers(markers);
-        }
+        const res = await awsAPI.getNearbySpots({ latitude: lat, longitude: lng, radiusKm: filterDistance, limit: 50 });
+        if (!res.success || !res.data) return;
+        setSpotMarkers(res.data.map(spotToMarker).filter((m): m is MapMarker => m !== null));
       } catch (error) {
         if (__DEV__) console.warn('[XplorerFeed] Failed to fetch spots:', error);
       }
@@ -577,9 +593,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     // Spot markers: navigate directly to SpotDetail
     if (marker.category === 'spot') {
       const spotId = marker.id.replace('spot_', '');
-      if (UUID_REGEX.test(spotId)) {
-        navigation.navigate('SpotDetail', { spotId });
-      }
+      if (UUID_REGEX.test(spotId)) navigation.navigate('SpotDetail', { spotId });
       return;
     }
 
@@ -596,37 +610,28 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     }
 
     setSelectedMarker(marker);
-    // Cancel any in-flight detail fetch before starting a new one
     detailAbortRef.current?.abort();
     detailAbortRef.current = new AbortController();
     const { signal } = detailAbortRef.current;
 
-    // For event/group markers, also load full detail
+    // Load event detail
     if (marker.category === 'event') {
       const eventId = marker.id.replace('event_', '');
-      if (!UUID_REGEX.test(eventId)) {
-        if (__DEV__) console.warn('[XplorerFeed] Invalid event UUID:', eventId);
-        return;
-      }
-      const fetchId = ++detailFetchCounterRef.current;
-      awsAPI.getEventDetail(eventId).then(res => {
-        if (signal.aborted || fetchId !== detailFetchCounterRef.current) return;
-        if (res.success && res.event) setSelectedEventData(res.event);
-      }).catch((err) => { if (!signal.aborted && __DEV__) console.warn('[XplorerFeed]', err); });
-    } else if (marker.category === 'group') {
-      const groupId = marker.id.replace('group_', '');
-      if (!UUID_REGEX.test(groupId)) {
-        if (__DEV__) console.warn('[XplorerFeed] Invalid group UUID:', groupId);
-        return;
-      }
-      const fetchId = ++detailFetchCounterRef.current;
-      awsAPI.getGroup(groupId).then(res => {
-        if (signal.aborted || fetchId !== detailFetchCounterRef.current) return;
-        if (res.success && res.group) setSelectedEventData(res.group);
-      }).catch((err) => { if (!signal.aborted && __DEV__) console.warn('[XplorerFeed]', err); });
-    } else {
-      setSelectedEventData(null);
+      if (!UUID_REGEX.test(eventId)) { if (__DEV__) console.warn('[XplorerFeed] Invalid event UUID:', eventId); return; }
+      fetchEventDetail(eventId, signal, ++detailFetchCounterRef.current, detailFetchCounterRef, setSelectedEventData);
+      return;
     }
+
+    // Load group detail
+    if (marker.category === 'group') {
+      const groupId = marker.id.replace('group_', '');
+      if (!UUID_REGEX.test(groupId)) { if (__DEV__) console.warn('[XplorerFeed] Invalid group UUID:', groupId); return; }
+      fetchGroupDetail(groupId, signal, ++detailFetchCounterRef.current, detailFetchCounterRef, setSelectedEventData);
+      return;
+    }
+
+    // Default: no detail data
+    setSelectedEventData(null);
   }, [navigation]);
 
   const closePopup = useCallback(() => {
@@ -732,29 +737,25 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   }, [liveMarkers, eventGroupMarkers, spotMarkers, isHidden, blockedUserIds, mutedUserIds]);
 
   const filteredMarkers = useMemo(() => {
-    let markers = allMarkers;
+    const hasFilters = activeFilters.length > 0;
+    const q = searchQuery.trim().toLowerCase();
 
-    if (activeFilters.length > 0) {
-      markers = markers.filter(m => {
+    return allMarkers.filter(m => {
+      // Category filter
+      if (hasFilters) {
         if (!activeFilters.includes(m.type)) return false;
         const subs = activeSubFilters[m.type];
-        if (subs && subs.length > 0) {
-          return subs.includes(m.subcategory);
-        }
-        return true;
-      });
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      markers = markers.filter(m =>
-        m.name.toLowerCase().includes(q) ||
-        m.subcategory.toLowerCase().includes(q) ||
-        (m.address && m.address.toLowerCase().includes(q))
-      );
-    }
-
-    return markers;
+        if (subs && subs.length > 0 && !subs.includes(m.subcategory)) return false;
+      }
+      // Text search filter
+      if (q) {
+        const matchesName = m.name.toLowerCase().includes(q);
+        const matchesSub = m.subcategory.toLowerCase().includes(q);
+        const matchesAddr = m.address?.toLowerCase().includes(q);
+        if (!matchesName && !matchesSub && !matchesAddr) return false;
+      }
+      return true;
+    });
   }, [activeFilters, activeSubFilters, allMarkers, searchQuery]);
 
   const handleCloseSubFilterSheet = useCallback(() => setSubFilterSheet(null), []);
@@ -982,58 +983,31 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   // EVENT/GROUP DETAIL POPUP
   // ============================================
 
-  const handleJoinEvent = useCallback(async () => {
+  /** Shared join/leave logic: perform the action then refresh detail. */
+  const handleEventGroupAction = useCallback(async (mode: 'join' | 'leave') => {
     if (!selectedMarker || joiningEvent) return;
-    const markerId = selectedMarker.id;
-    const markerCategory = selectedMarker.category;
-    const id = markerId.replace(/^(event_|group_)/, '');
+    const isEvent = selectedMarker.category === 'event';
+    const id = selectedMarker.id.replace(/^(event_|group_)/, '');
     setJoiningEvent(true);
     try {
-      if (markerCategory === 'event') {
-        await awsAPI.joinEvent(id);
-      } else {
-        await awsAPI.joinGroup(id);
-      }
-      // Refresh detail — check selectedMarker is still the same
-      if (markerCategory === 'event') {
+      if (isEvent) {
+        await (mode === 'join' ? awsAPI.joinEvent(id) : awsAPI.leaveEvent(id));
         const res = await awsAPI.getEventDetail(id);
         if (res.success && res.event) setSelectedEventData(res.event);
       } else {
+        await (mode === 'join' ? awsAPI.joinGroup(id) : awsAPI.leaveGroup(id));
         const res = await awsAPI.getGroup(id);
         if (res.success && res.group) setSelectedEventData(res.group);
       }
     } catch (error) {
-      if (__DEV__) console.warn('Join error:', error);
+      if (__DEV__) console.warn(`${mode} error:`, error);
     } finally {
       setJoiningEvent(false);
     }
   }, [selectedMarker, joiningEvent]);
 
-  const handleLeaveEvent = useCallback(async () => {
-    if (!selectedMarker || joiningEvent) return;
-    const markerId = selectedMarker.id;
-    const markerCategory = selectedMarker.category;
-    const id = markerId.replace(/^(event_|group_)/, '');
-    setJoiningEvent(true);
-    try {
-      if (markerCategory === 'event') {
-        await awsAPI.leaveEvent(id);
-      } else {
-        await awsAPI.leaveGroup(id);
-      }
-      if (markerCategory === 'event') {
-        const res = await awsAPI.getEventDetail(id);
-        if (res.success && res.event) setSelectedEventData(res.event);
-      } else {
-        const res = await awsAPI.getGroup(id);
-        if (res.success && res.group) setSelectedEventData(res.group);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('Leave error:', error);
-    } finally {
-      setJoiningEvent(false);
-    }
-  }, [selectedMarker, joiningEvent]);
+  const handleJoinEvent = useCallback(() => handleEventGroupAction('join'), [handleEventGroupAction]);
+  const handleLeaveEvent = useCallback(() => handleEventGroupAction('leave'), [handleEventGroupAction]);
 
   const renderEventDetailPopup = () => {
     if (!selectedMarker || (selectedMarker.category !== 'event' && selectedMarker.category !== 'group')) return null;
@@ -1388,7 +1362,16 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
 // STYLES
 // ============================================
 
-const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark: boolean) => {
+  // Pre-compute repeated dark/light values to reduce inline ternaries
+  const shadowColor = isDark ? '#fff' : '#000';
+  const subtleBorder = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.04)';
+  const subtleDivider = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+  const overlayBg = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)';
+  const primaryTint = isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.10)';
+  const closeBtnBg = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.3)';
+
+  return StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
   mapErrorContainer: {
@@ -1424,13 +1407,13 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderRadius: normalize(14),
     paddingHorizontal: sp(3.5),
     height: normalize(44),
-    shadowColor: isDark ? '#fff' : '#000',
+    shadowColor,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 4,
     borderWidth: 1,
-    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.04)',
+    borderColor: subtleBorder,
   },
   searchInput: {
     flex: 1,
@@ -1448,13 +1431,13 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     marginTop: normalize(4),
     backgroundColor: colors.background,
     borderRadius: normalize(14),
-    shadowColor: isDark ? '#fff' : '#000',
+    shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
     borderWidth: 1,
-    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.04)',
+    borderColor: subtleBorder,
     overflow: 'hidden',
   },
   suggestionRow: {
@@ -1466,7 +1449,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   suggestionRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+    borderBottomColor: subtleDivider,
   },
   suggestionTextContainer: {
     flex: 1,
@@ -1495,7 +1478,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     paddingVertical: hp(1),
     borderRadius: normalize(20),
     gap: sp(1.5),
-    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.10)',
+    backgroundColor: primaryTint,
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
@@ -1507,7 +1490,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderRadius: normalize(20),
     gap: sp(1.5),
     backgroundColor: colors.background,
-    shadowColor: isDark ? '#fff' : '#000',
+    shadowColor,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -1560,7 +1543,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     marginBottom: normalize(12),
     borderRadius: normalize(20),
     overflow: 'hidden',
-    shadowColor: isDark ? '#fff' : '#000',
+    shadowColor,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 20,
@@ -1583,13 +1566,13 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   },
   fabPanelRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+    borderBottomColor: subtleDivider,
   },
   fabPanelIcon: {
     width: normalize(36),
     height: normalize(36),
     borderRadius: normalize(12),
-    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.10)',
+    backgroundColor: primaryTint,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1607,7 +1590,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     width: sp(11), height: sp(11), borderRadius: sp(5.5),
     borderWidth: 3, borderColor: colors.background,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: isDark ? '#fff' : '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4,
+    shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4,
   },
   markerAvatar: { width: sp(9), height: sp(9), borderRadius: sp(4.5) },
   markerPointer: {
@@ -1622,7 +1605,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     position: 'absolute', left: wp(4), right: wp(4),
     backgroundColor: colors.background, borderRadius: normalize(20),
     padding: sp(4),
-    shadowColor: isDark ? '#fff' : '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 10,
+    shadowColor, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 10,
     zIndex: 30,
   },
   popupClose: { position: 'absolute', top: hp(1.5), right: wp(3), zIndex: 10 },
@@ -1645,7 +1628,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   businessPopupContainer: {
     position: 'absolute', left: wp(4), right: wp(4),
     backgroundColor: colors.background, borderRadius: normalize(20), overflow: 'hidden',
-    shadowColor: isDark ? '#fff' : '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 10,
+    shadowColor, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 10,
     zIndex: 30,
   },
   businessPopupClose: {
@@ -1692,7 +1675,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   sheetChipActive: {
     paddingHorizontal: sp(4), paddingVertical: hp(1.2),
     borderRadius: normalize(14),
-    backgroundColor: isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.10)',
+    backgroundColor: primaryTint,
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
@@ -1718,7 +1701,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     alignItems: 'center',
     borderWidth: 2.5,
     borderColor: colors.background,
-    shadowColor: isDark ? '#fff' : '#000',
+    shadowColor,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -1777,7 +1760,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     backgroundColor: colors.background,
     borderRadius: normalize(20),
     overflow: 'hidden',
-    shadowColor: isDark ? '#fff' : '#000',
+    shadowColor,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -1886,7 +1869,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   permissionModal: {
     backgroundColor: colors.background, borderRadius: normalize(24), padding: sp(6),
     width: '85%', alignItems: 'center',
-    shadowColor: isDark ? '#fff' : '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
+    shadowColor, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
   },
   permissionIcon: {
     width: sp(18), height: sp(18), borderRadius: sp(9),
@@ -1897,3 +1880,4 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   permissionButton: { alignSelf: 'center' },
   permissionButtonText: { fontSize: normalize(15), fontWeight: '600', color: colors.white },
 });
+};

@@ -90,6 +90,75 @@ export function stripeUserMessage(error: unknown): string {
 }
 
 /**
+ * Check the circuit breaker and throw if the circuit is open.
+ * Skipped when skipCircuitBreaker is true (e.g., webhook handlers).
+ */
+async function checkCircuitBreaker(operation: string, log: Logger, skip?: boolean): Promise<void> {
+  if (skip) return;
+
+  const canExecute = await stripeCircuit.canExecute();
+  if (canExecute) return;
+
+  log.warn(`Stripe circuit breaker OPEN, rejecting ${operation}`);
+  throw new StripeApiError('Stripe service unavailable (circuit open)', 'retryable', 503);
+}
+
+/**
+ * Execute an async function with a timeout. Rejects with an AbortError if the
+ * timeout elapses before the function resolves.
+ */
+function executeWithTimeout<T>(fn: () => Promise<T>, operation: string, timeoutMs: number): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      const err = new Error(`Stripe ${operation} timed out after ${timeoutMs}ms`);
+      err.name = 'AbortError';
+      reject(err);
+    }, timeoutMs);
+  });
+
+  return Promise.race([fn(), timeoutPromise]);
+}
+
+/** Extract statusCode, stripeCode, and message from an unknown error */
+function extractErrorDetails(error: unknown): { statusCode: number; stripeCode: string | undefined; message: string } {
+  const statusCode = error instanceof Stripe.errors.StripeError ? (error.statusCode ?? 500) : 500;
+  const stripeCode = error instanceof Stripe.errors.StripeError ? error.code : undefined;
+  const message = error instanceof Error ? error.message : 'Stripe API call failed';
+  return { statusCode, stripeCode, message };
+}
+
+/** Compute exponential backoff delay capped at 5 seconds */
+function retryDelayMs(attempt: number): number {
+  return Math.min(1000 * Math.pow(2, attempt), 5000);
+}
+
+/**
+ * Handle a failed Stripe call attempt: log, record circuit breaker failure, and throw.
+ */
+async function handlePermanentFailure(
+  error: unknown,
+  kind: StripeErrorKind,
+  operation: string,
+  log: Logger,
+  skipCircuitBreaker?: boolean,
+): Promise<never> {
+  const { statusCode, stripeCode, message } = extractErrorDetails(error);
+
+  log.error(`Stripe ${operation} failed permanently`, {
+    kind,
+    statusCode,
+    stripeCode,
+    error: message,
+  });
+
+  if (!skipCircuitBreaker && kind !== 'permanent') {
+    await stripeCircuit.recordFailure();
+  }
+
+  throw new StripeApiError(message, kind, statusCode, stripeCode);
+}
+
+/**
  * Execute a Stripe API call with timeout and optional retry
  *
  * @param fn - Async function that makes the Stripe API call
@@ -107,44 +176,25 @@ export async function safeStripeCall<T>(
 ): Promise<T> {
   const timeoutMs = options?.timeoutMs ?? STRIPE_CALL_TIMEOUT_MS;
   const maxRetries = options?.retries ?? 1;
+  const skipCB = options?.skipCircuitBreaker;
 
-  // Check circuit breaker (skip for webhook handlers that must always attempt)
-  if (!options?.skipCircuitBreaker) {
-    const canExecute = await stripeCircuit.canExecute();
-    if (!canExecute) {
-      log.warn(`Stripe circuit breaker OPEN, rejecting ${operation}`);
-      throw new StripeApiError(
-        `Stripe service unavailable (circuit open)`,
-        'retryable',
-        503,
-      );
-    }
-  }
+  await checkCircuitBreaker(operation, log, skipCB);
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const result = await Promise.race([
-        fn(),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            const err = new Error(`Stripe ${operation} timed out after ${timeoutMs}ms`);
-            err.name = 'AbortError';
-            reject(err);
-          }, timeoutMs);
-        }),
-      ]);
+      const result = await executeWithTimeout(fn, operation, timeoutMs);
 
-      // Record success (resets failure counter / advances HALF_OPEN → CLOSED)
-      if (!options?.skipCircuitBreaker) {
+      if (!skipCB) {
         await stripeCircuit.recordSuccess();
       }
 
       return result;
     } catch (error: unknown) {
       const kind = classifyStripeError(error);
+      const canRetry = kind === 'retryable' && attempt < maxRetries;
 
-      if (kind === 'retryable' && attempt < maxRetries) {
-        const delayMs = Math.min(1000 * Math.pow(2, attempt), 5000);
+      if (canRetry) {
+        const delayMs = retryDelayMs(attempt);
         log.warn(`Stripe ${operation} failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delayMs}ms`, {
           error: error instanceof Error ? error.message : 'unknown',
         });
@@ -152,23 +202,7 @@ export async function safeStripeCall<T>(
         continue;
       }
 
-      const statusCode = error instanceof Stripe.errors.StripeError ? (error.statusCode ?? 500) : 500;
-      const stripeCode = error instanceof Stripe.errors.StripeError ? error.code : undefined;
-      const message = error instanceof Error ? error.message : 'Stripe API call failed';
-
-      log.error(`Stripe ${operation} failed permanently`, {
-        kind,
-        statusCode,
-        stripeCode,
-        error: message,
-      });
-
-      // Record failure (may transition CLOSED → OPEN or HALF_OPEN → OPEN)
-      if (!options?.skipCircuitBreaker && kind !== 'permanent') {
-        await stripeCircuit.recordFailure();
-      }
-
-      throw new StripeApiError(message, kind, statusCode, stripeCode);
+      await handlePermanentFailure(error, kind, operation, log, skipCB);
     }
   }
 

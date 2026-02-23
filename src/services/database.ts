@@ -29,10 +29,35 @@ const getErrorMessage = (error: unknown): string => {
 
 /** Extract statusCode from an unknown error */
 const getErrorStatusCode = (error: unknown): number | undefined => {
-  if (typeof error === 'object' && error !== null && 'statusCode' in error) {
+  if (typeof error === 'object' && error !== null && 'statusCode' in error && typeof (error as { statusCode?: unknown }).statusCode === 'number') {
     return (error as { statusCode: number }).statusCode;
   }
+  if (typeof error === 'object' && error !== null && 'status' in error && typeof (error as { status?: unknown }).status === 'number') {
+    return (error as { status: number }).status;
+  }
   return undefined;
+};
+
+export type ProfileFetchErrorType = 'NOT_FOUND' | 'NETWORK' | 'UNAUTHORIZED' | 'SERVER' | 'UNKNOWN';
+
+const classifyProfileFetchError = (error: unknown): { errorType: ProfileFetchErrorType; statusCode?: number } => {
+  const statusCode = getErrorStatusCode(error);
+  if (statusCode === 404) return { errorType: 'NOT_FOUND', statusCode };
+  if (statusCode === 401 || statusCode === 403) return { errorType: 'UNAUTHORIZED', statusCode };
+  if (typeof statusCode === 'number' && statusCode >= 500) return { errorType: 'SERVER', statusCode };
+
+  const message = getErrorMessage(error).toLowerCase();
+  if (
+    message.includes('network')
+    || message.includes('fetch')
+    || message.includes('timeout')
+    || message.includes('econn')
+    || message.includes('offline')
+  ) {
+    return { errorType: 'NETWORK', statusCode };
+  }
+
+  return { errorType: 'UNKNOWN', statusCode };
 };
 
 /** UUID validation pattern */
@@ -194,6 +219,11 @@ interface DbResponseWithCreated<T> extends DbResponse<T> {
   created?: boolean;
 }
 
+export interface ProfileFetchResponse extends DbResponse<Profile> {
+  errorType?: ProfileFetchErrorType;
+  statusCode?: number;
+}
+
 // Helper to convert AWS API Profile to local Profile format
 const convertProfile = (p: AWSProfile | null): Profile | null => {
   if (!p) return null;
@@ -283,7 +313,7 @@ const convertPost = (p: AWSPost): Post => {
 /**
  * Get current user's profile
  */
-export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<Profile>> => {
+export const getCurrentProfile = async (autoCreate = true): Promise<ProfileFetchResponse> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
@@ -291,7 +321,9 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
     const profile = await awsAPI.getProfile(user.id);
     return { data: convertProfile(profile), error: null };
   } catch (error_: unknown) {
-    if (autoCreate && getErrorStatusCode(error_) === 404) {
+    const classification = classifyProfileFetchError(error_);
+
+    if (autoCreate && classification.errorType === 'NOT_FOUND') {
       // Profile doesn't exist, create one
       const username = user.email?.split('@')[0]?.toLowerCase().replaceAll(/[^a-z0-9]/g, '') || `user_${Date.now()}`;
       try {
@@ -301,10 +333,11 @@ export const getCurrentProfile = async (autoCreate = true): Promise<DbResponse<P
         });
         return { data: convertProfile(newProfile), error: null };
       } catch (error_: unknown) {
-        return { data: null, error: getErrorMessage(error_) };
+        const createError = classifyProfileFetchError(error_);
+        return { data: null, error: getErrorMessage(error_), errorType: createError.errorType, statusCode: createError.statusCode };
       }
     }
-    return { data: null, error: getErrorMessage(error_) };
+    return { data: null, error: getErrorMessage(error_), errorType: classification.errorType, statusCode: classification.statusCode };
   }
 };
 

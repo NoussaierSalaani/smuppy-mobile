@@ -15,6 +15,7 @@ import * as backend from '../../services/backend';
 import { getCurrentProfile } from '../../services/database';
 import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
+import { addBreadcrumb } from '../../lib/sentry';
 
 type LoginScreenProps = Readonly<{
   navigation: {
@@ -134,6 +135,38 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     navigation.navigate('ForgotPassword');
   }, [navigation]);
 
+  const handlePostLoginRouting = useCallback(async () => {
+    const profileResult = await getCurrentProfile(false);
+
+    if (!isMountedRef.current) return;
+
+    if (profileResult.data) {
+      // Existing user — signal AppNavigator to show main app
+      onProfileCreated();
+      return;
+    }
+
+    if (profileResult.errorType === 'NOT_FOUND' || profileResult.statusCode === 404) {
+      // New user — needs onboarding
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AccountType' }],
+      });
+      return;
+    }
+
+    addBreadcrumb('Post-login profile fetch failed', 'auth', {
+      errorType: profileResult.errorType || 'UNKNOWN',
+      statusCode: String(profileResult.statusCode ?? ''),
+      message: (profileResult.error || '').slice(0, 120),
+    });
+    setErrorModal({
+      visible: true,
+      title: 'Connection Error',
+      message: 'Unable to load your profile right now. Please try again.',
+    });
+  }, [navigation, onProfileCreated]);
+
   const handleLogin = useCallback(async () => {
     if (__DEV__) console.log('[Login] handleLogin called', { email: email.replace(/^(.).*@/, '$1***@'), loading });
 
@@ -184,20 +217,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         return;
       }
 
-      const profileResult = await getCurrentProfile(false).catch(() => ({ data: null }));
-
-      if (!isMountedRef.current) return;
-
-      if (!profileResult.data) {
-        // New user — needs onboarding
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'AccountType' }],
-        });
-      } else {
-        // Existing user — signal AppNavigator to show main app
-        onProfileCreated();
-      }
+      await handlePostLoginRouting();
     } catch (error: unknown) {
       if (!isMountedRef.current) return;
 
@@ -223,7 +243,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email, password, rememberMe, onProfileCreated]);
+  }, [email, password, rememberMe, handlePostLoginRouting]);
 
   const togglePassword = useCallback(() => {
     setShowPassword(prev => !prev);

@@ -33,7 +33,6 @@ describe('Feature Flags', () => {
       'SPOTS',
       'CHALLENGES',
       'BUSINESS_DISCOVERY',
-      'DISPUTES',
       'VIBE_GUARDIAN',
       'EMOTIONAL_RIPPLE',
       'VIBE_PRESCRIPTIONS',
@@ -64,6 +63,7 @@ describe('Feature Flags', () => {
       'UPGRADE_TO_PRO',
       'IDENTITY_VERIFICATION',
       'PLATFORM_SUBSCRIPTION',
+      'DISPUTES',
     ];
 
     v1DisabledFeatures.forEach((feature) => {

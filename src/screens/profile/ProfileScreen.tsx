@@ -28,7 +28,7 @@ import { useProfileEventsGroups } from '../../hooks/useProfileEventsGroups';
 import EventGroupCard from '../../components/EventGroupCard';
 import { ProfileDataSource, UserProfile, INITIAL_USER_PROFILE, resolveProfile } from '../../types/profile';
 
-import { AccountBadge, PremiumBadge } from '../../components/Badge';
+import { AccountBadge } from '../../components/Badge';
 import { FEATURES } from '../../config/featureFlags';
 import SmuppyActionSheet from '../../components/SmuppyActionSheet';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
@@ -784,7 +784,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             accountType={user.accountType as 'personal' | 'pro_creator' | 'pro_business'}
             followerCount={user.stats?.fans ?? 0}
           />
-          {user.isPremium && <PremiumBadge size={18} style={styles.badge} />}
+          {/* PremiumBadge removed for V1.0 — restore in V3 */}
         </View>
         <TouchableOpacity
           style={styles.actionBtn}

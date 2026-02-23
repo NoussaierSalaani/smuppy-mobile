@@ -197,7 +197,7 @@ const CreatorWalletScreen = lazyScreen(() => import('../screens/payments/Creator
 const PlatformSubscriptionScreen = lazyScreen(() => import('../screens/payments/PlatformSubscriptionScreen'));
 const ChannelSubscriptionScreen = lazyScreen(() => import('../screens/payments/ChannelSubscriptionScreen'));
 const IdentityVerificationScreen = lazyScreen(() => import('../screens/payments/IdentityVerificationScreen'));
-const PaymentMethodsScreen = lazyScreen(() => import('../screens/payments/PaymentMethodsScreen'));
+// PaymentMethodsScreen — removed for V1.0 (no monetization); restore in V3
 
 // WebView (already lazy)
 const LazyWebViewScreen = React.lazy(() => import('../screens/WebViewScreen'));
@@ -561,7 +561,7 @@ export default function MainNavigator() {
       {FEATURES.IDENTITY_VERIFICATION && (
       <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       )}
-      <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* PaymentMethods — removed for V1.0 (no monetization); restore in V3 */}
       <Stack.Screen name="WebView" component={WebViewScreen} options={{ animation: 'slide_from_bottom' }} />
 
       {/* Disputes & Resolution */}

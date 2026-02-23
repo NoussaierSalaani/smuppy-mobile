@@ -184,7 +184,6 @@ plugins: [
 'expo-contacts',
 'expo-calendar',
 '@rnmapbox/maps',
-'react-native-iap',
 ],
 extra: {
 eas: {

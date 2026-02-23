@@ -16,6 +16,14 @@ try {
   // Fallback if git is not available (e.g. CI without git)
 }
 
+const resolveEnvValue = (...keys) => {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value) return value;
+  }
+  return '';
+};
+
 export default {
 expo: {
 owner: 'nou09',
@@ -206,21 +214,21 @@ s3BucketName: process.env.S3_BUCKET_NAME,
 cloudfrontUrl: process.env.CLOUDFRONT_URL,
 // AWS Config (EXPO_PUBLIC_* vars — used by aws-config.ts)
 // Baked into extra so they survive Expo's static env replacement at build time
-expoPublicAwsRegion: process.env.EXPO_PUBLIC_AWS_REGION,
-expoPublicCognitoUserPoolId: process.env.EXPO_PUBLIC_COGNITO_USER_POOL_ID,
-expoPublicCognitoClientId: process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID,
-expoPublicCognitoIdentityPoolId: process.env.EXPO_PUBLIC_COGNITO_IDENTITY_POOL_ID,
-expoPublicApiRestEndpoint: process.env.EXPO_PUBLIC_API_REST_ENDPOINT,
-expoPublicApiRestEndpoint2: process.env.EXPO_PUBLIC_API_REST_ENDPOINT_2,
-expoPublicApiRestEndpoint3: process.env.EXPO_PUBLIC_API_REST_ENDPOINT_3,
-expoPublicApiRestEndpointDisputes: process.env.EXPO_PUBLIC_API_REST_ENDPOINT_DISPUTES,
-expoPublicApiGraphqlEndpoint: process.env.EXPO_PUBLIC_API_GRAPHQL_ENDPOINT,
-expoPublicApiWebsocketEndpoint: process.env.EXPO_PUBLIC_API_WEBSOCKET_ENDPOINT,
-expoPublicS3Bucket: process.env.EXPO_PUBLIC_S3_BUCKET,
-expoPublicCdnDomain: process.env.EXPO_PUBLIC_CDN_DOMAIN,
-expoPublicDynamodbFeedTable: process.env.EXPO_PUBLIC_DYNAMODB_FEED_TABLE,
-expoPublicDynamodbLikesTable: process.env.EXPO_PUBLIC_DYNAMODB_LIKES_TABLE,
-expoPublicEnv: process.env.EXPO_PUBLIC_ENV,
+expoPublicAwsRegion: resolveEnvValue('AWS_REGION', 'EXPO_PUBLIC_AWS_REGION'),
+expoPublicCognitoUserPoolId: resolveEnvValue('COGNITO_USER_POOL_ID', 'EXPO_PUBLIC_COGNITO_USER_POOL_ID'),
+expoPublicCognitoClientId: resolveEnvValue('COGNITO_CLIENT_ID', 'EXPO_PUBLIC_COGNITO_CLIENT_ID'),
+expoPublicCognitoIdentityPoolId: resolveEnvValue('COGNITO_IDENTITY_POOL_ID', 'EXPO_PUBLIC_COGNITO_IDENTITY_POOL_ID'),
+expoPublicApiRestEndpoint: resolveEnvValue('API_REST_ENDPOINT', 'EXPO_PUBLIC_API_REST_ENDPOINT'),
+expoPublicApiRestEndpoint2: resolveEnvValue('API_REST_ENDPOINT_2', 'EXPO_PUBLIC_API_REST_ENDPOINT_2'),
+expoPublicApiRestEndpoint3: resolveEnvValue('API_REST_ENDPOINT_3', 'EXPO_PUBLIC_API_REST_ENDPOINT_3'),
+expoPublicApiRestEndpointDisputes: resolveEnvValue('API_REST_ENDPOINT_DISPUTES', 'EXPO_PUBLIC_API_REST_ENDPOINT_DISPUTES'),
+expoPublicApiGraphqlEndpoint: resolveEnvValue('API_GRAPHQL_ENDPOINT', 'EXPO_PUBLIC_API_GRAPHQL_ENDPOINT'),
+expoPublicApiWebsocketEndpoint: resolveEnvValue('API_WEBSOCKET_ENDPOINT', 'EXPO_PUBLIC_API_WEBSOCKET_ENDPOINT'),
+expoPublicS3Bucket: resolveEnvValue('S3_BUCKET', 'S3_BUCKET_NAME', 'EXPO_PUBLIC_S3_BUCKET'),
+expoPublicCdnDomain: resolveEnvValue('CLOUDFRONT_URL', 'EXPO_PUBLIC_CDN_DOMAIN'),
+expoPublicDynamodbFeedTable: resolveEnvValue('DYNAMODB_FEED_TABLE', 'EXPO_PUBLIC_DYNAMODB_FEED_TABLE'),
+expoPublicDynamodbLikesTable: resolveEnvValue('DYNAMODB_LIKES_TABLE', 'EXPO_PUBLIC_DYNAMODB_LIKES_TABLE'),
+expoPublicEnv: resolveEnvValue('APP_ENV', 'EXPO_PUBLIC_ENV') || (isDevBuild ? 'dev' : 'production'),
 // Sentry
 sentryDsn: process.env.SENTRY_DSN,
 // Mapbox

@@ -32,6 +32,7 @@ import { resolveDisplayName } from '../../types/profile';
 import { sanitizeOptionalText } from '../../utils/sanitize';
 import { ACCOUNT_TYPE } from '../../config/accountTypes';
 import { ENV } from '../../config/env';
+import { getAWSConfigDiagnostics } from '../../config/aws-config';
 
 const COVER_HEIGHT = 160;
 
@@ -70,6 +71,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const awsDiagnostics = useMemo(() => getAWSConfigDiagnostics(), []);
 
   const loadUserData = useCallback(async () => {
     try {
@@ -531,6 +533,17 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           </Text>
           <Text style={styles.buildInfoDetail}>
             API: {ENV.API_URL.replace(/https?:\/\//, '').replace(/\/api$/, '')}
+          </Text>
+          <Text style={styles.buildInfoDetail}>
+            AWS cfg: {awsDiagnostics.usingStagingFallbacks ? 'fallback active' : 'ok'}
+          </Text>
+          {awsDiagnostics.usingStagingFallbacks ? (
+            <Text style={styles.buildInfoDetail}>
+              Missing: {awsDiagnostics.missingKeys.join(', ')}
+            </Text>
+          ) : null}
+          <Text style={styles.buildInfoDetail}>
+            AWS hosts: {awsDiagnostics.resolvedHosts.rest} · {awsDiagnostics.resolvedHosts.cdn}
           </Text>
           <Text style={styles.buildInfoDetail}>
             Runtime: {ENV.RUNTIME_VERSION}

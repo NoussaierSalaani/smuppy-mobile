@@ -45,6 +45,59 @@ export interface AWSConfig {
   };
 }
 
+export const REQUIRED_PRODUCTION_EXPO_PUBLIC_KEYS = [
+  'EXPO_PUBLIC_AWS_REGION',
+  'EXPO_PUBLIC_COGNITO_USER_POOL_ID',
+  'EXPO_PUBLIC_COGNITO_CLIENT_ID',
+  'EXPO_PUBLIC_COGNITO_IDENTITY_POOL_ID',
+  'EXPO_PUBLIC_API_REST_ENDPOINT',
+  'EXPO_PUBLIC_API_REST_ENDPOINT_2',
+  'EXPO_PUBLIC_API_REST_ENDPOINT_3',
+  'EXPO_PUBLIC_API_REST_ENDPOINT_DISPUTES',
+  'EXPO_PUBLIC_API_GRAPHQL_ENDPOINT',
+  'EXPO_PUBLIC_API_WEBSOCKET_ENDPOINT',
+  'EXPO_PUBLIC_S3_BUCKET',
+  'EXPO_PUBLIC_CDN_DOMAIN',
+  'EXPO_PUBLIC_DYNAMODB_FEED_TABLE',
+  'EXPO_PUBLIC_DYNAMODB_LIKES_TABLE',
+] as const;
+
+export interface AWSConfigDiagnostics {
+  environment: string;
+  isReleaseBuild: boolean;
+  usingStagingFallbacks: boolean;
+  missingKeys: string[];
+  resolvedHosts: {
+    rest: string;
+    graphql: string;
+    websocket: string;
+    cdn: string;
+  };
+}
+
+let awsConfigDiagnostics: AWSConfigDiagnostics = {
+  environment: 'unknown',
+  isReleaseBuild: false,
+  usingStagingFallbacks: false,
+  missingKeys: [],
+  resolvedHosts: {
+    rest: 'n/a',
+    graphql: 'n/a',
+    websocket: 'n/a',
+    cdn: 'n/a',
+  },
+};
+
+const safeHost = (url: string): string => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'invalid-url';
+  }
+};
+
+export const getAWSConfigDiagnostics = (): AWSConfigDiagnostics => awsConfigDiagnostics;
+
 // SECURITY: Staging defaults — used ONLY as fallback when extra config is missing.
 // These MUST match actual staging infrastructure (SmuppyStack-staging).
 const STAGING_DEFAULTS = {
@@ -110,20 +163,39 @@ export const getAWSConfig = (): AWSConfig => {
     },
   };
 
+  awsConfigDiagnostics = {
+    environment: currentEnv,
+    isReleaseBuild,
+    usingStagingFallbacks: fallbackVars.length > 0,
+    missingKeys: [...fallbackVars],
+    resolvedHosts: {
+      rest: safeHost(config.api.restEndpoint),
+      graphql: safeHost(config.api.graphqlEndpoint),
+      websocket: safeHost(config.api.websocketEndpoint),
+      cdn: safeHost(config.storage.cdnDomain),
+    },
+  };
+
   // Consolidated logging — one message, never a throw
   if (fallbackVars.length > 0) {
     if ((currentEnv === 'production' || isReleaseBuild) && !__DEV__) {
       const msg =
         `[AWS Config] PRODUCTION BUILD: ${fallbackVars.length} config value(s) missing, using staging fallbacks. ` +
         `Missing: ${fallbackVars.join(', ')}. ` +
+        `Hosts: REST=${awsConfigDiagnostics.resolvedHosts.rest}, CDN=${awsConfigDiagnostics.resolvedHosts.cdn}. ` +
         'Ensure all EXPO_PUBLIC_* vars are set in EAS environment.';
       console.error(msg);
       try {
-        sentryCaptureMessage(msg, 'fatal', { fallbackVars, environment: currentEnv });
+        sentryCaptureMessage(msg, 'fatal', {
+          fallbackVars,
+          environment: currentEnv,
+          resolvedHosts: awsConfigDiagnostics.resolvedHosts,
+        });
       } catch { /* Expected: Sentry may not be initialized during early config loading */ }
     } else if (__DEV__) {
       console.error(
-        `[AWS Config] ${fallbackVars.length} config value(s) using staging defaults: ${fallbackVars.join(', ')}.`
+        `[AWS Config] ${fallbackVars.length} config value(s) using staging defaults: ${fallbackVars.join(', ')}. ` +
+        `Hosts: REST=${awsConfigDiagnostics.resolvedHosts.rest}, CDN=${awsConfigDiagnostics.resolvedHosts.cdn}.`
       );
     }
   }

@@ -9,16 +9,29 @@ tags:
 - launchApp:
     clearState: true
 
-# Dismiss Expo Dev Menu / error overlays
+# Step 1: Connect to Metro dev server from Expo launcher
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+
+# Step 2: Wait for JS bundle to load
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Step 3: Dismiss Expo dev menu — tap X button (top-right of modal)
 - tapOn:
     text: "Continue"
     optional: true
 - tapOn:
-    text: "Dismiss"
+    point: "87%,28%"
     optional: true
 - tapOn:
-    text: "http://localhost:8081"
+    text: "Go home"
     optional: true
+- waitForAnimationToEnd:
+    timeout: 5000
 
 # Wait for welcome screen
 - extendedWaitUntil:

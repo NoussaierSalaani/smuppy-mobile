@@ -36,6 +36,34 @@ jest.mock('../../config/env', () => ({
   },
 }));
 
+jest.mock('../../config/aws-config', () => ({
+  AWS_CONFIG: {
+    region: 'us-east-1',
+    storage: {
+      bucket: 'test-bucket',
+      cdnDomain: 'https://cdn.test.com',
+    },
+    api: {
+      restEndpoint: 'https://api.test.com',
+      restEndpoint2: 'https://api2.test.com',
+      restEndpoint3: 'https://api3.test.com',
+      restEndpointDisputes: 'https://disputes.test.com',
+      websocketEndpoint: 'wss://ws.test.com',
+    },
+    cognito: {
+      userPoolId: 'us-east-1_test',
+      userPoolClientId: 'test-client-id',
+      identityPoolId: 'us-east-1:test-identity-id',
+    },
+    dynamodb: {
+      tables: {
+        feed: 'feed-test',
+        likes: 'likes-test',
+      },
+    },
+  },
+}));
+
 const mockCaptureException = jest.fn();
 jest.mock('../../lib/sentry', () => ({
   captureException: (...args: unknown[]) => mockCaptureException(...args),

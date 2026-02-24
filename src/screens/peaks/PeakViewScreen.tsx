@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode, AVPlaybackStatus, AVPlaybackStatusSuccess } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
-import { normalizeCdnUrl, getVideoPlaybackUrl } from '../../utils/cdnUrl';
+import { normalizeCdnUrl, getVideoPlaybackUrl, buildRemoteMediaSource } from '../../utils/cdnUrl';
 import * as MediaLibrary from 'expo-media-library';
 import OptimizedImage from '../../components/OptimizedImage';
 import { addBreadcrumb } from '../../lib/sentry';
@@ -1293,10 +1293,19 @@ const PeakViewScreen = (): React.JSX.Element => {
                 </TouchableOpacity>
               );
             }
+            const playbackSource = buildRemoteMediaSource(resolvedVideoUrl);
+            if (!playbackSource) {
+              return (
+                <OptimizedImage
+                  source={currentPeak.thumbnail || placeholder}
+                  style={styles.media}
+                />
+              );
+            }
             return (
               <Video
                 ref={(r) => { videoRef.current = r; }}
-                source={{ uri: resolvedVideoUrl }}
+                source={playbackSource}
                 style={styles.media}
                 resizeMode={ResizeMode.COVER}
                 shouldPlay
@@ -1313,7 +1322,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                   );
                   setVideoError(error);
                 }}
-                posterSource={{ uri: normalizeCdnUrl(currentPeak.thumbnail) || undefined }}
+                posterSource={buildRemoteMediaSource(currentPeak.thumbnail)}
                 usePoster
               />
             );

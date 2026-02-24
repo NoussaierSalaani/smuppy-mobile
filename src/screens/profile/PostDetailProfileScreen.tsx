@@ -20,7 +20,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
-import { normalizeCdnUrl } from '../../utils/cdnUrl';
+import { normalizeCdnUrl, buildRemoteMediaSource } from '../../utils/cdnUrl';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import SharePostModal from '../../components/SharePostModal';
 import PostMenuModal from '../../components/PostMenuModal';
@@ -180,13 +180,13 @@ const PostDetailProfileScreen = () => {
           {item.type === 'video' ? (
             <Video
               ref={index === currentIndex ? videoRef : null}
-              source={{ uri: normalizeCdnUrl(item.media) || '' }}
+              source={buildRemoteMediaSource(item.media) || { uri: normalizeCdnUrl(item.media) || '' }}
               style={styles.media}
               resizeMode={ResizeMode.COVER}
               isLooping
               isMuted={actions.isAudioMuted}
               shouldPlay={index === currentIndex && !actions.isPaused}
-              posterSource={{ uri: normalizeCdnUrl(item.thumbnail) || '' }}
+              posterSource={buildRemoteMediaSource(item.thumbnail) || { uri: normalizeCdnUrl(item.thumbnail) || '' }}
               usePoster
             />
           ) : item.allMedia && item.allMedia.length > 1 ? (

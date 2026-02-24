@@ -1195,6 +1195,26 @@ describe('database.methods', () => {
       expect(result.error).toBe('Not authenticated');
     });
 
+    it('should support nested data.conversations payload', async () => {
+      mockRequest.mockResolvedValue({
+        data: {
+          conversations: [{
+            id: 'conv1',
+            created_at: '2024-01-01T00:00:00Z',
+            last_message: { id: 'm1', content: 'Hello', created_at: '2024-01-01T00:00:00Z', sender_id: 'u2' },
+            unread_count: 1,
+            other_participant: { id: 'u2', username: 'other', full_name: 'Other User', avatar_url: 'https://img.jpg', is_verified: false },
+          }],
+        },
+      });
+
+      const result = await getConversations();
+      expect(result.error).toBeNull();
+      expect(result.data).toHaveLength(1);
+      expect(result.data?.[0]?.id).toBe('conv1');
+      expect(result.data?.[0]?.unread_count).toBe(1);
+    });
+
     it('should handle audio last message preview', async () => {
       mockRequest.mockResolvedValue({
         conversations: [{
@@ -1295,6 +1315,27 @@ describe('database.methods', () => {
       expect(result.data![0].conversation_id).toBe('conv1');
       expect(result.data![0].sender?.username).toBe('test');
       expect(result.error).toBeNull();
+    });
+
+    it('should support nested data.messages payload', async () => {
+      mockRequest.mockResolvedValue({
+        data: {
+          messages: [{
+            id: 'm1',
+            content: 'Nested hello',
+            sender_id: 'u1',
+            read: true,
+            created_at: '2024-01-01T00:00:00Z',
+            sender: { id: 'u1', username: 'test', full_name: 'Test Full Name', avatar_url: 'https://img.jpg' },
+          }],
+        },
+      });
+
+      const result = await getMessages('conv1');
+      expect(result.error).toBeNull();
+      expect(result.data).toHaveLength(1);
+      expect(result.data?.[0]?.content).toBe('Nested hello');
+      expect(result.data?.[0]?.sender?.full_name).toBe('Test Full Name');
     });
 
     it('should handle messages with reactions and read receipts', async () => {

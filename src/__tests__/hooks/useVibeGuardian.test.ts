@@ -169,12 +169,13 @@ function createHookRunner<T>(hookFn: () => T) {
   };
 }
 
-import { useVibeGuardian } from '../../hooks/useVibeGuardian';
+import { useVibeGuardian, __resetVibeGuardianRecapCooldownForTests } from '../../hooks/useVibeGuardian';
 
 describe('useVibeGuardian', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    __resetVibeGuardianRecapCooldownForTests();
     mockIsFeatureEnabled.mockReturnValue(true);
     mockBuildVibeProfile.mockReturnValue({ vibeEnabled: true, maxScrollTime: 30 });
     mockCheckHealth.mockReturnValue({ level: 'healthy', score: 80 });
@@ -304,5 +305,60 @@ describe('useVibeGuardian', () => {
 
     expect(runner.current.showSessionRecap).toBe(false);
     expect(runner.current.sessionRecap).toBeNull();
+  });
+
+  it('should not trigger session recap on inactive state changes', () => {
+    mockGetSessionRecap.mockReturnValue({
+      durationMinutes: 12,
+      vibeTrajectory: 'declined',
+      positiveInteractions: 0,
+      startMood: 'neutral',
+      endMood: 'sad',
+    });
+
+    const runner = createHookRunner(() => useVibeGuardian());
+    mockAppStateListeners[0]?.('inactive');
+    runner.rerender();
+
+    expect(runner.current.showSessionRecap).toBe(false);
+  });
+
+  it('should trigger session recap only for meaningful background transitions', () => {
+    mockGetSessionRecap.mockReturnValue({
+      durationMinutes: 12,
+      vibeTrajectory: 'declined',
+      positiveInteractions: 0,
+      startMood: 'neutral',
+      endMood: 'sad',
+    });
+
+    const runner = createHookRunner(() => useVibeGuardian());
+    mockAppStateListeners[0]?.('background');
+    runner.rerender();
+
+    expect(runner.current.showSessionRecap).toBe(true);
+  });
+
+  it('should enforce recap cooldown between background transitions', () => {
+    mockGetSessionRecap.mockReturnValue({
+      durationMinutes: 12,
+      vibeTrajectory: 'declined',
+      positiveInteractions: 0,
+      startMood: 'neutral',
+      endMood: 'sad',
+    });
+
+    const runner = createHookRunner(() => useVibeGuardian());
+    mockAppStateListeners[0]?.('background');
+    runner.rerender();
+    expect(runner.current.showSessionRecap).toBe(true);
+
+    runner.current.dismissSessionRecap();
+    runner.rerender();
+    mockAppStateListeners[0]?.('active');
+    mockAppStateListeners[0]?.('background');
+    runner.rerender();
+
+    expect(runner.current.showSessionRecap).toBe(false);
   });
 });

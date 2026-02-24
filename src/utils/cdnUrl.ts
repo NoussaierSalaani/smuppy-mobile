@@ -25,28 +25,76 @@ const CURRENT_CDN = (() => {
   }
 })();
 
+const MOBILE_MEDIA_USER_AGENT =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+
+const ABSOLUTE_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
+const HOST_WITHOUT_SCHEME_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i;
+
+const isLocalOrInlineUri = (value: string): boolean => {
+  const lower = value.toLowerCase();
+  return (
+    lower.startsWith('file:') ||
+    lower.startsWith('content:') ||
+    lower.startsWith('ph:') ||
+    lower.startsWith('assets-library:') ||
+    lower.startsWith('blob:') ||
+    lower.startsWith('data:')
+  );
+};
+
+const shouldAttachMediaHeaders = (url: string): boolean => {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.endsWith('.cloudfront.net');
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Normalize a CDN URL: replace legacy staging CDN domain with the correct one.
  * Returns the original value unchanged when it's falsy or doesn't contain the legacy domain.
  */
 export const normalizeCdnUrl = (url: string | undefined | null): string | undefined => {
   if (!url || typeof url !== 'string') return undefined;
-  if (url.includes(LEGACY_CDN)) {
-    return url.replace(LEGACY_CDN, CURRENT_CDN);
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+
+  if (trimmed.includes(LEGACY_CDN)) {
+    return trimmed.replace(LEGACY_CDN, CURRENT_CDN);
   }
+
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(trimmed);
     const host = parsed.hostname.toLowerCase();
     const isS3Url = host.includes('.s3.amazonaws.com') || host.includes('.s3.us-east-1.amazonaws.com');
     if (isS3Url) {
       const key = parsed.pathname.replace(/^\/+/, '');
-      if (!key) return url;
+      if (!key) return trimmed;
       return `https://${CURRENT_CDN}/${key}${parsed.search}`;
     }
+    return trimmed;
   } catch {
-    // Keep original URL when parsing fails.
+    // Fall through — handle host-without-scheme and raw S3 object keys.
   }
-  return url;
+
+  if (isLocalOrInlineUri(trimmed)) return trimmed;
+
+  // Sometimes backend returns "cdn.example.com/path" without scheme.
+  if (HOST_WITHOUT_SCHEME_REGEX.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  // Backend can also return raw object keys (posts/...jpg, avatars/...png).
+  // Normalize those keys onto the configured CloudFront domain.
+  if (!ABSOLUTE_SCHEME_REGEX.test(trimmed)) {
+    const key = trimmed.replace(/^\/+/, '');
+    if (!key) return undefined;
+    return `https://${CURRENT_CDN}/${key}`;
+  }
+
+  return trimmed;
 };
 
 /**
@@ -68,6 +116,22 @@ export const getVideoPlaybackUrl = (
 ): string | undefined => {
   const preferred = hlsUrl || videoUrl;
   return normalizeCdnUrl(preferred) || undefined;
+};
+
+export const buildRemoteMediaSource = (
+  url: string | null | undefined,
+): { uri: string; headers?: Record<string, string> } | undefined => {
+  const normalized = normalizeCdnUrl(url);
+  if (!normalized) return undefined;
+
+  if (shouldAttachMediaHeaders(normalized)) {
+    return {
+      uri: normalized,
+      headers: { 'User-Agent': MOBILE_MEDIA_USER_AGENT },
+    };
+  }
+
+  return { uri: normalized };
 };
 
 export const getMediaVariant = (

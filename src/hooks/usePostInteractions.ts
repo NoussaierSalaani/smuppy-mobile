@@ -81,6 +81,13 @@ export function usePostInteractions<T extends InteractablePost>({
       }
     } catch (err) {
       if (__DEV__) console.warn('[usePostInteractions] Like error:', err);
+      setPosts(prev => prev.map(p => {
+        if (p.id !== postId) return p;
+        const revertedLikes = wasLiked ? p.likes + 1 : Math.max(0, p.likes - 1);
+        return { ...p, isLiked: wasLiked, likes: revertedLikes };
+      }));
+      useFeedStore.getState().toggleLikeOptimistic(postId, wasLiked);
+      onError?.('like', postId);
     } finally {
       pendingLikes.current.delete(postId);
     }

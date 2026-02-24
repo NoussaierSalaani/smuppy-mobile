@@ -8,7 +8,7 @@ import React, { memo, useState, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp, Pressable } from 'react-native';
 import { Image, ImageContentFit, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { normalizeCdnUrl } from '../utils/cdnUrl';
+import { buildRemoteMediaSource, normalizeCdnUrl } from '../utils/cdnUrl';
 import { addBreadcrumb } from '../lib/sentry';
 
 // Blurhash placeholder for smooth loading
@@ -74,11 +74,25 @@ const OptimizedImage = memo<OptimizedImageProps>(({
   // Handle different source formats and normalize CDN URLs
   let resolvedSource: ImageSource | number | undefined;
   if (typeof source === 'string') {
-    resolvedSource = { uri: normalizeCdnUrl(source) };
+    resolvedSource = buildRemoteMediaSource(source);
   } else if (source != null && typeof source === 'object') {
-    resolvedSource = source.uri
-      ? { ...source, uri: normalizeCdnUrl(source.uri) }
-      : source;
+    if (source.uri) {
+      const remoteSource = buildRemoteMediaSource(source.uri);
+      if (remoteSource) {
+        resolvedSource = {
+          ...source,
+          ...remoteSource,
+          headers: {
+            ...(source as { headers?: Record<string, string> }).headers,
+            ...remoteSource.headers,
+          },
+        };
+      } else {
+        resolvedSource = { ...source, uri: normalizeCdnUrl(source.uri) };
+      }
+    } else {
+      resolvedSource = source;
+    }
   } else if (typeof source === 'number') {
     resolvedSource = source;
   }

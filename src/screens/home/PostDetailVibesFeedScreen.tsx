@@ -20,7 +20,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
-import { normalizeCdnUrl } from '../../utils/cdnUrl';
+import { normalizeCdnUrl, buildRemoteMediaSource } from '../../utils/cdnUrl';
 
 import SmuppyHeartIcon from '../../components/icons/SmuppyHeartIcon';
 import SharePostModal from '../../components/SharePostModal';
@@ -265,16 +265,17 @@ const PostDetailVibesFeedScreen = () => {
               {/* Media */}
               {(() => {
                 if (currentPost.type === 'video') {
+                  const videoSource = buildRemoteMediaSource(currentPost.media);
                   return (
                     <Video
                       ref={videoRef}
-                      source={{ uri: normalizeCdnUrl(currentPost.media) || '' }}
+                      source={videoSource || { uri: normalizeCdnUrl(currentPost.media) || '' }}
                       style={styles.fullscreenMedia}
                       resizeMode={ResizeMode.COVER}
                       isLooping
                       isMuted={actions.isAudioMuted}
                       shouldPlay={!actions.isPaused}
-                      posterSource={{ uri: normalizeCdnUrl(currentPost.thumbnail) || '' }}
+                      posterSource={buildRemoteMediaSource(currentPost.thumbnail) || { uri: normalizeCdnUrl(currentPost.thumbnail) || '' }}
                       usePoster
                     />
                   );

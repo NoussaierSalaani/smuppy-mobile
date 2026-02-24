@@ -298,9 +298,9 @@ export const getPresignedUrl = async (
       return null;
     }
 
-    // Prefer backend-provided media URL in staging.
-    // Forcing client-side CDN reconstruction can point to the wrong bucket/domain.
-    const resolvedMediaUrl = result.cdnUrl || awsAPI.getCDNUrl(key) || result.publicUrl || '';
+    // Prefer backend URLs first (cdn/public), then reconstruct as last resort.
+    // In staging, forcing CDN reconstruction too early can point to the wrong origin.
+    const resolvedMediaUrl = result.cdnUrl || result.publicUrl || awsAPI.getCDNUrl(key) || '';
 
     return {
       uploadUrl: result.uploadUrl,

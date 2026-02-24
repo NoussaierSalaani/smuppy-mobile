@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
@@ -38,6 +38,7 @@ import { FEATURES } from '../config/featureFlags';
  * Root Stack Param List
  */
 export type RootStackParamList = {
+  AppLoading: undefined;
   Auth: undefined;
   AuthOnboarding: undefined;
   EmailVerificationPending: { email?: string };
@@ -270,6 +271,7 @@ export default function AppNavigator(): React.JSX.Element {
 
   useEffect(() => {
     const loadSession = async () => {
+      setAppState('loading');
       const rememberMe = await storage.get(STORAGE_KEYS.REMEMBER_ME);
       if (__DEV__) console.log('[Session] rememberMe flag:', rememberMe);
 
@@ -306,6 +308,7 @@ export default function AppNavigator(): React.JSX.Element {
     // Listen for auth state changes (login, signup, signout)
     const unsubscribe = backend.onAuthStateChange(async (authUser) => {
       if (authUser) {
+        setAppState('loading');
         // Guard: skip if already resolving (prevents race from rapid auth events)
         if (resolvingRef.current) return;
         resolvingRef.current = true;
@@ -350,7 +353,8 @@ export default function AppNavigator(): React.JSX.Element {
   }, [handleDeepLink, resolveAppState]);
 
   // Simple state → screen mapping
-  const showAuth = appState === 'auth' || appState === 'loading' || pendingRecovery;
+  const showAuth = appState === 'auth' || pendingRecovery;
+  const showLoading = appState === 'loading' && !pendingRecovery;
   const showOnboarding = appState === 'onboarding' && !pendingRecovery;
   const showEmailPending = appState === 'emailPending' && !pendingRecovery;
   const showSuspended = appState === 'suspended' && !pendingRecovery;
@@ -373,6 +377,16 @@ export default function AppNavigator(): React.JSX.Element {
                   animation: 'fade',
                 }}
               >
+                {showLoading && (
+                  <RootStack.Screen name="AppLoading">
+                    {() => (
+                      <View style={[styles.loadingScreen, { backgroundColor: colors.background }]}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                      </View>
+                    )}
+                  </RootStack.Screen>
+                )}
+
                 {showAuth && (
                   <RootStack.Screen name="Auth">
                     {() => (
@@ -425,5 +439,10 @@ export default function AppNavigator(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

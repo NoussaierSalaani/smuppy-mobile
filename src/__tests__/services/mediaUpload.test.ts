@@ -12,6 +12,8 @@
 const mockGetInfoAsync = jest.fn();
 const mockUploadAsync = jest.fn();
 const mockReadAsStringAsync = jest.fn();
+const mockAwsGetUploadUrl = jest.fn();
+const mockAwsGetCDNUrl = jest.fn();
 
 jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: mockGetInfoAsync,
@@ -35,6 +37,13 @@ jest.mock('../../config/aws-config', () => ({
       bucket: 'test-bucket',
       cdnDomain: 'https://cdn.test.com',
     },
+  },
+}));
+
+jest.mock('../../services/aws-api', () => ({
+  awsAPI: {
+    getUploadUrl: (...args: unknown[]) => mockAwsGetUploadUrl(...args),
+    getCDNUrl: (...args: unknown[]) => mockAwsGetCDNUrl(...args),
   },
 }));
 
@@ -92,6 +101,7 @@ import {
 describe('mediaUpload', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAwsGetCDNUrl.mockImplementation((key: string) => `https://cdn.test.com/${key}`);
   });
 
   // =========================================================================
@@ -129,36 +139,39 @@ describe('mediaUpload', () => {
 
   describe('getPresignedUrl', () => {
     it('should get presigned URL from AWS API', async () => {
-      // Mock dynamic import of aws-api
-      jest.mock('../../services/aws-api', () => ({
-        awsAPI: {
-          getUploadUrl: jest.fn().mockResolvedValue({
-            uploadUrl: 'https://s3.presigned.url',
-            fileUrl: 'posts/u1/image.jpg',
-          }),
-          getCDNUrl: jest.fn().mockReturnValue('https://cdn.test.com/posts/u1/image.jpg'),
-        },
-      }));
+      mockAwsGetUploadUrl.mockResolvedValue({
+        uploadUrl: 'https://s3.presigned.url',
+        fileUrl: 'posts/u1/image.jpg',
+      });
 
       const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg', 1024);
 
       if (result) {
         expect(result.uploadUrl).toBe('https://s3.presigned.url');
         expect(result.key).toBe('posts/u1/image.jpg');
+        expect(result.cdnUrl).toBe('https://cdn.test.com/posts/u1/image.jpg');
       }
     });
 
     it('should return null on API error', async () => {
-      jest.mock('../../services/aws-api', () => ({
-        awsAPI: {
-          getUploadUrl: jest.fn().mockRejectedValue(new Error('API error')),
-          getCDNUrl: jest.fn(),
-        },
-      }));
+      mockAwsGetUploadUrl.mockRejectedValue(new Error('API error'));
 
       const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg', 1024);
       // May return null depending on module state
       expect(result === null || result !== null).toBe(true);
+    });
+
+    it('should prefer backend publicUrl over reconstructed CDN URL', async () => {
+      mockAwsGetUploadUrl.mockResolvedValue({
+        uploadUrl: 'https://s3.presigned.url',
+        fileUrl: 'posts/u1/image.jpg',
+        publicUrl: 'https://origin.example.com/posts/u1/image.jpg',
+      });
+      mockAwsGetCDNUrl.mockReturnValue('https://cdn.test.com/posts/u1/image.jpg');
+
+      const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg', 2048);
+
+      expect(result?.cdnUrl).toBe('https://origin.example.com/posts/u1/image.jpg');
     });
   });
 

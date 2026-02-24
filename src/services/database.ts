@@ -228,10 +228,40 @@ export interface ProfileFetchResponse extends DbResponse<Profile> {
 const convertProfile = (p: AWSProfile | null): Profile | null => {
   if (!p) return null;
   const pRec = p as unknown as Record<string, unknown>;
+  const profileId =
+    p.id ||
+    (pRec?.id as string | undefined) ||
+    (pRec?.user_id as string | undefined) ||
+    (pRec?.profile_id as string | undefined) ||
+    '';
   const username = p.username || (pRec?.username as string | undefined) || '';
-  const fullNameValue = p.fullName || (pRec?.full_name as string | undefined) || '';
-  const displayNameValue = p.displayName || (pRec?.display_name as string | undefined) || '';
-  const bioValue = p.bio || (pRec?.bio as string | undefined) || (pRec?.about as string | undefined);
+  const fullNameValue =
+    p.fullName ||
+    (pRec?.full_name as string | undefined) ||
+    (pRec?.fullName as string | undefined) ||
+    '';
+  const displayNameValue =
+    p.displayName ||
+    (pRec?.display_name as string | undefined) ||
+    (pRec?.displayName as string | undefined) ||
+    '';
+  const bioValue =
+    p.bio ||
+    (pRec?.bio as string | undefined) ||
+    (pRec?.about as string | undefined) ||
+    (pRec?.about_me as string | undefined) ||
+    (pRec?.description as string | undefined);
+  const avatarRaw =
+    p.avatarUrl ||
+    (pRec?.avatar_url as string | undefined) ||
+    (pRec?.avatar as string | undefined) ||
+    (pRec?.profile_picture_url as string | undefined) ||
+    (pRec?.profile_image_url as string | undefined);
+  const coverRaw =
+    p.coverUrl ||
+    (pRec?.cover_url as string | undefined) ||
+    (pRec?.cover_image_url as string | undefined) ||
+    (pRec?.coverImage as string | undefined);
   // Business accounts use businessName as their display name
   const accountType = (p.accountType || (pRec?.account_type as string | undefined)) as Profile['account_type'] | undefined;
   const businessName = p.businessName || (pRec?.business_name as string | undefined);
@@ -246,12 +276,12 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
   const isFollowedBy = p.isFollowedBy ?? (p as unknown as Record<string, unknown>)?.is_followed_by as boolean | undefined;
 
   return {
-    id: p.id,
+    id: profileId,
     username,
     full_name: businessDisplayName || effectiveFullName,
     display_name: businessDisplayName || displayNameValue || undefined,
-    avatar_url: normalizeCdnUrl(p.avatarUrl || (p as unknown as Record<string, unknown>)?.avatar_url as string | undefined),
-    cover_url: normalizeCdnUrl(p.coverUrl || (p as unknown as Record<string, unknown>)?.cover_url as string | undefined),
+    avatar_url: normalizeCdnUrl(avatarRaw),
+    cover_url: normalizeCdnUrl(coverRaw),
     bio: bioValue || undefined,
     website: p.website || undefined,
     is_verified: p.isVerified,
@@ -281,6 +311,41 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
   };
 };
 
+const mapMessageProfile = (raw: unknown): Profile | undefined => {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const rec = raw as Record<string, unknown>;
+  const username =
+    (rec.username as string | undefined) ||
+    (rec.user_name as string | undefined) ||
+    '';
+  const displayName =
+    (rec.display_name as string | undefined) ||
+    (rec.full_name as string | undefined) ||
+    (rec.displayName as string | undefined) ||
+    (rec.fullName as string | undefined) ||
+    '';
+  const id =
+    (rec.id as string | undefined) ||
+    (rec.user_id as string | undefined) ||
+    '';
+  const avatarRaw =
+    (rec.avatar_url as string | undefined) ||
+    (rec.avatar as string | undefined) ||
+    (rec.profile_picture_url as string | undefined);
+
+  if (!id && !username && !displayName && !avatarRaw) return undefined;
+
+  return {
+    id,
+    username,
+    full_name: displayName || username,
+    display_name: displayName || undefined,
+    avatar_url: normalizeCdnUrl(avatarRaw),
+    account_type: rec.account_type as Profile['account_type'] | undefined,
+    is_verified: (rec.is_verified as boolean | undefined) ?? (rec.isVerified as boolean | undefined),
+  };
+};
+
 // Helper to convert AWS API Post to local Post format
 const convertPost = (p: AWSPost): Post => {
   const pRec = p as unknown as Record<string, unknown>;
@@ -290,6 +355,15 @@ const convertPost = (p: AWSPost): Post => {
     mediaArray = rawMedia
       .map((u) => typeof u === 'string' ? normalizeCdnUrl(u) : undefined)
       .filter((u): u is string => !!u);
+  } else if (typeof rawMedia === 'string' && rawMedia.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(rawMedia) as unknown[];
+      mediaArray = parsed
+        .map((u) => typeof u === 'string' ? normalizeCdnUrl(u) : undefined)
+        .filter((u): u is string => !!u);
+    } catch {
+      mediaArray = [];
+    }
   } else if (typeof rawMedia === 'string' && rawMedia.trim()) {
     mediaArray = [normalizeCdnUrl(rawMedia)].filter((u): u is string => !!u);
   } else {
@@ -305,9 +379,14 @@ const convertPost = (p: AWSPost): Post => {
   const createdAt = p.createdAt || (pRec?.created_at as string | undefined) || new Date().toISOString();
 
   return {
-    id: p.id,
-    author_id: p.authorId,
-    content: p.content,
+    id: p.id || (pRec?.id as string | undefined) || '',
+    author_id:
+      p.authorId ||
+      (pRec?.author_id as string | undefined) ||
+      (pRec?.user_id as string | undefined) ||
+      (p.author?.id as string | undefined) ||
+      '',
+    content: p.content || (pRec?.content as string | undefined) || '',
     media_url: mediaArray[0],
     media_urls: mediaArray,
     media_type: (p.mediaType || pRec?.media_type || (mediaArray.length > 1 ? 'multiple' : undefined)) as Post['media_type'],
@@ -1497,20 +1576,29 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
 
   try {
     // Lambda returns { conversations: [...], nextCursor, hasMore } with snake_case fields
-    const result = await awsAPI.request<{ conversations: Array<{
+    type ApiConversation = {
       id: string;
       created_at: string;
       last_message: { id: string; content: string; media_type?: string; created_at: string; sender_id: string } | null;
       unread_count: number;
       other_participant: { id: string; username: string; full_name?: string; display_name?: string; avatar_url: string; is_verified: boolean; account_type?: string } | null;
-    }> }>(`/conversations?limit=${limit}`);
-    const conversations: Conversation[] = (result.conversations || []).map((c) => {
+    };
+    const result = await awsAPI.request<{
+      conversations?: ApiConversation[];
+      data?: ApiConversation[] | { conversations?: ApiConversation[] };
+    }>(`/conversations?limit=${limit}`);
+    const convoList: ApiConversation[] = Array.isArray(result.conversations)
+      ? result.conversations
+      : Array.isArray(result.data)
+        ? result.data
+        : (result.data as { conversations?: ApiConversation[] } | undefined)?.conversations || [];
+    const conversations: Conversation[] = convoList.map((c) => {
       const op = c.other_participant;
       const otherUser: Profile | undefined = op ? {
         id: op.id, username: op.username,
         full_name: op.full_name || op.display_name || '',
         display_name: op.display_name || op.full_name || '',
-        avatar_url: op.avatar_url, is_verified: op.is_verified,
+        avatar_url: normalizeCdnUrl(op.avatar_url), is_verified: op.is_verified,
         account_type: op.account_type,
       } as Profile : undefined;
       return {
@@ -1580,66 +1668,115 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50,
         user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
       }>;
       is_read?: boolean;
-    }> }>(url);
-    const rawMessages = (result.messages || result.data || []);
-    const messages: Message[] = rawMessages.map((m) => ({
-      id: m.id,
-      conversation_id: conversationId,
-      sender_id: m.sender_id,
-      content: m.content,
-      media_url: m.media_url,
-      media_type: m.media_type as Message['media_type'],
-      shared_post_id: m.shared_post_id,
-      shared_peak_id: m.shared_peak_id,
-      is_deleted: m.is_deleted,
-      created_at: m.created_at,
-      sender: m.sender ? {
-        id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
-        display_name: m.sender.display_name, avatar_url: m.sender.avatar_url,
-      } as Profile : undefined,
-      reply_to_message_id: m.reply_to_message_id,
-      reply_to_message: m.reply_to_message ? {
-        id: m.reply_to_message.id,
+    }>; items?: Array<{
+      id: string; content: string; media_url?: string; media_type?: string;
+      sender_id: string; read: boolean; created_at: string;
+      shared_post_id?: string; shared_peak_id?: string; is_deleted?: boolean;
+      sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      reply_to_message_id?: string;
+      reply_to_message?: {
+        id: string; content: string; sender_id: string;
+        sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      } | null;
+      reactions?: Array<{
+        id: string; message_id: string; user_id: string; emoji: string; created_at: string;
+        user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      }>;
+      read_by?: Array<{
+        message_id: string; user_id: string; read_at: string;
+        user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      }>;
+      is_read?: boolean;
+    }>; conversation?: { messages?: Array<{
+      id: string; content: string; media_url?: string; media_type?: string;
+      sender_id: string; read: boolean; created_at: string;
+      shared_post_id?: string; shared_peak_id?: string; is_deleted?: boolean;
+      sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      reply_to_message_id?: string;
+      reply_to_message?: {
+        id: string; content: string; sender_id: string;
+        sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      } | null;
+      reactions?: Array<{
+        id: string; message_id: string; user_id: string; emoji: string; created_at: string;
+        user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      }>;
+      read_by?: Array<{
+        message_id: string; user_id: string; read_at: string;
+        user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      }>;
+      is_read?: boolean;
+    }> } }>(url);
+    const asRecordArray = (value: unknown): Record<string, unknown>[] =>
+      Array.isArray(value)
+        ? value.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
+        : [];
+
+    const resultRec = result as unknown as Record<string, unknown>;
+    const dataRec = resultRec.data && typeof resultRec.data === 'object' && !Array.isArray(resultRec.data)
+      ? resultRec.data as Record<string, unknown>
+      : undefined;
+    const convoRec = resultRec.conversation && typeof resultRec.conversation === 'object' && !Array.isArray(resultRec.conversation)
+      ? resultRec.conversation as Record<string, unknown>
+      : undefined;
+
+    const candidates = [
+      asRecordArray(resultRec.messages),
+      asRecordArray(resultRec.data),
+      asRecordArray(resultRec.items),
+      asRecordArray(dataRec?.messages),
+      asRecordArray(dataRec?.items),
+      asRecordArray(dataRec?.data),
+      asRecordArray(convoRec?.messages),
+    ];
+    const rawMessages = candidates.find((arr) => arr.length > 0) || [];
+
+    const messages: Message[] = rawMessages.map((mRec) => {
+      const sender = mapMessageProfile(mRec.sender);
+      const replyRec = (mRec.reply_to_message && typeof mRec.reply_to_message === 'object')
+        ? mRec.reply_to_message as Record<string, unknown>
+        : undefined;
+      const reactionsRec = asRecordArray(mRec.reactions);
+      const readByRec = asRecordArray(mRec.read_by);
+
+      return {
+        id: (mRec.id as string | undefined) || '',
         conversation_id: conversationId,
-        sender_id: m.reply_to_message.sender_id,
-        content: m.reply_to_message.content,
-        created_at: (m.reply_to_message as { created_at?: string }).created_at || m.created_at,
-        sender: m.reply_to_message.sender ? {
-          id: m.reply_to_message.sender.id,
-          username: m.reply_to_message.sender.username,
-          full_name: m.reply_to_message.sender.display_name || '',
-          display_name: m.reply_to_message.sender.display_name,
-          avatar_url: m.reply_to_message.sender.avatar_url,
-        } as Profile : undefined,
-      } as Message : undefined,
-      reactions: (m.reactions || []).map((r) => ({
-        id: r.id,
-        message_id: r.message_id,
-        user_id: r.user_id,
-        emoji: r.emoji,
-        created_at: r.created_at,
-        user: r.user ? {
-          id: r.user.id,
-          username: r.user.username,
-          full_name: r.user.display_name || '',
-          display_name: r.user.display_name,
-          avatar_url: r.user.avatar_url,
-        } as Profile : undefined,
-      })),
-      read_by: (m.read_by || []).map((rb) => ({
-        message_id: rb.message_id,
-        user_id: rb.user_id,
-        read_at: rb.read_at,
-        user: rb.user ? {
-          id: rb.user.id,
-          username: rb.user.username,
-          full_name: rb.user.display_name || '',
-          display_name: rb.user.display_name,
-          avatar_url: rb.user.avatar_url,
-        } as Profile : undefined,
-      })),
-      is_read: m.is_read ?? m.read,
-    }));
+        sender_id: (mRec.sender_id as string | undefined) || sender?.id || '',
+        content: (mRec.content as string | undefined) || '',
+        media_url: normalizeCdnUrl(mRec.media_url as string | undefined),
+        media_type: mRec.media_type as Message['media_type'],
+        shared_post_id: mRec.shared_post_id as string | undefined,
+        shared_peak_id: mRec.shared_peak_id as string | undefined,
+        is_deleted: mRec.is_deleted as boolean | undefined,
+        created_at: (mRec.created_at as string | undefined) || new Date().toISOString(),
+        sender,
+        reply_to_message_id: mRec.reply_to_message_id as string | undefined,
+        reply_to_message: replyRec ? {
+          id: (replyRec.id as string | undefined) || '',
+          conversation_id: conversationId,
+          sender_id: (replyRec.sender_id as string | undefined) || '',
+          content: (replyRec.content as string | undefined) || '',
+          created_at: (replyRec.created_at as string | undefined) || (mRec.created_at as string | undefined) || new Date().toISOString(),
+          sender: mapMessageProfile(replyRec.sender),
+        } as Message : undefined,
+        reactions: reactionsRec.map((rRec) => ({
+          id: (rRec.id as string | undefined) || '',
+          message_id: (rRec.message_id as string | undefined) || '',
+          user_id: (rRec.user_id as string | undefined) || '',
+          emoji: (rRec.emoji as string | undefined) || '',
+          created_at: (rRec.created_at as string | undefined) || new Date().toISOString(),
+          user: mapMessageProfile(rRec.user),
+        })),
+        read_by: readByRec.map((rbRec) => ({
+          message_id: (rbRec.message_id as string | undefined) || '',
+          user_id: (rbRec.user_id as string | undefined) || '',
+          read_at: (rbRec.read_at as string | undefined) || new Date().toISOString(),
+          user: mapMessageProfile(rbRec.user),
+        })),
+        is_read: (mRec.is_read as boolean | undefined) ?? (mRec.read as boolean | undefined),
+      };
+    });
     return { data: messages, error: null };
   } catch (error_: unknown) {
     return { data: null, error: getErrorMessage(error_) };
@@ -1733,19 +1870,10 @@ export const sendMessage = async (
         sender_id: message.reply_to_message.sender_id,
         content: message.reply_to_message.content,
         created_at: message.reply_to_message.created_at || message.created_at || new Date().toISOString(),
-        sender: message.reply_to_message.sender ? {
-          id: message.reply_to_message.sender.id,
-          username: message.reply_to_message.sender.username,
-          full_name: message.reply_to_message.sender.display_name || '',
-          display_name: message.reply_to_message.sender.display_name,
-          avatar_url: message.reply_to_message.sender.avatar_url,
-        } as Profile : undefined,
+        sender: mapMessageProfile(message.reply_to_message.sender),
       } as Message : undefined,
       created_at: message.created_at || new Date().toISOString(),
-      sender: message.sender ? {
-        id: message.sender.id, username: message.sender.username, full_name: message.sender.display_name || '',
-        display_name: message.sender.display_name, avatar_url: message.sender.avatar_url,
-      } as Profile : undefined,
+      sender: mapMessageProfile(message.sender),
     }, error: null };
   } catch (error_: unknown) {
     return { data: null, error: getErrorMessage(error_) };

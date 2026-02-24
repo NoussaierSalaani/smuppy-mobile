@@ -19,6 +19,14 @@ import { useUserStore } from '../stores/userStore';
 import { ACCOUNT_TYPE } from '../config/accountTypes';
 
 const HEALTH_CHECK_INTERVAL_MS = 15_000; // Check every 15s
+const MIN_RECAP_DURATION_MINUTES = 10;
+const LONG_SESSION_RECAP_MINUTES = 15;
+const RECAP_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+let globalLastRecapShownAt = 0;
+
+export const __resetVibeGuardianRecapCooldownForTests = (): void => {
+  globalLastRecapShownAt = 0;
+};
 
 const noop = () => {};
 
@@ -51,6 +59,8 @@ export function useVibeGuardian(): UseVibeGuardianReturn {
   const [vibeHealth, setVibeHealth] = useState<VibeHealthStatus | null>(null);
   const healthCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dismissedRef = useRef(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const lastRecapShownAtRef = useRef(globalLastRecapShownAt);
 
   // Read user profile from store
   const accountType = useUserStore((s) => s.user?.accountType);
@@ -105,18 +115,33 @@ export function useVibeGuardian(): UseVibeGuardianReturn {
     if (!enabled) return;
 
     const handleAppState = (nextState: AppStateStatus) => {
-      if (nextState === 'background' || nextState === 'inactive') {
-        const recap = vibeGuardian.getSessionRecap();
-        if (recap.durationMinutes >= 2) {
-          setSessionRecap(recap);
-          setShowSessionRecap(true);
-        }
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      // iOS can emit brief "inactive" transitions during gestures;
+      // only show recap on real active -> background transition.
+      if (!(previousState === 'active' && nextState === 'background')) return;
+      if (showSessionRecap) return;
+
+      const now = Date.now();
+      const lastShownAt = Math.max(lastRecapShownAtRef.current, globalLastRecapShownAt);
+      if (now - lastShownAt < RECAP_COOLDOWN_MS) return;
+
+      const recap = vibeGuardian.getSessionRecap();
+      const shouldShowRecap =
+        recap.durationMinutes >= MIN_RECAP_DURATION_MINUTES &&
+        (recap.vibeTrajectory === 'declined' || recap.durationMinutes >= LONG_SESSION_RECAP_MINUTES);
+      if (shouldShowRecap) {
+        setSessionRecap(recap);
+        setShowSessionRecap(true);
+        lastRecapShownAtRef.current = now;
+        globalLastRecapShownAt = now;
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppState);
     return () => subscription?.remove();
-  }, [enabled]);
+  }, [enabled, showSessionRecap]);
 
   const dismissAlert = useCallback(() => {
     setIsAlertVisible(false);

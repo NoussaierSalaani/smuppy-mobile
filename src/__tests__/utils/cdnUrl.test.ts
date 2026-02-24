@@ -14,7 +14,7 @@ jest.mock('../../config/aws-config', () => ({
   },
 }));
 
-import { normalizeCdnUrl, getVideoPlaybackUrl, getMediaVariant } from '../../utils/cdnUrl';
+import { normalizeCdnUrl, getVideoPlaybackUrl, getMediaVariant, buildRemoteMediaSource } from '../../utils/cdnUrl';
 
 const LEGACY_CDN = 'd3gy4x1feicix3.cloudfront.net';
 const CURRENT_CDN = 'dc8kq67t0asis.cloudfront.net';
@@ -37,6 +37,26 @@ describe('normalizeCdnUrl', () => {
   it('returns original URL when no legacy domain present', () => {
     const url = `https://${CURRENT_CDN}/media/uploads/photo-abc123.jpg`;
     expect(normalizeCdnUrl(url)).toBe(url);
+  });
+
+  it('normalizes raw object keys to current CDN URL', () => {
+    const key = 'posts/u1/photo-abc123.jpg';
+    expect(normalizeCdnUrl(key)).toBe(`https://${CURRENT_CDN}/posts/u1/photo-abc123.jpg`);
+  });
+
+  it('normalizes leading-slash object keys to current CDN URL', () => {
+    const key = '/avatars/u1/profile.jpg';
+    expect(normalizeCdnUrl(key)).toBe(`https://${CURRENT_CDN}/avatars/u1/profile.jpg`);
+  });
+
+  it('adds https for host-only URLs without scheme', () => {
+    expect(normalizeCdnUrl('example.com/media/image.jpg')).toBe('https://example.com/media/image.jpg');
+  });
+
+  it('keeps file/data/blob URIs unchanged', () => {
+    expect(normalizeCdnUrl('file:///tmp/photo.jpg')).toBe('file:///tmp/photo.jpg');
+    expect(normalizeCdnUrl('data:image/png;base64,AAAA')).toBe('data:image/png;base64,AAAA');
+    expect(normalizeCdnUrl('blob:https://example.com/id')).toBe('blob:https://example.com/id');
   });
 
   it('handles empty string', () => {
@@ -102,5 +122,35 @@ describe('getMediaVariant', () => {
     const mediaMeta = { variants: {} };
     const result = getMediaVariant(originalUrl, 'thumb', mediaMeta);
     expect(result).toBe(originalUrl);
+  });
+});
+
+describe('buildRemoteMediaSource', () => {
+  it('adds mobile user-agent for CloudFront URLs', () => {
+    const source = buildRemoteMediaSource(`https://${CURRENT_CDN}/media/uploads/photo-abc123.jpg`);
+    expect(source).toBeDefined();
+    expect(source?.uri).toBe(`https://${CURRENT_CDN}/media/uploads/photo-abc123.jpg`);
+    expect(source?.headers?.['User-Agent']).toContain('iPhone');
+  });
+
+  it('normalizes legacy domain and preserves header behavior', () => {
+    const source = buildRemoteMediaSource(`https://${LEGACY_CDN}/media/uploads/photo-abc123.jpg`);
+    expect(source?.uri).toBe(`https://${CURRENT_CDN}/media/uploads/photo-abc123.jpg`);
+    expect(source?.headers?.['User-Agent']).toContain('Mobile');
+  });
+
+  it('does not add headers for non-cloudfront URLs', () => {
+    const source = buildRemoteMediaSource('https://example.com/static/image.jpg');
+    expect(source).toEqual({ uri: 'https://example.com/static/image.jpg' });
+  });
+
+  it('returns undefined for empty input', () => {
+    expect(buildRemoteMediaSource('')).toBeUndefined();
+  });
+
+  it('normalizes raw keys before building source', () => {
+    const source = buildRemoteMediaSource('posts/u1/photo-abc123.jpg');
+    expect(source?.uri).toBe(`https://${CURRENT_CDN}/posts/u1/photo-abc123.jpg`);
+    expect(source?.headers?.['User-Agent']).toContain('Mobile');
   });
 });

@@ -226,6 +226,27 @@ describe('usePostInteractions', () => {
       expect(mockToggleLikeOptimistic).toHaveBeenCalledWith('post-1', false);
     });
 
+    it('should rollback and fire onError when like request throws', async () => {
+      mockLikePost.mockRejectedValue(new Error('Network down'));
+      const onError = jest.fn();
+
+      posts = [
+        { id: 'post-1', isLiked: false, likes: 10, isSaved: false, saves: 5 },
+      ];
+
+      const runner = createHookRunner(() =>
+        usePostInteractions<TestPost>({ setPosts, onError })
+      );
+
+      await runner.current.toggleLike('post-1');
+
+      expect(setPosts).toHaveBeenCalledTimes(2);
+      expect(posts[0]?.isLiked).toBe(false);
+      expect(posts[0]?.likes).toBe(10);
+      expect(onError).toHaveBeenCalledWith('like', 'post-1');
+      expect(mockToggleLikeOptimistic).toHaveBeenCalledWith('post-1', false);
+    });
+
     it('should not allow concurrent like requests for the same post', async () => {
       let resolveFirst: (value: { error: null }) => void;
       const firstPromise = new Promise<{ error: null }>(resolve => {

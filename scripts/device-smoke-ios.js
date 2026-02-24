@@ -143,6 +143,12 @@ async function run() {
       '~Post content',
       '~Like this post',
       '~Share this post',
+      '~Posts',
+      '~Peaks',
+      '~Activities',
+      '~Collections',
+      '~settings-button',
+      '~Settings',
     ];
     const ONBOARDING_SELECTORS = ['~AccountType', '~TellUsAboutYou', '~Guidelines'];
     const AUTH_SELECTORS = ['~login-screen', '~submit-login-button', '~social-apple-button', '~email-input'];

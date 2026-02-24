@@ -53,7 +53,7 @@ const { width, height: screenHeight } = Dimensions.get('window');
 // Utility: Convert URL to CDN URL
 const toCdn = (url?: string | null): string => {
   if (!url) return '';
-  return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
+  return normalizeCdnUrl(url) || (url.startsWith('http') ? url : awsAPI.getCDNUrl(url));
 };
 
 // ============================================

@@ -5,7 +5,6 @@
 
 import { Platform } from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { AuthSessionResult } from 'expo-auth-session';
 import { awsAuth } from './aws-auth';
 import { ENV } from '../config/env';
@@ -210,6 +209,8 @@ export const useGoogleAuth = () => {
     androidClientId: ENV.GOOGLE_ANDROID_CLIENT_ID,
     webClientId: ENV.GOOGLE_WEB_CLIENT_ID,
     scopes: ['openid', 'profile', 'email'],
+    responseType: 'id_token',
+    usePKCE: false,
     redirectUri,
   });
 };
@@ -289,4 +290,3 @@ export const handleGoogleSignIn = async (
     return { success: false, error: 'Google Sign-In failed. Please try again.' };
   }
 };
-

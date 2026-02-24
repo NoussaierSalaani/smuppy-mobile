@@ -25,6 +25,7 @@ import { resolveDisplayName } from '../../types/profile';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
 import { sanitizeOptionalText } from '../../utils/sanitize';
 import { ACCOUNT_TYPE } from '../../config/accountTypes';
+import { normalizeCdnUrl } from '../../utils/cdnUrl';
 
 interface PeakUser {
   id: string;
@@ -101,6 +102,8 @@ const PeaksFeedScreen = (): React.JSX.Element => {
       
       const toCdn = (url?: string | null) => {
         if (!url) return null;
+        const normalized = normalizeCdnUrl(url);
+        if (normalized) return normalized;
         return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
       };
       const mapped: Peak[] = (response.data || []).map((p) => ({

@@ -535,7 +535,7 @@ describe('feed/discover handler', () => {
       expect(feedSql).toContain('muted_users');
       // Should filter public posts and non-banned profiles
       expect(feedSql).toContain("visibility = 'public'");
-      expect(feedSql).toContain('moderation_status');
+      expect(feedSql).toContain("COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')");
       // Should order by engagement score
       expect(feedSql).toContain('p.likes_count * 2 + p.comments_count');
     });

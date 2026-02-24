@@ -4,7 +4,7 @@
  * Features: caching, blurhash placeholders, lazy loading
  */
 
-import React, { memo, useState, useCallback, ReactNode } from 'react';
+import React, { memo, useState, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp, Pressable } from 'react-native';
 import { Image, ImageContentFit, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';

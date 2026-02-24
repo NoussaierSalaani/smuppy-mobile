@@ -1016,7 +1016,18 @@ class AWSAPIService {
   // Media Upload
   // ==========================================
 
-  async getUploadUrl(filename: string, contentType: string, fileSize?: number, duration?: number): Promise<{ uploadUrl: string; fileUrl: string }> {
+  async getUploadUrl(
+    filename: string,
+    contentType: string,
+    fileSize: number,
+    duration?: number
+  ): Promise<{
+    uploadUrl: string;
+    fileUrl?: string;
+    key?: string;
+    publicUrl?: string;
+    cdnUrl?: string;
+  }> {
     // Determine uploadType from the folder prefix in filename
     let uploadType = 'post';
     if (filename.startsWith('avatars/')) uploadType = 'avatar';
@@ -1026,9 +1037,13 @@ class AWSAPIService {
 
     if (__DEV__) console.log('[getUploadUrl] uploadType:', uploadType, 'contentType:', contentType);
 
+    if (!Number.isFinite(fileSize) || fileSize <= 0) {
+      throw new APIError('Invalid upload file size', 400);
+    }
+
     return this.request('/media/upload-url', {
       method: 'POST',
-      body: { filename, contentType, uploadType, fileSize: fileSize || 0, ...(duration != null && { duration }) },
+      body: { filename, contentType, uploadType, fileSize, ...(duration != null && { duration }) },
     });
   }
 

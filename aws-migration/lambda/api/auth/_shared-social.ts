@@ -16,6 +16,7 @@ import {
   AdminSetUserPasswordCommand,
   AdminInitiateAuthCommand,
   AdminGetUserCommand,
+  ListUsersCommand,
   UserNotFoundException,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { randomBytes } from 'node:crypto';
@@ -59,6 +60,22 @@ export const getOrCreateCognitoUser = async (
   name?: string,
 ): Promise<SocialUserResult> => {
   const username = `${provider}_${providerUserId}`;
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  const setPasswordForUser = async (targetUsername: string): Promise<SocialUserResult> => {
+    // ADMIN_NO_SRP_AUTH requires a known password. Since social-auth users
+    // don't have a user-facing password, we set a transient one each login.
+    const newPassword = generateSecurePassword();
+    await cognitoClient.send(
+      new AdminSetUserPasswordCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: targetUsername,
+        Password: newPassword,
+        Permanent: true,
+      })
+    );
+    return { userId: targetUsername, isNewUser: false, password: newPassword };
+  };
 
   try {
     // Try to get existing user
@@ -68,18 +85,7 @@ export const getOrCreateCognitoUser = async (
         Username: username,
       })
     );
-    // ADMIN_NO_SRP_AUTH requires a known password. Since social-auth users
-    // don't have a user-facing password, we set a transient one each login.
-    const newPassword = generateSecurePassword();
-    await cognitoClient.send(
-      new AdminSetUserPasswordCommand({
-        UserPoolId: USER_POOL_ID,
-        Username: username,
-        Password: newPassword,
-        Permanent: true,
-      })
-    );
-    return { userId: username, isNewUser: false, password: newPassword };
+    return setPasswordForUser(username);
   } catch (error_) {
     if (!(error_ instanceof UserNotFoundException)) {
       throw error_;
@@ -98,14 +104,52 @@ export const getOrCreateCognitoUser = async (
     userAttributes.push({ Name: 'name', Value: name });
   }
 
-  await cognitoClient.send(
-    new AdminCreateUserCommand({
-      UserPoolId: USER_POOL_ID,
-      Username: username,
-      UserAttributes: userAttributes,
-      MessageAction: 'SUPPRESS', // Don't send welcome email
-    })
-  );
+  try {
+    await cognitoClient.send(
+      new AdminCreateUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: username,
+        UserAttributes: userAttributes,
+        MessageAction: 'SUPPRESS', // Don't send welcome email
+      })
+    );
+  } catch (error_) {
+    const err = error_ as { name?: string };
+
+    // Idempotent social auth: if user/alias already exists, recover by reusing existing Cognito user.
+    if (err?.name === 'UsernameExistsException' || err?.name === 'AliasExistsException') {
+      // First, try direct lookup by provider username.
+      try {
+        await cognitoClient.send(
+          new AdminGetUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: username,
+          })
+        );
+        return setPasswordForUser(username);
+      } catch {
+        // Continue to email lookup fallback.
+      }
+
+      // If a user already exists with this email (e.g., email/password account), reuse it.
+      if (normalizedEmail) {
+        const escapedEmail = normalizedEmail.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+        const list = await cognitoClient.send(
+          new ListUsersCommand({
+            UserPoolId: USER_POOL_ID,
+            Filter: `email = "${escapedEmail}"`,
+            Limit: 1,
+          })
+        );
+        const existingUsername = list.Users?.[0]?.Username;
+        if (existingUsername) {
+          return setPasswordForUser(existingUsername);
+        }
+      }
+    }
+
+    throw error_;
+  }
 
   // Set permanent password
   await cognitoClient.send(

@@ -255,6 +255,16 @@ describe('posts/search handler', () => {
       expect(body.hasMore).toBe(false);
     });
 
+    it('should use NULL-safe moderation filter in FTS query', async () => {
+      mockDb.query.mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent();
+      await handler(event);
+
+      const ftsSql: string = mockDb.query.mock.calls[0][0];
+      expect(ftsSql).toContain("COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')");
+    });
+
     it('should work for unauthenticated requests', async () => {
       (resolveProfileId as jest.Mock).mockResolvedValue(null);
 
@@ -295,6 +305,18 @@ describe('posts/search handler', () => {
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
       expect(body.data).toHaveLength(1);
+    });
+
+    it('should use NULL-safe moderation filter in ILIKE fallback query', async () => {
+      mockDb.query
+        .mockRejectedValueOnce(new Error('syntax error in tsquery'))
+        .mockResolvedValueOnce({ rows: [] });
+
+      const event = makeEvent();
+      await handler(event);
+
+      const ilikeSql: string = mockDb.query.mock.calls[1][0];
+      expect(ilikeSql).toContain("COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')");
     });
   });
 

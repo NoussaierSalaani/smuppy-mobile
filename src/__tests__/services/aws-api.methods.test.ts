@@ -794,7 +794,7 @@ describe('Media Upload', () => {
 
   it('getUploadUrl detects avatar uploadType', async () => {
     requestSpy.mockResolvedValueOnce({ uploadUrl: '', fileUrl: '' });
-    await awsAPI.getUploadUrl('avatars/photo.jpg', 'image/jpeg');
+    await awsAPI.getUploadUrl('avatars/photo.jpg', 'image/jpeg', 5000);
     expect(requestSpy).toHaveBeenCalledWith('/media/upload-url', expect.objectContaining({
       body: expect.objectContaining({ uploadType: 'avatar' }),
     }));
@@ -802,7 +802,7 @@ describe('Media Upload', () => {
 
   it('getUploadUrl detects cover uploadType', async () => {
     requestSpy.mockResolvedValueOnce({ uploadUrl: '', fileUrl: '' });
-    await awsAPI.getUploadUrl('covers/photo.jpg', 'image/jpeg');
+    await awsAPI.getUploadUrl('covers/photo.jpg', 'image/jpeg', 5000);
     expect(requestSpy).toHaveBeenCalledWith('/media/upload-url', expect.objectContaining({
       body: expect.objectContaining({ uploadType: 'cover' }),
     }));
@@ -818,7 +818,7 @@ describe('Media Upload', () => {
 
   it('getUploadUrl detects message uploadType', async () => {
     requestSpy.mockResolvedValueOnce({ uploadUrl: '', fileUrl: '' });
-    await awsAPI.getUploadUrl('messages/photo.jpg', 'image/jpeg');
+    await awsAPI.getUploadUrl('messages/photo.jpg', 'image/jpeg', 5000);
     expect(requestSpy).toHaveBeenCalledWith('/media/upload-url', expect.objectContaining({
       body: expect.objectContaining({ uploadType: 'message' }),
     }));

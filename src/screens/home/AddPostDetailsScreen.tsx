@@ -54,6 +54,7 @@ import { filterContent } from '../../utils/contentFilters';
 import { resolveDisplayName } from '../../types/profile';
 import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 import { ACCOUNT_TYPE } from '../../config/accountTypes';
+import { normalizeCdnUrl } from '../../utils/cdnUrl';
 
 const { width } = Dimensions.get('window');
 
@@ -87,6 +88,11 @@ interface LocationPrediction {
   lat: number;
   lon: number;
 }
+
+const toFiniteNumber = (value: unknown): number | null => {
+  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 // Following user type
 interface FollowingUser {
@@ -429,6 +435,16 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
   // Initialize map with current location when opening map view
   const openMapView = async () => {
     setShowMapView(true);
+    // Keep focus on a manually selected address pin instead of overriding it
+    // with current device location.
+    if (selectedCoords) {
+      setMapRegion({
+        ...selectedCoords,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+      return;
+    }
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
@@ -534,7 +550,17 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           throw new Error(result.error || `Failed to upload media ${i + 1}`);
         }
 
-        mediaUrls.push(result.cdnUrl || result.url || '');
+        const resolvedMediaUrl = normalizeCdnUrl(result.cdnUrl || result.url);
+        if (!resolvedMediaUrl) {
+          throw new Error(`Invalid uploaded media URL for item ${i + 1}`);
+        }
+        try {
+          // Validate URL shape before create-post call to avoid backend 400.
+          new URL(resolvedMediaUrl);
+        } catch {
+          throw new Error(`Invalid uploaded media URL format for item ${i + 1}`);
+        }
+        mediaUrls.push(resolvedMediaUrl);
       }
 
       setUploadProgress(85);
@@ -852,12 +878,14 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
               <TouchableOpacity
                 key={prediction.place_id}
                 style={styles.locationOption}
-                onPress={() => {
+            onPress={() => {
                   hapticButtonPress();
                   setLocation(prediction.main_text);
                   // Also update map coordinates if available
-                  if (prediction.lat && prediction.lon) {
-                    const coords = { latitude: prediction.lat, longitude: prediction.lon };
+                  const lat = toFiniteNumber(prediction.lat);
+                  const lon = toFiniteNumber(prediction.lon);
+                  if (lat !== null && lon !== null) {
+                    const coords = { latitude: lat, longitude: lon };
                     setSelectedCoords(coords);
                     setMapRegion({
                       ...coords,

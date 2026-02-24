@@ -116,10 +116,11 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   const database = credentials.dbname || credentials.database || process.env.DB_NAME || 'smuppy';
 
   // Use IAM auth token for RDS Proxy, or password for direct connection
-  let password: string;
+  let password: PoolConfig['password'];
   if (USE_IAM_AUTH) {
     log.info('Using IAM authentication for RDS Proxy');
-    password = await generateIAMToken(host, port, credentials.username);
+    // Provide a fresh IAM token for each new connection to avoid stale token reuse.
+    password = () => generateIAMToken(host, port, credentials.username);
   } else {
     password = credentials.password;
   }
@@ -200,6 +201,7 @@ function wrapPoolWithTiming(pool: Pool): Pool {
     } catch (error) {
       const duration = Date.now() - start;
       const queryText = typeof args[0] === 'string' ? args[0] : args[0]?.text || '';
+      handleDbError(error);
       log.error('Query failed', error, {
         type: 'DB_QUERY_ERROR',
         query: queryText.length > 200 ? queryText.substring(0, 200) + '...' : queryText,
@@ -287,13 +289,23 @@ export function invalidateCredentials(): void {
  * and invalidate credentials if so.
  */
 export function handleDbError(error: unknown): void {
-  if (
-    error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as { code: string }).code === '28P01'
-  ) {
-    log.warn('Database authentication failure (28P01) detected, invalidating credentials');
+  if (!error || typeof error !== 'object') {
+    return;
+  }
+
+  const code = 'code' in error ? String((error as { code?: unknown }).code ?? '') : '';
+  const message =
+    'message' in error ? String((error as { message?: unknown }).message ?? '') : '';
+
+  const isAuthFailure =
+    code === '28P01' ||
+    code === '28000' ||
+    /iam authentication failed|password authentication failed|auth token.*expired/i.test(message);
+
+  if (isAuthFailure) {
+    log.warn('Database authentication failure detected, invalidating credentials', {
+      code: code || 'unknown',
+    });
     invalidateCredentials();
   }
 }

@@ -34,6 +34,18 @@ export const normalizeCdnUrl = (url: string | undefined | null): string | undefi
   if (url.includes(LEGACY_CDN)) {
     return url.replace(LEGACY_CDN, CURRENT_CDN);
   }
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isS3Url = host.includes('.s3.amazonaws.com') || host.includes('.s3.us-east-1.amazonaws.com');
+    if (isS3Url) {
+      const key = parsed.pathname.replace(/^\/+/, '');
+      if (!key) return url;
+      return `https://${CURRENT_CDN}/${key}${parsed.search}`;
+    }
+  } catch {
+    // Keep original URL when parsing fails.
+  }
   return url;
 };
 

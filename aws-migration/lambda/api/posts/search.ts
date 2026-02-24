@@ -91,7 +91,7 @@ export const handler = withErrorHandler('posts-search', async (event, { headers,
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
         WHERE to_tsvector('english', p.content) @@ plainto_tsquery('english', $1)
-          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+          AND COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')
           AND p.visibility = 'public'
           ${blockFilter}
           ${cursorIdx}
@@ -131,7 +131,7 @@ export const handler = withErrorHandler('posts-search', async (event, { headers,
         FROM posts p
         JOIN profiles pr ON p.author_id = pr.id
         WHERE p.content ILIKE $1
-          AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+          AND COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')
           AND p.visibility = 'public'
           ${blockFilter}
           ${cursorIdx}

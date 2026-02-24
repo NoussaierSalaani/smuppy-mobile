@@ -33,6 +33,12 @@
     "build:ios": "expo export --platform ios",
     "build:android": "expo export --platform android",
     "build:all": "expo export --platform all",
+    "release:build:ios": "EXPO_NO_DOTENV=1 CI=1 eas build -p ios --profile production",
+    "release:build:android": "EXPO_NO_DOTENV=1 CI=1 eas build -p android --profile production",
+    "release:update": "./scripts/eas-release-update.sh",
+    "qa:loop": "./scripts/qa-loop.sh",
+    "appium:start": "appium server --port 4723",
+    "test:device:smoke": "node ./scripts/device-smoke-ios.js",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -122,6 +128,8 @@
     "@types/uuid": "^11.0.0",
     "@typescript-eslint/eslint-plugin": "^8.52.0",
     "@typescript-eslint/parser": "^8.52.0",
+    "appium": "^3.2.0",
+    "appium-xcuitest-driver": "^10.24.1",
     "babel-plugin-transform-remove-console": "^6.9.4",
     "babel-preset-expo": "^54.0.10",
     "detox": "^20.47.0",
@@ -138,6 +146,7 @@
     "react-test-renderer": "^19.1.0",
     "ts-jest": "^29.4.6",
     "tsc-files": "^1.1.4",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "webdriverio": "^9.24.0"
   }
 }

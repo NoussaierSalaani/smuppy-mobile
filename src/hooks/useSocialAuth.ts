@@ -159,6 +159,10 @@ export function useSocialAuth({ errorPrefix, onError }: UseSocialAuthOptions): U
       if (__DEV__) console.warn(`[SocialAuth] Google prompt error`);
       if (isMountedRef.current) {
         setSocialLoading(null);
+        onError(
+          `Google ${errorPrefix} Failed`,
+          'Unable to open Google Sign-In. Please try again.',
+        );
       }
     }
   }, [googleRequest, googlePromptAsync, errorPrefix, onError]);

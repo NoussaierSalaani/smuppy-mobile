@@ -534,4 +534,14 @@ describe('posts/list handler', () => {
       expect(body.total).toBe(0);
     });
   });
+
+  describe('query structure', () => {
+    it('should include NULL-safe moderation filter in explore query', async () => {
+      const event = buildEvent({ sub: null });
+      await handler(event);
+
+      const mainSql: string = mockDb.query.mock.calls[0][0];
+      expect(mainSql).toContain("COALESCE(u.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')");
+    });
+  });
 });

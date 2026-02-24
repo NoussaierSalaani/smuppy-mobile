@@ -242,7 +242,7 @@ const MessageItem = memo(({ item, isFromMe, showAvatar, goToUserProfile, formatT
             {item.media_type === 'audio' && !item.media_url && !!item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
-            {!item.shared_post_id && !item.shared_peak_id && !sharedProfileId && item.media_type !== 'audio' && !!item.content && (
+            {!item.shared_post_id && !item.shared_peak_id && !sharedProfileId && item.media_type !== 'audio' && !(item.media_type === 'image' && !!item.media_url) && !!item.content && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextRight]}>{item.content}</Text>
             )}
             {item.media_url && item.media_type === 'image' && (
@@ -914,10 +914,28 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     });
 
     try {
+      // Compress image before upload (800x800, q0.75 — saves ~80% bandwidth)
+      const { compressMessage } = await import('../../utils/imageCompression');
+      const compressed = await compressMessage(imageUri, dimensions);
+
+      const compressedInfo = await FileSystem.getInfoAsync(compressed.uri);
+      const fileSize = (compressedInfo as { size?: number }).size ?? 0;
+      if (fileSize <= 0) {
+        pendingOptimisticIdsRef.current.delete(optimisticId);
+        setMessages(prev => {
+          const next = prev.filter(m => m.id !== optimisticId);
+          messagesRef.current = next;
+          return next;
+        });
+        showError('Error', 'Unable to determine image size');
+        setSending(false);
+        return;
+      }
+
       // Get presigned URL for image upload
       const { getPresignedUrl } = await import('../../services/mediaUpload');
       const fileName = `message-${Date.now()}.jpg`;
-      const presignedResult = await getPresignedUrl(fileName, 'messages', 'image/jpeg');
+      const presignedResult = await getPresignedUrl(fileName, 'messages', 'image/jpeg', fileSize);
 
       if (!presignedResult || !presignedResult.uploadUrl) {
         pendingOptimisticIdsRef.current.delete(optimisticId);
@@ -930,10 +948,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         setSending(false);
         return;
       }
-
-      // Compress image before upload (800x800, q0.75 — saves ~80% bandwidth)
-      const { compressMessage } = await import('../../utils/imageCompression');
-      const compressed = await compressMessage(imageUri, dimensions);
 
       // Upload compressed image
       const { uploadWithFileSystem } = await import('../../services/mediaUpload');

@@ -1367,9 +1367,7 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
   const shadowColor = isDark ? '#fff' : '#000';
   const subtleBorder = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.04)';
   const subtleDivider = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
-  const overlayBg = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)';
   const primaryTint = isDark ? 'rgba(14, 191, 138, 0.15)' : 'rgba(14, 191, 138, 0.10)';
-  const closeBtnBg = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.3)';
 
   return StyleSheet.create({
   container: { flex: 1 },

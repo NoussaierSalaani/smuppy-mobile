@@ -342,7 +342,7 @@ describe('feed/optimized handler', () => {
     const feedSql: string = mockQuery.mock.calls[0][0];
     expect(feedSql).toContain("visibility = 'public'");
     expect(feedSql).toContain('blocked_users');
-    expect(feedSql).toContain('moderation_status');
+    expect(feedSql).toContain("COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')");
     expect(feedSql).toContain('ORDER BY p.created_at DESC');
   });
 

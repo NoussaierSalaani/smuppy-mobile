@@ -303,5 +303,20 @@ describe('useSocialAuth', () => {
 
       expect(mockGooglePromptAsync).toHaveBeenCalledTimes(1);
     });
+
+    it('should call onError when googlePromptAsync throws', async () => {
+      mockGooglePromptAsync.mockRejectedValue(new Error('prompt failed'));
+
+      const runner = createHookRunner(() =>
+        useSocialAuth({ errorPrefix: 'Sign-In', onError: mockOnError })
+      );
+
+      await runner.current.handleGoogleSignInPress();
+
+      expect(mockOnError).toHaveBeenCalledWith(
+        'Google Sign-In Failed',
+        'Unable to open Google Sign-In. Please try again.',
+      );
+    });
   });
 });

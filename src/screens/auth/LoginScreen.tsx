@@ -12,6 +12,7 @@ import { useSocialAuth } from '../../hooks/useSocialAuth';
 import { storage, STORAGE_KEYS } from '../../utils/secureStorage';
 import { checkAWSRateLimit } from '../../services/awsRateLimit';
 import * as backend from '../../services/backend';
+import { awsAuth } from '../../services/aws-auth';
 import { getCurrentProfile } from '../../services/database';
 import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 import { useAuthCallbacks } from '../../context/AuthCallbackContext';
@@ -89,6 +90,11 @@ const createLocalStyles = (colors: ThemeColors, authColors: ReturnType<typeof cr
   modalBtnGradient: { width: '100%', height: FORM.buttonHeight, borderRadius: FORM.buttonRadius },
   modalBtnInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modalBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+
+  socialLoadingOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  socialLoadingCard: { width: '100%', maxWidth: 320, borderRadius: 20, backgroundColor: colors.background, alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20 },
+  socialLoadingTitle: { fontSize: 18, fontWeight: '700', color: colors.dark, marginTop: 12, textAlign: 'center' },
+  socialLoadingText: { fontSize: 14, color: colors.gray, marginTop: 6, textAlign: 'center', lineHeight: 20 },
 });
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
@@ -136,6 +142,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   }, [navigation]);
 
   const handlePostLoginRouting = useCallback(async () => {
+    const isEmailVerified = await awsAuth.isEmailVerified();
+    if (!isEmailVerified) {
+      const currentUser = await backend.getCurrentUser();
+      navigation.navigate('EmailVerificationPending', {
+        email: currentUser?.email || email.trim().toLowerCase(),
+      });
+      return;
+    }
+
     const profileResult = await getCurrentProfile(false);
 
     if (!isMountedRef.current) return;
@@ -165,7 +180,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       title: 'Connection Error',
       message: 'Unable to load your profile right now. Please try again.',
     });
-  }, [navigation, onProfileCreated]);
+  }, [email, navigation, onProfileCreated]);
 
   const handleLogin = useCallback(async () => {
     if (__DEV__) console.log('[Login] handleLogin called', { email: email.replace(/^(.).*@/, '$1***@'), loading });
@@ -221,7 +236,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     } catch (error: unknown) {
       if (!isMountedRef.current) return;
 
+      const errorName = (error as { name?: string })?.name || '';
       const errorMessage = (error as Error)?.message || '';
+
+      if (errorName === 'UserNotConfirmedException') {
+        navigation.navigate('EmailVerificationPending', { email: normalizedEmail });
+        return;
+      }
 
       if (errorMessage.includes('Too many') || errorMessage.includes('rate') || errorMessage.includes('limit')) {
         setErrorModal({
@@ -258,6 +279,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   }, []);
 
   const isFormValid = email.length > 0 && password.length > 0;
+  const showSocialLoadingOverlay = socialLoading !== null;
+  const socialProviderLabel = socialLoading === 'apple' ? 'Apple' : 'Google';
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -486,6 +509,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               >
                 <Text style={styles.modalBtnText}>OK</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Social Auth Loading Overlay */}
+        <Modal visible={showSocialLoadingOverlay} transparent animationType="fade">
+          <View style={styles.socialLoadingOverlay}>
+            <View style={styles.socialLoadingCard}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.socialLoadingTitle}>{"Signing you in..."}</Text>
+              <Text style={styles.socialLoadingText}>{`Connecting with ${socialProviderLabel}. This can take a few seconds.`}</Text>
             </View>
           </View>
         </Modal>

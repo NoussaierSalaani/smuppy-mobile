@@ -640,6 +640,13 @@ export class LambdaStack extends cdk.NestedStack {
     }));
     // Grant DB access for account_type lookup (quota enforcement)
     dbCredentials.grantRead(this.mediaUploadUrlFn);
+    if (props.rdsProxyArn) {
+      this.mediaUploadUrlFn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['rds-db:connect'],
+        resources: [props.rdsProxyArn],
+      }));
+    }
 
     // Upload Quota Lambda - returns daily quota status
     this.mediaUploadQuotaFn = createLambda('MediaUploadQuotaFunction', 'media/upload-quota');
@@ -670,6 +677,13 @@ export class LambdaStack extends cdk.NestedStack {
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
     dbCredentials.grantRead(this.mediaUploadVoiceFn);
+    if (props.rdsProxyArn) {
+      this.mediaUploadVoiceFn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['rds-db:connect'],
+        resources: [props.rdsProxyArn],
+      }));
+    }
     mediaBucket.grantPut(this.mediaUploadVoiceFn);
     this.mediaUploadVoiceFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:UpdateItem'],
@@ -707,6 +721,13 @@ export class LambdaStack extends cdk.NestedStack {
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
     dbCredentials.grantRead(this.startVideoProcessingFn);
+    if (props.rdsProxyArn) {
+      this.startVideoProcessingFn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['rds-db:connect'],
+        resources: [props.rdsProxyArn],
+      }));
+    }
     // Grant MediaConvert CreateJob + PassRole
     this.startVideoProcessingFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['mediaconvert:CreateJob', 'mediaconvert:GetJob', 'mediaconvert:DescribeEndpoints'],
@@ -741,6 +762,13 @@ export class LambdaStack extends cdk.NestedStack {
       projectRoot: path.join(__dirname, '../../lambda/api'),
     });
     dbCredentials.grantRead(this.videoProcessingCompleteFn);
+    if (props.rdsProxyArn) {
+      this.videoProcessingCompleteFn.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['rds-db:connect'],
+        resources: [props.rdsProxyArn],
+      }));
+    }
 
     // Grant Lambda invoke for post/peak create to trigger processing
     this.postsCreateFn.addToRolePolicy(new iam.PolicyStatement({
@@ -1412,6 +1440,7 @@ export class LambdaStack extends cdk.NestedStack {
         'cognito-idp:AdminSetUserPassword',
         'cognito-idp:AdminGetUser',
         'cognito-idp:AdminInitiateAuth',
+        'cognito-idp:ListUsers',
       ],
       resources: [userPool.userPoolArn],
     }));
@@ -1456,6 +1485,7 @@ export class LambdaStack extends cdk.NestedStack {
         'cognito-idp:AdminSetUserPassword',
         'cognito-idp:AdminGetUser',
         'cognito-idp:AdminInitiateAuth',
+        'cognito-idp:ListUsers',
       ],
       resources: [userPool.userPoolArn],
     }));

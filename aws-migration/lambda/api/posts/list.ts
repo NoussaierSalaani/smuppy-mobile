@@ -104,7 +104,7 @@ function buildFollowingFeedQuery(
         WHERE p.author_id != $1
         AND p.author_id NOT IN (SELECT user_id FROM excluded_users)
         AND u.account_type != 'pro_business'
-        AND u.moderation_status NOT IN ('banned', 'shadow_banned')
+        AND COALESCE(u.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')
         AND p.visibility NOT IN ('hidden', 'private')
         AND (
           p.visibility IN ('public', 'fans')
@@ -199,7 +199,7 @@ function buildOtherProfileFeedQuery(
           SELECT ${POST_COLUMNS_BASE}${AUTHOR_COLUMNS}
           FROM posts p JOIN profiles u ON p.author_id = u.id
           WHERE p.author_id = $1
-            AND u.moderation_status NOT IN ('banned', 'shadow_banned')
+            AND COALESCE(u.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')
             AND p.visibility NOT IN ('hidden', 'private')
             ${blockFilter}
             AND (
@@ -241,7 +241,7 @@ function buildExploreFeedQuery(
   const query = `
         SELECT ${POST_COLUMNS_BASE}${POST_COLUMNS_VIDEO}${AUTHOR_COLUMNS}
         FROM posts p JOIN profiles u ON p.author_id = u.id
-        WHERE u.moderation_status NOT IN ('banned', 'shadow_banned')
+        WHERE COALESCE(u.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')
         AND p.visibility != 'hidden'
         AND p.created_at > NOW() - INTERVAL '30 days'
         ${exploreCursorCond}

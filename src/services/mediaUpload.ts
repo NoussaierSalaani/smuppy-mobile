@@ -5,6 +5,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { ENV } from '../config/env';
+import { AWS_CONFIG } from '../config/aws-config';
 
 // VideoThumbnails est un module natif qui nécessite un build de développement
 // En Expo Go, on utilise une fallback sans thumbnail
@@ -65,9 +66,10 @@ export interface MediaFile {
 // ============================================
 
 const S3_CONFIG = {
-  bucket: ENV.S3_BUCKET_NAME || '',
-  region: ENV.AWS_REGION || 'us-east-1',
-  cloudFrontUrl: ENV.CLOUDFRONT_URL || '',
+  // Prefer centralized AWS config (has safe staging fallbacks), then ENV as fallback.
+  bucket: AWS_CONFIG.storage.bucket || ENV.S3_BUCKET_NAME || '',
+  region: AWS_CONFIG.region || ENV.AWS_REGION || 'us-east-1',
+  cloudFrontUrl: AWS_CONFIG.storage.cdnDomain || ENV.CLOUDFRONT_URL || '',
 };
 
 // Supported MIME types
@@ -144,14 +146,32 @@ const getMimeType = (extension: string): string => {
  */
 const getFileInfo = async (uri: string): Promise<{ size: number; exists: boolean }> => {
   try {
-    // For ph:// / assets-library:// URIs on iOS, validate via fetch
+    // For ph:// / assets-library:// URIs on iOS, validation can fail with HEAD.
+    // Try multiple probes and fail open if we can at least access the asset.
     if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
       try {
-        const response = await fetch(uri, { method: 'HEAD' });
-        return { size: 0, exists: response.ok };
+        const fsInfo = await FileSystem.getInfoAsync(uri);
+        if (fsInfo.exists) {
+          return { size: (fsInfo as { size?: number }).size ?? 0, exists: true };
+        }
       } catch {
-        // fetch failed — asset may have been deleted
-        return { size: 0, exists: false };
+        // Expected: FileSystem may not resolve ph:// URIs on some iOS versions.
+      }
+      try {
+        const response = await fetch(uri, { method: 'HEAD' });
+        if (response.ok) return { size: 0, exists: true };
+      } catch {
+        // Expected: some iOS versions reject HEAD on ph://
+      }
+      try {
+        const response = await fetch(uri);
+        if (!response.ok) return { size: 0, exists: false };
+        const blob = await response.blob();
+        return { size: blob.size || 0, exists: true };
+      } catch {
+        // Last fallback for ph:// assets: allow upload pipeline to try anyway.
+        // This avoids false negatives where validation blocks real files.
+        return { size: 0, exists: true };
       }
     }
 
@@ -254,28 +274,38 @@ export const getPresignedUrl = async (
   fileName: string,
   folder: string,
   contentType: string,
+  fileSize: number,
   duration?: number,
 ): Promise<PresignedUrlResponse | null> => {
   try {
     if (__DEV__) console.log('[getPresignedUrl] Requesting URL for:', fileName.substring(0, 60), 'type:', contentType);
+    if (!Number.isFinite(fileSize) || fileSize <= 0) {
+      if (__DEV__) console.log('[getPresignedUrl] Invalid fileSize:', fileSize);
+      return null;
+    }
 
     // Import AWS API service
     const { awsAPI } = await import('./aws-api');
 
     // Use AWS API to get presigned URL
-    const result = await awsAPI.getUploadUrl(fileName, contentType, undefined, duration);
+    const result = await awsAPI.getUploadUrl(fileName, contentType, fileSize, duration);
 
-    if (__DEV__) console.log('[getPresignedUrl] Got URL, key:', result.fileUrl?.substring(0, 60));
+    const key = result.fileUrl || result.key;
+    if (__DEV__) console.log('[getPresignedUrl] Got URL, key:', key?.substring(0, 60));
 
-    if (!result.uploadUrl || !result.fileUrl) {
+    if (!result.uploadUrl || !key) {
       if (__DEV__) console.log('[getPresignedUrl] Missing uploadUrl or fileUrl in response:', JSON.stringify(result).substring(0, 200));
       return null;
     }
 
+    // Prefer backend-provided media URL in staging.
+    // Forcing client-side CDN reconstruction can point to the wrong bucket/domain.
+    const resolvedMediaUrl = result.cdnUrl || awsAPI.getCDNUrl(key) || result.publicUrl || '';
+
     return {
       uploadUrl: result.uploadUrl,
-      key: result.fileUrl,
-      cdnUrl: awsAPI.getCDNUrl(result.fileUrl),
+      key,
+      cdnUrl: resolvedMediaUrl,
     };
   } catch (error) {
     if (__DEV__) console.log('[getPresignedUrl] Error:', error);
@@ -293,6 +323,9 @@ export const getPresignedUrl = async (
  */
 export const getCloudFrontUrl = (key: string): string => {
   if (!S3_CONFIG.cloudFrontUrl) {
+    if (!S3_CONFIG.bucket) {
+      return key;
+    }
     // Fall back to S3 URL if CloudFront not configured
     return `https://${S3_CONFIG.bucket}.s3.${S3_CONFIG.region}.amazonaws.com/${key}`;
   }
@@ -460,13 +493,22 @@ export const uploadImage = async (
       onProgress?.(30);
     }
 
+    if (fileSize <= 0) {
+      const info = await getFileInfo(finalUri);
+      fileSize = info.size;
+    }
+    if (fileSize <= 0) {
+      if (__DEV__) console.log('[uploadImage] Unable to determine file size');
+      return { success: false, error: 'Unable to determine image size. Please reselect the image.' };
+    }
+
     // Generate file key
     const extension = getFileExtension(finalUri, mimeType);
     const key = generateFileKey(folder, userId, 'image', extension);
 
     // Get presigned URL
     onProgress?.(40);
-    const presignedData = await getPresignedUrl(key, folder, mimeType);
+    const presignedData = await getPresignedUrl(key, folder, mimeType, fileSize);
 
     if (!presignedData) {
       if (__DEV__) console.log('[uploadImage] Failed to get presigned URL');
@@ -529,9 +571,15 @@ export const uploadVideo = async (
     const key = generateFileKey(folder, userId, 'video', extension);
     if (__DEV__) console.log('[uploadVideo] ext:', extension, 'mime:', mimeType);
 
+    const videoInfo = await getFileInfo(videoUri);
+    if (videoInfo.size <= 0) {
+      if (__DEV__) console.log('[uploadVideo] Unable to determine file size');
+      return { success: false, error: 'Unable to determine video size. Please reselect the video.' };
+    }
+
     // Get presigned URL
     onProgress?.(20);
-    const presignedData = await getPresignedUrl(key, folder, mimeType);
+    const presignedData = await getPresignedUrl(key, folder, mimeType, videoInfo.size);
 
     if (!presignedData) {
       if (__DEV__) console.log('[uploadVideo] Failed to get presigned URL');
@@ -555,14 +603,12 @@ export const uploadVideo = async (
 
     if (__DEV__) console.log('[uploadVideo] Success — key:', presignedData.key);
 
-    const fileInfo = await getFileInfo(videoUri);
-
     return {
       success: true,
       key: presignedData.key,
       url: `https://${S3_CONFIG.bucket}.s3.${S3_CONFIG.region}.amazonaws.com/${presignedData.key}`,
       cdnUrl: presignedData.cdnUrl || getCloudFrontUrl(presignedData.key),
-      fileSize: fileInfo.size,
+      fileSize: videoInfo.size,
     };
   } catch (error) {
     if (__DEV__) console.warn('[uploadVideo] Error:', error);

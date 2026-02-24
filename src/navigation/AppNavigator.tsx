@@ -39,6 +39,7 @@ import { FEATURES } from '../config/featureFlags';
  */
 export type RootStackParamList = {
   Auth: undefined;
+  AuthOnboarding: undefined;
   EmailVerificationPending: { email?: string };
   AccountSuspended: undefined;
   AccountBanned: undefined;
@@ -135,14 +136,15 @@ const linking = {
 } as LinkingOptions<RootStackParamList>;
 
 /**
- * App state: 'loading' | 'auth' | 'emailPending' | 'main'
+ * App state: 'loading' | 'auth' | 'onboarding' | 'emailPending' | 'main'
  *
  * - 'auth': no user, or user without profile → show Auth navigator
  *   (Auth screens handle internal navigation: Login, Signup, VerifyCode, Onboarding)
+ * - 'onboarding': authenticated user with no profile → start onboarding flow directly
  * - 'emailPending': user exists but email not verified
  * - 'main': user exists + email verified + has profile
  */
-type AppState = 'loading' | 'auth' | 'emailPending' | 'suspended' | 'banned' | 'main';
+type AppState = 'loading' | 'auth' | 'onboarding' | 'emailPending' | 'suspended' | 'banned' | 'main';
 
 export default function AppNavigator(): React.JSX.Element {
   const { colors, isDark } = useTheme();
@@ -206,14 +208,17 @@ export default function AppNavigator(): React.JSX.Element {
       return { state: 'auth', email: '' };
     }
 
-    // Parallelize email verification + profile fetch to reduce cold start
-    // BUG-2026-02-20: Use autoCreate=true so social auth users (who bypass the
-    // LoginScreen.handleLogin → AccountType navigation) get a profile created
-    // automatically. Without this, authenticated users without profiles get stuck
-    // in 'auth' state (login screen) despite being authenticated.
+    // Parallelize email verification + profile fetch to reduce cold start.
+    // Product rule: authenticated users without a profile must complete onboarding
+    // (no silent auto-create during login).
     const [isVerified, profileResult] = await Promise.all([
       awsAuth.isEmailVerified(),
-      getCurrentProfile(true).catch(() => ({ data: null })),
+      getCurrentProfile(false).catch(() => ({
+        data: null,
+        error: 'Profile fetch failed',
+        errorType: 'UNKNOWN' as const,
+        statusCode: undefined,
+      })),
     ]);
     if (__DEV__) console.log('[Session] isEmailVerified →', isVerified, 'hasProfile →', !!profileResult.data);
 
@@ -221,12 +226,25 @@ export default function AppNavigator(): React.JSX.Element {
       return { state: 'emailPending', email: currentUser.email };
     }
 
+    const socialOnboardingPending = await awsAuth.consumeSocialOnboardingPending();
+    if (socialOnboardingPending) {
+      return { state: 'onboarding', email: currentUser.email };
+    }
+
     if (profileResult.data) {
       return { state: 'main', email: currentUser.email };
     }
 
-    // Fallback: profile auto-creation failed — still authenticated but can't proceed
-    if (__DEV__) console.warn('[Session] Authenticated user has no profile and auto-create failed');
+    if (profileResult.errorType === 'NOT_FOUND' || profileResult.statusCode === 404) {
+      return { state: 'onboarding', email: currentUser.email };
+    }
+
+    // Fallback: keep auth visible on server/network issues instead of forcing onboarding.
+    if (__DEV__) console.warn('[Session] Authenticated user profile fetch failed', {
+      errorType: profileResult.errorType,
+      statusCode: profileResult.statusCode,
+      error: profileResult.error,
+    });
     return { state: 'auth', email: currentUser.email };
   }, []);
 
@@ -333,6 +351,7 @@ export default function AppNavigator(): React.JSX.Element {
 
   // Simple state → screen mapping
   const showAuth = appState === 'auth' || appState === 'loading' || pendingRecovery;
+  const showOnboarding = appState === 'onboarding' && !pendingRecovery;
   const showEmailPending = appState === 'emailPending' && !pendingRecovery;
   const showSuspended = appState === 'suspended' && !pendingRecovery;
   const showBanned = appState === 'banned' && !pendingRecovery;
@@ -358,7 +377,17 @@ export default function AppNavigator(): React.JSX.Element {
                   <RootStack.Screen name="Auth">
                     {() => (
                       <Suspense fallback={<View style={{ flex: 1, backgroundColor: colors.background }} />}>
-                        <AuthNavigator />
+                        <AuthNavigator initialRouteName="Welcome" />
+                      </Suspense>
+                    )}
+                  </RootStack.Screen>
+                )}
+
+                {showOnboarding && (
+                  <RootStack.Screen name="AuthOnboarding">
+                    {() => (
+                      <Suspense fallback={<View style={{ flex: 1, backgroundColor: colors.background }} />}>
+                        <AuthNavigator initialRouteName="AccountType" />
                       </Suspense>
                     )}
                   </RootStack.Screen>

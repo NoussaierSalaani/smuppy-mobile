@@ -40,8 +40,13 @@ export const uploadProfileImage = async (
       return { url: null, error: result.error || 'Upload failed' };
     }
 
+    const baseUrl = result.cdnUrl || result.url;
+    if (!baseUrl) {
+      return { url: null, error: 'Upload succeeded but no media URL returned' };
+    }
+
     // Add cache-busting timestamp
-    const urlWithCacheBust = `${result.cdnUrl}?t=${Date.now()}`;
+    const urlWithCacheBust = `${baseUrl}?t=${Date.now()}`;
     return { url: urlWithCacheBust, error: null };
   } catch (err) {
     const error = err as Error;

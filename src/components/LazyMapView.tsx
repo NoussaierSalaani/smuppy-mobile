@@ -78,7 +78,9 @@ export const LazyMarker = memo(({ children, coordinate, coordinateArray }: LazyM
 
   return (
     <Mapbox.MarkerView coordinate={coord}>
-      {children}
+      <View collapsable={false}>
+        {children}
+      </View>
     </Mapbox.MarkerView>
   );
 });

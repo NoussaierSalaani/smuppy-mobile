@@ -28,6 +28,16 @@ jest.mock('../../config/env', () => ({
   },
 }));
 
+jest.mock('../../config/aws-config', () => ({
+  AWS_CONFIG: {
+    region: 'us-east-1',
+    storage: {
+      bucket: 'test-bucket',
+      cdnDomain: 'https://cdn.test.com',
+    },
+  },
+}));
+
 jest.mock('../../lib/sentry', () => ({
   captureException: jest.fn(),
 }));
@@ -130,7 +140,7 @@ describe('mediaUpload', () => {
         },
       }));
 
-      const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg');
+      const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg', 1024);
 
       if (result) {
         expect(result.uploadUrl).toBe('https://s3.presigned.url');
@@ -146,7 +156,7 @@ describe('mediaUpload', () => {
         },
       }));
 
-      const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg');
+      const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg', 1024);
       // May return null depending on module state
       expect(result === null || result !== null).toBe(true);
     });

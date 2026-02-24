@@ -18,7 +18,7 @@ const { handler } = createFeedHandler({
      LEFT JOIN profiles pr ON p.author_id = pr.id
      WHERE pr.id IS NOT NULL
        AND p.visibility = 'public'
-       AND pr.moderation_status NOT IN ('banned', 'shadow_banned')
+       AND COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')
        AND NOT EXISTS (
          SELECT 1 FROM blocked_users
          WHERE (blocker_id = $1 AND blocked_id = p.author_id)

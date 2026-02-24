@@ -59,12 +59,16 @@ export type AuthStackParamList = {
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
-export default function AuthNavigator(): React.JSX.Element {
+type AuthNavigatorProps = {
+  initialRouteName?: keyof AuthStackParamList;
+};
+
+export default function AuthNavigator({ initialRouteName = 'Welcome' }: AuthNavigatorProps): React.JSX.Element {
   const { colors } = useTheme();
   return (
     <Stack.Navigator
       id="AuthStack"
-      initialRouteName="Welcome"
+      initialRouteName={initialRouteName}
       screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background }, animation: 'fade' }}
     >
       {/* Welcome */}

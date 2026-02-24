@@ -11,7 +11,7 @@ process.env.CLIENT_ID = 'test-client-id';
 
 // Mock dns module
 const mockResolveMx = jest.fn();
-jest.mock('dns', () => ({
+jest.mock('node:dns', () => ({
   resolveMx: mockResolveMx,
 }));
 

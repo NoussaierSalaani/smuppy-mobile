@@ -319,16 +319,28 @@ describe('shared/db', () => {
   // ─── IAM Authentication ───────────────────────────────────
 
   describe('IAM authentication', () => {
-    it('generates IAM token via Signer when DB_USE_IAM_AUTH=true', async () => {
+    it('configures pool with IAM token password provider when DB_USE_IAM_AUTH=true', async () => {
       process.env.DB_USE_IAM_AUTH = 'true';
       process.env.AWS_REGION = 'eu-west-1';
-      const { Signer } = require('@aws-sdk/rds-signer');
       const { Pool } = require('pg');
 
       const db = requireDb();
       await db.getPool();
 
-      // Signer should have been instantiated with correct params
+      // Pool should use a callback to generate fresh IAM token per connection
+      expect(Pool).toHaveBeenCalledWith(
+        expect.objectContaining({
+          password: expect.any(Function),
+        }),
+      );
+
+      const poolConfig = (Pool as jest.Mock).mock.calls[0][0] as {
+        password: () => Promise<string>;
+      };
+      const iamToken = await poolConfig.password();
+      expect(iamToken).toBe('iam-auth-token-123');
+
+      const { Signer } = require('@aws-sdk/rds-signer');
       expect(Signer).toHaveBeenCalledWith(
         expect.objectContaining({
           hostname: 'proxy.example.com',
@@ -338,13 +350,6 @@ describe('shared/db', () => {
         }),
       );
       expect(mockGetAuthToken).toHaveBeenCalledTimes(1);
-
-      // Pool should use the IAM token as password
-      expect(Pool).toHaveBeenCalledWith(
-        expect.objectContaining({
-          password: 'iam-auth-token-123',
-        }),
-      );
     });
 
     it('uses credential password when DB_USE_IAM_AUTH is not set', async () => {
@@ -365,10 +370,16 @@ describe('shared/db', () => {
     it('defaults AWS_REGION to us-east-1 when not set', async () => {
       process.env.DB_USE_IAM_AUTH = 'true';
       delete process.env.AWS_REGION;
+      const { Pool } = require('pg');
       const { Signer } = require('@aws-sdk/rds-signer');
 
       const db = requireDb();
       await db.getPool();
+
+      const poolConfig = (Pool as jest.Mock).mock.calls[0][0] as {
+        password: () => Promise<string>;
+      };
+      await poolConfig.password();
 
       expect(Signer).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -441,6 +452,26 @@ describe('shared/db', () => {
       db.handleDbError(authError);
 
       // pool.end() should have been called (invalidation)
+      expect(mockPoolEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it('invalidates credentials on 28000 (invalid authorization specification)', async () => {
+      const db = requireDb();
+      await db.getPool();
+
+      const authError = { code: '28000', message: 'The IAM authentication failed for the role' };
+      db.handleDbError(authError);
+
+      expect(mockPoolEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it('invalidates credentials when message indicates IAM auth failure without code', async () => {
+      const db = requireDb();
+      await db.getPool();
+
+      const authError = { message: 'The IAM authentication failed for the role smuppy_admin' };
+      db.handleDbError(authError);
+
       expect(mockPoolEnd).toHaveBeenCalledTimes(1);
     });
 

@@ -410,7 +410,7 @@ describe('feed/get handler', () => {
     // Feed query is the 3rd query call
     const feedSql: string = mockDb.query.mock.calls[2][0];
     expect(feedSql).toContain("visibility != 'hidden'");
-    expect(feedSql).toContain('moderation_status');
+    expect(feedSql).toContain("COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')");
     expect(feedSql).toContain('blocked_users');
     expect(feedSql).toContain('ORDER BY p.created_at DESC');
   });

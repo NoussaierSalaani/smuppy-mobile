@@ -227,11 +227,18 @@ export interface ProfileFetchResponse extends DbResponse<Profile> {
 // Helper to convert AWS API Profile to local Profile format
 const convertProfile = (p: AWSProfile | null): Profile | null => {
   if (!p) return null;
+  const pRec = p as unknown as Record<string, unknown>;
+  const username = p.username || (pRec?.username as string | undefined) || '';
+  const fullNameValue = p.fullName || (pRec?.full_name as string | undefined) || '';
+  const displayNameValue = p.displayName || (pRec?.display_name as string | undefined) || '';
+  const bioValue = p.bio || (pRec?.bio as string | undefined) || (pRec?.about as string | undefined);
   // Business accounts use businessName as their display name
-  const isBusiness = p.accountType === ACCOUNT_TYPE.PRO_BUSINESS;
-  const businessDisplayName = isBusiness && p.businessName ? p.businessName : null;
+  const accountType = (p.accountType || (pRec?.account_type as string | undefined)) as Profile['account_type'] | undefined;
+  const businessName = p.businessName || (pRec?.business_name as string | undefined);
+  const isBusiness = accountType === ACCOUNT_TYPE.PRO_BUSINESS;
+  const businessDisplayName = isBusiness && businessName ? businessName : null;
   // If fullName equals username, treat as empty (legacy data issue)
-  const effectiveFullName = p.fullName && p.fullName !== p.username ? p.fullName : '';
+  const effectiveFullName = fullNameValue && fullNameValue !== username ? fullNameValue : '';
 
   // Follow flags come back in mixed casing depending on the backend handler.
   // Normalize to our snake_case fields to keep React Query caches consistent.
@@ -240,17 +247,17 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
 
   return {
     id: p.id,
-    username: p.username,
+    username,
     full_name: businessDisplayName || effectiveFullName,
-    display_name: businessDisplayName || p.displayName || undefined,
+    display_name: businessDisplayName || displayNameValue || undefined,
     avatar_url: normalizeCdnUrl(p.avatarUrl || (p as unknown as Record<string, unknown>)?.avatar_url as string | undefined),
     cover_url: normalizeCdnUrl(p.coverUrl || (p as unknown as Record<string, unknown>)?.cover_url as string | undefined),
-    bio: p.bio || undefined,
+    bio: bioValue || undefined,
     website: p.website || undefined,
     is_verified: p.isVerified,
     is_premium: p.isPremium,
     is_private: p.isPrivate,
-    account_type: p.accountType,
+    account_type: accountType,
     gender: p.gender,
     date_of_birth: p.dateOfBirth,
     interests: p.interests,
@@ -277,27 +284,44 @@ const convertProfile = (p: AWSProfile | null): Profile | null => {
 // Helper to convert AWS API Post to local Post format
 const convertPost = (p: AWSPost): Post => {
   const pRec = p as unknown as Record<string, unknown>;
-  const rawMedia = p.mediaUrls || pRec?.media_urls || pRec?.mediaUrl || pRec?.media_url || [];
+  const rawMedia: unknown = p.mediaUrls ?? pRec?.media_urls ?? pRec?.mediaUrl ?? pRec?.media_url ?? [];
   let mediaArray: string[];
-  if (Array.isArray(rawMedia)) mediaArray = rawMedia as string[];
-  else if (rawMedia) mediaArray = [rawMedia as string];
-  else mediaArray = [];
+  if (Array.isArray(rawMedia)) {
+    mediaArray = rawMedia
+      .map((u) => typeof u === 'string' ? normalizeCdnUrl(u) : undefined)
+      .filter((u): u is string => !!u);
+  } else if (typeof rawMedia === 'string' && rawMedia.trim()) {
+    mediaArray = [normalizeCdnUrl(rawMedia)].filter((u): u is string => !!u);
+  } else {
+    mediaArray = [];
+  }
+
+  const likesCountRaw = p.likesCount ?? pRec?.likes_count;
+  const commentsCountRaw = p.commentsCount ?? pRec?.comments_count;
+  const viewsCountRaw = p.viewsCount ?? pRec?.views_count;
+  const likesCount = Number(likesCountRaw ?? 0) || 0;
+  const commentsCount = Number(commentsCountRaw ?? 0) || 0;
+  const viewsCount = Number(viewsCountRaw ?? 0) || 0;
+  const createdAt = p.createdAt || (pRec?.created_at as string | undefined) || new Date().toISOString();
 
   return {
     id: p.id,
     author_id: p.authorId,
     content: p.content,
+    media_url: mediaArray[0],
     media_urls: mediaArray,
     media_type: (p.mediaType || pRec?.media_type || (mediaArray.length > 1 ? 'multiple' : undefined)) as Post['media_type'],
     is_peak: (pRec?.is_peak as boolean) ?? p.isPeak ?? false,
     visibility: (p.visibility || pRec?.visibility || 'public') as Post['visibility'],
     location: (p.location || pRec?.location || null) as string | null,
     tagged_users: (p.taggedUsers || pRec?.tagged_users || []) as Post['tagged_users'],
-    likes_count: p.likesCount,
-    comments_count: p.commentsCount,
-    views_count: (p.viewsCount || pRec?.views_count || 0) as number,
+    likes_count: likesCount,
+    comments_count: commentsCount,
+    views_count: viewsCount,
     tags: p.tags || [],
-    created_at: p.createdAt,
+    created_at: createdAt,
+    hls_url: normalizeCdnUrl((p as unknown as { hlsUrl?: string | null }).hlsUrl) || normalizeCdnUrl(pRec?.hls_url as string | undefined),
+    thumbnail_url: normalizeCdnUrl((p as unknown as { thumbnailUrl?: string | null }).thumbnailUrl) || normalizeCdnUrl(pRec?.thumbnail_url as string | undefined),
     author: (() => {
       if (p.author) return convertProfile(p.author) || undefined;
       if (pRec?.author_profile) return convertProfile(pRec.author_profile as AWSProfile) || undefined;
@@ -736,9 +760,13 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
   if (!user) return { data: null, error: 'Not authenticated' };
 
   try {
+    const normalizedMediaUrls = (postData.media_urls || [])
+      .map((url) => normalizeCdnUrl(url))
+      .filter((url): url is string => !!url);
+
     const createData: Record<string, unknown> = {
       content: postData.content || postData.caption,
-      mediaUrls: postData.media_urls,
+      mediaUrls: normalizedMediaUrls,
       mediaType: postData.media_type,
       visibility: postData.visibility,
       location: postData.location || null,
@@ -1514,7 +1542,26 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50,
   try {
     // Lambda returns { messages: [...], nextCursor, hasMore } with snake_case fields
     const url = `/conversations/${conversationId}/messages?limit=${limit}${markAsRead ? '&markAsRead=true' : ''}`;
-    const result = await awsAPI.request<{ messages: Array<{
+    const result = await awsAPI.request<{ messages?: Array<{
+      id: string; content: string; media_url?: string; media_type?: string;
+      sender_id: string; read: boolean; created_at: string;
+      shared_post_id?: string; shared_peak_id?: string; is_deleted?: boolean;
+      sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      reply_to_message_id?: string;
+      reply_to_message?: {
+        id: string; content: string; sender_id: string;
+        sender: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      } | null;
+      reactions?: Array<{
+        id: string; message_id: string; user_id: string; emoji: string; created_at: string;
+        user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      }>;
+      read_by?: Array<{
+        message_id: string; user_id: string; read_at: string;
+        user?: { id: string; username: string; display_name: string; avatar_url: string } | null;
+      }>;
+      is_read?: boolean;
+    }>; data?: Array<{
       id: string; content: string; media_url?: string; media_type?: string;
       sender_id: string; read: boolean; created_at: string;
       shared_post_id?: string; shared_peak_id?: string; is_deleted?: boolean;
@@ -1534,7 +1581,8 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50,
       }>;
       is_read?: boolean;
     }> }>(url);
-    const messages: Message[] = (result.messages || []).map((m) => ({
+    const rawMessages = (result.messages || result.data || []);
+    const messages: Message[] = rawMessages.map((m) => ({
       id: m.id,
       conversation_id: conversationId,
       sender_id: m.sender_id,
@@ -1618,14 +1666,15 @@ export const sendMessage = async (
 
   // Sanitize content: strip HTML and control characters
   const sanitizedContent = sanitizeDisplayText(content);
-  if (!sanitizedContent) return { data: null, error: 'Message content is required' };
+  const hasMedia = Boolean(mediaUrl && mediaType);
+  if (!sanitizedContent && !hasMedia) return { data: null, error: 'Message content is required' };
 
   // Generate client-side idempotency key for network retry dedup
   const clientMessageId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`; // NOSONAR
 
   try {
     // Lambda returns { message: {...} } with snake_case fields
-    const result = await awsAPI.request<{ message: {
+    const result = await awsAPI.request<{ message?: {
       id: string; content: string; media_url?: string; media_type?: string; voice_duration_seconds?: number;
       sender_id: string; recipient_id: string; read: boolean; created_at: string;
       sender: { id: string; username: string; display_name: string; avatar_url: string };
@@ -1634,38 +1683,68 @@ export const sendMessage = async (
         id: string; content: string; sender_id: string;
         sender: { id: string; username: string; display_name: string; avatar_url: string };
       };
-    } }>(`/conversations/${conversationId}/messages`, {
+    }; data?: { message?: {
+      id: string; content: string; media_url?: string; media_type?: string; voice_duration_seconds?: number;
+      sender_id: string; recipient_id: string; read: boolean; created_at: string;
+      sender: { id: string; username: string; display_name: string; avatar_url: string };
+      reply_to_message_id?: string;
+      reply_to_message?: {
+        id: string; content: string; sender_id: string;
+        sender: { id: string; username: string; display_name: string; avatar_url: string };
+      };
+    } } }>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
       body: { content: sanitizedContent, mediaUrl, mediaType, replyToMessageId, voiceDuration, clientMessageId },
     });
-    const m = result.message;
+    const m = result.message || result.data?.message || (result as unknown as { id?: string });
+    if (!m || !('id' in m) || !m.id) {
+      return { data: null, error: 'Invalid send message response' };
+    }
+    const message = m as {
+      id: string;
+      sender_id?: string;
+      content?: string;
+      media_url?: string;
+      media_type?: string;
+      voice_duration_seconds?: number;
+      reply_to_message_id?: string;
+      reply_to_message?: {
+        id: string;
+        content: string;
+        sender_id: string;
+        sender?: { id: string; username: string; display_name: string; avatar_url: string };
+        created_at?: string;
+      };
+      created_at?: string;
+      sender?: { id: string; username: string; display_name: string; avatar_url: string };
+    };
     return { data: {
-      id: m.id,
+      id: message.id,
       conversation_id: conversationId,
-      sender_id: m.sender_id,
-      content: m.content,
-      media_url: m.media_url,
-      media_type: m.media_type as Message['media_type'],
-      voice_duration_seconds: m.voice_duration_seconds,
-      reply_to_message_id: m.reply_to_message_id,
-      reply_to_message: m.reply_to_message ? {
-        id: m.reply_to_message.id,
+      sender_id: message.sender_id || user.id,
+      content: message.content || '',
+      media_url: message.media_url,
+      media_type: message.media_type as Message['media_type'],
+      voice_duration_seconds: message.voice_duration_seconds,
+      reply_to_message_id: message.reply_to_message_id,
+      reply_to_message: message.reply_to_message ? {
+        id: message.reply_to_message.id,
         conversation_id: conversationId,
-        sender_id: m.reply_to_message.sender_id,
-        content: m.reply_to_message.content,
-        created_at: (m.reply_to_message as { created_at?: string }).created_at || m.created_at,
-        sender: m.reply_to_message.sender ? {
-          id: m.reply_to_message.sender.id,
-          username: m.reply_to_message.sender.username,
-          full_name: m.reply_to_message.sender.display_name || '',
-          display_name: m.reply_to_message.sender.display_name,
-          avatar_url: m.reply_to_message.sender.avatar_url,
+        sender_id: message.reply_to_message.sender_id,
+        content: message.reply_to_message.content,
+        created_at: message.reply_to_message.created_at || message.created_at || new Date().toISOString(),
+        sender: message.reply_to_message.sender ? {
+          id: message.reply_to_message.sender.id,
+          username: message.reply_to_message.sender.username,
+          full_name: message.reply_to_message.sender.display_name || '',
+          display_name: message.reply_to_message.sender.display_name,
+          avatar_url: message.reply_to_message.sender.avatar_url,
         } as Profile : undefined,
       } as Message : undefined,
-      created_at: m.created_at,
-      sender: m.sender ? {
-        id: m.sender.id, username: m.sender.username, full_name: m.sender.display_name || '',
-        display_name: m.sender.display_name, avatar_url: m.sender.avatar_url,
+      created_at: message.created_at || new Date().toISOString(),
+      sender: message.sender ? {
+        id: message.sender.id, username: message.sender.username, full_name: message.sender.display_name || '',
+        display_name: message.sender.display_name, avatar_url: message.sender.avatar_url,
       } as Profile : undefined,
     }, error: null };
   } catch (error_: unknown) {

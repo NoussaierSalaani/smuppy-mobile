@@ -48,7 +48,7 @@ function buildDiscoverQuery(
   }
 
   clauses.push(`p.visibility = 'public'`);
-  clauses.push(`pr.moderation_status NOT IN ('banned', 'shadow_banned')`);
+  clauses.push(`COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned')`);
 
   if (interests.length > 0) {
     params.push(interests);

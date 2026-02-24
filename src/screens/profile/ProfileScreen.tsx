@@ -43,11 +43,12 @@ import { useVibeStore } from '../../stores/vibeStore';
 import { createProfileStyles, AVATAR_SIZE } from './ProfileScreen.styles';
 import { useTheme } from '../../hooks/useTheme';
 import { getMasonryHeight } from '../../utils/postTransformers';
-import { sanitizeOptionalText } from '../../utils/sanitize';
+import { sanitizeContentText, sanitizeOptionalText } from '../../utils/sanitize';
 import { HIT_SLOP } from '../../config/theme';
 import { ProfileSkeleton } from '../../components/skeleton';
 import { awsAPI, type Peak as APIPeak } from '../../services/aws-api';
 import { ACCOUNT_TYPE } from '../../config/accountTypes';
+import { normalizeCdnUrl } from '../../utils/cdnUrl';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -259,6 +260,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     const task = InteractionManager.runAfterInteractions(() => {
     const toCdn = (url?: string | null) => {
       if (!url) return null;
+      const normalized = normalizeCdnUrl(url);
+      if (normalized) return normalized;
       return url.startsWith('http') ? url : awsAPI.getCDNUrl(url);
     };
     const mapPeaks = (list: APIPeak[]) => (list || []).map((p: APIPeak) => ({
@@ -478,12 +481,13 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         setUser(prev => ({ ...prev, avatar: url }));
       } else {
         const result = await uploadCoverImage(currentUserId, uri);
-        if (!result.success || !result.cdnUrl) {
+        const baseCoverUrl = normalizeCdnUrl(result.cdnUrl || result.url);
+        if (!result.success || !baseCoverUrl) {
           setUser(prev => ({ ...prev, coverImage: prevValue }));
           showError('Upload Failed', 'Could not upload cover image');
           return;
         }
-        const coverUrl = `${result.cdnUrl}?t=${Date.now()}`;
+        const coverUrl = `${baseCoverUrl}?t=${Date.now()}`;
         await updateDbProfile({ cover_url: coverUrl });
         updateStoreProfile({ coverImage: coverUrl });
         setUser(prev => ({ ...prev, coverImage: coverUrl }));
@@ -813,7 +817,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
             style={styles.bioText}
             numberOfLines={bioExpanded ? BIO_EXPANDED_MAX_LINES : BIO_MAX_LINES}
           >
-            {sanitizeOptionalText(user.bio)}
+            {sanitizeContentText(user.bio)}
           </Text>
           {(user.bio.length > 80 || user.bio.split('\n').length > BIO_MAX_LINES) && (
             <TouchableOpacity

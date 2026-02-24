@@ -43,6 +43,7 @@ const TOKEN_KEYS = {
   REFRESH_TOKEN: 'smuppy_refresh_token',
   ID_TOKEN: 'smuppy_id_token',
   USER: 'smuppy_user',
+  SOCIAL_ONBOARDING_PENDING: 'smuppy_social_onboarding_pending',
 };
 
 // SecureStore helpers with error handling
@@ -442,6 +443,7 @@ class AWSAuthService {
       ...(RefreshToken ? [secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, RefreshToken)] : []),
       secureStore.setItem(TOKEN_KEYS.ID_TOKEN, IdToken),
       secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
+      secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING),
     ]);
 
     // Verify critical token was persisted with exponential backoff (3 retries)
@@ -764,6 +766,7 @@ class AWSAuthService {
       const result = await awsAPI.request<{
         user: AuthUser;
         tokens: { accessToken: string; idToken: string; refreshToken: string };
+        isNewUser?: boolean;
       }>('/auth/apple', {
         method: 'POST',
         body: { identityToken, nonce },
@@ -786,6 +789,9 @@ class AWSAuthService {
         secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
         secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
+        result.isNewUser
+          ? secureStore.setItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING, '1')
+          : secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING),
       ]);
 
       // Verify critical token was persisted with exponential backoff (3 retries, same as signIn)
@@ -816,6 +822,7 @@ class AWSAuthService {
       const result = await awsAPI.request<{
         user: AuthUser;
         tokens: { accessToken: string; idToken: string; refreshToken: string };
+        isNewUser?: boolean;
       }>('/auth/google', {
         method: 'POST',
         body: { idToken, accessToken },
@@ -838,6 +845,9 @@ class AWSAuthService {
         secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
         secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
+        result.isNewUser
+          ? secureStore.setItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING, '1')
+          : secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING),
       ]);
 
       // Verify critical token was persisted with exponential backoff (3 retries, same as signIn)
@@ -865,6 +875,19 @@ class AWSAuthService {
     return () => {
       this.authStateListeners = this.authStateListeners.filter(cb => cb !== callback);
     };
+  }
+
+  /**
+   * Read and clear one-time social onboarding flag set at social sign-in.
+   * Used by AppNavigator to route true new social users to onboarding.
+   */
+  async consumeSocialOnboardingPending(): Promise<boolean> {
+    const pending = await secureStore.getItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING);
+    if (pending === '1') {
+      await secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING);
+      return true;
+    }
+    return false;
   }
 
   // Private methods
@@ -962,6 +985,7 @@ class AWSAuthService {
       secureStore.removeItem(TOKEN_KEYS.REFRESH_TOKEN),
       secureStore.removeItem(TOKEN_KEYS.ID_TOKEN),
       secureStore.removeItem(TOKEN_KEYS.USER),
+      secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING),
     ]);
 
     // CRITICAL: Notify listeners so AppNavigator redirects to login screen.

@@ -193,7 +193,7 @@ export const handler = withErrorHandler('feed-get', async (event, { headers, log
           OR (p.visibility = 'fans' AND p.author_id = ANY($1))
           OR (p.visibility = 'subscribers' AND p.author_id = ANY($${subscribedIdsIndex}::uuid[]))
         )
-        AND (pr.moderation_status NOT IN ('banned', 'shadow_banned') OR p.author_id = $${userIdIndex})
+        AND (COALESCE(pr.moderation_status, 'active') NOT IN ('banned', 'shadow_banned') OR p.author_id = $${userIdIndex})
         ${blockExclusionSQL(userIdIndex, 'p.author_id')}
         ${cursorCondition}
       ORDER BY p.created_at DESC, p.id DESC

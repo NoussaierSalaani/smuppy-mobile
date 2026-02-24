@@ -46,16 +46,9 @@ export const handler = withAuthHandler('conversations-send-message', async (even
     };
   }
   const { content, mediaUrl, mediaType, replyToMessageId, voiceDuration, clientMessageId } = body;
+  const rawContent = typeof content === 'string' ? content : '';
 
-  if (!content || typeof content !== 'string' || content.trim().length === 0) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ message: 'Message content is required' }),
-    };
-  }
-
-  if (content.length > MAX_MESSAGE_LENGTH) {
+  if (rawContent.length > MAX_MESSAGE_LENGTH) {
     return {
       statusCode: 400,
       headers,
@@ -80,6 +73,15 @@ export const handler = withAuthHandler('conversations-send-message', async (even
   const validMediaType = validMediaUrl && mediaType && typeof mediaType === 'string' && ALLOWED_MEDIA_TYPES.includes(mediaType)
     ? mediaType
     : null;
+
+  // Allow media-only messages; text is required only when no media URL is provided.
+  if (!rawContent.trim() && !validMediaUrl) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Message content is required' }),
+    };
+  }
 
   // Validate voice/audio media URLs match expected S3 path pattern
   if (validMediaUrl && (validMediaType === 'audio' || validMediaType === 'voice')) {
@@ -107,11 +109,12 @@ export const handler = withAuthHandler('conversations-send-message', async (even
     : null;
 
   // Sanitize content: strip HTML tags and control characters (preserve tab, LF, CR)
-  const sanitizedContent = content.trim().replaceAll(/<[^>]*>/g, '').replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ''); // NOSONAR — intentional control char sanitization
+  const sanitizedContent = rawContent.trim().replaceAll(/<[^>]*>/g, '').replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ''); // NOSONAR — intentional control char sanitization
+  const storedContent = sanitizedContent || (validMediaUrl ? 'Media message' : '');
 
   // Detect shared content: [shared_post:UUID] or [shared_peak:UUID]
   const SHARED_CONTENT_PATTERN = /^\[shared_(post|peak):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]$/i;
-  const sharedMatch = sanitizedContent.match(SHARED_CONTENT_PATTERN);
+    const sharedMatch = sanitizedContent.match(SHARED_CONTENT_PATTERN);
   let sharedPostId: string | null = null;
   let sharedPeakId: string | null = null;
   if (sharedMatch) {
@@ -128,7 +131,7 @@ export const handler = withAuthHandler('conversations-send-message', async (even
 
   // Skip moderation for pure shared content messages (only contain the share token)
   if (!sharedMatch) {
-    const modResult = await moderateText(sanitizedContent, headers, log, 'direct-message');
+    const modResult = await moderateText(storedContent, headers, log, 'direct-message');
     if (modResult.blocked) return modResult.blockResponse!;
   }
 
@@ -249,7 +252,7 @@ export const handler = withAuthHandler('conversations-send-message', async (even
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, NOW())
        ON CONFLICT (conversation_id, sender_id, client_message_id) WHERE client_message_id IS NOT NULL DO NOTHING
        RETURNING id, content, media_url, media_type, voice_duration_seconds, sender_id, recipient_id, reply_to_message_id, shared_post_id, shared_peak_id, read, created_at`,
-      [conversationId, profile.id, recipientId, sanitizedContent, validMediaUrl, validMediaType, validVoiceDuration, validReplyToMessageId, sharedPostId, sharedPeakId, validClientMessageId]
+      [conversationId, profile.id, recipientId, storedContent, validMediaUrl, validMediaType, validVoiceDuration, validReplyToMessageId, sharedPostId, sharedPeakId, validClientMessageId]
     );
 
     // Handle duplicate message (idempotent retry via client_message_id)

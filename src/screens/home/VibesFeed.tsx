@@ -97,6 +97,7 @@ interface PeakCardData {
   id: string;
   videoUrl?: string;
   hlsUrl?: string;
+  videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
   thumbnail: string;
   user: { id: string; name: string; avatar: string | null };
   duration: number;
@@ -613,14 +614,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
 
         const mappedPeaks = (res.data || []).map((p) => {
           const thumbnail = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER;
-          const videoUrl = toCdn(p.videoUrl) || undefined;
-          const hlsUrl = toCdn(p.hlsUrl) || undefined;
+          const videoStatus = p.videoStatus || null;
+          const isVideoReady = videoStatus === 'ready' || !videoStatus;
+          const videoUrl = isVideoReady ? (toCdn(p.videoUrl) || undefined) : undefined;
+          const hlsUrl = isVideoReady ? (toCdn(p.hlsUrl) || undefined) : undefined;
           const createdAt = p.createdAt || new Date().toISOString();
           const hasNew = (Date.now() - new Date(createdAt).getTime()) < 60 * 60 * 1000;
           return {
             id: p.id,
             videoUrl,
             hlsUrl,
+            videoStatus,
             thumbnail,
             user: { id: p.author?.id || p.authorId, name: resolveDisplayName(p.author), avatar: toCdn(p.author?.avatarUrl) || null },
             duration: p.duration || 0,

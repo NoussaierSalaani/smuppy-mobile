@@ -61,6 +61,11 @@ export interface MediaFile {
   mimeType?: string;
 }
 
+export interface MediaAvailabilityOptions {
+  timeoutMs?: number;
+  intervalMs?: number;
+}
+
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -261,6 +266,56 @@ const validateFile = async (
   }
 
   return { valid: true };
+};
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Wait until a media URL is publicly reachable.
+ * Used to avoid creating entities that point to URLs still pending scan/promotion.
+ */
+export const waitForMediaAvailability = async (
+  url: string,
+  options: MediaAvailabilityOptions = {},
+): Promise<boolean> => {
+  if (process.env.NODE_ENV === 'test') return true;
+
+  const normalized = typeof url === 'string' ? url.trim() : '';
+  if (!normalized || normalized.startsWith('file:') || normalized.startsWith('ph:')) return false;
+
+  const timeoutMs = options.timeoutMs ?? 45_000;
+  const intervalMs = options.intervalMs ?? 1_500;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const headResponse = await fetch(normalized, {
+        method: 'HEAD',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      if (headResponse.ok || headResponse.status === 206) return true;
+    } catch {
+      // Expected for intermittent network issues; continue retry loop.
+    }
+
+    try {
+      // Some origins disallow HEAD. Range GET keeps payload minimal.
+      const getResponse = await fetch(normalized, {
+        method: 'GET',
+        headers: {
+          Range: 'bytes=0-1',
+          'Cache-Control': 'no-cache',
+        },
+      });
+      if (getResponse.ok || getResponse.status === 206) return true;
+    } catch {
+      // Expected while object is not yet promoted/available.
+    }
+
+    await sleep(intervalMs);
+  }
+
+  return false;
 };
 
 /**
@@ -595,11 +650,22 @@ export const uploadImage = async (
 
     if (__DEV__) console.log('[uploadImage] Success — key:', presignedData.key);
 
+    const publicMediaUrl = presignedData.cdnUrl || getCloudFrontUrl(presignedData.key);
+    const shouldWaitForReady = folder !== 'messages';
+    if (shouldWaitForReady) {
+      onProgress?.(92);
+      const isReady = await waitForMediaAvailability(publicMediaUrl, { timeoutMs: 60_000, intervalMs: 2_000 });
+      if (!isReady) {
+        if (__DEV__) console.warn('[uploadImage] Media not reachable after upload:', publicMediaUrl.substring(0, 120));
+        return { success: false, error: 'Media is still processing. Please retry in a moment.' };
+      }
+    }
+
     return {
       success: true,
       key: presignedData.key,
       url: `https://${S3_CONFIG.bucket}.s3.${S3_CONFIG.region}.amazonaws.com/${presignedData.key}`,
-      cdnUrl: presignedData.cdnUrl || getCloudFrontUrl(presignedData.key),
+      cdnUrl: publicMediaUrl,
       fileSize,
     };
   } catch (error) {

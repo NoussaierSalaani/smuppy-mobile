@@ -31,6 +31,13 @@ async function tapIfExists(driver, selector, timeout = 3000) {
   }
 }
 
+async function tapFirstExisting(driver, selectors, timeout = 3000) {
+  for (const selector of selectors) {
+    if (await tapIfExists(driver, selector, timeout)) return selector;
+  }
+  return null;
+}
+
 async function typeIfExists(driver, selector, value, timeout = 6000) {
   try {
     const el = await driver.$(selector);
@@ -41,6 +48,13 @@ async function typeIfExists(driver, selector, value, timeout = 6000) {
   } catch {
     return false;
   }
+}
+
+async function typeFirstExisting(driver, selectors, value, timeout = 6000) {
+  for (const selector of selectors) {
+    if (await typeIfExists(driver, selector, value, timeout)) return selector;
+  }
+  return null;
 }
 
 async function anyExists(driver, selectors, timeout = 0) {
@@ -105,7 +119,9 @@ async function logoutIfNeeded(driver) {
   const onAuthScreen =
     (await exists(driver, '~submit-login-button')) ||
     (await exists(driver, '~login-screen')) ||
-    (await exists(driver, '~social-apple-button'));
+    (await exists(driver, '~social-apple-button')) ||
+    (await exists(driver, '//*[@name="Se connecter"]')) ||
+    (await exists(driver, '//*[@name="Login"]'));
   if (onAuthScreen) return;
 
   // If on welcome, open login form
@@ -147,6 +163,7 @@ async function run() {
 
   const appiumUrl = new URL(env('APPIUM_URL', 'http://127.0.0.1:4723'));
   const port = Number.parseInt(appiumUrl.port || '4723', 10);
+  const appiumClientLogLevel = env('APPIUM_CLIENT_LOG_LEVEL', 'info');
 
   const capabilities = {
     platformName: 'iOS',
@@ -161,14 +178,18 @@ async function run() {
   };
 
   console.log('[device-smoke] starting session', { udid, bundleId });
+  console.log('[device-smoke] requesting appium session...');
 
   const driver = await remote({
     hostname: appiumUrl.hostname,
     port,
     path: appiumUrl.pathname === '/' ? '/' : appiumUrl.pathname,
-    logLevel: 'error',
+    logLevel: appiumClientLogLevel,
+    connectionRetryCount: 1,
+    connectionRetryTimeout: 180000,
     capabilities,
   });
+  console.log('[device-smoke] appium session established');
 
   try {
     await driver.activateApp(bundleId);
@@ -181,16 +202,46 @@ async function run() {
     await tapIfExists(driver, '~Continue');
     await tapIfExists(driver, '~Go home');
     await tapIfExists(driver, '~login-button');
-    await tapIfExists(driver, '~Login');
+    await tapFirstExisting(driver, [
+      '~Login',
+      '//*[@name="Login"]',
+      '//*[@name="Se connecter"]',
+      '//*[@name="Sign in"]',
+      '//*[@name="Sign In"]',
+    ]);
 
     // Recover if app resumed on a deep screen without root tabs.
     await recoverToMainSurface(driver);
 
     // Login form if present
-    const emailPresent = await typeIfExists(driver, '~email-input', email);
-    const passwordPresent = await typeIfExists(driver, '~password-input', password);
+    const emailPresent = !!(await typeFirstExisting(driver, [
+      '~email-input',
+      '//*[@name="email-input"]',
+      '//XCUIElementTypeTextField[contains(@name, "Email")]',
+      '//XCUIElementTypeTextField[contains(@label, "Email")]',
+      '//XCUIElementTypeTextField[contains(@value, "Email")]',
+      '//XCUIElementTypeTextField[contains(@name, "mail")]',
+      '//XCUIElementTypeTextField[contains(@label, "mail")]',
+      '//XCUIElementTypeTextField[1]',
+    ], email));
+    const passwordPresent = !!(await typeFirstExisting(driver, [
+      '~password-input',
+      '//*[@name="password-input"]',
+      '//XCUIElementTypeSecureTextField[contains(@name, "Password")]',
+      '//XCUIElementTypeSecureTextField[contains(@label, "Password")]',
+      '//XCUIElementTypeSecureTextField[contains(@name, "Mot")]',
+      '//XCUIElementTypeSecureTextField[contains(@label, "Mot")]',
+      '//XCUIElementTypeSecureTextField[1]',
+    ], password));
     if (emailPresent || passwordPresent) {
-      await tapIfExists(driver, '~submit-login-button', 12000);
+      await tapFirstExisting(driver, [
+        '~submit-login-button',
+        '//*[@name="submit-login-button"]',
+        '//*[@name="Login"]',
+        '//*[@name="Se connecter"]',
+        '//*[@name="Sign In"]',
+        '//*[@name="Sign in"]',
+      ], 12000);
     }
 
     const MAIN_SELECTORS = [
@@ -207,7 +258,15 @@ async function run() {
       '~Settings',
     ];
     const ONBOARDING_SELECTORS = ['~AccountType', '~TellUsAboutYou', '~Guidelines'];
-    const AUTH_SELECTORS = ['~login-screen', '~submit-login-button', '~social-apple-button', '~email-input'];
+    const AUTH_SELECTORS = [
+      '~login-screen',
+      '~submit-login-button',
+      '~social-apple-button',
+      '~email-input',
+      '//*[@name="Se connecter"]',
+      '//*[@name="Login"]',
+      '//XCUIElementTypeSecureTextField[1]',
+    ];
 
     // Detect resulting app state
     let state = 'unknown';

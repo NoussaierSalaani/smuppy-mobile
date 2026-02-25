@@ -3,7 +3,7 @@
  * Returns messages in a specific conversation
  */
 
-import { getReaderPool, SqlParam } from '../../shared/db';
+import { SqlParam } from '../../shared/db';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { isValidUUID } from '../utils/security';
 import { requireRateLimit } from '../utils/rate-limit';
@@ -37,10 +37,12 @@ export const handler = withAuthHandler('conversations-messages', async (event, {
     };
   }
 
-  const readerDb = await getReaderPool();
+  // Use writer connection for conversation reads to avoid replica lag right after send-message.
+  // Chat UX requires read-your-write consistency when reopening a conversation immediately.
+  const strongReadDb = db;
 
   // Check if user is participant in this conversation
-  const conversationResult = await readerDb.query(
+  const conversationResult = await strongReadDb.query(
     `SELECT id FROM conversations
      WHERE id = $1 AND (participant_1_id = $2 OR participant_2_id = $2)`,
     [conversationId, profileId]
@@ -112,7 +114,7 @@ export const handler = withAuthHandler('conversations-messages', async (event, {
   query += ` ORDER BY m.created_at DESC LIMIT $${params.length + 1}`;
   params.push(limit + 1);
 
-  const result = await readerDb.query(query, params);
+  const result = await strongReadDb.query(query, params);
 
   const hasMore = result.rows.length > limit;
   const messages = hasMore ? result.rows.slice(0, -1) : result.rows;

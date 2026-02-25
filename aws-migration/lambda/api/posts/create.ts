@@ -5,6 +5,7 @@
 
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 import type { Pool, PoolClient } from 'pg';
 import { withAuthHandler } from '../utils/with-auth-handler';
@@ -19,6 +20,8 @@ import type { Logger } from '../utils/logger';
 
 const lambdaClient = new LambdaClient({});
 const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET?.trim() || '';
+const s3Client = MEDIA_BUCKET ? new S3Client({}) : null;
 
 const MAX_MEDIA_URLS = 10;
 const MAX_TAGGED_USERS = 20;
@@ -50,6 +53,58 @@ interface ModerationFlags {
 }
 
 type Headers = Record<string, string>;
+
+function extractObjectKeyFromUrl(mediaUrl: string): string | null {
+  try {
+    const parsed = new URL(mediaUrl);
+    const objectKey = decodeURIComponent(parsed.pathname).replace(/^\/+/, '');
+    return objectKey || null;
+  } catch {
+    return null;
+  }
+}
+
+function isStorageNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
+  return (
+    err.name === 'NotFound' ||
+    err.name === 'NoSuchKey' ||
+    err.Code === 'NotFound' ||
+    err.Code === 'NoSuchKey' ||
+    err.$metadata?.httpStatusCode === 404
+  );
+}
+
+async function ensureMediaObjectsReady(
+  mediaUrls: string[] | undefined,
+  headers: Headers,
+): Promise<APIGatewayProxyResult | null> {
+  if (process.env.NODE_ENV === 'test') return null;
+  if (!MEDIA_BUCKET || !s3Client || !Array.isArray(mediaUrls) || mediaUrls.length === 0) return null;
+
+  for (const mediaUrl of mediaUrls) {
+    const objectKey = extractObjectKeyFromUrl(mediaUrl);
+    if (!objectKey) return errorResponse(400, headers, 'Invalid media URL');
+    if (objectKey.startsWith('pending-scan/')) {
+      return errorResponse(409, headers, 'Media is still processing. Please retry in a few seconds.', { code: 'MEDIA_NOT_READY' });
+    }
+
+    try {
+      await s3Client.send(new HeadObjectCommand({
+        Bucket: MEDIA_BUCKET,
+        Key: objectKey,
+      }));
+    } catch (error_) {
+      if (isStorageNotFoundError(error_)) {
+        return errorResponse(409, headers, 'Media is still processing. Please retry in a few seconds.', { code: 'MEDIA_NOT_READY' });
+      }
+      throw error_;
+    }
+  }
+
+  return null;
+}
 
 // ── Helper: error response builder ───────────────────────────────────
 
@@ -404,6 +459,9 @@ export const handler = withAuthHandler('posts-create', async (event, { headers, 
 
     const visibilityError = checkVisibilityPermissions(body.visibility, accountType, headers);
     if (visibilityError) return visibilityError;
+
+    const mediaReadyError = await ensureMediaObjectsReady(body.mediaUrls, headers);
+    if (mediaReadyError) return mediaReadyError;
 
     const postId = uuidv4();
     const isVideoPost = body.mediaType === 'video';

@@ -23,13 +23,14 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAuth } from '../../services/aws-auth';
-import { uploadPeakMedia, generateVideoThumbnail, uploadImage } from '../../services/mediaUpload';
+import { uploadPeakMedia, generateVideoThumbnail, uploadImage, waitForMediaAvailability } from '../../services/mediaUpload';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores/userStore';
 import { searchNominatim, isValidCoordinate, NominatimSearchResult, formatNominatimResult } from '../../config/api';
 import { extractHashtags } from '../../utils/hashtags';
 import { filterContent } from '../../utils/contentFilters';
+import { normalizeCdnUrl } from '../../utils/cdnUrl';
 import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 import { ACCOUNT_TYPE } from '../../config/accountTypes';
 
@@ -213,6 +214,16 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         throw new Error(uploadResult.error || 'Failed to upload video');
       }
 
+      // Normalize and verify uploaded video URL is publicly reachable before creating peak.
+      const mediaUrl = normalizeCdnUrl(uploadResult.cdnUrl || uploadResult.url || '');
+      if (!mediaUrl) {
+        throw new Error('Invalid uploaded video URL');
+      }
+      const isVideoReady = await waitForMediaAvailability(mediaUrl, { timeoutMs: 90_000, intervalMs: 2_000 });
+      if (!isVideoReady) {
+        throw new Error('Video is still processing. Please retry in a few seconds.');
+      }
+
       // Generate and upload thumbnail
       let thumbnailUrl: string | undefined;
       try {
@@ -223,7 +234,11 @@ const PeakPreviewScreen = (): React.JSX.Element => {
             compressionOptions: { maxWidth: 480, maxHeight: 480, quality: 0.7, format: 'jpeg' },
           });
           if (thumbResult.success) {
-            thumbnailUrl = thumbResult.cdnUrl || thumbResult.url;
+            const normalizedThumbnail = normalizeCdnUrl(thumbResult.cdnUrl || thumbResult.url);
+            if (normalizedThumbnail) {
+              const isThumbnailReady = await waitForMediaAvailability(normalizedThumbnail, { timeoutMs: 60_000, intervalMs: 2_000 });
+              thumbnailUrl = isThumbnailReady ? normalizedThumbnail : undefined;
+            }
           }
         }
       } catch {
@@ -231,7 +246,6 @@ const PeakPreviewScreen = (): React.JSX.Element => {
       }
 
       // Create peak via dedicated peaks API
-      const mediaUrl = uploadResult.cdnUrl || uploadResult.url || '';
       const hashtags = textOverlay ? extractHashtags(textOverlay) : [];
       const peakResult = await awsAPI.createPeak({
         videoUrl: mediaUrl,

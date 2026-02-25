@@ -4,6 +4,7 @@
  */
 
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { withAuthHandler } from '../utils/with-auth-handler';
 import { requireRateLimit } from '../utils/rate-limit';
 import { RATE_WINDOW_1_MIN, MAX_PEAK_DURATION_SECONDS } from '../utils/constants';
@@ -16,6 +17,8 @@ import { sendPushToUser } from '../services/push-notification';
 
 const lambdaClient = new LambdaClient({});
 const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET?.trim() || '';
+const s3Client = MEDIA_BUCKET ? new S3Client({}) : null;
 
 // SECURITY: Validate URL format and restrict to trusted CDN/S3 domains
 const ALLOWED_MEDIA_HOSTS = ['.s3.amazonaws.com', '.s3.us-east-1.amazonaws.com', '.cloudfront.net'];
@@ -28,6 +31,66 @@ function isValidUrl(url: string): boolean {
     return ALLOWED_MEDIA_HOSTS.some(suffix => hostname.endsWith(suffix));
   } catch {
     return false;
+  }
+}
+
+function extractObjectKeyFromUrl(mediaUrl: string): string | null {
+  try {
+    const parsed = new URL(mediaUrl);
+    const objectKey = decodeURIComponent(parsed.pathname).replace(/^\/+/, '');
+    return objectKey || null;
+  } catch {
+    return null;
+  }
+}
+
+function isStorageNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
+  return (
+    err.name === 'NotFound' ||
+    err.name === 'NoSuchKey' ||
+    err.Code === 'NotFound' ||
+    err.Code === 'NoSuchKey' ||
+    err.$metadata?.httpStatusCode === 404
+  );
+}
+
+async function ensureMediaObjectReady(mediaUrl: string | undefined, headers: Record<string, string>) {
+  if (process.env.NODE_ENV === 'test') return null;
+  if (!mediaUrl || !MEDIA_BUCKET || !s3Client) return null;
+
+  const objectKey = extractObjectKeyFromUrl(mediaUrl);
+  if (!objectKey) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Invalid media URL format' }),
+    };
+  }
+  if (objectKey.startsWith('pending-scan/')) {
+    return {
+      statusCode: 409,
+      headers,
+      body: JSON.stringify({ success: false, code: 'MEDIA_NOT_READY', message: 'Media is still processing. Please retry in a few seconds.' }),
+    };
+  }
+
+  try {
+    await s3Client.send(new HeadObjectCommand({
+      Bucket: MEDIA_BUCKET,
+      Key: objectKey,
+    }));
+    return null;
+  } catch (error_) {
+    if (isStorageNotFoundError(error_)) {
+      return {
+        statusCode: 409,
+        headers,
+        body: JSON.stringify({ success: false, code: 'MEDIA_NOT_READY', message: 'Media is still processing. Please retry in a few seconds.' }),
+      };
+    }
+    throw error_;
   }
 }
 
@@ -68,6 +131,12 @@ export const handler = withAuthHandler('peaks-create', async (event, { headers, 
         body: JSON.stringify({ message: 'Invalid thumbnail URL format' }),
       };
     }
+
+    const videoReadyError = await ensureMediaObjectReady(videoUrl, headers);
+    if (videoReadyError) return videoReadyError;
+
+    const thumbnailReadyError = await ensureMediaObjectReady(thumbnailUrl, headers);
+    if (thumbnailReadyError) return thumbnailReadyError;
 
     // Validate replyToPeakId if provided
     if (replyToPeakId && (typeof replyToPeakId !== 'string' || !isValidUUID(replyToPeakId))) {

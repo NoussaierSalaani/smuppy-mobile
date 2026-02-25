@@ -5,13 +5,12 @@
  */
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { getPool, getReaderPool } from '../../../shared/db';
+import { getPool } from '../../../shared/db';
 
 // ── Mocks (must be before handler import — Jest hoists jest.mock calls) ──
 
 jest.mock('../../../shared/db', () => ({
   getPool: jest.fn(),
-  getReaderPool: jest.fn(),
 }));
 
 jest.mock('../../utils/rate-limit', () => ({
@@ -81,28 +80,22 @@ function makeEvent(overrides: Record<string, unknown> = {}): APIGatewayProxyEven
 // ── Test suite ──
 
 describe('conversations/messages handler', () => {
-  let mockReaderDb: { query: jest.Mock };
   let mockWriterDb: { query: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockReaderDb = {
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-    };
-
     mockWriterDb = {
       query: jest.fn().mockResolvedValue({ rows: [] }),
     };
 
-    (getReaderPool as jest.Mock).mockResolvedValue(mockReaderDb);
     (getPool as jest.Mock).mockResolvedValue(mockWriterDb);
     (resolveProfileId as jest.Mock).mockResolvedValue(VALID_PROFILE_ID);
     (isValidUUID as jest.Mock).mockReturnValue(true);
     (requireRateLimit as jest.Mock).mockResolvedValue(null);
 
     // Default: conversation exists and user is a participant
-    mockReaderDb.query.mockImplementation((sql: string) => {
+    mockWriterDb.query.mockImplementation((sql: string) => {
       if (typeof sql === 'string' && sql.includes('SELECT id FROM conversations')) {
         return Promise.resolve({
           rows: [{ id: VALID_CONVERSATION_ID }],
@@ -202,7 +195,7 @@ describe('conversations/messages handler', () => {
   // 5. Conversation not found / not participant
   describe('conversation access', () => {
     it('should return 404 when conversation does not exist or user is not a participant', async () => {
-      mockReaderDb.query.mockImplementation((sql: string) => {
+      mockWriterDb.query.mockImplementation((sql: string) => {
         if (typeof sql === 'string' && sql.includes('SELECT id FROM conversations')) {
           return Promise.resolve({ rows: [] });
         }
@@ -235,7 +228,7 @@ describe('conversations/messages handler', () => {
   // 7. Happy path: empty messages
   describe('happy path — empty messages', () => {
     it('should return 200 with empty messages array', async () => {
-      mockReaderDb.query.mockImplementation((sql: string) => {
+      mockWriterDb.query.mockImplementation((sql: string) => {
         if (typeof sql === 'string' && sql.includes('SELECT id FROM conversations')) {
           return Promise.resolve({ rows: [{ id: VALID_CONVERSATION_ID }] });
         }
@@ -262,7 +255,7 @@ describe('conversations/messages handler', () => {
         { id: 'msg-2', content: 'Hi', created_at: '2026-02-20T09:00:00Z', sender_id: VALID_PROFILE_ID, sender: {} },
         { id: 'msg-1', content: 'Hello', created_at: '2026-02-20T08:00:00Z', sender_id: 'other-id', sender: {} },
       ];
-      mockReaderDb.query.mockImplementation((sql: string) => {
+      mockWriterDb.query.mockImplementation((sql: string) => {
         if (typeof sql === 'string' && sql.includes('SELECT id FROM conversations')) {
           return Promise.resolve({ rows: [{ id: VALID_CONVERSATION_ID }] });
         }
@@ -287,7 +280,7 @@ describe('conversations/messages handler', () => {
   // 9. Mark as read
   describe('mark as read', () => {
     it('should update unread messages when markAsRead=true', async () => {
-      mockReaderDb.query.mockImplementation((sql: string) => {
+      mockWriterDb.query.mockImplementation((sql: string) => {
         if (typeof sql === 'string' && sql.includes('SELECT id FROM conversations')) {
           return Promise.resolve({ rows: [{ id: VALID_CONVERSATION_ID }] });
         }
@@ -310,7 +303,7 @@ describe('conversations/messages handler', () => {
     });
 
     it('should NOT update messages when markAsRead is not set', async () => {
-      mockReaderDb.query.mockImplementation((sql: string) => {
+      mockWriterDb.query.mockImplementation((sql: string) => {
         if (typeof sql === 'string' && sql.includes('SELECT id FROM conversations')) {
           return Promise.resolve({ rows: [{ id: VALID_CONVERSATION_ID }] });
         }
@@ -321,8 +314,11 @@ describe('conversations/messages handler', () => {
 
       await handler(event);
 
-      // Writer pool should NOT be called for mark-as-read
-      expect(mockWriterDb.query).not.toHaveBeenCalled();
+      // Writer pool is used for strong reads, but should not perform UPDATE when markAsRead=false.
+      const updateCalls = mockWriterDb.query.mock.calls.filter(([sql]) =>
+        typeof sql === 'string' && sql.includes('UPDATE messages')
+      );
+      expect(updateCalls).toHaveLength(0);
     });
   });
 
@@ -337,7 +333,7 @@ describe('conversations/messages handler', () => {
         sender_id: VALID_PROFILE_ID,
         sender: {},
       }));
-      mockReaderDb.query.mockImplementation((sql: string) => {
+      mockWriterDb.query.mockImplementation((sql: string) => {
         if (typeof sql === 'string' && sql.includes('SELECT id FROM conversations')) {
           return Promise.resolve({ rows: [{ id: VALID_CONVERSATION_ID }] });
         }
@@ -358,8 +354,8 @@ describe('conversations/messages handler', () => {
 
   // 11. Error handling
   describe('error handling', () => {
-    it('should return 500 when getReaderPool throws', async () => {
-      (getReaderPool as jest.Mock).mockRejectedValueOnce(new Error('DB connection failed'));
+    it('should return 500 when getPool throws', async () => {
+      (getPool as jest.Mock).mockRejectedValueOnce(new Error('DB connection failed'));
 
       const event = makeEvent();
 

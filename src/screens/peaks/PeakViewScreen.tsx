@@ -235,6 +235,7 @@ interface Peak {
   thumbnail: string;
   videoUrl?: string;
   hlsUrl?: string;
+  videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
   duration: number;
   user: PeakUser;
   views: number;
@@ -301,6 +302,7 @@ const PeakViewScreen = (): React.JSX.Element => {
         id: p.id,
         videoUrl: p.videoUrl ? toCdn(p.videoUrl) : undefined,
         hlsUrl: p.hlsUrl ? toCdn(p.hlsUrl) : undefined,
+        videoStatus: p.videoStatus || null,
         thumbnail: toCdn(p.thumbnailUrl) || '',
         duration: p.duration || 15,
         user: {
@@ -396,11 +398,11 @@ const PeakViewScreen = (): React.JSX.Element => {
   }, [currentPeak]);
 
   useEffect(() => {
-    if (!currentPeak.videoUrl) {
+    if (!currentPeak.videoUrl && !currentPeak.hlsUrl) {
       videoRef.current = null;
       setProgress(0);
     }
-  }, [currentPeak.videoUrl]);
+  }, [currentPeak.videoUrl, currentPeak.hlsUrl]);
 
   // Hardware back handler (Android) as a fail-safe
   useEffect(() => {
@@ -1266,13 +1268,37 @@ const PeakViewScreen = (): React.JSX.Element => {
       >
         <View style={styles.mediaContainer} {...panResponder.panHandlers}>
           {(() => {
+            const isVideoProcessing = currentPeak.videoStatus === 'uploaded' || currentPeak.videoStatus === 'processing';
+            const isVideoFailed = currentPeak.videoStatus === 'failed';
             const resolvedVideoUrl = getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl);
-            if (!resolvedVideoUrl) {
+            if (isVideoProcessing || !resolvedVideoUrl) {
               return (
-                <OptimizedImage
-                  source={currentPeak.thumbnail || placeholder}
-                  style={styles.media}
-                />
+                <View style={styles.media}>
+                  <OptimizedImage
+                    source={currentPeak.thumbnail || placeholder}
+                    style={styles.media}
+                  />
+                  {isVideoProcessing && (
+                    <View style={styles.videoPendingOverlay}>
+                      <ActivityIndicator size="large" color="rgba(255,255,255,0.95)" />
+                      <Text style={styles.videoPendingText}>Video processing...</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            }
+            if (isVideoFailed) {
+              return (
+                <View style={styles.media}>
+                  <OptimizedImage
+                    source={currentPeak.thumbnail || placeholder}
+                    style={styles.media}
+                  />
+                  <View style={styles.videoPendingOverlay}>
+                    <Ionicons name="alert-circle-outline" size={36} color="rgba(255,255,255,0.95)" />
+                    <Text style={styles.videoPendingText}>Video unavailable</Text>
+                  </View>
+                </View>
               );
             }
             if (videoError) {
@@ -1954,6 +1980,18 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 14,
     fontWeight: '600',
     marginTop: 8,
+  },
+  videoPendingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    gap: 10,
+  },
+  videoPendingText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   // Top Header with Avatar Carousel
   topHeader: {

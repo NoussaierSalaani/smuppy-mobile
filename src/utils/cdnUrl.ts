@@ -25,11 +25,6 @@ const MOBILE_MEDIA_USER_AGENT =
 
 const ABSOLUTE_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const HOST_WITHOUT_SCHEME_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i;
-const KNOWN_CDN_HOSTS = Array.from(new Set([
-  CURRENT_CDN,
-  'dc8kq67t0asis.cloudfront.net',
-  'd3gy4x1feicix3.cloudfront.net',
-].filter(Boolean)));
 
 const isLocalOrInlineUri = (value: string): boolean => {
   const lower = value.toLowerCase();
@@ -129,23 +124,10 @@ export const buildRemoteMediaSource = (
 };
 
 export const getAlternateCdnUrls = (url: string | null | undefined): string[] => {
-  const normalized = normalizeCdnUrl(url);
-  if (!normalized) return [];
-
-  try {
-    const parsed = new URL(normalized);
-
-    // Absolute URL on known CloudFront host: build same path on other known hosts.
-    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && KNOWN_CDN_HOSTS.includes(parsed.hostname)) {
-      return KNOWN_CDN_HOSTS
-        .filter((host) => host !== parsed.hostname)
-        .map((host) => `https://${host}${parsed.pathname}${parsed.search || ''}`);
-    }
-
-    return [];
-  } catch {
-    return [];
-  }
+  // Canonical single-host strategy: never fan out media requests to alternate CDNs.
+  // This keeps behavior deterministic across environments and avoids cross-distribution drift.
+  void url;
+  return [];
 };
 
 export const getMediaVariant = (

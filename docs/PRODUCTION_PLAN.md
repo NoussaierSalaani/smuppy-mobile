@@ -425,6 +425,13 @@ async flush(): Promise<void> {
 
 ### 6.1 iOS Build & TestFlight
 
+**EAS cost guardrails (obligatoire)**:
+- NE PAS utiliser `eas build --platform all` pour les iterations.
+- Si changement JS/TS uniquement: utiliser `eas update --branch production`.
+- Lancer un build seulement en cas de changement natif (dossier `ios/`, `android/`, plugins natifs, permissions natives, dependances natives).
+- Si build necessaire: lancer uniquement la plateforme concernee (`--platform ios` ou `--platform android`), pas les deux par defaut.
+- Workflow EAS production: declenchement manuel recommande (pas `on: push` automatique).
+
 **Pre-requis verifies**:
 - [x] Bundle ID: `com.nou09.Smuppy`
 - [x] ASC App ID: `6757627406`
@@ -567,15 +574,18 @@ cd aws-migration && npx cdk deploy --all --context env=production
 aws lambda invoke --function-name SmuppyApi-GetFeed out.json && cat out.json
 aws lambda invoke --function-name SmuppyApi-SendMessage out.json && cat out.json
 
-# 4. Build + Submit iOS
+# 4. Frontend (JS/TS uniquement)
+eas update --branch production
+
+# 5. Si changement natif iOS: Build + Submit iOS
 eas build --platform ios --profile production
 eas submit --platform ios
 
-# 5. Build + Submit Android
+# 6. Si changement natif Android: Build + Submit Android
 eas build --platform android --profile production
 eas submit --platform android
 
-# 6. Monitorer
+# 7. Monitorer
 # → CloudWatch dashboards
 # → Sentry dashboard
 # → App Store Connect (review status)

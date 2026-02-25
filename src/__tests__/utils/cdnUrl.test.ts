@@ -167,18 +167,16 @@ describe('buildRemoteMediaSource', () => {
 });
 
 describe('getAlternateCdnUrls', () => {
-  it('returns alternate known hosts for current CDN URL', () => {
+  it('returns empty array for current CDN URL (single canonical host)', () => {
     const currentUrl = `https://${CURRENT_CDN}/avatars/u1/photo.jpg`;
     const alternates = getAlternateCdnUrls(currentUrl);
-    expect(alternates).toContain(`https://${LEGACY_CDN}/avatars/u1/photo.jpg`);
-    expect(alternates).not.toContain(currentUrl);
+    expect(alternates).toEqual([]);
   });
 
-  it('returns alternate known hosts for legacy CDN URL', () => {
+  it('returns empty array for legacy CDN URL (no fallback fan-out)', () => {
     const legacyUrl = `https://${LEGACY_CDN}/covers/u1/cover.jpg`;
     const alternates = getAlternateCdnUrls(legacyUrl);
-    expect(alternates).toContain(`https://${CURRENT_CDN}/covers/u1/cover.jpg`);
-    expect(alternates).not.toContain(legacyUrl);
+    expect(alternates).toEqual([]);
   });
 
   it('returns empty array for non-cloudfront URL', () => {

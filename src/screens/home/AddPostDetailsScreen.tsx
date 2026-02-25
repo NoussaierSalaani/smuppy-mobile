@@ -40,7 +40,7 @@ import { awsAuth } from '../../services/aws-auth';
 import { awsAPI } from '../../services/aws-api';
 import { useUserStore } from '../../stores/userStore';
 import { createPost } from '../../services/database';
-import { uploadPostMedia } from '../../services/mediaUpload';
+import { uploadPostMedia, waitForMediaAvailability } from '../../services/mediaUpload';
 import * as Location from 'expo-location';
 import LazyMapView, { LazyMarker } from '../../components/LazyMapView';
 import { MapView } from '../../utils/mapbox-safe';
@@ -559,6 +559,13 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           new URL(resolvedMediaUrl);
         } catch {
           throw new Error(`Invalid uploaded media URL format for item ${i + 1}`);
+        }
+        // Images are already gated in uploadImage(). Keep extra readiness wait only for video posts.
+        if (type === 'video') {
+          const isReady = await waitForMediaAvailability(resolvedMediaUrl, { timeoutMs: 90_000, intervalMs: 2_000 });
+          if (!isReady) {
+            throw new Error(`Media ${i + 1} is still processing. Please retry in a few seconds.`);
+          }
         }
         mediaUrls.push(resolvedMediaUrl);
       }

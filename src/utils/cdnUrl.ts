@@ -107,6 +107,7 @@ export const getVideoPlaybackUrl = (
   hlsUrl: string | null | undefined,
   videoUrl: string | null | undefined,
 ): string | undefined => {
+  // Prefer HLS when available (adaptive stream), fallback to direct MP4.
   const preferred = hlsUrl || videoUrl;
   return normalizeCdnUrl(preferred) || undefined;
 };

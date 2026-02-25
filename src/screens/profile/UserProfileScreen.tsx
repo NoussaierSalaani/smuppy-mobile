@@ -818,20 +818,25 @@ const UserProfileScreen = () => {
   // ==================== RENDER POST ITEM (MUST BE BEFORE EARLY RETURNS) ====================
   const renderPostItem = useCallback((post: Post, allPosts: Post[]) => {
     // Support both media_urls array and legacy media_url string
-    const thumbnail = post.media_urls?.[0] || post.media_url || null;
+    const thumbnail = post.thumbnail_url || post.media_urls?.[0] || post.media_url || null;
     const isVideo = post.media_type === 'video';
 
     // Transform posts for detail screen (matching PostDetailProfileScreen format)
     const transformedPosts = allPosts.map(p => {
       const pAllMedia = p.media_urls?.filter(Boolean) || [p.media_url].filter(Boolean);
+      const primaryMedia = p.hls_url || pAllMedia[0] || p.thumbnail_url || '';
+      const poster = p.thumbnail_url || pAllMedia[0] || '';
       return {
         id: p.id,
         type: (() => {
           if (p.media_type === 'video') return 'video' as const;
           return pAllMedia.length > 1 ? 'carousel' as const : 'image' as const;
         })(),
-        media: pAllMedia[0] || '',
-        thumbnail: pAllMedia[0] || '',
+        media: primaryMedia,
+        thumbnail: poster,
+        hlsUrl: p.hls_url || null,
+        thumbnailUrl: p.thumbnail_url || null,
+        videoStatus: p.video_status || null,
         description: p.content || p.caption || '',
         likes: p.likes_count || 0,
         views: p.views_count || 0,

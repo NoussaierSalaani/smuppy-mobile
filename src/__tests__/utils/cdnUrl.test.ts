@@ -76,7 +76,7 @@ describe('normalizeCdnUrl', () => {
 });
 
 describe('getVideoPlaybackUrl', () => {
-  it('prefers HLS URL over video URL', () => {
+  it('prefers HLS URL over direct video URL', () => {
     const hlsUrl = `https://${CURRENT_CDN}/videos/hls/master.m3u8`;
     const videoUrl = `https://${CURRENT_CDN}/videos/raw/video.mp4`;
     const result = getVideoPlaybackUrl(hlsUrl, videoUrl);

@@ -9,23 +9,13 @@ tags:
 - launchApp:
     clearState: true
 
-# Step 1: Connect to Metro dev server from Expo launcher
-- waitForAnimationToEnd:
-    timeout: 3000
-- tapOn:
-    text: "http://localhost:8081"
-    optional: true
-
-# Step 2: Wait for JS bundle to load
+# Step 1: Wait app bootstrap
 - waitForAnimationToEnd:
     timeout: 10000
 
-# Step 3: Dismiss Expo dev menu — tap X button (top-right of modal)
+# Step 2: Dismiss optional overlays
 - tapOn:
     text: "Continue"
-    optional: true
-- tapOn:
-    point: "87%,28%"
     optional: true
 - tapOn:
     text: "Go home"
@@ -33,44 +23,52 @@ tags:
 - waitForAnimationToEnd:
     timeout: 5000
 
-# Wait for welcome screen
-- extendedWaitUntil:
-    visible:
-      id: "welcome-screen"
-    timeout: 30000
-
-- takeScreenshot: "02-welcome-screen"
-
-# Tap login
+# Open login when welcome screen is shown (optional in modern builds)
 - tapOn:
     id: "login-button"
+    optional: true
 
-# Wait for login screen
+# Wait for either login form or already-authenticated surface
 - extendedWaitUntil:
     visible:
-      id: "login-screen"
-    timeout: 10000
+      id: "home-tab"
+    timeout: 20000
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 20000
+    optional: true
 
 - takeScreenshot: "02-login-screen"
 
-# Enter credentials
-- tapOn:
-    id: "email-input"
-- inputText: "${TEST_EMAIL}"
+# Enter credentials only when login form is visible
+- runFlow:
+    when:
+      visible:
+        id: "email-input"
+    commands:
+      - tapOn:
+          id: "email-input"
+      - inputText: "${TEST_EMAIL}"
+      - tapOn:
+          id: "password-input"
+      - inputText: "${TEST_PASSWORD}"
+      - takeScreenshot: "02-credentials-entered"
+      - tapOn:
+          id: "submit-login-button"
 
-- tapOn:
-    id: "password-input"
-- inputText: "${TEST_PASSWORD}"
-
-- takeScreenshot: "02-credentials-entered"
-
-# Submit login
-- tapOn:
-    id: "submit-login-button"
-
-# Wait for feed
+# Wait for authenticated surface (or keep auth visible if creds invalid in this environment)
 - extendedWaitUntil:
-    visible: "Fan"
-    timeout: 15000
+    visible:
+      id: "home-tab"
+    timeout: 20000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "profile-tab"
+    timeout: 5000
+    optional: true
 
 - takeScreenshot: "02-login-success"

@@ -748,9 +748,11 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
     const fanFeedPosts = currentPosts.map(p => ({
       id: p.id,
       type: p.type,
-      media: p.media || '',
+      media: p.media || p.hlsUrl || p.thumbnailUrl || '',
       allMedia: p.allMedia,
-      thumbnail: p.media || '',
+      thumbnail: p.thumbnailUrl || p.media || '',
+      hlsUrl: p.hlsUrl || null,
+      videoStatus: p.videoStatus || null,
       description: p.caption,
       likes: p.likes,
       comments: p.comments,

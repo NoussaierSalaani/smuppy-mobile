@@ -340,7 +340,7 @@ describe('Peaks API', () => {
     requestSpy.mockResolvedValueOnce({ id: 'pk1' });
     const result = await awsAPI.getPeak('pk1');
     expect(requestSpy).toHaveBeenCalledWith('/peaks/pk1');
-    expect(result).toEqual({ id: 'pk1' });
+    expect(result).toEqual(expect.objectContaining({ id: 'pk1' }));
   });
 
   it('createPeak(data) should POST /peaks', async () => {

@@ -54,6 +54,27 @@ export const getMediaUrl = (post: Post, fallback: string | null = null): string 
   return post.media_urls?.[0] || post.media_url || fallback;
 };
 
+const getPreferredVideoUrl = (post: Post): string | null => {
+  const status = post.video_status;
+  const primary = getMediaUrl(post);
+  const hls = post.hls_url || null;
+
+  // When transcoding is complete we prefer HLS; otherwise keep direct media URL.
+  if (status === 'ready' && hls) return hls;
+  return primary || hls || null;
+};
+
+const getPosterUrl = (post: Post): string | null => {
+  return post.thumbnail_url || getMediaUrl(post);
+};
+
+const getDisplayMedia = (post: Post): string | null => {
+  if (post.media_type === 'video') {
+    return getPreferredVideoUrl(post) || getPosterUrl(post);
+  }
+  return getMediaUrl(post, post.thumbnail_url || null);
+};
+
 /**
  * Format duration in seconds to MM:SS display string
  */
@@ -168,10 +189,12 @@ export const transformToFanPost = (
   savedPostIds?: Set<string>
 ): UIFanPost => {
   const allMedia = post.media_urls?.filter(Boolean) || [];
+  const displayMedia = getDisplayMedia(post);
+  const displayPoster = getPosterUrl(post);
   return {
     id: post.id,
     type: normalizeMediaType(post.media_type),
-    media: getMediaUrl(post, null),
+    media: displayMedia,
     allMedia: allMedia.length > 0 ? allMedia : undefined,
     mediaMeta: post.media_meta || undefined,
     slideCount: post.media_type === 'multiple' || allMedia.length > 1 ? allMedia.length : undefined,
@@ -198,7 +221,7 @@ export const transformToFanPost = (
     taggedUsers: normalizeTaggedUsers(post.tagged_users),
     videoStatus: post.video_status || null,
     hlsUrl: post.hls_url || null,
-    thumbnailUrl: post.thumbnail_url || null,
+    thumbnailUrl: displayPoster,
     videoDuration: formatDuration(post.video_duration),
   };
 };
@@ -215,11 +238,13 @@ export const transformToVibePost = (
   const meta = post.media_meta || undefined;
   const height = getMasonryHeight(post.id, meta, columnWidth);
   const allMedia = post.media_urls?.filter(Boolean) || [];
+  const displayMedia = getDisplayMedia(post);
+  const displayPoster = getPosterUrl(post);
 
   return {
     id: post.id,
     type: normalizeMediaType(post.media_type),
-    media: getMediaUrl(post),
+    media: displayMedia,
     allMedia: allMedia.length > 0 ? allMedia : undefined,
     mediaMeta: meta,
     height,
@@ -239,7 +264,7 @@ export const transformToVibePost = (
     taggedUsers: normalizeTaggedUsers(post.tagged_users),
     videoStatus: post.video_status || null,
     hlsUrl: post.hls_url || null,
-    thumbnailUrl: post.thumbnail_url || null,
+    thumbnailUrl: displayPoster,
     videoDuration: formatDuration(post.video_duration),
   };
 };

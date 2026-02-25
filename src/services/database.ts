@@ -346,37 +346,171 @@ const mapMessageProfile = (raw: unknown): Profile | undefined => {
   };
 };
 
+const normalizeMediaArray = (raw: unknown): string[] => {
+  const normalizeCandidate = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') return undefined;
+    return normalizeCdnUrl(value) || undefined;
+  };
+
+  if (Array.isArray(raw)) {
+    return raw.map(normalizeCandidate).filter((u): u is string => !!u);
+  }
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown[];
+        return parsed.map(normalizeCandidate).filter((u): u is string => !!u);
+      } catch {
+        return [];
+      }
+    }
+    const normalized = normalizeCandidate(trimmed);
+    return normalized ? [normalized] : [];
+  }
+
+  return [];
+};
+
+const firstValidMediaUrl = (...candidates: unknown[]): string | undefined => {
+  for (const candidate of candidates) {
+    const normalized = typeof candidate === 'string' ? normalizeCdnUrl(candidate) : undefined;
+    if (normalized) return normalized;
+  }
+  return undefined;
+};
+
+const parseNumber = (value: unknown, fallback = 0): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+};
+
+const normalizeTags = (raw: unknown): string[] => {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((tag) => typeof tag === 'string' ? tag.trim() : '')
+      .filter((tag) => tag.length > 0);
+  }
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown[];
+        return normalizeTags(parsed);
+      } catch {
+        return [];
+      }
+    }
+    return trimmed.split(',').map((tag) => tag.trim()).filter(Boolean);
+  }
+
+  return [];
+};
+
+const inferMediaType = (
+  explicitType: unknown,
+  mediaArray: string[],
+  hasVideoSignals: boolean,
+): Post['media_type'] => {
+  if (explicitType === 'video') return 'video';
+  if (explicitType === 'multiple' || explicitType === 'carousel') return 'multiple';
+  if (explicitType === 'photo' || explicitType === 'image') return 'image';
+  if (hasVideoSignals) return 'video';
+  if (mediaArray.length > 1) return 'multiple';
+  return 'image';
+};
+
+const convertPeakToPost = (raw: AWSPeak | Record<string, unknown>): Post => {
+  const rec = raw as Record<string, unknown>;
+
+  const videoUrl = firstValidMediaUrl(
+    rec.videoUrl,
+    rec.video_url,
+    rec.media_url,
+    rec.mediaUrl,
+    rec.file_url,
+    rec.fileUrl,
+  );
+  const hlsUrl = firstValidMediaUrl(rec.hlsUrl, rec.hls_url);
+  const thumbnailUrl = firstValidMediaUrl(
+    rec.thumbnailUrl,
+    rec.thumbnail_url,
+    rec.poster_url,
+    rec.posterUrl,
+  );
+  const authorRaw = rec.author as AWSProfile | undefined;
+
+  const mediaUrls = [videoUrl, hlsUrl].filter((value): value is string => !!value);
+
+  return {
+    id: (rec.id as string | undefined) || '',
+    author_id:
+      (rec.authorId as string | undefined) ||
+      (rec.author_id as string | undefined) ||
+      (authorRaw?.id as string | undefined) ||
+      '',
+    content: (rec.caption as string | undefined) || (rec.content as string | undefined) || '',
+    media_url: mediaUrls[0],
+    media_urls: mediaUrls,
+    media_type: 'video',
+    visibility: 'public',
+    is_peak: true,
+    peak_duration: parseNumber(rec.duration ?? rec.video_duration, 0),
+    likes_count: parseNumber(rec.likesCount ?? rec.likes_count ?? rec.likes),
+    comments_count: parseNumber(rec.commentsCount ?? rec.comments_count ?? rec.comments),
+    views_count: parseNumber(rec.viewsCount ?? rec.views_count ?? rec.views),
+    created_at: (rec.createdAt as string | undefined) || (rec.created_at as string | undefined) || new Date().toISOString(),
+    hls_url: hlsUrl || null,
+    thumbnail_url: thumbnailUrl || null,
+    video_status:
+      (rec.videoStatus as Post['video_status']) ||
+      (rec.video_status as Post['video_status']) ||
+      null,
+    video_duration: parseNumber(rec.videoDuration ?? rec.video_duration ?? rec.duration, 0) || null,
+    author: authorRaw ? convertProfile(authorRaw) || undefined : undefined,
+    tags: normalizeTags(rec.hashtags ?? rec.tags),
+  };
+};
+
 // Helper to convert AWS API Post to local Post format
 const convertPost = (p: AWSPost): Post => {
   const pRec = p as unknown as Record<string, unknown>;
-  const rawMedia: unknown = p.mediaUrls ?? pRec?.media_urls ?? pRec?.mediaUrl ?? pRec?.media_url ?? [];
-  let mediaArray: string[];
-  if (Array.isArray(rawMedia)) {
-    mediaArray = rawMedia
-      .map((u) => typeof u === 'string' ? normalizeCdnUrl(u) : undefined)
-      .filter((u): u is string => !!u);
-  } else if (typeof rawMedia === 'string' && rawMedia.trim().startsWith('[')) {
-    try {
-      const parsed = JSON.parse(rawMedia) as unknown[];
-      mediaArray = parsed
-        .map((u) => typeof u === 'string' ? normalizeCdnUrl(u) : undefined)
-        .filter((u): u is string => !!u);
-    } catch {
-      mediaArray = [];
-    }
-  } else if (typeof rawMedia === 'string' && rawMedia.trim()) {
-    mediaArray = [normalizeCdnUrl(rawMedia)].filter((u): u is string => !!u);
-  } else {
-    mediaArray = [];
-  }
+  const rawMedia: unknown =
+    p.mediaUrls ??
+    pRec.media_urls ??
+    pRec.mediaUrl ??
+    pRec.media_url ??
+    pRec.video_url ??
+    pRec.videoUrl ??
+    pRec.file_url ??
+    pRec.fileUrl ??
+    pRec.image_url ??
+    pRec.imageUrl ??
+    [];
+  const mediaArray = normalizeMediaArray(rawMedia);
+  const hlsUrl = firstValidMediaUrl((p as unknown as { hlsUrl?: string | null }).hlsUrl, pRec.hls_url, pRec.hlsUrl);
+  const thumbnailUrl = firstValidMediaUrl(
+    (p as unknown as { thumbnailUrl?: string | null }).thumbnailUrl,
+    pRec.thumbnail_url,
+    pRec.thumbnailUrl,
+    pRec.poster_url,
+    pRec.posterUrl,
+  );
 
-  const likesCountRaw = p.likesCount ?? pRec?.likes_count;
-  const commentsCountRaw = p.commentsCount ?? pRec?.comments_count;
-  const viewsCountRaw = p.viewsCount ?? pRec?.views_count;
-  const likesCount = Number(likesCountRaw ?? 0) || 0;
-  const commentsCount = Number(commentsCountRaw ?? 0) || 0;
-  const viewsCount = Number(viewsCountRaw ?? 0) || 0;
+  const likesCount = parseNumber(p.likesCount ?? pRec.likes_count ?? pRec.like_count ?? pRec.likes);
+  const commentsCount = parseNumber(p.commentsCount ?? pRec.comments_count ?? pRec.comment_count ?? pRec.comments);
+  const viewsCount = parseNumber(p.viewsCount ?? pRec.views_count ?? pRec.view_count ?? pRec.views);
   const createdAt = p.createdAt || (pRec?.created_at as string | undefined) || new Date().toISOString();
+  const isPeak = (pRec.is_peak as boolean | undefined) ?? p.isPeak ?? false;
+  const hasVideoSignals = Boolean(hlsUrl || pRec.video_url || pRec.videoUrl || pRec.video_status || pRec.videoStatus || isPeak);
 
   return {
     id: p.id || (pRec?.id as string | undefined) || '',
@@ -386,21 +520,34 @@ const convertPost = (p: AWSPost): Post => {
       (pRec?.user_id as string | undefined) ||
       (p.author?.id as string | undefined) ||
       '',
-    content: p.content || (pRec?.content as string | undefined) || '',
-    media_url: mediaArray[0],
+    content: p.content || (pRec?.content as string | undefined) || (pRec?.caption as string | undefined) || '',
+    media_url: mediaArray[0] || hlsUrl || thumbnailUrl,
     media_urls: mediaArray,
-    media_type: (p.mediaType || pRec?.media_type || (mediaArray.length > 1 ? 'multiple' : undefined)) as Post['media_type'],
-    is_peak: (pRec?.is_peak as boolean) ?? p.isPeak ?? false,
+    media_type: inferMediaType(p.mediaType || pRec?.media_type || pRec?.mediaType || pRec?.type, mediaArray, hasVideoSignals),
+    is_peak: isPeak,
     visibility: (p.visibility || pRec?.visibility || 'public') as Post['visibility'],
     location: (p.location || pRec?.location || null) as string | null,
     tagged_users: (p.taggedUsers || pRec?.tagged_users || []) as Post['tagged_users'],
     likes_count: likesCount,
     comments_count: commentsCount,
     views_count: viewsCount,
-    tags: p.tags || [],
+    tags: normalizeTags(p.tags || pRec?.tags),
     created_at: createdAt,
-    hls_url: normalizeCdnUrl((p as unknown as { hlsUrl?: string | null }).hlsUrl) || normalizeCdnUrl(pRec?.hls_url as string | undefined),
-    thumbnail_url: normalizeCdnUrl((p as unknown as { thumbnailUrl?: string | null }).thumbnailUrl) || normalizeCdnUrl(pRec?.thumbnail_url as string | undefined),
+    peak_duration: parseNumber(pRec?.peak_duration ?? pRec?.duration, 0) || undefined,
+    hls_url: hlsUrl || null,
+    thumbnail_url: thumbnailUrl || null,
+    video_status:
+      (p.videoStatus as Post['video_status']) ||
+      (pRec?.video_status as Post['video_status']) ||
+      (pRec?.videoStatus as Post['video_status']) ||
+      null,
+    video_duration:
+      parseNumber(
+        p.videoDuration ??
+        pRec?.video_duration ??
+        pRec?.videoDuration ??
+        pRec?.duration,
+      ) || null,
     author: (() => {
       if (p.author) return convertProfile(p.author) || undefined;
       if (pRec?.author_profile) return convertProfile(pRec.author_profile as AWSProfile) || undefined;
@@ -846,18 +993,24 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
     const createData: Record<string, unknown> = {
       content: postData.content || postData.caption,
       mediaUrls: normalizedMediaUrls,
+      media_urls: normalizedMediaUrls,
       mediaType: postData.media_type,
+      media_type: postData.media_type,
       visibility: postData.visibility,
       location: postData.location || null,
-      ...(postData.videoDuration != null && { videoDuration: postData.videoDuration }),
+      ...(postData.videoDuration != null && { videoDuration: postData.videoDuration, video_duration: postData.videoDuration }),
     };
 
     // Handle peak-specific fields
     if (postData.is_peak) {
       createData.isPeak = true;
+      createData.is_peak = true;
       createData.peakDuration = postData.peak_duration;
+      createData.peak_duration = postData.peak_duration;
       createData.peakExpiresAt = postData.peak_expires_at;
+      createData.peak_expires_at = postData.peak_expires_at;
       createData.saveToProfile = postData.save_to_profile;
+      createData.save_to_profile = postData.save_to_profile;
     }
 
     if (postData.tags) {
@@ -866,6 +1019,7 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
 
     if (postData.tagged_users) {
       createData.taggedUsers = postData.tagged_users;
+      createData.tagged_users = postData.tagged_users;
     }
 
     const post = await awsAPI.createPost(createData);
@@ -1304,21 +1458,7 @@ export const deleteComment = async (commentId: string): Promise<{ error: string 
 export const getPeaks = async (_page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   try {
     const result = await awsAPI.getPeaks({ limit });
-    const posts: Post[] = result.data.map((p: AWSPeak) => ({
-      id: p.id,
-      author_id: p.authorId,
-      content: p.caption ?? undefined,
-      media_urls: [p.videoUrl],
-      media_type: 'video' as const,
-      visibility: 'public' as const,
-      is_peak: true,
-      peak_duration: p.duration,
-      likes_count: p.likesCount,
-      comments_count: p.commentsCount,
-      views_count: p.viewsCount,
-      created_at: p.createdAt,
-      author: p.author ? convertProfile(p.author) || undefined : undefined,
-    }));
+    const posts: Post[] = result.data.map((p: AWSPeak) => convertPeakToPost(p));
     return { data: posts, error: null };
   } catch (error_: unknown) {
     return { data: null, error: getErrorMessage(error_) };
@@ -1331,21 +1471,7 @@ export const getPeaks = async (_page = 0, limit = 10): Promise<DbResponse<Post[]
 export const getPeaksByUser = async (userId: string, _page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
   try {
     const result = await awsAPI.getPeaks({ userId, limit });
-    const posts: Post[] = result.data.map((p: AWSPeak) => ({
-      id: p.id,
-      author_id: p.authorId,
-      content: p.caption ?? undefined,
-      media_urls: [p.videoUrl],
-      media_type: 'video' as const,
-      visibility: 'public' as const,
-      is_peak: true,
-      peak_duration: p.duration,
-      likes_count: p.likesCount,
-      comments_count: p.commentsCount,
-      views_count: p.viewsCount,
-      created_at: p.createdAt,
-      author: p.author ? convertProfile(p.author) || undefined : undefined,
-    }));
+    const posts: Post[] = result.data.map((p: AWSPeak) => convertPeakToPost(p));
     return { data: posts, error: null };
   } catch (error_: unknown) {
     return { data: null, error: getErrorMessage(error_) };
@@ -1358,21 +1484,7 @@ export const getPeaksByUser = async (userId: string, _page = 0, limit = 10): Pro
 export const getPeakById = async (peakId: string): Promise<DbResponse<Post>> => {
   try {
     const p = await awsAPI.getPeak(peakId);
-    const post: Post = {
-      id: p.id,
-      author_id: p.authorId,
-      content: p.caption || '',
-      media_urls: [p.videoUrl],
-      media_type: 'video',
-      visibility: 'public',
-      is_peak: true,
-      peak_duration: p.duration,
-      likes_count: p.likesCount,
-      comments_count: p.commentsCount,
-      views_count: p.viewsCount,
-      created_at: p.createdAt,
-      author: p.author ? convertProfile(p.author) || undefined : undefined,
-    };
+    const post: Post = convertPeakToPost(p);
     return { data: post, error: null };
   } catch (error_: unknown) {
     return { data: null, error: getErrorMessage(error_) };
@@ -1719,6 +1831,12 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50,
     const convoRec = resultRec.conversation && typeof resultRec.conversation === 'object' && !Array.isArray(resultRec.conversation)
       ? resultRec.conversation as Record<string, unknown>
       : undefined;
+    const messageRec = resultRec.message && typeof resultRec.message === 'object' && !Array.isArray(resultRec.message)
+      ? resultRec.message as Record<string, unknown>
+      : undefined;
+    const nestedMessagesRec = dataRec?.messages && typeof dataRec.messages === 'object' && !Array.isArray(dataRec.messages)
+      ? dataRec.messages as Record<string, unknown>
+      : undefined;
 
     const candidates = [
       asRecordArray(resultRec.messages),
@@ -1727,7 +1845,9 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50,
       asRecordArray(dataRec?.messages),
       asRecordArray(dataRec?.items),
       asRecordArray(dataRec?.data),
+      asRecordArray(nestedMessagesRec?.data),
       asRecordArray(convoRec?.messages),
+      asRecordArray(messageRec?.messages),
     ];
     const rawMessages = candidates.find((arr) => arr.length > 0) || [];
 
@@ -1742,22 +1862,22 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50,
       return {
         id: (mRec.id as string | undefined) || '',
         conversation_id: conversationId,
-        sender_id: (mRec.sender_id as string | undefined) || sender?.id || '',
-        content: (mRec.content as string | undefined) || '',
-        media_url: normalizeCdnUrl(mRec.media_url as string | undefined),
-        media_type: mRec.media_type as Message['media_type'],
+        sender_id: (mRec.sender_id as string | undefined) || (mRec.senderId as string | undefined) || sender?.id || '',
+        content: (mRec.content as string | undefined) || (mRec.text as string | undefined) || (mRec.message as string | undefined) || '',
+        media_url: normalizeCdnUrl((mRec.media_url as string | undefined) || (mRec.mediaUrl as string | undefined)),
+        media_type: (mRec.media_type as Message['media_type']) || (mRec.mediaType as Message['media_type']),
         shared_post_id: mRec.shared_post_id as string | undefined,
         shared_peak_id: mRec.shared_peak_id as string | undefined,
         is_deleted: mRec.is_deleted as boolean | undefined,
-        created_at: (mRec.created_at as string | undefined) || new Date().toISOString(),
+        created_at: (mRec.created_at as string | undefined) || (mRec.createdAt as string | undefined) || new Date().toISOString(),
         sender,
         reply_to_message_id: mRec.reply_to_message_id as string | undefined,
         reply_to_message: replyRec ? {
           id: (replyRec.id as string | undefined) || '',
           conversation_id: conversationId,
-          sender_id: (replyRec.sender_id as string | undefined) || '',
-          content: (replyRec.content as string | undefined) || '',
-          created_at: (replyRec.created_at as string | undefined) || (mRec.created_at as string | undefined) || new Date().toISOString(),
+          sender_id: (replyRec.sender_id as string | undefined) || (replyRec.senderId as string | undefined) || '',
+          content: (replyRec.content as string | undefined) || (replyRec.text as string | undefined) || '',
+          created_at: (replyRec.created_at as string | undefined) || (replyRec.createdAt as string | undefined) || (mRec.created_at as string | undefined) || new Date().toISOString(),
           sender: mapMessageProfile(replyRec.sender),
         } as Message : undefined,
         reactions: reactionsRec.map((rRec) => ({
@@ -1774,7 +1894,7 @@ export const getMessages = async (conversationId: string, _page = 0, limit = 50,
           read_at: (rbRec.read_at as string | undefined) || new Date().toISOString(),
           user: mapMessageProfile(rbRec.user),
         })),
-        is_read: (mRec.is_read as boolean | undefined) ?? (mRec.read as boolean | undefined),
+        is_read: (mRec.is_read as boolean | undefined) ?? (mRec.read as boolean | undefined) ?? (mRec.isRead as boolean | undefined),
       };
     });
     return { data: messages, error: null };
@@ -1811,68 +1931,45 @@ export const sendMessage = async (
 
   try {
     // Lambda returns { message: {...} } with snake_case fields
-    const result = await awsAPI.request<{ message?: {
-      id: string; content: string; media_url?: string; media_type?: string; voice_duration_seconds?: number;
-      sender_id: string; recipient_id: string; read: boolean; created_at: string;
-      sender: { id: string; username: string; display_name: string; avatar_url: string };
-      reply_to_message_id?: string;
-      reply_to_message?: {
-        id: string; content: string; sender_id: string;
-        sender: { id: string; username: string; display_name: string; avatar_url: string };
-      };
-    }; data?: { message?: {
-      id: string; content: string; media_url?: string; media_type?: string; voice_duration_seconds?: number;
-      sender_id: string; recipient_id: string; read: boolean; created_at: string;
-      sender: { id: string; username: string; display_name: string; avatar_url: string };
-      reply_to_message_id?: string;
-      reply_to_message?: {
-        id: string; content: string; sender_id: string;
-        sender: { id: string; username: string; display_name: string; avatar_url: string };
-      };
-    } } }>(`/conversations/${conversationId}/messages`, {
+    const result = await awsAPI.request<Record<string, unknown>>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
       body: { content: sanitizedContent, mediaUrl, mediaType, replyToMessageId, voiceDuration, clientMessageId },
     });
-    const m = result.message || result.data?.message || (result as unknown as { id?: string });
-    if (!m || !('id' in m) || !m.id) {
+    const resultData = result.data && typeof result.data === 'object' && !Array.isArray(result.data)
+      ? result.data as Record<string, unknown>
+      : undefined;
+    const messageCandidate =
+      (result.message && typeof result.message === 'object' && !Array.isArray(result.message) ? result.message : undefined) ||
+      (resultData?.message && typeof resultData.message === 'object' && !Array.isArray(resultData.message) ? resultData.message : undefined) ||
+      resultData ||
+      result;
+    const message = (messageCandidate && typeof messageCandidate === 'object' && !Array.isArray(messageCandidate))
+      ? messageCandidate as Record<string, unknown>
+      : null;
+    if (!message || typeof message.id !== 'string' || !message.id) {
       return { data: null, error: 'Invalid send message response' };
     }
-    const message = m as {
-      id: string;
-      sender_id?: string;
-      content?: string;
-      media_url?: string;
-      media_type?: string;
-      voice_duration_seconds?: number;
-      reply_to_message_id?: string;
-      reply_to_message?: {
-        id: string;
-        content: string;
-        sender_id: string;
-        sender?: { id: string; username: string; display_name: string; avatar_url: string };
-        created_at?: string;
-      };
-      created_at?: string;
-      sender?: { id: string; username: string; display_name: string; avatar_url: string };
-    };
+    const replyRaw = message.reply_to_message && typeof message.reply_to_message === 'object'
+      ? message.reply_to_message as Record<string, unknown>
+      : undefined;
     return { data: {
-      id: message.id,
+      id: message.id as string,
       conversation_id: conversationId,
-      sender_id: message.sender_id || user.id,
-      content: message.content || '',
-      media_url: message.media_url,
-      media_type: message.media_type as Message['media_type'],
-      voice_duration_seconds: message.voice_duration_seconds,
-      reply_to_message_id: message.reply_to_message_id,
-      reply_to_message: message.reply_to_message ? {
-        id: message.reply_to_message.id,
+      sender_id: (message.sender_id as string | undefined) || (message.senderId as string | undefined) || user.id,
+      content: (message.content as string | undefined) || (message.text as string | undefined) || (message.message as string | undefined) || '',
+      media_url: normalizeCdnUrl((message.media_url as string | undefined) || (message.mediaUrl as string | undefined)),
+      media_type: ((message.media_type as string | undefined) || (message.mediaType as string | undefined)) as Message['media_type'],
+      voice_duration_seconds: (message.voice_duration_seconds as number | undefined) || (message.voiceDurationSeconds as number | undefined),
+      reply_to_message_id: message.reply_to_message_id as string | undefined,
+      reply_to_message: replyRaw ? {
+        id: (replyRaw.id as string | undefined) || '',
         conversation_id: conversationId,
-        sender_id: message.reply_to_message.sender_id,
-        content: message.reply_to_message.content,
-        created_at: message.reply_to_message.created_at || message.created_at || new Date().toISOString(),
-        sender: mapMessageProfile(message.reply_to_message.sender),
+        sender_id: (replyRaw.sender_id as string | undefined) || (replyRaw.senderId as string | undefined) || '',
+        content: (replyRaw.content as string | undefined) || (replyRaw.text as string | undefined) || '',
+        created_at: (replyRaw.created_at as string | undefined) || (replyRaw.createdAt as string | undefined) || (message.created_at as string | undefined) || (message.createdAt as string | undefined) || new Date().toISOString(),
+        sender: mapMessageProfile(replyRaw.sender),
       } as Message : undefined,
-      created_at: message.created_at || new Date().toISOString(),
+      created_at: (message.created_at as string | undefined) || (message.createdAt as string | undefined) || new Date().toISOString(),
       sender: mapMessageProfile(message.sender),
     }, error: null };
   } catch (error_: unknown) {

@@ -41,6 +41,9 @@ interface PostItem extends PostDetailPost {
   location?: string | null;
   taggedUsers?: TaggedUserInfo[];
   allMedia?: string[];
+  hlsUrl?: string | null;
+  thumbnailUrl?: string | null;
+  videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
 }
 
 // Helper to convert API post to PostItem format
@@ -48,6 +51,9 @@ interface RawPost {
   id: string;
   media_urls?: string[];
   media_type?: string;
+  hls_url?: string | null;
+  thumbnail_url?: string | null;
+  video_status?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
   content?: string;
   likes_count?: number;
   location?: string | null;
@@ -58,6 +64,8 @@ interface RawPost {
 
 const convertToPostItem = (post: RawPost): PostItem => {
   const allMedia = post.media_urls?.filter(Boolean) || [];
+  const primaryMedia = post.hls_url || allMedia[0] || post.thumbnail_url || '';
+  const posterMedia = post.thumbnail_url || allMedia[0] || '';
   // Normalize tagged users - can be string IDs or objects
   const rawTagged = post.tagged_users || [];
   const taggedUsers: TaggedUserInfo[] = rawTagged
@@ -73,8 +81,11 @@ const convertToPostItem = (post: RawPost): PostItem => {
       if (post.media_type === 'video') return 'video' as const;
       return allMedia.length > 1 ? 'carousel' as const : 'image' as const;
     })(),
-    media: allMedia[0] || '',
-    thumbnail: allMedia[0] || '',
+    media: primaryMedia,
+    thumbnail: posterMedia,
+    hlsUrl: post.hls_url || null,
+    thumbnailUrl: post.thumbnail_url || null,
+    videoStatus: post.video_status || null,
     description: post.content || '',
     likes: post.likes_count || 0,
     location: post.location || null,
@@ -106,6 +117,7 @@ const PostDetailProfileScreen = () => {
   const initialIndex = posts.findIndex(p => p.id === postId) || 0;
   const [currentIndex, setCurrentIndex] = useState(Math.max(initialIndex, 0));
   const [carouselIndexes, setCarouselIndexes] = useState<Record<string, number>>({});
+  const [videoFailed, setVideoFailed] = useState<Record<string, boolean>>({});
 
   // Current post
   const currentPost = posts[currentIndex] ?? null;
@@ -178,17 +190,33 @@ const PostDetailProfileScreen = () => {
         <View style={[styles.postContainer, { height }]}>
           {/* Media */}
           {item.type === 'video' ? (
-            <Video
-              ref={index === currentIndex ? videoRef : null}
-              source={buildRemoteMediaSource(item.media) || { uri: normalizeCdnUrl(item.media) || '' }}
-              style={styles.media}
-              resizeMode={ResizeMode.COVER}
-              isLooping
-              isMuted={actions.isAudioMuted}
-              shouldPlay={index === currentIndex && !actions.isPaused}
-              posterSource={buildRemoteMediaSource(item.thumbnail) || { uri: normalizeCdnUrl(item.thumbnail) || '' }}
-              usePoster
-            />
+            (() => {
+              const isTranscoding = item.videoStatus === 'uploaded' || item.videoStatus === 'processing';
+              const playableUrl = item.hlsUrl || item.media;
+              const posterUrl = item.thumbnailUrl || item.thumbnail || item.media;
+              const shouldRenderVideo = !videoFailed[item.id] && !isTranscoding && !!playableUrl && item.videoStatus !== 'failed';
+
+              if (shouldRenderVideo) {
+                return (
+                  <Video
+                    ref={index === currentIndex ? videoRef : null}
+                    source={buildRemoteMediaSource(playableUrl) || { uri: normalizeCdnUrl(playableUrl) || '' }}
+                    style={styles.media}
+                    resizeMode={ResizeMode.COVER}
+                    isLooping
+                    isMuted={actions.isAudioMuted}
+                    shouldPlay={index === currentIndex && !actions.isPaused}
+                    posterSource={buildRemoteMediaSource(posterUrl) || { uri: normalizeCdnUrl(posterUrl) || '' }}
+                    usePoster
+                    onError={() => {
+                      setVideoFailed((prev) => ({ ...prev, [item.id]: true }));
+                    }}
+                  />
+                );
+              }
+
+              return <OptimizedImage source={posterUrl || item.media} style={styles.media} />;
+            })()
           ) : item.allMedia && item.allMedia.length > 1 ? (
             <View style={styles.carouselContainer}>
               <ScrollView

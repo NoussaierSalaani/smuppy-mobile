@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,9 @@ interface VibesFeedPost extends PostDetailPost {
   category: string;
   location?: string | null;
   allMedia?: string[];
+  hlsUrl?: string | null;
+  thumbnailUrl?: string | null;
+  videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
   user: { id: string; name: string; avatar: string; followsMe: boolean };
 }
 
@@ -74,8 +77,13 @@ const PostDetailVibesFeedScreen = () => {
   const [viewState, setViewState] = useState(startCondensed ? VIEW_STATES.CONDENSED : VIEW_STATES.FULLSCREEN);
   const [gridPosts] = useState<GridPost[]>([]);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const [videoFailed, setVideoFailed] = useState(false);
 
   const videoRef = useRef(null);
+
+  useEffect(() => {
+    setVideoFailed(false);
+  }, [currentPost?.id]);
 
   // Card press animation refs
   const cardScales = useRef<{ [key: string]: Animated.Value }>({}).current;
@@ -265,19 +273,29 @@ const PostDetailVibesFeedScreen = () => {
               {/* Media */}
               {(() => {
                 if (currentPost.type === 'video') {
-                  const videoSource = buildRemoteMediaSource(currentPost.media);
+                  const isTranscoding = currentPost.videoStatus === 'uploaded' || currentPost.videoStatus === 'processing';
+                  const playableUrl = currentPost.hlsUrl || currentPost.media;
+                  const posterUrl = currentPost.thumbnailUrl || currentPost.thumbnail || currentPost.media;
+                  const shouldRenderVideo = !videoFailed && !isTranscoding && !!playableUrl && currentPost.videoStatus !== 'failed';
+                  if (shouldRenderVideo) {
+                    const videoSource = buildRemoteMediaSource(playableUrl);
+                    return (
+                      <Video
+                        ref={videoRef}
+                        source={videoSource || { uri: normalizeCdnUrl(playableUrl) || '' }}
+                        style={styles.fullscreenMedia}
+                        resizeMode={ResizeMode.COVER}
+                        isLooping
+                        isMuted={actions.isAudioMuted}
+                        shouldPlay={!actions.isPaused}
+                        posterSource={buildRemoteMediaSource(posterUrl) || { uri: normalizeCdnUrl(posterUrl) || '' }}
+                        usePoster
+                        onError={() => setVideoFailed(true)}
+                      />
+                    );
+                  }
                   return (
-                    <Video
-                      ref={videoRef}
-                      source={videoSource || { uri: normalizeCdnUrl(currentPost.media) || '' }}
-                      style={styles.fullscreenMedia}
-                      resizeMode={ResizeMode.COVER}
-                      isLooping
-                      isMuted={actions.isAudioMuted}
-                      shouldPlay={!actions.isPaused}
-                      posterSource={buildRemoteMediaSource(currentPost.thumbnail) || { uri: normalizeCdnUrl(currentPost.thumbnail) || '' }}
-                      usePoster
-                    />
+                    <OptimizedImage source={posterUrl} style={styles.fullscreenMedia} />
                   );
                 }
                 if (currentPost.allMedia && currentPost.allMedia.length > 1) {

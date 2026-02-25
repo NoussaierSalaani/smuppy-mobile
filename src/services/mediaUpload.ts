@@ -263,6 +263,57 @@ const validateFile = async (
   return { valid: true };
 };
 
+/**
+ * Extract object key from backend upload references.
+ * Backend may return a raw key, an S3 URL, or a CDN URL depending on env.
+ */
+const extractObjectKey = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return trimmed.replace(/^\/+/, '');
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const path = parsed.pathname.replace(/^\/+/, '');
+    return path || null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * True when URL points to S3/amazonaws host or is a signed temporary URL.
+ * Those URLs are not stable display URLs for persisted media references.
+ */
+const isTransientStorageUrl = (value: string | null | undefined): boolean => {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase();
+    const query = parsed.searchParams;
+    const isS3Host =
+      host === 's3.amazonaws.com' ||
+      host.startsWith('s3.') ||
+      host.includes('.s3.') ||
+      host.endsWith('.amazonaws.com');
+    const isSigned =
+      query.has('X-Amz-Signature') ||
+      query.has('X-Amz-Credential') ||
+      query.has('X-Amz-Algorithm') ||
+      query.has('X-Amz-Date') ||
+      query.has('X-Amz-Security-Token') ||
+      query.has('Expires') ||
+      query.has('Signature');
+    return isS3Host || isSigned;
+  } catch {
+    return false;
+  }
+};
+
 // ============================================
 // PRESIGNED URL FUNCTIONS
 // ============================================
@@ -290,7 +341,7 @@ export const getPresignedUrl = async (
     // Use AWS API to get presigned URL
     const result = await awsAPI.getUploadUrl(fileName, contentType, fileSize, duration);
 
-    const key = result.fileUrl || result.key;
+    const key = extractObjectKey(result.key || result.fileUrl || result.publicUrl || null);
     if (__DEV__) console.log('[getPresignedUrl] Got URL, key:', key?.substring(0, 60));
 
     if (!result.uploadUrl || !key) {
@@ -298,9 +349,21 @@ export const getPresignedUrl = async (
       return null;
     }
 
-    // Prefer backend URLs first (cdn/public), then reconstruct as last resort.
-    // In staging, forcing CDN reconstruction too early can point to the wrong origin.
-    const resolvedMediaUrl = result.cdnUrl || result.publicUrl || awsAPI.getCDNUrl(key) || '';
+    const backendCdnUrl = typeof result.cdnUrl === 'string' ? result.cdnUrl.trim() : '';
+    const backendPublicUrl = typeof result.publicUrl === 'string' ? result.publicUrl.trim() : '';
+    const derivedCdnUrl = awsAPI.getCDNUrl(key);
+
+    // URL priority:
+    // 1) Explicit backend cdnUrl
+    // 2) Backend publicUrl only if it's not transient storage/signed URL
+    // 3) Derived CDN URL from object key
+    // 4) Fallback backend publicUrl (best effort)
+    const resolvedMediaUrl =
+      backendCdnUrl ||
+      (backendPublicUrl && !isTransientStorageUrl(backendPublicUrl) ? backendPublicUrl : '') ||
+      derivedCdnUrl ||
+      backendPublicUrl ||
+      '';
 
     return {
       uploadUrl: result.uploadUrl,

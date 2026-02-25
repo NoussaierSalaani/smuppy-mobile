@@ -997,14 +997,19 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const transformPostsForDetail = useCallback((allPosts: typeof posts) => {
     return allPosts.map(p => {
       const allMedia = p.media_urls?.filter(Boolean) || [];
+      const primaryMedia = p.hls_url || allMedia[0] || p.thumbnail_url || '';
+      const poster = p.thumbnail_url || allMedia[0] || '';
       return {
         id: p.id,
         type: (() => {
           if (p.media_type === 'video') return 'video' as const;
           return allMedia.length > 1 ? 'carousel' as const : 'image' as const;
         })(),
-        media: allMedia[0] || '',
-        thumbnail: allMedia[0] || '',
+        media: primaryMedia,
+        thumbnail: poster,
+        hlsUrl: p.hls_url || null,
+        thumbnailUrl: p.thumbnail_url || null,
+        videoStatus: p.video_status || null,
         description: p.content || '',
         likes: p.likes_count || 0,
         views: p.views_count || 0,
@@ -1021,8 +1026,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   }, [user.id, user.displayName, user.avatar]);
 
   // ==================== RENDER POST ITEM (Simple grid style) ====================
-  const renderPostItem = useCallback(({ item: post }: { item: { id: string; media_urls?: string[]; media_type?: string; likes_count?: number } }) => {
-    const thumbnail = post.media_urls?.[0] || null;
+  const renderPostItem = useCallback(({ item: post }: { item: { id: string; media_urls?: string[]; media_type?: string; likes_count?: number; thumbnail_url?: string | null } }) => {
+    const thumbnail = post.thumbnail_url || post.media_urls?.[0] || null;
     const isVideo = post.media_type === 'video';
 
     return (
@@ -1251,8 +1256,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   };
 
   // ==================== RENDER COLLECTION ITEM (Detailed card style) ====================
-  const renderCollectionItem = useCallback((post: { id: string; media_urls?: string[]; media_type?: string; content?: string; created_at?: string; likes_count?: number; author?: { id?: string; username?: string; full_name?: string; avatar_url?: string }; user?: { id?: string; username?: string; full_name?: string; avatar_url?: string } }) => {
-    const thumbnail = post.media_urls?.[0] || null;
+  const renderCollectionItem = useCallback((post: { id: string; media_urls?: string[]; media_type?: string; hls_url?: string | null; thumbnail_url?: string | null; video_status?: 'uploaded' | 'processing' | 'ready' | 'failed' | null; content?: string; created_at?: string; likes_count?: number; author?: { id?: string; username?: string; full_name?: string; avatar_url?: string }; user?: { id?: string; username?: string; full_name?: string; avatar_url?: string } }) => {
+    const thumbnail = post.thumbnail_url || post.media_urls?.[0] || null;
     const isVideo = post.media_type === 'video';
 
     return (
@@ -1262,6 +1267,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
         onPress={() => {
           const collectionForDetail = collections.map(p => {
             const allMedia = p.media_urls?.filter(Boolean) || [];
+            const primaryMedia = p.hls_url || allMedia[0] || p.thumbnail_url || '';
+            const poster = p.thumbnail_url || allMedia[0] || '';
             const author = p.author ?? (p['user'] as typeof p.author) ?? undefined;
             return {
               id: p.id,
@@ -1269,8 +1276,11 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
                 if (p.media_type === 'video') return 'video' as const;
                 return allMedia.length > 1 ? 'carousel' as const : 'image' as const;
               })(),
-              media: allMedia[0] || '',
-              thumbnail: allMedia[0] || '',
+              media: primaryMedia,
+              thumbnail: poster,
+              hlsUrl: p.hls_url || null,
+              thumbnailUrl: p.thumbnail_url || null,
+              videoStatus: p.video_status || null,
               description: p.content || '',
               likes: p.likes_count ?? 0,
               views: p.views_count ?? 0,

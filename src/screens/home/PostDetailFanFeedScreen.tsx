@@ -50,6 +50,8 @@ interface FanFeedPost {
   media: string;
   allMedia?: string[]; // All media URLs for carousel posts
   thumbnail: string;
+  hlsUrl?: string | null;
+  videoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null;
   description: string;
   likes: number;
   comments?: number;
@@ -104,6 +106,7 @@ const PostDetailFanFeedScreen = () => {
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Record<string, boolean>>({});
   const [fanStatus, setFanStatus] = useState<Record<string, boolean>>({}); // { odId: true/false }
   const [localLikes, setLocalLikes] = useState<Record<string, number>>({});
+  const [videoFailed, setVideoFailed] = useState<Record<string, boolean>>({});
 
   // Loading states for anti spam-click
   const likeLoadingRef = useRef(new Set<string>());
@@ -376,18 +379,33 @@ const PostDetailFanFeedScreen = () => {
           {/* Media */}
           {(() => {
             if (item.type === 'video') {
-              const videoSource = buildRemoteMediaSource(item.media);
+              const isTranscoding = item.videoStatus === 'uploaded' || item.videoStatus === 'processing';
+              const playableUrl = item.hlsUrl || item.media;
+              const posterUrl = item.thumbnail || item.media;
+              const shouldRenderVideo = !videoFailed[item.id] && !isTranscoding && !!playableUrl && item.videoStatus !== 'failed';
+              if (shouldRenderVideo) {
+                const videoSource = buildRemoteMediaSource(playableUrl);
+                return (
+                  <Video
+                    ref={index === currentIndex ? videoRef : null}
+                    source={videoSource || { uri: normalizeCdnUrl(playableUrl) || '' }}
+                    style={styles.media}
+                    resizeMode={ResizeMode.COVER}
+                    isLooping
+                    isMuted={actions.isAudioMuted}
+                    shouldPlay={index === currentIndex && !actions.isPaused}
+                    posterSource={buildRemoteMediaSource(posterUrl) || { uri: normalizeCdnUrl(posterUrl) || '' }}
+                    usePoster
+                    onError={() => {
+                      setVideoFailed((prev) => ({ ...prev, [item.id]: true }));
+                    }}
+                  />
+                );
+              }
               return (
-                <Video
-                  ref={index === currentIndex ? videoRef : null}
-                  source={videoSource || { uri: normalizeCdnUrl(item.media) || '' }}
+                <OptimizedImage
+                  source={posterUrl || item.media}
                   style={styles.media}
-                  resizeMode={ResizeMode.COVER}
-                  isLooping
-                  isMuted={actions.isAudioMuted}
-                  shouldPlay={index === currentIndex && !actions.isPaused}
-                  posterSource={buildRemoteMediaSource(item.thumbnail) || { uri: normalizeCdnUrl(item.thumbnail) || '' }}
-                  usePoster
                 />
               );
             }
@@ -628,6 +646,7 @@ const PostDetailFanFeedScreen = () => {
       handleDoubleTap, currentIndex, carouselIndexes,
       likeLoadingState, toggleLike, bookmarkLoading,
       toggleBookmark, fanLoading, becomeFan, navigateToProfile, expandedDescriptionLocal,
+      videoFailed,
       styles, colors, navigation, bottomContentPaddingStyle,
       handleToggleDescriptionLocal, headerPaddingStyle]);
 

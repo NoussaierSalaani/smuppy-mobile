@@ -349,6 +349,43 @@ describe('mediaUpload — upload functions', () => {
       expect(mockGetUploadUrl).toHaveBeenCalled();
     });
 
+    it('derives object key from absolute fileUrl and still returns CDN URL', async () => {
+      mockUploadAsync.mockResolvedValue({ status: 200, body: '' });
+      mockGetUploadUrl.mockResolvedValue({
+        uploadUrl: 'https://s3.presigned.url',
+        fileUrl: 'https://smuppy-media-staging-471112656108.s3.amazonaws.com/posts/u1/from-absolute.jpg',
+      });
+      mockGetCDNUrl.mockImplementation((key: string) => `https://cdn.test.com/${key}`);
+
+      const result = await uploadImage('user-1', 'file:///photo.jpg', {
+        folder: 'posts',
+        compress: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.key).toBe('posts/u1/from-absolute.jpg');
+      expect(result.cdnUrl).toBe('https://cdn.test.com/posts/u1/from-absolute.jpg');
+      expect(mockGetCDNUrl).toHaveBeenCalledWith('posts/u1/from-absolute.jpg');
+    });
+
+    it('prefers derived CDN URL over public S3 URL', async () => {
+      mockUploadAsync.mockResolvedValue({ status: 200, body: '' });
+      mockGetUploadUrl.mockResolvedValue({
+        uploadUrl: 'https://s3.presigned.url',
+        key: 'posts/u1/cdn-first.jpg',
+        publicUrl: 'https://smuppy-media-staging-471112656108.s3.amazonaws.com/posts/u1/cdn-first.jpg',
+      });
+      mockGetCDNUrl.mockImplementation((key: string) => `https://cdn.test.com/${key}`);
+
+      const result = await uploadImage('user-1', 'file:///photo.jpg', {
+        folder: 'posts',
+        compress: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.cdnUrl).toBe('https://cdn.test.com/posts/u1/cdn-first.jpg');
+    });
+
     it('uses compressAvatar for avatars folder', async () => {
       mockUploadAsync.mockResolvedValue({ status: 200, body: '' });
 

@@ -643,9 +643,13 @@ describe('database.methods', () => {
       expect(mockCreatePost).toHaveBeenCalledWith(
         expect.objectContaining({
           isPeak: true,
+          is_peak: true,
           peakDuration: 15,
+          peak_duration: 15,
           peakExpiresAt: '2024-12-31',
+          peak_expires_at: '2024-12-31',
           saveToProfile: true,
+          save_to_profile: true,
         })
       );
     });
@@ -661,6 +665,25 @@ describe('database.methods', () => {
         expect.objectContaining({
           tags: ['Fitness'],
           taggedUsers: ['u2'],
+          tagged_users: ['u2'],
+        })
+      );
+    });
+
+    it('should send both camelCase and snake_case media fields', async () => {
+      mockCreatePost.mockResolvedValue(makeAWSPost());
+      await createPost({
+        content: 'Mixed payload',
+        media_urls: ['https://cdn.example.com/photo.jpg'],
+        media_type: 'image',
+        visibility: 'public',
+      });
+      expect(mockCreatePost).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mediaUrls: ['https://cdn.example.com/photo.jpg'],
+          media_urls: ['https://cdn.example.com/photo.jpg'],
+          mediaType: 'image',
+          media_type: 'image',
         })
       );
     });
@@ -761,6 +784,31 @@ describe('database.methods', () => {
       mockGetPeaks.mockResolvedValue({ data: [makeAWSPeak({ author: null })] });
       const result = await getPeaks();
       expect(result.data![0].author).toBeUndefined();
+    });
+
+    it('should map snake_case peak payload to playable post fields', async () => {
+      mockGetPeaks.mockResolvedValue({
+        data: [{
+          id: 'pk2',
+          author_id: 'u2',
+          video_url: 'https://cdn.example.com/video-snake.mp4',
+          hls_url: 'https://cdn.example.com/video-snake.m3u8',
+          thumbnail_url: 'https://cdn.example.com/video-snake.jpg',
+          caption: 'Snake peak',
+          duration: 18,
+          video_status: 'processing',
+          likes_count: 12,
+          comments_count: 4,
+          views_count: 77,
+          created_at: '2024-01-02T00:00:00Z',
+        }],
+      });
+      const result = await getPeaks();
+      expect(result.error).toBeNull();
+      expect(result.data?.[0].media_urls).toContain('https://cdn.example.com/video-snake.mp4');
+      expect(result.data?.[0].hls_url).toBe('https://cdn.example.com/video-snake.m3u8');
+      expect(result.data?.[0].thumbnail_url).toBe('https://cdn.example.com/video-snake.jpg');
+      expect(result.data?.[0].video_status).toBe('processing');
     });
   });
 
@@ -1338,6 +1386,31 @@ describe('database.methods', () => {
       expect(result.data?.[0]?.sender?.full_name).toBe('Test Full Name');
     });
 
+    it('should support data.messages.data with camelCase message fields', async () => {
+      mockRequest.mockResolvedValue({
+        data: {
+          messages: {
+            data: [{
+              id: 'm-camel',
+              text: 'Camel hello',
+              senderId: 'u1',
+              mediaUrl: 'https://cdn.example.com/chat.jpg',
+              mediaType: 'image',
+              createdAt: '2024-01-03T00:00:00Z',
+              isRead: true,
+              sender: { id: 'u1', username: 'test', displayName: 'Test Display', avatarUrl: 'https://img.jpg' },
+            }],
+          },
+        },
+      });
+      const result = await getMessages('conv1');
+      expect(result.error).toBeNull();
+      expect(result.data?.[0]?.content).toBe('Camel hello');
+      expect(result.data?.[0]?.media_url).toBe('https://cdn.example.com/chat.jpg');
+      expect(result.data?.[0]?.is_read).toBe(true);
+      expect(result.data?.[0]?.sender?.display_name).toBe('Test Display');
+    });
+
     it('should handle messages with reactions and read receipts', async () => {
       mockRequest.mockResolvedValue({
         messages: [{
@@ -1420,6 +1493,25 @@ describe('database.methods', () => {
       expect(result.data).toBeTruthy();
       expect(result.data!.content).toBe('Hello');
       expect(result.error).toBeNull();
+    });
+
+    it('should support send response shape where message is directly in data', async () => {
+      mockRequest.mockResolvedValue({
+        data: {
+          id: 'm2',
+          text: 'Hi from data',
+          senderId: 'u1',
+          mediaUrl: 'https://cdn.example.com/img.jpg',
+          mediaType: 'image',
+          createdAt: '2024-01-01T00:00:00Z',
+          sender: { id: 'u1', username: 'test', display_name: 'Test', avatar_url: 'https://img.jpg' },
+        },
+      });
+      const result = await sendMessage(validConvId, 'ignored');
+      expect(result.error).toBeNull();
+      expect(result.data?.id).toBe('m2');
+      expect(result.data?.content).toBe('Hi from data');
+      expect(result.data?.media_url).toBe('https://cdn.example.com/img.jpg');
     });
 
     it('should return error for invalid conversation ID', async () => {

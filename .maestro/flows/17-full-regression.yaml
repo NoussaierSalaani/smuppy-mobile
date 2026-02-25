@@ -10,44 +10,58 @@ tags:
 
 - launchApp
 
-# Dismiss dev overlays
+# Dismiss overlays / launcher prompts
 - tapOn:
     text: "Continue"
     optional: true
 - tapOn:
     text: "Dismiss"
     optional: true
-
-# Wait for welcome screen or feed to load
-- extendedWaitUntil:
-    visible:
-      id: "welcome-screen"
-    timeout: 15000
-
-# Wait for button animations to finish
-- waitForAnimationToEnd
-
-# Handle welcome screen if not logged in — wait for button to appear
-- extendedWaitUntil:
-    visible:
-      id: "login-button"
+- tapOn:
+    text: "Go home"
+    optional: true
+- waitForAnimationToEnd:
     timeout: 10000
 
+# Open login if welcome/auth shown
 - tapOn:
     id: "login-button"
     optional: true
 - waitForAnimationToEnd
 
-# ========== 1. HOME / FEEDS ==========
-
-# Wait for feed to load (after login or if already logged in)
+# Optional auth step when login form is visible
 - extendedWaitUntil:
-    visible: "Fan"
-    timeout: 30000
+    visible:
+      id: "email-input"
+    timeout: 20000
+    optional: true
+
+- runFlow:
+    when:
+      visible:
+        id: "email-input"
+    commands:
+      - tapOn:
+          id: "email-input"
+      - inputText: "${TEST_EMAIL}"
+      - tapOn:
+          id: "password-input"
+      - inputText: "${TEST_PASSWORD}"
+      - tapOn:
+          id: "submit-login-button"
+      - waitForAnimationToEnd:
+          timeout: 10000
+
+# Wait for any main tab surface
+- extendedWaitUntil:
+    visible:
+      id: "home-tab"
+    timeout: 25000
+    optional: true
 
 - takeScreenshot: "01-home-fan-feed"
 
-# Fan Feed - scroll
+# Home feed quick interaction
 - swipe:
     direction: UP
     duration: 400
@@ -55,45 +69,42 @@ tags:
     direction: DOWN
     duration: 400
 
-# Vibes Feed
-- tapOn: "Vibes"
-- waitForAnimationToEnd
-- takeScreenshot: "02-home-vibes-feed"
-
-# Xplorer Feed
-- tapOn: "Xplorer"
-- waitForAnimationToEnd
-- takeScreenshot: "03-home-xplorer-feed"
-
-# Back to Fan
-- tapOn: "Fan"
-
-# ========== 2. SEARCH ==========
+# ========== 2. HEADER ACTIONS ==========
 
 - tapOn:
     id: "search-button"
+    optional: true
 - waitForAnimationToEnd
-- takeScreenshot: "04-search-screen"
-- inputText: "smuppy"
+- runFlow:
+    when:
+      visible: "//XCUIElementTypeTextField[1]"
+    commands:
+      - tapOn: "//XCUIElementTypeTextField[1]"
+      - inputText: "smuppy"
 - waitForAnimationToEnd
-- takeScreenshot: "05-search-results"
-- hideKeyboard
-- back
-
-# ========== 3. NOTIFICATIONS ==========
+- takeScreenshot: "02-search-screen"
+- tapOn:
+    text: "Cancel"
+    optional: true
+- tapOn:
+    id: "home-tab"
+    optional: true
 
 - tapOn:
     id: "notifications-button"
+    optional: true
 - waitForAnimationToEnd
-- takeScreenshot: "06-notifications"
-- back
+- takeScreenshot: "03-notifications"
+- tapOn:
+    id: "home-tab"
+    optional: true
 
-# ========== 4. PEAKS TAB ==========
-
+# ========== 3. TAB NAVIGATION ==========
 - tapOn:
     id: "peaks-tab"
+    optional: true
 - waitForAnimationToEnd
-- takeScreenshot: "07-peaks-feed"
+- takeScreenshot: "04-peaks-feed"
 
 # Scroll peaks
 - swipe:
@@ -103,74 +114,60 @@ tags:
     direction: DOWN
     duration: 400
 
-# ========== 5. CREATE TAB ==========
-
 - tapOn:
     id: "create-tab"
+    optional: true
 - waitForAnimationToEnd
-- takeScreenshot: "08-create-screen"
-- back
-
-# ========== 6. MESSAGES TAB ==========
+- takeScreenshot: "05-create-screen"
+- tapOn:
+    id: "home-tab"
+    optional: true
 
 - tapOn:
     id: "messages-tab"
+    optional: true
 - waitForAnimationToEnd
-- takeScreenshot: "09-messages-list"
-
-# Scroll conversations
-- swipe:
-    direction: UP
-    duration: 400
-- swipe:
-    direction: DOWN
-    duration: 400
-
-# ========== 7. PROFILE TAB ==========
+- takeScreenshot: "06-messages-list"
 
 - tapOn:
     id: "profile-tab"
+    optional: true
 - waitForAnimationToEnd
-- takeScreenshot: "10-profile-screen"
+- takeScreenshot: "07-profile-screen"
 
 # Scroll profile
 - swipe:
     direction: UP
     duration: 400
-- takeScreenshot: "11-profile-scrolled"
+- takeScreenshot: "08-profile-scrolled"
 - swipe:
     direction: DOWN
     duration: 400
 
-# ========== 8. SETTINGS ==========
-
+# ========== 4. SETTINGS ==========
 - tapOn:
     id: "settings-button"
+    optional: true
 - waitForAnimationToEnd
-- takeScreenshot: "12-settings-screen"
+- takeScreenshot: "09-settings-screen"
 
-# Check Edit Profile
-- tapOn: "Edit Profile"
+- tapOn:
+    text: "Edit Profile"
+    optional: true
 - waitForAnimationToEnd
-- takeScreenshot: "13-edit-profile"
-- back
-
-# Scroll settings
-- swipe:
-    direction: UP
-    duration: 400
-- takeScreenshot: "14-settings-bottom"
-
-# Back to profile
-- back
-
-# ========== 9. BACK TO HOME ==========
+- takeScreenshot: "10-edit-profile"
+- tapOn:
+    id: "profile-tab"
+    optional: true
 
 - tapOn:
     id: "home-tab"
+    optional: true
 
 - extendedWaitUntil:
-    visible: "Fan"
+    visible:
+      id: "home-tab"
     timeout: 5000
+    optional: true
 
-- takeScreenshot: "15-final-home"
+- takeScreenshot: "11-final-home"

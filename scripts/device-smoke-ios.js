@@ -50,6 +50,57 @@ async function anyExists(driver, selectors, timeout = 0) {
   return false;
 }
 
+async function firstExisting(driver, selectors, timeout = 0) {
+  for (const selector of selectors) {
+    if (await exists(driver, selector, timeout)) return selector;
+  }
+  return null;
+}
+
+async function recoverToMainSurface(driver) {
+  const MAIN_SELECTORS = [
+    '~profile-tab',
+    '~home-tab',
+    '~Post content',
+    '~Like this post',
+    '~Share this post',
+    '~Posts',
+    '~Peaks',
+    '~Activities',
+    '~Collections',
+    '~settings-button',
+    '~Settings',
+  ];
+
+  const BACK_SELECTORS = [
+    '~Back',
+    '~Go back',
+    '~go-back-button',
+    '~back-button',
+    '//XCUIElementTypeButton[@name="Back"]',
+    '//XCUIElementTypeButton[@name="Done"]',
+    '//XCUIElementTypeButton[@name="Close"]',
+    '~Go home',
+  ];
+
+  for (let i = 0; i < 8; i += 1) {
+    if (await anyExists(driver, MAIN_SELECTORS, 300)) return true;
+    const backSelector = await firstExisting(driver, BACK_SELECTORS, 500);
+    if (backSelector) {
+      await tapIfExists(driver, backSelector, 1000);
+    } else {
+      try {
+        await driver.back();
+      } catch {
+        // ignore and continue recovery loop
+      }
+    }
+    await driver.pause(500);
+  }
+
+  return anyExists(driver, MAIN_SELECTORS, 500);
+}
+
 async function logoutIfNeeded(driver) {
   const onAuthScreen =
     (await exists(driver, '~submit-login-button')) ||
@@ -86,7 +137,9 @@ async function run() {
   const email = env('TEST_EMAIL');
   const password = env('TEST_PASSWORD');
   const minimalSmoke = env('SMOKE_MINIMAL', '0') === '1';
+  const deepSmoke = env('SMOKE_DEEP', '0') === '1';
   const skipLogout = env('SMOKE_SKIP_LOGOUT', '0') === '1';
+  const resetAppState = env('SMOKE_RESET_APP', '0') === '1';
 
   if (!email || !password) {
     throw new Error('Missing TEST_EMAIL or TEST_PASSWORD');
@@ -100,7 +153,7 @@ async function run() {
     'appium:automationName': 'XCUITest',
     'appium:udid': udid,
     'appium:bundleId': bundleId,
-    'appium:noReset': true,
+    'appium:noReset': !resetAppState,
     'appium:newCommandTimeout': 240,
     'appium:wdaLaunchTimeout': 120000,
     'appium:wdaConnectionTimeout': 120000,
@@ -129,6 +182,9 @@ async function run() {
     await tapIfExists(driver, '~Go home');
     await tapIfExists(driver, '~login-button');
     await tapIfExists(driver, '~Login');
+
+    // Recover if app resumed on a deep screen without root tabs.
+    await recoverToMainSurface(driver);
 
     // Login form if present
     const emailPresent = await typeIfExists(driver, '~email-input', email);
@@ -173,7 +229,7 @@ async function run() {
 
     if (state !== 'main') {
       try {
-        await driver.saveScreenshot('/tmp/device-smoke-fail.png');
+      await driver.saveScreenshot('/tmp/device-smoke-fail.png');
       } catch {
         // ignore screenshot failure
       }
@@ -212,6 +268,56 @@ async function run() {
       await tapIfExists(driver, '~home-tab', 6000);
 
       console.log('[device-smoke] tab navigation OK');
+    }
+
+    if (deepSmoke) {
+      // Header flows
+      const openedSearch = await tapIfExists(driver, '~search-button', 2000) || await tapIfExists(driver, '~Search', 2000);
+      if (openedSearch) {
+        await typeIfExists(driver, '//XCUIElementTypeTextField[1]', 'fitness', 2500);
+        await driver.pause(900);
+        try { await driver.back(); } catch { /* ignore */ }
+      }
+
+      const openedNotifications = await tapIfExists(driver, '~notifications-button', 2000) || await tapIfExists(driver, '~Notifications', 2000);
+      if (openedNotifications) {
+        await driver.pause(900);
+        try { await driver.back(); } catch { /* ignore */ }
+      }
+
+      // Messages flow
+      await tapIfExists(driver, '~messages-tab', 4000);
+      await driver.pause(1000);
+      await typeIfExists(driver, '//XCUIElementTypeTextField[1]', 'test', 2000);
+      try { await driver.back(); } catch { /* ignore */ }
+
+      // Settings entry and key sections reachability
+      await tapIfExists(driver, '~profile-tab', 4000);
+      const openedSettings = await tapIfExists(driver, '~settings-button', 3000) || await tapIfExists(driver, '~Settings', 3000);
+      if (openedSettings) {
+        const settingLabels = [
+          'Edit Profile',
+          'Change Password',
+          'Notifications',
+          'Follow Requests',
+          'Blocked Users',
+          'Muted Users',
+          'Report a Problem',
+          'Export My Data',
+          'Terms of Service',
+        ];
+
+        for (const label of settingLabels) {
+          const openedItem = await tapIfExists(driver, `~${label}`, 1200) || await tapIfExists(driver, `//*[@name="${label}"]`, 1200);
+          if (openedItem) {
+            await driver.pause(500);
+            try { await driver.back(); } catch { /* ignore */ }
+            await driver.pause(300);
+          }
+        }
+      }
+
+      console.log('[device-smoke] deep flow checks OK');
     }
   } finally {
     await driver.deleteSession();

@@ -4,11 +4,11 @@
  * Features: caching, blurhash placeholders, lazy loading
  */
 
-import React, { memo, useState, ReactNode } from 'react';
+import React, { memo, useEffect, useMemo, useState, ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle, ImageStyle, StyleProp, Pressable } from 'react-native';
 import { Image, ImageContentFit, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { buildRemoteMediaSource, normalizeCdnUrl } from '../utils/cdnUrl';
+import { buildRemoteMediaSource, getAlternateCdnUrls, normalizeCdnUrl } from '../utils/cdnUrl';
 import { addBreadcrumb } from '../lib/sentry';
 
 // Blurhash placeholder for smooth loading
@@ -57,6 +57,57 @@ type ThumbnailImageProps = Readonly<{
 /**
  * Optimized Image component with caching and placeholders
  */
+const buildSourceCandidates = (source?: ImageSource | string | number | null): Array<ImageSource | number> => {
+  if (typeof source === 'number') return [source];
+
+  if (typeof source === 'string') {
+    const candidates: Array<ImageSource> = [];
+    const primary = buildRemoteMediaSource(source);
+    if (primary) candidates.push(primary);
+
+    for (const alternateUrl of getAlternateCdnUrls(source)) {
+      const alternateSource = buildRemoteMediaSource(alternateUrl);
+      if (alternateSource) candidates.push(alternateSource);
+    }
+    return candidates;
+  }
+
+  if (source != null && typeof source === 'object') {
+    if (!source.uri) return [source];
+
+    const candidates: Array<ImageSource> = [];
+    const primary = buildRemoteMediaSource(source.uri);
+    if (primary) {
+      candidates.push({
+        ...source,
+        ...primary,
+        headers: {
+          ...(source as { headers?: Record<string, string> }).headers,
+          ...primary.headers,
+        },
+      });
+    } else {
+      candidates.push({ ...source, uri: normalizeCdnUrl(source.uri) });
+    }
+
+    for (const alternateUrl of getAlternateCdnUrls(source.uri)) {
+      const altSource = buildRemoteMediaSource(alternateUrl);
+      if (!altSource) continue;
+      candidates.push({
+        ...source,
+        ...altSource,
+        headers: {
+          ...(source as { headers?: Record<string, string> }).headers,
+          ...altSource.headers,
+        },
+      });
+    }
+    return candidates;
+  }
+
+  return [];
+};
+
 const OptimizedImage = memo<OptimizedImageProps>(({
   source,
   style,
@@ -70,32 +121,16 @@ const OptimizedImage = memo<OptimizedImageProps>(({
   ...props
 }) => {
   const [hasError, setHasError] = useState(false);
+  const [attemptIndex, setAttemptIndex] = useState(0);
 
-  // Handle different source formats and normalize CDN URLs
-  let resolvedSource: ImageSource | number | undefined;
-  if (typeof source === 'string') {
-    resolvedSource = buildRemoteMediaSource(source);
-  } else if (source != null && typeof source === 'object') {
-    if (source.uri) {
-      const remoteSource = buildRemoteMediaSource(source.uri);
-      if (remoteSource) {
-        resolvedSource = {
-          ...source,
-          ...remoteSource,
-          headers: {
-            ...(source as { headers?: Record<string, string> }).headers,
-            ...remoteSource.headers,
-          },
-        };
-      } else {
-        resolvedSource = { ...source, uri: normalizeCdnUrl(source.uri) };
-      }
-    } else {
-      resolvedSource = source;
-    }
-  } else if (typeof source === 'number') {
-    resolvedSource = source;
-  }
+  const sourceCandidates = useMemo(() => buildSourceCandidates(source), [source]);
+  const safeIndex = Math.min(attemptIndex, Math.max(sourceCandidates.length - 1, 0));
+  const resolvedSource = sourceCandidates[safeIndex];
+
+  useEffect(() => {
+    setHasError(false);
+    setAttemptIndex(0);
+  }, [source]);
 
   // Skip rendering if no valid source or image failed to load
   if (hasError || !resolvedSource || (typeof resolvedSource === 'object' && !resolvedSource.uri)) {
@@ -132,6 +167,11 @@ const OptimizedImage = memo<OptimizedImageProps>(({
           'media',
           { uri: uri?.slice(0, 200), error: errorMsg },
         );
+        if (attemptIndex < sourceCandidates.length - 1) {
+          setAttemptIndex((prev) => prev + 1);
+          return;
+        }
+
         setHasError(true);
         onError?.();
       }}

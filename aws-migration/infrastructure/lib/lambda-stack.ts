@@ -624,6 +624,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         MEDIA_BUCKET: mediaBucket.bucketName,
+        CDN_DOMAIN: cdk.Fn.importValue(`smuppy-cdn-domain-${environment}`),
       },
       bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,
@@ -669,6 +670,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...lambdaEnvironment,
         MEDIA_BUCKET: mediaBucket.bucketName,
+        CDN_DOMAIN: cdk.Fn.importValue(`smuppy-cdn-domain-${environment}`),
       },
       bundling: { minify: true, sourceMap: !isProduction, externalModules: [] },
       tracing: lambda.Tracing.ACTIVE,

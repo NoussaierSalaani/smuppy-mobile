@@ -29,6 +29,26 @@ if (!process.env.MEDIA_BUCKET) {
 
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET;
 
+// SECURITY: Validate and whitelist CDN domain to avoid host injection
+function getValidatedCdnBaseUrl(): string | null {
+  const raw = process.env.CDN_DOMAIN || process.env.MEDIA_CDN_DOMAIN || process.env.CLOUDFRONT_URL || null;
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname.endsWith('.cloudfront.net') || hostname.endsWith('.amazonaws.com')) {
+      return `${parsed.protocol}//${parsed.hostname}`;
+    }
+    console.warn('[media-upload-url] CDN domain rejected — not in whitelist', { hostname });
+    return null;
+  } catch {
+    console.warn('[media-upload-url] CDN domain rejected — invalid URL', { raw: raw.substring(0, 50) });
+    return null;
+  }
+}
+
+const CDN_BASE_URL = getValidatedCdnBaseUrl();
+
 // SECURITY: Whitelist of allowed content types
 const ALLOWED_CONTENT_TYPES: Record<string, string[]> = {
   image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'],
@@ -272,8 +292,9 @@ export const handler = withAuthHandler('media-upload-url', async (event, { heade
       unhoistableHeaders: new Set(['x-amz-checksum-crc32', 'x-amz-sdk-checksum-algorithm']),
     });
 
-    // Generate the public URL for the uploaded file
+    // Generate public URLs for uploaded file
     const publicUrl = `https://${MEDIA_BUCKET}.s3.amazonaws.com/${key}`;
+    const cdnUrl = CDN_BASE_URL ? `${CDN_BASE_URL}/${key}` : undefined;
 
     // Log upload request (masked user ID for security)
     log.info('Upload URL generated', { userId: cognitoSub.substring(0, 2) + '***', uploadType, mediaType });
@@ -284,6 +305,7 @@ export const handler = withAuthHandler('media-upload-url', async (event, { heade
       body: JSON.stringify({
         success: true,
         uploadUrl,
+        cdnUrl,
         publicUrl,
         fileUrl: key,
         key,

@@ -6,6 +6,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda';
 
 // Set env before import
 process.env.MEDIA_BUCKET = 'test-media-bucket';
+process.env.CDN_DOMAIN = 'https://d3gy4x1feicix3.cloudfront.net';
 
 jest.mock('../../../shared/db', () => ({ getPool: jest.fn(), getReaderPool: jest.fn() }));
 jest.mock('../../utils/rate-limit', () => ({ requireRateLimit: jest.fn().mockResolvedValue(null) }));
@@ -138,6 +139,7 @@ describe('media/upload-url handler', () => {
     expect(body.success).toBe(true);
     expect(body.uploadUrl).toBeDefined();
     expect(body.key).toBeDefined();
+    expect(body.cdnUrl).toContain('cloudfront.net/');
   });
 
   it('should return 500 on unexpected error', async () => {

@@ -111,9 +111,9 @@ const STAGING_DEFAULTS = {
   restEndpointDisputes: 'https://wk7tymrgbg.execute-api.us-east-1.amazonaws.com/staging',
   graphqlEndpoint: 'https://e55gq4swgra43heqxqj726ivda.appsync-api.us-east-1.amazonaws.com/graphql',
   websocketEndpoint: 'wss://35hlodqnj9.execute-api.us-east-1.amazonaws.com/staging',
-  // Media: production CDN+bucket (all media lives here, staging bucket is empty)
-  bucket: 'smuppy-media',
-  cdnDomain: 'https://dc8kq67t0asis.cloudfront.net',
+  // Media: staging CDN+bucket (must match staging Lambdas for upload/display consistency)
+  bucket: 'smuppy-media-staging-471112656108',
+  cdnDomain: 'https://d3gy4x1feicix3.cloudfront.net',
   feedTable: 'smuppy-feeds-staging',
   likesTable: 'smuppy-likes-staging',
 } as const;

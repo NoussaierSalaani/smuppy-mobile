@@ -1,19 +1,14 @@
 /**
  * CDN URL Normalization
  *
- * The backend API returns full URLs using the staging CloudFront distribution
- * (d3gy4x1feicix3.cloudfront.net) which points to an empty staging S3 bucket.
- * All media lives in the production bucket served by the CDN configured in
- * AWS_CONFIG.storage.cdnDomain (env var EXPO_PUBLIC_CDN_DOMAIN).
- *
- * This utility normalizes URLs so every component — images, videos, avatars —
- * resolves to the correct CDN domain.
+ * IMPORTANT:
+ * - Absolute URLs returned by backend must be preserved as-is.
+ * - Only raw object keys are mapped to the configured CDN domain.
+ * This avoids staging/prod host drift where new media is uploaded in one
+ * environment but rewritten to another.
  */
 
 import { AWS_CONFIG } from '../config/aws-config';
-
-// CDK staging distribution — backend APIs return URLs using this domain
-const LEGACY_CDN = 'd3gy4x1feicix3.cloudfront.net';
 
 // Current CDN hostname — derived from centralized AWS config
 const CURRENT_CDN = (() => {
@@ -30,6 +25,11 @@ const MOBILE_MEDIA_USER_AGENT =
 
 const ABSOLUTE_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const HOST_WITHOUT_SCHEME_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i;
+const KNOWN_CDN_HOSTS = Array.from(new Set([
+  CURRENT_CDN,
+  'dc8kq67t0asis.cloudfront.net',
+  'd3gy4x1feicix3.cloudfront.net',
+].filter(Boolean)));
 
 const isLocalOrInlineUri = (value: string): boolean => {
   const lower = value.toLowerCase();
@@ -61,25 +61,18 @@ export const normalizeCdnUrl = (url: string | undefined | null): string | undefi
   const trimmed = url.trim();
   if (!trimmed) return undefined;
 
-  if (trimmed.includes(LEGACY_CDN)) {
-    return trimmed.replace(LEGACY_CDN, CURRENT_CDN);
-  }
+  if (isLocalOrInlineUri(trimmed)) return trimmed;
 
   try {
     const parsed = new URL(trimmed);
-    const host = parsed.hostname.toLowerCase();
-    const isS3Url = host.includes('.s3.amazonaws.com') || host.includes('.s3.us-east-1.amazonaws.com');
-    if (isS3Url) {
-      const key = parsed.pathname.replace(/^\/+/, '');
-      if (!key) return trimmed;
-      return `https://${CURRENT_CDN}/${key}${parsed.search}`;
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      // Preserve explicit backend host (CloudFront/S3/custom).
+      return trimmed;
     }
     return trimmed;
   } catch {
-    // Fall through — handle host-without-scheme and raw S3 object keys.
+    // Fall through — handle host-without-scheme and raw object keys.
   }
-
-  if (isLocalOrInlineUri(trimmed)) return trimmed;
 
   // Sometimes backend returns "cdn.example.com/path" without scheme.
   if (HOST_WITHOUT_SCHEME_REGEX.test(trimmed)) {
@@ -91,7 +84,7 @@ export const normalizeCdnUrl = (url: string | undefined | null): string | undefi
   if (!ABSOLUTE_SCHEME_REGEX.test(trimmed)) {
     const key = trimmed.replace(/^\/+/, '');
     if (!key) return undefined;
-    return `https://${CURRENT_CDN}/${key}`;
+    return CURRENT_CDN ? `https://${CURRENT_CDN}/${key}` : key;
   }
 
   return trimmed;
@@ -132,6 +125,26 @@ export const buildRemoteMediaSource = (
   }
 
   return { uri: normalized };
+};
+
+export const getAlternateCdnUrls = (url: string | null | undefined): string[] => {
+  const normalized = normalizeCdnUrl(url);
+  if (!normalized) return [];
+
+  try {
+    const parsed = new URL(normalized);
+
+    // Absolute URL on known CloudFront host: build same path on other known hosts.
+    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && KNOWN_CDN_HOSTS.includes(parsed.hostname)) {
+      return KNOWN_CDN_HOSTS
+        .filter((host) => host !== parsed.hostname)
+        .map((host) => `https://${host}${parsed.pathname}${parsed.search || ''}`);
+    }
+
+    return [];
+  } catch {
+    return [];
+  }
 };
 
 export const getMediaVariant = (

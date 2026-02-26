@@ -615,9 +615,10 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         const mappedPeaks = (res.data || []).map((p) => {
           const thumbnail = toCdn(p.thumbnailUrl) || toCdn(p.author?.avatarUrl) || PEAK_PLACEHOLDER;
           const videoStatus = p.videoStatus || null;
-          const isVideoReady = videoStatus === 'ready' || !videoStatus;
-          const videoUrl = isVideoReady ? (toCdn(p.videoUrl) || undefined) : undefined;
-          const hlsUrl = isVideoReady ? (toCdn(p.hlsUrl) || undefined) : undefined;
+          // Keep direct video fallback even while processing/failed to avoid black screens.
+          // PeakView will still prioritize HLS when available.
+          const videoUrl = toCdn(p.videoUrl) || undefined;
+          const hlsUrl = toCdn(p.hlsUrl) || undefined;
           const createdAt = p.createdAt || new Date().toISOString();
           const hasNew = (Date.now() - new Date(createdAt).getTime()) < 60 * 60 * 1000;
           return {

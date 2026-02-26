@@ -41,9 +41,12 @@ interface CachedCredentials {
 let writerPool: Pool | null = null;
 let readerPool: Pool | null = null;
 let cachedCredentials: CachedCredentials | null = null;
+let writerPoolCreatedAt = 0;
+let readerPoolCreatedAt = 0;
 
 // Credential cache TTL: 30 minutes (allows for credential rotation)
 const CREDENTIALS_CACHE_TTL_MS = 30 * 60 * 1000;
+const IAM_TOKEN_REFRESH_MS = 14 * 60 * 1000;
 
 const secretsClient = new SecretsManagerClient({});
 
@@ -119,8 +122,9 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   let password: PoolConfig['password'];
   if (USE_IAM_AUTH) {
     log.info('Using IAM authentication for RDS Proxy');
-    // Provide a fresh IAM token for each new connection to avoid stale token reuse.
-    password = () => generateIAMToken(host, port, credentials.username);
+    // Generate a fresh IAM token when creating the pool.
+    // Pool is force-rotated before token TTL to avoid intermittent auth failures.
+    password = await generateIAMToken(host, port, credentials.username);
   } else {
     password = credentials.password;
   }
@@ -219,6 +223,13 @@ function wrapPoolWithTiming(pool: Pool): Pool {
  * Uses RDS Proxy endpoint for connection pooling
  */
 export async function getPool(): Promise<Pool> {
+  if (USE_IAM_AUTH && writerPool && Date.now() - writerPoolCreatedAt > IAM_TOKEN_REFRESH_MS) {
+    log.info('Writer pool IAM token window expired, rotating pool');
+    await writerPool.end().catch(() => {});
+    writerPool = null;
+    writerPoolCreatedAt = 0;
+  }
+
   if (!writerPool) {
     // Use RDS Proxy endpoint (DB_HOST) by default for connection pooling
     // Falls back to writer endpoint if DB_HOST is not set
@@ -227,6 +238,7 @@ export async function getPool(): Promise<Pool> {
       throw new Error('DB_HOST or DB_WRITER_HOST environment variable is required');
     }
     writerPool = wrapPoolWithTiming(await createPool(host));
+    writerPoolCreatedAt = Date.now();
   }
 
   return writerPool;
@@ -248,6 +260,13 @@ export async function getPool(): Promise<Pool> {
  * - Operations that require read-after-write consistency
  */
 export async function getReaderPool(): Promise<Pool> {
+  if (USE_IAM_AUTH && readerPool && Date.now() - readerPoolCreatedAt > IAM_TOKEN_REFRESH_MS) {
+    log.info('Reader pool IAM token window expired, rotating pool');
+    await readerPool.end().catch(() => {});
+    readerPool = null;
+    readerPoolCreatedAt = 0;
+  }
+
   if (!readerPool) {
     // Use reader endpoint for read operations
     const readerHost = process.env.DB_READER_HOST;
@@ -257,6 +276,7 @@ export async function getReaderPool(): Promise<Pool> {
       return getPool();
     }
     readerPool = wrapPoolWithTiming(await createPool(readerHost, { maxConnections: 10 })); // More connections for reads
+    readerPoolCreatedAt = Date.now();
   }
 
   return readerPool;
@@ -276,10 +296,12 @@ export function invalidateCredentials(): void {
   if (writerPool) {
     writerPool.end().catch(() => {});
     writerPool = null;
+    writerPoolCreatedAt = 0;
   }
   if (readerPool) {
     readerPool.end().catch(() => {});
     readerPool = null;
+    readerPoolCreatedAt = 0;
   }
   log.info('Database credentials and pools invalidated for refresh');
 }

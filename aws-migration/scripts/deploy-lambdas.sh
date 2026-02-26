@@ -114,6 +114,10 @@ get_alias() {
     reports/report-user)          echo "ReportsUser" ;;
     # Peaks — cleanup uses different name
     peaks/cleanup-expired)        echo "PeaksCleanup" ;;
+    # Media — video handlers use CDK names without "Media" prefix
+    media/start-video-processing)  echo "StartVideoProcessing" ;;
+    media/video-processing-complete) echo "VideoProcessingComplete" ;;
+    media/video-status)            echo "VideoStatus" ;;
     # Business — some have different CDK names
     business/access-pass)         echo "BusinessValidateAccess" ;;
     business/my-subscriptions)    echo "BusinessSubscriptionMana" ;;
@@ -274,6 +278,15 @@ SUCCESS=0
 FAILED=0
 SKIPPED=0
 NO_LAMBDA=0
+SKIPPED_HANDLERS=()
+CRITICAL_HANDLERS=(
+  "media/start-video-processing"
+  "media/video-processing-complete"
+  "media/video-status"
+  "posts/create"
+  "peaks/create"
+  "profiles/update"
+)
 
 for handler in "${HANDLERS[@]}"; do
   # Find matching Lambda function
@@ -292,6 +305,7 @@ for handler in "${HANDLERS[@]}"; do
       search_key=$(handler_to_search_key "$handler")
       warn "No matching function for: $handler (key: $search_key) — skipping"
       ((SKIPPED++))
+      SKIPPED_HANDLERS+=("$handler")
     fi
     continue
   fi
@@ -332,5 +346,16 @@ log "  Deployed:  $SUCCESS"
 [[ $FAILED -gt 0 ]]    && error "  Failed:    $FAILED"
 log "===================================="
 
+critical_missing=0
+for critical in "${CRITICAL_HANDLERS[@]}"; do
+  for skipped in "${SKIPPED_HANDLERS[@]-}"; do
+    if [[ "$critical" == "$skipped" ]]; then
+      error "Critical handler skipped: $critical"
+      critical_missing=1
+    fi
+  done
+done
+
 [[ $FAILED -gt 0 ]] && exit 1
+[[ $critical_missing -gt 0 ]] && exit 1
 exit 0

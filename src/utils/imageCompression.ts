@@ -45,7 +45,8 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 400,
     maxHeight: 400,
     quality: 0.8,
-    format: 'webp' as const,
+    // Rekognition moderation pipeline is most reliable with JPEG/PNG inputs.
+    format: 'jpeg' as const,
   },
 
   // For cover images (wide)
@@ -53,7 +54,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 1200,
     maxHeight: 600,
     quality: 0.8,
-    format: 'webp' as const,
+    format: 'jpeg' as const,
   },
 
   // For post images (balanced quality/size — WebP ~30% smaller than JPEG)
@@ -61,7 +62,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 1080,
     maxHeight: 1350,
     quality: 0.85,
-    format: 'webp' as const,
+    format: 'jpeg' as const,
   },
 
   // For thumbnails (very small)
@@ -69,7 +70,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 300,
     maxHeight: 300,
     quality: 0.7,
-    format: 'webp' as const,
+    format: 'jpeg' as const,
   },
 
   // For high quality (minimal compression)
@@ -77,7 +78,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 2048,
     maxHeight: 2048,
     quality: 0.95,
-    format: 'webp' as const,
+    format: 'jpeg' as const,
   },
 
   // For messages (medium quality)
@@ -85,7 +86,7 @@ export const COMPRESSION_PRESETS = {
     maxWidth: 800,
     maxHeight: 800,
     quality: 0.75,
-    format: 'webp' as const,
+    format: 'jpeg' as const,
   },
 };
 

@@ -75,6 +75,9 @@ const API2_PREFIXES = [
   '/groups', '/reviews', '/map', '/search/map', '/live-streams',
 ] as const;
 
+const MEDIA_NOT_READY_MAX_ATTEMPTS = 7;
+const MEDIA_NOT_READY_BASE_DELAY_MS = 1200;
+
 class AWSAPIService {
   private defaultTimeout = 30000;
   // Prevent concurrent signOut calls from racing (double 401 scenario)
@@ -348,6 +351,37 @@ class AWSAPIService {
     return this.refreshPromise;
   }
 
+  private isMediaNotReadyError(error: unknown): boolean {
+    if (!(error instanceof APIError)) return false;
+    if (error.statusCode !== 409) return false;
+    const code = typeof error.data?.code === 'string' ? error.data.code : '';
+    return code === 'MEDIA_NOT_READY' || error.message.toLowerCase().includes('still processing');
+  }
+
+  private async withMediaReadyRetry<T>(
+    operation: () => Promise<T>,
+    maxAttempts = MEDIA_NOT_READY_MAX_ATTEMPTS,
+    baseDelayMs = MEDIA_NOT_READY_BASE_DELAY_MS,
+  ): Promise<T> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await operation();
+      } catch (error_) {
+        const shouldRetry = this.isMediaNotReadyError(error_) && attempt < maxAttempts;
+        if (!shouldRetry) throw error_;
+
+        const delay = process.env.NODE_ENV === 'test' ? 0 : baseDelayMs * attempt;
+        if (__DEV__ && process.env.NODE_ENV !== 'test') {
+          console.log(`[AWS API] MEDIA_NOT_READY retry ${attempt}/${maxAttempts - 1} in ${delay}ms`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    // Unreachable: loop always returns or throws.
+    throw new APIError('Media is still processing', 409, { code: 'MEDIA_NOT_READY' });
+  }
+
   // ==========================================
   // Posts API
   // ==========================================
@@ -397,10 +431,10 @@ class AWSAPIService {
   }
 
   async createPost(data: CreatePostInput): Promise<Post> {
-    return this.request('/posts', {
+    return this.withMediaReadyRetry(() => this.request('/posts', {
       method: 'POST',
       body: data,
-    });
+    }));
   }
 
   async updatePost(id: string, data: Partial<CreatePostInput>): Promise<Post> {
@@ -707,10 +741,10 @@ class AWSAPIService {
   }
 
   async createPeak(data: CreatePeakInput): Promise<Peak> {
-    return this.request('/peaks', {
+    return this.withMediaReadyRetry(() => this.request('/peaks', {
       method: 'POST',
       body: data,
-    });
+    }));
   }
 
   async likePeak(id: string): Promise<void> {

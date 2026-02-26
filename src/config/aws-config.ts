@@ -118,6 +118,32 @@ const STAGING_DEFAULTS = {
   likesTable: 'smuppy-likes-staging',
 } as const;
 
+const LEGACY_STAGING_MEDIA_BUCKETS = new Set<string>([
+  'smuppy-media',
+]);
+
+const LEGACY_STAGING_CDN_HOSTS = new Set<string>([
+  'dc8kq67t0asis.cloudfront.net',
+]);
+
+const normalizeStagingMediaBucket = (value: string, env: string): string => {
+  if (env !== 'staging') return value;
+  return LEGACY_STAGING_MEDIA_BUCKETS.has(value) ? STAGING_DEFAULTS.bucket : value;
+};
+
+const normalizeStagingCdnDomain = (value: string, env: string): string => {
+  if (env !== 'staging') return value;
+  try {
+    const parsed = new URL(value);
+    if (LEGACY_STAGING_CDN_HOSTS.has(parsed.host)) {
+      return STAGING_DEFAULTS.cdnDomain;
+    }
+    return value;
+  } catch {
+    return STAGING_DEFAULTS.cdnDomain;
+  }
+};
+
 // Build config from extra (app.config.js), falling back to staging defaults (NEVER throw)
 export const getAWSConfig = (): AWSConfig => {
   const currentEnv = extra.expoPublicEnv || extra.appEnv || (__DEV__ ? 'staging' : 'production');
@@ -132,6 +158,21 @@ export const getAWSConfig = (): AWSConfig => {
     fallbackVars.push(label);
     return stagingDefault;
   };
+
+  const resolvedBucket = normalizeStagingMediaBucket(
+    resolve('expoPublicS3Bucket', STAGING_DEFAULTS.bucket, 'S3_BUCKET'),
+    currentEnv,
+  );
+  const resolvedCdnDomain = normalizeStagingCdnDomain(
+    (
+      extra.expoPublicCdnDomain && !extra.expoPublicCdnDomain.startsWith('__MISSING_')
+        ? extra.expoPublicCdnDomain
+        : extra.cloudfrontUrl && !extra.cloudfrontUrl.startsWith('__MISSING_')
+          ? extra.cloudfrontUrl
+          : (() => { fallbackVars.push('CDN_DOMAIN'); return STAGING_DEFAULTS.cdnDomain; })()
+    ),
+    currentEnv,
+  );
 
   const config: AWSConfig = {
     region: resolve('expoPublicAwsRegion', STAGING_DEFAULTS.region, 'AWS_REGION'),
@@ -149,13 +190,10 @@ export const getAWSConfig = (): AWSConfig => {
       websocketEndpoint: resolve('expoPublicApiWebsocketEndpoint', STAGING_DEFAULTS.websocketEndpoint, 'API_WEBSOCKET_ENDPOINT'),
     },
     storage: {
-      bucket: resolve('expoPublicS3Bucket', STAGING_DEFAULTS.bucket, 'S3_BUCKET'),
-      // CDN: try EXPO_PUBLIC_CDN_DOMAIN first, then CLOUDFRONT_URL (legacy), then default
-      cdnDomain: extra.expoPublicCdnDomain && !extra.expoPublicCdnDomain.startsWith('__MISSING_')
-        ? extra.expoPublicCdnDomain
-        : extra.cloudfrontUrl && !extra.cloudfrontUrl.startsWith('__MISSING_')
-          ? extra.cloudfrontUrl
-          : (() => { fallbackVars.push('CDN_DOMAIN'); return STAGING_DEFAULTS.cdnDomain; })(),
+      bucket: resolvedBucket,
+      // CDN: try EXPO_PUBLIC_CDN_DOMAIN first, then CLOUDFRONT_URL (legacy), then default.
+      // In staging, known legacy hosts are normalized to canonical staging CDN.
+      cdnDomain: resolvedCdnDomain,
     },
     dynamodb: {
       feedTable: resolve('expoPublicDynamodbFeedTable', STAGING_DEFAULTS.feedTable, 'DYNAMODB_FEED_TABLE'),

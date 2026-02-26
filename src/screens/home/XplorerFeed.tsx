@@ -75,6 +75,14 @@ const XPLORER_LABELS: Record<string, string> = {
   live: 'Live',
 };
 
+const formatSearchPinLabel = (displayName?: string): string => {
+  if (!displayName) return 'Selected location';
+  const primarySegment = displayName.split(',')[0]?.trim();
+  const normalized = primarySegment || displayName.trim();
+  if (!normalized) return 'Selected location';
+  return normalized.length > 30 ? `${normalized.slice(0, 30)}...` : normalized;
+};
+
 // ============================================
 // FAB ACTIONS BY ACCOUNT TYPE
 // ============================================
@@ -237,6 +245,11 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSearchResult[]>([]);
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [selectedSearchPin, setSelectedSearchPin] = useState<{
+    latitude: number;
+    longitude: number;
+    label?: string;
+  } | null>(null);
   const [subFilterSheet, setSubFilterSheet] = useState<string | null>(null);
   const [fabOpen, setFabOpen] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -537,12 +550,24 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       zoomLevel: 15,
       animationDuration: 800,
     });
+    setSelectedSearchPin({
+      latitude: lat,
+      longitude: lon,
+      label: formatSearchPinLabel(result.display_name),
+    });
 
     // Clear search and suggestions
     setSearchQuery('');
     setAddressSuggestions([]);
     setShowAddressSuggestions(false);
   }, []);
+
+  const handleSearchInputChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (value.trim().length > 0 && selectedSearchPin) {
+      setSelectedSearchPin(null);
+    }
+  }, [selectedSearchPin]);
 
   const centerOnUser = useCallback(() => {
     if (!cameraRef.current) return;
@@ -768,6 +793,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
     setSearchQuery('');
     setAddressSuggestions([]);
     setShowAddressSuggestions(false);
+    setSelectedSearchPin(null);
   }, []);
   const handleCloseFab = useCallback(() => setFabOpen(false), []);
   const handleFabPress = useCallback(() => {
@@ -841,6 +867,33 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
       </View>
     );
   }, [colors, styles]);
+
+  const renderSearchPin = useCallback(() => {
+    if (!selectedSearchPin) return null;
+
+    return (
+      <PointAnnotation
+        key="search-location-pin"
+        id="search-location-pin"
+        coordinate={[selectedSearchPin.longitude, selectedSearchPin.latitude]}
+      >
+        <View style={styles.searchPinWrapper}>
+          <View style={styles.searchPinLabelContainer}>
+            <Text style={styles.searchPinLabel} numberOfLines={1}>
+              {selectedSearchPin.label || 'Selected location'}
+            </Text>
+          </View>
+          <View style={styles.searchPinPulse} />
+          <View style={styles.searchTeardropContainer}>
+            <View style={styles.searchTeardropPin}>
+              <Ionicons name="location" size={normalize(18)} color={colors.white} />
+            </View>
+            <View style={styles.searchTeardropPointer} />
+          </View>
+        </View>
+      </PointAnnotation>
+    );
+  }, [colors.white, selectedSearchPin, styles]);
 
   const renderUserPopup = () => {
     if (!selectedMarker) return null;
@@ -1179,6 +1232,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             </View>
           </PointAnnotation>
         )}
+        {renderSearchPin()}
       </MapView>
 
       {/* SEARCH BAR */}
@@ -1193,7 +1247,7 @@ export default function XplorerFeed({ navigation, isActive }: XplorerFeedProps) 
             placeholder="Search places or type an address..."
             placeholderTextColor={colors.gray}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchInputChange}
             onFocus={() => addressSuggestions.length > 0 && setShowAddressSuggestions(true)}
           />
           {isSearchingAddress && (
@@ -1713,6 +1767,66 @@ const createStyles = (colors: typeof import('../../config/theme').COLORS, isDark
     borderTopWidth: hp(1),
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
+    marginTop: -2,
+  },
+  searchPinWrapper: {
+    alignItems: 'center',
+    maxWidth: wp(60),
+  },
+  searchPinLabelContainer: {
+    backgroundColor: colors.background,
+    borderRadius: normalize(10),
+    paddingHorizontal: sp(2.8),
+    paddingVertical: hp(0.8),
+    borderWidth: 1,
+    borderColor: subtleBorder,
+    shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: hp(0.5),
+  },
+  searchPinLabel: {
+    fontSize: normalize(12),
+    fontWeight: '600',
+    color: colors.dark,
+  },
+  searchPinPulse: {
+    width: normalize(44),
+    height: normalize(44),
+    borderRadius: normalize(22),
+    backgroundColor: 'rgba(14,191,138,0.14)',
+    position: 'absolute',
+    bottom: -normalize(2),
+  },
+  searchTeardropContainer: {
+    alignItems: 'center',
+  },
+  searchTeardropPin: {
+    width: normalize(40),
+    height: normalize(40),
+    borderRadius: normalize(20),
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderWidth: 3,
+    borderColor: colors.white,
+    shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.26,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  searchTeardropPointer: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: sp(2.2),
+    borderRightWidth: sp(2.2),
+    borderTopWidth: hp(1.1),
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: colors.primary,
     marginTop: -2,
   },
   liveMarkerContainer: {

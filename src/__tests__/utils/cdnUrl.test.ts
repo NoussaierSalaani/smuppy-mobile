@@ -70,6 +70,15 @@ describe('normalizeCdnUrl', () => {
     expect(normalizeCdnUrl('blob:https://example.com/id')).toBe('blob:https://example.com/id');
   });
 
+  it('returns undefined for pending-scan object keys', () => {
+    expect(normalizeCdnUrl('pending-scan/posts/u1/photo.jpg')).toBeUndefined();
+    expect(normalizeCdnUrl('/pending-scan/posts/u1/photo.jpg')).toBeUndefined();
+  });
+
+  it('returns undefined for pending-scan absolute URLs', () => {
+    expect(normalizeCdnUrl(`https://${CURRENT_CDN}/pending-scan/posts/u1/photo.jpg`)).toBeUndefined();
+  });
+
   it('handles empty string', () => {
     expect(normalizeCdnUrl('')).toBeUndefined();
   });

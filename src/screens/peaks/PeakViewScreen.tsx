@@ -357,6 +357,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
   const [showReactions, setShowReactions] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [preferHlsPlayback, setPreferHlsPlayback] = useState(true);
   const [peakReactions, setPeakReactions] = useState<Map<string, ReactionType>>(new Map()); // peakId -> reaction
   const [showResponsesModal, setShowResponsesModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -439,7 +440,11 @@ const PeakViewScreen = (): React.JSX.Element => {
   }, [currentPeak.expiresAt, currentPeak.isOwnPeak, navigation, showWarning]);
 
   // Keep refs in sync for panResponder closure
-  useEffect(() => { currentIndexRef.current = currentIndex; setVideoError(null); }, [currentIndex]);
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+    setVideoError(null);
+    setPreferHlsPlayback(true);
+  }, [currentIndex]);
   useEffect(() => { peaksRef.current = peaks; }, [peaks]);
 
   // Reset progress and play when peak changes
@@ -1270,8 +1275,14 @@ const PeakViewScreen = (): React.JSX.Element => {
           {(() => {
             const isVideoProcessing = currentPeak.videoStatus === 'uploaded' || currentPeak.videoStatus === 'processing';
             const isVideoFailed = currentPeak.videoStatus === 'failed';
-            const resolvedVideoUrl = getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl);
-            if (isVideoProcessing || !resolvedVideoUrl) {
+            const resolvedVideoUrl = preferHlsPlayback
+              ? getVideoPlaybackUrl(currentPeak.hlsUrl, currentPeak.videoUrl)
+              : getVideoPlaybackUrl(null, currentPeak.videoUrl);
+            const usingHls = !!(preferHlsPlayback && currentPeak.hlsUrl && resolvedVideoUrl === currentPeak.hlsUrl);
+            const fallbackVideoUrl = getVideoPlaybackUrl(null, currentPeak.videoUrl);
+            const playbackCandidate = resolvedVideoUrl || (isVideoFailed ? fallbackVideoUrl : undefined);
+
+            if (!playbackCandidate) {
               return (
                 <View style={styles.media}>
                   <OptimizedImage
@@ -1284,20 +1295,12 @@ const PeakViewScreen = (): React.JSX.Element => {
                       <Text style={styles.videoPendingText}>Video processing...</Text>
                     </View>
                   )}
-                </View>
-              );
-            }
-            if (isVideoFailed) {
-              return (
-                <View style={styles.media}>
-                  <OptimizedImage
-                    source={currentPeak.thumbnail || placeholder}
-                    style={styles.media}
-                  />
-                  <View style={styles.videoPendingOverlay}>
-                    <Ionicons name="alert-circle-outline" size={36} color="rgba(255,255,255,0.95)" />
-                    <Text style={styles.videoPendingText}>Video unavailable</Text>
-                  </View>
+                  {isVideoFailed && (
+                    <View style={styles.videoPendingOverlay}>
+                      <Ionicons name="alert-circle-outline" size={36} color="rgba(255,255,255,0.95)" />
+                      <Text style={styles.videoPendingText}>Video unavailable</Text>
+                    </View>
+                  )}
                 </View>
               );
             }
@@ -1306,7 +1309,10 @@ const PeakViewScreen = (): React.JSX.Element => {
                 <TouchableOpacity
                   style={styles.media}
                   activeOpacity={0.8}
-                  onPress={() => setVideoError(null)}
+                  onPress={() => {
+                    setVideoError(null);
+                    setPreferHlsPlayback(true);
+                  }}
                 >
                   <OptimizedImage
                     source={currentPeak.thumbnail || placeholder}
@@ -1319,7 +1325,7 @@ const PeakViewScreen = (): React.JSX.Element => {
                 </TouchableOpacity>
               );
             }
-            const playbackSource = buildRemoteMediaSource(resolvedVideoUrl);
+            const playbackSource = buildRemoteMediaSource(playbackCandidate);
             if (!playbackSource) {
               return (
                 <OptimizedImage
@@ -1339,13 +1345,17 @@ const PeakViewScreen = (): React.JSX.Element => {
                 onPlaybackStatusUpdate={onVideoStatus}
                 onError={(error: string) => {
                   if (__DEV__) {
-                    console.warn(`[MEDIA_ERROR] Video load failed: ${error} | URI: ${resolvedVideoUrl.slice(0, 200)}`);
+                    console.warn(`[MEDIA_ERROR] Video load failed: ${error} | URI: ${playbackCandidate.slice(0, 200)}`);
                   }
                   addBreadcrumb(
                     `Video load failed: ${error}`,
                     'media',
-                    { uri: resolvedVideoUrl.slice(0, 200), peakId: currentPeak.id, error },
+                    { uri: playbackCandidate.slice(0, 200), peakId: currentPeak.id, error },
                   );
+                  if (usingHls && currentPeak.videoUrl && currentPeak.videoUrl !== currentPeak.hlsUrl) {
+                    setPreferHlsPlayback(false);
+                    return;
+                  }
                   setVideoError(error);
                 }}
                 posterSource={buildRemoteMediaSource(currentPeak.thumbnail)}

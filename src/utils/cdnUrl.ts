@@ -25,6 +25,7 @@ const MOBILE_MEDIA_USER_AGENT =
 
 const ABSOLUTE_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const HOST_WITHOUT_SCHEME_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i;
+const PENDING_SCAN_SEGMENT = '/pending-scan/';
 
 const isLocalOrInlineUri = (value: string): boolean => {
   const lower = value.toLowerCase();
@@ -47,6 +48,27 @@ const shouldAttachMediaHeaders = (url: string): boolean => {
   }
 };
 
+const isPendingScanPath = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  if (
+    trimmed.startsWith('pending-scan/') ||
+    trimmed === 'pending-scan' ||
+    trimmed.startsWith('/pending-scan/') ||
+    trimmed === '/pending-scan'
+  ) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.pathname === '/pending-scan' || parsed.pathname.includes(PENDING_SCAN_SEGMENT);
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Normalize a CDN URL: replace legacy staging CDN domain with the correct one.
  * Returns the original value unchanged when it's falsy or doesn't contain the legacy domain.
@@ -55,6 +77,7 @@ export const normalizeCdnUrl = (url: string | undefined | null): string | undefi
   if (!url || typeof url !== 'string') return undefined;
   const trimmed = url.trim();
   if (!trimmed) return undefined;
+  if (isPendingScanPath(trimmed)) return undefined;
 
   if (isLocalOrInlineUri(trimmed)) return trimmed;
 

@@ -6,6 +6,7 @@
  */
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getPool, SqlParam } from '../../shared/db';
 import { sanitizeInput, isValidUsername, isReservedUsername, logSecurityEvent } from '../utils/security';
 import { resolveProfileId } from '../utils/auth';
@@ -74,6 +75,9 @@ const JSONB_FIELDS = new Set(['social_links']);
 const VALID_LOCATIONS_MODES = ['all', 'followers', 'none', 'single', 'multiple'];
 
 const CLEARABLE_URL_FIELDS = new Set(['avatarUrl', 'coverUrl']);
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET?.trim() || '';
+const s3Client = MEDIA_BUCKET ? new S3Client({}) : null;
+const MIN_MEDIA_FILE_BYTES = 512;
 
 // Columns returned after INSERT or UPDATE
 const RETURNING_COLUMNS = [
@@ -195,6 +199,84 @@ function validateStringField(field: string, value: unknown): FieldValidationResu
     return { valid: false, sanitized: null, error: `${field} has invalid format` };
   }
   return { valid: true, sanitized };
+}
+
+function extractObjectKeyFromUrl(mediaUrl: string): string | null {
+  const trimmed = mediaUrl.trim();
+  if (!trimmed) return null;
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return trimmed.replace(/^\/+/, '');
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return decodeURIComponent(parsed.pathname).replace(/^\/+/, '') || null;
+  } catch {
+    return null;
+  }
+}
+
+function isStorageNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
+  return (
+    err.name === 'NotFound' ||
+    err.name === 'NoSuchKey' ||
+    err.Code === 'NotFound' ||
+    err.Code === 'NoSuchKey' ||
+    err.$metadata?.httpStatusCode === 404
+  );
+}
+
+async function ensureMediaUrlReady(
+  mediaUrl: unknown,
+  headers: Record<string, string>,
+): Promise<APIGatewayProxyResult | null> {
+  if (process.env.NODE_ENV === 'test') return null;
+  if (!MEDIA_BUCKET || !s3Client) return null;
+  if (typeof mediaUrl !== 'string') return null;
+
+  const trimmed = mediaUrl.trim();
+  if (!trimmed) return null;
+
+  const objectKey = extractObjectKeyFromUrl(trimmed);
+  if (!objectKey) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Invalid media URL format' }),
+    };
+  }
+  if (objectKey.startsWith('pending-scan/')) {
+    return {
+      statusCode: 409,
+      headers,
+      body: JSON.stringify({ success: false, code: 'MEDIA_NOT_READY', message: 'Media is still processing. Please retry in a few seconds.' }),
+    };
+  }
+
+  try {
+    const metadata = await s3Client.send(new HeadObjectCommand({
+      Bucket: MEDIA_BUCKET,
+      Key: objectKey,
+    }));
+    if (typeof metadata.ContentLength === 'number' && metadata.ContentLength > 0 && metadata.ContentLength < MIN_MEDIA_FILE_BYTES) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, code: 'MEDIA_INVALID', message: 'Uploaded media is invalid or corrupted. Please upload a different file.' }),
+      };
+    }
+    return null;
+  } catch (error_) {
+    if (isStorageNotFoundError(error_)) {
+      return {
+        statusCode: 409,
+        headers,
+        body: JSON.stringify({ success: false, code: 'MEDIA_NOT_READY', message: 'Media is still processing. Please retry in a few seconds.' }),
+      };
+    }
+    throw error_;
+  }
 }
 
 // Validate and sanitize a single field — dispatches to the appropriate validator
@@ -422,6 +504,11 @@ export const handler = withErrorHandler('profiles-update', async (event, { heade
       const modResult = await moderateTexts(textFieldsToCheck, headers, log, 'profile');
       if (modResult.blocked) return modResult.blockResponse!;
     }
+
+    const avatarReadyError = await ensureMediaUrlReady(body.avatarUrl, headers);
+    if (avatarReadyError) return avatarReadyError;
+    const coverReadyError = await ensureMediaUrlReady(body.coverUrl, headers);
+    if (coverReadyError) return coverReadyError;
 
     // Build update fields and check for empty update
     const { setClauses, values, nextIndex } = buildUpdateParams(body);

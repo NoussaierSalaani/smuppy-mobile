@@ -85,7 +85,7 @@ jest.mock('@sentry/react-native', () => ({
 // Import AFTER mocks
 // =============================================
 
-import { awsAPI } from '../../services/aws-api';
+import { awsAPI, APIError } from '../../services/aws-api';
 import type { CreatePostInput, UpdateProfileInput, CreatePeakInput, NotificationPreferences } from '../../services/api/types';
 
 // =============================================
@@ -154,6 +154,19 @@ describe('Posts API', () => {
     requestSpy.mockResolvedValueOnce({ id: 'p1', ...data });
     await awsAPI.createPost(data as CreatePostInput);
     expect(requestSpy).toHaveBeenCalledWith('/posts', { method: 'POST', body: data });
+  });
+
+  it('createPost(data) should retry when backend returns MEDIA_NOT_READY', async () => {
+    const data = { content: 'hello', mediaUrls: ['https://cdn.test/posts/u1/p1.jpg'] };
+    requestSpy
+      .mockRejectedValueOnce(new APIError('Media is still processing', 409, { code: 'MEDIA_NOT_READY' }))
+      .mockResolvedValueOnce({ id: 'p1', ...data });
+
+    await awsAPI.createPost(data as CreatePostInput);
+
+    expect(requestSpy).toHaveBeenNthCalledWith(1, '/posts', { method: 'POST', body: data });
+    expect(requestSpy).toHaveBeenNthCalledWith(2, '/posts', { method: 'POST', body: data });
+    expect(requestSpy).toHaveBeenCalledTimes(2);
   });
 
   it('updatePost(id, data) should PATCH /posts/:id', async () => {
@@ -348,6 +361,19 @@ describe('Peaks API', () => {
     requestSpy.mockResolvedValueOnce({ id: 'pk1' });
     await awsAPI.createPeak(data as unknown as CreatePeakInput);
     expect(requestSpy).toHaveBeenCalledWith('/peaks', { method: 'POST', body: data });
+  });
+
+  it('createPeak(data) should retry on MEDIA_NOT_READY', async () => {
+    const data = { videoUrl: 'https://cdn.test/peaks/u1/v1.mp4', duration: 10 };
+    requestSpy
+      .mockRejectedValueOnce(new APIError('Media is still processing', 409, { code: 'MEDIA_NOT_READY' }))
+      .mockResolvedValueOnce({ success: true, peak: { id: 'pk1' } });
+
+    await awsAPI.createPeak(data as CreatePeakInput);
+
+    expect(requestSpy).toHaveBeenNthCalledWith(1, '/peaks', { method: 'POST', body: data });
+    expect(requestSpy).toHaveBeenNthCalledWith(2, '/peaks', { method: 'POST', body: data });
+    expect(requestSpy).toHaveBeenCalledTimes(2);
   });
 
   it('likePeak(id) should POST /peaks/:id/like', async () => {

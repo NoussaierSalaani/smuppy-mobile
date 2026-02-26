@@ -23,7 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { awsAuth } from '../../services/aws-auth';
-import { uploadPeakMedia, generateVideoThumbnail, uploadImage, waitForMediaAvailability } from '../../services/mediaUpload';
+import { uploadPeakMedia, generateVideoThumbnail, uploadImage } from '../../services/mediaUpload';
 import { awsAPI } from '../../services/aws-api';
 import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { useUserStore } from '../../stores/userStore';
@@ -214,14 +214,10 @@ const PeakPreviewScreen = (): React.JSX.Element => {
         throw new Error(uploadResult.error || 'Failed to upload video');
       }
 
-      // Normalize and verify uploaded video URL is publicly reachable before creating peak.
+      // Normalize uploaded video URL and let backend enforce readiness (409 MEDIA_NOT_READY retry).
       const mediaUrl = normalizeCdnUrl(uploadResult.cdnUrl || uploadResult.url || '');
       if (!mediaUrl) {
         throw new Error('Invalid uploaded video URL');
-      }
-      const isVideoReady = await waitForMediaAvailability(mediaUrl, { timeoutMs: 90_000, intervalMs: 2_000 });
-      if (!isVideoReady) {
-        throw new Error('Video is still processing. Please retry in a few seconds.');
       }
 
       // Generate and upload thumbnail
@@ -235,10 +231,7 @@ const PeakPreviewScreen = (): React.JSX.Element => {
           });
           if (thumbResult.success) {
             const normalizedThumbnail = normalizeCdnUrl(thumbResult.cdnUrl || thumbResult.url);
-            if (normalizedThumbnail) {
-              const isThumbnailReady = await waitForMediaAvailability(normalizedThumbnail, { timeoutMs: 60_000, intervalMs: 2_000 });
-              thumbnailUrl = isThumbnailReady ? normalizedThumbnail : undefined;
-            }
+            if (normalizedThumbnail) thumbnailUrl = normalizedThumbnail;
           }
         }
       } catch {

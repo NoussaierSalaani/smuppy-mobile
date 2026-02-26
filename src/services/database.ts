@@ -8,7 +8,7 @@
 // Only use getCurrentUser() when user.id is needed in request body/response.
 
 import { awsAuth } from './aws-auth';
-import { awsAPI, Profile as AWSProfile, Post as AWSPost, Comment as AWSComment, Peak as AWSPeak, Notification as AWSNotification } from './aws-api';
+import { awsAPI, APIError, Profile as AWSProfile, Post as AWSPost, Comment as AWSComment, Peak as AWSPeak, Notification as AWSNotification } from './aws-api';
 import type {
   Spot as SpotType,
   SpotReview as SpotReviewType,
@@ -660,7 +660,33 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<DbRespon
     if (updates.onboarding_completed !== undefined) updateData.onboardingCompleted = updates.onboarding_completed;
 
     if (__DEV__) console.log('[Database] updateProfile', Object.keys(updateData));
-    const profile = await awsAPI.updateProfile(updateData);
+    const hasMediaUpdate = updates.avatar_url !== undefined || updates.cover_url !== undefined;
+
+    let profile: AWSProfile | null = null;
+    if (hasMediaUpdate) {
+      let lastError: unknown = null;
+      const maxAttempts = 6;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          profile = await awsAPI.updateProfile(updateData);
+          lastError = null;
+          break;
+        } catch (error_) {
+          lastError = error_;
+          const isMediaNotReady =
+            error_ instanceof APIError &&
+            error_.statusCode === 409 &&
+            (error_.data?.code === 'MEDIA_NOT_READY' || error_.message.toLowerCase().includes('still processing'));
+          if (!isMediaNotReady || attempt === maxAttempts) break;
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+        }
+      }
+      if (lastError) throw lastError;
+      if (!profile) throw new Error('Profile update failed without response');
+    } else {
+      profile = await awsAPI.updateProfile(updateData);
+    }
+
     return { data: convertProfile(profile), error: null };
   } catch (error_: unknown) {
     if (__DEV__) console.warn('[Database] updateProfile error:', error_);

@@ -19,6 +19,7 @@ const lambdaClient = new LambdaClient({});
 const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET?.trim() || '';
 const s3Client = MEDIA_BUCKET ? new S3Client({}) : null;
+const MIN_MEDIA_FILE_BYTES = 512;
 
 // SECURITY: Validate URL format and restrict to trusted CDN/S3 domains
 const ALLOWED_MEDIA_HOSTS = ['.s3.amazonaws.com', '.s3.us-east-1.amazonaws.com', '.cloudfront.net'];
@@ -77,10 +78,17 @@ async function ensureMediaObjectReady(mediaUrl: string | undefined, headers: Rec
   }
 
   try {
-    await s3Client.send(new HeadObjectCommand({
+    const metadata = await s3Client.send(new HeadObjectCommand({
       Bucket: MEDIA_BUCKET,
       Key: objectKey,
     }));
+    if (typeof metadata.ContentLength === 'number' && metadata.ContentLength > 0 && metadata.ContentLength < MIN_MEDIA_FILE_BYTES) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ success: false, code: 'MEDIA_INVALID', message: 'Uploaded media is invalid or corrupted. Please upload a different file.' }),
+      };
+    }
     return null;
   } catch (error_) {
     if (isStorageNotFoundError(error_)) {
@@ -344,7 +352,7 @@ export const handler = withAuthHandler('peaks-create', async (event, { headers, 
       await notifClient.query(
         `INSERT INTO notifications (user_id, type, title, body, data, idempotency_key)
          SELECT f.follower_id, 'new_peak', 'New Peak', $1, $2,
-                'new_peak:' || $3 || ':' || $4 || ':' || f.follower_id
+                'new_peak:' || $3::text || ':' || $4::text || ':' || f.follower_id::text
          FROM follows f
          JOIN profiles p ON p.id = f.follower_id
          WHERE f.following_id = $3 AND f.status = 'accepted'

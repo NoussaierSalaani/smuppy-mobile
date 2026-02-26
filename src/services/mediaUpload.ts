@@ -37,6 +37,7 @@ export interface UploadOptions {
   compressionOptions?: CompressionOptions;
   onProgress?: (progress: number) => void;
   metadata?: Record<string, string>;
+  waitForAvailability?: boolean;
 }
 
 export interface UploadResult {
@@ -84,6 +85,8 @@ const SUPPORTED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/x-m4v'];
 // Max file sizes (in bytes)
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB
+const MIN_IMAGE_SIZE_BYTES = 512;
+const ENFORCE_MIN_IMAGE_SIZE = process.env.NODE_ENV !== 'test';
 
 // ============================================
 // HELPER FUNCTIONS
@@ -483,6 +486,13 @@ export const uploadToS3 = async (
     const fileBlob = Uint8Array.from(atob(fileBase64), (c) => c.codePointAt(0) ?? 0);
     if (__DEV__) console.log('[uploadToS3] File size:', fileBlob.length, 'bytes, contentType:', contentType);
 
+    // Guard against iOS URI edge-cases returning tiny/corrupt payloads.
+    // Let caller fallback to FileSystem upload path instead.
+    if (ENFORCE_MIN_IMAGE_SIZE && contentType.startsWith('image/') && fileBlob.length < MIN_IMAGE_SIZE_BYTES) {
+      if (__DEV__) console.warn('[uploadToS3] Refusing tiny image payload:', fileBlob.length, 'bytes');
+      return false;
+    }
+
     const response = await fetch(presignedUrl, {
       method: 'PUT',
       headers: {
@@ -619,6 +629,10 @@ export const uploadImage = async (
       if (__DEV__) console.log('[uploadImage] Unable to determine file size');
       return { success: false, error: 'Unable to determine image size. Please reselect the image.' };
     }
+    if (ENFORCE_MIN_IMAGE_SIZE && fileSize < MIN_IMAGE_SIZE_BYTES) {
+      if (__DEV__) console.warn('[uploadImage] Image too small/corrupt candidate:', fileSize, 'bytes');
+      return { success: false, error: 'Image file looks invalid. Please choose another photo.' };
+    }
 
     // Generate file key
     const extension = getFileExtension(finalUri, mimeType);
@@ -633,15 +647,26 @@ export const uploadImage = async (
       return { success: false, error: 'Failed to get upload URL. Check your connection.' };
     }
 
-    // Upload
+    // Upload (prefer fetch/blob path for images; it is more reliable for iOS media URIs)
     onProgress?.(50);
     if (__DEV__) console.log('[uploadImage] Uploading to S3...');
-    const uploadSuccess = await uploadWithFileSystem(
+    // FileSystem upload is more stable for iOS local file URIs.
+    // Fallback to fetch/blob path only if needed.
+    let uploadSuccess = await uploadWithFileSystem(
       finalUri,
       presignedData.uploadUrl,
       mimeType,
       (p) => onProgress?.(50 + (p * 0.5))
     );
+    if (!uploadSuccess) {
+      if (__DEV__) console.warn('[uploadImage] Primary upload path failed, retrying with fetch/blob');
+      uploadSuccess = await uploadToS3(
+        finalUri,
+        presignedData.uploadUrl,
+        mimeType,
+        (p) => onProgress?.(50 + (p * 0.5))
+      );
+    }
 
     if (!uploadSuccess) {
       if (__DEV__) console.log('[uploadImage] Upload to S3 failed');
@@ -651,7 +676,7 @@ export const uploadImage = async (
     if (__DEV__) console.log('[uploadImage] Success — key:', presignedData.key);
 
     const publicMediaUrl = presignedData.cdnUrl || getCloudFrontUrl(presignedData.key);
-    const shouldWaitForReady = folder !== 'messages';
+    const shouldWaitForReady = options.waitForAvailability === true;
     if (shouldWaitForReady) {
       onProgress?.(92);
       const isReady = await waitForMediaAvailability(publicMediaUrl, { timeoutMs: 60_000, intervalMs: 2_000 });
@@ -777,14 +802,22 @@ export const uploadMultiple = async (
  * Upload avatar with automatic compression
  */
 export const uploadAvatar = (userId: string, imageUri: string): Promise<UploadResult> => {
-  return uploadImage(userId, imageUri, { folder: 'avatars', compress: true });
+  return uploadImage(userId, imageUri, {
+    folder: 'avatars',
+    compress: true,
+    waitForAvailability: true,
+  });
 };
 
 /**
  * Upload cover image with automatic compression
  */
 export const uploadCoverImage = (userId: string, imageUri: string): Promise<UploadResult> => {
-  return uploadImage(userId, imageUri, { folder: 'covers', compress: true });
+  return uploadImage(userId, imageUri, {
+    folder: 'covers',
+    compress: true,
+    waitForAvailability: true,
+  });
 };
 
 /**

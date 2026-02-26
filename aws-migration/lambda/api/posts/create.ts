@@ -25,6 +25,7 @@ const s3Client = MEDIA_BUCKET ? new S3Client({}) : null;
 
 const MAX_MEDIA_URLS = 10;
 const MAX_TAGGED_USERS = 20;
+const MIN_MEDIA_FILE_BYTES = 512;
 const ALLOWED_VISIBILITIES = new Set(['public', 'fans', 'private', 'subscribers']);
 const ALLOWED_MEDIA_TYPES = new Set(['image', 'video', 'multiple']);
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g; // NOSONAR — intentional control char sanitization
@@ -91,10 +92,13 @@ async function ensureMediaObjectsReady(
     }
 
     try {
-      await s3Client.send(new HeadObjectCommand({
+      const metadata = await s3Client.send(new HeadObjectCommand({
         Bucket: MEDIA_BUCKET,
         Key: objectKey,
       }));
+      if (typeof metadata.ContentLength === 'number' && metadata.ContentLength > 0 && metadata.ContentLength < MIN_MEDIA_FILE_BYTES) {
+        return errorResponse(400, headers, 'Uploaded media is invalid or corrupted. Please upload a different file.', { code: 'MEDIA_INVALID' });
+      }
     } catch (error_) {
       if (isStorageNotFoundError(error_)) {
         return errorResponse(409, headers, 'Media is still processing. Please retry in a few seconds.', { code: 'MEDIA_NOT_READY' });

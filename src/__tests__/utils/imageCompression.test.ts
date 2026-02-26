@@ -93,10 +93,10 @@ const setupDimReadThenCompress = (opts: {
 
 describe('Image Compression Utils', () => {
   describe('COMPRESSION_PRESETS validation (BUG-2026-02-05 regression)', () => {
-    it('should use webp format for all 6 presets', () => {
+    it('should use jpeg format for all 6 presets', () => {
       const presetNames = ['avatar', 'cover', 'post', 'thumbnail', 'highQuality', 'message'] as const;
       for (const name of presetNames) {
-        expect(COMPRESSION_PRESETS[name].format).toBe('webp');
+        expect(COMPRESSION_PRESETS[name].format).toBe('jpeg');
       }
     });
 

@@ -63,7 +63,13 @@ const buildSourceCandidates = (source?: ImageSource | string | number | null): A
   if (typeof source === 'string') {
     const candidates: Array<ImageSource> = [];
     const primary = buildRemoteMediaSource(source);
-    if (primary) candidates.push(primary);
+    if (primary) {
+      candidates.push(primary);
+    } else if (source.trim()) {
+      // Fallback: use raw string as URI when CDN normalization fails
+      // (e.g., pending-scan paths or non-CDN URLs)
+      candidates.push({ uri: source.trim() });
+    }
 
     for (const alternateUrl of getAlternateCdnUrls(source)) {
       const alternateSource = buildRemoteMediaSource(alternateUrl);

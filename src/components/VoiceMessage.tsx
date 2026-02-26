@@ -128,7 +128,7 @@ export default React.memo(function VoiceMessage({ uri, isFromMe }: VoiceMessageP
 
   const togglePlayback = useCallback(async () => {
     if (loadError) {
-      // Allow retry even after max — reset counter so user can keep trying
+      if (retryCountRef.current >= 5) return; // Cap retries to prevent resource spam
       retryCountRef.current += 1;
       setLoadError(false);
       setReloadTick(t => t + 1);

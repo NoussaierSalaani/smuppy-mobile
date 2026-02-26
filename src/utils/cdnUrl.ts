@@ -204,7 +204,7 @@ export const getMediaVariant = (
 
   // If variant key exists in media_meta, build CDN URL from it
   const variantKey = mediaMeta?.variants?.[variant];
-  if (variantKey) {
+  if (variantKey && CURRENT_CDN) {
     return `https://${CURRENT_CDN}/${variantKey}`;
   }
 

@@ -201,7 +201,7 @@ export const transformToFanPost = (
     duration: formatDuration(post.peak_duration),
     user: {
       id: post.author?.id || post.author_id,
-      name: resolveDisplayName(post.author),
+      name: resolveDisplayName(post.author) || 'Unknown',
       username: `@${post.author?.username || 'user'}`,
       avatar: post.author?.avatar_url || null,
       isVerified: !!post.author?.is_verified,

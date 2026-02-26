@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, ActivityIndicator, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -90,6 +90,8 @@ export default function NewPasswordScreen({ navigation, route }: NewPasswordScre
 
   const handleSubmit = useCallback(async () => {
     if (!isValid || isLoading) return;
+
+    Keyboard.dismiss();
 
     if (!email || !code) {
       setErrorMessage('Missing reset code. Please go back and try again.');

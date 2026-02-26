@@ -26,6 +26,7 @@ import { usePrefetchProfile } from '../../hooks/queries';
 import { formatTimeAgo } from '../../utils/dateFormatters';
 import { isValidUUID } from '../../utils/formatters';
 import { useUserSafetyStore } from '../../stores/userSafetyStore';
+import { useSmuppyAlert } from '../../context/SmuppyAlertContext';
 import { sanitizeOptionalText } from '../../utils/sanitize';
 
 // ============================================
@@ -424,6 +425,7 @@ export default function NotificationsScreen(): React.JSX.Element {
   // Track IDs with pending delete API calls — prevents refetch from re-adding them
   const pendingDeletesRef = useRef<Set<string>>(new Set());
 
+  const { showError } = useSmuppyAlert();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   // Fetch notifications from API — uses ref for cursor to avoid stale closure
@@ -555,7 +557,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       return;
     }
     // Fallback: navigate to user profile if no content ID
-    if (notif.user?.id) {
+    if (notif.user?.id && isValidUUID(notif.user.id)) {
       goToUserProfile(notif.user.id);
     }
   }, [navigation, goToUserProfile]);
@@ -596,6 +598,7 @@ export default function NotificationsScreen(): React.JSX.Element {
       setNotifications(prev =>
         prev.map(n => n.id === id && 'isFollowing' in n ? { ...n, isFollowing: userNotif.isFollowing } : n)
       );
+      showError('Error', 'Unable to update follow status. Please try again.');
       if (__DEV__) console.warn('Follow toggle error:', err);
     } finally {
       togglingRef.current.delete(id);

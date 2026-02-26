@@ -417,8 +417,12 @@ export const validate = {
     if (typoCheck.isTypo) return false;
     return true;
   },
-  /** Validate phone number (10+ digits with optional formatting) */
-  phone: (v: string | undefined | null): boolean => /^[\d\s\-+()]{10,}$/.test(v?.trim() || ''),
+  /** Validate phone number (10+ chars, at least 7 digits) */
+  phone: (v: string | undefined | null): boolean => {
+    const trimmed = v?.trim() || '';
+    if (!/^[\d\s\-+()]{10,}$/.test(trimmed)) return false;
+    return (trimmed.match(/\d/g) || []).length >= 7;
+  },
   /** Validate username (3-20 chars, alphanumeric + underscore) */
   username: (v: string | undefined | null): boolean => /^[a-zA-Z0-9_]{3,20}$/.test(v || ''),
   /** Check if value is not empty after trimming */
@@ -442,9 +446,9 @@ export const validate = {
     }
   },
   /** Check if value contains only digits */
-  numeric: (v: string | undefined | null): boolean => /^\d+$/.test(v || ''),
+  numeric: (v: string | undefined | null): boolean => !!v && /^\d+$/.test(v),
   /** Check if value is alphanumeric */
-  alphanumeric: (v: string | undefined | null): boolean => /^[a-zA-Z0-9]+$/.test(v || ''),
+  alphanumeric: (v: string | undefined | null): boolean => !!v && /^[a-zA-Z0-9]+$/.test(v),
 };
 
 // ============================================

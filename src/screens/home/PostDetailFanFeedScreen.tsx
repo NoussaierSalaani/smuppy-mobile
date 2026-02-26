@@ -242,11 +242,13 @@ const PostDetailFanFeedScreen = () => {
         const { error } = await unsavePost(pId);
         if (!error) {
           setBookmarkedPosts(prev => ({ ...prev, [pId]: false }));
+          useFeedStore.getState().toggleSaveOptimistic(pId, false);
         }
       } else {
         const { error } = await savePost(pId);
         if (!error) {
           setBookmarkedPosts(prev => ({ ...prev, [pId]: true }));
+          useFeedStore.getState().toggleSaveOptimistic(pId, true);
         }
       }
     } catch (error) {

@@ -17,6 +17,7 @@ import {
   FlatList,
   ActivityIndicator,
   BackHandler,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
@@ -352,6 +353,7 @@ const PeakViewScreen = (): React.JSX.Element => {
   const [viewedPeaks, setViewedPeaks] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(0);
   const videoRef = useRef<Video | null>(null);
+  const pausedByBackgroundRef = useRef(false);
   const [showTagModal, setShowTagModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [peakTags, setPeakTags] = useState<Map<string, string[]>>(new Map()); // peakId -> taggedUserIds
@@ -413,6 +415,26 @@ const PeakViewScreen = (): React.JSX.Element => {
     });
     return () => sub.remove();
   }, [navigation]);
+
+  // Pause video when app goes to background, resume when returning to active
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        if (!isPaused && videoRef.current) {
+          pausedByBackgroundRef.current = true;
+          setIsPaused(true);
+          videoRef.current.pauseAsync().catch(() => {});
+        }
+      } else if (nextAppState === 'active') {
+        if (pausedByBackgroundRef.current && videoRef.current) {
+          pausedByBackgroundRef.current = false;
+          setIsPaused(false);
+          videoRef.current.playAsync().catch(() => {});
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [isPaused]);
 
   useEffect(() => {
     if (showOnboarding) {
@@ -1358,8 +1380,8 @@ const PeakViewScreen = (): React.JSX.Element => {
                   }
                   setVideoError(error);
                 }}
-                posterSource={buildRemoteMediaSource(currentPeak.thumbnail)}
-                usePoster
+                posterSource={buildRemoteMediaSource(currentPeak.thumbnail) || (currentPeak.thumbnail?.trim() ? { uri: currentPeak.thumbnail } : undefined)}
+                usePoster={!!(buildRemoteMediaSource(currentPeak.thumbnail) || currentPeak.thumbnail?.trim())}
               />
             );
           })()}

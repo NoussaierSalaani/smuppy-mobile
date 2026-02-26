@@ -59,12 +59,12 @@ tags:
 # Test 3: Valid format but wrong credentials
 - tapOn:
     id: "email-input"
-- clearText
+- eraseText
 - inputText: "wrong@example.com"
 
 - tapOn:
     id: "password-input"
-- clearText
+- eraseText
 - inputText: "WrongPassword123!"
 
 - tapOn:
@@ -104,7 +104,7 @@ tags:
 - takeScreenshot: "signup-weak-password"
 
 # Test 5: Valid password (check requirements)
-- clearText
+- eraseText
 - inputText: "StrongPass123!@#"
 
 - takeScreenshot: "signup-strong-password"

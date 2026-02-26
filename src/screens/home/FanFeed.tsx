@@ -592,16 +592,23 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         setPosts(prev => prev.filter(p => !deletedPosts[p.id]));
       }
 
-      // Immediately apply like overrides from detail screens (no flash)
+      // Immediately apply like/save overrides from detail screens (no flash)
       const overrides = useFeedStore.getState().optimisticLikes;
+      const saveOverrides = useFeedStore.getState().optimisticSaves;
       const overrideIds = Object.keys(overrides);
-      if (overrideIds.length > 0) {
+      const saveOverrideIds = Object.keys(saveOverrides);
+      if (overrideIds.length > 0 || saveOverrideIds.length > 0) {
         setPosts(prev => prev.map(p => {
-          const override = overrides[p.id];
-          if (override !== undefined && override !== p.isLiked) {
-            return { ...p, isLiked: override, likes: p.likes + (override ? 1 : -1) };
+          let updated = p;
+          const likeOverride = overrides[p.id];
+          if (likeOverride !== undefined && likeOverride !== p.isLiked) {
+            updated = { ...updated, isLiked: likeOverride, likes: updated.likes + (likeOverride ? 1 : -1) };
           }
-          return p;
+          const saveOverride = saveOverrides[p.id];
+          if (saveOverride !== undefined && saveOverride !== p.isSaved) {
+            updated = { ...updated, isSaved: saveOverride };
+          }
+          return updated;
         }));
       }
 
@@ -629,12 +636,19 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
               useFeedStore.getState().clearOptimisticLikes(applied);
             }
           }
+          if (saveOverrideIds.length > 0) {
+            const appliedSaves = postIds.filter(id => id in saveOverrides);
+            if (appliedSaves.length > 0) {
+              useFeedStore.getState().clearOptimisticSaves(appliedSaves);
+            }
+          }
         }).catch((err) => {
           if (__DEV__) console.warn('[FanFeed] Error syncing like/save state:', err);
         });
-      } else if (overrideIds.length > 0) {
+      } else if (overrideIds.length > 0 || saveOverrideIds.length > 0) {
         // No posts to re-sync, clear overrides immediately
-        useFeedStore.getState().clearOptimisticLikes(overrideIds);
+        if (overrideIds.length > 0) useFeedStore.getState().clearOptimisticLikes(overrideIds);
+        if (saveOverrideIds.length > 0) useFeedStore.getState().clearOptimisticSaves(saveOverrideIds);
       }
 
       return () => { cancelled = true; };
@@ -679,6 +693,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
         if (removedSuggestion) {
           setSuggestions(prev => [removedSuggestion!, ...prev]);
         }
+        showError('Follow Failed', 'Could not follow this user. Please try again.');
       });
     } finally {
       // Remove from tracking set after a short delay to prevent rapid re-clicks
@@ -702,7 +717,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       }
       trackingTimeoutsRef.current.set(userId, timeoutId);
     }
-  }, [trackingUserIds, fetchPosts, fetchSuggestions]);
+  }, [trackingUserIds, fetchPosts, fetchSuggestions, showError]);
 
   // Refill suggestions when running low - load more from database
   useEffect(() => {

@@ -124,8 +124,10 @@ export function usePostInteractions<T extends InteractablePost>({
         if (error) throw new Error(error);
         onSaveToggle?.(postId, true);
       }
+      // Sync to feed store for cross-screen consistency
+      useFeedStore.getState().toggleSaveOptimistic(postId, !wasSaved);
     } catch {
-      // Rollback
+      // Rollback local state + feed store
       setPosts(prev => prev.map(p => {
         if (p.id !== postId) return p;
         return {
@@ -134,6 +136,7 @@ export function usePostInteractions<T extends InteractablePost>({
           saves: (p.saves ?? 0) + (wasSaved ? 1 : -1),
         };
       }));
+      useFeedStore.getState().toggleSaveOptimistic(postId, wasSaved);
       onError?.('save', postId);
     } finally {
       pendingSaves.current.delete(postId);

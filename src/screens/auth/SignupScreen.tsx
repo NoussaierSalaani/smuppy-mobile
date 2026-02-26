@@ -40,12 +40,16 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Ref for mount tracking
+  // Refs for mount tracking and preventing double-tap
   const isMountedRef = useRef(true);
+  const loadingRef = useRef(false);
 
-  // Mount tracking
+  // Mount tracking — also reset loadingRef to prevent stale lock across navigations
   useEffect(() => {
-    return () => { isMountedRef.current = false; };
+    return () => {
+      isMountedRef.current = false;
+      loadingRef.current = false;
+    };
   }, []);
 
   // Social auth via shared hook
@@ -120,7 +124,8 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   const strengthTextStyle = useMemo(() => [styles.strengthText, { color: strengthLevel.color }], [styles.strengthText, strengthLevel.color]);
 
   const handleSignup = useCallback(async () => {
-    if (!isFormValid || loading) return;
+    if (!isFormValid || loading || loadingRef.current) return;
+    loadingRef.current = true;
 
     setLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
@@ -223,6 +228,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         message: 'An unexpected error occurred. Please try again.'
       });
     } finally {
+      loadingRef.current = false;
       if (isMountedRef.current) {
         setLoading(false);
       }

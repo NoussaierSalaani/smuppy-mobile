@@ -135,9 +135,11 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
   const conversationsFingerprint = useRef('');
 
   // Load conversations and sync unread badge to accurate total — filter out blocked/muted users
+  const [loadError, setLoadError] = useState(false);
   const loadConversations = useCallback(async () => {
     const { data, error } = await getConversations();
     if (!error && data) {
+      setLoadError(false);
       // Filter out blocked/muted users
       const filtered = data.filter(c => c.other_user && !isHidden(c.other_user.id));
       // Smart diff: only update state if conversations actually changed
@@ -148,6 +150,8 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
       }
       const total = filtered.reduce((sum, c) => sum + (c.unread_count || 0), 0);
       useAppStore.getState().setUnreadMessages(total);
+    } else if (error) {
+      setLoadError(true);
     }
     setLoading(false);
     setRefreshing(false);
@@ -310,10 +314,10 @@ export default function MessagesScreen({ navigation }: MessagesScreenProps) {
         }
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={60} color={colors.grayLight} />
-            <Text style={[styles.emptyTitle, { color: colors.dark }]}>No messages</Text>
+            <Ionicons name={loadError ? 'cloud-offline-outline' : 'chatbubbles-outline'} size={60} color={colors.grayLight} />
+            <Text style={[styles.emptyTitle, { color: colors.dark }]}>{loadError ? 'Connection error' : 'No messages'}</Text>
             <Text style={[styles.emptySubtitle, { color: colors.gray }]}>
-              {searchQuery ? 'No results found' : 'Start a conversation!'}
+              {loadError ? 'Pull down to retry' : searchQuery ? 'No results found' : 'Start a conversation!'}
             </Text>
             <TouchableOpacity
               style={[styles.startChatBtn, { backgroundColor: colors.primary }]}

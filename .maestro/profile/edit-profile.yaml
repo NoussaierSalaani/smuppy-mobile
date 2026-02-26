@@ -45,7 +45,7 @@ appId: com.nou09.Smuppy
       visible: "Bio"
     commands:
       - tapOn: "Bio"
-      - clearText
+      - eraseText
       - inputText: "E2E Test Bio - Updated at ${timestamp}"
       - hideKeyboard
 
@@ -56,7 +56,7 @@ appId: com.nou09.Smuppy
     commands:
       - tapOn:
           text: ".*Display Name.*|.*Full Name.*"
-      - clearText
+      - eraseText
       - inputText: "E2E Test User"
       - hideKeyboard
 

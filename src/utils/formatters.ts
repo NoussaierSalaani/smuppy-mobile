@@ -20,7 +20,10 @@ export const isValidUUID = (id: string | null | undefined): boolean =>
  * @returns Human-readable compact string
  */
 export const formatNumber = (num: number): string => {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  if (!Number.isFinite(num)) return '0';
+  const abs = Math.abs(num);
+  const sign = num < 0 ? '-' : '';
+  if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M';
+  if (abs >= 1000) return sign + (abs / 1000).toFixed(1) + 'K';
   return num.toString();
 };

@@ -440,16 +440,23 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
         setAllPosts(prev => prev.filter(p => !deletedPosts[p.id]));
       }
 
-      // Immediately apply like overrides from detail screens (no flash)
+      // Immediately apply like/save overrides from detail screens (no flash)
       const overrides = useFeedStore.getState().optimisticLikes;
+      const saveOverrides = useFeedStore.getState().optimisticSaves;
       const overrideIds = Object.keys(overrides);
-      if (overrideIds.length > 0) {
+      const saveOverrideIds = Object.keys(saveOverrides);
+      if (overrideIds.length > 0 || saveOverrideIds.length > 0) {
         setAllPosts(prev => prev.map(p => {
-          const override = overrides[p.id];
-          if (override !== undefined && override !== p.isLiked) {
-            return { ...p, isLiked: override, likes: p.likes + (override ? 1 : -1) };
+          let updated = p;
+          const likeOverride = overrides[p.id];
+          if (likeOverride !== undefined && likeOverride !== p.isLiked) {
+            updated = { ...updated, isLiked: likeOverride, likes: updated.likes + (likeOverride ? 1 : -1) };
           }
-          return p;
+          const saveOverride = saveOverrides[p.id];
+          if (saveOverride !== undefined && saveOverride !== p.isSaved) {
+            updated = { ...updated, isSaved: saveOverride };
+          }
+          return updated;
         }));
       }
 
@@ -476,10 +483,17 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
               useFeedStore.getState().clearOptimisticLikes(applied);
             }
           }
+          if (saveOverrideIds.length > 0) {
+            const appliedSaves = postIds.filter(id => id in saveOverrides);
+            if (appliedSaves.length > 0) {
+              useFeedStore.getState().clearOptimisticSaves(appliedSaves);
+            }
+          }
         }).catch(() => { /* batch sync failed — optimistic state preserved */ });
-      } else if (overrideIds.length > 0) {
+      } else if (overrideIds.length > 0 || saveOverrideIds.length > 0) {
         // No posts to re-sync, clear overrides immediately
-        useFeedStore.getState().clearOptimisticLikes(overrideIds);
+        if (overrideIds.length > 0) useFeedStore.getState().clearOptimisticLikes(overrideIds);
+        if (saveOverrideIds.length > 0) useFeedStore.getState().clearOptimisticSaves(saveOverrideIds);
       }
     }, [])
   );
@@ -968,13 +982,16 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       if (!error) {
         setIsFollowingUser(true);
         showSuccess('Followed', `You are now a fan of ${selectedPost?.user?.name || 'this user'}.`);
+      } else {
+        showError('Follow Failed', 'Could not follow this user. Please try again.');
       }
     } catch (err) {
       if (__DEV__) console.warn('[VibesFeed] Follow error:', err);
+      showError('Follow Failed', 'Could not follow this user. Please try again.');
     } finally {
       setFollowLoading(false);
     }
-  }, [followLoading, selectedPost?.user?.id, selectedPost?.user?.name, showSuccess]);
+  }, [followLoading, selectedPost?.user?.id, selectedPost?.user?.name, showSuccess, showError]);
 
 
   // Navigate to prescriptions (vibe press)

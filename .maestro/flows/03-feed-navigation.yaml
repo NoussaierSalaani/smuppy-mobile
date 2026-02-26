@@ -6,24 +6,8 @@ tags:
   - navigation
 ---
 
-# Launch app (assumes already logged in)
-- launchApp
-
-# Dismiss dev overlays
-- tapOn:
-    text: "Continue"
-    optional: true
-- tapOn:
-    text: "Dismiss"
-    optional: true
-- tapOn:
-    text: "http://localhost:8081"
-    optional: true
-
-# Wait for feed to load
-- extendedWaitUntil:
-    visible: "Fan"
-    timeout: 20000
+# Launch app, dismiss overlays, and login if needed
+- runFlow: shared/init-with-auth.yaml
 
 # Test Fan tab
 - tapOn: "Fan"

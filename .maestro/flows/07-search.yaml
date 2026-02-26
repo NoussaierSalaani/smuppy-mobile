@@ -5,23 +5,8 @@ tags:
   - search
 ---
 
-- launchApp
-
-# Dismiss dev overlays
-- tapOn:
-    text: "Continue"
-    optional: true
-- tapOn:
-    text: "Dismiss"
-    optional: true
-- tapOn:
-    text: "http://localhost:8081"
-    optional: true
-
-# Wait for app to load
-- extendedWaitUntil:
-    visible: "Fan"
-    timeout: 20000
+# Launch app, dismiss overlays, and login if needed
+- runFlow: shared/init-with-auth.yaml
 
 # Tap search button in header
 - tapOn:

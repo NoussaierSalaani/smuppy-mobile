@@ -784,14 +784,19 @@ class AWSAuthService {
       const user = this.decodeIdToken(result.tokens.idToken);
       this.user = user;
 
+      // Persist onboarding flag BEFORE tokens so it is readable when
+      // notifyAuthStateChange triggers resolveAppState in AppNavigator.
+      if (result.isNewUser) {
+        await secureStore.setItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING, '1');
+      } else {
+        await secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING);
+      }
+
       await Promise.all([
         secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
         secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
         secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
-        result.isNewUser
-          ? secureStore.setItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING, '1')
-          : secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING),
       ]);
 
       // Verify critical token was persisted with exponential backoff (3 retries, same as signIn)
@@ -840,14 +845,19 @@ class AWSAuthService {
       const user = this.decodeIdToken(result.tokens.idToken);
       this.user = user;
 
+      // Persist onboarding flag BEFORE tokens so it is readable when
+      // notifyAuthStateChange triggers resolveAppState in AppNavigator.
+      if (result.isNewUser) {
+        await secureStore.setItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING, '1');
+      } else {
+        await secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING);
+      }
+
       await Promise.all([
         secureStore.setItem(TOKEN_KEYS.ACCESS_TOKEN, result.tokens.accessToken),
         secureStore.setItem(TOKEN_KEYS.ID_TOKEN, result.tokens.idToken),
         secureStore.setItem(TOKEN_KEYS.REFRESH_TOKEN, result.tokens.refreshToken),
         secureStore.setItem(TOKEN_KEYS.USER, JSON.stringify(user)),
-        result.isNewUser
-          ? secureStore.setItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING, '1')
-          : secureStore.removeItem(TOKEN_KEYS.SOCIAL_ONBOARDING_PENDING),
       ]);
 
       // Verify critical token was persisted with exponential backoff (3 retries, same as signIn)

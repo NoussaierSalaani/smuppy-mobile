@@ -194,7 +194,7 @@ export default function CheckEmailScreen({ navigation, route }: CheckEmailScreen
 const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,

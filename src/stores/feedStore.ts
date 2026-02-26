@@ -17,6 +17,7 @@ export interface FeedState {
   feedCache: Post[];
   lastFetchTime: number | null;
   optimisticLikes: Record<string, boolean>;
+  optimisticSaves: Record<string, boolean>;
   optimisticPeakLikes: Record<string, boolean>;
   deletedPostIds: Record<string, true>;
   deletedPeakIds: Record<string, true>;
@@ -27,8 +28,10 @@ export interface FeedState {
   markPostDeleted: (postId: string) => void;
   markPeakDeleted: (peakId: string) => void;
   toggleLikeOptimistic: (postId: string, liked: boolean) => void;
+  toggleSaveOptimistic: (postId: string, saved: boolean) => void;
   setPeakLikeOverride: (peakId: string, liked: boolean) => void;
   clearOptimisticLikes: (postIds: string[]) => void;
+  clearOptimisticSaves: (postIds: string[]) => void;
   clearOptimisticPeakLikes: (peakIds: string[]) => void;
   cleanOrphanedOptimistic: () => void;
   purgeUserContent: (userId: string) => void;
@@ -45,8 +48,9 @@ export const useFeedStore = create<FeedState>()(
     feedCache: [] as Post[],
     lastFetchTime: null as number | null,
 
-    // Optimistic updates for likes (shared between feed + detail screens)
+    // Optimistic updates for likes/saves (shared between feed + detail screens)
     optimisticLikes: {} as Record<string, boolean>,
+    optimisticSaves: {} as Record<string, boolean>,
     optimisticPeakLikes: {} as Record<string, boolean>,
 
     // Deletion tracking — syncs detail screen deletions with parent screens
@@ -63,6 +67,9 @@ export const useFeedStore = create<FeedState>()(
         const cacheIds = new Set(posts.map((p) => p.id));
         for (const id of Object.keys(state.optimisticLikes)) {
           if (!cacheIds.has(id)) delete state.optimisticLikes[id];
+        }
+        for (const id of Object.keys(state.optimisticSaves)) {
+          if (!cacheIds.has(id)) delete state.optimisticSaves[id];
         }
         for (const id of Object.keys(state.optimisticPeakLikes)) {
           if (!cacheIds.has(id)) delete state.optimisticPeakLikes[id];
@@ -128,6 +135,13 @@ export const useFeedStore = create<FeedState>()(
         }
       }),
 
+    // Optimistic save (posts) — idempotent: skip if already in desired state
+    toggleSaveOptimistic: (postId: string, saved: boolean) =>
+      set((state) => {
+        if (state.optimisticSaves[postId] === saved) return;
+        state.optimisticSaves[postId] = saved;
+      }),
+
     // Optimistic like (peaks)
     setPeakLikeOverride: (peakId: string, liked: boolean) =>
       set((state) => {
@@ -142,6 +156,13 @@ export const useFeedStore = create<FeedState>()(
         }
       }),
 
+    clearOptimisticSaves: (postIds: string[]) =>
+      set((state) => {
+        for (const id of postIds) {
+          delete state.optimisticSaves[id];
+        }
+      }),
+
     // Clear specific peak overrides
     clearOptimisticPeakLikes: (peakIds: string[]) =>
       set((state) => {
@@ -153,9 +174,11 @@ export const useFeedStore = create<FeedState>()(
     // Remove all posts by a specific user (after block/mute)
     purgeUserContent: (userId: string) =>
       set((state) => {
-        state.feedCache = state.feedCache.filter(
-          (p) => (p as Record<string, unknown>).authorId !== userId && (p as Record<string, unknown>).author_id !== userId
-        );
+        state.feedCache = state.feedCache.filter((p) => {
+          const r = p as Record<string, unknown>;
+          const authorId = r.authorId || r.author_id || r.user_id || (r.user as Record<string, unknown> | undefined)?.id;
+          return authorId !== userId;
+        });
       }),
 
     // Clear feed cache
@@ -164,17 +187,21 @@ export const useFeedStore = create<FeedState>()(
         state.feedCache = [];
         state.lastFetchTime = null;
         state.optimisticLikes = {};
+        state.optimisticSaves = {};
         state.optimisticPeakLikes = {};
         state.deletedPostIds = {};
         state.deletedPeakIds = {};
       }),
 
-    // Clean orphaned optimistic likes not present in feed cache
+    // Clean orphaned optimistic likes/saves not present in feed cache
     cleanOrphanedOptimistic: () =>
       set((state) => {
         const cacheIds = new Set(state.feedCache.map((p) => p.id));
         for (const id of Object.keys(state.optimisticLikes)) {
           if (!cacheIds.has(id)) delete state.optimisticLikes[id];
+        }
+        for (const id of Object.keys(state.optimisticSaves)) {
+          if (!cacheIds.has(id)) delete state.optimisticSaves[id];
         }
         for (const id of Object.keys(state.optimisticPeakLikes)) {
           if (!cacheIds.has(id)) delete state.optimisticPeakLikes[id];
@@ -196,6 +223,7 @@ export const useFeedStore = create<FeedState>()(
 
 export const selectFeedCache = (state: FeedState) => state.feedCache;
 export const selectOptimisticLikes = (state: FeedState) => state.optimisticLikes;
+export const selectOptimisticSaves = (state: FeedState) => state.optimisticSaves;
 export const selectOptimisticPeakLikes = (state: FeedState) => state.optimisticPeakLikes;
 export const selectDeletedPostIds = (state: FeedState) => state.deletedPostIds;
 export const selectDeletedPeakIds = (state: FeedState) => state.deletedPeakIds;

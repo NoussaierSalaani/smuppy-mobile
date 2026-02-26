@@ -75,16 +75,18 @@ export const useAppStore = create<AppState>()(
 
     setUnreadNotifications: (countOrUpdater) =>
       set((state) => {
-        state.unreadNotifications = typeof countOrUpdater === 'function'
+        const raw = typeof countOrUpdater === 'function'
           ? countOrUpdater(state.unreadNotifications)
           : countOrUpdater;
+        state.unreadNotifications = Math.max(0, Number.isFinite(raw) ? raw : 0);
       }),
 
     setUnreadMessages: (countOrUpdater) =>
       set((state) => {
-        state.unreadMessages = typeof countOrUpdater === 'function'
+        const raw = typeof countOrUpdater === 'function'
           ? countOrUpdater(state.unreadMessages)
           : countOrUpdater;
+        state.unreadMessages = Math.max(0, Number.isFinite(raw) ? raw : 0);
       }),
   }))
 );

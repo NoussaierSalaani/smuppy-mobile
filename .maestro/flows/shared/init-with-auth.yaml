@@ -1,0 +1,56 @@
+# Shared: Launch app, dismiss overlays, and login if needed
+# Use with: - runFlow: flows/shared/init-with-auth.yaml
+# Requires env: TEST_EMAIL, TEST_PASSWORD
+
+appId: com.nou09.Smuppy
+---
+
+- launchApp
+
+# Dismiss dev overlays
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Go home"
+    optional: true
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Login if welcome/auth screen is shown
+- tapOn:
+    id: "login-button"
+    optional: true
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 10000
+    optional: true
+
+- runFlow:
+    when:
+      visible:
+        id: "email-input"
+    commands:
+      - tapOn:
+          id: "email-input"
+      - inputText: "${TEST_EMAIL}"
+      - tapOn:
+          id: "password-input"
+      - inputText: "${TEST_PASSWORD}"
+      - tapOn:
+          id: "submit-login-button"
+      - waitForAnimationToEnd:
+          timeout: 10000
+
+# Wait for authenticated surface
+- extendedWaitUntil:
+    visible:
+      id: "home-tab"
+    timeout: 25000
+    optional: true

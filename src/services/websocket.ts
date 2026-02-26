@@ -279,7 +279,7 @@ class WebSocketService {
 
   private scheduleReconnect(): void {
     this.reconnectAttempts++;
-    const delay = Math.min(60000, this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1));
+    const delay = Math.min(60000, this.reconnectDelay * Math.pow(2, Math.min(this.reconnectAttempts - 1, 10)));
 
     if (process.env.NODE_ENV === 'development') console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 

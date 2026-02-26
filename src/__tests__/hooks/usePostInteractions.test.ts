@@ -15,6 +15,7 @@ const mockLikePost = jest.fn();
 const mockSavePost = jest.fn();
 const mockUnsavePost = jest.fn();
 const mockToggleLikeOptimistic = jest.fn();
+const mockToggleSaveOptimistic = jest.fn();
 
 jest.mock('../../services/database', () => ({
   likePost: (...args: unknown[]) => mockLikePost(...args),
@@ -26,6 +27,7 @@ jest.mock('../../stores/feedStore', () => ({
   useFeedStore: {
     getState: () => ({
       toggleLikeOptimistic: mockToggleLikeOptimistic,
+      toggleSaveOptimistic: mockToggleSaveOptimistic,
     }),
   },
 }));

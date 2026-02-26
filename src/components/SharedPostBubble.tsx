@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import OptimizedImage, { AvatarImage } from './OptimizedImage';
 import { AccountBadge } from './Badge';
 import { SPACING } from '../config/theme';
@@ -125,12 +126,16 @@ function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
       activeOpacity={0.8}
     >
       {/* Post Image */}
-      {mediaUrl && (
+      {mediaUrl ? (
         <OptimizedImage
           source={mediaUrl}
           style={styles.postImage}
           contentFit="cover"
         />
+      ) : (
+        <View style={[styles.postImage, { backgroundColor: isFromMe ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', alignItems: 'center', justifyContent: 'center' }]}>
+          <Ionicons name="image-outline" size={28} color={isFromMe ? 'rgba(255,255,255,0.5)' : colors.gray} />
+        </View>
       )}
 
       {/* Post Info */}

@@ -819,7 +819,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
           >
             {sanitizeContentText(user.bio)}
           </Text>
-          {(user.bio.length > 80 || user.bio.split('\n').length > BIO_MAX_LINES) && (
+          {(user.bio.trim().length > 80 || user.bio.split('\n').length > BIO_MAX_LINES) && (
             <TouchableOpacity
               onPress={handleBioToggle}
               hitSlop={HIT_SLOP.medium}

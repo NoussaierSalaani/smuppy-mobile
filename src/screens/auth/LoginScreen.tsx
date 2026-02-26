@@ -117,9 +117,12 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const isMountedRef = useRef(true);
   const loadingRef = useRef(false);
 
-  // Mount tracking
+  // Mount tracking — also reset loadingRef to prevent stale lock across navigations
   useEffect(() => {
-    return () => { isMountedRef.current = false; };
+    return () => {
+      isMountedRef.current = false;
+      loadingRef.current = false;
+    };
   }, []);
 
   // Social auth via shared hook

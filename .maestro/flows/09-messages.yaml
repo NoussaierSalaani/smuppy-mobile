@@ -6,15 +6,8 @@ tags:
   - social
 ---
 
-- launchApp
-
-# Dismiss dev overlays
-- tapOn:
-    text: "Continue"
-    optional: true
-- tapOn:
-    text: "Dismiss"
-    optional: true
+# Launch app, dismiss overlays, and login if needed
+- runFlow: shared/init-with-auth.yaml
 
 # Navigate to Messages tab
 - tapOn:
@@ -49,7 +42,7 @@ tags:
 - takeScreenshot: "messages-search"
 
 # Clear search and go back
-- clearText
+- eraseText
 - hideKeyboard
 
 # Tap first conversation (if exists)

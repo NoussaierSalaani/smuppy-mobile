@@ -50,11 +50,21 @@ export const resetAllStores = async () => {
   useUserStore.getState().logout();
   useFeedStore.getState().clearFeed();
   useAuthStore.getState().clearAuth();
+
+  // Reset module-level profile sync state to prevent cross-user data leaks
+  try {
+    const { resetProfileSyncState } = await import('../navigation/MainNavigator');
+    resetProfileSyncState();
+  } catch {
+    // Expected: MainNavigator may not be loaded in test environment
+  }
   useAppStore.setState({
     isTabBarVisible: true,
     isOnline: true,
     globalLoading: false,
     errorModal: { visible: false, title: '', message: '' },
+    unreadNotifications: 0,
+    unreadMessages: 0,
   });
 
   // Reset all Zustand stores (except themeStore — user preference should persist across accounts)

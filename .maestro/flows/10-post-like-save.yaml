@@ -7,15 +7,8 @@ tags:
   - critical
 ---
 
-- launchApp
-
-# Dismiss dev overlays
-- tapOn:
-    text: "Continue"
-    optional: true
-- tapOn:
-    text: "Dismiss"
-    optional: true
+# Launch app, dismiss overlays, and login if needed
+- runFlow: shared/init-with-auth.yaml
 
 # Make sure we're on Fan feed
 - tapOn:

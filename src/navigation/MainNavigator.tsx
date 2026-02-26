@@ -227,7 +227,10 @@ const Stack = createNativeStackNavigator();
 
 const AUTH_RETRY_DELAY_MS = 3000;
 const PROFILE_STALE_MS = 60000; // 60s — skip re-fetch if profile was synced recently
-let lastProfileSyncAt = 0;
+// Use a resettable ref instead of module-level variable to prevent
+// cross-user data leaks between login sessions.
+const profileSyncState = { lastSyncAt: 0 };
+export const resetProfileSyncState = () => { profileSyncState.lastSyncAt = 0; };
 
 const screenWithBackSwipe = { gestureEnabled: true, gestureDirection: 'horizontal' as const };
 
@@ -292,7 +295,7 @@ export default function MainNavigator() {
       const syncProfile = async () => {
         // Skip if profile was synced recently (within 60s) or already in store
         const now = Date.now();
-        if (currentUserId && isAuthenticated && (now - lastProfileSyncAt < PROFILE_STALE_MS)) {
+        if (currentUserId && isAuthenticated && (now - profileSyncState.lastSyncAt < PROFILE_STALE_MS)) {
           if (__DEV__) console.log('[MainNavigator] Profile fresh, skipping fetch');
           return;
         }
@@ -300,7 +303,7 @@ export default function MainNavigator() {
         try {
           const { data, error } = await getCurrentProfile();
           if (data && !error && data.id && data.username) {
-            lastProfileSyncAt = Date.now();
+            profileSyncState.lastSyncAt = Date.now();
             setUser({
               id: data.id,
               username: data.username,

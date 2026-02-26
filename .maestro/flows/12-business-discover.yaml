@@ -6,15 +6,8 @@ tags:
   - discovery
 ---
 
-- launchApp
-
-# Dismiss dev overlays
-- tapOn:
-    text: "Continue"
-    optional: true
-- tapOn:
-    text: "Dismiss"
-    optional: true
+# Launch app, dismiss overlays, and login if needed
+- runFlow: shared/init-with-auth.yaml
 
 # Navigate to Xplorer tab (business/map)
 - tapOn:
@@ -41,7 +34,7 @@ tags:
 - takeScreenshot: "xplorer-search"
 
 # Clear and go back
-- clearText
+- eraseText
 - hideKeyboard
 
 # Swipe on map

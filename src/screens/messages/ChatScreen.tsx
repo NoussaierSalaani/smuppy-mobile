@@ -618,9 +618,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     });
 
     const { data: sentMessage, error } = await sendMessageToDb(conversationId, messageText, undefined, undefined, replyToMessage?.id);
-    
-    // Clear reply after sending
-    setReplyToMessage(null);
 
     if (error) {
       // Remove optimistic message and restore input
@@ -633,6 +630,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       showError('Error', 'Failed to send message. Please try again.');
       setInputText(messageText);
     } else if (sentMessage) {
+      // Clear reply only after successful send
+      setReplyToMessage(null);
       // Replace optimistic message with real server response
       pendingOptimisticIdsRef.current.delete(optimisticId);
       setMessages(prev => {
@@ -641,6 +640,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         return next;
       });
     } else {
+      // No error but no data — still treat as sent, clear reply
+      setReplyToMessage(null);
       pendingOptimisticIdsRef.current.delete(optimisticId);
     }
     setSending(false);
@@ -708,9 +709,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       duration
     );
 
-    // Clear reply after sending
-    setReplyToMessage(null);
-
     if (error) {
       pendingOptimisticIdsRef.current.delete(optimisticId);
       setMessages(prev => {
@@ -720,6 +718,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       });
       showError('Error', 'Failed to send voice message');
     } else if (sentMessage) {
+      // Clear reply only after successful send
+      setReplyToMessage(null);
       // Replace optimistic with real message, keeping local URI for sender playback
       pendingOptimisticIdsRef.current.delete(optimisticId);
       setMessages(prev => {
@@ -733,6 +733,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         return next;
       });
     } else {
+      // No error but no data — still treat as sent, clear reply
+      setReplyToMessage(null);
       pendingOptimisticIdsRef.current.delete(optimisticId);
     }
     setSending(false);
@@ -969,9 +971,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       const imageUrl = presignedResult.cdnUrl || presignedResult.key;
       const { data: sentMessage, error } = await sendMessageToDb(conversationId, '', imageUrl, 'image', replyToMessage?.id);
 
-      // Clear reply after sending
-      setReplyToMessage(null);
-
       if (error) {
         pendingOptimisticIdsRef.current.delete(optimisticId);
         setMessages(prev => {
@@ -981,6 +980,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         });
         showError('Error', 'Failed to send image');
       } else if (sentMessage) {
+        // Clear reply only after successful send
+        setReplyToMessage(null);
         // Replace optimistic with real message
         pendingOptimisticIdsRef.current.delete(optimisticId);
         setMessages(prev => {
@@ -989,6 +990,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           return next;
         });
       } else {
+        // No error but no data — still treat as sent, clear reply
+        setReplyToMessage(null);
         pendingOptimisticIdsRef.current.delete(optimisticId);
         // Refresh messages to pick up the server version
         loadMessages();
@@ -1209,8 +1212,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           onCancel={handleStopRecording}
         />
       ) : (
-        <View style={[styles.inputArea, inputAreaPaddingStyle]}>
-          {/* Reply Preview */}
+        <View style={[styles.inputAreaWrapper, inputAreaPaddingStyle]}>
+          {/* Reply Preview — above the input row */}
           {replyToMessage && (
             <View style={styles.replyPreviewContainer}>
               <View style={[styles.replyPreviewLine, { backgroundColor: colors.primary }]} />
@@ -1228,6 +1231,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             </View>
           )}
 
+          <View style={styles.inputArea}>
           {/* Attach Image Button */}
           <TouchableOpacity
             style={styles.attachButton}
@@ -1282,6 +1286,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               <Ionicons name="mic" size={24} color={colors.primary} />
             </TouchableOpacity>
           )}
+          </View>
         </View>
       )}
 
@@ -1570,7 +1575,8 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   messageTime: { fontSize: 11, color: colors.gray },
   messageTimeRight: { color: 'rgba(255,255,255,0.7)' },
   messageImage: { width: 200, height: 150, borderRadius: 12 },
-  inputArea: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, backgroundColor: colors.backgroundSecondary, borderTopWidth: 1, borderTopColor: colors.grayBorder },
+  inputAreaWrapper: { backgroundColor: colors.backgroundSecondary, borderTopWidth: 1, borderTopColor: colors.grayBorder, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
+  inputArea: { flexDirection: 'row', alignItems: 'flex-end' },
   inputContainer: { flex: 1, backgroundColor: isDark ? 'rgba(50,50,50,1)' : '#F5F5F5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, maxHeight: 120 },
   textInput: { fontSize: 16, color: colors.dark, minHeight: 40, maxHeight: 100, paddingTop: Platform.OS === 'ios' ? 10 : 8 },
   sendButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },

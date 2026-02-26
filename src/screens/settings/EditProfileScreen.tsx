@@ -164,7 +164,11 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
     setIsLoadingLocation(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') { setIsLoadingLocation(false); return; }
+      if (status !== 'granted') {
+        alert.warning('Location Permission', 'Location access is required to detect your business address.');
+        setIsLoadingLocation(false);
+        return;
+      }
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const [reverseResult] = await Location.reverseGeocodeAsync({
         latitude: location.coords.latitude,

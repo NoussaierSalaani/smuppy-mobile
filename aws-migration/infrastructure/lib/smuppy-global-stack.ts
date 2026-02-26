@@ -505,15 +505,11 @@ function handler(event) {
       errorResponses: [
         {
           httpStatus: 403,
-          responseHttpStatus: 404,
-          responsePagePath: '/404.html',
-          ttl: cdk.Duration.minutes(5),
+          ttl: cdk.Duration.seconds(10),
         },
         {
           httpStatus: 404,
-          responseHttpStatus: 404,
-          responsePagePath: '/404.html',
-          ttl: cdk.Duration.minutes(5),
+          ttl: cdk.Duration.seconds(10),
         },
       ],
     });

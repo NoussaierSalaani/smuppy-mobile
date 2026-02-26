@@ -9,7 +9,7 @@
 jest.mock('../../config/aws-config', () => ({
   AWS_CONFIG: {
     storage: {
-      cdnDomain: 'https://dc8kq67t0asis.cloudfront.net',
+      cdnDomain: 'https://d3gy4x1feicix3.cloudfront.net',
     },
   },
 }));
@@ -22,8 +22,8 @@ import {
   getAlternateCdnUrls,
 } from '../../utils/cdnUrl';
 
-const LEGACY_CDN = 'd3gy4x1feicix3.cloudfront.net';
-const CURRENT_CDN = 'dc8kq67t0asis.cloudfront.net';
+const LEGACY_CDN = 'dc8kq67t0asis.cloudfront.net';
+const CURRENT_CDN = 'd3gy4x1feicix3.cloudfront.net';
 
 describe('normalizeCdnUrl', () => {
   it('canonicalizes known legacy staging CDN host to current CDN', () => {

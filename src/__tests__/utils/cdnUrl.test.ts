@@ -45,9 +45,19 @@ describe('normalizeCdnUrl', () => {
     expect(normalizeCdnUrl(url)).toBe(url);
   });
 
-  it('preserves S3 URLs without rewriting host', () => {
-    const s3Url = 'https://smuppy-media-staging-471112656108.s3.amazonaws.com/posts/u1/photo.jpg';
-    expect(normalizeCdnUrl(s3Url)).toBe(s3Url);
+  it('rewrites known S3 bucket URLs to CDN', () => {
+    const s3Url = 'https://smuppy-media-staging-471112656108.s3.amazonaws.com/users/u1/avatar/photo.jpg';
+    expect(normalizeCdnUrl(s3Url)).toBe(`https://${CURRENT_CDN}/users/u1/avatar/photo.jpg`);
+  });
+
+  it('rewrites S3 regional URLs to CDN', () => {
+    const s3Url = 'https://smuppy-media-staging-471112656108.s3.us-east-1.amazonaws.com/posts/u1/photo.jpg';
+    expect(normalizeCdnUrl(s3Url)).toBe(`https://${CURRENT_CDN}/posts/u1/photo.jpg`);
+  });
+
+  it('preserves unknown S3 bucket URLs', () => {
+    const unknownS3 = 'https://other-bucket.s3.amazonaws.com/posts/u1/photo.jpg';
+    expect(normalizeCdnUrl(unknownS3)).toBe(unknownS3);
   });
 
   it('normalizes raw object keys to current CDN URL', () => {

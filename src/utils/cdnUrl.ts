@@ -33,6 +33,15 @@ const KNOWN_STAGING_CDN_HOSTS = new Set<string>([
   'dc8kq67t0asis.cloudfront.net',
 ]);
 
+// Known S3 bucket hostnames whose objects are also served via CDN.
+// Direct S3 access is blocked by bucket policy — rewrite to CDN.
+const KNOWN_S3_BUCKET_HOSTS = new Set<string>([
+  'smuppy-media-staging-471112656108.s3.amazonaws.com',
+  'smuppy-media-staging-471112656108.s3.us-east-1.amazonaws.com',
+  'smuppy-media.s3.amazonaws.com',
+  'smuppy-media.s3.us-east-1.amazonaws.com',
+]);
+
 const isLocalOrInlineUri = (value: string): boolean => {
   const lower = value.toLowerCase();
   return (
@@ -96,7 +105,11 @@ export const normalizeCdnUrl = (url: string | undefined | null): string | undefi
       if (KNOWN_STAGING_CDN_HOSTS.has(host) && CURRENT_CDN && host !== CURRENT_CDN.toLowerCase()) {
         return `${parsed.protocol}//${CURRENT_CDN}${parsed.pathname}${parsed.search}${parsed.hash}`;
       }
-      // Preserve explicit backend host (S3/custom/non-legacy CloudFront).
+      // Rewrite direct S3 bucket URLs to CDN — S3 bucket policy blocks direct access.
+      if (KNOWN_S3_BUCKET_HOSTS.has(host) && CURRENT_CDN) {
+        return `https://${CURRENT_CDN}${parsed.pathname}`;
+      }
+      // Preserve explicit backend host (non-legacy CloudFront or external URLs).
       return trimmed;
     }
     return trimmed;

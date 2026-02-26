@@ -128,68 +128,72 @@ const PostItem = memo<PostItemProps>(({
         </TouchableOpacity>
       </View>
 
-      {/* Media */}
-      <DoubleTapLike
-        onDoubleTap={() => { if (!post.isLiked) onLike(post.id); }}
-        onSingleTap={() => onDetail(post)}
-        showAnimation={!post.isLiked}
-      >
-        <View style={styles.postMedia}>
-          {post.allMedia && post.allMedia.length > 1 ? (
-            <>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={(e) => {
-                  const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
-                  onCarouselIndexChange?.(post.id, newIndex);
-                }}
-              >
-                {post.allMedia.map((mediaUrl, mediaIndex) => (
-                  <OptimizedImage
-                    key={`${post.id}-media-${mediaIndex}`}
-                    source={mediaUrl}
-                    style={styles.carouselMediaItem}
-                    contentFit="cover"
-                  />
-                ))}
-              </ScrollView>
-              <View style={styles.carouselPagination}>
-                {post.allMedia.map((_, dotIndex) => (
-                  <View
-                    key={`${post.id}-dot-${dotIndex}`}
-                    style={[
-                      styles.carouselDot,
-                      carouselIndex === dotIndex && styles.carouselDotActive,
-                    ]}
-                  />
-                ))}
-              </View>
-            </>
-          ) : (
-            <>
-              <OptimizedImage
-                source={getMediaVariant(post.media, 'medium', post.mediaMeta)}
-                style={styles.postImage}
-                contentFit="cover"
-                recyclingKey={`post-${post.id}`}
-                placeholder={post.mediaMeta?.blurhash}
-              />
-              {post.type === 'video' && (
-                <View style={styles.videoOverlay}>
-                  <View style={styles.playButton}>
-                    <Ionicons name="play" size={30} color="#fff" />
-                  </View>
-                  <View style={styles.videoDuration}>
-                    <Text style={styles.videoDurationText}>{post.duration}</Text>
-                  </View>
+      {/* Media — only render when post has media content */}
+      {(post.media || (post.allMedia && post.allMedia.length > 0)) ? (
+        <DoubleTapLike
+          onDoubleTap={() => { if (!post.isLiked) onLike(post.id); }}
+          onSingleTap={() => onDetail(post)}
+          showAnimation={!post.isLiked}
+        >
+          <View style={styles.postMedia}>
+            {post.allMedia && post.allMedia.length > 1 ? (
+              <>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                    onCarouselIndexChange?.(post.id, newIndex);
+                  }}
+                >
+                  {post.allMedia.map((mediaUrl, mediaIndex) => (
+                    <OptimizedImage
+                      key={`${post.id}-media-${mediaIndex}`}
+                      source={mediaUrl}
+                      style={styles.carouselMediaItem}
+                      contentFit="cover"
+                    />
+                  ))}
+                </ScrollView>
+                <View style={styles.carouselPagination}>
+                  {post.allMedia.map((_, dotIndex) => (
+                    <View
+                      key={`${post.id}-dot-${dotIndex}`}
+                      style={[
+                        styles.carouselDot,
+                        carouselIndex === dotIndex && styles.carouselDotActive,
+                      ]}
+                    />
+                  ))}
                 </View>
-              )}
-            </>
-          )}
-        </View>
-      </DoubleTapLike>
+              </>
+            ) : (
+              <>
+                <OptimizedImage
+                  source={getMediaVariant(post.media, 'medium', post.mediaMeta)}
+                  style={styles.postImage}
+                  contentFit="cover"
+                  recyclingKey={`post-${post.id}`}
+                  placeholder={post.mediaMeta?.blurhash}
+                />
+                {post.type === 'video' && (
+                  <View style={styles.videoOverlay}>
+                    <View style={styles.playButton}>
+                      <Ionicons name="play" size={30} color="#fff" />
+                    </View>
+                    <View style={styles.videoDuration}>
+                      <Text style={styles.videoDurationText}>{post.duration}</Text>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        </DoubleTapLike>
+      ) : (
+        <TouchableOpacity onPress={() => onDetail(post)} activeOpacity={0.7} />
+      )}
 
       {/* Actions */}
       <View style={styles.postActions}>

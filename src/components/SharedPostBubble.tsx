@@ -60,23 +60,39 @@ function SharedPostBubble({ postId, isFromMe }: SharedPostBubbleProps) {
 
   const handlePress = () => {
     if (post) {
+      const mediaUrls = (post.media_urls ?? []).filter((url): url is string => typeof url === 'string' && url.length > 0);
+      const mediaType: 'video' | 'image' | 'carousel' =
+        post.media_type === 'video'
+          ? 'video'
+          : mediaUrls.length > 1
+            ? 'carousel'
+            : 'image';
+      const media = post.hls_url || mediaUrls[0] || post.media_url || post.thumbnail_url || '';
+      const thumbnail = post.thumbnail_url || mediaUrls[0] || post.media_url || media;
+
       navigation.navigate('PostDetailVibesFeed', {
         postId: post.id,
-        vibesFeedPosts: [{
+        post: {
           id: post.id,
-          type: post.media_type || 'image',
-          media: post.media_urls?.[0] || post.media_url,
-          thumbnail: post.media_urls?.[0] || post.media_url,
+          type: mediaType,
+          media,
+          allMedia: mediaUrls.length > 1 ? mediaUrls : undefined,
+          thumbnail,
+          hlsUrl: post.hls_url || null,
+          thumbnailUrl: post.thumbnail_url || null,
+          videoStatus: post.video_status || null,
           description: post.content || post.caption,
           likes: post.likes_count || 0,
           comments: post.comments_count || 0,
+          location: post.location || null,
+          category: post.tags?.find((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0) || 'Post',
           user: {
             id: post.author?.id || post.author_id,
             name: resolveDisplayName(post.author),
             avatar: post.author?.avatar_url,
             followsMe: false,
           },
-        }],
+        },
       });
     }
   };

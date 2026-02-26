@@ -27,6 +27,8 @@ import SharePostModal from '../../components/SharePostModal';
 import PostMenuModal from '../../components/PostMenuModal';
 import { usePostDetailActions, type PostDetailPost } from '../../hooks/usePostDetailActions';
 import { formatNumber } from '../../utils/formatters';
+import { getPostById, type Post as DatabasePost } from '../../services/database';
+import { resolveDisplayName } from '../../types/profile';
 
 const { width, height } = Dimensions.get('window');
 const CONDENSED_HEIGHT = 220;
@@ -52,6 +54,39 @@ interface VibesFeedPost extends PostDetailPost {
 
 interface GridPost { id: string; thumbnail: string; title: string; likes: number; height: number; type: string; category: string; user: { id: string; name: string; avatar: string }; duration?: string }
 
+const mapDatabasePostToVibesPost = (post: DatabasePost): VibesFeedPost => {
+  const mediaUrls = (post.media_urls ?? []).filter((url): url is string => typeof url === 'string' && url.length > 0);
+  const mediaType: 'video' | 'image' | 'carousel' =
+    post.media_type === 'video'
+      ? 'video'
+      : mediaUrls.length > 1
+        ? 'carousel'
+        : 'image';
+  const media = post.hls_url || mediaUrls[0] || post.media_url || post.thumbnail_url || '';
+  const thumbnail = post.thumbnail_url || mediaUrls[0] || post.media_url || media;
+
+  return {
+    id: post.id,
+    type: mediaType,
+    media,
+    thumbnail,
+    allMedia: mediaUrls.length > 1 ? mediaUrls : undefined,
+    hlsUrl: post.hls_url || null,
+    thumbnailUrl: post.thumbnail_url || null,
+    videoStatus: post.video_status || null,
+    description: post.content || post.caption || '',
+    likes: post.likes_count || 0,
+    location: post.location || null,
+    category: post.tags?.find((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0) || 'Post',
+    user: {
+      id: post.author?.id || post.author_id || '',
+      name: resolveDisplayName(post.author),
+      avatar: post.author?.avatar_url || '',
+      followsMe: false,
+    },
+  };
+};
+
 const PostDetailVibesFeedScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -65,7 +100,46 @@ const PostDetailVibesFeedScreen = () => {
     startCondensed?: boolean;
   } || {};
   const { postId: _postId, post: initialPost, startCondensed } = params;
-  const currentPost = initialPost ?? null;
+  const [fetchedPost, setFetchedPost] = useState<VibesFeedPost | null>(null);
+  const [isLoadingPost, setIsLoadingPost] = useState(false);
+  const [postUnavailable, setPostUnavailable] = useState(false);
+  const currentPost = initialPost ?? fetchedPost;
+
+  useEffect(() => {
+    if (initialPost) {
+      setFetchedPost(null);
+      setIsLoadingPost(false);
+      setPostUnavailable(false);
+      return;
+    }
+
+    if (!_postId) {
+      setPostUnavailable(true);
+      return;
+    }
+
+    let cancelled = false;
+    const loadPost = async () => {
+      setIsLoadingPost(true);
+      setPostUnavailable(false);
+      try {
+        const { data, error } = await getPostById(_postId);
+        if (cancelled) return;
+        if (error || !data) {
+          setPostUnavailable(true);
+          return;
+        }
+        setFetchedPost(mapDatabasePostToVibesPost(data));
+      } catch {
+        if (!cancelled) setPostUnavailable(true);
+      } finally {
+        if (!cancelled) setIsLoadingPost(false);
+      }
+    };
+
+    loadPost();
+    return () => { cancelled = true; };
+  }, [_postId, initialPost]);
 
   // Shared actions hook
   const actions = usePostDetailActions({
@@ -252,8 +326,28 @@ const PostDetailVibesFeedScreen = () => {
   const leftColumn = useMemo(() => gridPosts.filter((_, i) => i % 2 === 0), [gridPosts]);
   const rightColumn = useMemo(() => gridPosts.filter((_, i) => i % 2 === 1), [gridPosts]);
 
-  // Guard: if no post data was passed, bail out
-  if (!currentPost) return null;
+  if (!currentPost) {
+    return (
+      <View style={styles.emptyContainer}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <TouchableOpacity style={styles.emptyBackButton} onPress={actions.handleGoBack} activeOpacity={0.8}>
+          <Ionicons name="arrow-back" size={22} color={colors.dark} />
+          <Text style={styles.emptyBackText}>Back</Text>
+        </TouchableOpacity>
+        {isLoadingPost ? (
+          <ActivityIndicator size="large" color={colors.primary} />
+        ) : (
+          <View style={styles.emptyContent}>
+            <Ionicons name="alert-circle-outline" size={32} color={colors.gray} />
+            <Text style={styles.emptyTitle}>Post unavailable</Text>
+            <Text style={styles.emptySubtitle}>
+              {postUnavailable ? 'This shared post cannot be opened right now.' : 'Missing post data.'}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -649,6 +743,39 @@ const createStyles = (colors: ThemeColors, _isDark: boolean) => StyleSheet.creat
   },
   scrollView: {
     flex: 1,
+  },
+  emptyContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+  },
+  emptyBackButton: {
+    position: 'absolute',
+    top: 56,
+    left: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyBackText: {
+    color: colors.dark,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContent: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  emptyTitle: {
+    color: colors.dark,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    color: colors.gray,
+    fontSize: 14,
+    textAlign: 'center',
   },
 
   // Fullscreen

@@ -122,9 +122,9 @@ async function createPool(host: string, options?: { maxConnections?: number }): 
   let password: PoolConfig['password'];
   if (USE_IAM_AUTH) {
     log.info('Using IAM authentication for RDS Proxy');
-    // Generate a fresh IAM token when creating the pool.
-    // Pool is force-rotated before token TTL to avoid intermittent auth failures.
-    password = await generateIAMToken(host, port, credentials.username);
+    // Provide a dynamic token provider so each new DB connection can fetch
+    // a fresh IAM token and avoid stale token auth failures.
+    password = async () => generateIAMToken(host, port, credentials.username);
   } else {
     password = credentials.password;
   }

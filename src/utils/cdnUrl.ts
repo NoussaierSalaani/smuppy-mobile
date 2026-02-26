@@ -26,6 +26,12 @@ const MOBILE_MEDIA_USER_AGENT =
 const ABSOLUTE_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const HOST_WITHOUT_SCHEME_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i;
 const PENDING_SCAN_SEGMENT = '/pending-scan/';
+// Staging legacy CloudFront aliases that can still exist in DB rows.
+// We canonicalize them to CURRENT_CDN to avoid mixed-host media instability.
+const KNOWN_STAGING_CDN_HOSTS = new Set<string>([
+  'd3gy4x1feicix3.cloudfront.net',
+  'dc8kq67t0asis.cloudfront.net',
+]);
 
 const isLocalOrInlineUri = (value: string): boolean => {
   const lower = value.toLowerCase();
@@ -84,7 +90,13 @@ export const normalizeCdnUrl = (url: string | undefined | null): string | undefi
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      // Preserve explicit backend host (CloudFront/S3/custom).
+      const host = parsed.hostname.toLowerCase();
+      // Canonicalize known staging CloudFront aliases to one configured host.
+      // This keeps behavior deterministic while still preserving non-CDN absolute URLs.
+      if (KNOWN_STAGING_CDN_HOSTS.has(host) && CURRENT_CDN && host !== CURRENT_CDN.toLowerCase()) {
+        return `${parsed.protocol}//${CURRENT_CDN}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+      // Preserve explicit backend host (S3/custom/non-legacy CloudFront).
       return trimmed;
     }
     return trimmed;
@@ -147,10 +159,40 @@ export const buildRemoteMediaSource = (
 };
 
 export const getAlternateCdnUrls = (url: string | null | undefined): string[] => {
-  // Canonical single-host strategy: never fan out media requests to alternate CDNs.
-  // This keeps behavior deterministic across environments and avoids cross-distribution drift.
-  void url;
-  return [];
+  if (!url || typeof url !== 'string') return [];
+  const trimmed = url.trim();
+  if (!trimmed || isPendingScanPath(trimmed) || isLocalOrInlineUri(trimmed)) return [];
+
+  // Staging-only resilience: when legacy rows still contain mixed CloudFront hosts,
+  // try one alternate staging CDN host for the same object key.
+  if (!KNOWN_STAGING_CDN_HOSTS.has(CURRENT_CDN.toLowerCase())) return [];
+
+  const knownHosts = Array.from(KNOWN_STAGING_CDN_HOSTS);
+  const alternates = new Set<string>();
+
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    if (!KNOWN_STAGING_CDN_HOSTS.has(host)) return [];
+    for (const candidateHost of knownHosts) {
+      if (candidateHost === host) continue;
+      alternates.add(`${parsed.protocol}//${candidateHost}${parsed.pathname}${parsed.search}${parsed.hash}`);
+    }
+    return Array.from(alternates);
+  } catch {
+    // Fall through to raw object-key handling.
+  }
+
+  if (!ABSOLUTE_SCHEME_REGEX.test(trimmed)) {
+    const key = trimmed.replace(/^\/+/, '');
+    if (!key) return [];
+    for (const candidateHost of knownHosts) {
+      if (candidateHost === CURRENT_CDN.toLowerCase()) continue;
+      alternates.add(`https://${candidateHost}/${key}`);
+    }
+  }
+
+  return Array.from(alternates);
 };
 
 export const getMediaVariant = (

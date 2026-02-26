@@ -311,6 +311,7 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const { handleScroll, showBars } = useTabBar();
   const listRef = useRef<React.ElementRef<typeof FlashList<UIPost>>>(null);
+  const didInitialScrollToTop = useRef(false);
 
   // Expose scrollToTop method to parent
   useImperativeHandle(ref, () => ({
@@ -319,6 +320,16 @@ const FanFeed = forwardRef<FanFeedRef, FanFeedProps>(({ headerHeight = 0 }, ref)
       showBars();
     },
   }));
+
+  // Ensure feed always opens from top on first mount in TestFlight/release sessions.
+  useEffect(() => {
+    if (didInitialScrollToTop.current) return;
+    didInitialScrollToTop.current = true;
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
   const { isUnderReview, submitPostReport, hasUserReported } = useContentStore();
   const { isHidden, mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
   // Extract arrays (not stable function refs) so useMemo recomputes on block/mute

@@ -319,6 +319,7 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const { handleScroll, showBars } = useTabBar();
   const scrollRef = useRef<FlashListRef<UIVibePost>>(null);
+  const didInitialScrollToTop = useRef(false);
 
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -329,6 +330,16 @@ const VibesFeed = forwardRef<VibesFeedRef, VibesFeedProps>(({ headerHeight = 0 }
       showBars();
     },
   }));
+
+  // Ensure feed always opens from top on first mount in TestFlight/release sessions.
+  useEffect(() => {
+    if (didInitialScrollToTop.current) return;
+    didInitialScrollToTop.current = true;
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
   const { isUnderReview, submitPostReport, hasUserReported } = useContentStore();
   const { isHidden, mute, block, isMuted: isUserMuted, isBlocked } = useUserSafetyStore();
   // Extract arrays (not stable function refs) so useMemo recomputes on block/mute

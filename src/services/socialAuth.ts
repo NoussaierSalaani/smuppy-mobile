@@ -209,8 +209,8 @@ export const useGoogleAuth = () => {
     androidClientId: ENV.GOOGLE_ANDROID_CLIENT_ID,
     webClientId: ENV.GOOGLE_WEB_CLIENT_ID,
     scopes: ['openid', 'profile', 'email'],
-    responseType: 'id_token',
-    usePKCE: false,
+    // Keep Expo defaults on native (authorization code + PKCE + auto exchange)
+    // to avoid Google OAuth 400 unsupported_response_type.
     redirectUri,
   });
 };

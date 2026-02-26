@@ -26,10 +26,10 @@ const LEGACY_CDN = 'd3gy4x1feicix3.cloudfront.net';
 const CURRENT_CDN = 'dc8kq67t0asis.cloudfront.net';
 
 describe('normalizeCdnUrl', () => {
-  it('preserves legacy CDN URL host as-is', () => {
+  it('canonicalizes known legacy staging CDN host to current CDN', () => {
     const legacyUrl = `https://${LEGACY_CDN}/media/uploads/photo-abc123.jpg`;
     const result = normalizeCdnUrl(legacyUrl);
-    expect(result).toBe(legacyUrl);
+    expect(result).toBe(`https://${CURRENT_CDN}/media/uploads/photo-abc123.jpg`);
   });
 
   it('returns undefined for null input', () => {
@@ -102,10 +102,10 @@ describe('getVideoPlaybackUrl', () => {
     expect(getVideoPlaybackUrl(null, null)).toBeUndefined();
   });
 
-  it('normalizes legacy CDN in returned URL', () => {
+  it('canonicalizes known legacy CDN in returned URL', () => {
     const legacyHls = `https://${LEGACY_CDN}/videos/hls/master.m3u8`;
     const result = getVideoPlaybackUrl(legacyHls, null);
-    expect(result).toBe(legacyHls);
+    expect(result).toBe(`https://${CURRENT_CDN}/videos/hls/master.m3u8`);
   });
 });
 
@@ -123,10 +123,10 @@ describe('getMediaVariant', () => {
     expect(result).toBe(`https://${CURRENT_CDN}/media/processed/photo-abc123-medium.jpg`);
   });
 
-  it('falls back to normalized original URL when no variant', () => {
+  it('falls back to canonicalized original URL when no variant', () => {
     const legacyUrl = `https://${LEGACY_CDN}/media/uploads/photo-abc123.jpg`;
     const result = getMediaVariant(legacyUrl, 'large', undefined);
-    expect(result).toBe(legacyUrl);
+    expect(result).toBe(`https://${CURRENT_CDN}/media/uploads/photo-abc123.jpg`);
   });
 
   it('returns undefined for null originalUrl', () => {
@@ -153,9 +153,9 @@ describe('buildRemoteMediaSource', () => {
     expect(source?.headers?.['User-Agent']).toContain('iPhone');
   });
 
-  it('preserves legacy domain and keeps CloudFront header behavior', () => {
+  it('canonicalizes legacy domain and keeps CloudFront header behavior', () => {
     const source = buildRemoteMediaSource(`https://${LEGACY_CDN}/media/uploads/photo-abc123.jpg`);
-    expect(source?.uri).toBe(`https://${LEGACY_CDN}/media/uploads/photo-abc123.jpg`);
+    expect(source?.uri).toBe(`https://${CURRENT_CDN}/media/uploads/photo-abc123.jpg`);
     expect(source?.headers?.['User-Agent']).toContain('Mobile');
   });
 
@@ -176,16 +176,21 @@ describe('buildRemoteMediaSource', () => {
 });
 
 describe('getAlternateCdnUrls', () => {
-  it('returns empty array for current CDN URL (single canonical host)', () => {
+  it('returns one staging alternate host for current CDN URL', () => {
     const currentUrl = `https://${CURRENT_CDN}/avatars/u1/photo.jpg`;
     const alternates = getAlternateCdnUrls(currentUrl);
-    expect(alternates).toEqual([]);
+    expect(alternates).toEqual([`https://${LEGACY_CDN}/avatars/u1/photo.jpg`]);
   });
 
-  it('returns empty array for legacy CDN URL (no fallback fan-out)', () => {
+  it('returns one staging alternate host for legacy CDN URL', () => {
     const legacyUrl = `https://${LEGACY_CDN}/covers/u1/cover.jpg`;
     const alternates = getAlternateCdnUrls(legacyUrl);
-    expect(alternates).toEqual([]);
+    expect(alternates).toEqual([`https://${CURRENT_CDN}/covers/u1/cover.jpg`]);
+  });
+
+  it('returns one alternate for raw object keys', () => {
+    const alternates = getAlternateCdnUrls('posts/u1/photo.jpg');
+    expect(alternates).toEqual([`https://${LEGACY_CDN}/posts/u1/photo.jpg`]);
   });
 
   it('returns empty array for non-cloudfront URL', () => {

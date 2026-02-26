@@ -95,8 +95,12 @@ export const handler = withAuthHandler('conversations-messages', async (event, {
       json_build_object(
         'id', p.id,
         'username', p.username,
+        'full_name', p.full_name,
         'display_name', p.display_name,
-        'avatar_url', p.avatar_url
+        'avatar_url', p.avatar_url,
+        'is_verified', p.is_verified,
+        'account_type', p.account_type,
+        'business_name', p.business_name
       ) as sender
     FROM messages m
     JOIN profiles p ON p.id = m.sender_id

@@ -159,13 +159,17 @@ describe('conversations/send-message handler', () => {
 
     // Default: user profile found
     mockDb.query.mockImplementation((sql: string) => {
-      if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name, avatar_url FROM profiles')) {
+      if (typeof sql === 'string' && sql.includes('SELECT id, username, full_name, display_name, avatar_url, is_verified, account_type, business_name FROM profiles')) {
         return Promise.resolve({
           rows: [{
             id: VALID_PROFILE_ID,
             username: 'testuser',
+            full_name: 'Test User',
             display_name: 'Test User',
             avatar_url: 'https://example.com/avatar.jpg',
+            is_verified: false,
+            account_type: 'personal',
+            business_name: null,
           }],
         });
       }
@@ -1480,7 +1484,7 @@ describe('conversations/send-message handler', () => {
   describe('display name fallback', () => {
     it('should use "Someone" when display_name is null', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name, avatar_url FROM profiles')) {
+        if (typeof sql === 'string' && sql.includes('SELECT id, username, full_name, display_name, avatar_url, is_verified, account_type, business_name FROM profiles')) {
           return Promise.resolve({
             rows: [{
               id: VALID_PROFILE_ID,
@@ -1505,7 +1509,7 @@ describe('conversations/send-message handler', () => {
 
     it('should use "Someone" when display_name is empty string', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name, avatar_url FROM profiles')) {
+        if (typeof sql === 'string' && sql.includes('SELECT id, username, full_name, display_name, avatar_url, is_verified, account_type, business_name FROM profiles')) {
           return Promise.resolve({
             rows: [{
               id: VALID_PROFILE_ID,

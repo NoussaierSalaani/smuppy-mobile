@@ -538,7 +538,7 @@ export default function RouteMapPicker({
 
           {/* Single location pin */}
           {mode === 'location' && selectedPoint && (
-            <MarkerView coordinate={[selectedPoint.lng, selectedPoint.lat]}>
+            <MarkerView coordinate={[selectedPoint.lng, selectedPoint.lat]} allowOverlap>
               <View style={styles.pinContainer}>
                 <LinearGradient colors={GRADIENTS.primary} style={styles.pin}>
                   <Ionicons name="location" size={normalize(20)} color={colors.white} />
@@ -550,7 +550,7 @@ export default function RouteMapPicker({
 
           {/* Route start pin */}
           {mode === 'route' && departureCoord && (
-            <MarkerView coordinate={[departureCoord.lng, departureCoord.lat]}>
+            <MarkerView coordinate={[departureCoord.lng, departureCoord.lat]} allowOverlap>
               <View style={styles.routePinContainer}>
                 <View style={[styles.routePin, { backgroundColor: '#4ECDC4' }]}>
                   <Text style={styles.routePinText}>S</Text>
@@ -561,7 +561,7 @@ export default function RouteMapPicker({
 
           {/* Route end pin */}
           {mode === 'route' && arrivalCoord && (
-            <MarkerView coordinate={[arrivalCoord.lng, arrivalCoord.lat]}>
+            <MarkerView coordinate={[arrivalCoord.lng, arrivalCoord.lat]} allowOverlap>
               <View style={styles.routePinContainer}>
                 <View style={[styles.routePin, { backgroundColor: '#FF6B6B' }]}>
                   <Text style={styles.routePinText}>E</Text>
@@ -572,7 +572,7 @@ export default function RouteMapPicker({
 
           {/* Waypoints */}
           {waypoints.map((wp, index) => (
-            <MarkerView key={`wp-${wp.lat}-${wp.lng}`} coordinate={[wp.lng, wp.lat]}>
+            <MarkerView key={`wp-${wp.lat}-${wp.lng}`} coordinate={[wp.lng, wp.lat]} allowOverlap>
               <View style={styles.routePinContainer}>
                 <View style={[styles.routePin, { backgroundColor: colors.primary }]}>
                   <Text style={styles.routePinText}>{index + 1}</Text>

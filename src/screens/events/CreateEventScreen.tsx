@@ -802,7 +802,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
                 animationDuration={1000}
               />
               {coordinates && !hasRoute && (
-                <MarkerView coordinate={[coordinates.lng, coordinates.lat]}>
+                <MarkerView coordinate={[coordinates.lng, coordinates.lat]} allowOverlap>
                   <View style={styles.mapMarker}>
                     <View style={[styles.mapMarkerInner, { backgroundColor: selectedCategory?.color || colors.primary }]} />
                   </View>
@@ -824,7 +824,7 @@ const CreateEventScreen: React.FC<{ navigation: { navigate: (screen: string, par
                 </ShapeSource>
               )}
               {hasRoute && routePoints.map((point, index) => (
-                <MarkerView key={`route-${point.latitude}-${point.longitude}`} coordinate={[point.longitude, point.latitude]}>
+                <MarkerView key={`route-${point.latitude}-${point.longitude}`} coordinate={[point.longitude, point.latitude]} allowOverlap>
                   <View style={[styles.routeMarker, {
                     backgroundColor: (() => { if (index === 0) { return '#4CAF50'; } if (index === routePoints.length - 1) { return '#F44336'; } return selectedCategory?.color || colors.primary; })(),
                   }]}>

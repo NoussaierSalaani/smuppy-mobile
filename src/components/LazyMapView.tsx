@@ -77,7 +77,7 @@ export const LazyMarker = memo(({ children, coordinate, coordinateArray }: LazyM
   if (!coord) return null;
 
   return (
-    <Mapbox.MarkerView coordinate={coord}>
+    <Mapbox.MarkerView coordinate={coord} allowOverlap allowOverlapWithPuck>
       <View collapsable={false}>
         {children}
       </View>

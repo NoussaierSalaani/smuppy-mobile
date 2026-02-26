@@ -191,7 +191,7 @@ const SpotDetailScreen: React.FC<{ navigation: { navigate: (screen: string, para
               centerCoordinate={[spot.longitude, spot.latitude]}
               animationDuration={0}
             />
-            <MarkerView coordinate={[spot.longitude, spot.latitude]}>
+            <MarkerView coordinate={[spot.longitude, spot.latitude]} allowOverlap>
               <LinearGradient colors={GRADIENTS.primary} style={styles.pin}>
                 <Ionicons name="location" size={normalize(18)} color={colors.white} />
               </LinearGradient>

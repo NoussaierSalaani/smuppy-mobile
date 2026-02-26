@@ -338,8 +338,9 @@ const mapMessageProfile = (raw: unknown): Profile | undefined => {
   return {
     id,
     username,
-    full_name: displayName || username,
+    full_name: displayName || '',
     display_name: displayName || undefined,
+    business_name: (rec.business_name as string | undefined) || (rec.businessName as string | undefined) || undefined,
     avatar_url: normalizeCdnUrl(avatarRaw),
     account_type: rec.account_type as Profile['account_type'] | undefined,
     is_verified: (rec.is_verified as boolean | undefined) ?? (rec.isVerified as boolean | undefined),
@@ -1719,7 +1720,7 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
       created_at: string;
       last_message: { id: string; content: string; media_type?: string; created_at: string; sender_id: string } | null;
       unread_count: number;
-      other_participant: { id: string; username: string; full_name?: string; display_name?: string; avatar_url: string; is_verified: boolean; account_type?: string } | null;
+      other_participant: { id: string; username: string; full_name?: string; display_name?: string; avatar_url: string; is_verified: boolean; account_type?: string; business_name?: string } | null;
     };
     const result = await awsAPI.request<{
       conversations?: ApiConversation[];
@@ -1736,6 +1737,7 @@ export const getConversations = async (limit = 20): Promise<DbResponse<Conversat
         id: op.id, username: op.username,
         full_name: op.full_name || op.display_name || '',
         display_name: op.display_name || op.full_name || '',
+        business_name: op.business_name || undefined,
         avatar_url: normalizeCdnUrl(op.avatar_url), is_verified: op.is_verified,
         account_type: op.account_type,
       } as Profile : undefined;

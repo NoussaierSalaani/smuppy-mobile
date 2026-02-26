@@ -130,14 +130,17 @@ describe('conversations/create handler', () => {
 
     // Default mock: participant exists and is active, no blocks, no existing conversation
     mockDb.query.mockImplementation((sql: string) => {
-      if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name')) {
+      if (typeof sql === 'string' && sql.includes('FROM profiles WHERE id')) {
         return Promise.resolve({
           rows: [{
             id: VALID_PARTICIPANT_ID,
             username: 'otheruser',
+            full_name: 'Other User',
             display_name: 'Other User',
             avatar_url: 'https://example.com/other-avatar.jpg',
             is_verified: true,
+            account_type: 'personal',
+            business_name: null,
             moderation_status: 'active',
           }],
         });
@@ -266,7 +269,7 @@ describe('conversations/create handler', () => {
   describe('participant lookup', () => {
     it('should return 404 when participant does not exist', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name')) {
+        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE id')) {
           return Promise.resolve({ rows: [] });
         }
         return Promise.resolve({ rows: [] });
@@ -282,7 +285,7 @@ describe('conversations/create handler', () => {
 
     it('should return 403 when participant is suspended', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name')) {
+        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE id')) {
           return Promise.resolve({
             rows: [{
               id: VALID_PARTICIPANT_ID,
@@ -307,7 +310,7 @@ describe('conversations/create handler', () => {
 
     it('should return 403 when participant is banned', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name')) {
+        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE id')) {
           return Promise.resolve({
             rows: [{
               id: VALID_PARTICIPANT_ID,
@@ -335,7 +338,7 @@ describe('conversations/create handler', () => {
   describe('block check', () => {
     it('should return 403 when block exists between users', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name')) {
+        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE id')) {
           return Promise.resolve({
             rows: [{
               id: VALID_PARTICIPANT_ID,
@@ -366,7 +369,7 @@ describe('conversations/create handler', () => {
   describe('existing conversation', () => {
     it('should return 200 with created: false when conversation already exists', async () => {
       mockDb.query.mockImplementation((sql: string) => {
-        if (typeof sql === 'string' && sql.includes('SELECT id, username, display_name')) {
+        if (typeof sql === 'string' && sql.includes('FROM profiles WHERE id')) {
           return Promise.resolve({
             rows: [{
               id: VALID_PARTICIPANT_ID,

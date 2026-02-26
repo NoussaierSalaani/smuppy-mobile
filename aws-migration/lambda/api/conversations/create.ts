@@ -55,7 +55,7 @@ export const handler = withAuthHandler('conversations-create', async (event, { h
 
   // Check if other participant exists and is active
   const participantResult = await db.query(
-    'SELECT id, username, display_name, avatar_url, is_verified, moderation_status FROM profiles WHERE id = $1',
+    'SELECT id, username, full_name, display_name, avatar_url, is_verified, account_type, business_name, moderation_status FROM profiles WHERE id = $1',
     [participantId]
   );
 
@@ -108,9 +108,12 @@ export const handler = withAuthHandler('conversations-create', async (event, { h
           other_participant: {
             id: otherParticipant.id,
             username: otherParticipant.username,
+            full_name: otherParticipant.full_name,
             display_name: otherParticipant.display_name,
             avatar_url: otherParticipant.avatar_url,
             is_verified: otherParticipant.is_verified,
+            account_type: otherParticipant.account_type,
+            business_name: otherParticipant.business_name,
           },
         },
         created: false,
@@ -140,9 +143,12 @@ export const handler = withAuthHandler('conversations-create', async (event, { h
         other_participant: {
           id: otherParticipant.id,
           username: otherParticipant.username,
+          full_name: otherParticipant.full_name,
           display_name: otherParticipant.display_name,
           avatar_url: otherParticipant.avatar_url,
           is_verified: otherParticipant.is_verified,
+          account_type: otherParticipant.account_type,
+          business_name: otherParticipant.business_name,
         },
       },
       created: true,

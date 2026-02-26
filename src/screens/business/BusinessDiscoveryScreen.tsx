@@ -446,6 +446,8 @@ export default function BusinessDiscoveryScreen({ navigation }: { navigation: { 
     <MarkerView
       key={business.id}
       coordinate={[business.location.coordinates.lng, business.location.coordinates.lat]}
+      allowOverlap
+      allowOverlapWithPuck
     >
       <TouchableOpacity onPress={() => handleMarkerPress(business)}>
         <View

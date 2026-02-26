@@ -525,6 +525,7 @@ export default function EventListScreen() {
     <MarkerView
       key={event.id}
       coordinate={[event.longitude, event.latitude]}
+      allowOverlap
     >
       <TouchableOpacity onPress={() => handleMarkerPress(event)}>
         <View

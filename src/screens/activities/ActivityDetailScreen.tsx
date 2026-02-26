@@ -494,6 +494,7 @@ export default function ActivityDetailScreen({ route, navigation }: ActivityDeta
               />
               <MarkerView
                 coordinate={[normalizedActivity.coordinates.lng, normalizedActivity.coordinates.lat]}
+                allowOverlap
               >
                 <View style={[styles.mapMarker, { backgroundColor: categoryColor }]}>
                   <Ionicons

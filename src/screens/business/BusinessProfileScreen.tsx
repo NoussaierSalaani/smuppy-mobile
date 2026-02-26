@@ -649,6 +649,7 @@ export default function BusinessProfileScreen({ route, navigation }: BusinessPro
                     />
                     <MarkerView
                       coordinate={[business.location.coordinates.lng, business.location.coordinates.lat]}
+                      allowOverlap
                     >
                       <View style={[styles.mapMarker, { backgroundColor: business.category.color }]}>
                         <Ionicons name={business.category.icon as keyof typeof Ionicons.glyphMap} size={16} color="#fff" />

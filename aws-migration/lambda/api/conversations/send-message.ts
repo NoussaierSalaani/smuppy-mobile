@@ -137,7 +137,7 @@ export const handler = withAuthHandler('conversations-send-message', async (even
 
   // Get user's profile details (username, display_name, avatar_url) for response and push
   const userResult = await db.query(
-    'SELECT id, username, display_name, avatar_url FROM profiles WHERE id = $1',
+    'SELECT id, username, full_name, display_name, avatar_url, is_verified, account_type, business_name FROM profiles WHERE id = $1',
     [profileId]
   );
 
@@ -271,7 +271,7 @@ export const handler = withAuthHandler('conversations-send-message', async (even
           success: true,
           message: {
             ...(existing.rows[0] || {}),
-            sender: { id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url },
+            sender: { id: profile.id, username: profile.username, full_name: profile.full_name, display_name: profile.display_name, avatar_url: profile.avatar_url, is_verified: profile.is_verified, account_type: profile.account_type, business_name: profile.business_name },
           },
         }),
       };
@@ -293,7 +293,7 @@ export const handler = withAuthHandler('conversations-send-message', async (even
 
   // Send push notification to recipient (non-blocking)
   // SECURITY: Don't include full message content in push (visible on lock screen, logged by APNs/FCM)
-  const displayName = profile.display_name || 'Someone';
+  const displayName = profile.full_name || profile.display_name || 'Someone';
   const pushBody = sharedPostId ? 'Shared a post with you'
     : sharedPeakId ? 'Shared a peak with you'
     : (validMediaType === 'audio' || validMediaType === 'voice') ? 'Sent a voice message'
@@ -315,8 +315,12 @@ export const handler = withAuthHandler('conversations-send-message', async (even
         sender: {
           id: profile.id,
           username: profile.username,
+          full_name: profile.full_name,
           display_name: profile.display_name,
           avatar_url: profile.avatar_url,
+          is_verified: profile.is_verified,
+          account_type: profile.account_type,
+          business_name: profile.business_name,
         },
       },
     }),

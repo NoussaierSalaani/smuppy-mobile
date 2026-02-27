@@ -271,12 +271,15 @@ export const handler = withAuthHandler('media-upload-url', async (event, { heade
     const isImage = mediaType === 'image';
     const uploadKey = isImage ? `pending-scan/${key}` : key;
 
-    // Create presigned URL with ContentLength to enforce server-side size limits
+    // Create presigned URL — do NOT include ContentLength in the command.
+    // Including ContentLength causes it to be signed into the presigned URL,
+    // meaning the upload will fail with 403 SignatureDoesNotMatch if the actual
+    // Content-Length differs by even 1 byte (common after image compression).
+    // Size enforcement is handled by maxSize in the response + S3 bucket policy.
     const command = new PutObjectCommand({
       Bucket: MEDIA_BUCKET,
       Key: uploadKey,
       ContentType: contentType,
-      ContentLength: fileSize,
       Metadata: {
         'uploaded-by': cognitoSub,
         'upload-type': uploadType,

@@ -654,7 +654,7 @@ export type MainStackParamList = {
   PostDetailFanFeed: { postId: string; post?: Post; fanFeedPosts?: Array<{ id: string; type: 'video' | 'image' | 'carousel'; media: string; allMedia?: string[]; thumbnail: string; description: string; likes: number; views?: number; comments?: number; location?: string | null; taggedUsers?: Array<{ id: string; username: string; fullName?: string | null; avatarUrl?: string | null }>; user: { id: string; name: string; avatar: string; followsMe?: boolean } }> };
   PostDetailVibesFeed: { postId: string; post?: unknown; startCondensed?: boolean };
   PostDetailProfile: { postId: string; post?: Post; profilePosts?: Post[] };
-  FansList: { userId?: string; fansCount?: number; type?: 'fans' | 'following' };
+  FansList: { userId?: string; fansCount?: number; initialTab?: 'fans' | 'tracking' };
   PostLikers: { postId: string };
 
   // Create

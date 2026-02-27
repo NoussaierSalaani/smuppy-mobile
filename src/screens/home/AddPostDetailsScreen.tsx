@@ -51,6 +51,7 @@ import { useTheme, type ThemeColors } from '../../hooks/useTheme';
 import { queryClient, queryKeys } from '../../lib/queryClient';
 import { useFeedStore } from '../../stores/feedStore';
 import { filterContent } from '../../utils/contentFilters';
+import { addBreadcrumb } from '../../lib/sentry';
 import { resolveDisplayName } from '../../types/profile';
 import { KEYBOARD_BEHAVIOR } from '../../config/platform';
 import { ACCOUNT_TYPE } from '../../config/accountTypes';
@@ -544,6 +545,13 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
           }
         );
 
+        addBreadcrumb('Post media upload result', 'upload', {
+          index: i,
+          totalFiles,
+          success: result.success,
+          error: result.error?.substring(0, 80),
+        });
+
         if (!result.success) {
           // More descriptive error for debugging
           if (__DEV__) console.warn(`[Upload] Failed for media ${i + 1}:`, result.error);
@@ -625,6 +633,8 @@ export default function AddPostDetailsScreen({ route, navigation }: AddPostDetai
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes('quota') || msg.includes('limit reached') || msg.includes('Daily')) {
         showError('Daily Limit Reached', 'You have reached your daily upload limit. Upgrade to Pro for unlimited uploads.');
+      } else if (msg.includes('upload') || msg.includes('Upload') || msg.includes('storage')) {
+        showError('Upload Failed', 'Photo/video upload failed. Check your connection and try again.');
       } else {
         showError('Error', msg || 'Failed to create post. Please try again.');
       }

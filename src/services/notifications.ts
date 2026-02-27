@@ -123,6 +123,23 @@ export const getNativePushToken = async (): Promise<{ token: string; platform: '
   const hasPermission = await requestPermissions();
   if (!hasPermission) return null;
 
+  // Prefer Expo push token — the backend Expo push path works without SNS
+  // platform applications, whereas native APNs/FCM tokens require SNS setup.
+  try {
+    const expoToken = await Notifications.getExpoPushTokenAsync({
+      projectId: PROJECT_ID,
+    });
+    if (expoToken?.data) {
+      const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+      if (__DEV__) console.log('[Push] Using Expo token:', expoToken.data.substring(0, 25) + '...');
+      return { token: expoToken.data, platform };
+    }
+  } catch (err) {
+    if (__DEV__) console.warn('[Push] Expo token failed, trying native:', err);
+    captureException(err as Error, { context: 'getExpoPushToken' });
+  }
+
+  // Fallback to native token (APNs/FCM) — requires SNS platform app on backend
   try {
     const native = await Notifications.getDevicePushTokenAsync();
     const platform = Platform.OS === 'ios' ? 'ios' : 'android';
@@ -133,19 +150,6 @@ export const getNativePushToken = async (): Promise<{ token: string; platform: '
     if (token) return { token, platform };
   } catch (error) {
     captureException(error as Error, { context: 'getDevicePushToken' });
-  }
-
-  // Dev fallback to Expo token to keep push working in Expo Go
-  try {
-    const expoToken = await Notifications.getExpoPushTokenAsync({
-      projectId: PROJECT_ID,
-    });
-    if (expoToken?.data) {
-      const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-      return { token: expoToken.data, platform };
-    }
-  } catch (err) {
-    captureException(err as Error, { context: 'getExpoPushToken-fallback' });
   }
 
   return null;

@@ -252,11 +252,19 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   const viewedAccountType = profileData?.account_type || (isOwnProfile ? storeUser?.accountType : null);
   const isViewedBusiness = viewedAccountType === ACCOUNT_TYPE.PRO_BUSINESS;
 
+  // Track which userId's peaks we last requested to prevent stale closure overwrites
+  const peaksFetchIdRef = useRef(0);
+
   useEffect(() => {
     if (!userId) return;
     // Pro business accounts don't have peaks — skip fetch only if VIEWED profile is business
     if (isViewedBusiness) return;
     let isMounted = true;
+    const fetchId = ++peaksFetchIdRef.current;
+
+    // Clear previous peaks immediately when userId changes to avoid showing stale data
+    setPeaks([]);
+
     const task = InteractionManager.runAfterInteractions(() => {
     const toCdn = (url?: string | null) => {
       if (!url) return null;
@@ -281,21 +289,11 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     }));
 
     const targetUserId = peaksUserId || userId;
-    
-    if (__DEV__) {
-      console.log('[ProfileScreen] Fetching peaks for user:', targetUserId);
-    }
-    
+
     awsAPI.getPeaks({ userId: targetUserId, limit: 50 }).then((res) => {
-      if (!isMounted) return;
-      
-      if (__DEV__) {
-        console.log('[ProfileScreen] Peaks API response:', { 
-          count: res.data?.length || 0,
-          targetUserId 
-        });
-      }
-      
+      // Guard: skip if unmounted OR if a newer fetch has been initiated (stale closure)
+      if (!isMounted || fetchId !== peaksFetchIdRef.current) return;
+
       let list = mapPeaks(res.data || []);
 
       // STRICT: Only show peaks belonging to this user — never show other users' peaks

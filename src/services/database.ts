@@ -1014,8 +1014,8 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
 
   try {
     const normalizedMediaUrls = (postData.media_urls || [])
-      .map((url) => normalizeCdnUrl(url))
-      .filter((url): url is string => !!url);
+      .map((url) => normalizeCdnUrl(url) || url)
+      .filter((url): url is string => !!url && typeof url === 'string');
 
     const createData: Record<string, unknown> = {
       content: postData.content || postData.caption,

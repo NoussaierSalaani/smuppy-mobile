@@ -75,8 +75,8 @@ const API2_PREFIXES = [
   '/groups', '/reviews', '/map', '/search/map', '/live-streams',
 ] as const;
 
-const MEDIA_NOT_READY_MAX_ATTEMPTS = 7;
-const MEDIA_NOT_READY_BASE_DELAY_MS = 1200;
+const MEDIA_NOT_READY_MAX_ATTEMPTS = 10;
+const MEDIA_NOT_READY_BASE_DELAY_MS = 1500;
 
 class AWSAPIService {
   private defaultTimeout = 30000;

@@ -654,9 +654,9 @@ const UserProfileScreen = () => {
 
       registerToggleAndMaybeBlock();
 
-      // Grace period: ignore API-sourced profileData updates for 10s to let the read
+      // Grace period: ignore API-sourced profileData updates for 30s to let the read
       // replica catch up. Our setQueryData above is authoritative during this window.
-      followGraceUntilRef.current = Date.now() + 10_000;
+      followGraceUntilRef.current = Date.now() + 30_000;
     } catch (err) {
       // Revert optimistic update on unexpected error
       if (wasPrivate) {
@@ -712,8 +712,8 @@ const UserProfileScreen = () => {
 
       registerToggleAndMaybeBlock();
 
-      // Grace period: ignore API-sourced profileData updates for 10s (read replica lag)
-      followGraceUntilRef.current = Date.now() + 10_000;
+      // Grace period: ignore API-sourced profileData updates for 30s (read replica lag)
+      followGraceUntilRef.current = Date.now() + 30_000;
     } catch (err) {
       // Revert on unexpected error: local state + cache
       setIsFan(true);

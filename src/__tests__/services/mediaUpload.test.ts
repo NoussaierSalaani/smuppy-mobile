@@ -49,6 +49,8 @@ jest.mock('../../services/aws-api', () => ({
 
 jest.mock('../../lib/sentry', () => ({
   captureException: jest.fn(),
+  addBreadcrumb: jest.fn(),
+  captureMessage: jest.fn(),
 }));
 
 jest.mock('../../utils/imageCompression', () => ({

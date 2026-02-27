@@ -65,8 +65,12 @@ jest.mock('../../config/aws-config', () => ({
 }));
 
 const mockCaptureException = jest.fn();
+const mockAddBreadcrumb = jest.fn();
+const mockCaptureMessage = jest.fn();
 jest.mock('../../lib/sentry', () => ({
   captureException: (...args: unknown[]) => mockCaptureException(...args),
+  addBreadcrumb: (...args: unknown[]) => mockAddBreadcrumb(...args),
+  captureMessage: (...args: unknown[]) => mockCaptureMessage(...args),
 }));
 
 const mockCompressImage = jest.fn();

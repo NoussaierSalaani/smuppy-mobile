@@ -616,8 +616,8 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
 
   // ==================== FANS ====================
   const handleFansPress = useCallback(() => {
-    navigation.navigate('FansList', { fansCount: user.stats.fans });
-  }, [navigation, user.stats.fans]);
+    navigation.navigate('FansList', { userId: viewedUserId || undefined, fansCount: user.stats.fans, initialTab: 'fans' });
+  }, [navigation, viewedUserId, user.stats.fans]);
 
   // Collection menu handlers
   const handleCollectionMenu = useCallback((post: { id: string }, e: { stopPropagation: () => void }) => {
@@ -750,14 +750,19 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
               <Text style={styles.statGlassLabel}>Fans</Text>
             </TouchableOpacity>
             <View style={styles.statGlassDivider} />
-            <View style={styles.statGlassItem}>
+            <TouchableOpacity
+              style={styles.statGlassItem}
+              onPress={() => setActiveTab(user.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? 'groupevent' : 'peaks')}
+              accessibilityLabel={user.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? `${activitiesCount || 0} activities` : `${user.stats.peaks || 0} peaks`}
+              accessibilityRole="button"
+            >
               <Text style={styles.statGlassValue}>
                 {user.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? (activitiesCount || 0) : (user.stats.peaks || 0)}
               </Text>
               <Text style={styles.statGlassLabel}>
                 {user.accountType === ACCOUNT_TYPE.PRO_BUSINESS ? 'Activities' : 'Peaks'}
               </Text>
-            </View>
+            </TouchableOpacity>
             {user.accountType !== 'pro_business' && (
               <>
                 <View style={styles.statGlassDivider} />

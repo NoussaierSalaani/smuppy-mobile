@@ -23,7 +23,7 @@ const required = [
 ];
 const missing = required.filter((k) => !process.env[k]);
 if (process.env.APP_ENV !== \"staging\") {
-  console.error(\"Invalid APP_ENV for store release: \" + (process.env.APP_ENV || \"<empty>\"));
+  console.error(\"Invalid APP_ENV for staging release: \" + (process.env.APP_ENV || \"<empty>\"));
   process.exit(1);
 }
 if (missing.length) {
@@ -33,5 +33,5 @@ if (missing.length) {
 console.log(\"EAS preview environment OK (staging).\");
 "'
 
-echo "Publishing OTA to branch production with EAS environment preview..."
-eas update --branch production --environment preview --message "$MESSAGE"
+echo "Publishing OTA to branch preview with EAS environment preview..."
+eas update --branch preview --environment preview --message "$MESSAGE"

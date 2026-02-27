@@ -125,8 +125,8 @@ export const resolveProfile = (
   const email = fallback.email || base.email || '';
 
   // Business accounts: prioritize business_name
-  const isBusiness = (base.account_type || fallback.accountType) === ACCOUNT_TYPE.PRO_BUSINESS;
-  const bName = base.business_name || fallback.businessName;
+  const isBusiness = (base.account_type || base.accountType || fallback.accountType) === ACCOUNT_TYPE.PRO_BUSINESS;
+  const bName = base.business_name || base.businessName || fallback.businessName;
   if (isBusiness && bName && bName.trim()) {
     displayName = bName;
   } else if (fallback.fullName && !isEmailDerivedName(fallback.fullName, email)) {
@@ -153,13 +153,13 @@ export const resolveProfile = (
     coverImage: base.cover_url || fallback.coverImage || null,
     bio: base.bio || fallback.bio || '',
     location: base.location || fallback.location || fallback.businessAddress || '',
-    accountType: (base.account_type || fallback.accountType || 'personal') as UserProfile['accountType'],
+    accountType: (base.account_type || base.accountType || fallback.accountType || 'personal') as UserProfile['accountType'],
     interests: base.interests || fallback.interests || [],
     expertise: base.expertise || fallback.expertise || [],
     website: base.website || fallback.website || '',
     socialLinks: base.social_links || fallback.socialLinks || {},
-    businessName: base.business_name || fallback.businessName || '',
-    businessCategory: base.business_category || fallback.businessCategory || '',
+    businessName: base.business_name || base.businessName || fallback.businessName || '',
+    businessCategory: base.business_category || base.businessCategory || fallback.businessCategory || '',
     isVerified: base.is_verified ?? fallback.isVerified ?? false,
     isPremium: base.is_premium ?? fallback.isPremium ?? false,
     stats: {

@@ -47,6 +47,7 @@ export interface UploadResult {
   cdnUrl?: string;
   error?: string;
   fileSize?: number;
+  mediaReady?: boolean;
 }
 
 export interface PresignedUrlResponse {
@@ -677,12 +678,12 @@ export const uploadImage = async (
 
     const publicMediaUrl = presignedData.cdnUrl || getCloudFrontUrl(presignedData.key);
     const shouldWaitForReady = options.waitForAvailability === true;
+    let mediaReady: boolean | undefined;
     if (shouldWaitForReady) {
       onProgress?.(92);
-      const isReady = await waitForMediaAvailability(publicMediaUrl, { timeoutMs: 60_000, intervalMs: 2_000 });
-      if (!isReady) {
-        if (__DEV__) console.warn('[uploadImage] Media not reachable after upload:', publicMediaUrl.substring(0, 120));
-        return { success: false, error: 'Media is still processing. Please retry in a moment.' };
+      mediaReady = await waitForMediaAvailability(publicMediaUrl, { timeoutMs: 60_000, intervalMs: 2_000 });
+      if (!mediaReady && __DEV__) {
+        console.warn('[uploadImage] CDN not yet reachable — returning success anyway:', publicMediaUrl.substring(0, 120));
       }
     }
 
@@ -692,6 +693,7 @@ export const uploadImage = async (
       url: `https://${S3_CONFIG.bucket}.s3.${S3_CONFIG.region}.amazonaws.com/${presignedData.key}`,
       cdnUrl: publicMediaUrl,
       fileSize,
+      mediaReady,
     };
   } catch (error) {
     if (__DEV__) console.warn('[uploadImage] Error:', error);

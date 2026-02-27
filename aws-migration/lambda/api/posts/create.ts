@@ -21,7 +21,10 @@ import type { Logger } from '../utils/logger';
 const lambdaClient = new LambdaClient({});
 const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET?.trim() || '';
-const s3Client = MEDIA_BUCKET ? new S3Client({}) : null;
+const s3Client = MEDIA_BUCKET ? new S3Client({
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+}) : null;
 
 const MAX_MEDIA_URLS = 10;
 const MAX_TAGGED_USERS = 20;
@@ -100,10 +103,15 @@ async function ensureMediaObjectsReady(
         return errorResponse(400, headers, 'Uploaded media is invalid or corrupted. Please upload a different file.', { code: 'MEDIA_INVALID' });
       }
     } catch (error_) {
+      // NotFound/NoSuchKey → media still processing (client will retry)
       if (isStorageNotFoundError(error_)) {
         return errorResponse(409, headers, 'Media is still processing. Please retry in a few seconds.', { code: 'MEDIA_NOT_READY' });
       }
-      throw error_;
+      // Any other S3 error (SDK parse failure, network, permissions) → treat as transient
+      // so the client retries instead of getting a hard 500
+      const errName = (error_ as { name?: string })?.name || 'Unknown';
+      console.error(`[ensureMediaObjectsReady] S3 HeadObject failed: ${errName}`, error_);
+      return errorResponse(409, headers, 'Media is still processing. Please retry in a few seconds.', { code: 'MEDIA_NOT_READY' });
     }
   }
 

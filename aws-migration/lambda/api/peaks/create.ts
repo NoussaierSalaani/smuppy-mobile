@@ -18,7 +18,10 @@ import { sendPushToUser } from '../services/push-notification';
 const lambdaClient = new LambdaClient({});
 const START_VIDEO_PROCESSING_FN = process.env.START_VIDEO_PROCESSING_FN;
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET?.trim() || '';
-const s3Client = MEDIA_BUCKET ? new S3Client({}) : null;
+const s3Client = MEDIA_BUCKET ? new S3Client({
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+}) : null;
 const MIN_MEDIA_FILE_BYTES = 512;
 
 // SECURITY: Validate URL format and restrict to trusted CDN/S3 domains
@@ -98,7 +101,14 @@ async function ensureMediaObjectReady(mediaUrl: string | undefined, headers: Rec
         body: JSON.stringify({ success: false, code: 'MEDIA_NOT_READY', message: 'Media is still processing. Please retry in a few seconds.' }),
       };
     }
-    throw error_;
+    // Any other S3 error → treat as transient so client retries instead of hard 500
+    const errName = (error_ as { name?: string })?.name || 'Unknown';
+    console.error(`[ensureMediaObjectReady] S3 HeadObject failed: ${errName}`, error_);
+    return {
+      statusCode: 409,
+      headers,
+      body: JSON.stringify({ success: false, code: 'MEDIA_NOT_READY', message: 'Media is still processing. Please retry in a few seconds.' }),
+    };
   }
 }
 

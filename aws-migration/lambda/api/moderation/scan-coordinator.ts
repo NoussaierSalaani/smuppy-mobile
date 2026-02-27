@@ -18,7 +18,11 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('scan-coordinator');
 
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
-const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+});
 const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
 const SCAN_TABLE = process.env.SCAN_COORDINATION_TABLE || '';

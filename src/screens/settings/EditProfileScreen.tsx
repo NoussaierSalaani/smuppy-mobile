@@ -287,6 +287,7 @@ const EditProfileScreen = ({ navigation }: EditProfileScreenProps) => {
         const { url, error: uploadError } = await uploadProfileImage(avatar, profileData?.id || user?.id || '');
         if (uploadError) {
           alert.error('Upload Failed', 'Failed to upload photo. Please try again.');
+          setIsSaving(false);
           return;
         }
         if (url) avatarUrl = url;

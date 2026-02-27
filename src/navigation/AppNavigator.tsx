@@ -333,7 +333,7 @@ export default function AppNavigator(): React.JSX.Element {
       } else {
         // SECURITY: Reset all cached stores on logout to prevent data leaking
         // between user sessions (User A's data visible to User B)
-        resetAllStores();
+        await resetAllStores();
         setAppState('auth');
         setUserEmail('');
         lastHandledUrl.current = null;

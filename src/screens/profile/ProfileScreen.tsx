@@ -448,12 +448,16 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
   );
 
   // ==================== IMAGE PICKER ====================
+  const [isUploading, setIsUploading] = useState(false);
+
   const showImageOptions = useCallback((type: 'avatar' | 'cover') => {
+    if (isUploading) return; // Prevent opening picker during an upload
     setImageSheetType(type);
     setShowImageSheet(true);
-  }, []);
+  }, [isUploading]);
 
   const updateImage = useCallback(async (type: 'avatar' | 'cover', uri: string | null) => {
+    if (isUploading) return; // Prevent concurrent uploads
     const key = type === 'avatar' ? 'avatar' : 'coverImage';
 
     // Capture previous value via setter, then apply optimistic update
@@ -468,6 +472,7 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     const currentUserId = profileData?.id || storeUser?.id;
     if (!currentUserId) return;
 
+    setIsUploading(true);
     try {
       if (type === 'avatar') {
         const { url, error } = await uploadProfileImage(uri, currentUserId);
@@ -496,8 +501,10 @@ const ProfileScreen = ({ navigation, route }: ProfileScreenProps) => {
     } catch {
       setUser(prev => ({ ...prev, [key]: prevValue }));
       showError('Upload Failed', 'Something went wrong');
+    } finally {
+      setIsUploading(false);
     }
-  }, [profileData?.id, storeUser?.id, showError, refetchProfile, updateStoreProfile]);
+  }, [isUploading, profileData?.id, storeUser?.id, showError, refetchProfile, updateStoreProfile]);
 
   const handleTakePhoto = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();

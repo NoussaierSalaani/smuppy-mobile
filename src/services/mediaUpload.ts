@@ -16,7 +16,7 @@ try {
   // Module natif non disponible (Expo Go)
   VideoThumbnails = null;
 }
-import { captureException } from '../lib/sentry';
+import { captureException, addBreadcrumb, captureMessage } from '../lib/sentry';
 import {
   compressImage,
   compressAvatar,
@@ -290,14 +290,21 @@ export const waitForMediaAvailability = async (
   const timeoutMs = options.timeoutMs ?? 45_000;
   const intervalMs = options.intervalMs ?? 1_500;
   const deadline = Date.now() + timeoutMs;
+  const startTime = Date.now();
 
+  addBreadcrumb('Waiting for media availability', 'upload', {
+    urlDomain: new URL(normalized).hostname,
+    timeoutMs,
+  });
+
+  let ready = false;
   while (Date.now() < deadline) {
     try {
       const headResponse = await fetch(normalized, {
         method: 'HEAD',
         headers: { 'Cache-Control': 'no-cache' },
       });
-      if (headResponse.ok || headResponse.status === 206) return true;
+      if (headResponse.ok || headResponse.status === 206) { ready = true; break; }
     } catch {
       // Expected for intermittent network issues; continue retry loop.
     }
@@ -311,7 +318,7 @@ export const waitForMediaAvailability = async (
           'Cache-Control': 'no-cache',
         },
       });
-      if (getResponse.ok || getResponse.status === 206) return true;
+      if (getResponse.ok || getResponse.status === 206) { ready = true; break; }
     } catch {
       // Expected while object is not yet promoted/available.
     }
@@ -319,7 +326,12 @@ export const waitForMediaAvailability = async (
     await sleep(intervalMs);
   }
 
-  return false;
+  addBreadcrumb('Media availability result', 'upload', {
+    ready,
+    elapsedMs: Date.now() - startTime,
+  });
+
+  return ready;
 };
 
 /**
@@ -424,6 +436,12 @@ export const getPresignedUrl = async (
       backendPublicUrl ||
       '';
 
+    addBreadcrumb('Presigned URL obtained', 'upload', {
+      folder,
+      contentType,
+      key: key?.substring(0, 50),
+    });
+
     return {
       uploadUrl: result.uploadUrl,
       key,
@@ -503,9 +521,21 @@ export const uploadToS3 = async (
       body: fileBlob,
     });
 
+    addBreadcrumb('S3 PUT response', 'upload', {
+      status: response.status,
+      contentType,
+      fileSize: fileBlob.length,
+    });
+
     if (!response.ok) {
       const body = await response.text().catch((e) => { if (__DEV__) { console.log('[uploadToS3] Failed to read response body:', e); } return ''; });
       if (__DEV__) console.log('[uploadToS3] S3 returned', response.status, body.substring(0, 300));
+      captureMessage(`S3 PUT failed: ${response.status}`, 'error', {
+        context: 'uploadToS3',
+        status: response.status,
+        bodySnippet: body.substring(0, 200),
+        contentType,
+      });
       throw new Error(`Upload failed: ${response.status}`);
     }
 
@@ -541,6 +571,11 @@ export const uploadWithFileSystem = async (
 
     if (__DEV__) console.log('[uploadFS] Status:', uploadResult.status, 'body:', (uploadResult.body || '').substring(0, 200));
 
+    addBreadcrumb('FileSystem upload result', 'upload', {
+      status: uploadResult.status,
+      contentType,
+    });
+
     if (uploadResult.status >= 200 && uploadResult.status < 300) {
       onProgress?.(100);
       return true;
@@ -548,6 +583,9 @@ export const uploadWithFileSystem = async (
 
     // FileSystem upload failed — try fetch-based fallback for non-video files
     if (__DEV__) console.log('[uploadFS] FileSystem upload failed, trying fetch fallback...');
+    addBreadcrumb('FileSystem upload failed, falling back to fetch', 'upload', {
+      fsStatus: uploadResult.status,
+    });
     return uploadToS3(fileUri, presignedUrl, contentType, onProgress);
   } catch (error) {
     if (__DEV__) console.log('[uploadFS] Error:', error, '— trying fetch fallback...');
@@ -686,6 +724,13 @@ export const uploadImage = async (
         console.warn('[uploadImage] CDN not yet reachable — returning success anyway:', publicMediaUrl.substring(0, 120));
       }
     }
+
+    addBreadcrumb('Upload complete', 'upload', {
+      success: true,
+      folder,
+      key: presignedData.key?.substring(0, 50),
+      mediaReady,
+    });
 
     return {
       success: true,

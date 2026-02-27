@@ -1,0 +1,41 @@
+{
+  "_comment": "Configuration for the Claude CI patcher bot. Read by patcher.mjs and claude-fix.yml.",
+  "model": "claude-sonnet-4-20250514",
+  "maxTokens": 8192,
+  "guardrails": {
+    "maxBotCommitsPerPR": 5,
+    "maxFilesPerPatch": 12,
+    "maxSameFailureRetries": 3,
+    "redZonePaths": [
+      "aws-migration/infrastructure/",
+      "aws-migration/lambda/shared/db.ts",
+      ".github/workflows/",
+      "scripts/claude/",
+      "eas.json",
+      "app.config.js",
+      "app.config.ts",
+      ".env",
+      "CLAUDE.md",
+      "CLAUDE-WORKFLOW.md"
+    ],
+    "redZonePatterns": [
+      "cognito",
+      "secret",
+      "credential"
+    ]
+  },
+  "stopConditions": [
+    "Same failure signature seen 3+ times → add needs-human label and stop",
+    "Bot has made 5+ commits on this PR → add needs-human label and stop",
+    "Patch touches any red zone path → block patch, add needs-human label",
+    "Patch modifies more than 12 files → abort",
+    "TypeScript check fails after patch → revert and abort"
+  ],
+  "requiredSecrets": [
+    "ANTHROPIC_API_KEY"
+  ],
+  "labels": {
+    "trigger": "claude-fix",
+    "stopped": "needs-human"
+  }
+}

@@ -1,0 +1,25 @@
+# CODEOWNERS — require human review for sensitive paths
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Infrastructure — NEVER auto-merged
+/aws-migration/infrastructure/  @NoussaierSalaani
+/aws-migration/lambda/shared/db.ts  @NoussaierSalaani
+
+# Environment & build config
+/eas.json  @NoussaierSalaani
+/app.config.*  @NoussaierSalaani
+/.env*  @NoussaierSalaani
+
+# CI/CD workflows
+/.github/workflows/  @NoussaierSalaani
+
+# Auth & security
+/src/services/auth*  @NoussaierSalaani
+/src/config/aws-config.ts  @NoussaierSalaani
+
+# Bot scripts (prevent self-modification)
+/scripts/claude/  @NoussaierSalaani
+
+# Project rules
+/CLAUDE.md  @NoussaierSalaani
+/CLAUDE-WORKFLOW.md  @NoussaierSalaani

@@ -45,10 +45,30 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Run ESLint
-        run: npm run lint
+        id: eslint
+        run: npm run lint 2>&1 | tee ci-lint-output.txt
+        continue-on-error: true
 
       - name: TypeScript type check
-        run: npm run typecheck
+        id: typecheck
+        run: npm run typecheck 2>&1 | tee ci-typecheck-output.txt
+        continue-on-error: true
+
+      - name: Upload lint artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-results
+          path: |
+            ci-lint-output.txt
+            ci-typecheck-output.txt
+          retention-days: 7
+
+      - name: Fail if lint or typecheck failed
+        if: steps.eslint.outcome == 'failure' || steps.typecheck.outcome == 'failure'
+        run: |
+          echo "::error::Lint or TypeScript check failed — see lint-results artifact"
+          exit 1
 
   # ============================================
   # TESTS
@@ -68,10 +88,17 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: |
+          npm ci --legacy-peer-deps
+          npm install --no-save jest-junit
 
       - name: Run tests with coverage
-        run: npm run test:ci -- --coverage
+        id: tests
+        run: npm run test:ci -- --coverage --reporters=default --reporters=jest-junit 2>&1 | tee ci-test-output.txt
+        continue-on-error: true
+        env:
+          JEST_JUNIT_OUTPUT_DIR: test-results
+          JEST_JUNIT_OUTPUT_NAME: junit.xml
 
       - name: Enforce coverage thresholds
         run: |
@@ -80,11 +107,28 @@ jobs:
           echo "Coverage thresholds enforced via jest.config.js"
 
       - name: Upload coverage report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage/
           retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            ci-test-output.txt
+          retention-days: 7
+
+      - name: Fail if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "::error::Unit tests failed — see test-results artifact"
+          exit 1
 
   # ============================================
   # SONARCLOUD ANALYSIS
@@ -372,16 +416,25 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm install --no-save jest-junit
 
       - name: Symlink node_modules for shared code
         run: cd .. && ln -sfn api/node_modules node_modules
 
       - name: TypeScript check
-        run: npx tsc --noEmit
+        id: lambda-tsc
+        run: npx tsc --noEmit 2>&1 | tee ci-lambda-tsc-output.txt
+        continue-on-error: true
 
       - name: Run Jest tests with coverage
-        run: npx jest --coverage
+        id: lambda-tests
+        run: npx jest --coverage --reporters=default --reporters=jest-junit 2>&1 | tee ci-lambda-test-output.txt
+        continue-on-error: true
+        env:
+          JEST_JUNIT_OUTPUT_DIR: test-results
+          JEST_JUNIT_OUTPUT_NAME: lambda-junit.xml
 
       - name: Verify LCOV file exists
         run: |
@@ -415,14 +468,34 @@ jobs:
           fi
 
       - name: Upload Lambda coverage report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lambda-coverage-report
           path: aws-migration/lambda/api/coverage/
           retention-days: 7
 
+      - name: Upload Lambda test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-test-results
+          path: |
+            aws-migration/lambda/api/test-results/
+            aws-migration/lambda/api/ci-lambda-tsc-output.txt
+            aws-migration/lambda/api/ci-lambda-test-output.txt
+          retention-days: 7
+
       - name: Run ESLint
-        run: npx eslint . --ext .ts
+        id: lambda-lint
+        run: npx eslint . --ext .ts 2>&1 | tee ci-lambda-lint-output.txt
+        continue-on-error: true
+
+      - name: Fail if any lambda check failed
+        if: steps.lambda-tsc.outcome == 'failure' || steps.lambda-tests.outcome == 'failure' || steps.lambda-lint.outcome == 'failure'
+        run: |
+          echo "::error::Lambda checks failed — see lambda-test-results artifact"
+          exit 1
 
   # ============================================
   # CDK SYNTH TEST

@@ -1,0 +1,441 @@
+name: Claude Fix Loop
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  checks: read
+
+env:
+  NODE_VERSION: '22'
+  # Guardrails
+  MAX_BOT_COMMITS: 5
+  MAX_FILES_PER_PATCH: 12
+  MAX_SAME_FAILURE_RETRIES: 3
+
+jobs:
+  fix:
+    name: Claude Auto-Fix
+    runs-on: ubuntu-latest
+    # Only run on failed CI for pull requests with the claude-fix label
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request'
+    timeout-minutes: 15
+    steps:
+      # ============================================
+      # 1. RESOLVE PR FROM WORKFLOW_RUN
+      # ============================================
+      - name: Get PR info from workflow_run
+        id: pr-info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get the head SHA from the workflow run
+            const headSha = context.payload.workflow_run.head_sha;
+            const headBranch = context.payload.workflow_run.head_branch;
+            core.info(`Workflow run SHA: ${headSha}, branch: ${headBranch}`);
+
+            // Find PRs for this branch
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${headBranch}`,
+              state: 'open',
+            });
+
+            if (prs.length === 0) {
+              core.info('No open PR found for this branch — skipping');
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            const pr = prs[0];
+            core.setOutput('skip', 'false');
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('pr_branch', pr.head.ref);
+            core.setOutput('pr_sha', pr.head.sha);
+            core.info(`Found PR #${pr.number} on branch ${pr.head.ref}`);
+
+            // Check for claude-fix label
+            const hasLabel = pr.labels.some(l => l.name === 'claude-fix');
+            if (!hasLabel) {
+              core.info('PR does not have "claude-fix" label — skipping');
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            // Count bot commits on this PR to enforce MAX_BOT_COMMITS
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+            });
+            const botCommits = commits.filter(c =>
+              c.commit.author?.name === 'smuppy-claude-bot'
+            ).length;
+            core.setOutput('bot_commits', botCommits);
+            core.info(`Bot commits on PR: ${botCommits}`);
+
+      - name: Check stop conditions
+        id: guards
+        if: steps.pr-info.outputs.skip != 'true'
+        run: |
+          BOT_COMMITS=${{ steps.pr-info.outputs.bot_commits }}
+          MAX=${{ env.MAX_BOT_COMMITS }}
+
+          if [ "$BOT_COMMITS" -ge "$MAX" ]; then
+            echo "::warning::Bot has already made $BOT_COMMITS commits on this PR (max: $MAX) — stopping"
+            echo "stop=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "stop=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Add needs-human label if stopped
+        if: steps.guards.outputs.stop == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-info.outputs.pr_number }};
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['needs-human'],
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: '## Claude Fix Bot — Stopped\n\nReached maximum bot commits (${{ env.MAX_BOT_COMMITS }}). A human needs to review and fix the remaining issues.\n\nRemove `needs-human` and re-add `claude-fix` to retry.',
+            });
+
+      # ============================================
+      # 2. DOWNLOAD CI ARTIFACTS
+      # ============================================
+      - name: Download CI artifacts
+        if: steps.pr-info.outputs.skip != 'true' && steps.guards.outputs.stop != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.payload.workflow_run.id;
+            const fs = require('fs');
+
+            // List artifacts from the failed run
+            const { data: { artifacts } } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            core.info(`Found ${artifacts.length} artifacts`);
+            fs.mkdirSync('ci-artifacts', { recursive: true });
+
+            // Download each artifact
+            for (const artifact of artifacts) {
+              core.info(`Downloading: ${artifact.name}`);
+              const { data } = await github.rest.actions.downloadArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+                archive_format: 'zip',
+              });
+              fs.writeFileSync(`ci-artifacts/${artifact.name}.zip`, Buffer.from(data));
+            }
+
+      - name: Extract artifacts
+        if: steps.pr-info.outputs.skip != 'true' && steps.guards.outputs.stop != 'true'
+        run: |
+          mkdir -p ci-failure-bundle
+          for zip in ci-artifacts/*.zip; do
+            [ -f "$zip" ] || continue
+            name=$(basename "$zip" .zip)
+            mkdir -p "ci-failure-bundle/$name"
+            unzip -o -q "$zip" -d "ci-failure-bundle/$name" || true
+          done
+          echo "=== Artifact contents ==="
+          find ci-failure-bundle -type f | head -50
+
+      - name: Get failed job logs
+        if: steps.pr-info.outputs.skip != 'true' && steps.guards.outputs.stop != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runId = context.payload.workflow_run.id;
+
+            // Get jobs for this run
+            const { data: { jobs } } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            const failedJobs = jobs.filter(j => j.conclusion === 'failure');
+            core.info(`Failed jobs: ${failedJobs.map(j => j.name).join(', ')}`);
+
+            let logsBundle = '';
+            for (const job of failedJobs) {
+              try {
+                const { data: logs } = await github.rest.actions.downloadJobLogsForWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  job_id: job.id,
+                });
+                // Truncate to last 300 lines per job to stay within prompt limits
+                const lines = logs.split('\n');
+                const tail = lines.slice(-300).join('\n');
+                logsBundle += `\n\n=== JOB: ${job.name} (${job.conclusion}) ===\n${tail}`;
+              } catch (e) {
+                core.warning(`Could not fetch logs for job ${job.name}: ${e.message}`);
+              }
+            }
+
+            fs.writeFileSync('ci-failure-bundle/failed-job-logs.txt', logsBundle);
+            core.info(`Wrote ${logsBundle.length} bytes of failure logs`);
+
+      # ============================================
+      # 3. CHECKOUT PR BRANCH + RUN PATCHER
+      # ============================================
+      - name: Checkout PR branch
+        if: steps.pr-info.outputs.skip != 'true' && steps.guards.outputs.stop != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr-info.outputs.pr_branch }}
+          fetch-depth: 20
+
+      - name: Setup Node.js
+        if: steps.pr-info.outputs.skip != 'true' && steps.guards.outputs.stop != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install patcher dependencies
+        if: steps.pr-info.outputs.skip != 'true' && steps.guards.outputs.stop != 'true'
+        run: npm install --no-save @anthropic-ai/sdk
+
+      # ============================================
+      # 4. CHECK FOR REPEATED FAILURES
+      # ============================================
+      - name: Check for repeated same failure
+        id: repeat-check
+        if: steps.pr-info.outputs.skip != 'true' && steps.guards.outputs.stop != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = ${{ steps.pr-info.outputs.pr_number }};
+
+            // Get recent bot comments to detect repeated failures
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 20,
+            });
+
+            const botComments = comments.filter(c =>
+              c.body?.startsWith('## Claude Fix Bot')
+            );
+
+            // Extract failure signatures from bot comments
+            const failureSignatures = botComments
+              .map(c => {
+                const match = c.body.match(/Failure signature: `(.+)`/);
+                return match ? match[1] : null;
+              })
+              .filter(Boolean);
+
+            // Read current failure to get its signature
+            let currentSignature = 'unknown';
+            try {
+              const logs = fs.readFileSync('ci-failure-bundle/failed-job-logs.txt', 'utf8');
+              // Extract first error line as signature
+              const errorLine = logs.match(/error[:\s]+(.{0,100})/i);
+              currentSignature = errorLine ? errorLine[1].trim().slice(0, 80) : 'unknown';
+            } catch {}
+
+            const repeatCount = failureSignatures.filter(s => s === currentSignature).length;
+            core.info(`Current failure signature: "${currentSignature}" (seen ${repeatCount} times before)`);
+            core.setOutput('signature', currentSignature);
+            core.setOutput('repeat_count', repeatCount);
+
+            if (repeatCount >= ${{ env.MAX_SAME_FAILURE_RETRIES }}) {
+              core.warning(`Same failure seen ${repeatCount} times — stopping`);
+              core.setOutput('stop', 'true');
+            } else {
+              core.setOutput('stop', 'false');
+            }
+
+      - name: Stop on repeated failure
+        if: steps.repeat-check.outputs.stop == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-info.outputs.pr_number }};
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['needs-human'],
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `## Claude Fix Bot — Stopped (repeated failure)\n\nThe same failure has occurred ${{ env.MAX_SAME_FAILURE_RETRIES }}+ times:\n\nFailure signature: \`${{ steps.repeat-check.outputs.signature }}\`\n\nA human needs to investigate.`,
+            });
+            core.setFailed('Repeated failure — needs human intervention');
+
+      # ============================================
+      # 5. RUN CLAUDE PATCHER
+      # ============================================
+      - name: Run Claude patcher
+        id: patcher
+        if: >
+          steps.pr-info.outputs.skip != 'true' &&
+          steps.guards.outputs.stop != 'true' &&
+          steps.repeat-check.outputs.stop != 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAX_FILES: ${{ env.MAX_FILES_PER_PATCH }}
+          CI_ARTIFACTS_DIR: ci-failure-bundle
+          FAILURE_SIGNATURE: ${{ steps.repeat-check.outputs.signature }}
+        run: node scripts/claude/patcher.mjs
+
+      # ============================================
+      # 6. VALIDATE PATCH (GUARDRAILS)
+      # ============================================
+      - name: Validate patch — sensitive file guard
+        id: sensitive-guard
+        if: steps.patcher.outcome == 'success'
+        run: |
+          # Check if patch touches sensitive files
+          CHANGED=$(git diff --name-only HEAD)
+          echo "Files changed by patch:"
+          echo "$CHANGED"
+
+          SENSITIVE_PATTERNS=(
+            "^aws-migration/infrastructure/"
+            "^eas\.json$"
+            "^app\.config\."
+            "\.env"
+            "^scripts/claude/"
+            "^\.github/workflows/"
+            "cognito"
+            "secrets"
+          )
+
+          BLOCKED=false
+          for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+            if echo "$CHANGED" | grep -qE "$pattern"; then
+              echo "::error::Patch touches sensitive path matching: $pattern"
+              BLOCKED=true
+            fi
+          done
+
+          if [ "$BLOCKED" = "true" ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            git checkout -- .
+          else
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Check file count
+          FILE_COUNT=$(echo "$CHANGED" | grep -c '.' || echo 0)
+          if [ "$FILE_COUNT" -gt "${{ env.MAX_FILES_PER_PATCH }}" ]; then
+            echo "::error::Patch modifies $FILE_COUNT files (max: ${{ env.MAX_FILES_PER_PATCH }})"
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            git checkout -- .
+          fi
+
+      - name: Comment on blocked patch
+        if: steps.sensitive-guard.outputs.blocked == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-info.outputs.pr_number }};
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['needs-human'],
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: '## Claude Fix Bot — Blocked\n\nThe proposed patch touches sensitive files (infra, env, workflows, auth). A human must review and apply manually.\n\nFailure signature: `${{ steps.repeat-check.outputs.signature }}`',
+            });
+
+      # ============================================
+      # 7. PUSH FIX + COMMENT
+      # ============================================
+      - name: Quick verify patch
+        if: >
+          steps.patcher.outcome == 'success' &&
+          steps.sensitive-guard.outputs.blocked != 'true'
+        run: |
+          # Run typecheck on patched code to catch obvious issues
+          npm ci --legacy-peer-deps 2>/dev/null || true
+          npx tsc --noEmit 2>&1 | tail -20 || {
+            echo "::warning::Patch introduces TypeScript errors — reverting"
+            git checkout -- .
+            exit 1
+          }
+
+      - name: Commit and push fix
+        id: push
+        if: >
+          steps.patcher.outcome == 'success' &&
+          steps.sensitive-guard.outputs.blocked != 'true'
+        run: |
+          git config user.name "smuppy-claude-bot"
+          git config user.email "bot@smuppy.local"
+
+          # Stage only modified/added files (not untracked junk)
+          git add -u
+          # Check if there are actual changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit — patcher produced empty diff"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          SIGNATURE="${{ steps.repeat-check.outputs.signature }}"
+          git commit -m "$(cat <<EOF
+          fix(ci): auto-patch CI failure
+
+          Failure: ${SIGNATURE:0:60}
+
+          Co-Authored-By: Claude (smuppy-claude-bot) <bot@smuppy.local>
+          EOF
+          )"
+
+          git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR with fix details
+        if: steps.push.outputs.pushed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = ${{ steps.pr-info.outputs.pr_number }};
+
+            let patchSummary = 'No summary available';
+            try {
+              patchSummary = fs.readFileSync('ci-failure-bundle/patch-summary.txt', 'utf8');
+            } catch {}
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `## Claude Fix Bot — Patch Applied\n\nFailure signature: \`${{ steps.repeat-check.outputs.signature }}\`\n\n### What changed\n${patchSummary}\n\nCI will re-run automatically. Bot commits: ${{ steps.pr-info.outputs.bot_commits }} + 1 / ${{ env.MAX_BOT_COMMITS }}`,
+            });

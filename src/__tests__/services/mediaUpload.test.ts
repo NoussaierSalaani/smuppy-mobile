@@ -142,8 +142,8 @@ describe('mediaUpload', () => {
   describe('getPresignedUrl', () => {
     it('should get presigned URL from AWS API', async () => {
       mockAwsGetUploadUrl.mockResolvedValue({
-        uploadUrl: 'https://s3.presigned.url',
-        fileUrl: 'posts/u1/image.jpg',
+        ok: true,
+        data: { uploadUrl: 'https://s3.presigned.url', fileUrl: 'posts/u1/image.jpg' },
       });
 
       const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg', 1024);
@@ -156,18 +156,20 @@ describe('mediaUpload', () => {
     });
 
     it('should return null on API error', async () => {
-      mockAwsGetUploadUrl.mockRejectedValue(new Error('API error'));
+      mockAwsGetUploadUrl.mockResolvedValue({ ok: false, code: 'UPLOAD_INIT_FAILED', message: 'API error' });
 
       const result = await getPresignedUrl('image.jpg', 'posts', 'image/jpeg', 1024);
-      // May return null depending on module state
-      expect(result === null || result !== null).toBe(true);
+      expect(result).toBeNull();
     });
 
     it('should prefer backend publicUrl over reconstructed CDN URL', async () => {
       mockAwsGetUploadUrl.mockResolvedValue({
-        uploadUrl: 'https://s3.presigned.url',
-        fileUrl: 'posts/u1/image.jpg',
-        publicUrl: 'https://origin.example.com/posts/u1/image.jpg',
+        ok: true,
+        data: {
+          uploadUrl: 'https://s3.presigned.url',
+          fileUrl: 'posts/u1/image.jpg',
+          publicUrl: 'https://origin.example.com/posts/u1/image.jpg',
+        },
       });
       mockAwsGetCDNUrl.mockReturnValue('https://cdn.test.com/posts/u1/image.jpg');
 

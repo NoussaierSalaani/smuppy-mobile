@@ -1,7 +1,16 @@
 import type { AWSAPIService } from '../aws-api';
-import { APIError } from './error';
+import type { Result } from '../result';
+import { ok, err } from '../result';
 
 declare const __DEV__: boolean;
+
+type UploadUrlResponse = {
+  uploadUrl: string;
+  fileUrl?: string;
+  key?: string;
+  publicUrl?: string;
+  cdnUrl?: string;
+};
 
 export async function getUploadUrl(
   api: AWSAPIService,
@@ -9,13 +18,7 @@ export async function getUploadUrl(
   contentType: string,
   fileSize: number,
   duration?: number
-): Promise<{
-  uploadUrl: string;
-  fileUrl?: string;
-  key?: string;
-  publicUrl?: string;
-  cdnUrl?: string;
-}> {
+): Promise<Result<UploadUrlResponse>> {
   // Determine uploadType from the folder prefix in filename
   let uploadType = 'post';
   if (filename.startsWith('avatars/')) uploadType = 'avatar';
@@ -26,13 +29,18 @@ export async function getUploadUrl(
   if (__DEV__) console.log('[getUploadUrl] uploadType:', uploadType, 'contentType:', contentType);
 
   if (!Number.isFinite(fileSize) || fileSize <= 0) {
-    throw new APIError('Invalid upload file size', 400);
+    return err('UPLOAD_INIT_FAILED', 'Invalid upload file size');
   }
 
-  return api.request('/media/upload-url', {
-    method: 'POST',
-    body: { filename, contentType, uploadType, fileSize, ...(duration != null && { duration }) },
-  });
+  try {
+    const data = await api.request<UploadUrlResponse>('/media/upload-url', {
+      method: 'POST',
+      body: { filename, contentType, uploadType, fileSize, ...(duration != null && { duration }) },
+    });
+    return ok(data);
+  } catch (_e: unknown) {
+    return err('UPLOAD_INIT_FAILED', 'Failed to get upload URL');
+  }
 }
 
 export async function getUploadQuota(api: AWSAPIService): Promise<{ success: boolean; accountType: string; quotas: Record<string, unknown>; resetsAt: string }> {

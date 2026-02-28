@@ -160,8 +160,8 @@ function setupValidFile() {
 
 function setupPresignedUrl() {
   mockGetUploadUrl.mockResolvedValue({
-    uploadUrl: 'https://s3.presigned.url',
-    fileUrl: 'posts/u1/image.jpg',
+    ok: true,
+    data: { uploadUrl: 'https://s3.presigned.url', fileUrl: 'posts/u1/image.jpg' },
   });
   mockGetCDNUrl.mockReturnValue('https://cdn.test.com/posts/u1/image.jpg');
 }
@@ -356,8 +356,11 @@ describe('mediaUpload — upload functions', () => {
     it('derives object key from absolute fileUrl and still returns CDN URL', async () => {
       mockUploadAsync.mockResolvedValue({ status: 200, body: '' });
       mockGetUploadUrl.mockResolvedValue({
-        uploadUrl: 'https://s3.presigned.url',
-        fileUrl: 'https://smuppy-media-staging-471112656108.s3.amazonaws.com/posts/u1/from-absolute.jpg',
+        ok: true,
+        data: {
+          uploadUrl: 'https://s3.presigned.url',
+          fileUrl: 'https://smuppy-media-staging-471112656108.s3.amazonaws.com/posts/u1/from-absolute.jpg',
+        },
       });
       mockGetCDNUrl.mockImplementation((key: string) => `https://cdn.test.com/${key}`);
 
@@ -375,9 +378,12 @@ describe('mediaUpload — upload functions', () => {
     it('prefers derived CDN URL over public S3 URL', async () => {
       mockUploadAsync.mockResolvedValue({ status: 200, body: '' });
       mockGetUploadUrl.mockResolvedValue({
-        uploadUrl: 'https://s3.presigned.url',
-        key: 'posts/u1/cdn-first.jpg',
-        publicUrl: 'https://smuppy-media-staging-471112656108.s3.amazonaws.com/posts/u1/cdn-first.jpg',
+        ok: true,
+        data: {
+          uploadUrl: 'https://s3.presigned.url',
+          key: 'posts/u1/cdn-first.jpg',
+          publicUrl: 'https://smuppy-media-staging-471112656108.s3.amazonaws.com/posts/u1/cdn-first.jpg',
+        },
       });
       mockGetCDNUrl.mockImplementation((key: string) => `https://cdn.test.com/${key}`);
 
@@ -440,7 +446,7 @@ describe('mediaUpload — upload functions', () => {
     });
 
     it('returns error when presigned URL fails', async () => {
-      mockGetUploadUrl.mockRejectedValue(new Error('API down'));
+      mockGetUploadUrl.mockResolvedValue({ ok: false, code: 'UPLOAD_INIT_FAILED', message: 'API down' });
 
       const result = await uploadImage('user-1', 'file:///photo.jpg');
       expect(result.success).toBe(false);
@@ -490,7 +496,7 @@ describe('mediaUpload — upload functions', () => {
     });
 
     it('returns error when presigned URL fails', async () => {
-      mockGetUploadUrl.mockRejectedValue(new Error('API down'));
+      mockGetUploadUrl.mockResolvedValue({ ok: false, code: 'UPLOAD_INIT_FAILED', message: 'API down' });
 
       const result = await uploadVideo('user-1', 'file:///video.mp4');
       expect(result.success).toBe(false);

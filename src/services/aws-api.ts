@@ -957,13 +957,7 @@ export class AWSAPIService {
     contentType: string,
     fileSize: number,
     duration?: number
-  ): Promise<{
-    uploadUrl: string;
-    fileUrl?: string;
-    key?: string;
-    publicUrl?: string;
-    cdnUrl?: string;
-  }> {
+  ) {
     return _getUploadUrl(this, filename, contentType, fileSize, duration);
   }
 

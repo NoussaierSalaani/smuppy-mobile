@@ -10,12 +10,13 @@
 - Notes: Untracked files (screenshots, audit-logs, artifacts) present but no tracked modifications.
 
 ## S1 — Docs added
-- Commit: a1ecdc18
+- Commit: 3d34d8e3
 - Files: REFACTOR_CHARTER.md, SMOKE_TESTS.md, EXECUTION_LOG.md (3 new files)
 - Gates:
   - lint: PASS (0 errors, 1 pre-existing warning)
   - typecheck: PASS (0 errors)
 - Verdict: PASS
+- S1.1: Charter updated (Core Invariants + AUTH Scope frozen)
 
 ## S2 — Scaffold domain modules
 - Commit:

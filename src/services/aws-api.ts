@@ -68,6 +68,10 @@ import {
   deletePost as _deletePost,
   likePost as _likePost,
 } from './api/postApi';
+import {
+  getUploadUrl as _getUploadUrl,
+  getUploadQuota as _getUploadQuota,
+} from './api/uploadApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -1039,27 +1043,11 @@ export class AWSAPIService {
     publicUrl?: string;
     cdnUrl?: string;
   }> {
-    // Determine uploadType from the folder prefix in filename
-    let uploadType = 'post';
-    if (filename.startsWith('avatars/')) uploadType = 'avatar';
-    else if (filename.startsWith('covers/')) uploadType = 'cover';
-    else if (filename.startsWith('peaks/')) uploadType = 'peak';
-    else if (filename.startsWith('messages/')) uploadType = 'message';
-
-    if (__DEV__) console.log('[getUploadUrl] uploadType:', uploadType, 'contentType:', contentType);
-
-    if (!Number.isFinite(fileSize) || fileSize <= 0) {
-      throw new APIError('Invalid upload file size', 400);
-    }
-
-    return this.request('/media/upload-url', {
-      method: 'POST',
-      body: { filename, contentType, uploadType, fileSize, ...(duration != null && { duration }) },
-    });
+    return _getUploadUrl(this, filename, contentType, fileSize, duration);
   }
 
   async getUploadQuota(): Promise<{ success: boolean; accountType: string; quotas: Record<string, unknown>; resetsAt: string }> {
-    return this.request('/media/upload-quota');
+    return _getUploadQuota(this);
   }
 
 

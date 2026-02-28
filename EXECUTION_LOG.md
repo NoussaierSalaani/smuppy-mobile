@@ -80,6 +80,13 @@
 - Smoke: 565/565 unit tests pass
 - Verdict: PASS
 ## S9 — Extract UPLOAD
+- Commit: (pending)
+- Methods moved (2): getUploadUrl, getUploadQuota
+- Files changed: aws-api.ts + uploadApi.ts only
+- Helpers: none needed (APIError imported from error.ts)
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
 ## S10 — Extract PEAKS
 ## S11 — Extract MESSAGING
 ## S12 — Extract MAP

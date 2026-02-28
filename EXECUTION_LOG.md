@@ -71,6 +71,14 @@
 - Smoke: 565/565 unit tests pass
 - Verdict: PASS
 ## S8 — Extract POST (+ shared helpers to helpers.ts)
+- Helper commit: cc2065e1 — withMediaReadyRetry + isMediaNotReadyError → helpers.ts (separate commit)
+- POST commit: (pending)
+- Methods moved (6): getPosts, getPost, createPost, updatePost, deletePost, likePost
+- createPost uses withMediaReadyRetry directly from helpers.ts (no more this.withMediaReadyRetry)
+- Files changed: aws-api.ts + postApi.ts only
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
 ## S9 — Extract UPLOAD
 ## S10 — Extract PEAKS
 ## S11 — Extract MESSAGING

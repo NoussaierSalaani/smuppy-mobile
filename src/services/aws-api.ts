@@ -60,6 +60,14 @@ import {
   withMediaReadyRetry as _withMediaReadyRetry,
   isMediaNotReadyError as _isMediaNotReadyError,
 } from './api/helpers';
+import {
+  getPosts as _getPosts,
+  getPost as _getPost,
+  createPost as _createPost,
+  updatePost as _updatePost,
+  deletePost as _deletePost,
+  likePost as _likePost,
+} from './api/postApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -415,68 +423,27 @@ export class AWSAPIService {
     type?: 'all' | 'following' | 'explore';
     userId?: string;
   }): Promise<PaginatedResponse<Post>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.type) queryParams.set('type', params.type);
-    if (params?.userId) queryParams.set('userId', params.userId);
-
-    const query = queryParams.toString();
-
-    // Route 'following' type to /feed/following (API Gateway 3 with Cognito authorizer)
-    // /posts endpoint is public (no authorizer) — JWT claims aren't passed to the Lambda
-    let endpoint = `/posts${query ? `?${query}` : ''}`;
-    if (params?.type === 'following') {
-      const feedParams = new URLSearchParams();
-      if (params.limit) feedParams.set('limit', params.limit.toString());
-      if (params.cursor) feedParams.set('cursor', params.cursor);
-      const feedQuery = feedParams.toString();
-      endpoint = `/feed/following${feedQuery ? `?${feedQuery}` : ''}`;
-    }
-
-    const response = await this.request<{ posts?: Post[]; data?: Post[]; nextCursor?: string | null; hasMore?: boolean; total?: number }>(endpoint);
-
-    // Map API response (posts) to expected format (data)
-    let posts: Post[];
-    if (Array.isArray(response.posts)) posts = response.posts;
-    else if (Array.isArray(response.data)) posts = response.data;
-    else posts = [];
-    return {
-      data: posts,
-      nextCursor: response.nextCursor || null,
-      hasMore: !!response.hasMore,
-      total: response.total ?? 0,
-    };
+    return _getPosts(this, params);
   }
 
   async getPost(id: string): Promise<Post> {
-    return this.request(`/posts/${id}`);
+    return _getPost(this, id);
   }
 
   async createPost(data: CreatePostInput): Promise<Post> {
-    return this.withMediaReadyRetry(() => this.request('/posts', {
-      method: 'POST',
-      body: data,
-    }));
+    return _createPost(this, data);
   }
 
   async updatePost(id: string, data: Partial<CreatePostInput>): Promise<Post> {
-    return this.request(`/posts/${id}`, {
-      method: 'PATCH',
-      body: data,
-    });
+    return _updatePost(this, id, data);
   }
 
   async deletePost(id: string): Promise<void> {
-    return this.request(`/posts/${id}`, {
-      method: 'DELETE',
-    });
+    return _deletePost(this, id);
   }
 
   async likePost(id: string): Promise<void> {
-    return this.request(`/posts/${id}/like`, {
-      method: 'POST',
-    });
+    return _likePost(this, id);
   }
 
   // ==========================================

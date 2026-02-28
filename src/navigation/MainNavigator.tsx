@@ -15,6 +15,7 @@ import { lazyScreen, asScreen, screenWithBackSwipe } from './shared';
 
 // Stacks
 import SettingsStack from './stacks/SettingsStack';
+import ProfileStack from './stacks/ProfileStack';
 
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
 const fetchBadgeCounts = (): void => {
@@ -54,7 +55,7 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import SearchScreen from '../screens/search/SearchScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ChatScreen from '../screens/messages/ChatScreen';
-import UserProfileScreen from '../screens/profile/UserProfileScreen';
+// UserProfile → moved to stacks/ProfileStack.tsx
 
 // Post detail screens (navigated from feed — must be instant)
 import PostDetailFanFeedScreen from '../screens/home/PostDetailFanFeedScreen';
@@ -92,8 +93,7 @@ const ActivePrescriptionScreen = lazyScreen(() => import('../screens/vibe/Active
 const PrescriptionPreferencesScreen = lazyScreen(() => import('../screens/settings/PrescriptionPreferencesScreen'));
 
 // Profile (deep)
-const FansListScreen = lazyScreen(() => import('../screens/profile/FansListScreen'));
-const PostLikersScreen = lazyScreen(() => import('../screens/profile/PostLikersScreen'));
+// FansList, PostLikers → moved to stacks/ProfileStack.tsx
 
 // Settings Screens → moved to stacks/SettingsStack.tsx
 
@@ -369,9 +369,8 @@ export default function MainNavigator() {
       <Stack.Screen name="PostSuccess" component={PostSuccessScreen} options={{ animation: 'fade' }} />
 
       {/* Profile Stack */}
-      <Stack.Screen name="FansList" component={FansListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="PostLikers" component={PostLikersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* Profile Stack */}
+      <Stack.Screen name="ProfileStack" component={ProfileStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Vibe */}
       <Stack.Screen name="Prescriptions" component={PrescriptionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />

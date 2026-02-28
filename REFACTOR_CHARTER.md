@@ -238,3 +238,55 @@ DONE (with known minor navigation bugs to fix)
 - No linking/deep link changes
 - No modal vs push presentation changes
 - No tab order/structure changes
+
+---
+
+## Phase 5 — Post-Refactor Production Readiness
+
+### 5.1 — Freeze Rules (Active)
+
+1. **No More Structural Refactors** — no folder reshuffling, navigation restructuring, or API contract changes. Allowed: bug fixes, small features, performance improvements.
+2. **No Opportunistic Refactors** — fix the bug, leave. No "while I'm here" edits.
+3. **Result Pattern** — strongly recommended for new async methods in domain API files. Not a hard blocker until enforced by ESLint rule.
+4. **MainNavigator Is Frozen** — route names = contract. Changing them breaks deep links, navigation calls, analytics.
+5. **Sacred Set Is Sacred** — do not touch `request`/`_requestWithRetry`/`_requestOnce`/`_refreshToken`/`inFlightGets` unless fixing a critical production bug.
+
+### 5.2 — Pre-Release Stability Gates
+
+| Gate | Requirement | Status |
+|------|------------|--------|
+| A — Maestro Smoke | 4 flows minimum (login, feed, create post, logout) | READY (17 flows exist) |
+| B — Crash-Free | ≥ 99.5% crash-free sessions, no blocking flow bugs | TO VERIFY (staging) |
+| C — Performance | Feed p95 < 3s, create flow no freeze, no double API calls | TO VERIFY |
+| D — Data Integrity | No duplicate posts, like/unlike sync, upload failures safe | TO VERIFY |
+| E — Create Post | ≥ 99% success on 50-100 internal test attempts | TO VERIFY |
+
+### 5.3 — Security & Secrets Checklist
+
+| Item | Status | Notes |
+|------|--------|-------|
+| No secrets in repo | PASS | .env.example only; test mocks use `sk_test_fake` |
+| .env in .gitignore | PASS | Lines 40-42, 69 cover all variants |
+| Production config separation | PASS | `env.ts` + `aws-config.ts` switch on `__DEV__`/`APP_ENV` |
+| Sentry PII scrubbing | PASS | `beforeSend` scrubs emails, tokens, passwords; `sendDefaultPii: false` |
+| No auth tokens logged without `__DEV__` | PASS | All token/presigned URL logging guarded |
+| No presigned URLs in production logs | PASS | Only key prefix logged, never full URL |
+| Token storage | PASS | `expo-secure-store` (Keychain/Keystore encrypted) |
+| Input validation | PASS | HTML/control char sanitization, parameterized SQL |
+| Error messages | PASS | Generic to client, full details server-side only |
+
+### 5.4 — Operational Readiness Checklist
+
+| Item | Status | Notes |
+|------|--------|-------|
+| EAS profiles (dev/preview/prod) | WARN | All 3 exist; production uses `environment: "preview"` — expected (no prod infra yet) |
+| API base URL switching | PASS | `__DEV__` flag + `APP_ENV` env var in `env.ts` |
+| Sentry DSN per environment | WARN | Single DSN; recommend separate projects for prod launch |
+| Secure env vars | PASS | `.env.example` with placeholders, secrets not committed |
+| Build config sanity | WARN | Relies on Expo defaults for release mode; add explicit `optimization: true` for clarity |
+
+### Production launch blocklist (before prod deploy)
+1. Create separate Sentry projects for staging and production
+2. Update `eas.json` production profile: `environment: "production"`, `APP_ENV: "production"`
+3. Migrate sensitive values to EAS Secrets UI
+4. Verify all 5 stability gates (B–E) pass on staging

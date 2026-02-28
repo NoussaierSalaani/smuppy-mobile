@@ -88,6 +88,44 @@
 - Smoke: 565/565 unit tests pass
 - Verdict: PASS
 ## S10 — Extract PEAKS
+- Commit: 89b4ec40
+- Methods moved (20): getPeaks, getPeak, createPeak, likePeak, reactToPeak, removeReactionFromPeak, tagFriendOnPeak, getPeakTags, hidePeak, getPeakComments, commentOnPeak, deletePeak, getExpiredPeaks, savePeakDecision, createChallenge, getChallenges, getChallengeDetail, getChallengeResponses, respondToChallenge, voteChallengeResponse
+- Private helpers removed from class: normalizePeakAuthor, normalizePeak (co-located in peaksApi.ts as local functions — Case 1)
+- createPeak uses withMediaReadyRetry from helpers.ts
+- Files changed: aws-api.ts + peaksApi.ts only
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
 ## S11 — Extract MESSAGING
+- Commit: ccae4001
+- Methods moved (8): getConversations, getConversation, createConversation, getOrCreateConversation, getMessages, sendMessage, deleteMessage, markConversationRead
+- Files changed: aws-api.ts + messagingApi.ts only
+- Helpers: none needed
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
 ## S12 — Extract MAP
+- Commit: c6d940c0
+- Methods moved (15): createSpot, getSpot, getNearbySpots, createReview, getReviews, getCategories, suggestSubcategory, createLivePin, deleteLivePin, startLiveStream, endLiveStream, getActiveLiveStreams, getNearbyLivePins, getMapMarkers, searchMap
+- Files changed: aws-api.ts + mapApi.ts only
+- Helpers: none needed
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
 ## S13 — Extract EVENTS (PREP-gated)
+- PREP verdict: PASS — no state dependencies, all clean request() calls
+- Commit: 3f4860a3
+- Methods moved (17): createEvent, getEvents, getEventDetail, getEventParticipants, joinEvent, leaveEvent, createEventPayment, confirmEventPayment, updateEvent, cancelEvent, removeEventParticipant, eventAction, createGroup, getGroups, getGroup, joinGroup, leaveGroup
+- Files changed: aws-api.ts + eventsApi.ts only
+- Helpers: none needed
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
+
+## Phase 0 — All Domain Extractions Complete
+- Total methods extracted: 5 (AUTH) + 10 (NOTIF) + 6 (SOCIAL) + 6 (PROFILE) + 1 (FEED) + 6 (POST) + 2 (UPLOAD) + 20 (PEAKS) + 8 (MSG) + 15 (MAP) + 17 (EVENTS) = **96 methods**
+- Shared helpers extracted: 2 (withMediaReadyRetry, isMediaNotReadyError)
+- Private helpers co-located: 2 (normalizePeakAuthor, normalizePeak in peaksApi.ts)
+- All 11 domain modules populated
+- Sacred Set untouched: request, _requestWithRetry, _requestOnce, _refreshToken, inFlightGets
+- All gates green across all 13 steps

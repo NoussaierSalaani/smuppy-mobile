@@ -782,6 +782,11 @@ export class LambdaStack extends cdk.NestedStack {
       resources: [this.startVideoProcessingFn.functionArn],
     }));
 
+    // Grant S3 read for ensureMediaObjectsReady (HeadObject on uploaded media)
+    mediaBucket.grantRead(this.postsCreateFn);
+    mediaBucket.grantRead(this.peaksCreateFn);
+    mediaBucket.grantRead(this.profilesUpdateFn);
+
     // ========================================
     // Image Optimizer Lambda (Sharp + Blurhash)
     // ========================================

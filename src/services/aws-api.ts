@@ -18,6 +18,7 @@ import type {
 } from './api/types';
 import { APIError } from './api/error';
 import { addBreadcrumb, captureException } from '../lib/sentry';
+import { devLog, nowMs, safeJson } from './observability';
 import {
   smartSignup as _smartSignup,
   confirmSignup as _confirmSignup,
@@ -216,20 +217,46 @@ export class AWSAPIService {
   async request<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     const resolvedOptions: RequestOptions = options ?? { method: 'GET' };
     const method = resolvedOptions.method || 'GET';
+    const logPath = endpoint.split('?')[0]; // strip query params for safe logging
+    const start = nowMs();
 
     // Deduplicate identical in-flight GET requests
     if (method === 'GET') {
       const existing = this.inFlightGets.get(endpoint);
       if (existing) return existing as Promise<T>;
 
-      const promise = this._requestWithRetry<T>(endpoint, resolvedOptions).finally(() => {
-        this.inFlightGets.delete(endpoint);
-      });
+      const promise = this._requestWithRetry<T>(endpoint, resolvedOptions)
+        .then((result) => {
+          const ms = nowMs() - start;
+          devLog(`[API] ${method} ${logPath} OK ${ms}ms`);
+          addBreadcrumb(`${method} ${logPath}`, 'api', { ms, status: 'ok' });
+          return result;
+        })
+        .catch((error_: unknown) => {
+          const ms = nowMs() - start;
+          devLog(`[API][ERR] ${method} ${logPath} ${ms}ms`, safeJson(error_));
+          addBreadcrumb(`${method} ${logPath}`, 'api-error', { ms, status: 'error' });
+          throw error_;
+        })
+        .finally(() => {
+          this.inFlightGets.delete(endpoint);
+        });
       this.inFlightGets.set(endpoint, promise);
       return promise;
     }
 
-    return this._requestWithRetry<T>(endpoint, resolvedOptions);
+    try {
+      const result = await this._requestWithRetry<T>(endpoint, resolvedOptions);
+      const ms = nowMs() - start;
+      devLog(`[API] ${method} ${logPath} OK ${ms}ms`);
+      addBreadcrumb(`${method} ${logPath}`, 'api', { ms, status: 'ok' });
+      return result;
+    } catch (error_: unknown) {
+      const ms = nowMs() - start;
+      devLog(`[API][ERR] ${method} ${logPath} ${ms}ms`, safeJson(error_));
+      addBreadcrumb(`${method} ${logPath}`, 'api-error', { ms, status: 'error' });
+      throw error_;
+    }
   }
 
   private async _requestWithRetry<T>(endpoint: string, options: RequestOptions): Promise<T> {

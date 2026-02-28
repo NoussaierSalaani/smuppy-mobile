@@ -1045,8 +1045,11 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
       createData.tagged_users = postData.tagged_users;
     }
 
-    const post = await awsAPI.createPost(createData);
-    return { data: convertPost(post), error: null };
+    const result = await awsAPI.createPost(createData);
+    if (!result.ok) {
+      return { data: null, error: result.message };
+    }
+    return { data: convertPost(result.data), error: null };
   } catch (error_: unknown) {
     return { data: null, error: getErrorMessage(error_) };
   }

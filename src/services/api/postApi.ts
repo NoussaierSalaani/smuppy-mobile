@@ -61,11 +61,16 @@ export async function getPost(api: AWSAPIService, id: string): Promise<Result<Po
   }
 }
 
-export async function createPost(api: AWSAPIService, data: CreatePostInput): Promise<Post> {
-  return withMediaReadyRetry(() => api.request('/posts', {
-    method: 'POST',
-    body: data,
-  }));
+export async function createPost(api: AWSAPIService, data: CreatePostInput): Promise<Result<Post>> {
+  try {
+    const post = await withMediaReadyRetry(() => api.request<Post>('/posts', {
+      method: 'POST',
+      body: data,
+    }));
+    return ok(post);
+  } catch (_e: unknown) {
+    return err('POST_CREATE_FAILED', 'Failed to create post');
+  }
 }
 
 export async function updatePost(api: AWSAPIService, id: string, data: Partial<CreatePostInput>): Promise<Post> {

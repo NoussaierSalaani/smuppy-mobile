@@ -612,7 +612,7 @@ describe('database.methods', () => {
 
   describe('createPost', () => {
     it('should create a post', async () => {
-      mockCreatePost.mockResolvedValue(makeAWSPost());
+      mockCreatePost.mockResolvedValue({ ok: true, data: makeAWSPost() });
       const result = await createPost({
         content: 'Hello world',
         media_urls: ['https://cdn.example.com/img.jpg'],
@@ -632,7 +632,7 @@ describe('database.methods', () => {
     });
 
     it('should handle peak-specific fields', async () => {
-      mockCreatePost.mockResolvedValue(makeAWSPost({ isPeak: true }));
+      mockCreatePost.mockResolvedValue({ ok: true, data: makeAWSPost({ isPeak: true }) });
       await createPost({
         content: 'Peak',
         is_peak: true,
@@ -655,7 +655,7 @@ describe('database.methods', () => {
     });
 
     it('should pass tags and tagged_users', async () => {
-      mockCreatePost.mockResolvedValue(makeAWSPost());
+      mockCreatePost.mockResolvedValue({ ok: true, data: makeAWSPost() });
       await createPost({
         content: 'Tagged',
         tags: ['Fitness'],
@@ -671,7 +671,7 @@ describe('database.methods', () => {
     });
 
     it('should send both camelCase and snake_case media fields', async () => {
-      mockCreatePost.mockResolvedValue(makeAWSPost());
+      mockCreatePost.mockResolvedValue({ ok: true, data: makeAWSPost() });
       await createPost({
         content: 'Mixed payload',
         media_urls: ['https://cdn.example.com/photo.jpg'],
@@ -689,14 +689,14 @@ describe('database.methods', () => {
     });
 
     it('should return error on failure', async () => {
-      mockCreatePost.mockRejectedValue(new Error('Create failed'));
+      mockCreatePost.mockResolvedValue({ ok: false, code: 'POST_CREATE_FAILED', message: 'Create failed' });
       const result = await createPost({ content: 'test' });
       expect(result.data).toBeNull();
       expect(result.error).toBe('Create failed');
     });
 
     it('should use caption when content is missing', async () => {
-      mockCreatePost.mockResolvedValue(makeAWSPost());
+      mockCreatePost.mockResolvedValue({ ok: true, data: makeAWSPost() });
       await createPost({ caption: 'My caption' });
       expect(mockCreatePost).toHaveBeenCalledWith(
         expect.objectContaining({ content: 'My caption' })

@@ -530,7 +530,7 @@ export class AWSAPIService {
     return _getPost(this, id);
   }
 
-  async createPost(data: CreatePostInput): Promise<Post> {
+  async createPost(data: CreatePostInput) {
     return _createPost(this, data);
   }
 

@@ -251,7 +251,7 @@ describe('backend', () => {
   describe('createPost', () => {
     it('should delegate to awsAPI', async () => {
       const mockPost = { id: 'p1', content: 'Hello' };
-      mockAwsAPI.createPost.mockResolvedValue(mockPost);
+      mockAwsAPI.createPost.mockResolvedValue({ ok: true, data: mockPost });
 
       const result = await createPost({ content: 'Hello' } as never);
       expect(result).toEqual(mockPost);

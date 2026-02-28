@@ -93,7 +93,9 @@ export async function getPosts(params?: { limit?: number; cursor?: string; type?
 }
 
 export async function createPost(data: CreatePostInput): Promise<Post> {
-  return awsAPI.createPost(data);
+  const result = await awsAPI.createPost(data);
+  if (!result.ok) throw new Error(result.message);
+  return result.data;
 }
 
 export async function likePost(postId: string): Promise<void> {

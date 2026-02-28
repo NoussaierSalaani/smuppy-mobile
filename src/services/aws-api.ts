@@ -94,6 +94,16 @@ import {
   respondToChallenge as _respondToChallenge,
   voteChallengeResponse as _voteChallengeResponse,
 } from './api/peaksApi';
+import {
+  getConversations as _getConversations,
+  getConversation as _getConversation,
+  createConversation as _createConversation,
+  getOrCreateConversation as _getOrCreateConversation,
+  getMessages as _getMessages,
+  sendMessage as _sendMessage,
+  deleteMessage as _deleteMessage,
+  markConversationRead as _markConversationRead,
+} from './api/messagingApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -973,37 +983,23 @@ export class AWSAPIService {
   // ==========================================
 
   async getConversations(params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Conversation>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    return this.request(`/conversations${query ? `?${query}` : ''}`);
+    return _getConversations(this, params);
   }
 
   async getConversation(id: string): Promise<Conversation> {
-    return this.request(`/conversations/${id}`);
+    return _getConversation(this, id);
   }
 
   async createConversation(participantId: string): Promise<Conversation> {
-    return this.request('/conversations', {
-      method: 'POST',
-      body: { participantId },
-    });
+    return _createConversation(this, participantId);
   }
 
   async getOrCreateConversation(participantId: string): Promise<Conversation> {
-    return this.request('/conversations/get-or-create', {
-      method: 'POST',
-      body: { participantId },
-    });
+    return _getOrCreateConversation(this, participantId);
   }
 
   async getMessages(conversationId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Message>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    return this.request(`/conversations/${conversationId}/messages${query ? `?${query}` : ''}`);
+    return _getMessages(this, conversationId, params);
   }
 
   async sendMessage(conversationId: string, data: {
@@ -1011,22 +1007,15 @@ export class AWSAPIService {
     messageType?: 'text' | 'image' | 'video' | 'audio';
     mediaUrl?: string;
   }): Promise<Message> {
-    return this.request(`/conversations/${conversationId}/messages`, {
-      method: 'POST',
-      body: data,
-    });
+    return _sendMessage(this, conversationId, data);
   }
 
   async deleteMessage(messageId: string): Promise<void> {
-    return this.request(`/messages/${messageId}`, {
-      method: 'DELETE',
-    });
+    return _deleteMessage(this, messageId);
   }
 
   async markConversationRead(conversationId: string): Promise<void> {
-    return this.request(`/conversations/${conversationId}/read`, {
-      method: 'POST',
-    });
+    return _markConversationRead(this, conversationId);
   }
 
   // ==========================================

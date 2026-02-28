@@ -18,6 +18,13 @@ import type {
 } from './api/types';
 import { APIError } from './api/error';
 import { addBreadcrumb, captureException } from '../lib/sentry';
+import {
+  smartSignup as _smartSignup,
+  confirmSignup as _confirmSignup,
+  resendConfirmationCode as _resendConfirmationCode,
+  forgotPassword as _forgotPassword,
+  confirmForgotPassword as _confirmForgotPassword,
+} from './api/authApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -78,7 +85,7 @@ const API2_PREFIXES = [
 const MEDIA_NOT_READY_MAX_ATTEMPTS = 10;
 const MEDIA_NOT_READY_BASE_DELAY_MS = 1500;
 
-class AWSAPIService {
+export class AWSAPIService {
   private defaultTimeout = 30000;
   // Prevent concurrent signOut calls from racing (double 401 scenario)
   private signingOut = false;
@@ -1215,11 +1222,7 @@ class AWSAPIService {
     confirmationRequired: boolean;
     message?: string;
   }> {
-    return this.request('/auth/signup', {
-      method: 'POST',
-      body: data,
-      authenticated: false,
-    });
+    return _smartSignup(this, data);
   }
 
   /**
@@ -1232,11 +1235,7 @@ class AWSAPIService {
     success: boolean;
     message?: string;
   }> {
-    return this.request('/auth/confirm-signup', {
-      method: 'POST',
-      body: data,
-      authenticated: false,
-    });
+    return _confirmSignup(this, data);
   }
 
   /**
@@ -1246,11 +1245,7 @@ class AWSAPIService {
     success: boolean;
     message?: string;
   }> {
-    return this.request('/auth/resend-code', {
-      method: 'POST',
-      body: { email },
-      authenticated: false,
-    });
+    return _resendConfirmationCode(this, email);
   }
 
   /**
@@ -1260,11 +1255,7 @@ class AWSAPIService {
     success: boolean;
     message?: string;
   }> {
-    return this.request('/auth/forgot-password', {
-      method: 'POST',
-      body: { email },
-      authenticated: false,
-    });
+    return _forgotPassword(this, email);
   }
 
   /**
@@ -1278,11 +1269,7 @@ class AWSAPIService {
     success: boolean;
     message?: string;
   }> {
-    return this.request('/auth/confirm-forgot-password', {
-      method: 'POST',
-      body: data,
-      authenticated: false,
-    });
+    return _confirmForgotPassword(this, data);
   }
 
   // ==========================================

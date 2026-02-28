@@ -28,6 +28,15 @@
 - Verdict: PASS
 
 ## S3 — Extract AUTH
+- Commit: 328670f0
+- Methods moved: smartSignup, confirmSignup, resendConfirmationCode, forgotPassword, confirmForgotPassword
+- Files changed: aws-api.ts (delegations + export class), authApi.ts (5 domain functions)
+- Note: Added `export` to `class AWSAPIService` for type import in domain modules
+- Helpers: none needed (all 5 methods only call api.request)
+- Gates:
+  - lint: PASS (0 errors)
+  - typecheck: PASS (0 errors)
+- Verdict: PASS — awaiting human smoke test
 ## S4 — Extract NOTIFICATIONS
 ## S5 — Extract SOCIAL
 ## S6 — Extract PROFILE

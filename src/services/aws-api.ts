@@ -217,6 +217,7 @@ export class AWSAPIService {
   async request<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     const resolvedOptions: RequestOptions = options ?? { method: 'GET' };
     const method = resolvedOptions.method || 'GET';
+    const meta = resolvedOptions.meta;
     const logPath = endpoint.split('?')[0]; // strip query params for safe logging
     const start = nowMs();
 
@@ -229,13 +230,13 @@ export class AWSAPIService {
         .then((result) => {
           const ms = nowMs() - start;
           devLog(`[API] ${method} ${logPath} OK ${ms}ms`);
-          addBreadcrumb(`${method} ${logPath}`, 'api', { ms, status: 'ok' });
+          addBreadcrumb(`${method} ${logPath}`, 'api', { ms, status: 'ok', feature: meta?.feature, action: meta?.action });
           return result;
         })
         .catch((error_: unknown) => {
           const ms = nowMs() - start;
           devLog(`[API][ERR] ${method} ${logPath} ${ms}ms`, safeJson(error_));
-          addBreadcrumb(`${method} ${logPath}`, 'api-error', { ms, status: 'error' });
+          addBreadcrumb(`${method} ${logPath}`, 'api-error', { ms, status: 'error', feature: meta?.feature, action: meta?.action });
           throw error_;
         })
         .finally(() => {
@@ -249,12 +250,12 @@ export class AWSAPIService {
       const result = await this._requestWithRetry<T>(endpoint, resolvedOptions);
       const ms = nowMs() - start;
       devLog(`[API] ${method} ${logPath} OK ${ms}ms`);
-      addBreadcrumb(`${method} ${logPath}`, 'api', { ms, status: 'ok' });
+      addBreadcrumb(`${method} ${logPath}`, 'api', { ms, status: 'ok', feature: meta?.feature, action: meta?.action });
       return result;
     } catch (error_: unknown) {
       const ms = nowMs() - start;
       devLog(`[API][ERR] ${method} ${logPath} ${ms}ms`, safeJson(error_));
-      addBreadcrumb(`${method} ${logPath}`, 'api-error', { ms, status: 'error' });
+      addBreadcrumb(`${method} ${logPath}`, 'api-error', { ms, status: 'error', feature: meta?.feature, action: meta?.action });
       throw error_;
     }
   }

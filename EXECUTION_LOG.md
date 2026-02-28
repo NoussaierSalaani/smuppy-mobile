@@ -38,6 +38,13 @@
   - typecheck: PASS (0 errors)
 - Verdict: PASS — awaiting human smoke test
 ## S4 — Extract NOTIFICATIONS
+- Commit: d34313de
+- Methods moved (10): getNotifications, getActivityHistory, markNotificationRead, markAllNotificationsRead, getUnreadCount, deleteNotification, registerPushToken, unregisterPushToken, getNotificationPreferences, updateNotificationPreferences
+- Files changed: aws-api.ts + notificationsApi.ts only
+- Helpers: none needed
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass (methods + service + comprehensive)
+- Verdict: PASS
 ## S5 — Extract SOCIAL
 ## S6 — Extract PROFILE
 ## S7 — Extract FEED

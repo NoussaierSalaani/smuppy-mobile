@@ -25,6 +25,18 @@ import {
   forgotPassword as _forgotPassword,
   confirmForgotPassword as _confirmForgotPassword,
 } from './api/authApi';
+import {
+  getNotifications as _getNotifications,
+  getActivityHistory as _getActivityHistory,
+  markNotificationRead as _markNotificationRead,
+  markAllNotificationsRead as _markAllNotificationsRead,
+  getUnreadCount as _getUnreadCount,
+  deleteNotification as _deleteNotification,
+  registerPushToken as _registerPushToken,
+  unregisterPushToken as _unregisterPushToken,
+  getNotificationPreferences as _getNotificationPreferences,
+  updateNotificationPreferences as _updateNotificationPreferences,
+} from './api/notificationsApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -932,65 +944,27 @@ export class AWSAPIService {
   // ==========================================
 
   async getNotifications(params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Notification>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      data?: Notification[];
-      notifications?: Notification[];
-      nextCursor?: string | null;
-      cursor?: string | null;
-      hasMore?: boolean;
-    }>(`/notifications${query ? `?${query}` : ''}`);
-    // Handle both new format (data/nextCursor) and old format (notifications/cursor)
-    return {
-      data: response.data || response.notifications || [],
-      nextCursor: response.nextCursor ?? response.cursor ?? null,
-      hasMore: !!response.hasMore,
-      total: 0,
-    };
+    return _getNotifications(this, params);
   }
 
   async getActivityHistory(params?: { limit?: number; cursor?: string; type?: string }): Promise<PaginatedResponse<ActivityItem>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.type) queryParams.set('type', params.type);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      data?: ActivityItem[];
-      nextCursor?: string | null;
-      hasMore?: boolean;
-    }>(`/activity${query ? `?${query}` : ''}`);
-    return {
-      data: response.data ?? [],
-      nextCursor: response.nextCursor ?? null,
-      hasMore: !!response.hasMore,
-      total: 0,
-    };
+    return _getActivityHistory(this, params);
   }
 
   async markNotificationRead(id: string): Promise<void> {
-    return this.request(`/notifications/${id}/read`, {
-      method: 'POST',
-    });
+    return _markNotificationRead(this, id);
   }
 
   async markAllNotificationsRead(): Promise<void> {
-    return this.request('/notifications/read-all', {
-      method: 'POST',
-    });
+    return _markAllNotificationsRead(this);
   }
 
   async getUnreadCount(): Promise<{ unreadCount: number }> {
-    return this.request('/notifications/unread-count');
+    return _getUnreadCount(this);
   }
 
   async deleteNotification(id: string): Promise<void> {
-    return this.request(`/notifications/${id}`, {
-      method: 'DELETE',
-    });
+    return _deleteNotification(this, id);
   }
 
   // ==========================================
@@ -1056,16 +1030,11 @@ export class AWSAPIService {
     platform: 'ios' | 'android';
     deviceId: string;
   }): Promise<void> {
-    return this.request('/notifications/push-token', {
-      method: 'POST',
-      body: data,
-    });
+    return _registerPushToken(this, data);
   }
 
   async unregisterPushToken(deviceId: string): Promise<void> {
-    return this.request(`/notifications/push-token/${deviceId}`, {
-      method: 'DELETE',
-    });
+    return _unregisterPushToken(this, deviceId);
   }
 
   // ==========================================
@@ -1073,18 +1042,11 @@ export class AWSAPIService {
   // ==========================================
 
   async getNotificationPreferences(): Promise<NotificationPreferences> {
-    const response = await this.request<{ success: boolean; preferences: NotificationPreferences }>(
-      '/notifications/preferences'
-    );
-    return response.preferences;
+    return _getNotificationPreferences(this);
   }
 
   async updateNotificationPreferences(prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
-    const response = await this.request<{ success: boolean; preferences: NotificationPreferences }>(
-      '/notifications/preferences',
-      { method: 'PUT', body: prefs }
-    );
-    return response.preferences;
+    return _updateNotificationPreferences(this, prefs);
   }
 
   // ==========================================

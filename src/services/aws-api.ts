@@ -72,6 +72,28 @@ import {
   getUploadUrl as _getUploadUrl,
   getUploadQuota as _getUploadQuota,
 } from './api/uploadApi';
+import {
+  getPeaks as _getPeaks,
+  getPeak as _getPeak,
+  createPeak as _createPeak,
+  likePeak as _likePeak,
+  reactToPeak as _reactToPeak,
+  removeReactionFromPeak as _removeReactionFromPeak,
+  tagFriendOnPeak as _tagFriendOnPeak,
+  getPeakTags as _getPeakTags,
+  hidePeak as _hidePeak,
+  getPeakComments as _getPeakComments,
+  commentOnPeak as _commentOnPeak,
+  deletePeak as _deletePeak,
+  getExpiredPeaks as _getExpiredPeaks,
+  savePeakDecision as _savePeakDecision,
+  createChallenge as _createChallenge,
+  getChallenges as _getChallenges,
+  getChallengeDetail as _getChallengeDetail,
+  getChallengeResponses as _getChallengeResponses,
+  respondToChallenge as _respondToChallenge,
+  voteChallengeResponse as _voteChallengeResponse,
+} from './api/peaksApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -542,171 +564,34 @@ export class AWSAPIService {
   // Peaks API
   // ==========================================
 
-  private normalizePeakAuthor(raw: unknown, fallbackId = ''): Profile {
-    const rec = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
-    return {
-      id: (rec.id as string | undefined) || (rec.user_id as string | undefined) || fallbackId,
-      username: (rec.username as string | undefined) || (rec.user_name as string | undefined) || '',
-      fullName: (rec.fullName as string | undefined) || (rec.full_name as string | undefined) || null,
-      displayName: (rec.displayName as string | undefined) || (rec.display_name as string | undefined) || null,
-      avatarUrl:
-        (rec.avatarUrl as string | undefined) ||
-        (rec.avatar_url as string | undefined) ||
-        (rec.avatar as string | undefined) ||
-        null,
-      coverUrl: (rec.coverUrl as string | undefined) || (rec.cover_url as string | undefined) || null,
-      bio: (rec.bio as string | undefined) || null,
-      website: (rec.website as string | undefined) || null,
-      isVerified: Boolean((rec.isVerified as boolean | undefined) ?? (rec.is_verified as boolean | undefined)),
-      isPremium: Boolean((rec.isPremium as boolean | undefined) ?? (rec.is_premium as boolean | undefined)),
-      isPrivate: Boolean((rec.isPrivate as boolean | undefined) ?? (rec.is_private as boolean | undefined)),
-      accountType: ((rec.accountType as string | undefined) || (rec.account_type as string | undefined) || 'personal') as Profile['accountType'],
-      followersCount: Number((rec.followersCount as number | undefined) ?? (rec.followers_count as number | undefined) ?? 0),
-      followingCount: Number((rec.followingCount as number | undefined) ?? (rec.following_count as number | undefined) ?? 0),
-      postsCount: Number((rec.postsCount as number | undefined) ?? (rec.posts_count as number | undefined) ?? 0),
-      peaksCount: Number((rec.peaksCount as number | undefined) ?? (rec.peaks_count as number | undefined) ?? 0),
-      isFollowing: (rec.isFollowing as boolean | undefined) ?? (rec.is_following as boolean | undefined),
-      isFollowedBy: (rec.isFollowedBy as boolean | undefined) ?? (rec.is_followed_by as boolean | undefined),
-      interests: Array.isArray(rec.interests) ? rec.interests as string[] : undefined,
-      expertise: Array.isArray(rec.expertise) ? rec.expertise as string[] : undefined,
-      socialLinks: rec.socialLinks as Record<string, string> | undefined,
-      onboardingCompleted: (rec.onboardingCompleted as boolean | undefined) ?? (rec.onboarding_completed as boolean | undefined),
-      businessName: (rec.businessName as string | undefined) || (rec.business_name as string | undefined),
-      businessCategory: (rec.businessCategory as string | undefined) || (rec.business_category as string | undefined),
-      businessAddress: (rec.businessAddress as string | undefined) || (rec.business_address as string | undefined),
-      businessLatitude: (rec.businessLatitude as number | undefined) ?? (rec.business_latitude as number | undefined),
-      businessLongitude: (rec.businessLongitude as number | undefined) ?? (rec.business_longitude as number | undefined),
-      businessPhone: (rec.businessPhone as string | undefined) || (rec.business_phone as string | undefined),
-      locationsMode: (rec.locationsMode as string | undefined) || (rec.locations_mode as string | undefined),
-      gender: rec.gender as string | undefined,
-      dateOfBirth: (rec.dateOfBirth as string | undefined) || (rec.date_of_birth as string | undefined),
-    };
-  }
-
-  private normalizePeak(raw: Peak | Record<string, unknown>): Peak {
-    const rec = raw as Record<string, unknown>;
-    const authorId =
-      (rec.authorId as string | undefined) ||
-      (rec.author_id as string | undefined) ||
-      ((rec.author as Record<string, unknown> | undefined)?.id as string | undefined) ||
-      '';
-    const challengeRaw = (rec.challenge && typeof rec.challenge === 'object')
-      ? rec.challenge as Record<string, unknown>
-      : null;
-
-    return {
-      ...(raw as Peak),
-      id: (rec.id as string | undefined) || '',
-      authorId,
-      videoUrl:
-        (rec.videoUrl as string | undefined) ||
-        (rec.video_url as string | undefined) ||
-        (rec.mediaUrl as string | undefined) ||
-        (rec.media_url as string | undefined) ||
-        '',
-      thumbnailUrl:
-        (rec.thumbnailUrl as string | undefined) ||
-        (rec.thumbnail_url as string | undefined) ||
-        (rec.posterUrl as string | undefined) ||
-        (rec.poster_url as string | undefined) ||
-        null,
-      caption: (rec.caption as string | undefined) || (rec.content as string | undefined) || null,
-      duration: Number((rec.duration as number | undefined) ?? (rec.video_duration as number | undefined) ?? 0),
-      replyToPeakId:
-        (rec.replyToPeakId as string | undefined) ||
-        (rec.reply_to_peak_id as string | undefined) ||
-        null,
-      likesCount: Number((rec.likesCount as number | undefined) ?? (rec.likes_count as number | undefined) ?? (rec.likes as number | undefined) ?? 0),
-      commentsCount: Number((rec.commentsCount as number | undefined) ?? (rec.comments_count as number | undefined) ?? (rec.comments as number | undefined) ?? 0),
-      viewsCount: Number((rec.viewsCount as number | undefined) ?? (rec.views_count as number | undefined) ?? (rec.views as number | undefined) ?? 0),
-      createdAt: (rec.createdAt as string | undefined) || (rec.created_at as string | undefined) || new Date().toISOString(),
-      filterId: (rec.filterId as string | undefined) || (rec.filter_id as string | undefined) || null,
-      filterIntensity: (rec.filterIntensity as number | undefined) ?? (rec.filter_intensity as number | undefined) ?? null,
-      overlays: Array.isArray(rec.overlays) ? rec.overlays as Peak['overlays'] : null,
-      expiresAt: (rec.expiresAt as string | undefined) || (rec.expires_at as string | undefined) || null,
-      savedToProfile: (rec.savedToProfile as boolean | undefined) ?? (rec.saved_to_profile as boolean | undefined) ?? null,
-      hlsUrl: (rec.hlsUrl as string | undefined) || (rec.hls_url as string | undefined) || null,
-      videoStatus: (rec.videoStatus as Peak['videoStatus']) || (rec.video_status as Peak['videoStatus']) || null,
-      videoVariants: (rec.videoVariants as Record<string, string> | undefined) || (rec.video_variants as Record<string, string> | undefined) || null,
-      videoDuration: (rec.videoDuration as number | undefined) ?? (rec.video_duration as number | undefined) ?? null,
-      isLiked: (rec.isLiked as boolean | undefined) ?? (rec.is_liked as boolean | undefined),
-      isViewed: (rec.isViewed as boolean | undefined) ?? (rec.is_viewed as boolean | undefined),
-      author: this.normalizePeakAuthor(rec.author, authorId),
-      challenge: challengeRaw ? {
-        id: (challengeRaw.id as string | undefined) || '',
-        title: (challengeRaw.title as string | undefined) || '',
-        rules: (challengeRaw.rules as string | undefined) || null,
-        status: (challengeRaw.status as string | undefined) || '',
-        responseCount: Number((challengeRaw.responseCount as number | undefined) ?? (challengeRaw.response_count as number | undefined) ?? 0),
-      } : null,
-    };
-  }
-
   async getPeaks(params?: { limit?: number; cursor?: string; userId?: string }): Promise<PaginatedResponse<Peak>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.userId) {
-      // Support both camelCase and snake_case author filters (some gateways expect one or the other)
-      queryParams.set('authorId', params.userId);
-      queryParams.set('author_id', params.userId);
-    }
-    const query = queryParams.toString();
-    const response = await this.request<{ data?: Peak[]; peaks?: Peak[]; nextCursor?: string | null; hasMore?: boolean; items?: Peak[] }>(`/peaks${query ? `?${query}` : ''}`);
-    const raw = response.data || response.peaks || response.items || [];
-    return {
-      data: raw.map((item) => this.normalizePeak(item)),
-      nextCursor: response.nextCursor || null,
-      hasMore: !!response.hasMore,
-      total: raw.length,
-    };
+    return _getPeaks(this, params);
   }
 
   async getPeak(id: string): Promise<Peak> {
-    const peak = await this.request<Peak | { data?: Peak; peak?: Peak }>(`/peaks/${id}`);
-    const payload = (peak as { data?: Peak; peak?: Peak }).data || (peak as { data?: Peak; peak?: Peak }).peak || peak;
-    return this.normalizePeak(payload as Peak);
+    return _getPeak(this, id);
   }
 
   async createPeak(data: CreatePeakInput): Promise<Peak> {
-    return this.withMediaReadyRetry(() => this.request('/peaks', {
-      method: 'POST',
-      body: data,
-    }));
+    return _createPeak(this, data);
   }
 
   async likePeak(id: string): Promise<void> {
-    return this.request(`/peaks/${id}/like`, {
-      method: 'POST',
-    });
+    return _likePeak(this, id);
   }
 
-  /**
-   * React to a peak with emoji reaction
-   */
   async reactToPeak(id: string, reaction: string): Promise<{
     success: boolean;
     reaction: string;
     reactionCounts: Record<string, number>;
   }> {
-    return this.request(`/peaks/${id}/react`, {
-      method: 'POST',
-      body: { reaction },
-    });
+    return _reactToPeak(this, id, reaction);
   }
 
-  /**
-   * Remove reaction from a peak
-   */
   async removeReactionFromPeak(id: string): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${id}/react`, {
-      method: 'DELETE',
-    });
+    return _removeReactionFromPeak(this, id);
   }
 
-  /**
-   * Tag a friend on a peak
-   */
   async tagFriendOnPeak(peakId: string, friendId: string): Promise<{
     success: boolean;
     tag: {
@@ -721,16 +606,9 @@ export class AWSAPIService {
       createdAt: string;
     };
   }> {
-    return this.request(`/peaks/${peakId}/tags`, {
-      method: 'POST',
-      body: { friendId },
-    });
+    return _tagFriendOnPeak(this, peakId, friendId);
   }
 
-
-  /**
-   * Get tags on a peak
-   */
   async getPeakTags(peakId: string): Promise<{
     success: boolean;
     tags: Array<{
@@ -743,26 +621,17 @@ export class AWSAPIService {
       createdAt: string;
     }>;
   }> {
-    return this.request(`/peaks/${peakId}/tags`);
+    return _getPeakTags(this, peakId);
   }
 
-  /**
-   * Hide a peak from feed (not interested)
-   */
   async hidePeak(id: string, reason: 'not_interested' | 'seen_too_often' | 'irrelevant' | 'other' = 'not_interested'): Promise<{
     success: boolean;
     message: string;
     reason: string;
   }> {
-    return this.request(`/peaks/${id}/hide`, {
-      method: 'POST',
-      body: { reason },
-    });
+    return _hidePeak(this, id, reason);
   }
 
-  /**
-   * Get comments on a peak
-   */
   async getPeakComments(peakId: string, params?: { limit?: number; cursor?: string }): Promise<{
     success: boolean;
     data: Array<{
@@ -774,16 +643,9 @@ export class AWSAPIService {
     nextCursor: string | null;
     hasMore: boolean;
   }> {
-    const query = new URLSearchParams();
-    if (params?.limit) query.set('limit', String(params.limit));
-    if (params?.cursor) query.set('cursor', params.cursor);
-    const qs = query.toString();
-    return this.request(`/peaks/${peakId}/comments${qs ? `?${qs}` : ''}`);
+    return _getPeakComments(this, peakId, params);
   }
 
-  /**
-   * Post a comment on a peak
-   */
   async commentOnPeak(peakId: string, text: string): Promise<{
     success: boolean;
     comment: {
@@ -793,34 +655,19 @@ export class AWSAPIService {
       author: { id: string; username: string; fullName: string; avatarUrl: string; isVerified: boolean };
     };
   }> {
-    return this.request(`/peaks/${peakId}/comments`, {
-      method: 'POST',
-      body: { text },
-    });
+    return _commentOnPeak(this, peakId, text);
   }
 
-  /**
-   * Delete a peak (author only)
-   */
   async deletePeak(id: string): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${id}`, { method: 'DELETE' });
+    return _deletePeak(this, id);
   }
 
-  /**
-   * Get expired peaks awaiting user decision
-   */
   async getExpiredPeaks(): Promise<{ data: Peak[]; total: number }> {
-    return this.request('/peaks/expired');
+    return _getExpiredPeaks(this);
   }
 
-  /**
-   * Record save decision for an expired peak
-   */
   async savePeakDecision(id: string, action: 'save_to_profile' | 'dismiss'): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${id}/save-decision`, {
-      method: 'POST',
-      body: { action },
-    });
+    return _savePeakDecision(this, id, action);
   }
 
   // ==========================================
@@ -2334,9 +2181,6 @@ export class AWSAPIService {
   // Challenges
   // ==========================================
 
-  /**
-   * Create a Peak Challenge
-   */
   async createChallenge(data: {
     peakId: string;
     title: string;
@@ -2355,15 +2199,9 @@ export class AWSAPIService {
     prizeAmount?: number;
     tipsEnabled?: boolean;
   }): Promise<{ success: boolean; challenge?: ApiChallenge; message?: string }> {
-    return this.request('/challenges', {
-      method: 'POST',
-      body: data,
-    });
+    return _createChallenge(this, data);
   }
 
-  /**
-   * List challenges
-   */
   async getChallenges(params?: {
     filter?: 'trending' | 'new' | 'ending_soon' | 'created' | 'tagged' | 'responded';
     creatorId?: string;
@@ -2372,14 +2210,7 @@ export class AWSAPIService {
     limit?: number;
     cursor?: string;
   }): Promise<{ success: boolean; challenges?: ApiChallenge[]; pagination?: ApiPagination }> {
-    const query = new URLSearchParams();
-    if (params?.filter) query.append('filter', params.filter);
-    if (params?.creatorId) query.append('creatorId', params.creatorId);
-    if (params?.category) query.append('category', params.category);
-    if (params?.status) query.append('status', params.status);
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.cursor) query.append('cursor', params.cursor);
-    return this.request(`/challenges?${query.toString()}`);
+    return _getChallenges(this, params);
   }
 
   async getChallengeDetail(challengeId: string): Promise<{
@@ -2387,7 +2218,7 @@ export class AWSAPIService {
     challenge?: ApiChallenge;
     message?: string;
   }> {
-    return this.request(`/challenges/${challengeId}`, { method: 'GET' });
+    return _getChallengeDetail(this, challengeId);
   }
 
   async getChallengeResponses(challengeId: string, params?: {
@@ -2400,39 +2231,24 @@ export class AWSAPIService {
     nextCursor?: string | null;
     hasMore?: boolean;
   }> {
-    const query = new URLSearchParams();
-    if (params?.sortBy) query.append('sortBy', params.sortBy);
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.cursor) query.append('cursor', params.cursor);
-    return this.request(`/challenges/${challengeId}/responses?${query.toString()}`, { method: 'GET' });
+    return _getChallengeResponses(this, challengeId, params);
   }
 
-  /**
-   * Respond to a challenge
-   */
   async respondToChallenge(challengeId: string, data: {
     peakId: string;
     score?: number;
     timeSeconds?: number;
   }): Promise<{ success: boolean; response?: ChallengeResponseEntry; message?: string }> {
-    return this.request(`/challenges/${challengeId}/respond`, {
-      method: 'POST',
-      body: data,
-    });
+    return _respondToChallenge(this, challengeId, data);
   }
 
-  /**
-   * Vote (toggle) on a challenge response
-   */
   async voteChallengeResponse(challengeId: string, responseId: string): Promise<{
     success: boolean;
     voted?: boolean;
     voteCount?: number;
     message?: string;
   }> {
-    return this.request(`/challenges/${challengeId}/responses/${responseId}/vote`, {
-      method: 'POST',
-    });
+    return _voteChallengeResponse(this, challengeId, responseId);
   }
 
   // ==========================================

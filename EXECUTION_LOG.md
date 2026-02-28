@@ -62,6 +62,14 @@
 - Smoke: 565/565 unit tests pass
 - Verdict: PASS
 ## S7 — Extract FEED
+- Commit: (pending)
+- Methods moved (1): getFeed
+- Note: Only 1 method (not ~3 as estimated). getPosts belongs to POST domain.
+- Files changed: aws-api.ts + feedApi.ts only
+- Helpers: none needed
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
 ## S8 — Extract POST (+ shared helpers to helpers.ts)
 ## S9 — Extract UPLOAD
 ## S10 — Extract PEAKS

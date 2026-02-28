@@ -53,6 +53,9 @@ import {
   checkCreationLimits as _checkCreationLimits,
   searchProfiles as _searchProfiles,
 } from './api/profileApi';
+import {
+  getFeed as _getFeed,
+} from './api/feedApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -576,11 +579,7 @@ export class AWSAPIService {
   // ==========================================
 
   async getFeed(params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Post>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    return this.request(`/feed${query ? `?${query}` : ''}`);
+    return _getFeed(this, params);
   }
 
   // ==========================================

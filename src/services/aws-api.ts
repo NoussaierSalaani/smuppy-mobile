@@ -1011,10 +1011,7 @@ export class AWSAPIService {
   /**
    * Resend confirmation code
    */
-  async resendConfirmationCode(email: string): Promise<{
-    success: boolean;
-    message?: string;
-  }> {
+  async resendConfirmationCode(email: string) {
     return _resendConfirmationCode(this, email);
   }
 

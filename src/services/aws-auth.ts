@@ -357,45 +357,51 @@ class AWSAuthService {
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
 
-    try {
-      // Try server-side API first (has rate limiting)
-      const { awsAPI } = await import('./aws-api');
-      const result = await awsAPI.resendConfirmationCode(email);
+    // Try server-side API first (has rate limiting)
+    const { awsAPI } = await import('./aws-api');
+    const result = await awsAPI.resendConfirmationCode(email);
 
-      if (result.success) {
+    if (result.ok) {
+      if (result.data.success) {
         if (__DEV__) console.log('[AWS Auth] Resend confirmation code success via API');
         return true;
       }
-
-      throw new Error(result.message || 'Resend failed');
-    } catch (apiError: unknown) {
-      // Handle rate limiting
-      if ((apiError as { statusCode?: number; message?: string }).statusCode === 429) {
-        if (__DEV__) console.log('[AWS Auth] Rate limited');
-        throw apiError;
-      }
-
-      // If API endpoint doesn't exist, fall back to direct Cognito
-      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
-
-        const client = await getCognitoClient();
-        const { ResendConfirmationCodeCommand } = await getCognitoCommands();
-
-        // Use email directly - Cognito will find user by email alias
-        const command = new ResendConfirmationCodeCommand({
-          ClientId: CLIENT_ID,
-          Username: normalizedEmail,
-        });
-
-        await client.send(command);
-        if (__DEV__) console.log('[AWS Auth] Resend confirmation code success via Cognito');
-        return true;
-      }
-
-      if (__DEV__) console.warn('[AWS Auth] Resend confirmation code error:', (apiError as { message?: string }).message);
-      throw apiError;
+      throw new Error(result.data.message || 'Resend failed');
     }
+
+    // Handle error from Result
+    const statusCode = (result.details as { statusCode?: number })?.statusCode;
+
+    // Handle rate limiting
+    if (statusCode === 429) {
+      if (__DEV__) console.log('[AWS Auth] Rate limited');
+      const e = new Error(result.message) as Error & { statusCode: number };
+      e.statusCode = 429;
+      throw e;
+    }
+
+    // If API endpoint doesn't exist, fall back to direct Cognito
+    if (statusCode === 404 || result.message?.includes('Not Found')) {
+      if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
+
+      const client = await getCognitoClient();
+      const { ResendConfirmationCodeCommand } = await getCognitoCommands();
+
+      // Use email directly - Cognito will find user by email alias
+      const command = new ResendConfirmationCodeCommand({
+        ClientId: CLIENT_ID,
+        Username: normalizedEmail,
+      });
+
+      await client.send(command);
+      if (__DEV__) console.log('[AWS Auth] Resend confirmation code success via Cognito');
+      return true;
+    }
+
+    if (__DEV__) console.warn('[AWS Auth] Resend confirmation code error:', result.message);
+    const e = new Error(result.message) as Error & { statusCode?: number };
+    if (statusCode) e.statusCode = statusCode;
+    throw e;
   }
 
   /**

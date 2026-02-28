@@ -745,16 +745,17 @@ describe('AWSAuthService', () => {
   // ─── G. resendConfirmationCode() ──────────────────────────────────────
   describe('resendConfirmationCode()', () => {
     it('should return true on API success', async () => {
-      mockResendConfirmationCode.mockResolvedValueOnce({ success: true });
+      mockResendConfirmationCode.mockResolvedValueOnce({ ok: true, data: { success: true } });
 
       const result = await awsAuth.resendConfirmationCode('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should re-throw 429 rate limit errors', async () => {
-      const rateLimitError: any = new Error('Too many requests');
-      rateLimitError.statusCode = 429;
-      mockResendConfirmationCode.mockRejectedValueOnce(rateLimitError);
+      mockResendConfirmationCode.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_RESEND_CODE_FAILED',
+        message: 'Too many requests', details: { statusCode: 429 },
+      });
 
       await expect(
         awsAuth.resendConfirmationCode('test@example.com')
@@ -762,24 +763,27 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to direct Cognito on 404', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.statusCode = 404;
-      mockResendConfirmationCode.mockRejectedValueOnce(notFoundError);
+      mockResendConfirmationCode.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_RESEND_CODE_FAILED',
+        message: 'Failed to resend confirmation code', details: { statusCode: 404 },
+      });
 
       const result = await awsAuth.resendConfirmationCode('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should fall back to Cognito when message includes "Not Found"', async () => {
-      const apiError: any = new Error('Not Found');
-      mockResendConfirmationCode.mockRejectedValueOnce(apiError);
+      mockResendConfirmationCode.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_RESEND_CODE_FAILED',
+        message: 'Not Found', details: {},
+      });
 
       const result = await awsAuth.resendConfirmationCode('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should throw when API returns success=false', async () => {
-      mockResendConfirmationCode.mockResolvedValueOnce({ success: false, message: 'Resend failed' });
+      mockResendConfirmationCode.mockResolvedValueOnce({ ok: true, data: { success: false, message: 'Resend failed' } });
 
       await expect(
         awsAuth.resendConfirmationCode('test@example.com')

@@ -104,6 +104,23 @@ import {
   deleteMessage as _deleteMessage,
   markConversationRead as _markConversationRead,
 } from './api/messagingApi';
+import {
+  createSpot as _createSpot,
+  getSpot as _getSpot,
+  getNearbySpots as _getNearbySpots,
+  createReview as _createReview,
+  getReviews as _getReviews,
+  getCategories as _getCategories,
+  suggestSubcategory as _suggestSubcategory,
+  createLivePin as _createLivePin,
+  deleteLivePin as _deleteLivePin,
+  startLiveStream as _startLiveStream,
+  endLiveStream as _endLiveStream,
+  getActiveLiveStreams as _getActiveLiveStreams,
+  getNearbyLivePins as _getNearbyLivePins,
+  getMapMarkers as _getMapMarkers,
+  searchMap as _searchMap,
+} from './api/mapApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -3275,11 +3292,11 @@ export class AWSAPIService {
     initial_rating?: number;
     initial_review?: string;
   }): Promise<{ success: boolean; spot?: Spot; message?: string }> {
-    return this.request('/spots', { method: 'POST', body: data });
+    return _createSpot(this, data);
   }
 
   async getSpot(spotId: string): Promise<{ success: boolean; spot?: Spot }> {
-    return this.request(`/spots/${spotId}`);
+    return _getSpot(this, spotId);
   }
 
   async getNearbySpots(params: {
@@ -3289,13 +3306,7 @@ export class AWSAPIService {
     category?: string;
     limit?: number;
   }): Promise<{ success: boolean; data?: Spot[] }> {
-    const query = new URLSearchParams();
-    query.set('lat', String(params.latitude));
-    query.set('lng', String(params.longitude));
-    if (params.radiusKm) query.set('radius', String(Math.round(params.radiusKm * 1000)));
-    if (params.category) query.set('category', params.category);
-    if (params.limit) query.set('limit', String(params.limit));
-    return this.request(`/spots/nearby?${query.toString()}`);
+    return _getNearbySpots(this, params);
   }
 
   // ============================================
@@ -3310,7 +3321,7 @@ export class AWSAPIService {
     photos?: string[];
     qualities?: string[];
   }): Promise<{ success: boolean; review?: SpotReview; message?: string }> {
-    return this.request('/reviews', { method: 'POST', body: data });
+    return _createReview(this, data);
   }
 
   async getReviews(params: {
@@ -3319,9 +3330,7 @@ export class AWSAPIService {
     limit?: number;
     offset?: number;
   }): Promise<{ success: boolean; reviews?: SpotReview[]; pagination?: ApiPagination }> {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/reviews?${query.toString()}`);
+    return _getReviews(this, params);
   }
 
   // ============================================
@@ -3329,14 +3338,14 @@ export class AWSAPIService {
   // ============================================
 
   async getCategories(): Promise<{ success: boolean; categories?: Subcategory[] }> {
-    return this.request('/categories');
+    return _getCategories(this);
   }
 
   async suggestSubcategory(data: {
     parent_category: string;
     name: string;
   }): Promise<{ success: boolean; subcategory?: Subcategory; message?: string }> {
-    return this.request('/categories/suggest', { method: 'POST', body: data });
+    return _suggestSubcategory(this, data);
   }
 
   // ============================================
@@ -3349,11 +3358,11 @@ export class AWSAPIService {
     latitude: number;
     longitude: number;
   }): Promise<{ success: boolean; livePin?: LivePin }> {
-    return this.request('/map/live-pin', { method: 'POST', body: data });
+    return _createLivePin(this, data);
   }
 
   async deleteLivePin(): Promise<{ success: boolean }> {
-    return this.request('/map/live-pin', { method: 'DELETE' });
+    return _deleteLivePin(this);
   }
 
   // ============================================
@@ -3361,15 +3370,15 @@ export class AWSAPIService {
   // ============================================
 
   async startLiveStream(title?: string): Promise<{ success: boolean; data?: { id: string; channelName: string; title: string; startedAt: string } }> {
-    return this.request('/live-streams/start', { method: 'POST', body: title ? { title } : {} });
+    return _startLiveStream(this, title);
   }
 
   async endLiveStream(): Promise<{ success: boolean; data?: { id: string; durationSeconds: number; maxViewers: number; totalComments: number; totalReactions: number } }> {
-    return this.request('/live-streams/end', { method: 'POST' });
+    return _endLiveStream(this);
   }
 
   async getActiveLiveStreams(): Promise<{ success: boolean; data?: Array<{ id: string; channelName: string; title: string; startedAt: string; viewerCount: number; host: { id: string; username: string; displayName: string; avatarUrl: string } }> }> {
-    return this.request('/live-streams/active');
+    return _getActiveLiveStreams(this);
   }
 
   async getNearbyLivePins(params: {
@@ -3377,9 +3386,7 @@ export class AWSAPIService {
     longitude: number;
     radiusKm?: number;
   }): Promise<{ success: boolean; livePins?: LivePin[] }> {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/map/live-pins?${query.toString()}`);
+    return _getNearbyLivePins(this, params);
   }
 
   // ============================================
@@ -3390,13 +3397,11 @@ export class AWSAPIService {
     latitude: number;
     longitude: number;
     radiusKm?: number;
-    filters?: string;       // comma-separated: "coaches,gyms,events"
-    subcategories?: string; // comma-separated: "CrossFit,Boxing"
+    filters?: string;
+    subcategories?: string;
     limit?: number;
   }): Promise<{ success: boolean; markers?: MapMarker[] }> {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/map/markers?${query.toString()}`);
+    return _getMapMarkers(this, params);
   }
 
   // ============================================
@@ -3410,9 +3415,7 @@ export class AWSAPIService {
     radiusKm?: number;
     limit?: number;
   }): Promise<{ success: boolean; results?: MapMarker[] }> {
-    const queryParams = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) queryParams.set(k, String(v)); });
-    return this.request(`/search/map?${queryParams.toString()}`);
+    return _searchMap(this, params);
   }
 }
 

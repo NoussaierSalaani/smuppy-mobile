@@ -43,6 +43,11 @@ export async function getUploadUrl(
   }
 }
 
-export async function getUploadQuota(api: AWSAPIService): Promise<{ success: boolean; accountType: string; quotas: Record<string, unknown>; resetsAt: string }> {
-  return api.request('/media/upload-quota');
+export async function getUploadQuota(api: AWSAPIService): Promise<Result<{ success: boolean; accountType: string; quotas: Record<string, unknown>; resetsAt: string }>> {
+  try {
+    const data = await api.request<{ success: boolean; accountType: string; quotas: Record<string, unknown>; resetsAt: string }>('/media/upload-quota');
+    return ok(data);
+  } catch (_e: unknown) {
+    return err('UPLOAD_QUOTA_FAILED', 'Failed to get upload quota');
+  }
 }

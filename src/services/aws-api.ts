@@ -961,7 +961,7 @@ export class AWSAPIService {
     return _getUploadUrl(this, filename, contentType, fileSize, duration);
   }
 
-  async getUploadQuota(): Promise<{ success: boolean; accountType: string; quotas: Record<string, unknown>; resetsAt: string }> {
+  async getUploadQuota() {
     return _getUploadQuota(this);
   }
 

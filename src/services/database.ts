@@ -1517,12 +1517,11 @@ export const getPeakById = async (peakId: string): Promise<DbResponse<Post>> => 
  * Get single post by ID
  */
 export const getPostById = async (postId: string): Promise<DbResponse<Post>> => {
-  try {
-    const post = await awsAPI.getPost(postId);
-    return { data: convertPost(post), error: null };
-  } catch (error_: unknown) {
-    return { data: null, error: getErrorMessage(error_) };
+  const result = await awsAPI.getPost(postId);
+  if (result.ok) {
+    return { data: convertPost(result.data), error: null };
   }
+  return { data: null, error: result.message };
 };
 
 // ============================================

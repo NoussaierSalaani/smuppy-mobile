@@ -526,7 +526,7 @@ export class AWSAPIService {
     return _getPosts(this, params);
   }
 
-  async getPost(id: string): Promise<Post> {
+  async getPost(id: string) {
     return _getPost(this, id);
   }
 

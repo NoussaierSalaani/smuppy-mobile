@@ -152,7 +152,9 @@ describe('Posts API', () => {
     requestSpy.mockResolvedValueOnce({ id: 'p1', content: 'test' });
     const result = await awsAPI.getPost('p1');
     expect(requestSpy).toHaveBeenCalledWith('/posts/p1');
-    expect(result).toEqual({ id: 'p1', content: 'test' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual({ id: 'p1', content: 'test' });
   });
 
   it('createPost(data) should POST /posts with body', async () => {

@@ -52,8 +52,13 @@ export async function getPosts(
   }
 }
 
-export async function getPost(api: AWSAPIService, id: string): Promise<Post> {
-  return api.request(`/posts/${id}`);
+export async function getPost(api: AWSAPIService, id: string): Promise<Result<Post>> {
+  try {
+    const data = await api.request<Post>(`/posts/${id}`);
+    return ok(data);
+  } catch (_e: unknown) {
+    return err('POST_DETAILS_FAILED', 'Failed to fetch post details');
+  }
 }
 
 export async function createPost(api: AWSAPIService, data: CreatePostInput): Promise<Post> {

@@ -710,7 +710,7 @@ describe('database.methods', () => {
 
   describe('getPostById', () => {
     it('should return post by ID', async () => {
-      mockGetPost.mockResolvedValue(makeAWSPost());
+      mockGetPost.mockResolvedValue({ ok: true, data: makeAWSPost() });
       const result = await getPostById('p1');
       expect(result.data).toBeTruthy();
       expect(result.data!.id).toBe('p1');
@@ -718,7 +718,7 @@ describe('database.methods', () => {
     });
 
     it('should return error on failure', async () => {
-      mockGetPost.mockRejectedValue(new Error('Not found'));
+      mockGetPost.mockResolvedValue({ ok: false, code: 'POST_DETAILS_FAILED', message: 'Not found' });
       const result = await getPostById('p1');
       expect(result.data).toBeNull();
       expect(result.error).toBe('Not found');

@@ -46,6 +46,13 @@
 - Smoke: 565/565 unit tests pass (methods + service + comprehensive)
 - Verdict: PASS
 ## S5 — Extract SOCIAL
+- Commit: (pending)
+- Methods moved (6): followUser, unfollowUser, getFollowers, getFollowing, getPostLikers, getFollowingUsers
+- Files changed: aws-api.ts + socialApi.ts only
+- Helpers: none needed
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
 ## S6 — Extract PROFILE
 ## S7 — Extract FEED
 ## S8 — Extract POST (+ shared helpers to helpers.ts)

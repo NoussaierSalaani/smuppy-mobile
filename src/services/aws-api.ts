@@ -37,6 +37,14 @@ import {
   getNotificationPreferences as _getNotificationPreferences,
   updateNotificationPreferences as _updateNotificationPreferences,
 } from './api/notificationsApi';
+import {
+  followUser as _followUser,
+  unfollowUser as _unfollowUser,
+  getFollowers as _getFollowers,
+  getFollowing as _getFollowing,
+  getPostLikers as _getPostLikers,
+  getFollowingUsers as _getFollowingUsers,
+} from './api/socialApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -539,10 +547,7 @@ export class AWSAPIService {
     message: string;
     cooldown?: { blocked: boolean; until: string; daysRemaining: number };
   }> {
-    return this.request('/follows', {
-      method: 'POST',
-      body: { followingId: userId },
-    });
+    return _followUser(this, userId);
   }
 
   async unfollowUser(userId: string): Promise<{
@@ -550,49 +555,15 @@ export class AWSAPIService {
     message: string;
     cooldown?: { blocked: boolean; until: string; message: string };
   }> {
-    return this.request(`/follows/${userId}`, {
-      method: 'DELETE',
-    });
+    return _unfollowUser(this, userId);
   }
 
   async getFollowers(userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      followers: Profile[];
-      cursor: string | null;
-      hasMore: boolean;
-      totalCount: number;
-    }>(`/profiles/${userId}/followers${query ? `?${query}` : ''}`);
-    // Map backend response to PaginatedResponse format
-    return {
-      data: response.followers || [],
-      nextCursor: response.cursor,
-      hasMore: response.hasMore,
-      total: response.totalCount ?? 0,
-    };
+    return _getFollowers(this, userId, params);
   }
 
   async getFollowing(userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      following: Profile[];
-      cursor: string | null;
-      hasMore: boolean;
-      totalCount: number;
-    }>(`/profiles/${userId}/following${query ? `?${query}` : ''}`);
-    // Map backend response to PaginatedResponse format
-    return {
-      data: response.following || [],
-      nextCursor: response.cursor,
-      hasMore: response.hasMore,
-      total: response.totalCount ?? 0,
-    };
+    return _getFollowing(this, userId, params);
   }
 
   // ==========================================
@@ -600,21 +571,7 @@ export class AWSAPIService {
   // ==========================================
 
   async getPostLikers(postId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      data: Profile[];
-      nextCursor: string | null;
-      hasMore: boolean;
-    }>(`/posts/${postId}/likers${query ? `?${query}` : ''}`);
-    return {
-      data: response.data ?? [],
-      nextCursor: response.nextCursor || null,
-      hasMore: !!response.hasMore,
-      total: response.data?.length ?? 0,
-    };
+    return _getPostLikers(this, postId, params);
   }
 
   // ==========================================
@@ -1115,13 +1072,7 @@ export class AWSAPIService {
   // ==========================================
 
   async getFollowingUsers(userId: string, params?: { limit?: number }): Promise<Profile[]> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res) => {
-      const result = res as { following?: Profile[]; data?: Profile[] };
-      return result.following || result.data || [];
-    });
+    return _getFollowingUsers(this, userId, params);
   }
 
   // ==========================================

@@ -19,6 +19,7 @@ import ProfileStack from './stacks/ProfileStack';
 import NotificationsStack from './stacks/NotificationsStack';
 import SearchStack from './stacks/SearchStack';
 import HomeStack from './stacks/HomeStack';
+import CreateStack from './stacks/CreateStack';
 
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
 const fetchBadgeCounts = (): void => {
@@ -81,9 +82,7 @@ import { ACCOUNT_TYPE, isPro } from '../config/accountTypes';
 const NewMessageScreen = lazyScreen(() => import('../screens/messages/NewMessageScreen'));
 
 // Create Post Flow
-const AddPostDetailsScreen = lazyScreen(() => import('../screens/home/AddPostDetailsScreen'));
-const PostSuccessScreen = lazyScreen(() => import('../screens/home/PostSuccessScreen'));
-const VideoRecorderScreen = lazyScreen(() => import('../screens/home/VideoRecorderScreen'));
+// AddPostDetails, PostSuccess, VideoRecorder → moved to stacks/CreateStack.tsx
 
 // Notifications → moved to stacks/NotificationsStack.tsx
 
@@ -97,9 +96,7 @@ const PrescriptionPreferencesScreen = lazyScreen(() => import('../screens/settin
 // Settings Screens → moved to stacks/SettingsStack.tsx
 
 // PEAKS (create/preview)
-const CreatePeakScreen = lazyScreen(() => import('../screens/peaks/CreatePeakScreen'));
-const PeakPreviewScreen = lazyScreen(() => import('../screens/peaks/PeakPreviewScreen'));
-const ChallengesScreen = lazyScreen(() => import('../screens/peaks/ChallengesScreen'));
+// CreatePeak, PeakPreview, Challenges → moved to stacks/CreateStack.tsx
 
 // Live Streaming Screens
 const GoLiveIntroScreen = lazyScreen(() => import('../screens/live/GoLiveIntroScreen'));
@@ -361,11 +358,8 @@ export default function MainNavigator() {
       <Stack.Screen name="Chat" component={asScreen(ChatScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* Create Post Flow */}
-      <Stack.Screen name="CreatePost" component={asScreen(CreatePostScreen)} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="VideoRecorder" component={VideoRecorderScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="AddPostDetails" component={AddPostDetailsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="PostSuccess" component={PostSuccessScreen} options={{ animation: 'fade' }} />
+      {/* Create Stack */}
+      <Stack.Screen name="CreateStack" component={CreateStack} options={{ headerShown: false, animation: 'slide_from_bottom' }} />
 
       {/* Profile Stack */}
       {/* Profile Stack */}
@@ -381,13 +375,7 @@ export default function MainNavigator() {
       <Stack.Screen name="SettingsStack" component={SettingsStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
       {/* FollowRequests → moved to NotificationsStack */}
 
-      {/* PEAKS */}
-      {/* PeakView → moved to HomeStack */}
-      <Stack.Screen name="CreatePeak" component={CreatePeakScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="PeakPreview" component={PeakPreviewScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      {FEATURES.CHALLENGES && (
-      <Stack.Screen name="Challenges" component={ChallengesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      )}
+      {/* Peaks → moved to CreateStack + HomeStack */}
 
       {/* Live Streaming */}
       {FEATURES.GO_LIVE && (

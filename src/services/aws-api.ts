@@ -45,6 +45,14 @@ import {
   getPostLikers as _getPostLikers,
   getFollowingUsers as _getFollowingUsers,
 } from './api/socialApi';
+import {
+  getProfile as _getProfile,
+  getProfileByUsername as _getProfileByUsername,
+  updateProfile as _updateProfile,
+  upgradeToProCreator as _upgradeToProCreator,
+  checkCreationLimits as _checkCreationLimits,
+  searchProfiles as _searchProfiles,
+} from './api/profileApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -488,18 +496,15 @@ export class AWSAPIService {
   // ==========================================
 
   async getProfile(id: string): Promise<Profile> {
-    return this.request(`/profiles/${id}`);
+    return _getProfile(this, id);
   }
 
   async getProfileByUsername(username: string): Promise<Profile> {
-    return this.request(`/profiles/username/${username}`);
+    return _getProfileByUsername(this, username);
   }
 
   async updateProfile(data: UpdateProfileInput): Promise<Profile> {
-    return this.request('/profiles/me', {
-      method: 'PATCH',
-      body: data,
-    });
+    return _updateProfile(this, data);
   }
 
   /**
@@ -507,7 +512,7 @@ export class AWSAPIService {
    * This method is retained for reference but must not be used.
    */
   async upgradeToProCreator(): Promise<{ success: boolean; message?: string }> {
-    throw new Error('Account upgrades are handled via Stripe webhook only');
+    return _upgradeToProCreator();
   }
 
   /**
@@ -522,19 +527,11 @@ export class AWSAPIService {
     maxGroupsPerMonth: number;
     nextResetDate: string;
   }> {
-    return this.request('/profiles/creation-limits', { method: 'GET' });
+    return _checkCreationLimits(this);
   }
 
   async searchProfiles(query: string, limit = 20, cursor?: string): Promise<PaginatedResponse<Profile>> {
-    const params = new URLSearchParams({ search: query, limit: String(limit) });
-    if (cursor) params.set('cursor', cursor);
-    const result = await this.request<{ data: Profile[]; nextCursor?: string | null; hasMore?: boolean }>(`/profiles?${params.toString()}`);
-    return {
-      data: result.data || [],
-      nextCursor: result.nextCursor ?? null,
-      hasMore: result.hasMore ?? false,
-      total: 0,
-    };
+    return _searchProfiles(this, query, limit, cursor);
   }
 
   // ==========================================

@@ -54,6 +54,13 @@
 - Smoke: 565/565 unit tests pass
 - Verdict: PASS
 ## S6 — Extract PROFILE
+- Commit: (pending)
+- Methods moved (6): getProfile, getProfileByUsername, updateProfile, upgradeToProCreator, checkCreationLimits, searchProfiles
+- Files changed: aws-api.ts + profileApi.ts only
+- Helpers: none needed
+- Gates: lint PASS, typecheck PASS
+- Smoke: 565/565 unit tests pass
+- Verdict: PASS
 ## S7 — Extract FEED
 ## S8 — Extract POST (+ shared helpers to helpers.ts)
 ## S9 — Extract UPLOAD

@@ -18,6 +18,7 @@ import SettingsStack from './stacks/SettingsStack';
 import ProfileStack from './stacks/ProfileStack';
 import NotificationsStack from './stacks/NotificationsStack';
 import SearchStack from './stacks/SearchStack';
+import HomeStack from './stacks/HomeStack';
 
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
 const fetchBadgeCounts = (): void => {
@@ -60,13 +61,11 @@ import ChatScreen from '../screens/messages/ChatScreen';
 // UserProfile → moved to stacks/ProfileStack.tsx
 
 // Post detail screens (navigated from feed — must be instant)
-import PostDetailFanFeedScreen from '../screens/home/PostDetailFanFeedScreen';
-import PostDetailVibesFeedScreen from '../screens/home/PostDetailVibesFeedScreen';
-import PostDetailProfileScreen from '../screens/profile/PostDetailProfileScreen';
+// PostDetail screens → moved to stacks/HomeStack.tsx
 
 // Peaks feed (tab screen)
 import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
-import PeakViewScreen from '../screens/peaks/PeakViewScreen';
+// PeakView → moved to stacks/HomeStack.tsx
 
 // Components
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
@@ -89,8 +88,7 @@ const VideoRecorderScreen = lazyScreen(() => import('../screens/home/VideoRecord
 // Notifications → moved to stacks/NotificationsStack.tsx
 
 // Vibe Screens
-const PrescriptionsScreen = lazyScreen(() => import('../screens/vibe/PrescriptionsScreen'));
-const ActivePrescriptionScreen = lazyScreen(() => import('../screens/vibe/ActivePrescriptionScreen'));
+// Prescriptions, ActivePrescription → moved to stacks/HomeStack.tsx
 const PrescriptionPreferencesScreen = lazyScreen(() => import('../screens/settings/PrescriptionPreferencesScreen'));
 
 // Profile (deep)
@@ -373,15 +371,10 @@ export default function MainNavigator() {
       {/* Profile Stack */}
       <Stack.Screen name="ProfileStack" component={ProfileStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* Vibe */}
-      <Stack.Screen name="Prescriptions" component={PrescriptionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="ActivePrescription" component={ActivePrescriptionScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="PrescriptionPreferences" component={PrescriptionPreferencesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* Post Detail Screens */}
-      <Stack.Screen name="PostDetailFanFeed" component={PostDetailFanFeedScreen} options={{ animation: 'fade' }} />
-      <Stack.Screen name="PostDetailVibesFeed" component={PostDetailVibesFeedScreen} options={{ animation: 'fade' }} />
-      <Stack.Screen name="PostDetailProfile" component={PostDetailProfileScreen} options={{ animation: 'fade' }} />
+      {/* Home Stack (post details, peaks, prescriptions) */}
+      <Stack.Screen name="HomeStack" component={HomeStack} options={{ headerShown: false, animation: 'fade' }} />
 
       {/* Settings Stack */}
       {/* Settings Stack */}
@@ -389,7 +382,7 @@ export default function MainNavigator() {
       {/* FollowRequests → moved to NotificationsStack */}
 
       {/* PEAKS */}
-      <Stack.Screen name="PeakView" component={PeakViewScreen} options={{ animation: 'fade' }} />
+      {/* PeakView → moved to HomeStack */}
       <Stack.Screen name="CreatePeak" component={CreatePeakScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="PeakPreview" component={PeakPreviewScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       {FEATURES.CHALLENGES && (

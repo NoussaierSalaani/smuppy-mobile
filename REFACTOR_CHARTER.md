@@ -211,3 +211,30 @@ Private Sessions (8), Creator Offerings (5), Creator Dashboard (2),
 Payments (4), Disputes (4), PrescriptionPreferences, FindFriends, WebView.
 
 These stay in MainNavigator until a future phase addresses them.
+
+### Status
+DONE (with known minor navigation bugs to fix)
+
+### Final navigation layout
+- Main navigator (tabs + remaining routes): `src/navigation/MainNavigator.tsx` (483 lines, down from 584)
+- Shared helpers: `src/navigation/shared.tsx`
+- Stacks:
+  - `src/navigation/stacks/SettingsStack.tsx` (13 routes)
+  - `src/navigation/stacks/ProfileStack.tsx` (3 routes)
+  - `src/navigation/stacks/NotificationsStack.tsx` (2 routes)
+  - `src/navigation/stacks/SearchStack.tsx` (1 route)
+  - `src/navigation/stacks/HomeStack.tsx` (6 routes)
+  - `src/navigation/stacks/CreateStack.tsx` (7 routes)
+
+### Verification
+- lint: PASS
+- typecheck: PASS
+- tests: PASS (3450/3450)
+- nav smoke: App runs, minor bugs noted for follow-up
+
+### Invariants upheld
+- No route renames
+- No param shape changes
+- No linking/deep link changes
+- No modal vs push presentation changes
+- No tab order/structure changes

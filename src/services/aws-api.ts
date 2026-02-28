@@ -1021,10 +1021,7 @@ export class AWSAPIService {
   /**
    * Initiate forgot password flow
    */
-  async forgotPassword(email: string): Promise<{
-    success: boolean;
-    message?: string;
-  }> {
+  async forgotPassword(email: string) {
     return _forgotPassword(this, email);
   }
 

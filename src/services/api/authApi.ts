@@ -1,4 +1,6 @@
 import type { AWSAPIService } from '../aws-api';
+import type { Result } from '../result';
+import { ok, err } from '../result';
 
 export async function smartSignup(
   api: AWSAPIService,
@@ -55,15 +57,18 @@ export async function resendConfirmationCode(
 export async function forgotPassword(
   api: AWSAPIService,
   email: string
-): Promise<{
-  success: boolean;
-  message?: string;
-}> {
-  return api.request('/auth/forgot-password', {
-    method: 'POST',
-    body: { email },
-    authenticated: false,
-  });
+): Promise<Result<{ success: boolean; message?: string }>> {
+  try {
+    const data = await api.request<{ success: boolean; message?: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+      authenticated: false,
+    });
+    return ok(data);
+  } catch (e: unknown) {
+    const statusCode = (e as { statusCode?: number }).statusCode;
+    return err('AUTH_FORGOT_PASSWORD_FAILED', 'Failed to request password reset', { statusCode });
+  }
 }
 
 export async function confirmForgotPassword(

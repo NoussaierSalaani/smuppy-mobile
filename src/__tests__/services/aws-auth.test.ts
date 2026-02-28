@@ -790,23 +790,24 @@ describe('AWSAuthService', () => {
   // ─── H. forgotPassword() ─────────────────────────────────────────────
   describe('forgotPassword()', () => {
     it('should return true on API success', async () => {
-      mockForgotPassword.mockResolvedValueOnce({ success: true });
+      mockForgotPassword.mockResolvedValueOnce({ ok: true, data: { success: true } });
 
       const result = await awsAuth.forgotPassword('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should return true even when API returns success=false (anti-enumeration)', async () => {
-      mockForgotPassword.mockResolvedValueOnce({ success: false });
+      mockForgotPassword.mockResolvedValueOnce({ ok: true, data: { success: false } });
 
       const result = await awsAuth.forgotPassword('nonexistent@example.com');
       expect(result).toBe(true);
     });
 
     it('should re-throw 429 rate limit errors', async () => {
-      const rateLimitError: any = new Error('Too many requests');
-      rateLimitError.statusCode = 429;
-      mockForgotPassword.mockRejectedValueOnce(rateLimitError);
+      mockForgotPassword.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        message: 'Too many requests', details: { statusCode: 429 },
+      });
 
       await expect(
         awsAuth.forgotPassword('test@example.com')
@@ -814,26 +815,30 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to direct Cognito on 404', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.statusCode = 404;
-      mockForgotPassword.mockRejectedValueOnce(notFoundError);
+      mockForgotPassword.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        message: 'Failed to request password reset', details: { statusCode: 404 },
+      });
 
       const result = await awsAuth.forgotPassword('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should fall back to Cognito when message includes "Not Found"', async () => {
-      const apiError: any = new Error('Not Found');
-      mockForgotPassword.mockRejectedValueOnce(apiError);
+      mockForgotPassword.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        message: 'Not Found', details: {},
+      });
 
       const result = await awsAuth.forgotPassword('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should re-throw non-404/non-429 errors', async () => {
-      const serverError: any = new Error('Internal Server Error');
-      serverError.statusCode = 500;
-      mockForgotPassword.mockRejectedValueOnce(serverError);
+      mockForgotPassword.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        message: 'Internal Server Error', details: { statusCode: 500 },
+      });
 
       await expect(
         awsAuth.forgotPassword('test@example.com')
@@ -1415,7 +1420,7 @@ describe('AWSAuthService', () => {
   // ─── requestPasswordReset() ───────────────────────────────────────────
   describe('requestPasswordReset()', () => {
     it('should delegate to forgotPassword', async () => {
-      mockForgotPassword.mockResolvedValueOnce({ success: true });
+      mockForgotPassword.mockResolvedValueOnce({ ok: true, data: { success: true } });
 
       await awsAuth.requestPasswordReset('test@example.com');
 

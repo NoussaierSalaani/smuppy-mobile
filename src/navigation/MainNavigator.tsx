@@ -16,6 +16,7 @@ import { lazyScreen, asScreen, screenWithBackSwipe } from './shared';
 // Stacks
 import SettingsStack from './stacks/SettingsStack';
 import ProfileStack from './stacks/ProfileStack';
+import NotificationsStack from './stacks/NotificationsStack';
 
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
 const fetchBadgeCounts = (): void => {
@@ -48,7 +49,7 @@ const fetchBadgeCounts = (): void => {
 // Tab Screens
 import FeedScreen from '../screens/home/FeedScreen';
 import CreatePostScreen from '../screens/home/CreatePostScreen';
-import NotificationsScreen from '../screens/notifications/NotificationsScreen';
+// NotificationsScreen → moved to stacks/NotificationsStack.tsx
 import ProfileScreen from '../screens/profile/ProfileScreen';
 
 // High-frequency stack screens (navigated from tabs / header)
@@ -84,8 +85,7 @@ const AddPostDetailsScreen = lazyScreen(() => import('../screens/home/AddPostDet
 const PostSuccessScreen = lazyScreen(() => import('../screens/home/PostSuccessScreen'));
 const VideoRecorderScreen = lazyScreen(() => import('../screens/home/VideoRecorderScreen'));
 
-// Notifications (deep)
-const FollowRequestsScreen = lazyScreen(() => import('../screens/notifications/FollowRequestsScreen'));
+// Notifications → moved to stacks/NotificationsStack.tsx
 
 // Vibe Screens
 const PrescriptionsScreen = lazyScreen(() => import('../screens/vibe/PrescriptionsScreen'));
@@ -357,8 +357,8 @@ export default function MainNavigator() {
       {/* Search */}
       <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* Notifications (accessible from HomeHeader) */}
-      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* Notifications Stack */}
+      <Stack.Screen name="NotificationsStack" component={NotificationsStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="Chat" component={asScreen(ChatScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
@@ -385,7 +385,7 @@ export default function MainNavigator() {
       {/* Settings Stack */}
       {/* Settings Stack */}
       <Stack.Screen name="SettingsStack" component={SettingsStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* FollowRequests → moved to NotificationsStack */}
 
       {/* PEAKS */}
       <Stack.Screen name="PeakView" component={PeakViewScreen} options={{ animation: 'fade' }} />

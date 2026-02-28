@@ -29,15 +29,18 @@ export async function confirmSignup(
     email: string;
     code: string;
   }
-): Promise<{
-  success: boolean;
-  message?: string;
-}> {
-  return api.request('/auth/confirm-signup', {
-    method: 'POST',
-    body: data,
-    authenticated: false,
-  });
+): Promise<Result<{ success: boolean; message?: string }>> {
+  try {
+    const resp = await api.request<{ success: boolean; message?: string }>('/auth/confirm-signup', {
+      method: 'POST',
+      body: data,
+      authenticated: false,
+    });
+    return ok(resp);
+  } catch (e: unknown) {
+    const statusCode = (e as { statusCode?: number }).statusCode;
+    return err('AUTH_CONFIRM_SIGNUP_FAILED', 'Failed to confirm signup', { statusCode });
+  }
 }
 
 export async function resendConfirmationCode(

@@ -310,40 +310,44 @@ class AWSAuthService {
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
 
-    try {
-      // Try server-side API first
-      const { awsAPI } = await import('./aws-api');
-      const result = await awsAPI.confirmSignup({ email, code });
+    // Try server-side API first
+    const { awsAPI } = await import('./aws-api');
+    const result = await awsAPI.confirmSignup({ email, code });
 
-      if (result.success) {
+    if (result.ok) {
+      if (result.data.success) {
         if (__DEV__) console.log('[AWS Auth] Confirm signup success via API');
         return true;
       }
-
-      throw new Error(result.message || 'Confirmation failed');
-    } catch (apiError: unknown) {
-      // If API endpoint doesn't exist, fall back to direct Cognito
-      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
-
-        const client = await getCognitoClient();
-        const { ConfirmSignUpCommand } = await getCognitoCommands();
-
-        // Use email directly - Cognito will find user by email alias
-        const command = new ConfirmSignUpCommand({
-          ClientId: CLIENT_ID,
-          Username: normalizedEmail,
-          ConfirmationCode: code,
-        });
-
-        await client.send(command);
-        if (__DEV__) console.log('[AWS Auth] Confirm signup success via Cognito');
-        return true;
-      }
-
-      if (__DEV__) console.warn('[AWS Auth] Confirm signup error:', (apiError as { message?: string }).message);
-      throw apiError;
+      throw new Error(result.data.message || 'Confirmation failed');
     }
+
+    // Handle error from Result
+    const statusCode = (result.details as { statusCode?: number })?.statusCode;
+
+    // If API endpoint doesn't exist, fall back to direct Cognito
+    if (statusCode === 404 || result.message?.includes('Not Found')) {
+      if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
+
+      const client = await getCognitoClient();
+      const { ConfirmSignUpCommand } = await getCognitoCommands();
+
+      // Use email directly - Cognito will find user by email alias
+      const command = new ConfirmSignUpCommand({
+        ClientId: CLIENT_ID,
+        Username: normalizedEmail,
+        ConfirmationCode: code,
+      });
+
+      await client.send(command);
+      if (__DEV__) console.log('[AWS Auth] Confirm signup success via Cognito');
+      return true;
+    }
+
+    if (__DEV__) console.warn('[AWS Auth] Confirm signup error:', result.message);
+    const e = new Error(result.message) as Error & { statusCode?: number };
+    if (statusCode) e.statusCode = statusCode;
+    throw e;
   }
 
   /**

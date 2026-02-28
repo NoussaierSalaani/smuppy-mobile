@@ -699,14 +699,14 @@ describe('AWSAuthService', () => {
   // ─── F. confirmSignUp() ───────────────────────────────────────────────
   describe('confirmSignUp()', () => {
     it('should return true on API success', async () => {
-      mockConfirmSignup.mockResolvedValueOnce({ success: true });
+      mockConfirmSignup.mockResolvedValueOnce({ ok: true, data: { success: true } });
 
       const result = await awsAuth.confirmSignUp('test@example.com', '123456');
       expect(result).toBe(true);
     });
 
     it('should throw when API returns success=false', async () => {
-      mockConfirmSignup.mockResolvedValueOnce({ success: false, message: 'Invalid code' });
+      mockConfirmSignup.mockResolvedValueOnce({ ok: true, data: { success: false, message: 'Invalid code' } });
 
       await expect(
         awsAuth.confirmSignUp('test@example.com', 'badcode')
@@ -714,9 +714,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to direct Cognito on 404', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.statusCode = 404;
-      mockConfirmSignup.mockRejectedValueOnce(notFoundError);
+      mockConfirmSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_CONFIRM_SIGNUP_FAILED',
+        message: 'Failed to confirm signup', details: { statusCode: 404 },
+      });
 
       const result = await awsAuth.confirmSignUp('test@example.com', '123456');
       expect(result).toBe(true);
@@ -724,17 +725,20 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to Cognito when message includes "Not Found"', async () => {
-      const apiError: any = new Error('Not Found');
-      mockConfirmSignup.mockRejectedValueOnce(apiError);
+      mockConfirmSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_CONFIRM_SIGNUP_FAILED',
+        message: 'Not Found', details: {},
+      });
 
       const result = await awsAuth.confirmSignUp('test@example.com', '123456');
       expect(result).toBe(true);
     });
 
     it('should re-throw non-404 API errors', async () => {
-      const serverError: any = new Error('Server Error');
-      serverError.statusCode = 500;
-      mockConfirmSignup.mockRejectedValueOnce(serverError);
+      mockConfirmSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_CONFIRM_SIGNUP_FAILED',
+        message: 'Server Error', details: { statusCode: 500 },
+      });
 
       await expect(
         awsAuth.confirmSignUp('test@example.com', '123456')

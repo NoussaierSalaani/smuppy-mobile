@@ -1001,10 +1001,7 @@ export class AWSAPIService {
   async confirmSignup(data: {
     email: string;
     code: string;
-  }): Promise<{
-    success: boolean;
-    message?: string;
-  }> {
+  }) {
     return _confirmSignup(this, data);
   }
 

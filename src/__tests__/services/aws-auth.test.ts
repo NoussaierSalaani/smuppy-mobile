@@ -518,9 +518,11 @@ describe('AWSAuthService', () => {
   describe('signUp()', () => {
     it('should return user with confirmationRequired from API smart signup', async () => {
       mockSmartSignup.mockResolvedValueOnce({
-        success: true,
-        userSub: 'new-user-uuid',
-        confirmationRequired: true,
+        ok: true, data: {
+          success: true,
+          userSub: 'new-user-uuid',
+          confirmationRequired: true,
+        },
       });
 
       const result = await awsAuth.signUp({
@@ -535,11 +537,12 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to signUpDirect when API returns success=false', async () => {
-      // When smartSignup returns { success: false }, the thrown Error has no statusCode,
-      // so the catch block treats it as a server error and falls back to signUpDirect.
       mockSmartSignup.mockResolvedValueOnce({
-        success: false,
-        message: 'Email already exists',
+        ok: true, data: {
+          success: false,
+          message: 'Email already exists',
+          confirmationRequired: false,
+        },
       });
 
       mockSend.mockResolvedValueOnce({
@@ -553,10 +556,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should re-throw 400 client validation errors (no fallback to direct)', async () => {
-      const apiError: any = new Error('Password too weak');
-      apiError.statusCode = 400;
-
-      mockSmartSignup.mockRejectedValueOnce(apiError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Password too weak', details: { statusCode: 400 },
+      });
 
       await expect(
         awsAuth.signUp({ email: 'test@example.com', password: 'weak' })
@@ -566,9 +569,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to signUpDirect on 500/network error', async () => {
-      const serverError: any = new Error('Internal Server Error');
-      serverError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(serverError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Internal Server Error', details: { statusCode: 500 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'direct-user-uuid',
@@ -587,9 +591,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to signUpDirect on 404 error', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.statusCode = 404;
-      mockSmartSignup.mockRejectedValueOnce(notFoundError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Not Found', details: { statusCode: 404 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'fallback-uuid',
@@ -605,9 +610,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to direct when 400 contains "Not Found" message', async () => {
-      const ambiguousError: any = new Error('Not Found');
-      ambiguousError.statusCode = 400;
-      mockSmartSignup.mockRejectedValueOnce(ambiguousError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Not Found', details: { statusCode: 400 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'fallback-uuid-2',
@@ -626,9 +632,10 @@ describe('AWSAuthService', () => {
   // ─── signUpDirect (via fallback) ──────────────────────────────────────
   describe('signUpDirect (via fallback)', () => {
     it('should generate cognitoUsername from email when no username provided', async () => {
-      const networkError: any = new Error('Network error');
-      networkError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(networkError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Network error', details: { statusCode: 500 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'direct-uuid',
@@ -644,9 +651,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should include fullName in user attributes when provided', async () => {
-      const networkError: any = new Error('Network error');
-      networkError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(networkError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Network error', details: { statusCode: 500 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'direct-uuid-2',
@@ -664,9 +672,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should re-throw Cognito errors from signUpDirect', async () => {
-      const networkError: any = new Error('Network error');
-      networkError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(networkError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Network error', details: { statusCode: 500 },
+      });
 
       const cognitoError = new Error('UsernameExistsException');
       cognitoError.name = 'UsernameExistsException';
@@ -678,9 +687,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should return null user when no UserSub in Cognito response', async () => {
-      const networkError: any = new Error('Network error');
-      networkError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(networkError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Network error', details: { statusCode: 500 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserConfirmed: false,
@@ -699,14 +709,14 @@ describe('AWSAuthService', () => {
   // ─── F. confirmSignUp() ───────────────────────────────────────────────
   describe('confirmSignUp()', () => {
     it('should return true on API success', async () => {
-      mockConfirmSignup.mockResolvedValueOnce({ success: true });
+      mockConfirmSignup.mockResolvedValueOnce({ ok: true, data: { success: true } });
 
       const result = await awsAuth.confirmSignUp('test@example.com', '123456');
       expect(result).toBe(true);
     });
 
     it('should throw when API returns success=false', async () => {
-      mockConfirmSignup.mockResolvedValueOnce({ success: false, message: 'Invalid code' });
+      mockConfirmSignup.mockResolvedValueOnce({ ok: true, data: { success: false, message: 'Invalid code' } });
 
       await expect(
         awsAuth.confirmSignUp('test@example.com', 'badcode')
@@ -714,9 +724,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to direct Cognito on 404', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.statusCode = 404;
-      mockConfirmSignup.mockRejectedValueOnce(notFoundError);
+      mockConfirmSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_CONFIRM_SIGNUP_FAILED',
+        message: 'Failed to confirm signup', details: { statusCode: 404 },
+      });
 
       const result = await awsAuth.confirmSignUp('test@example.com', '123456');
       expect(result).toBe(true);
@@ -724,17 +735,20 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to Cognito when message includes "Not Found"', async () => {
-      const apiError: any = new Error('Not Found');
-      mockConfirmSignup.mockRejectedValueOnce(apiError);
+      mockConfirmSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_CONFIRM_SIGNUP_FAILED',
+        message: 'Not Found', details: {},
+      });
 
       const result = await awsAuth.confirmSignUp('test@example.com', '123456');
       expect(result).toBe(true);
     });
 
     it('should re-throw non-404 API errors', async () => {
-      const serverError: any = new Error('Server Error');
-      serverError.statusCode = 500;
-      mockConfirmSignup.mockRejectedValueOnce(serverError);
+      mockConfirmSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_CONFIRM_SIGNUP_FAILED',
+        message: 'Server Error', details: { statusCode: 500 },
+      });
 
       await expect(
         awsAuth.confirmSignUp('test@example.com', '123456')
@@ -745,16 +759,17 @@ describe('AWSAuthService', () => {
   // ─── G. resendConfirmationCode() ──────────────────────────────────────
   describe('resendConfirmationCode()', () => {
     it('should return true on API success', async () => {
-      mockResendConfirmationCode.mockResolvedValueOnce({ success: true });
+      mockResendConfirmationCode.mockResolvedValueOnce({ ok: true, data: { success: true } });
 
       const result = await awsAuth.resendConfirmationCode('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should re-throw 429 rate limit errors', async () => {
-      const rateLimitError: any = new Error('Too many requests');
-      rateLimitError.statusCode = 429;
-      mockResendConfirmationCode.mockRejectedValueOnce(rateLimitError);
+      mockResendConfirmationCode.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_RESEND_CODE_FAILED',
+        message: 'Too many requests', details: { statusCode: 429 },
+      });
 
       await expect(
         awsAuth.resendConfirmationCode('test@example.com')
@@ -762,24 +777,27 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to direct Cognito on 404', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.statusCode = 404;
-      mockResendConfirmationCode.mockRejectedValueOnce(notFoundError);
+      mockResendConfirmationCode.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_RESEND_CODE_FAILED',
+        message: 'Failed to resend confirmation code', details: { statusCode: 404 },
+      });
 
       const result = await awsAuth.resendConfirmationCode('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should fall back to Cognito when message includes "Not Found"', async () => {
-      const apiError: any = new Error('Not Found');
-      mockResendConfirmationCode.mockRejectedValueOnce(apiError);
+      mockResendConfirmationCode.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_RESEND_CODE_FAILED',
+        message: 'Not Found', details: {},
+      });
 
       const result = await awsAuth.resendConfirmationCode('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should throw when API returns success=false', async () => {
-      mockResendConfirmationCode.mockResolvedValueOnce({ success: false, message: 'Resend failed' });
+      mockResendConfirmationCode.mockResolvedValueOnce({ ok: true, data: { success: false, message: 'Resend failed' } });
 
       await expect(
         awsAuth.resendConfirmationCode('test@example.com')
@@ -790,23 +808,24 @@ describe('AWSAuthService', () => {
   // ─── H. forgotPassword() ─────────────────────────────────────────────
   describe('forgotPassword()', () => {
     it('should return true on API success', async () => {
-      mockForgotPassword.mockResolvedValueOnce({ success: true });
+      mockForgotPassword.mockResolvedValueOnce({ ok: true, data: { success: true } });
 
       const result = await awsAuth.forgotPassword('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should return true even when API returns success=false (anti-enumeration)', async () => {
-      mockForgotPassword.mockResolvedValueOnce({ success: false });
+      mockForgotPassword.mockResolvedValueOnce({ ok: true, data: { success: false } });
 
       const result = await awsAuth.forgotPassword('nonexistent@example.com');
       expect(result).toBe(true);
     });
 
     it('should re-throw 429 rate limit errors', async () => {
-      const rateLimitError: any = new Error('Too many requests');
-      rateLimitError.statusCode = 429;
-      mockForgotPassword.mockRejectedValueOnce(rateLimitError);
+      mockForgotPassword.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        message: 'Too many requests', details: { statusCode: 429 },
+      });
 
       await expect(
         awsAuth.forgotPassword('test@example.com')
@@ -814,26 +833,30 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to direct Cognito on 404', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.statusCode = 404;
-      mockForgotPassword.mockRejectedValueOnce(notFoundError);
+      mockForgotPassword.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        message: 'Failed to request password reset', details: { statusCode: 404 },
+      });
 
       const result = await awsAuth.forgotPassword('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should fall back to Cognito when message includes "Not Found"', async () => {
-      const apiError: any = new Error('Not Found');
-      mockForgotPassword.mockRejectedValueOnce(apiError);
+      mockForgotPassword.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        message: 'Not Found', details: {},
+      });
 
       const result = await awsAuth.forgotPassword('test@example.com');
       expect(result).toBe(true);
     });
 
     it('should re-throw non-404/non-429 errors', async () => {
-      const serverError: any = new Error('Internal Server Error');
-      serverError.statusCode = 500;
-      mockForgotPassword.mockRejectedValueOnce(serverError);
+      mockForgotPassword.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        message: 'Internal Server Error', details: { statusCode: 500 },
+      });
 
       await expect(
         awsAuth.forgotPassword('test@example.com')
@@ -1415,7 +1438,7 @@ describe('AWSAuthService', () => {
   // ─── requestPasswordReset() ───────────────────────────────────────────
   describe('requestPasswordReset()', () => {
     it('should delegate to forgotPassword', async () => {
-      mockForgotPassword.mockResolvedValueOnce({ success: true });
+      mockForgotPassword.mockResolvedValueOnce({ ok: true, data: { success: true } });
 
       await awsAuth.requestPasswordReset('test@example.com');
 

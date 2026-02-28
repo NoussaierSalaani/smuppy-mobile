@@ -112,15 +112,19 @@ describe('Posts API', () => {
     requestSpy.mockResolvedValueOnce({ posts: [], nextCursor: null, hasMore: false });
     const result = await awsAPI.getPosts();
     expect(requestSpy).toHaveBeenCalledWith('/posts');
-    expect(result).toEqual({ data: [], nextCursor: null, hasMore: false, total: 0 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual({ data: [], nextCursor: null, hasMore: false, total: 0 });
   });
 
   it('getPosts() with limit and cursor should add query params', async () => {
     requestSpy.mockResolvedValueOnce({ posts: [{ id: 'p1' }], nextCursor: 'c2', hasMore: true, total: 5 });
     const result = await awsAPI.getPosts({ limit: 10, cursor: 'c1' });
     expect(requestSpy).toHaveBeenCalledWith('/posts?limit=10&cursor=c1');
-    expect(result.data).toHaveLength(1);
-    expect(result.nextCursor).toBe('c2');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.data).toHaveLength(1);
+    expect(result.data.nextCursor).toBe('c2');
   });
 
   it('getPosts() with type=following should route to /feed/following', async () => {
@@ -133,7 +137,9 @@ describe('Posts API', () => {
     requestSpy.mockResolvedValueOnce({ data: [{ id: 'p1' }] });
     const result = await awsAPI.getPosts({ type: 'explore' });
     expect(requestSpy).toHaveBeenCalledWith('/posts?type=explore');
-    expect(result.data).toHaveLength(1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.data).toHaveLength(1);
   });
 
   it('getPosts() with userId should add userId param', async () => {
@@ -146,7 +152,9 @@ describe('Posts API', () => {
     requestSpy.mockResolvedValueOnce({ id: 'p1', content: 'test' });
     const result = await awsAPI.getPost('p1');
     expect(requestSpy).toHaveBeenCalledWith('/posts/p1');
-    expect(result).toEqual({ id: 'p1', content: 'test' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual({ id: 'p1', content: 'test' });
   });
 
   it('createPost(data) should POST /posts with body', async () => {
@@ -2332,25 +2340,31 @@ describe('Response Transformations', () => {
   it('getPosts maps response.posts to data', async () => {
     requestSpy.mockResolvedValueOnce({ posts: [{ id: '1' }, { id: '2' }], nextCursor: 'c2', hasMore: true, total: 10 });
     const result = await awsAPI.getPosts();
-    expect(result.data).toHaveLength(2);
-    expect(result.nextCursor).toBe('c2');
-    expect(result.hasMore).toBe(true);
-    expect(result.total).toBe(10);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.data).toHaveLength(2);
+    expect(result.data.nextCursor).toBe('c2');
+    expect(result.data.hasMore).toBe(true);
+    expect(result.data.total).toBe(10);
   });
 
   it('getPosts maps response.data to data when posts is missing', async () => {
     requestSpy.mockResolvedValueOnce({ data: [{ id: '1' }], nextCursor: null, hasMore: false });
     const result = await awsAPI.getPosts();
-    expect(result.data).toHaveLength(1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.data).toHaveLength(1);
   });
 
   it('getPosts returns empty array when neither posts nor data exist', async () => {
     requestSpy.mockResolvedValueOnce({});
     const result = await awsAPI.getPosts();
-    expect(result.data).toEqual([]);
-    expect(result.nextCursor).toBeNull();
-    expect(result.hasMore).toBe(false);
-    expect(result.total).toBe(0);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.data).toEqual([]);
+    expect(result.data.nextCursor).toBeNull();
+    expect(result.data.hasMore).toBe(false);
+    expect(result.data.total).toBe(0);
   });
 
   it('getNotifications maps notifications array (old format)', async () => {

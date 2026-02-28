@@ -204,47 +204,50 @@ class AWSAuthService {
 
     if (__DEV__) console.log('[AWS Auth] SignUp attempt');
 
-    try {
-      // Try server-side smart signup first (handles unconfirmed users)
-      const { awsAPI } = await import('./aws-api');
+    // Try server-side smart signup first (handles unconfirmed users)
+    const { awsAPI } = await import('./aws-api');
 
-      const result = await awsAPI.smartSignup({
-        email,
-        password,
-        username,
-        fullName,
-      });
+    const result = await awsAPI.smartSignup({
+      email,
+      password,
+      username,
+      fullName,
+    });
 
-      if (__DEV__) console.log('[AWS Auth] Smart SignUp result:', result);
+    if (result.ok) {
+      if (__DEV__) console.log('[AWS Auth] Smart SignUp result:', result.data);
 
-      if (!result.success) {
-        throw new Error(result.message || 'Signup failed');
+      if (result.data.success) {
+        return {
+          user: result.data.userSub ? {
+            id: result.data.userSub,
+            email,
+            username,
+            emailVerified: false,
+            attributes: {},
+          } : null,
+          confirmationRequired: result.data.confirmationRequired,
+        };
       }
 
-      return {
-        user: result.userSub ? {
-          id: result.userSub,
-          email,
-          username,
-          emailVerified: false,
-          attributes: {},
-        } : null,
-        confirmationRequired: result.confirmationRequired,
-      };
-    } catch (apiError: unknown) {
-      const err = apiError as { statusCode?: number; message?: string };
-      if (__DEV__) console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', err.message);
-
-      // Fall back to direct Cognito on any server/network error (404, 500, 502, 503, timeout, CORS, etc.).
-      // Only re-throw client validation errors (400) with a clear message from the server.
-      const status = err.statusCode || 0;
-      const isClientValidationError = status === 400 && err.message && !err.message.includes('Not Found');
-      if (isClientValidationError) {
-        throw apiError;
-      }
-
+      // success=false → fall back to direct Cognito (same as before)
+      if (__DEV__) console.log('[AWS Auth] Smart signup returned success=false, falling back to direct Cognito');
       return this.signUpDirect(params);
     }
+
+    // Handle error from Result
+    const statusCode = (result.details as { statusCode?: number })?.statusCode || 0;
+    if (__DEV__) console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', result.message);
+
+    // Only re-throw client validation errors (400) with a clear message from the server.
+    const isClientValidationError = statusCode === 400 && result.message && !result.message.includes('Not Found');
+    if (isClientValidationError) {
+      const e = new Error(result.message) as Error & { statusCode: number };
+      e.statusCode = 400;
+      throw e;
+    }
+
+    return this.signUpDirect(params);
   }
 
   /**
@@ -310,40 +313,44 @@ class AWSAuthService {
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
 
-    try {
-      // Try server-side API first
-      const { awsAPI } = await import('./aws-api');
-      const result = await awsAPI.confirmSignup({ email, code });
+    // Try server-side API first
+    const { awsAPI } = await import('./aws-api');
+    const result = await awsAPI.confirmSignup({ email, code });
 
-      if (result.success) {
+    if (result.ok) {
+      if (result.data.success) {
         if (__DEV__) console.log('[AWS Auth] Confirm signup success via API');
         return true;
       }
-
-      throw new Error(result.message || 'Confirmation failed');
-    } catch (apiError: unknown) {
-      // If API endpoint doesn't exist, fall back to direct Cognito
-      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
-
-        const client = await getCognitoClient();
-        const { ConfirmSignUpCommand } = await getCognitoCommands();
-
-        // Use email directly - Cognito will find user by email alias
-        const command = new ConfirmSignUpCommand({
-          ClientId: CLIENT_ID,
-          Username: normalizedEmail,
-          ConfirmationCode: code,
-        });
-
-        await client.send(command);
-        if (__DEV__) console.log('[AWS Auth] Confirm signup success via Cognito');
-        return true;
-      }
-
-      if (__DEV__) console.warn('[AWS Auth] Confirm signup error:', (apiError as { message?: string }).message);
-      throw apiError;
+      throw new Error(result.data.message || 'Confirmation failed');
     }
+
+    // Handle error from Result
+    const statusCode = (result.details as { statusCode?: number })?.statusCode;
+
+    // If API endpoint doesn't exist, fall back to direct Cognito
+    if (statusCode === 404 || result.message?.includes('Not Found')) {
+      if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
+
+      const client = await getCognitoClient();
+      const { ConfirmSignUpCommand } = await getCognitoCommands();
+
+      // Use email directly - Cognito will find user by email alias
+      const command = new ConfirmSignUpCommand({
+        ClientId: CLIENT_ID,
+        Username: normalizedEmail,
+        ConfirmationCode: code,
+      });
+
+      await client.send(command);
+      if (__DEV__) console.log('[AWS Auth] Confirm signup success via Cognito');
+      return true;
+    }
+
+    if (__DEV__) console.warn('[AWS Auth] Confirm signup error:', result.message);
+    const e = new Error(result.message) as Error & { statusCode?: number };
+    if (statusCode) e.statusCode = statusCode;
+    throw e;
   }
 
   /**
@@ -357,45 +364,51 @@ class AWSAuthService {
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
 
-    try {
-      // Try server-side API first (has rate limiting)
-      const { awsAPI } = await import('./aws-api');
-      const result = await awsAPI.resendConfirmationCode(email);
+    // Try server-side API first (has rate limiting)
+    const { awsAPI } = await import('./aws-api');
+    const result = await awsAPI.resendConfirmationCode(email);
 
-      if (result.success) {
+    if (result.ok) {
+      if (result.data.success) {
         if (__DEV__) console.log('[AWS Auth] Resend confirmation code success via API');
         return true;
       }
-
-      throw new Error(result.message || 'Resend failed');
-    } catch (apiError: unknown) {
-      // Handle rate limiting
-      if ((apiError as { statusCode?: number; message?: string }).statusCode === 429) {
-        if (__DEV__) console.log('[AWS Auth] Rate limited');
-        throw apiError;
-      }
-
-      // If API endpoint doesn't exist, fall back to direct Cognito
-      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
-
-        const client = await getCognitoClient();
-        const { ResendConfirmationCodeCommand } = await getCognitoCommands();
-
-        // Use email directly - Cognito will find user by email alias
-        const command = new ResendConfirmationCodeCommand({
-          ClientId: CLIENT_ID,
-          Username: normalizedEmail,
-        });
-
-        await client.send(command);
-        if (__DEV__) console.log('[AWS Auth] Resend confirmation code success via Cognito');
-        return true;
-      }
-
-      if (__DEV__) console.warn('[AWS Auth] Resend confirmation code error:', (apiError as { message?: string }).message);
-      throw apiError;
+      throw new Error(result.data.message || 'Resend failed');
     }
+
+    // Handle error from Result
+    const statusCode = (result.details as { statusCode?: number })?.statusCode;
+
+    // Handle rate limiting
+    if (statusCode === 429) {
+      if (__DEV__) console.log('[AWS Auth] Rate limited');
+      const e = new Error(result.message) as Error & { statusCode: number };
+      e.statusCode = 429;
+      throw e;
+    }
+
+    // If API endpoint doesn't exist, fall back to direct Cognito
+    if (statusCode === 404 || result.message?.includes('Not Found')) {
+      if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
+
+      const client = await getCognitoClient();
+      const { ResendConfirmationCodeCommand } = await getCognitoCommands();
+
+      // Use email directly - Cognito will find user by email alias
+      const command = new ResendConfirmationCodeCommand({
+        ClientId: CLIENT_ID,
+        Username: normalizedEmail,
+      });
+
+      await client.send(command);
+      if (__DEV__) console.log('[AWS Auth] Resend confirmation code success via Cognito');
+      return true;
+    }
+
+    if (__DEV__) console.warn('[AWS Auth] Resend confirmation code error:', result.message);
+    const e = new Error(result.message) as Error & { statusCode?: number };
+    if (statusCode) e.statusCode = statusCode;
+    throw e;
   }
 
   /**
@@ -547,45 +560,47 @@ class AWSAuthService {
     // Use email directly - Cognito supports email as username with alias
     const normalizedEmail = email.toLowerCase().trim();
 
-    try {
-      // Try server-side API first (has rate limiting)
-      const { awsAPI } = await import('./aws-api');
-      const result = await awsAPI.forgotPassword(email);
+    // Try server-side API first (has rate limiting)
+    const { awsAPI } = await import('./aws-api');
+    const result = await awsAPI.forgotPassword(email);
 
-      if (result.success) {
-        if (__DEV__) console.log('[AWS Auth] Forgot password code sent via API');
-        return true;
-      }
-
-      // API returns success even for non-existent users (anti-enumeration)
+    if (result.ok) {
+      if (__DEV__) console.log('[AWS Auth] Forgot password code sent via API');
       return true;
-    } catch (apiError: unknown) {
-      // Handle rate limiting
-      if ((apiError as { statusCode?: number; message?: string }).statusCode === 429) {
-        throw apiError;
-      }
-
-      // If API endpoint doesn't exist, fall back to direct Cognito
-      if ((apiError as { statusCode?: number; message?: string }).statusCode === 404 || (apiError as { message?: string }).message?.includes('Not Found')) {
-        if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
-
-        const client = await getCognitoClient();
-        const { ForgotPasswordCommand } = await getCognitoCommands();
-
-        // Use email directly - Cognito will find user by email alias
-        const command = new ForgotPasswordCommand({
-          ClientId: CLIENT_ID,
-          Username: normalizedEmail,
-        });
-
-        await client.send(command);
-        if (__DEV__) console.log('[AWS Auth] Forgot password code sent via Cognito');
-        return true;
-      }
-
-      if (__DEV__) console.warn('[AWS Auth] Forgot password error:', (apiError as { message?: string }).message);
-      throw apiError;
     }
+
+    // Handle error from Result
+    const statusCode = (result.details as { statusCode?: number })?.statusCode;
+
+    // Handle rate limiting
+    if (statusCode === 429) {
+      const e = new Error(result.message) as Error & { statusCode: number };
+      e.statusCode = 429;
+      throw e;
+    }
+
+    // If API endpoint doesn't exist, fall back to direct Cognito
+    if (statusCode === 404 || result.message?.includes('Not Found')) {
+      if (__DEV__) console.log('[AWS Auth] API not available, using direct Cognito');
+
+      const client = await getCognitoClient();
+      const { ForgotPasswordCommand } = await getCognitoCommands();
+
+      // Use email directly - Cognito will find user by email alias
+      const command = new ForgotPasswordCommand({
+        ClientId: CLIENT_ID,
+        Username: normalizedEmail,
+      });
+
+      await client.send(command);
+      if (__DEV__) console.log('[AWS Auth] Forgot password code sent via Cognito');
+      return true;
+    }
+
+    if (__DEV__) console.warn('[AWS Auth] Forgot password error:', result.message);
+    const e = new Error(result.message) as Error & { statusCode?: number };
+    if (statusCode) e.statusCode = statusCode;
+    throw e;
   }
 
   /**

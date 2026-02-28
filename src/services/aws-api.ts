@@ -18,6 +18,129 @@ import type {
 } from './api/types';
 import { APIError } from './api/error';
 import { addBreadcrumb, captureException } from '../lib/sentry';
+import { devLog, nowMs, safeJson } from './observability';
+import {
+  smartSignup as _smartSignup,
+  confirmSignup as _confirmSignup,
+  resendConfirmationCode as _resendConfirmationCode,
+  forgotPassword as _forgotPassword,
+  confirmForgotPassword as _confirmForgotPassword,
+} from './api/authApi';
+import {
+  getNotifications as _getNotifications,
+  getActivityHistory as _getActivityHistory,
+  markNotificationRead as _markNotificationRead,
+  markAllNotificationsRead as _markAllNotificationsRead,
+  getUnreadCount as _getUnreadCount,
+  deleteNotification as _deleteNotification,
+  registerPushToken as _registerPushToken,
+  unregisterPushToken as _unregisterPushToken,
+  getNotificationPreferences as _getNotificationPreferences,
+  updateNotificationPreferences as _updateNotificationPreferences,
+} from './api/notificationsApi';
+import {
+  followUser as _followUser,
+  unfollowUser as _unfollowUser,
+  getFollowers as _getFollowers,
+  getFollowing as _getFollowing,
+  getPostLikers as _getPostLikers,
+  getFollowingUsers as _getFollowingUsers,
+} from './api/socialApi';
+import {
+  getProfile as _getProfile,
+  getProfileByUsername as _getProfileByUsername,
+  updateProfile as _updateProfile,
+  upgradeToProCreator as _upgradeToProCreator,
+  checkCreationLimits as _checkCreationLimits,
+  searchProfiles as _searchProfiles,
+} from './api/profileApi';
+import {
+  getFeed as _getFeed,
+} from './api/feedApi';
+import {
+  withMediaReadyRetry as _withMediaReadyRetry,
+  isMediaNotReadyError as _isMediaNotReadyError,
+} from './api/helpers';
+import {
+  getPosts as _getPosts,
+  getPost as _getPost,
+  createPost as _createPost,
+  updatePost as _updatePost,
+  deletePost as _deletePost,
+  likePost as _likePost,
+} from './api/postApi';
+import {
+  getUploadUrl as _getUploadUrl,
+  getUploadQuota as _getUploadQuota,
+} from './api/uploadApi';
+import {
+  getPeaks as _getPeaks,
+  getPeak as _getPeak,
+  createPeak as _createPeak,
+  likePeak as _likePeak,
+  reactToPeak as _reactToPeak,
+  removeReactionFromPeak as _removeReactionFromPeak,
+  tagFriendOnPeak as _tagFriendOnPeak,
+  getPeakTags as _getPeakTags,
+  hidePeak as _hidePeak,
+  getPeakComments as _getPeakComments,
+  commentOnPeak as _commentOnPeak,
+  deletePeak as _deletePeak,
+  getExpiredPeaks as _getExpiredPeaks,
+  savePeakDecision as _savePeakDecision,
+  createChallenge as _createChallenge,
+  getChallenges as _getChallenges,
+  getChallengeDetail as _getChallengeDetail,
+  getChallengeResponses as _getChallengeResponses,
+  respondToChallenge as _respondToChallenge,
+  voteChallengeResponse as _voteChallengeResponse,
+} from './api/peaksApi';
+import {
+  getConversations as _getConversations,
+  getConversation as _getConversation,
+  createConversation as _createConversation,
+  getOrCreateConversation as _getOrCreateConversation,
+  getMessages as _getMessages,
+  sendMessage as _sendMessage,
+  deleteMessage as _deleteMessage,
+  markConversationRead as _markConversationRead,
+} from './api/messagingApi';
+import {
+  createSpot as _createSpot,
+  getSpot as _getSpot,
+  getNearbySpots as _getNearbySpots,
+  createReview as _createReview,
+  getReviews as _getReviews,
+  getCategories as _getCategories,
+  suggestSubcategory as _suggestSubcategory,
+  createLivePin as _createLivePin,
+  deleteLivePin as _deleteLivePin,
+  startLiveStream as _startLiveStream,
+  endLiveStream as _endLiveStream,
+  getActiveLiveStreams as _getActiveLiveStreams,
+  getNearbyLivePins as _getNearbyLivePins,
+  getMapMarkers as _getMapMarkers,
+  searchMap as _searchMap,
+} from './api/mapApi';
+import {
+  createEvent as _createEvent,
+  getEvents as _getEvents,
+  getEventDetail as _getEventDetail,
+  getEventParticipants as _getEventParticipants,
+  joinEvent as _joinEvent,
+  leaveEvent as _leaveEvent,
+  createEventPayment as _createEventPayment,
+  confirmEventPayment as _confirmEventPayment,
+  updateEvent as _updateEvent,
+  cancelEvent as _cancelEvent,
+  removeEventParticipant as _removeEventParticipant,
+  eventAction as _eventAction,
+  createGroup as _createGroup,
+  getGroups as _getGroups,
+  getGroup as _getGroup,
+  joinGroup as _joinGroup,
+  leaveGroup as _leaveGroup,
+} from './api/eventsApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -78,7 +201,7 @@ const API2_PREFIXES = [
 const MEDIA_NOT_READY_MAX_ATTEMPTS = 10;
 const MEDIA_NOT_READY_BASE_DELAY_MS = 1500;
 
-class AWSAPIService {
+export class AWSAPIService {
   private defaultTimeout = 30000;
   // Prevent concurrent signOut calls from racing (double 401 scenario)
   private signingOut = false;
@@ -94,20 +217,47 @@ class AWSAPIService {
   async request<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     const resolvedOptions: RequestOptions = options ?? { method: 'GET' };
     const method = resolvedOptions.method || 'GET';
+    const meta = resolvedOptions.meta;
+    const logPath = endpoint.split('?')[0]; // strip query params for safe logging
+    const start = nowMs();
 
     // Deduplicate identical in-flight GET requests
     if (method === 'GET') {
       const existing = this.inFlightGets.get(endpoint);
       if (existing) return existing as Promise<T>;
 
-      const promise = this._requestWithRetry<T>(endpoint, resolvedOptions).finally(() => {
-        this.inFlightGets.delete(endpoint);
-      });
+      const promise = this._requestWithRetry<T>(endpoint, resolvedOptions)
+        .then((result) => {
+          const ms = nowMs() - start;
+          devLog(`[API] ${method} ${logPath} OK ${ms}ms`);
+          addBreadcrumb(`${method} ${logPath}`, 'api', { ms, status: 'ok', feature: meta?.feature, action: meta?.action });
+          return result;
+        })
+        .catch((error_: unknown) => {
+          const ms = nowMs() - start;
+          devLog(`[API][ERR] ${method} ${logPath} ${ms}ms`, safeJson(error_));
+          addBreadcrumb(`${method} ${logPath}`, 'api-error', { ms, status: 'error', feature: meta?.feature, action: meta?.action });
+          throw error_;
+        })
+        .finally(() => {
+          this.inFlightGets.delete(endpoint);
+        });
       this.inFlightGets.set(endpoint, promise);
       return promise;
     }
 
-    return this._requestWithRetry<T>(endpoint, resolvedOptions);
+    try {
+      const result = await this._requestWithRetry<T>(endpoint, resolvedOptions);
+      const ms = nowMs() - start;
+      devLog(`[API] ${method} ${logPath} OK ${ms}ms`);
+      addBreadcrumb(`${method} ${logPath}`, 'api', { ms, status: 'ok', feature: meta?.feature, action: meta?.action });
+      return result;
+    } catch (error_: unknown) {
+      const ms = nowMs() - start;
+      devLog(`[API][ERR] ${method} ${logPath} ${ms}ms`, safeJson(error_));
+      addBreadcrumb(`${method} ${logPath}`, 'api-error', { ms, status: 'error', feature: meta?.feature, action: meta?.action });
+      throw error_;
+    }
   }
 
   private async _requestWithRetry<T>(endpoint: string, options: RequestOptions): Promise<T> {
@@ -352,10 +502,7 @@ class AWSAPIService {
   }
 
   private isMediaNotReadyError(error: unknown): boolean {
-    if (!(error instanceof APIError)) return false;
-    if (error.statusCode !== 409) return false;
-    const code = typeof error.data?.code === 'string' ? error.data.code : '';
-    return code === 'MEDIA_NOT_READY' || error.message.toLowerCase().includes('still processing');
+    return _isMediaNotReadyError(error);
   }
 
   private async withMediaReadyRetry<T>(
@@ -363,23 +510,7 @@ class AWSAPIService {
     maxAttempts = MEDIA_NOT_READY_MAX_ATTEMPTS,
     baseDelayMs = MEDIA_NOT_READY_BASE_DELAY_MS,
   ): Promise<T> {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await operation();
-      } catch (error_) {
-        const shouldRetry = this.isMediaNotReadyError(error_) && attempt < maxAttempts;
-        if (!shouldRetry) throw error_;
-
-        const delay = process.env.NODE_ENV === 'test' ? 0 : baseDelayMs * attempt;
-        if (__DEV__ && process.env.NODE_ENV !== 'test') {
-          console.log(`[AWS API] MEDIA_NOT_READY retry ${attempt}/${maxAttempts - 1} in ${delay}ms`);
-        }
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-
-    // Unreachable: loop always returns or throws.
-    throw new APIError('Media is still processing', 409, { code: 'MEDIA_NOT_READY' });
+    return _withMediaReadyRetry(operation, maxAttempts, baseDelayMs);
   }
 
   // ==========================================
@@ -391,69 +522,28 @@ class AWSAPIService {
     cursor?: string;
     type?: 'all' | 'following' | 'explore';
     userId?: string;
-  }): Promise<PaginatedResponse<Post>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.type) queryParams.set('type', params.type);
-    if (params?.userId) queryParams.set('userId', params.userId);
-
-    const query = queryParams.toString();
-
-    // Route 'following' type to /feed/following (API Gateway 3 with Cognito authorizer)
-    // /posts endpoint is public (no authorizer) — JWT claims aren't passed to the Lambda
-    let endpoint = `/posts${query ? `?${query}` : ''}`;
-    if (params?.type === 'following') {
-      const feedParams = new URLSearchParams();
-      if (params.limit) feedParams.set('limit', params.limit.toString());
-      if (params.cursor) feedParams.set('cursor', params.cursor);
-      const feedQuery = feedParams.toString();
-      endpoint = `/feed/following${feedQuery ? `?${feedQuery}` : ''}`;
-    }
-
-    const response = await this.request<{ posts?: Post[]; data?: Post[]; nextCursor?: string | null; hasMore?: boolean; total?: number }>(endpoint);
-
-    // Map API response (posts) to expected format (data)
-    let posts: Post[];
-    if (Array.isArray(response.posts)) posts = response.posts;
-    else if (Array.isArray(response.data)) posts = response.data;
-    else posts = [];
-    return {
-      data: posts,
-      nextCursor: response.nextCursor || null,
-      hasMore: !!response.hasMore,
-      total: response.total ?? 0,
-    };
+  }) {
+    return _getPosts(this, params);
   }
 
-  async getPost(id: string): Promise<Post> {
-    return this.request(`/posts/${id}`);
+  async getPost(id: string) {
+    return _getPost(this, id);
   }
 
-  async createPost(data: CreatePostInput): Promise<Post> {
-    return this.withMediaReadyRetry(() => this.request('/posts', {
-      method: 'POST',
-      body: data,
-    }));
+  async createPost(data: CreatePostInput) {
+    return _createPost(this, data);
   }
 
   async updatePost(id: string, data: Partial<CreatePostInput>): Promise<Post> {
-    return this.request(`/posts/${id}`, {
-      method: 'PATCH',
-      body: data,
-    });
+    return _updatePost(this, id, data);
   }
 
   async deletePost(id: string): Promise<void> {
-    return this.request(`/posts/${id}`, {
-      method: 'DELETE',
-    });
+    return _deletePost(this, id);
   }
 
-  async likePost(id: string): Promise<void> {
-    return this.request(`/posts/${id}/like`, {
-      method: 'POST',
-    });
+  async likePost(id: string) {
+    return _likePost(this, id);
   }
 
   // ==========================================
@@ -461,18 +551,15 @@ class AWSAPIService {
   // ==========================================
 
   async getProfile(id: string): Promise<Profile> {
-    return this.request(`/profiles/${id}`);
+    return _getProfile(this, id);
   }
 
   async getProfileByUsername(username: string): Promise<Profile> {
-    return this.request(`/profiles/username/${username}`);
+    return _getProfileByUsername(this, username);
   }
 
   async updateProfile(data: UpdateProfileInput): Promise<Profile> {
-    return this.request('/profiles/me', {
-      method: 'PATCH',
-      body: data,
-    });
+    return _updateProfile(this, data);
   }
 
   /**
@@ -480,7 +567,7 @@ class AWSAPIService {
    * This method is retained for reference but must not be used.
    */
   async upgradeToProCreator(): Promise<{ success: boolean; message?: string }> {
-    throw new Error('Account upgrades are handled via Stripe webhook only');
+    return _upgradeToProCreator();
   }
 
   /**
@@ -495,19 +582,11 @@ class AWSAPIService {
     maxGroupsPerMonth: number;
     nextResetDate: string;
   }> {
-    return this.request('/profiles/creation-limits', { method: 'GET' });
+    return _checkCreationLimits(this);
   }
 
   async searchProfiles(query: string, limit = 20, cursor?: string): Promise<PaginatedResponse<Profile>> {
-    const params = new URLSearchParams({ search: query, limit: String(limit) });
-    if (cursor) params.set('cursor', cursor);
-    const result = await this.request<{ data: Profile[]; nextCursor?: string | null; hasMore?: boolean }>(`/profiles?${params.toString()}`);
-    return {
-      data: result.data || [],
-      nextCursor: result.nextCursor ?? null,
-      hasMore: result.hasMore ?? false,
-      total: 0,
-    };
+    return _searchProfiles(this, query, limit, cursor);
   }
 
   // ==========================================
@@ -520,10 +599,7 @@ class AWSAPIService {
     message: string;
     cooldown?: { blocked: boolean; until: string; daysRemaining: number };
   }> {
-    return this.request('/follows', {
-      method: 'POST',
-      body: { followingId: userId },
-    });
+    return _followUser(this, userId);
   }
 
   async unfollowUser(userId: string): Promise<{
@@ -531,49 +607,15 @@ class AWSAPIService {
     message: string;
     cooldown?: { blocked: boolean; until: string; message: string };
   }> {
-    return this.request(`/follows/${userId}`, {
-      method: 'DELETE',
-    });
+    return _unfollowUser(this, userId);
   }
 
   async getFollowers(userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      followers: Profile[];
-      cursor: string | null;
-      hasMore: boolean;
-      totalCount: number;
-    }>(`/profiles/${userId}/followers${query ? `?${query}` : ''}`);
-    // Map backend response to PaginatedResponse format
-    return {
-      data: response.followers || [],
-      nextCursor: response.cursor,
-      hasMore: response.hasMore,
-      total: response.totalCount ?? 0,
-    };
+    return _getFollowers(this, userId, params);
   }
 
   async getFollowing(userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      following: Profile[];
-      cursor: string | null;
-      hasMore: boolean;
-      totalCount: number;
-    }>(`/profiles/${userId}/following${query ? `?${query}` : ''}`);
-    // Map backend response to PaginatedResponse format
-    return {
-      data: response.following || [],
-      nextCursor: response.cursor,
-      hasMore: response.hasMore,
-      total: response.totalCount ?? 0,
-    };
+    return _getFollowing(this, userId, params);
   }
 
   // ==========================================
@@ -581,204 +623,49 @@ class AWSAPIService {
   // ==========================================
 
   async getPostLikers(postId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Profile>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      data: Profile[];
-      nextCursor: string | null;
-      hasMore: boolean;
-    }>(`/posts/${postId}/likers${query ? `?${query}` : ''}`);
-    return {
-      data: response.data ?? [],
-      nextCursor: response.nextCursor || null,
-      hasMore: !!response.hasMore,
-      total: response.data?.length ?? 0,
-    };
+    return _getPostLikers(this, postId, params);
   }
 
   // ==========================================
   // Feed API
   // ==========================================
 
-  async getFeed(params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Post>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    return this.request(`/feed${query ? `?${query}` : ''}`);
+  async getFeed(params?: { limit?: number; cursor?: string }) {
+    return _getFeed(this, params);
   }
 
   // ==========================================
   // Peaks API
   // ==========================================
 
-  private normalizePeakAuthor(raw: unknown, fallbackId = ''): Profile {
-    const rec = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
-    return {
-      id: (rec.id as string | undefined) || (rec.user_id as string | undefined) || fallbackId,
-      username: (rec.username as string | undefined) || (rec.user_name as string | undefined) || '',
-      fullName: (rec.fullName as string | undefined) || (rec.full_name as string | undefined) || null,
-      displayName: (rec.displayName as string | undefined) || (rec.display_name as string | undefined) || null,
-      avatarUrl:
-        (rec.avatarUrl as string | undefined) ||
-        (rec.avatar_url as string | undefined) ||
-        (rec.avatar as string | undefined) ||
-        null,
-      coverUrl: (rec.coverUrl as string | undefined) || (rec.cover_url as string | undefined) || null,
-      bio: (rec.bio as string | undefined) || null,
-      website: (rec.website as string | undefined) || null,
-      isVerified: Boolean((rec.isVerified as boolean | undefined) ?? (rec.is_verified as boolean | undefined)),
-      isPremium: Boolean((rec.isPremium as boolean | undefined) ?? (rec.is_premium as boolean | undefined)),
-      isPrivate: Boolean((rec.isPrivate as boolean | undefined) ?? (rec.is_private as boolean | undefined)),
-      accountType: ((rec.accountType as string | undefined) || (rec.account_type as string | undefined) || 'personal') as Profile['accountType'],
-      followersCount: Number((rec.followersCount as number | undefined) ?? (rec.followers_count as number | undefined) ?? 0),
-      followingCount: Number((rec.followingCount as number | undefined) ?? (rec.following_count as number | undefined) ?? 0),
-      postsCount: Number((rec.postsCount as number | undefined) ?? (rec.posts_count as number | undefined) ?? 0),
-      peaksCount: Number((rec.peaksCount as number | undefined) ?? (rec.peaks_count as number | undefined) ?? 0),
-      isFollowing: (rec.isFollowing as boolean | undefined) ?? (rec.is_following as boolean | undefined),
-      isFollowedBy: (rec.isFollowedBy as boolean | undefined) ?? (rec.is_followed_by as boolean | undefined),
-      interests: Array.isArray(rec.interests) ? rec.interests as string[] : undefined,
-      expertise: Array.isArray(rec.expertise) ? rec.expertise as string[] : undefined,
-      socialLinks: rec.socialLinks as Record<string, string> | undefined,
-      onboardingCompleted: (rec.onboardingCompleted as boolean | undefined) ?? (rec.onboarding_completed as boolean | undefined),
-      businessName: (rec.businessName as string | undefined) || (rec.business_name as string | undefined),
-      businessCategory: (rec.businessCategory as string | undefined) || (rec.business_category as string | undefined),
-      businessAddress: (rec.businessAddress as string | undefined) || (rec.business_address as string | undefined),
-      businessLatitude: (rec.businessLatitude as number | undefined) ?? (rec.business_latitude as number | undefined),
-      businessLongitude: (rec.businessLongitude as number | undefined) ?? (rec.business_longitude as number | undefined),
-      businessPhone: (rec.businessPhone as string | undefined) || (rec.business_phone as string | undefined),
-      locationsMode: (rec.locationsMode as string | undefined) || (rec.locations_mode as string | undefined),
-      gender: rec.gender as string | undefined,
-      dateOfBirth: (rec.dateOfBirth as string | undefined) || (rec.date_of_birth as string | undefined),
-    };
-  }
-
-  private normalizePeak(raw: Peak | Record<string, unknown>): Peak {
-    const rec = raw as Record<string, unknown>;
-    const authorId =
-      (rec.authorId as string | undefined) ||
-      (rec.author_id as string | undefined) ||
-      ((rec.author as Record<string, unknown> | undefined)?.id as string | undefined) ||
-      '';
-    const challengeRaw = (rec.challenge && typeof rec.challenge === 'object')
-      ? rec.challenge as Record<string, unknown>
-      : null;
-
-    return {
-      ...(raw as Peak),
-      id: (rec.id as string | undefined) || '',
-      authorId,
-      videoUrl:
-        (rec.videoUrl as string | undefined) ||
-        (rec.video_url as string | undefined) ||
-        (rec.mediaUrl as string | undefined) ||
-        (rec.media_url as string | undefined) ||
-        '',
-      thumbnailUrl:
-        (rec.thumbnailUrl as string | undefined) ||
-        (rec.thumbnail_url as string | undefined) ||
-        (rec.posterUrl as string | undefined) ||
-        (rec.poster_url as string | undefined) ||
-        null,
-      caption: (rec.caption as string | undefined) || (rec.content as string | undefined) || null,
-      duration: Number((rec.duration as number | undefined) ?? (rec.video_duration as number | undefined) ?? 0),
-      replyToPeakId:
-        (rec.replyToPeakId as string | undefined) ||
-        (rec.reply_to_peak_id as string | undefined) ||
-        null,
-      likesCount: Number((rec.likesCount as number | undefined) ?? (rec.likes_count as number | undefined) ?? (rec.likes as number | undefined) ?? 0),
-      commentsCount: Number((rec.commentsCount as number | undefined) ?? (rec.comments_count as number | undefined) ?? (rec.comments as number | undefined) ?? 0),
-      viewsCount: Number((rec.viewsCount as number | undefined) ?? (rec.views_count as number | undefined) ?? (rec.views as number | undefined) ?? 0),
-      createdAt: (rec.createdAt as string | undefined) || (rec.created_at as string | undefined) || new Date().toISOString(),
-      filterId: (rec.filterId as string | undefined) || (rec.filter_id as string | undefined) || null,
-      filterIntensity: (rec.filterIntensity as number | undefined) ?? (rec.filter_intensity as number | undefined) ?? null,
-      overlays: Array.isArray(rec.overlays) ? rec.overlays as Peak['overlays'] : null,
-      expiresAt: (rec.expiresAt as string | undefined) || (rec.expires_at as string | undefined) || null,
-      savedToProfile: (rec.savedToProfile as boolean | undefined) ?? (rec.saved_to_profile as boolean | undefined) ?? null,
-      hlsUrl: (rec.hlsUrl as string | undefined) || (rec.hls_url as string | undefined) || null,
-      videoStatus: (rec.videoStatus as Peak['videoStatus']) || (rec.video_status as Peak['videoStatus']) || null,
-      videoVariants: (rec.videoVariants as Record<string, string> | undefined) || (rec.video_variants as Record<string, string> | undefined) || null,
-      videoDuration: (rec.videoDuration as number | undefined) ?? (rec.video_duration as number | undefined) ?? null,
-      isLiked: (rec.isLiked as boolean | undefined) ?? (rec.is_liked as boolean | undefined),
-      isViewed: (rec.isViewed as boolean | undefined) ?? (rec.is_viewed as boolean | undefined),
-      author: this.normalizePeakAuthor(rec.author, authorId),
-      challenge: challengeRaw ? {
-        id: (challengeRaw.id as string | undefined) || '',
-        title: (challengeRaw.title as string | undefined) || '',
-        rules: (challengeRaw.rules as string | undefined) || null,
-        status: (challengeRaw.status as string | undefined) || '',
-        responseCount: Number((challengeRaw.responseCount as number | undefined) ?? (challengeRaw.response_count as number | undefined) ?? 0),
-      } : null,
-    };
-  }
-
   async getPeaks(params?: { limit?: number; cursor?: string; userId?: string }): Promise<PaginatedResponse<Peak>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.userId) {
-      // Support both camelCase and snake_case author filters (some gateways expect one or the other)
-      queryParams.set('authorId', params.userId);
-      queryParams.set('author_id', params.userId);
-    }
-    const query = queryParams.toString();
-    const response = await this.request<{ data?: Peak[]; peaks?: Peak[]; nextCursor?: string | null; hasMore?: boolean; items?: Peak[] }>(`/peaks${query ? `?${query}` : ''}`);
-    const raw = response.data || response.peaks || response.items || [];
-    return {
-      data: raw.map((item) => this.normalizePeak(item)),
-      nextCursor: response.nextCursor || null,
-      hasMore: !!response.hasMore,
-      total: raw.length,
-    };
+    return _getPeaks(this, params);
   }
 
   async getPeak(id: string): Promise<Peak> {
-    const peak = await this.request<Peak | { data?: Peak; peak?: Peak }>(`/peaks/${id}`);
-    const payload = (peak as { data?: Peak; peak?: Peak }).data || (peak as { data?: Peak; peak?: Peak }).peak || peak;
-    return this.normalizePeak(payload as Peak);
+    return _getPeak(this, id);
   }
 
   async createPeak(data: CreatePeakInput): Promise<Peak> {
-    return this.withMediaReadyRetry(() => this.request('/peaks', {
-      method: 'POST',
-      body: data,
-    }));
+    return _createPeak(this, data);
   }
 
   async likePeak(id: string): Promise<void> {
-    return this.request(`/peaks/${id}/like`, {
-      method: 'POST',
-    });
+    return _likePeak(this, id);
   }
 
-  /**
-   * React to a peak with emoji reaction
-   */
   async reactToPeak(id: string, reaction: string): Promise<{
     success: boolean;
     reaction: string;
     reactionCounts: Record<string, number>;
   }> {
-    return this.request(`/peaks/${id}/react`, {
-      method: 'POST',
-      body: { reaction },
-    });
+    return _reactToPeak(this, id, reaction);
   }
 
-  /**
-   * Remove reaction from a peak
-   */
   async removeReactionFromPeak(id: string): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${id}/react`, {
-      method: 'DELETE',
-    });
+    return _removeReactionFromPeak(this, id);
   }
 
-  /**
-   * Tag a friend on a peak
-   */
   async tagFriendOnPeak(peakId: string, friendId: string): Promise<{
     success: boolean;
     tag: {
@@ -793,16 +680,9 @@ class AWSAPIService {
       createdAt: string;
     };
   }> {
-    return this.request(`/peaks/${peakId}/tags`, {
-      method: 'POST',
-      body: { friendId },
-    });
+    return _tagFriendOnPeak(this, peakId, friendId);
   }
 
-
-  /**
-   * Get tags on a peak
-   */
   async getPeakTags(peakId: string): Promise<{
     success: boolean;
     tags: Array<{
@@ -815,26 +695,17 @@ class AWSAPIService {
       createdAt: string;
     }>;
   }> {
-    return this.request(`/peaks/${peakId}/tags`);
+    return _getPeakTags(this, peakId);
   }
 
-  /**
-   * Hide a peak from feed (not interested)
-   */
   async hidePeak(id: string, reason: 'not_interested' | 'seen_too_often' | 'irrelevant' | 'other' = 'not_interested'): Promise<{
     success: boolean;
     message: string;
     reason: string;
   }> {
-    return this.request(`/peaks/${id}/hide`, {
-      method: 'POST',
-      body: { reason },
-    });
+    return _hidePeak(this, id, reason);
   }
 
-  /**
-   * Get comments on a peak
-   */
   async getPeakComments(peakId: string, params?: { limit?: number; cursor?: string }): Promise<{
     success: boolean;
     data: Array<{
@@ -846,16 +717,9 @@ class AWSAPIService {
     nextCursor: string | null;
     hasMore: boolean;
   }> {
-    const query = new URLSearchParams();
-    if (params?.limit) query.set('limit', String(params.limit));
-    if (params?.cursor) query.set('cursor', params.cursor);
-    const qs = query.toString();
-    return this.request(`/peaks/${peakId}/comments${qs ? `?${qs}` : ''}`);
+    return _getPeakComments(this, peakId, params);
   }
 
-  /**
-   * Post a comment on a peak
-   */
   async commentOnPeak(peakId: string, text: string): Promise<{
     success: boolean;
     comment: {
@@ -865,34 +729,19 @@ class AWSAPIService {
       author: { id: string; username: string; fullName: string; avatarUrl: string; isVerified: boolean };
     };
   }> {
-    return this.request(`/peaks/${peakId}/comments`, {
-      method: 'POST',
-      body: { text },
-    });
+    return _commentOnPeak(this, peakId, text);
   }
 
-  /**
-   * Delete a peak (author only)
-   */
   async deletePeak(id: string): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${id}`, { method: 'DELETE' });
+    return _deletePeak(this, id);
   }
 
-  /**
-   * Get expired peaks awaiting user decision
-   */
   async getExpiredPeaks(): Promise<{ data: Peak[]; total: number }> {
-    return this.request('/peaks/expired');
+    return _getExpiredPeaks(this);
   }
 
-  /**
-   * Record save decision for an expired peak
-   */
   async savePeakDecision(id: string, action: 'save_to_profile' | 'dismiss'): Promise<{ success: boolean }> {
-    return this.request(`/peaks/${id}/save-decision`, {
-      method: 'POST',
-      body: { action },
-    });
+    return _savePeakDecision(this, id, action);
   }
 
   // ==========================================
@@ -925,65 +774,27 @@ class AWSAPIService {
   // ==========================================
 
   async getNotifications(params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Notification>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      data?: Notification[];
-      notifications?: Notification[];
-      nextCursor?: string | null;
-      cursor?: string | null;
-      hasMore?: boolean;
-    }>(`/notifications${query ? `?${query}` : ''}`);
-    // Handle both new format (data/nextCursor) and old format (notifications/cursor)
-    return {
-      data: response.data || response.notifications || [],
-      nextCursor: response.nextCursor ?? response.cursor ?? null,
-      hasMore: !!response.hasMore,
-      total: 0,
-    };
+    return _getNotifications(this, params);
   }
 
   async getActivityHistory(params?: { limit?: number; cursor?: string; type?: string }): Promise<PaginatedResponse<ActivityItem>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    if (params?.type) queryParams.set('type', params.type);
-    const query = queryParams.toString();
-    const response = await this.request<{
-      data?: ActivityItem[];
-      nextCursor?: string | null;
-      hasMore?: boolean;
-    }>(`/activity${query ? `?${query}` : ''}`);
-    return {
-      data: response.data ?? [],
-      nextCursor: response.nextCursor ?? null,
-      hasMore: !!response.hasMore,
-      total: 0,
-    };
+    return _getActivityHistory(this, params);
   }
 
   async markNotificationRead(id: string): Promise<void> {
-    return this.request(`/notifications/${id}/read`, {
-      method: 'POST',
-    });
+    return _markNotificationRead(this, id);
   }
 
   async markAllNotificationsRead(): Promise<void> {
-    return this.request('/notifications/read-all', {
-      method: 'POST',
-    });
+    return _markAllNotificationsRead(this);
   }
 
   async getUnreadCount(): Promise<{ unreadCount: number }> {
-    return this.request('/notifications/unread-count');
+    return _getUnreadCount(this);
   }
 
   async deleteNotification(id: string): Promise<void> {
-    return this.request(`/notifications/${id}`, {
-      method: 'DELETE',
-    });
+    return _deleteNotification(this, id);
   }
 
   // ==========================================
@@ -1049,16 +860,11 @@ class AWSAPIService {
     platform: 'ios' | 'android';
     deviceId: string;
   }): Promise<void> {
-    return this.request('/notifications/push-token', {
-      method: 'POST',
-      body: data,
-    });
+    return _registerPushToken(this, data);
   }
 
   async unregisterPushToken(deviceId: string): Promise<void> {
-    return this.request(`/notifications/push-token/${deviceId}`, {
-      method: 'DELETE',
-    });
+    return _unregisterPushToken(this, deviceId);
   }
 
   // ==========================================
@@ -1066,18 +872,11 @@ class AWSAPIService {
   // ==========================================
 
   async getNotificationPreferences(): Promise<NotificationPreferences> {
-    const response = await this.request<{ success: boolean; preferences: NotificationPreferences }>(
-      '/notifications/preferences'
-    );
-    return response.preferences;
+    return _getNotificationPreferences(this);
   }
 
   async updateNotificationPreferences(prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
-    const response = await this.request<{ success: boolean; preferences: NotificationPreferences }>(
-      '/notifications/preferences',
-      { method: 'PUT', body: prefs }
-    );
-    return response.preferences;
+    return _updateNotificationPreferences(this, prefs);
   }
 
   // ==========================================
@@ -1146,13 +945,7 @@ class AWSAPIService {
   // ==========================================
 
   async getFollowingUsers(userId: string, params?: { limit?: number }): Promise<Profile[]> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    const query = queryParams.toString();
-    return this.request(`/profiles/${userId}/following${query ? `?${query}` : ''}`).then((res) => {
-      const result = res as { following?: Profile[]; data?: Profile[] };
-      return result.following || result.data || [];
-    });
+    return _getFollowingUsers(this, userId, params);
   }
 
   // ==========================================
@@ -1164,34 +957,12 @@ class AWSAPIService {
     contentType: string,
     fileSize: number,
     duration?: number
-  ): Promise<{
-    uploadUrl: string;
-    fileUrl?: string;
-    key?: string;
-    publicUrl?: string;
-    cdnUrl?: string;
-  }> {
-    // Determine uploadType from the folder prefix in filename
-    let uploadType = 'post';
-    if (filename.startsWith('avatars/')) uploadType = 'avatar';
-    else if (filename.startsWith('covers/')) uploadType = 'cover';
-    else if (filename.startsWith('peaks/')) uploadType = 'peak';
-    else if (filename.startsWith('messages/')) uploadType = 'message';
-
-    if (__DEV__) console.log('[getUploadUrl] uploadType:', uploadType, 'contentType:', contentType);
-
-    if (!Number.isFinite(fileSize) || fileSize <= 0) {
-      throw new APIError('Invalid upload file size', 400);
-    }
-
-    return this.request('/media/upload-url', {
-      method: 'POST',
-      body: { filename, contentType, uploadType, fileSize, ...(duration != null && { duration }) },
-    });
+  ) {
+    return _getUploadUrl(this, filename, contentType, fileSize, duration);
   }
 
-  async getUploadQuota(): Promise<{ success: boolean; accountType: string; quotas: Record<string, unknown>; resetsAt: string }> {
-    return this.request('/media/upload-quota');
+  async getUploadQuota() {
+    return _getUploadQuota(this);
   }
 
 
@@ -1209,17 +980,8 @@ class AWSAPIService {
     password: string;
     username?: string;
     fullName?: string;
-  }): Promise<{
-    success: boolean;
-    userSub?: string;
-    confirmationRequired: boolean;
-    message?: string;
-  }> {
-    return this.request('/auth/signup', {
-      method: 'POST',
-      body: data,
-      authenticated: false,
-    });
+  }) {
+    return _smartSignup(this, data);
   }
 
   /**
@@ -1228,43 +990,22 @@ class AWSAPIService {
   async confirmSignup(data: {
     email: string;
     code: string;
-  }): Promise<{
-    success: boolean;
-    message?: string;
-  }> {
-    return this.request('/auth/confirm-signup', {
-      method: 'POST',
-      body: data,
-      authenticated: false,
-    });
+  }) {
+    return _confirmSignup(this, data);
   }
 
   /**
    * Resend confirmation code
    */
-  async resendConfirmationCode(email: string): Promise<{
-    success: boolean;
-    message?: string;
-  }> {
-    return this.request('/auth/resend-code', {
-      method: 'POST',
-      body: { email },
-      authenticated: false,
-    });
+  async resendConfirmationCode(email: string) {
+    return _resendConfirmationCode(this, email);
   }
 
   /**
    * Initiate forgot password flow
    */
-  async forgotPassword(email: string): Promise<{
-    success: boolean;
-    message?: string;
-  }> {
-    return this.request('/auth/forgot-password', {
-      method: 'POST',
-      body: { email },
-      authenticated: false,
-    });
+  async forgotPassword(email: string) {
+    return _forgotPassword(this, email);
   }
 
   /**
@@ -1278,11 +1019,7 @@ class AWSAPIService {
     success: boolean;
     message?: string;
   }> {
-    return this.request('/auth/confirm-forgot-password', {
-      method: 'POST',
-      body: data,
-      authenticated: false,
-    });
+    return _confirmForgotPassword(this, data);
   }
 
   // ==========================================
@@ -1290,37 +1027,23 @@ class AWSAPIService {
   // ==========================================
 
   async getConversations(params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Conversation>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    return this.request(`/conversations${query ? `?${query}` : ''}`);
+    return _getConversations(this, params);
   }
 
   async getConversation(id: string): Promise<Conversation> {
-    return this.request(`/conversations/${id}`);
+    return _getConversation(this, id);
   }
 
   async createConversation(participantId: string): Promise<Conversation> {
-    return this.request('/conversations', {
-      method: 'POST',
-      body: { participantId },
-    });
+    return _createConversation(this, participantId);
   }
 
   async getOrCreateConversation(participantId: string): Promise<Conversation> {
-    return this.request('/conversations/get-or-create', {
-      method: 'POST',
-      body: { participantId },
-    });
+    return _getOrCreateConversation(this, participantId);
   }
 
   async getMessages(conversationId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Message>> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-    const query = queryParams.toString();
-    return this.request(`/conversations/${conversationId}/messages${query ? `?${query}` : ''}`);
+    return _getMessages(this, conversationId, params);
   }
 
   async sendMessage(conversationId: string, data: {
@@ -1328,22 +1051,15 @@ class AWSAPIService {
     messageType?: 'text' | 'image' | 'video' | 'audio';
     mediaUrl?: string;
   }): Promise<Message> {
-    return this.request(`/conversations/${conversationId}/messages`, {
-      method: 'POST',
-      body: data,
-    });
+    return _sendMessage(this, conversationId, data);
   }
 
   async deleteMessage(messageId: string): Promise<void> {
-    return this.request(`/messages/${messageId}`, {
-      method: 'DELETE',
-    });
+    return _deleteMessage(this, messageId);
   }
 
   async markConversationRead(conversationId: string): Promise<void> {
-    return this.request(`/conversations/${conversationId}/read`, {
-      method: 'POST',
-    });
+    return _markConversationRead(this, conversationId);
   }
 
   // ==========================================
@@ -2498,9 +2214,6 @@ class AWSAPIService {
   // Challenges
   // ==========================================
 
-  /**
-   * Create a Peak Challenge
-   */
   async createChallenge(data: {
     peakId: string;
     title: string;
@@ -2519,15 +2232,9 @@ class AWSAPIService {
     prizeAmount?: number;
     tipsEnabled?: boolean;
   }): Promise<{ success: boolean; challenge?: ApiChallenge; message?: string }> {
-    return this.request('/challenges', {
-      method: 'POST',
-      body: data,
-    });
+    return _createChallenge(this, data);
   }
 
-  /**
-   * List challenges
-   */
   async getChallenges(params?: {
     filter?: 'trending' | 'new' | 'ending_soon' | 'created' | 'tagged' | 'responded';
     creatorId?: string;
@@ -2536,14 +2243,7 @@ class AWSAPIService {
     limit?: number;
     cursor?: string;
   }): Promise<{ success: boolean; challenges?: ApiChallenge[]; pagination?: ApiPagination }> {
-    const query = new URLSearchParams();
-    if (params?.filter) query.append('filter', params.filter);
-    if (params?.creatorId) query.append('creatorId', params.creatorId);
-    if (params?.category) query.append('category', params.category);
-    if (params?.status) query.append('status', params.status);
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.cursor) query.append('cursor', params.cursor);
-    return this.request(`/challenges?${query.toString()}`);
+    return _getChallenges(this, params);
   }
 
   async getChallengeDetail(challengeId: string): Promise<{
@@ -2551,7 +2251,7 @@ class AWSAPIService {
     challenge?: ApiChallenge;
     message?: string;
   }> {
-    return this.request(`/challenges/${challengeId}`, { method: 'GET' });
+    return _getChallengeDetail(this, challengeId);
   }
 
   async getChallengeResponses(challengeId: string, params?: {
@@ -2564,39 +2264,24 @@ class AWSAPIService {
     nextCursor?: string | null;
     hasMore?: boolean;
   }> {
-    const query = new URLSearchParams();
-    if (params?.sortBy) query.append('sortBy', params.sortBy);
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.cursor) query.append('cursor', params.cursor);
-    return this.request(`/challenges/${challengeId}/responses?${query.toString()}`, { method: 'GET' });
+    return _getChallengeResponses(this, challengeId, params);
   }
 
-  /**
-   * Respond to a challenge
-   */
   async respondToChallenge(challengeId: string, data: {
     peakId: string;
     score?: number;
     timeSeconds?: number;
   }): Promise<{ success: boolean; response?: ChallengeResponseEntry; message?: string }> {
-    return this.request(`/challenges/${challengeId}/respond`, {
-      method: 'POST',
-      body: data,
-    });
+    return _respondToChallenge(this, challengeId, data);
   }
 
-  /**
-   * Vote (toggle) on a challenge response
-   */
   async voteChallengeResponse(challengeId: string, responseId: string): Promise<{
     success: boolean;
     voted?: boolean;
     voteCount?: number;
     message?: string;
   }> {
-    return this.request(`/challenges/${challengeId}/responses/${responseId}/vote`, {
-      method: 'POST',
-    });
+    return _voteChallengeResponse(this, challengeId, responseId);
   }
 
   // ==========================================
@@ -2675,9 +2360,6 @@ class AWSAPIService {
   // Events (Xplorer)
   // ==========================================
 
-  /**
-   * Create an event
-   */
   async createEvent(data: {
     title: string;
     description?: string;
@@ -2705,15 +2387,9 @@ class AWSAPIService {
     routePolyline?: string;
     routeWaypoints?: { lat: number; lng: number; name?: string }[];
   }): Promise<{ success: boolean; event?: ApiEvent; message?: string }> {
-    return this.request('/events', {
-      method: 'POST',
-      body: data,
-    });
+    return _createEvent(this, data);
   }
 
-  /**
-   * List events
-   */
   async getEvents(params?: {
     filter?: 'upcoming' | 'nearby' | 'category' | 'my-events' | 'joined';
     latitude?: number;
@@ -2727,35 +2403,17 @@ class AWSAPIService {
     limit?: number;
     cursor?: string;
   }): Promise<{ success: boolean; events?: ApiEvent[]; pagination?: ApiPagination }> {
-    const query = new URLSearchParams();
-    if (params?.filter) query.append('filter', params.filter);
-    if (params?.latitude) query.append('latitude', params.latitude.toString());
-    if (params?.longitude) query.append('longitude', params.longitude.toString());
-    if (params?.radiusKm) query.append('radiusKm', params.radiusKm.toString());
-    if (params?.category) query.append('category', params.category);
-    if (params?.startDate) query.append('startDate', params.startDate);
-    if (params?.endDate) query.append('endDate', params.endDate);
-    if (params?.isFree !== undefined) query.append('isFree', params.isFree.toString());
-    if (params?.hasRoute !== undefined) query.append('hasRoute', params.hasRoute.toString());
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.cursor) query.append('cursor', params.cursor);
-    return this.request(`/events?${query.toString()}`);
+    return _getEvents(this, params);
   }
 
-  /**
-   * Get event details
-   */
   async getEventDetail(eventId: string): Promise<{
     success: boolean;
     event?: ApiEvent;
     message?: string;
   }> {
-    return this.request(`/events/${eventId}`);
+    return _getEventDetail(this, eventId);
   }
 
-  /**
-   * Get event participants
-   */
   async getEventParticipants(eventId: string, params?: {
     limit?: number;
     offset?: number;
@@ -2765,40 +2423,23 @@ class AWSAPIService {
     total?: number;
     message?: string;
   }> {
-    const query = new URLSearchParams();
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.offset) query.append('offset', params.offset.toString());
-    return this.request(`/events/${eventId}/participants?${query.toString()}`);
+    return _getEventParticipants(this, eventId, params);
   }
 
-  /**
-   * Join a free event
-   */
   async joinEvent(eventId: string): Promise<{
     success: boolean;
     message?: string;
   }> {
-    return this.request(`/events/${eventId}/join`, {
-      method: 'POST',
-      body: { action: 'join' },
-    });
+    return _joinEvent(this, eventId);
   }
 
-  /**
-   * Leave an event
-   */
   async leaveEvent(eventId: string): Promise<{
     success: boolean;
     message?: string;
   }> {
-    return this.request(`/events/${eventId}/leave`, {
-      method: 'POST',
-    });
+    return _leaveEvent(this, eventId);
   }
 
-  /**
-   * Create payment intent for paid event
-   */
   async createEventPayment(data: {
     eventId: string;
     amount: number;
@@ -2811,15 +2452,9 @@ class AWSAPIService {
     sessionId?: string;
     message?: string;
   }> {
-    return this.request(`/events/${data.eventId}/payment`, {
-      method: 'POST',
-      body: { amount: data.amount, currency: data.currency },
-    });
+    return _createEventPayment(this, data);
   }
 
-  /**
-   * Confirm event payment and register participation
-   */
   async confirmEventPayment(data: {
     eventId: string;
     paymentIntentId: string;
@@ -2827,15 +2462,9 @@ class AWSAPIService {
     success: boolean;
     message?: string;
   }> {
-    return this.request(`/events/${data.eventId}/payment/confirm`, {
-      method: 'POST',
-      body: { paymentIntentId: data.paymentIntentId },
-    });
+    return _confirmEventPayment(this, data);
   }
 
-  /**
-   * Update event (creator only)
-   */
   async updateEvent(eventId: string, data: {
     title?: string;
     description?: string;
@@ -2848,41 +2477,25 @@ class AWSAPIService {
     event?: ApiEvent;
     message?: string;
   }> {
-    return this.request(`/events/${eventId}`, {
-      method: 'PUT',
-      body: data,
-    });
+    return _updateEvent(this, eventId, data);
   }
 
-  /**
-   * Cancel event (creator only)
-   */
   async cancelEvent(eventId: string): Promise<{
     success: boolean;
     message?: string;
     refundsIssued?: number;
   }> {
-    return this.request(`/events/${eventId}/cancel`, {
-      method: 'POST',
-    });
+    return _cancelEvent(this, eventId);
   }
 
-  /**
-   * Remove participant from event (creator only)
-   */
   async removeEventParticipant(eventId: string, userId: string): Promise<{
     success: boolean;
     message?: string;
     refundIssued?: boolean;
   }> {
-    return this.request(`/events/${eventId}/participants/${userId}`, {
-      method: 'DELETE',
-    });
+    return _removeEventParticipant(this, eventId, userId);
   }
 
-  /**
-   * Legacy: Join/leave an event
-   */
   async eventAction(eventId: string, action: 'register' | 'cancel' | 'interested', notes?: string): Promise<{
     success: boolean;
     message?: string;
@@ -2893,10 +2506,7 @@ class AWSAPIService {
     price?: number;
     currency?: string;
   }> {
-    return this.request(`/events/${eventId}/join`, {
-      method: 'POST',
-      body: { action, notes },
-    });
+    return _eventAction(this, eventId, action, notes);
   }
 
   // ==========================================
@@ -3575,7 +3185,7 @@ class AWSAPIService {
     route_elevation_gain?: number;
     difficulty?: string;
   }): Promise<{ success: boolean; group?: GroupActivity; message?: string }> {
-    return this.request('/groups', { method: 'POST', body: data });
+    return _createGroup(this, data);
   }
 
   async getGroups(params: {
@@ -3587,21 +3197,19 @@ class AWSAPIService {
     limit?: number;
     cursor?: string;
   }): Promise<{ success: boolean; groups?: GroupActivity[]; pagination?: ApiPagination }> {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/groups?${query.toString()}`);
+    return _getGroups(this, params);
   }
 
   async getGroup(groupId: string): Promise<{ success: boolean; group?: GroupActivity }> {
-    return this.request(`/groups/${groupId}`);
+    return _getGroup(this, groupId);
   }
 
   async joinGroup(groupId: string): Promise<{ success: boolean; message?: string }> {
-    return this.request(`/groups/${groupId}/join`, { method: 'POST' });
+    return _joinGroup(this, groupId);
   }
 
   async leaveGroup(groupId: string): Promise<{ success: boolean; message?: string }> {
-    return this.request(`/groups/${groupId}/leave`, { method: 'DELETE' });
+    return _leaveGroup(this, groupId);
   }
 
   // ============================================
@@ -3634,11 +3242,11 @@ class AWSAPIService {
     initial_rating?: number;
     initial_review?: string;
   }): Promise<{ success: boolean; spot?: Spot; message?: string }> {
-    return this.request('/spots', { method: 'POST', body: data });
+    return _createSpot(this, data);
   }
 
   async getSpot(spotId: string): Promise<{ success: boolean; spot?: Spot }> {
-    return this.request(`/spots/${spotId}`);
+    return _getSpot(this, spotId);
   }
 
   async getNearbySpots(params: {
@@ -3648,13 +3256,7 @@ class AWSAPIService {
     category?: string;
     limit?: number;
   }): Promise<{ success: boolean; data?: Spot[] }> {
-    const query = new URLSearchParams();
-    query.set('lat', String(params.latitude));
-    query.set('lng', String(params.longitude));
-    if (params.radiusKm) query.set('radius', String(Math.round(params.radiusKm * 1000)));
-    if (params.category) query.set('category', params.category);
-    if (params.limit) query.set('limit', String(params.limit));
-    return this.request(`/spots/nearby?${query.toString()}`);
+    return _getNearbySpots(this, params);
   }
 
   // ============================================
@@ -3669,7 +3271,7 @@ class AWSAPIService {
     photos?: string[];
     qualities?: string[];
   }): Promise<{ success: boolean; review?: SpotReview; message?: string }> {
-    return this.request('/reviews', { method: 'POST', body: data });
+    return _createReview(this, data);
   }
 
   async getReviews(params: {
@@ -3678,9 +3280,7 @@ class AWSAPIService {
     limit?: number;
     offset?: number;
   }): Promise<{ success: boolean; reviews?: SpotReview[]; pagination?: ApiPagination }> {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/reviews?${query.toString()}`);
+    return _getReviews(this, params);
   }
 
   // ============================================
@@ -3688,14 +3288,14 @@ class AWSAPIService {
   // ============================================
 
   async getCategories(): Promise<{ success: boolean; categories?: Subcategory[] }> {
-    return this.request('/categories');
+    return _getCategories(this);
   }
 
   async suggestSubcategory(data: {
     parent_category: string;
     name: string;
   }): Promise<{ success: boolean; subcategory?: Subcategory; message?: string }> {
-    return this.request('/categories/suggest', { method: 'POST', body: data });
+    return _suggestSubcategory(this, data);
   }
 
   // ============================================
@@ -3708,11 +3308,11 @@ class AWSAPIService {
     latitude: number;
     longitude: number;
   }): Promise<{ success: boolean; livePin?: LivePin }> {
-    return this.request('/map/live-pin', { method: 'POST', body: data });
+    return _createLivePin(this, data);
   }
 
   async deleteLivePin(): Promise<{ success: boolean }> {
-    return this.request('/map/live-pin', { method: 'DELETE' });
+    return _deleteLivePin(this);
   }
 
   // ============================================
@@ -3720,15 +3320,15 @@ class AWSAPIService {
   // ============================================
 
   async startLiveStream(title?: string): Promise<{ success: boolean; data?: { id: string; channelName: string; title: string; startedAt: string } }> {
-    return this.request('/live-streams/start', { method: 'POST', body: title ? { title } : {} });
+    return _startLiveStream(this, title);
   }
 
   async endLiveStream(): Promise<{ success: boolean; data?: { id: string; durationSeconds: number; maxViewers: number; totalComments: number; totalReactions: number } }> {
-    return this.request('/live-streams/end', { method: 'POST' });
+    return _endLiveStream(this);
   }
 
   async getActiveLiveStreams(): Promise<{ success: boolean; data?: Array<{ id: string; channelName: string; title: string; startedAt: string; viewerCount: number; host: { id: string; username: string; displayName: string; avatarUrl: string } }> }> {
-    return this.request('/live-streams/active');
+    return _getActiveLiveStreams(this);
   }
 
   async getNearbyLivePins(params: {
@@ -3736,9 +3336,7 @@ class AWSAPIService {
     longitude: number;
     radiusKm?: number;
   }): Promise<{ success: boolean; livePins?: LivePin[] }> {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/map/live-pins?${query.toString()}`);
+    return _getNearbyLivePins(this, params);
   }
 
   // ============================================
@@ -3749,13 +3347,11 @@ class AWSAPIService {
     latitude: number;
     longitude: number;
     radiusKm?: number;
-    filters?: string;       // comma-separated: "coaches,gyms,events"
-    subcategories?: string; // comma-separated: "CrossFit,Boxing"
+    filters?: string;
+    subcategories?: string;
     limit?: number;
   }): Promise<{ success: boolean; markers?: MapMarker[] }> {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/map/markers?${query.toString()}`);
+    return _getMapMarkers(this, params);
   }
 
   // ============================================
@@ -3769,9 +3365,7 @@ class AWSAPIService {
     radiusKm?: number;
     limit?: number;
   }): Promise<{ success: boolean; results?: MapMarker[] }> {
-    const queryParams = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) queryParams.set(k, String(v)); });
-    return this.request(`/search/map?${queryParams.toString()}`);
+    return _searchMap(this, params);
   }
 }
 

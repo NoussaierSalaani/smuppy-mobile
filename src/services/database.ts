@@ -877,12 +877,11 @@ export interface PostWithStatus extends Post {
  * Get posts feed with pagination
  */
 export const getFeedPosts = async (_page = 0, limit = 10): Promise<DbResponse<Post[]>> => {
-  try {
-    const result = await awsAPI.getPosts({ limit, type: 'all' });
-    return { data: result.data.map(convertPost), error: null };
-  } catch (error_: unknown) {
-    return { data: null, error: getErrorMessage(error_) };
+  const result = await awsAPI.getPosts({ limit, type: 'all' });
+  if (result.ok) {
+    return { data: result.data.data.map(convertPost), error: null };
   }
+  return { data: null, error: result.message };
 };
 
 /**
@@ -913,12 +912,11 @@ export const getOptimizedFeed = async (cursor?: string, limit = 20): Promise<DbR
  * Get posts by user ID (supports cursor-based pagination)
  */
 export const getPostsByUser = async (userId: string, _page = 0, limit = 10, cursor?: string): Promise<DbResponse<Post[]> & { nextCursor?: string | null; hasMore?: boolean }> => {
-  try {
-    const result = await awsAPI.getPosts({ userId, limit, cursor });
-    return { data: result.data.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
-  } catch (error_: unknown) {
-    return { data: null, error: getErrorMessage(error_) };
+  const result = await awsAPI.getPosts({ userId, limit, cursor });
+  if (result.ok) {
+    return { data: result.data.data.map(convertPost), error: null, nextCursor: result.data.nextCursor, hasMore: result.data.hasMore };
   }
+  return { data: null, error: result.message };
 };
 
 // Clear cache when user follows/unfollows someone (no-op, cache removed)
@@ -935,21 +933,20 @@ export const getFeedFromFollowed = async (options?: { cursor?: string; limit?: n
   hasMore: boolean;
   error: string | null;
 }> => {
-  try {
-    const result = await awsAPI.getPosts({
-      type: 'following',
-      limit: options?.limit ?? 10,
-      cursor: options?.cursor,
-    });
+  const result = await awsAPI.getPosts({
+    type: 'following',
+    limit: options?.limit ?? 10,
+    cursor: options?.cursor,
+  });
+  if (result.ok) {
     return {
-      data: result.data.map(convertPost),
-      nextCursor: result.nextCursor,
-      hasMore: result.hasMore,
+      data: result.data.data.map(convertPost),
+      nextCursor: result.data.nextCursor,
+      hasMore: result.data.hasMore,
       error: null,
     };
-  } catch (error_: unknown) {
-    return { data: null, nextCursor: null, hasMore: false, error: getErrorMessage(error_) };
   }
+  return { data: null, nextCursor: null, hasMore: false, error: result.message };
 };
 
 /**
@@ -980,12 +977,11 @@ export const getDiscoveryFeed = async (
     return { data: posts.map(convertPost), error: null, nextCursor: result.nextCursor, hasMore: result.hasMore };
   } catch (error_: unknown) {
     // Fallback to explore
-    try {
-      const result = await awsAPI.getPosts({ type: 'explore', limit });
-      return { data: result.data.map(convertPost), error: null };
-    } catch {
-      return { data: [], error: getErrorMessage(error_) };
+    const result = await awsAPI.getPosts({ type: 'explore', limit });
+    if (result.ok) {
+      return { data: result.data.data.map(convertPost), error: null };
     }
+    return { data: [], error: getErrorMessage(error_) };
   }
 };
 
@@ -1049,8 +1045,11 @@ export const createPost = async (postData: Partial<Post>): Promise<DbResponse<Po
       createData.tagged_users = postData.tagged_users;
     }
 
-    const post = await awsAPI.createPost(createData);
-    return { data: convertPost(post), error: null };
+    const result = await awsAPI.createPost(createData);
+    if (!result.ok) {
+      return { data: null, error: result.message };
+    }
+    return { data: convertPost(result.data), error: null };
   } catch (error_: unknown) {
     return { data: null, error: getErrorMessage(error_) };
   }
@@ -1079,12 +1078,11 @@ export const likePost = async (postId: string): Promise<DbResponse<Like>> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  try {
-    await awsAPI.likePost(postId);
+  const result = await awsAPI.likePost(postId);
+  if (result.ok) {
     return { data: { id: '', user_id: user.id, post_id: postId, created_at: new Date().toISOString() }, error: null };
-  } catch (error_: unknown) {
-    return { data: null, error: getErrorMessage(error_) };
   }
+  return { data: null, error: result.message };
 };
 
 /**
@@ -1522,12 +1520,11 @@ export const getPeakById = async (peakId: string): Promise<DbResponse<Post>> => 
  * Get single post by ID
  */
 export const getPostById = async (postId: string): Promise<DbResponse<Post>> => {
-  try {
-    const post = await awsAPI.getPost(postId);
-    return { data: convertPost(post), error: null };
-  } catch (error_: unknown) {
-    return { data: null, error: getErrorMessage(error_) };
+  const result = await awsAPI.getPost(postId);
+  if (result.ok) {
+    return { data: convertPost(result.data), error: null };
   }
+  return { data: null, error: result.message };
 };
 
 // ============================================

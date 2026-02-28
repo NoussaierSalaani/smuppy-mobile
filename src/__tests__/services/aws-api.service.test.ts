@@ -983,10 +983,12 @@ describe('Edge cases', () => {
     }));
 
     const result = await awsAPI.getPosts();
-    expect(result.data).toHaveLength(2);
-    expect(result.nextCursor).toBe('next-abc');
-    expect(result.hasMore).toBe(true);
-    expect(result.total).toBe(42);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.data).toHaveLength(2);
+    expect(result.data.nextCursor).toBe('next-abc');
+    expect(result.data.hasMore).toBe(true);
+    expect(result.data.total).toBe(42);
   });
 
   it('getPosts() handles "data" field instead of "posts" in response', async () => {
@@ -997,8 +999,10 @@ describe('Edge cases', () => {
     }));
 
     const result = await awsAPI.getPosts();
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]).toEqual({ id: '3' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.data).toHaveLength(1);
+    expect(result.data.data[0]).toEqual({ id: '3' });
   });
 
   it('validateEmail() uses authenticated: false', async () => {

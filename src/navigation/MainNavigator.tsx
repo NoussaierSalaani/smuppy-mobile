@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ComponentType } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppState, InteractionManager } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,12 +11,15 @@ import type { MainStackParamList } from '../types';
 import { FEATURES } from '../config/featureFlags';
 import { useAutoRegisterPushNotifications, useNotifications } from '../hooks/useNotifications';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { ScreenSkeleton } from '../components/skeleton';
+import { lazyScreen, asScreen, screenWithBackSwipe } from './shared';
 
-// Type helper to cast screen components for React Navigation compatibility
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- React Navigation requires ComponentType<any> for screen components with diverse prop shapes
-const asScreen = <T,>(component: T): ComponentType<any> => component as ComponentType<any>;
+// Stacks
+import SettingsStack from './stacks/SettingsStack';
+import ProfileStack from './stacks/ProfileStack';
+import NotificationsStack from './stacks/NotificationsStack';
+import SearchStack from './stacks/SearchStack';
+import HomeStack from './stacks/HomeStack';
+import CreateStack from './stacks/CreateStack';
 
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
 const fetchBadgeCounts = (): void => {
@@ -43,47 +46,18 @@ const fetchBadgeCounts = (): void => {
 };
 
 // ============================================
-// LAZY SCREEN HELPER
-// ============================================
-// Visible fallback — shows shimmer skeleton matching typical screen layout
-const LazyFallback = () => <ScreenSkeleton />;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- React.lazy requires ComponentType<any> for dynamic imports
-function lazyScreen(importFn: () => Promise<{ default: ComponentType<any> }>) {
-  const Lazy = React.lazy(importFn);
-  return (props: Record<string, unknown>) => (
-    <ErrorBoundary name="LazyScreen" minimal>
-      <React.Suspense fallback={<LazyFallback />}>
-        <Lazy {...props} />
-      </React.Suspense>
-    </ErrorBoundary>
-  );
-}
-
-// ============================================
 // EAGER IMPORTS — Tab screens + high-frequency navigation
 // ============================================
 
 // Tab Screens
 import FeedScreen from '../screens/home/FeedScreen';
 import CreatePostScreen from '../screens/home/CreatePostScreen';
-import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
 
-// High-frequency stack screens (navigated from tabs / header)
-import SearchScreen from '../screens/search/SearchScreen';
+// High-frequency stack screens
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ChatScreen from '../screens/messages/ChatScreen';
-import UserProfileScreen from '../screens/profile/UserProfileScreen';
-
-// Post detail screens (navigated from feed — must be instant)
-import PostDetailFanFeedScreen from '../screens/home/PostDetailFanFeedScreen';
-import PostDetailVibesFeedScreen from '../screens/home/PostDetailVibesFeedScreen';
-import PostDetailProfileScreen from '../screens/profile/PostDetailProfileScreen';
-
-// Peaks feed (tab screen)
-import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
-import PeakViewScreen from '../screens/peaks/PeakViewScreen';
 
 // Components
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
@@ -95,47 +69,11 @@ import { ACCOUNT_TYPE, isPro } from '../config/accountTypes';
 // LAZY IMPORTS — Non-core / deep screens
 // ============================================
 
-// Messages (deep)
+// Remaining lazy screens (not yet split into stacks)
 const NewMessageScreen = lazyScreen(() => import('../screens/messages/NewMessageScreen'));
-
-// Create Post Flow
-const AddPostDetailsScreen = lazyScreen(() => import('../screens/home/AddPostDetailsScreen'));
-const PostSuccessScreen = lazyScreen(() => import('../screens/home/PostSuccessScreen'));
-const VideoRecorderScreen = lazyScreen(() => import('../screens/home/VideoRecorderScreen'));
-
-// Notifications (deep)
-const FollowRequestsScreen = lazyScreen(() => import('../screens/notifications/FollowRequestsScreen'));
-
-// Vibe Screens
-const PrescriptionsScreen = lazyScreen(() => import('../screens/vibe/PrescriptionsScreen'));
-const ActivePrescriptionScreen = lazyScreen(() => import('../screens/vibe/ActivePrescriptionScreen'));
 const PrescriptionPreferencesScreen = lazyScreen(() => import('../screens/settings/PrescriptionPreferencesScreen'));
 
-// Profile (deep)
-const FansListScreen = lazyScreen(() => import('../screens/profile/FansListScreen'));
-const PostLikersScreen = lazyScreen(() => import('../screens/profile/PostLikersScreen'));
-
-// Settings Screens
-const SettingsScreen = lazyScreen(() => import('../screens/settings/SettingsScreen'));
-const EditProfileScreen = lazyScreen(() => import('../screens/settings/EditProfileScreen'));
-const EditInterestsScreen = lazyScreen(() => import('../screens/settings/EditInterestsScreen'));
-const EditExpertiseScreen = lazyScreen(() => import('../screens/settings/EditExpertiseScreen'));
-const EditBusinessCategoryScreen = lazyScreen(() => import('../screens/settings/EditBusinessCategoryScreen'));
-const PasswordManagerScreen = lazyScreen(() => import('../screens/settings/PasswordManagerScreen'));
-const NotificationSettingsScreen = lazyScreen(() => import('../screens/settings/NotificationSettingsScreen'));
-const ReportProblemScreen = lazyScreen(() => import('../screens/settings/ReportProblemScreen'));
-const TermsPoliciesScreen = lazyScreen(() => import('../screens/settings/TermsPoliciesScreen'));
-const BlockedUsersScreen = lazyScreen(() => import('../screens/settings/BlockedUsersScreen'));
-const MutedUsersScreen = lazyScreen(() => import('../screens/settings/MutedUsersScreen'));
-const UpgradeToProScreen = lazyScreen(() => import('../screens/settings/UpgradeToProScreen'));
-const DataExportScreen = lazyScreen(() => import('../screens/settings/DataExportScreen'));
-
-// PEAKS (create/preview)
-const CreatePeakScreen = lazyScreen(() => import('../screens/peaks/CreatePeakScreen'));
-const PeakPreviewScreen = lazyScreen(() => import('../screens/peaks/PeakPreviewScreen'));
-const ChallengesScreen = lazyScreen(() => import('../screens/peaks/ChallengesScreen'));
-
-// Live Streaming Screens
+// Live Streaming
 const GoLiveIntroScreen = lazyScreen(() => import('../screens/live/GoLiveIntroScreen'));
 const GoLiveScreen = lazyScreen(() => import('../screens/live/GoLiveScreen'));
 const LiveStreamingScreen = lazyScreen(() => import('../screens/live/LiveStreamingScreen'));
@@ -199,15 +137,8 @@ const ChannelSubscriptionScreen = lazyScreen(() => import('../screens/payments/C
 const IdentityVerificationScreen = lazyScreen(() => import('../screens/payments/IdentityVerificationScreen'));
 // PaymentMethodsScreen — removed for V1.0 (no monetization); restore in V3
 
-// WebView (already lazy)
-const LazyWebViewScreen = React.lazy(() => import('../screens/WebViewScreen'));
-const WebViewScreen = (props: Record<string, unknown>) => (
-  <ErrorBoundary name="WebView" minimal>
-    <React.Suspense fallback={<LazyFallback />}>
-      <LazyWebViewScreen {...props} />
-    </React.Suspense>
-  </ErrorBoundary>
-);
+// WebView
+const WebViewScreen = lazyScreen(() => import('../screens/WebViewScreen'));
 
 // Disputes & Resolution
 const DisputeCenterScreen = lazyScreen(() => import('../screens/disputes/DisputeCenterScreen'));
@@ -232,7 +163,7 @@ const PROFILE_STALE_MS = 60000; // 60s — skip re-fetch if profile was synced r
 const profileSyncState = { lastSyncAt: 0 };
 export const resetProfileSyncState = () => { profileSyncState.lastSyncAt = 0; };
 
-const screenWithBackSwipe = { gestureEnabled: true, gestureDirection: 'horizontal' as const };
+
 
 type TabNavigatorProps = Readonly<{
   navigation: NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
@@ -394,60 +325,28 @@ export default function MainNavigator() {
     <Stack.Navigator id="MainStack" screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
 
-      {/* Search */}
-      <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* Search Stack */}
+      <Stack.Screen name="SearchStack" component={SearchStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* Notifications (accessible from HomeHeader) */}
-      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* Notifications Stack */}
+      <Stack.Screen name="NotificationsStack" component={NotificationsStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="Chat" component={asScreen(ChatScreen)} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
       <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* Create Post Flow */}
-      <Stack.Screen name="CreatePost" component={asScreen(CreatePostScreen)} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="VideoRecorder" component={VideoRecorderScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="AddPostDetails" component={AddPostDetailsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="PostSuccess" component={PostSuccessScreen} options={{ animation: 'fade' }} />
+      {/* Create Stack */}
+      <Stack.Screen name="CreateStack" component={CreateStack} options={{ headerShown: false, animation: 'slide_from_bottom' }} />
 
       {/* Profile Stack */}
-      <Stack.Screen name="FansList" component={FansListScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="PostLikers" component={PostLikersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      <Stack.Screen name="ProfileStack" component={ProfileStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* Vibe */}
-      <Stack.Screen name="Prescriptions" component={PrescriptionsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="ActivePrescription" component={ActivePrescriptionScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="PrescriptionPreferences" component={PrescriptionPreferencesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-
-      {/* Post Detail Screens */}
-      <Stack.Screen name="PostDetailFanFeed" component={PostDetailFanFeedScreen} options={{ animation: 'fade' }} />
-      <Stack.Screen name="PostDetailVibesFeed" component={PostDetailVibesFeedScreen} options={{ animation: 'fade' }} />
-      <Stack.Screen name="PostDetailProfile" component={PostDetailProfileScreen} options={{ animation: 'fade' }} />
+      {/* Home Stack (post details, peaks, prescriptions) */}
+      <Stack.Screen name="HomeStack" component={HomeStack} options={{ headerShown: false, animation: 'fade' }} />
 
       {/* Settings Stack */}
-      <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="EditInterests" component={EditInterestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="EditExpertise" component={EditExpertiseScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="EditBusinessCategory" component={EditBusinessCategoryScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="TermsPolicies" component={TermsPoliciesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="MutedUsers" component={MutedUsersScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="DataExport" component={DataExportScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      {FEATURES.UPGRADE_TO_PRO && (
-      <Stack.Screen name="UpgradeToPro" component={UpgradeToProScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      )}
+      <Stack.Screen name="SettingsStack" component={SettingsStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
-      {/* PEAKS */}
-      <Stack.Screen name="PeakView" component={PeakViewScreen} options={{ animation: 'fade' }} />
-      <Stack.Screen name="CreatePeak" component={CreatePeakScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="PeakPreview" component={PeakPreviewScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      {FEATURES.CHALLENGES && (
-      <Stack.Screen name="Challenges" component={ChallengesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      )}
+      {/* Remaining screens (not yet in stacks) */}
+      <Stack.Screen name="PrescriptionPreferences" component={PrescriptionPreferencesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Live Streaming */}
       {FEATURES.GO_LIVE && (

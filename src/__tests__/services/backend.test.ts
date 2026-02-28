@@ -232,9 +232,12 @@ describe('backend', () => {
     it('should return posts from AWS API', async () => {
       const mockPosts = [{ id: 'p1' }, { id: 'p2' }];
       mockAwsAPI.getPosts.mockResolvedValue({
-        data: mockPosts,
-        nextCursor: 'cursor1',
-        hasMore: true,
+        ok: true,
+        data: {
+          data: mockPosts,
+          nextCursor: 'cursor1',
+          hasMore: true,
+        },
       });
 
       const result = await getPosts({ limit: 10 });
@@ -248,7 +251,7 @@ describe('backend', () => {
   describe('createPost', () => {
     it('should delegate to awsAPI', async () => {
       const mockPost = { id: 'p1', content: 'Hello' };
-      mockAwsAPI.createPost.mockResolvedValue(mockPost);
+      mockAwsAPI.createPost.mockResolvedValue({ ok: true, data: mockPost });
 
       const result = await createPost({ content: 'Hello' } as never);
       expect(result).toEqual(mockPost);
@@ -257,7 +260,7 @@ describe('backend', () => {
 
   describe('likePost', () => {
     it('should delegate to awsAPI', async () => {
-      mockAwsAPI.likePost.mockResolvedValue(undefined);
+      mockAwsAPI.likePost.mockResolvedValue({ ok: true, data: undefined });
       await likePost('p1');
       expect(mockAwsAPI.likePost).toHaveBeenCalledWith('p1');
     });

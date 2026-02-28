@@ -85,16 +85,22 @@ export async function getPosts(params?: { limit?: number; cursor?: string; type?
 }> {
   if (__DEV__) console.log('📡 getPosts() using AWS');
   const result = await awsAPI.getPosts(params as { limit?: number; cursor?: string; type?: 'all' | 'following' | 'explore'; userId?: string });
-  if (__DEV__) console.log(`✅ AWS returned ${result.data.length} posts`);
-  return { posts: result.data, nextCursor: result.nextCursor, hasMore: result.hasMore };
+  if (!result.ok) {
+    throw new Error(result.message);
+  }
+  if (__DEV__) console.log(`✅ AWS returned ${result.data.data.length} posts`);
+  return { posts: result.data.data, nextCursor: result.data.nextCursor, hasMore: result.data.hasMore };
 }
 
 export async function createPost(data: CreatePostInput): Promise<Post> {
-  return awsAPI.createPost(data);
+  const result = await awsAPI.createPost(data);
+  if (!result.ok) throw new Error(result.message);
+  return result.data;
 }
 
 export async function likePost(postId: string): Promise<void> {
-  await awsAPI.likePost(postId);
+  const result = await awsAPI.likePost(postId);
+  if (!result.ok) throw new Error(result.message);
 }
 
 // ==========================================

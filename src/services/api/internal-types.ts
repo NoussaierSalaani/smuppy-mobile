@@ -11,6 +11,11 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   authenticated?: boolean;
   timeout?: number;
+  /** Observability-only metadata — never sent to the server. */
+  meta?: {
+    feature?: string;
+    action?: string;
+  };
 }
 
 export interface PaginatedResponse<T> {

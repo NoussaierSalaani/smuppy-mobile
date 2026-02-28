@@ -412,16 +412,23 @@ export const getPresignedUrl = async (
     // Use AWS API to get presigned URL
     const result = await awsAPI.getUploadUrl(fileName, contentType, fileSize, duration);
 
-    const key = extractObjectKey(result.key || result.fileUrl || result.publicUrl || null);
-    if (__DEV__) console.log('[getPresignedUrl] Got URL, key:', key?.substring(0, 60));
-
-    if (!result.uploadUrl || !key) {
-      if (__DEV__) console.log('[getPresignedUrl] Missing uploadUrl or fileUrl in response:', JSON.stringify(result).substring(0, 200));
+    if (!result.ok) {
+      if (__DEV__) console.log('[getPresignedUrl] Error:', result.message);
+      captureException(new Error(result.message), { context: 'getPresignedUrl', fileName, folder, contentType });
       return null;
     }
 
-    const backendCdnUrl = typeof result.cdnUrl === 'string' ? result.cdnUrl.trim() : '';
-    const backendPublicUrl = typeof result.publicUrl === 'string' ? result.publicUrl.trim() : '';
+    const data = result.data;
+    const key = extractObjectKey(data.key || data.fileUrl || data.publicUrl || null);
+    if (__DEV__) console.log('[getPresignedUrl] Got URL, key:', key?.substring(0, 60));
+
+    if (!data.uploadUrl || !key) {
+      if (__DEV__) console.log('[getPresignedUrl] Missing uploadUrl or fileUrl in response:', JSON.stringify(data).substring(0, 200));
+      return null;
+    }
+
+    const backendCdnUrl = typeof data.cdnUrl === 'string' ? data.cdnUrl.trim() : '';
+    const backendPublicUrl = typeof data.publicUrl === 'string' ? data.publicUrl.trim() : '';
     const derivedCdnUrl = awsAPI.getCDNUrl(key);
 
     // URL priority:
@@ -443,7 +450,7 @@ export const getPresignedUrl = async (
     });
 
     return {
-      uploadUrl: result.uploadUrl,
+      uploadUrl: data.uploadUrl,
       key,
       cdnUrl: resolvedMediaUrl,
     };

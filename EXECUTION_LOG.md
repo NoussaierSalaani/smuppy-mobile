@@ -19,10 +19,13 @@
 - S1.1: Charter updated (Core Invariants + AUTH Scope frozen)
 
 ## S2 — Scaffold domain modules
-- Commit:
-- Files:
+- Commit: 1e1e111e
+- Files: 12 new files in src/services/api/ (helpers + 11 domain modules)
+- Existing files confirmed untouched: index.ts, types.ts, error.ts, internal-types.ts
 - Gates:
-- Verdict: pending
+  - lint: PASS (0 errors, 1 pre-existing warning)
+  - typecheck: PASS (0 errors)
+- Verdict: PASS
 
 ## S3 — Extract AUTH
 ## S4 — Extract NOTIFICATIONS

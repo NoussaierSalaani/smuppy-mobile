@@ -260,7 +260,7 @@ describe('backend', () => {
 
   describe('likePost', () => {
     it('should delegate to awsAPI', async () => {
-      mockAwsAPI.likePost.mockResolvedValue(undefined);
+      mockAwsAPI.likePost.mockResolvedValue({ ok: true, data: undefined });
       await likePost('p1');
       expect(mockAwsAPI.likePost).toHaveBeenCalledWith('p1');
     });

@@ -542,7 +542,7 @@ export class AWSAPIService {
     return _deletePost(this, id);
   }
 
-  async likePost(id: string): Promise<void> {
+  async likePost(id: string) {
     return _likePost(this, id);
   }
 

@@ -76,8 +76,13 @@ export async function deletePost(api: AWSAPIService, id: string): Promise<void> 
   });
 }
 
-export async function likePost(api: AWSAPIService, id: string): Promise<void> {
-  return api.request(`/posts/${id}/like`, {
-    method: 'POST',
-  });
+export async function likePost(api: AWSAPIService, id: string): Promise<Result<void>> {
+  try {
+    await api.request(`/posts/${id}/like`, {
+      method: 'POST',
+    });
+    return ok(undefined);
+  } catch (_e: unknown) {
+    return err('POST_LIKE_FAILED', 'Failed to toggle like');
+  }
 }

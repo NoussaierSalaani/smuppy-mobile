@@ -1075,12 +1075,11 @@ export const likePost = async (postId: string): Promise<DbResponse<Like>> => {
   const user = await awsAuth.getCurrentUser();
   if (!user) return { data: null, error: 'Not authenticated' };
 
-  try {
-    await awsAPI.likePost(postId);
+  const result = await awsAPI.likePost(postId);
+  if (result.ok) {
     return { data: { id: '', user_id: user.id, post_id: postId, created_at: new Date().toISOString() }, error: null };
-  } catch (error_: unknown) {
-    return { data: null, error: getErrorMessage(error_) };
   }
+  return { data: null, error: result.message };
 };
 
 /**

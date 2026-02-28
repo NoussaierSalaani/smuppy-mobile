@@ -345,13 +345,13 @@ describe('database service', () => {
 
   describe('likePost', () => {
     it('should like a post', async () => {
-      mockLikePost.mockResolvedValue(undefined);
+      mockLikePost.mockResolvedValue({ ok: true, data: undefined });
       const result = await likePost('p1');
       expect(result.error).toBeNull();
     });
 
     it('should return error on failure', async () => {
-      mockLikePost.mockRejectedValue(new Error('Like failed'));
+      mockLikePost.mockResolvedValue({ ok: false, code: 'POST_LIKE_FAILED', message: 'Like failed' });
       const result = await likePost('p1');
       expect(result.error).toBe('Like failed');
     });

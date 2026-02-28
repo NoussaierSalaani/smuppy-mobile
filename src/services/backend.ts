@@ -97,7 +97,8 @@ export async function createPost(data: CreatePostInput): Promise<Post> {
 }
 
 export async function likePost(postId: string): Promise<void> {
-  await awsAPI.likePost(postId);
+  const result = await awsAPI.likePost(postId);
+  if (!result.ok) throw new Error(result.message);
 }
 
 // ==========================================

@@ -17,6 +17,7 @@ import { lazyScreen, asScreen, screenWithBackSwipe } from './shared';
 import SettingsStack from './stacks/SettingsStack';
 import ProfileStack from './stacks/ProfileStack';
 import NotificationsStack from './stacks/NotificationsStack';
+import SearchStack from './stacks/SearchStack';
 
 // Fetch both badge counts from server (module-level to avoid hook ordering issues)
 const fetchBadgeCounts = (): void => {
@@ -53,7 +54,7 @@ import CreatePostScreen from '../screens/home/CreatePostScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 
 // High-frequency stack screens (navigated from tabs / header)
-import SearchScreen from '../screens/search/SearchScreen';
+// SearchScreen → moved to stacks/SearchStack.tsx
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ChatScreen from '../screens/messages/ChatScreen';
 // UserProfile → moved to stacks/ProfileStack.tsx
@@ -354,8 +355,8 @@ export default function MainNavigator() {
     <Stack.Navigator id="MainStack" screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
 
-      {/* Search */}
-      <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
+      {/* Search Stack */}
+      <Stack.Screen name="SearchStack" component={SearchStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Notifications Stack */}
       <Stack.Screen name="NotificationsStack" component={NotificationsStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />

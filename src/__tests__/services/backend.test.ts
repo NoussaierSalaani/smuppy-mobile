@@ -232,9 +232,12 @@ describe('backend', () => {
     it('should return posts from AWS API', async () => {
       const mockPosts = [{ id: 'p1' }, { id: 'p2' }];
       mockAwsAPI.getPosts.mockResolvedValue({
-        data: mockPosts,
-        nextCursor: 'cursor1',
-        hasMore: true,
+        ok: true,
+        data: {
+          data: mockPosts,
+          nextCursor: 'cursor1',
+          hasMore: true,
+        },
       });
 
       const result = await getPosts({ limit: 10 });

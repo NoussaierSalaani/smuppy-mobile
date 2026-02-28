@@ -522,7 +522,7 @@ export class AWSAPIService {
     cursor?: string;
     type?: 'all' | 'following' | 'explore';
     userId?: string;
-  }): Promise<PaginatedResponse<Post>> {
+  }) {
     return _getPosts(this, params);
   }
 
@@ -630,7 +630,7 @@ export class AWSAPIService {
   // Feed API
   // ==========================================
 
-  async getFeed(params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<Post>> {
+  async getFeed(params?: { limit?: number; cursor?: string }) {
     return _getFeed(this, params);
   }
 

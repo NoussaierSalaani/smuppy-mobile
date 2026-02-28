@@ -403,7 +403,7 @@ describe('database.methods', () => {
 
   describe('getFeedPosts', () => {
     it('should return posts from feed', async () => {
-      mockGetPosts.mockResolvedValue({ data: [makeAWSPost()], nextCursor: null, hasMore: false });
+      mockGetPosts.mockResolvedValue({ ok: true, data: { data: [makeAWSPost()], nextCursor: null, hasMore: false } });
       const result = await getFeedPosts();
       expect(result.data).toHaveLength(1);
       expect(result.data![0].id).toBe('p1');
@@ -411,13 +411,13 @@ describe('database.methods', () => {
     });
 
     it('should pass limit and type', async () => {
-      mockGetPosts.mockResolvedValue({ data: [], nextCursor: null, hasMore: false });
+      mockGetPosts.mockResolvedValue({ ok: true, data: { data: [], nextCursor: null, hasMore: false } });
       await getFeedPosts(0, 5);
       expect(mockGetPosts).toHaveBeenCalledWith({ limit: 5, type: 'all' });
     });
 
     it('should return error on failure', async () => {
-      mockGetPosts.mockRejectedValue(new Error('Feed failed'));
+      mockGetPosts.mockResolvedValue({ ok: false, code: 'FEED_POSTS_FAILED', message: 'Feed failed' });
       const result = await getFeedPosts();
       expect(result.data).toBeNull();
       expect(result.error).toBe('Feed failed');
@@ -452,7 +452,7 @@ describe('database.methods', () => {
 
     it('should fallback to regular feed on error', async () => {
       mockRequest.mockRejectedValue(new Error('Not available'));
-      mockGetPosts.mockResolvedValue({ data: [makeAWSPost()], nextCursor: null, hasMore: false });
+      mockGetPosts.mockResolvedValue({ ok: true, data: { data: [makeAWSPost()], nextCursor: null, hasMore: false } });
       const result = await getOptimizedFeed();
       expect(result.data).toHaveLength(1);
       expect(result.data![0].has_liked).toBe(false);
@@ -477,7 +477,7 @@ describe('database.methods', () => {
 
   describe('getPostsByUser', () => {
     it('should return user posts', async () => {
-      mockGetPosts.mockResolvedValue({ data: [makeAWSPost()], nextCursor: 'c1', hasMore: true });
+      mockGetPosts.mockResolvedValue({ ok: true, data: { data: [makeAWSPost()], nextCursor: 'c1', hasMore: true } });
       const result = await getPostsByUser('u1');
       expect(result.data).toHaveLength(1);
       expect(result.nextCursor).toBe('c1');
@@ -485,13 +485,13 @@ describe('database.methods', () => {
     });
 
     it('should pass userId, limit, cursor', async () => {
-      mockGetPosts.mockResolvedValue({ data: [], nextCursor: null, hasMore: false });
+      mockGetPosts.mockResolvedValue({ ok: true, data: { data: [], nextCursor: null, hasMore: false } });
       await getPostsByUser('u1', 0, 5, 'cursor1');
       expect(mockGetPosts).toHaveBeenCalledWith({ userId: 'u1', limit: 5, cursor: 'cursor1' });
     });
 
     it('should return error on failure', async () => {
-      mockGetPosts.mockRejectedValue(new Error('Fetch failed'));
+      mockGetPosts.mockResolvedValue({ ok: false, code: 'FEED_POSTS_FAILED', message: 'Fetch failed' });
       const result = await getPostsByUser('u1');
       expect(result.data).toBeNull();
       expect(result.error).toBe('Fetch failed');
@@ -504,7 +504,7 @@ describe('database.methods', () => {
 
   describe('getFeedFromFollowed', () => {
     it('should return followed feed', async () => {
-      mockGetPosts.mockResolvedValue({ data: [makeAWSPost()], nextCursor: 'c1', hasMore: true });
+      mockGetPosts.mockResolvedValue({ ok: true, data: { data: [makeAWSPost()], nextCursor: 'c1', hasMore: true } });
       const result = await getFeedFromFollowed();
       expect(result.data).toHaveLength(1);
       expect(result.nextCursor).toBe('c1');
@@ -513,13 +513,13 @@ describe('database.methods', () => {
     });
 
     it('should pass options', async () => {
-      mockGetPosts.mockResolvedValue({ data: [], nextCursor: null, hasMore: false });
+      mockGetPosts.mockResolvedValue({ ok: true, data: { data: [], nextCursor: null, hasMore: false } });
       await getFeedFromFollowed({ cursor: 'cur1', limit: 5 });
       expect(mockGetPosts).toHaveBeenCalledWith({ type: 'following', limit: 5, cursor: 'cur1' });
     });
 
     it('should return error on failure', async () => {
-      mockGetPosts.mockRejectedValue(new Error('Feed error'));
+      mockGetPosts.mockResolvedValue({ ok: false, code: 'FEED_POSTS_FAILED', message: 'Feed error' });
       const result = await getFeedFromFollowed();
       expect(result.data).toBeNull();
       expect(result.nextCursor).toBeNull();
@@ -570,7 +570,7 @@ describe('database.methods', () => {
 
     it('should fallback to explore on error', async () => {
       mockRequest.mockRejectedValue(new Error('Discovery failed'));
-      mockGetPosts.mockResolvedValue({ data: [makeAWSPost()], nextCursor: null, hasMore: false });
+      mockGetPosts.mockResolvedValue({ ok: true, data: { data: [makeAWSPost()], nextCursor: null, hasMore: false } });
       const result = await getDiscoveryFeed();
       expect(result.data).toHaveLength(1);
       expect(mockGetPosts).toHaveBeenCalledWith({ type: 'explore', limit: 20 });
@@ -578,7 +578,7 @@ describe('database.methods', () => {
 
     it('should return empty array when both fallbacks fail', async () => {
       mockRequest.mockRejectedValue(new Error('Discovery failed'));
-      mockGetPosts.mockRejectedValue(new Error('Explore failed'));
+      mockGetPosts.mockResolvedValue({ ok: false, code: 'FEED_POSTS_FAILED', message: 'Explore failed' });
       const result = await getDiscoveryFeed();
       expect(result.data).toEqual([]);
       expect(result.error).toBe('Discovery failed');

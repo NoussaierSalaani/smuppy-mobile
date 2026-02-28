@@ -204,47 +204,50 @@ class AWSAuthService {
 
     if (__DEV__) console.log('[AWS Auth] SignUp attempt');
 
-    try {
-      // Try server-side smart signup first (handles unconfirmed users)
-      const { awsAPI } = await import('./aws-api');
+    // Try server-side smart signup first (handles unconfirmed users)
+    const { awsAPI } = await import('./aws-api');
 
-      const result = await awsAPI.smartSignup({
-        email,
-        password,
-        username,
-        fullName,
-      });
+    const result = await awsAPI.smartSignup({
+      email,
+      password,
+      username,
+      fullName,
+    });
 
-      if (__DEV__) console.log('[AWS Auth] Smart SignUp result:', result);
+    if (result.ok) {
+      if (__DEV__) console.log('[AWS Auth] Smart SignUp result:', result.data);
 
-      if (!result.success) {
-        throw new Error(result.message || 'Signup failed');
+      if (result.data.success) {
+        return {
+          user: result.data.userSub ? {
+            id: result.data.userSub,
+            email,
+            username,
+            emailVerified: false,
+            attributes: {},
+          } : null,
+          confirmationRequired: result.data.confirmationRequired,
+        };
       }
 
-      return {
-        user: result.userSub ? {
-          id: result.userSub,
-          email,
-          username,
-          emailVerified: false,
-          attributes: {},
-        } : null,
-        confirmationRequired: result.confirmationRequired,
-      };
-    } catch (apiError: unknown) {
-      const err = apiError as { statusCode?: number; message?: string };
-      if (__DEV__) console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', err.message);
-
-      // Fall back to direct Cognito on any server/network error (404, 500, 502, 503, timeout, CORS, etc.).
-      // Only re-throw client validation errors (400) with a clear message from the server.
-      const status = err.statusCode || 0;
-      const isClientValidationError = status === 400 && err.message && !err.message.includes('Not Found');
-      if (isClientValidationError) {
-        throw apiError;
-      }
-
+      // success=false → fall back to direct Cognito (same as before)
+      if (__DEV__) console.log('[AWS Auth] Smart signup returned success=false, falling back to direct Cognito');
       return this.signUpDirect(params);
     }
+
+    // Handle error from Result
+    const statusCode = (result.details as { statusCode?: number })?.statusCode || 0;
+    if (__DEV__) console.log('[AWS Auth] Smart signup failed, falling back to direct Cognito:', result.message);
+
+    // Only re-throw client validation errors (400) with a clear message from the server.
+    const isClientValidationError = statusCode === 400 && result.message && !result.message.includes('Not Found');
+    if (isClientValidationError) {
+      const e = new Error(result.message) as Error & { statusCode: number };
+      e.statusCode = 400;
+      throw e;
+    }
+
+    return this.signUpDirect(params);
   }
 
   /**

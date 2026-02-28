@@ -10,17 +10,28 @@ export async function smartSignup(
     username?: string;
     fullName?: string;
   }
-): Promise<{
+): Promise<Result<{
   success: boolean;
   userSub?: string;
   confirmationRequired: boolean;
   message?: string;
-}> {
-  return api.request('/auth/signup', {
-    method: 'POST',
-    body: data,
-    authenticated: false,
-  });
+}>> {
+  try {
+    const resp = await api.request<{
+      success: boolean;
+      userSub?: string;
+      confirmationRequired: boolean;
+      message?: string;
+    }>('/auth/signup', {
+      method: 'POST',
+      body: data,
+      authenticated: false,
+    });
+    return ok(resp);
+  } catch (e: unknown) {
+    const statusCode = (e as { statusCode?: number }).statusCode;
+    return err('AUTH_SIGNUP_FAILED', (e as { message?: string }).message || 'Signup failed', { statusCode });
+  }
 }
 
 export async function confirmSignup(

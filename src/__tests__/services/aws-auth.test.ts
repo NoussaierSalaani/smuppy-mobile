@@ -518,9 +518,11 @@ describe('AWSAuthService', () => {
   describe('signUp()', () => {
     it('should return user with confirmationRequired from API smart signup', async () => {
       mockSmartSignup.mockResolvedValueOnce({
-        success: true,
-        userSub: 'new-user-uuid',
-        confirmationRequired: true,
+        ok: true, data: {
+          success: true,
+          userSub: 'new-user-uuid',
+          confirmationRequired: true,
+        },
       });
 
       const result = await awsAuth.signUp({
@@ -535,11 +537,12 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to signUpDirect when API returns success=false', async () => {
-      // When smartSignup returns { success: false }, the thrown Error has no statusCode,
-      // so the catch block treats it as a server error and falls back to signUpDirect.
       mockSmartSignup.mockResolvedValueOnce({
-        success: false,
-        message: 'Email already exists',
+        ok: true, data: {
+          success: false,
+          message: 'Email already exists',
+          confirmationRequired: false,
+        },
       });
 
       mockSend.mockResolvedValueOnce({
@@ -553,10 +556,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should re-throw 400 client validation errors (no fallback to direct)', async () => {
-      const apiError: any = new Error('Password too weak');
-      apiError.statusCode = 400;
-
-      mockSmartSignup.mockRejectedValueOnce(apiError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Password too weak', details: { statusCode: 400 },
+      });
 
       await expect(
         awsAuth.signUp({ email: 'test@example.com', password: 'weak' })
@@ -566,9 +569,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to signUpDirect on 500/network error', async () => {
-      const serverError: any = new Error('Internal Server Error');
-      serverError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(serverError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Internal Server Error', details: { statusCode: 500 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'direct-user-uuid',
@@ -587,9 +591,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to signUpDirect on 404 error', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.statusCode = 404;
-      mockSmartSignup.mockRejectedValueOnce(notFoundError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Not Found', details: { statusCode: 404 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'fallback-uuid',
@@ -605,9 +610,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should fall back to direct when 400 contains "Not Found" message', async () => {
-      const ambiguousError: any = new Error('Not Found');
-      ambiguousError.statusCode = 400;
-      mockSmartSignup.mockRejectedValueOnce(ambiguousError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Not Found', details: { statusCode: 400 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'fallback-uuid-2',
@@ -626,9 +632,10 @@ describe('AWSAuthService', () => {
   // ─── signUpDirect (via fallback) ──────────────────────────────────────
   describe('signUpDirect (via fallback)', () => {
     it('should generate cognitoUsername from email when no username provided', async () => {
-      const networkError: any = new Error('Network error');
-      networkError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(networkError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Network error', details: { statusCode: 500 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'direct-uuid',
@@ -644,9 +651,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should include fullName in user attributes when provided', async () => {
-      const networkError: any = new Error('Network error');
-      networkError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(networkError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Network error', details: { statusCode: 500 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserSub: 'direct-uuid-2',
@@ -664,9 +672,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should re-throw Cognito errors from signUpDirect', async () => {
-      const networkError: any = new Error('Network error');
-      networkError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(networkError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Network error', details: { statusCode: 500 },
+      });
 
       const cognitoError = new Error('UsernameExistsException');
       cognitoError.name = 'UsernameExistsException';
@@ -678,9 +687,10 @@ describe('AWSAuthService', () => {
     });
 
     it('should return null user when no UserSub in Cognito response', async () => {
-      const networkError: any = new Error('Network error');
-      networkError.statusCode = 500;
-      mockSmartSignup.mockRejectedValueOnce(networkError);
+      mockSmartSignup.mockResolvedValueOnce({
+        ok: false, code: 'AUTH_SIGNUP_FAILED',
+        message: 'Network error', details: { statusCode: 500 },
+      });
 
       mockSend.mockResolvedValueOnce({
         UserConfirmed: false,

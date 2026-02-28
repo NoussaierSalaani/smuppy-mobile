@@ -986,12 +986,7 @@ export class AWSAPIService {
     password: string;
     username?: string;
     fullName?: string;
-  }): Promise<{
-    success: boolean;
-    userSub?: string;
-    confirmationRequired: boolean;
-    message?: string;
-  }> {
+  }) {
     return _smartSignup(this, data);
   }
 

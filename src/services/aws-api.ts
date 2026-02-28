@@ -56,6 +56,10 @@ import {
 import {
   getFeed as _getFeed,
 } from './api/feedApi';
+import {
+  withMediaReadyRetry as _withMediaReadyRetry,
+  isMediaNotReadyError as _isMediaNotReadyError,
+} from './api/helpers';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -390,10 +394,7 @@ export class AWSAPIService {
   }
 
   private isMediaNotReadyError(error: unknown): boolean {
-    if (!(error instanceof APIError)) return false;
-    if (error.statusCode !== 409) return false;
-    const code = typeof error.data?.code === 'string' ? error.data.code : '';
-    return code === 'MEDIA_NOT_READY' || error.message.toLowerCase().includes('still processing');
+    return _isMediaNotReadyError(error);
   }
 
   private async withMediaReadyRetry<T>(
@@ -401,23 +402,7 @@ export class AWSAPIService {
     maxAttempts = MEDIA_NOT_READY_MAX_ATTEMPTS,
     baseDelayMs = MEDIA_NOT_READY_BASE_DELAY_MS,
   ): Promise<T> {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await operation();
-      } catch (error_) {
-        const shouldRetry = this.isMediaNotReadyError(error_) && attempt < maxAttempts;
-        if (!shouldRetry) throw error_;
-
-        const delay = process.env.NODE_ENV === 'test' ? 0 : baseDelayMs * attempt;
-        if (__DEV__ && process.env.NODE_ENV !== 'test') {
-          console.log(`[AWS API] MEDIA_NOT_READY retry ${attempt}/${maxAttempts - 1} in ${delay}ms`);
-        }
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-
-    // Unreachable: loop always returns or throws.
-    throw new APIError('Media is still processing', 409, { code: 'MEDIA_NOT_READY' });
+    return _withMediaReadyRetry(operation, maxAttempts, baseDelayMs);
   }
 
   // ==========================================

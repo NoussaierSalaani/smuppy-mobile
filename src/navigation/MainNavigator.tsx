@@ -52,21 +52,12 @@ const fetchBadgeCounts = (): void => {
 // Tab Screens
 import FeedScreen from '../screens/home/FeedScreen';
 import CreatePostScreen from '../screens/home/CreatePostScreen';
-// NotificationsScreen → moved to stacks/NotificationsStack.tsx
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
 
-// High-frequency stack screens (navigated from tabs / header)
-// SearchScreen → moved to stacks/SearchStack.tsx
+// High-frequency stack screens
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ChatScreen from '../screens/messages/ChatScreen';
-// UserProfile → moved to stacks/ProfileStack.tsx
-
-// Post detail screens (navigated from feed — must be instant)
-// PostDetail screens → moved to stacks/HomeStack.tsx
-
-// Peaks feed (tab screen)
-import PeaksFeedScreen from '../screens/peaks/PeaksFeedScreen';
-// PeakView → moved to stacks/HomeStack.tsx
 
 // Components
 import CreateOptionsPopup from '../components/CreateOptionsPopup';
@@ -78,27 +69,11 @@ import { ACCOUNT_TYPE, isPro } from '../config/accountTypes';
 // LAZY IMPORTS — Non-core / deep screens
 // ============================================
 
-// Messages (deep)
+// Remaining lazy screens (not yet split into stacks)
 const NewMessageScreen = lazyScreen(() => import('../screens/messages/NewMessageScreen'));
-
-// Create Post Flow
-// AddPostDetails, PostSuccess, VideoRecorder → moved to stacks/CreateStack.tsx
-
-// Notifications → moved to stacks/NotificationsStack.tsx
-
-// Vibe Screens
-// Prescriptions, ActivePrescription → moved to stacks/HomeStack.tsx
 const PrescriptionPreferencesScreen = lazyScreen(() => import('../screens/settings/PrescriptionPreferencesScreen'));
 
-// Profile (deep)
-// FansList, PostLikers → moved to stacks/ProfileStack.tsx
-
-// Settings Screens → moved to stacks/SettingsStack.tsx
-
-// PEAKS (create/preview)
-// CreatePeak, PeakPreview, Challenges → moved to stacks/CreateStack.tsx
-
-// Live Streaming Screens
+// Live Streaming
 const GoLiveIntroScreen = lazyScreen(() => import('../screens/live/GoLiveIntroScreen'));
 const GoLiveScreen = lazyScreen(() => import('../screens/live/GoLiveScreen'));
 const LiveStreamingScreen = lazyScreen(() => import('../screens/live/LiveStreamingScreen'));
@@ -362,20 +337,16 @@ export default function MainNavigator() {
       <Stack.Screen name="CreateStack" component={CreateStack} options={{ headerShown: false, animation: 'slide_from_bottom' }} />
 
       {/* Profile Stack */}
-      {/* Profile Stack */}
       <Stack.Screen name="ProfileStack" component={ProfileStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
-
-      <Stack.Screen name="PrescriptionPreferences" component={PrescriptionPreferencesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Home Stack (post details, peaks, prescriptions) */}
       <Stack.Screen name="HomeStack" component={HomeStack} options={{ headerShown: false, animation: 'fade' }} />
 
       {/* Settings Stack */}
-      {/* Settings Stack */}
       <Stack.Screen name="SettingsStack" component={SettingsStack} options={{ headerShown: false, animation: 'slide_from_right', ...screenWithBackSwipe }} />
-      {/* FollowRequests → moved to NotificationsStack */}
 
-      {/* Peaks → moved to CreateStack + HomeStack */}
+      {/* Remaining screens (not yet in stacks) */}
+      <Stack.Screen name="PrescriptionPreferences" component={PrescriptionPreferencesScreen} options={{ animation: 'slide_from_right', ...screenWithBackSwipe }} />
 
       {/* Live Streaming */}
       {FEATURES.GO_LIVE && (

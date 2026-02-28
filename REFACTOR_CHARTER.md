@@ -126,3 +126,88 @@ DO: Move/split only. One commit per step. Revert immediately if gates fail.
 ## Gates: lint + typecheck (`npx tsc --noEmit`)
 ## Smoke Tests: See SMOKE_TESTS.md
 ## Rollback: `git reset --hard pre-refactor-phase0`
+
+---
+
+## Navigation Split (Phase 3)
+
+### Frozen invariants (must NOT change)
+- Route names (string `name="..."`) stay identical.
+- Params shape/types stay identical.
+- Deep link / linking config paths stay identical.
+- Initial route behavior stays identical.
+- Modal vs push presentation stays identical.
+- Tab structure stays identical (same tabs, same order, same icons/labels).
+
+### Current state
+- `src/navigation/MainNavigator.tsx` — 584 lines, 89 stack routes + 5 tab screens
+- All non-core screens lazy-loaded via `React.lazy()` + Suspense + ErrorBoundary
+- 1 modal presentation: `InviteToBattle`
+- Deep linking in `AppNavigator.tsx` (12 routes with UUID validation)
+- Badge polling (notifications + messages) in MainNavigator module scope
+
+### Route inventory (source of truth for split)
+
+#### Settings Stack (13 routes)
+| Route name | Target stack | Animation | Notes |
+|-----------|-------------|-----------|-------|
+| Settings | SettingsStack | slide_from_right | Entry point |
+| EditProfile | SettingsStack | slide_from_right | |
+| EditInterests | SettingsStack | slide_from_right | |
+| EditExpertise | SettingsStack | slide_from_right | |
+| EditBusinessCategory | SettingsStack | slide_from_right | |
+| PasswordManager | SettingsStack | slide_from_right | |
+| NotificationSettings | SettingsStack | slide_from_right | |
+| ReportProblem | SettingsStack | slide_from_right | |
+| TermsPolicies | SettingsStack | slide_from_right | |
+| BlockedUsers | SettingsStack | slide_from_right | |
+| MutedUsers | SettingsStack | slide_from_right | |
+| DataExport | SettingsStack | slide_from_right | |
+| UpgradeToPro | SettingsStack | slide_from_right | Feature-flagged |
+
+#### Profile Stack (3 routes)
+| Route name | Target stack | Animation | Notes |
+|-----------|-------------|-----------|-------|
+| UserProfile | ProfileStack | slide_from_right | |
+| FansList | ProfileStack | slide_from_right | |
+| PostLikers | ProfileStack | slide_from_right | |
+
+#### Notifications Stack (2 routes)
+| Route name | Target stack | Animation | Notes |
+|-----------|-------------|-----------|-------|
+| Notifications | NotificationsStack | slide_from_right | |
+| FollowRequests | NotificationsStack | slide_from_right | |
+
+#### Search Stack (1 route)
+| Route name | Target stack | Animation | Notes |
+|-----------|-------------|-----------|-------|
+| Search | SearchStack | slide_from_right | |
+
+#### Home Stack (5 routes)
+| Route name | Target stack | Animation | Notes |
+|-----------|-------------|-----------|-------|
+| PostDetailFanFeed | HomeStack | fade | From fan feed |
+| PostDetailVibesFeed | HomeStack | fade | From vibes feed |
+| PostDetailProfile | HomeStack | fade | From profile |
+| PeakView | HomeStack | fade | |
+| Prescriptions | HomeStack | slide_from_right | |
+| ActivePrescription | HomeStack | slide_from_bottom | |
+
+#### Create Stack (5 routes)
+| Route name | Target stack | Animation | Notes |
+|-----------|-------------|-----------|-------|
+| CreatePost | CreateStack | slide_from_bottom | |
+| VideoRecorder | CreateStack | slide_from_bottom | |
+| AddPostDetails | CreateStack | slide_from_right | |
+| PostSuccess | CreateStack | fade | |
+| CreatePeak | CreateStack | slide_from_bottom | |
+| PeakPreview | CreateStack | slide_from_right | |
+| Challenges | CreateStack | slide_from_right | Feature-flagged |
+
+#### Remain in MainNavigator (~56 routes)
+Messages (Chat, NewMessage), Live Streaming (5), Battles (4), Activities (4),
+Spots (2), Business Discovery (4), Business Booking (4), Business Owner (5),
+Private Sessions (8), Creator Offerings (5), Creator Dashboard (2),
+Payments (4), Disputes (4), PrescriptionPreferences, FindFriends, WebView.
+
+These stay in MainNavigator until a future phase addresses them.

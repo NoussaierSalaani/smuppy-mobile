@@ -121,6 +121,25 @@ import {
   getMapMarkers as _getMapMarkers,
   searchMap as _searchMap,
 } from './api/mapApi';
+import {
+  createEvent as _createEvent,
+  getEvents as _getEvents,
+  getEventDetail as _getEventDetail,
+  getEventParticipants as _getEventParticipants,
+  joinEvent as _joinEvent,
+  leaveEvent as _leaveEvent,
+  createEventPayment as _createEventPayment,
+  confirmEventPayment as _confirmEventPayment,
+  updateEvent as _updateEvent,
+  cancelEvent as _cancelEvent,
+  removeEventParticipant as _removeEventParticipant,
+  eventAction as _eventAction,
+  createGroup as _createGroup,
+  getGroups as _getGroups,
+  getGroup as _getGroup,
+  joinGroup as _joinGroup,
+  leaveGroup as _leaveGroup,
+} from './api/eventsApi';
 import type {
   RequestOptions, PaginatedResponse, ApiPagination,
   DeviceSession, TipEntry, LeaderboardEntry,
@@ -2333,9 +2352,6 @@ export class AWSAPIService {
   // Events (Xplorer)
   // ==========================================
 
-  /**
-   * Create an event
-   */
   async createEvent(data: {
     title: string;
     description?: string;
@@ -2363,15 +2379,9 @@ export class AWSAPIService {
     routePolyline?: string;
     routeWaypoints?: { lat: number; lng: number; name?: string }[];
   }): Promise<{ success: boolean; event?: ApiEvent; message?: string }> {
-    return this.request('/events', {
-      method: 'POST',
-      body: data,
-    });
+    return _createEvent(this, data);
   }
 
-  /**
-   * List events
-   */
   async getEvents(params?: {
     filter?: 'upcoming' | 'nearby' | 'category' | 'my-events' | 'joined';
     latitude?: number;
@@ -2385,35 +2395,17 @@ export class AWSAPIService {
     limit?: number;
     cursor?: string;
   }): Promise<{ success: boolean; events?: ApiEvent[]; pagination?: ApiPagination }> {
-    const query = new URLSearchParams();
-    if (params?.filter) query.append('filter', params.filter);
-    if (params?.latitude) query.append('latitude', params.latitude.toString());
-    if (params?.longitude) query.append('longitude', params.longitude.toString());
-    if (params?.radiusKm) query.append('radiusKm', params.radiusKm.toString());
-    if (params?.category) query.append('category', params.category);
-    if (params?.startDate) query.append('startDate', params.startDate);
-    if (params?.endDate) query.append('endDate', params.endDate);
-    if (params?.isFree !== undefined) query.append('isFree', params.isFree.toString());
-    if (params?.hasRoute !== undefined) query.append('hasRoute', params.hasRoute.toString());
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.cursor) query.append('cursor', params.cursor);
-    return this.request(`/events?${query.toString()}`);
+    return _getEvents(this, params);
   }
 
-  /**
-   * Get event details
-   */
   async getEventDetail(eventId: string): Promise<{
     success: boolean;
     event?: ApiEvent;
     message?: string;
   }> {
-    return this.request(`/events/${eventId}`);
+    return _getEventDetail(this, eventId);
   }
 
-  /**
-   * Get event participants
-   */
   async getEventParticipants(eventId: string, params?: {
     limit?: number;
     offset?: number;
@@ -2423,40 +2415,23 @@ export class AWSAPIService {
     total?: number;
     message?: string;
   }> {
-    const query = new URLSearchParams();
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.offset) query.append('offset', params.offset.toString());
-    return this.request(`/events/${eventId}/participants?${query.toString()}`);
+    return _getEventParticipants(this, eventId, params);
   }
 
-  /**
-   * Join a free event
-   */
   async joinEvent(eventId: string): Promise<{
     success: boolean;
     message?: string;
   }> {
-    return this.request(`/events/${eventId}/join`, {
-      method: 'POST',
-      body: { action: 'join' },
-    });
+    return _joinEvent(this, eventId);
   }
 
-  /**
-   * Leave an event
-   */
   async leaveEvent(eventId: string): Promise<{
     success: boolean;
     message?: string;
   }> {
-    return this.request(`/events/${eventId}/leave`, {
-      method: 'POST',
-    });
+    return _leaveEvent(this, eventId);
   }
 
-  /**
-   * Create payment intent for paid event
-   */
   async createEventPayment(data: {
     eventId: string;
     amount: number;
@@ -2469,15 +2444,9 @@ export class AWSAPIService {
     sessionId?: string;
     message?: string;
   }> {
-    return this.request(`/events/${data.eventId}/payment`, {
-      method: 'POST',
-      body: { amount: data.amount, currency: data.currency },
-    });
+    return _createEventPayment(this, data);
   }
 
-  /**
-   * Confirm event payment and register participation
-   */
   async confirmEventPayment(data: {
     eventId: string;
     paymentIntentId: string;
@@ -2485,15 +2454,9 @@ export class AWSAPIService {
     success: boolean;
     message?: string;
   }> {
-    return this.request(`/events/${data.eventId}/payment/confirm`, {
-      method: 'POST',
-      body: { paymentIntentId: data.paymentIntentId },
-    });
+    return _confirmEventPayment(this, data);
   }
 
-  /**
-   * Update event (creator only)
-   */
   async updateEvent(eventId: string, data: {
     title?: string;
     description?: string;
@@ -2506,41 +2469,25 @@ export class AWSAPIService {
     event?: ApiEvent;
     message?: string;
   }> {
-    return this.request(`/events/${eventId}`, {
-      method: 'PUT',
-      body: data,
-    });
+    return _updateEvent(this, eventId, data);
   }
 
-  /**
-   * Cancel event (creator only)
-   */
   async cancelEvent(eventId: string): Promise<{
     success: boolean;
     message?: string;
     refundsIssued?: number;
   }> {
-    return this.request(`/events/${eventId}/cancel`, {
-      method: 'POST',
-    });
+    return _cancelEvent(this, eventId);
   }
 
-  /**
-   * Remove participant from event (creator only)
-   */
   async removeEventParticipant(eventId: string, userId: string): Promise<{
     success: boolean;
     message?: string;
     refundIssued?: boolean;
   }> {
-    return this.request(`/events/${eventId}/participants/${userId}`, {
-      method: 'DELETE',
-    });
+    return _removeEventParticipant(this, eventId, userId);
   }
 
-  /**
-   * Legacy: Join/leave an event
-   */
   async eventAction(eventId: string, action: 'register' | 'cancel' | 'interested', notes?: string): Promise<{
     success: boolean;
     message?: string;
@@ -2551,10 +2498,7 @@ export class AWSAPIService {
     price?: number;
     currency?: string;
   }> {
-    return this.request(`/events/${eventId}/join`, {
-      method: 'POST',
-      body: { action, notes },
-    });
+    return _eventAction(this, eventId, action, notes);
   }
 
   // ==========================================
@@ -3233,7 +3177,7 @@ export class AWSAPIService {
     route_elevation_gain?: number;
     difficulty?: string;
   }): Promise<{ success: boolean; group?: GroupActivity; message?: string }> {
-    return this.request('/groups', { method: 'POST', body: data });
+    return _createGroup(this, data);
   }
 
   async getGroups(params: {
@@ -3245,21 +3189,19 @@ export class AWSAPIService {
     limit?: number;
     cursor?: string;
   }): Promise<{ success: boolean; groups?: GroupActivity[]; pagination?: ApiPagination }> {
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)); });
-    return this.request(`/groups?${query.toString()}`);
+    return _getGroups(this, params);
   }
 
   async getGroup(groupId: string): Promise<{ success: boolean; group?: GroupActivity }> {
-    return this.request(`/groups/${groupId}`);
+    return _getGroup(this, groupId);
   }
 
   async joinGroup(groupId: string): Promise<{ success: boolean; message?: string }> {
-    return this.request(`/groups/${groupId}/join`, { method: 'POST' });
+    return _joinGroup(this, groupId);
   }
 
   async leaveGroup(groupId: string): Promise<{ success: boolean; message?: string }> {
-    return this.request(`/groups/${groupId}/leave`, { method: 'DELETE' });
+    return _leaveGroup(this, groupId);
   }
 
   // ============================================

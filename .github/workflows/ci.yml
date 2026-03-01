@@ -169,14 +169,14 @@ jobs:
 
       - name: Download frontend coverage report
         if: steps.sonar-check.outputs.skip != 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: coverage-report
           path: coverage/
 
       - name: Download Lambda coverage report
         if: steps.sonar-check.outputs.skip != 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: lambda-coverage-report
           path: aws-migration/lambda/api/coverage/

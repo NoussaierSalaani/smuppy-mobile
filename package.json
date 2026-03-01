@@ -69,7 +69,7 @@
     "expo-apple-authentication": "~8.0.8",
     "expo-application": "~7.0.8",
     "expo-asset": "~12.0.12",
-    "expo-audio": "~1.1.1",
+    "expo-audio": "~55.0.8",
     "expo-auth-session": "~7.0.10",
     "expo-av": "~16.0.8",
     "expo-blur": "~15.0.8",
